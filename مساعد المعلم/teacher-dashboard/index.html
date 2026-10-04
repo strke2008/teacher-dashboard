@@ -6923,6 +6923,7 @@ body{
 <button class="ai-btn solid" onclick="openExamAIGenerator()" type="button">
 <span class="ai-mark">✦</span> توليد أسئلة الاختبار بالذكاء
         </button>
+<label class="row" style="gap:.35rem;align-items:center;font-size:.8rem;cursor:pointer;flex-basis:100%" title="يولّد ٤٠ سؤالًا من كل نوع مطلوب، ثم توزّعها على النماذج تلقائيًا أو بنفسك من البنك"><input id="ex-ai-big" type="checkbox"/> 📦 بنك موسّع: ولّد أكبر عدد من الأسئلة (٤٠ لكل نوع) ثم وزّعها على النماذج</label>
 <button class="btn ghost sm" onclick="exportExamAIBank()" type="button">
           💾 حفظ بنك الأسئلة كـ JSON
         </button>
@@ -10494,10 +10495,17 @@ function examHwSelected(){
     tf:(EXAM_HW_BANK.tf||[]).filter(q=>q.selected!==false)
   };
 }
+function examModelsBarInto(listId, bank){
+  const list=document.getElementById(listId); if(!list) return;
+  let bar=document.getElementById(listId+'-models');
+  if(!bar){ bar=document.createElement('div'); bar.id=listId+'-models'; list.parentNode.insertBefore(bar,list); }
+  bar.innerHTML=examModelsBar(bank);
+}
 function renderExamHwBank(){
   const wrap=document.getElementById('ex-hw-bank');
   const list=document.getElementById('ex-hw-bank-list');
   if(!wrap||!list) return;
+  examModelsBarInto('ex-hw-bank-list','hw');
   wrap.style.display = (document.getElementById('ex-src')?.value||'hw')==='hw' ? '' : 'none';
   const all=examHwBankAll();
   const c=document.getElementById('ex-hw-bank-count');
@@ -10522,7 +10530,7 @@ function renderExamHwBank(){
     return `<label class="exam-bank-item">
       <input type="checkbox" ${x.selected!==false?'checked':''} onchange="toggleExamHwQuestion(${idx},this.checked)">
       <span class="qtxt"><span class="qnum">${idx+1}.</span> ${escExamText(x.q)}<span class="qmeta"><span class="qtype">${type}</span>${EXAM_HW_BANK.multi&&x.src?`<span class="qtype">📚 ${esc(x.src)}</span>`:''}</span></span>
-      ${x.kind==='mc'?`<span class="qtype">${x.o.length} خيارات</span>`:''}
+      ${x.kind==='mc'?`<span class="qtype">${x.o.length} خيارات</span>`:''}${examModelSel('hw',idx,x)}
     </label>`;
   }).join('');
 }
@@ -10552,6 +10560,7 @@ function renderExamJsonBank(){
   const wrap=document.getElementById('ex-json-bank');
   const list=document.getElementById('ex-bank-list');
   if(!wrap||!list) return;
+  examModelsBarInto('ex-bank-list','json');
 
   const source=document.getElementById('ex-src')?.value || 'json';
   const title=document.getElementById('ex-bank-title');
@@ -10586,7 +10595,7 @@ function renderExamJsonBank(){
     return `<label class="exam-bank-item">
       <input type="checkbox" ${x.selected!==false?'checked':''} onchange="toggleExamJsonQuestion(${idx},this.checked)">
       <span class="qtxt"><span class="qnum">${idx+1}.</span> ${escExamText(x.q)}<span class="qmeta"><span class="qtype">${type}</span></span></span>
-      ${x.kind==='mc'?`<span class="qtype">${x.o.length} خيارات</span>`:''}
+      ${x.kind==='mc'?`<span class="qtype">${x.o.length} خيارات</span>`:''}${examModelSel('json',idx,x)}
     </label>`;
   }).join('');
 }
@@ -10762,15 +10771,15 @@ function examHwToggle(id, on){
    فيأخذ الاختبار من كل نشاط بالتساوي بدل أن يستهلك النشاط الأول وحده. ويُحفظ ما ألغيته من أسئلة عند إضافة نشاط آخر. */
 function examHwCollect(withState){
   const acts = examHwActs(), per = acts.map(h => ({ mc:[], tf:[] }));
-  const prev = new Map(examHwBankAll().map(x => [x.key, x.selected]));
+  const prev = new Map(examHwBankAll().map(x => [x.key, x]));
   acts.forEach((h, k) => (h.qs||[]).forEach((q, i) => {
     if(!q) return;
     const key = String(h.id) + '|' + i, src = h.title || 'نشاط';
     if(q.t==='q' && Array.isArray(q.o) && q.o.filter(Boolean).length>=2)
-      per[k].mc.push(withState ? {q:String(q.q||''),o:q.o.map(x=>String(x||'')).slice(0,4),a:Number(q.a)||0,kind:'mc',key,src,selected:prev.has(key)?prev.get(key):true}
+      per[k].mc.push(withState ? {q:String(q.q||''),o:q.o.map(x=>String(x||'')).slice(0,4),a:Number(q.a)||0,kind:'mc',key,src,selected:prev.has(key)?prev.get(key).selected:true,...(prev.has(key)&&Number.isInteger(prev.get(key).model)?{model:prev.get(key).model}:{})}
                                : { q:String(q.q||''), o:q.o.map(x=>String(x||'')).slice(0,4), a:Number(q.a)||0 });
     else if(q.t==='tf')
-      per[k].tf.push(withState ? {q:String(q.q||''),a:q.a===true,kind:'tf',key,src,selected:prev.has(key)?prev.get(key):true}
+      per[k].tf.push(withState ? {q:String(q.q||''),a:q.a===true,kind:'tf',key,src,selected:prev.has(key)?prev.get(key).selected:true,...(prev.has(key)&&Number.isInteger(prev.get(key).model)?{model:prev.get(key).model}:{})}
                                : { q:String(q.q||''), a: q.a === true });
   }));
   const weave = t => { const out = [], max = Math.max(0, ...per.map(p => p[t].length)); for(let i = 0; i < max; i++) per.forEach(p => { if(p[t][i]) out.push(p[t][i]); }); return out; };
@@ -10857,7 +10866,8 @@ function openExamAIGenerator(){
   // عدة نماذج: كل نموذج يأخذ حصته من البنك بلا تكرار، فنولّد اختيارًا وصح/خطأ بعدد النماذج (حتى ٤٠)
   const models=Math.max(1,Math.min(6,Number(document.getElementById('ex-model-count')?.value)||1));
   const perMc=nmc, perTf=ntf;
-  const genMc=Math.min(40,perMc*models), genTf=Math.min(40,perTf*models);
+  const big=!!document.getElementById('ex-ai-big')?.checked;   // 📦 بنك موسّع: الحد الأقصى لكل نوع مطلوب
+  const genMc=big?(perMc?40:0):Math.min(40,perMc*models), genTf=big?(perTf?40:0):Math.min(40,perTf*models);
   if(tpl==='t3'){
     essayMarks=examParseMarks(document.getElementById('ex-open-marks')?.value);
     if(!essayMarks.length) essayMarks=examSplitMarks(Number(examAr2En(document.getElementById('ex-open-total')?.value))||5, Number(document.getElementById('ex-open-n')?.value)||3);
@@ -10922,7 +10932,8 @@ function openExamAIGenerator(){
   const note=modal.querySelector('.reading-ai-note');
   if(note) note.textContent='يستخدم هذا الاختبار نفس آلية مولّد الأنشطة العادية وإعداداته وقواعده. الناتج سيُدخل في بنك الاختبار فقط.'
     + (tpl==='t1' ? '' : ' رقم الوصل هو عدد الأزواج في سؤال الوصل.')
-    + (models>1 ? ` الاختبار ${models} نماذج، لذلك يُولَّد ${genMc?genMc+' اختيار':''}${genMc&&genTf?' و':''}${genTf?genTf+' صح/خطأ':''} ليأخذ كل نموذج أسئلة مختلفة${(perMc*models>40||perTf*models>40)?' (الحد ٤٠، فقد تتكرر بعض الأسئلة بين النماذج)':''}.` : '')
+    + (big ? ` 📦 بنك موسّع: يُولَّد ${[genMc?genMc+' اختيار':'',genTf?genTf+' صح/خطأ':''].filter(Boolean).join(' و')} — يستغرق وقتًا أطول، وبعدها توزّعها على النماذج من البنك (تلقائيًا أو بنفسك).` : '')
+    + (!big && models>1 ? ` الاختبار ${models} نماذج، لذلك يُولَّد ${genMc?genMc+' اختيار':''}${genMc&&genTf?' و':''}${genTf?genTf+' صح/خطأ':''} ليأخذ كل نموذج أسئلة مختلفة${(perMc*models>40||perTf*models>40)?' (الحد ٤٠، فقد تتكرر بعض الأسئلة بين النماذج)':''}.` : '')
     + (essayMarks.length ? ` وسيُولَّد أيضًا ${essayMarks.length} أسئلة «أجب عن كل مما يلي» بدرجات: ${essayMarks.join('، ')} (من إعداد القالب ${T4?'٤':'٣'}).` : '');
   const title=modal.querySelector('.reading-ai-head');
   if(title) title.setAttribute('data-exam-proxy','1');
@@ -11114,6 +11125,58 @@ function examDistributedModelSlice(items, perModel, modelIndex, modelCount, seed
 
   const start = index * count;
   return pool.slice(start, start + count);
+}
+
+/* 🗂️ توزيع الأسئلة على النماذج: ما ثبّته المعلم لنموذج يذهب إليه أولًا، والباقي (تلقائي)
+   يُخلط ببذرة ثابتة ويُقسَّم بالتتابع على حاجة كل نموذج — فلا يتكرر سؤال بين نموذجين ما دام البنك يكفي. */
+function examModelValid(x, models){ return x && Number.isInteger(x.model) && x.model >= 0 && x.model < models; }
+function examModelPick(items, count, idx, models, seed){
+  items = Array.isArray(items) ? items : []; count = Math.max(0, Number(count) || 0);
+  if(!count) return [];
+  const pinned = m => items.filter(x => examModelValid(x, models) && x.model === m);
+  const auto = items.filter(x => !examModelValid(x, models));
+  const pool = examDistributedModelSlice(auto, auto.length, 0, 1, seed);
+  let off = 0; for(let m = 0; m < idx; m++) off += Math.max(0, count - pinned(m).length);
+  const mine = pinned(idx).slice(0, count);
+  return mine.concat(pool.slice(off, off + (count - mine.length)));
+}
+function examModelCount(){ return Math.max(1, Math.min(6, Number(document.getElementById('ex-model-count')?.value) || 1)); }
+function examModelSel(bank, idx, x){
+  const n = examModelCount(); if(n < 2) return '';
+  const v = examModelValid(x, n) ? x.model : -1;
+  return `<select class="inp exm-sel ${v >= 0 ? 'on' : ''}" title="النموذج الذي يظهر فيه السؤال" aria-label="النموذج" onclick="event.stopPropagation()" onchange="examSetModel('${bank}',${idx},this.value)">
+    <option value="-1" ${v < 0 ? 'selected' : ''}>تلقائي</option>${Array.from({length:n}, (_, m) => `<option value="${m}" ${v === m ? 'selected' : ''}>نموذج ${examModelLetter(m)}</option>`).join('')}</select>`;
+}
+function examBankItems(bank){ return bank === 'hw' ? examHwBankAll() : examJsonBankAll(); }
+function examBankRerender(bank){ if(bank === 'hw') renderExamHwBank(); else renderExamJsonBank(); examBuild(); }
+function examSetModel(bank, idx, v){
+  const x = examBankItems(bank)[idx]; if(!x) return;
+  v = Number(v); if(v >= 0){ x.model = v; x.selected = true; } else delete x.model;
+  examBankRerender(bank);
+}
+/* ⚖️ توزيع تلقائي ظاهر: كل نوع يُقسَّم بالتساوي (بعد خلط ثابت) فيرى المعلم ويعدّل */
+function examModelsAuto(bank){
+  const n = examModelCount(); if(n < 2){ toast('اختر أكثر من نموذج أولًا','bad'); return; }
+  const all = examBankItems(bank).filter(x => x.selected !== false);
+  ['mc','tf'].forEach(k => {
+    const list = examDistributedModelSlice(all.filter(x => (x.kind === 'tf' ? 'tf' : 'mc') === k), all.length, 0, 1, 'auto|' + k + '|' + Date.now());
+    list.forEach((x, i) => { x.model = i % n; });
+  });
+  examBankRerender(bank); toast('⚖️ وُزّعت الأسئلة المحددة على النماذج بالتساوي — عدّل ما تريد','good');
+}
+function examModelsClear(bank){ examBankItems(bank).forEach(x => { delete x.model; }); examBankRerender(bank); }
+function examModelsBar(bank){
+  const n = examModelCount(); if(n < 2) return '';
+  const all = examBankItems(bank).filter(x => x.selected !== false);
+  const per = Array.from({length:n}, (_, m) => ({ mc: all.filter(x => x.model === m && x.kind !== 'tf').length, tf: all.filter(x => x.model === m && x.kind === 'tf').length }));
+  const auto = all.filter(x => !examModelValid(x, n)).length;
+  return `<div class="exm-bar"><b>🗂️ توزيع النماذج</b>
+    ${per.map((p, m) => `<span class="exm-chip">نموذج ${examModelLetter(m)}: ${p.mc} اختيار · ${p.tf} صح/خطأ</span>`).join('')}
+    <span class="exm-chip auto">تلقائي: ${auto}</span>
+    <span class="spacer"></span>
+    <button type="button" class="btn ghost sm" onclick="examModelsAuto('${bank}')">⚖️ وزّع تلقائيًا</button>
+    <button type="button" class="btn ghost sm" onclick="examModelsClear('${bank}')">مسح التوزيع</button>
+    <div class="muted" style="flex-basis:100%;font-size:.74rem">لكل سؤال اختر نموذجه، أو اتركه «تلقائي» فيُوزَّع على النماذج بلا تكرار. المثبّت يدخل نموذجه أولًا ثم يُكمل الباقي تلقائيًا.</div></div>`;
 }
 
 /* ══════════════ 💾 حفظ الاختبارات الورقية ══════════════ */
@@ -11799,20 +11862,8 @@ function examBuild(force){
   if(modelCount > 1){
     const modelSeed = `${String(val('ex-title')||'اختبار')}|${String(data.label||'source')}|${modelCount}`;
 
-    mc = examDistributedModelSlice(
-      mc,
-      nmc,
-      modelIndex,
-      modelCount,
-      modelSeed + '|mc'
-    );
-    tf = examDistributedModelSlice(
-      tf,
-      ntf,
-      modelIndex,
-      modelCount,
-      modelSeed + '|tf'
-    );
+    mc = examModelPick(mc, nmc, modelIndex, modelCount, modelSeed + '|mc');   // يحترم تثبيت المعلم للنماذج
+    tf = examModelPick(tf, ntf, modelIndex, modelCount, modelSeed + '|tf');
   }else{
     mc = mc.slice(0, nmc);
     tf = tf.slice(0, ntf);
@@ -11842,6 +11893,9 @@ function examBuild(force){
   }
 
 
+  // البنك لا يكفي هذا النموذج: يُقال صراحةً بدل أن يخرج النموذج أقصر من غيره بصمت
+  const shortNote = modelCount > 1 && (mc.length < nmc || tf.length < ntf)
+    ? ` · ⚠️ النموذج (${examModelLetter(modelIndex)}): ${mc.length < nmc ? `${mc.length} من ${nmc} اختيار` : ''}${mc.length < nmc && tf.length < ntf ? ' و' : ''}${tf.length < ntf ? `${tf.length} من ${ntf} صح/خطأ` : ''} — البنك لا يكفي، أضف أسئلة أو قلّل التثبيت` : '';
   const mark = Math.max(1, num('ex-mark', 1));
   const X = TPL === 't1' || TPL === 't4' ? null : examExtras(TPL, { mark, modelIndex, modelCount, seed:modelSeed, shuffle:seededShuffle, mix, val });
   const FX = TPL === 't4' ? examFlexData({ mc, tf, val, modelIndex, modelCount, seed:modelSeed, shuffle:seededShuffle, mix }) : null;
@@ -11924,8 +11978,8 @@ function examBuild(force){
     const cnt = {}; FX.pages.forEach(pg => pg.forEach(x => { cnt[x.t] = (cnt[x.t] || 0) + (x.items ? x.items.length : x.t === 'match' ? x.X.A.length : x.t === 'fill' ? x.X.fill.length : x.X.open.length); }));
     if(st){
       st.textContent = `المعاينة: ${Object.entries(cnt).map(([k, v]) => `${v} ${EX_FLEX_TYPES[k].label}`).join(' + ')} · المجموع ${total} درجة · ${R.n} صفحة A4` + (R.fit ? ' · ضُغطت المسافات لتتسع' : '')
-        + (modelCount > 1 ? ` · النموذج (${examModelLetter(modelIndex)}) من ${modelCount}` : '') + (warn.length ? ' · ⚠️ ' + warn.join(' · ') : '');
-      st.style.color = R.warn.length ? '#B4232F' : '';
+        + (modelCount > 1 ? ` · النموذج (${examModelLetter(modelIndex)}) من ${modelCount}` : '') + (warn.length ? ' · ⚠️ ' + warn.join(' · ') : '') + shortNote;
+      st.style.color = R.warn.length || shortNote ? '#B4232F' : '';
     }
     return;
   }
@@ -11934,8 +11988,8 @@ function examBuild(force){
     const R = examRenderTemplate({ X, units, headHtml, contHead, footHtml, pageAttrs, box, D, key, mc, tf });
     const warn = [...X.notes]; if(R.overflow) warn.push('المحتوى لا يتسع في صفحتين حتى بعد الضغط — خفّف أسطر الإجابة أو عدد الأسئلة');
     if(st){
-      st.textContent = `المعاينة: ${mc.length} اختيار + ${tf.length} صح/خطأ + ${EX_N} وصل + ` + (X.kind==='fill' ? `${EX_N} أكمل الفراغ` : `${X.open.length} أجب`) + ` · المجموع ${total} درجة · ${R.n} صفحة A4` + (R.fit ? ' · ضُغطت المسافات تلقائيًا' : '') + (modelCount > 1 ? ` · النموذج (${examModelLetter(modelIndex)}) من ${modelCount}` : '') + (warn.length ? ' — ⚠ ' + warn.join(' · ') : '');
-      st.style.color = R.overflow ? '#B4232F' : '';
+      st.textContent = `المعاينة: ${mc.length} اختيار + ${tf.length} صح/خطأ + ${EX_N} وصل + ` + (X.kind==='fill' ? `${EX_N} أكمل الفراغ` : `${X.open.length} أجب`) + ` · المجموع ${total} درجة · ${R.n} صفحة A4` + (R.fit ? ' · ضُغطت المسافات تلقائيًا' : '') + (modelCount > 1 ? ` · النموذج (${examModelLetter(modelIndex)}) من ${modelCount}` : '') + (warn.length ? ' — ⚠ ' + warn.join(' · ') : '') + shortNote;
+      st.style.color = R.overflow || shortNote ? '#B4232F' : '';
     }
     return;
   }
@@ -12009,7 +12063,8 @@ function examBuild(force){
       <div class="ex-pager">صفحة ${D(i+1)} من ${D(n)}</div>
     </div>`).join('');
 
-  if(st) st.textContent = `المعاينة: ${mc.length} اختيار من متعدد + ${tf.length} صح/خطأ · المجموع ${total} درجة · ${n} صفحة A4` + (modelCount > 1 ? ` · النموذج (${examModelLetter(modelIndex)}) من ${modelCount}` : '');
+  if(st) st.textContent = `المعاينة: ${mc.length} اختيار من متعدد + ${tf.length} صح/خطأ · المجموع ${total} درجة · ${n} صفحة A4` + (modelCount > 1 ? ` · النموذج (${examModelLetter(modelIndex)}) من ${modelCount}` : '') + shortNote;
+  if(st) st.style.color = shortNote ? '#B4232F' : '';
 }
 
 function examModelLetter(i){
@@ -12031,6 +12086,7 @@ function examModelsChanged(){
   sel.value=String(prev);
   sel.disabled=count===1;
   syncExamPrintAllButton();
+  try{ renderExamHwBank(); renderExamJsonBank(); }catch(e){}
   examBuild();
 }
 
@@ -24400,6 +24456,10 @@ async function wrSendAll(){
 .rt-row .btn{flex:none;min-height:38px}
 
 /* ═══ قالبا الاختبار ٢ و٣: وصل + أكمل الفراغ + أجب عن كل مما يلي ═══ */
+.exm-bar{display:flex;flex-wrap:wrap;gap:.35rem .5rem;align-items:center;border:1px dashed #2E9E6B;border-radius:10px;padding:.5rem .6rem;margin-bottom:.55rem;background:rgba(46,158,107,.05);font-size:.8rem}
+.exm-chip{background:var(--ui-bg,#fff);border:1px solid var(--ui-border,#D5E0EC);border-radius:999px;padding:.15rem .55rem;font-size:.74rem;font-weight:700}.exm-chip.auto{color:var(--ink-soft)}
+.exam-bank-item .exm-sel{grid-column:3;justify-self:end;margin-top:0!important}
+.exm-sel{min-height:0!important;height:auto!important;line-height:1.3;width:auto!important;min-width:92px;padding:.2rem .4rem!important;font-size:.76rem!important;align-self:center}.exm-sel.on{border-color:#2E9E6B;background:rgba(46,158,107,.08);font-weight:700}
 .exhw{border:1px solid var(--ui-border,#D5E0EC);border-radius:12px;background:var(--ui-bg,#fff);padding:.5rem}
 .exhw-top{display:flex;gap:.45rem;align-items:center;flex-wrap:wrap;margin-bottom:.4rem}.exhw-top .inp{flex:1;min-width:170px}
 .exhw-list{max-height:230px;overflow:auto;display:grid;gap:.25rem}
