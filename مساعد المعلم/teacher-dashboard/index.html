@@ -10822,6 +10822,10 @@ function openExamAIGenerator(){
   // القالب ٤: الأعداد من تصميم الصفحات
   const nfill=T4?cntT('fill'):tpl==='t2'?EX_N:0, nmatch=T4?cntT('match'):tpl==='t1'?0:EX_N;   // الوصل هنا = عدد الأزواج (يُولَّد سؤالًا واحدًا بها)
   let essayMarks=T4?FL.flat().filter(x=>x.t==='open').flatMap(x=>Array(x.n).fill(x.m)):[];
+  // عدة نماذج: كل نموذج يأخذ حصته من البنك بلا تكرار، فنولّد اختيارًا وصح/خطأ بعدد النماذج (حتى ٤٠)
+  const models=Math.max(1,Math.min(6,Number(document.getElementById('ex-model-count')?.value)||1));
+  const perMc=nmc, perTf=ntf;
+  const genMc=Math.min(40,perMc*models), genTf=Math.min(40,perTf*models);
   if(tpl==='t3'){
     essayMarks=examParseMarks(document.getElementById('ex-open-marks')?.value);
     if(!essayMarks.length) essayMarks=examSplitMarks(Number(examAr2En(document.getElementById('ex-open-total')?.value))||5, Number(document.getElementById('ex-open-n')?.value)||3);
@@ -10835,7 +10839,7 @@ function openExamAIGenerator(){
     title:(document.getElementById('ex-title')?.value||'اختبار ورقي').trim(),
     kind:'normal', qs:[], games:[], published:false,
     __examProxy:true,
-    __examExtra: tpl==='t1' ? null : { tpl, matchPairs:T4?nmatch:EX_N, essayMarks, fill:nfill>0 }
+    __examExtra: (tpl==='t1' && models===1) ? null : { tpl, matchPairs:tpl==='t1'?0:(T4?nmatch:EX_N), essayMarks, fill:nfill>0, models }
   };
   HW.push(proxy);
   // مرجع مستقل عن HW لأن المزامنة الخلفية قد تعيد بناء HW أثناء انتظار مزود الذكاء.
@@ -10869,7 +10873,8 @@ function openExamAIGenerator(){
     const row=document.getElementById('nai-row-'+k);
     const cb=document.getElementById('nai-'+k);
     const n=document.getElementById('nai-count-'+k);
-    const wanted=k==='quiz'?nmc:k==='truefalse'?ntf:k==='fillblank'?nfill:k==='match'?nmatch:0;
+    const wanted=k==='quiz'?genMc:k==='truefalse'?genTf:k==='fillblank'?nfill:k==='match'?nmatch:0;
+    if(n) n.max=String(naiMaxCount());
     const shown=(k==='quiz'&&(!T4||nmc>0))||(k==='truefalse'&&(!T4||ntf>0))||(k==='fillblank'&&nfill>0)||(k==='match'&&nmatch>0);
     if(n)n.value=wanted;
     if(cb)cb.checked=wanted>0;
@@ -10885,6 +10890,7 @@ function openExamAIGenerator(){
   const note=modal.querySelector('.reading-ai-note');
   if(note) note.textContent='يستخدم هذا الاختبار نفس آلية مولّد الأنشطة العادية وإعداداته وقواعده. الناتج سيُدخل في بنك الاختبار فقط.'
     + (tpl==='t1' ? '' : ' رقم الوصل هو عدد الأزواج في سؤال الوصل.')
+    + (models>1 ? ` الاختبار ${models} نماذج، لذلك يُولَّد ${genMc?genMc+' اختيار':''}${genMc&&genTf?' و':''}${genTf?genTf+' صح/خطأ':''} ليأخذ كل نموذج أسئلة مختلفة${(perMc*models>40||perTf*models>40)?' (الحد ٤٠، فقد تتكرر بعض الأسئلة بين النماذج)':''}.` : '')
     + (essayMarks.length ? ` وسيُولَّد أيضًا ${essayMarks.length} أسئلة «أجب عن كل مما يلي» بدرجات: ${essayMarks.join('، ')} (من إعداد القالب ${T4?'٤':'٣'}).` : '');
   const title=modal.querySelector('.reading-ai-head');
   if(title) title.setAttribute('data-exam-proxy','1');
@@ -11013,13 +11019,14 @@ function examAIApplyFromNormal(){
     .filter(q=>q.q)
     .map(q=>({...q,a:q.a===true||q.a==='true'||q.a===1||q.a==='1'||q.a==='صح'}));
 
-  if(!mc.length&&!tf.length){
-    toast('تم التوليد لكن لم يتم العثور على أسئلة اختيار متعدد أو صح/خطأ صالحة للاعتماد.','bad');
+  const extraRaw=bank.filter(q=>q && (q.t==='f'||q.t==='m'||q.t==='e'));
+  // القالب ٤ قد يخلو من الاختيار والصح/خطأ (وصل/فراغ/مقالي فقط) — يكفي وجود أي نوع صالح
+  if(!mc.length&&!tf.length&&!extraRaw.length){
+    toast('تم التوليد لكن لم يتم العثور على أسئلة صالحة للاعتماد.','bad');
     return;
   }
 
   const label='مولد الذكاء — '+(document.getElementById('ex-title')?.value||'اختبار ورقي');
-  const extraRaw=bank.filter(q=>q && (q.t==='f'||q.t==='m'||q.t==='e'));
   EXAM_JSON_BANK={mc,tf,label,raw:extraRaw.length?extraRaw:null};
   EXAM_SRC={mc:mc.slice(),tf:tf.slice(),label};
 
@@ -25200,6 +25207,7 @@ function normalAICustomRules(rules){
 function normalAIExamBlock(x){
   if(!x) return '';
   const L=['','متطلبات الاختبار الورقي (إلزامية):'];
+  if(x.models>1) L.push(`- ستوزَّع أسئلة الاختيار والصح/خطأ على ${x.models} نماذج للاختبار نفسه: اجعلها متكافئة في الصعوبة وتغطي الدرس بالتساوي، ولا تكرر فكرة السؤال نفسها بصياغتين.`);
   if(x.matchPairs) L.push(`- وصّل: سؤال واحد فقط type=match فيه ${x.matchPairs} أزواج بالضبط؛ العنصر الأول مصطلح أو مفهوم قصير، والثاني تعريف أو وصف قصير (لا يزيد عن 8 كلمات) لا يطابق غيره.`);
   if(x.tpl==='t2'||x.fill) L.push('- أكمل الفراغ: فراغ واحد ___ في كل جملة، وجمل قصيرة تتسع في سطر واحد، والإجابة كلمة أو كلمتان.');
   const m=Array.isArray(x.essayMarks)?x.essayMarks:[];
@@ -25692,12 +25700,14 @@ function naiCtxSummary(){
     .filter(x=>x&&x!=='الصف ').join(' · ');
 }
 
+/* الحد الأعلى للعدد: ٢٠ في النشاط، و٤٠ عند التوليد لاختبار ورقي (القالب ٤ أو عدة نماذج تحتاج أكثر) */
+function naiMaxCount(){ return (typeof EXAM_AI_ACTIVE_PROXY!=='undefined' && EXAM_AI_ACTIVE_PROXY) ? 40 : 20; }
 /* النوع وعدده عنصر واحد: صفر يعني مطفأ، وأي عدد يعني مفعّل */
 function naiQtySync(k){
   const cb=document.getElementById('nai-'+k), n=document.getElementById('nai-count-'+k);
   const row=document.getElementById('nai-row-'+k);
   if(!cb||!n||!row) return;
-  const v=Math.max(0,Math.min(20,Number(n.value)||0));
+  const v=Math.max(0,Math.min(naiMaxCount(),Number(n.value)||0));
   n.value=v;
   cb.checked=v>0;
   row.classList.toggle('on',v>0);
@@ -25712,7 +25722,7 @@ function naiQtyToggle(k){
 function naiQtyStep(k,d){
   const n=document.getElementById('nai-count-'+k);
   if(!n) return;
-  n.value=Math.max(0,Math.min(20,(Number(n.value)||0)+d));
+  n.value=Math.max(0,Math.min(naiMaxCount(),(Number(n.value)||0)+d));
   naiQtySync(k);
 }
 function naiGameStep(d){
@@ -25772,7 +25782,7 @@ async function normalAIGenerate(id){
 
   const bankTypes=Object.keys(NAI_BANK_LABELS).filter(k=>document.getElementById('nai-'+k)?.checked);
   const counts={};
-  bankTypes.forEach(k=>{ counts[k]=Math.max(0,Math.min(20,Number(document.getElementById('nai-count-'+k)?.value)||0)); });
+  bankTypes.forEach(k=>{ counts[k]=Math.max(0,Math.min(naiMaxCount(),Number(document.getElementById('nai-count-'+k)?.value)||0)); });
 
   const gameOn=!!document.getElementById('nai-game-on')?.checked;
   const gameType=normalizeGameType(document.getElementById('nai-game-type')?.value||'memory');
@@ -25791,7 +25801,8 @@ async function normalAIGenerate(id){
   }
 
   const totalBank=Object.values(counts).reduce((n,x)=>n+x,0);
-  if(!totalBank && !gameOn){ naiSay('⚠️ اجعل عدد نوع واحد على الأقل أكبر من صفر، أو فعّل لعبة الطالب.',1); return; }
+  const essayOnly=!!(examExtra && Array.isArray(examExtra.essayMarks) && examExtra.essayMarks.length);   // اختبار ورقي بأسئلة «أجب» فقط
+  if(!totalBank && !gameOn && !essayOnly){ naiSay('⚠️ اجعل عدد نوع واحد على الأقل أكبر من صفر، أو فعّل لعبة الطالب.',1); return; }
   if(isGamesKind(h) && !gameOn){ naiSay('⚠️ هذا نشاط ألعاب — فعّل «لعبة الطالب» في الخطوة 3.',1); return; }
 
   const content=document.getElementById('nai-content')?.value.trim()||'';
