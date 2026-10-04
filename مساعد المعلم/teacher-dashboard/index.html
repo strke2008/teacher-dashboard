@@ -6901,8 +6901,9 @@ body{
 <option value="json">ملف JSON</option>
 <option value="ai">مولد الأسئلة بالذكاء</option>
 </select></div>
-<div class="field" id="ex-hw-wrap"><label>النشاط</label>
-<select class="inp" id="ex-hw" onchange="syncExamHwBank();examBuild()"></select></div>
+<div class="field" id="ex-hw-wrap" style="grid-column:1/-1"><label>الأنشطة <span class="muted" style="font-weight:400">(اختر نشاطًا أو أكثر)</span></label>
+<input id="ex-hw" type="hidden" value=""/>
+<div class="exhw" id="ex-hw-pick"></div></div>
 <div class="field" id="ex-json-wrap" style="display:none"><label>ملف الأسئلة</label>
 <label class="btn ghost" style="cursor:pointer;justify-content:center">📥 اختر ملف JSON
           <input accept=".json,application/json" id="ex-file" onchange="examLoadJson(event)" style="display:none" type="file"/></label></div>
@@ -10430,11 +10431,12 @@ function examInit(){
   ensureLogo();
   const sel = document.getElementById('ex-hw');
   if(sel){
-    const list = HW.filter(h => (h.qs||[]).some(q => q && (q.t==='q' || q.t==='tf')));
-    sel.innerHTML = list.length
-      ? list.map(h => `<option value="${esc(h.id)}">${esc(h.title||'نشاط')} — ${(h.qs||[]).filter(q=>q && (q.t==='q'||q.t==='tf')).length} سؤال</option>`).join('')
-      : `<option value="">لا توجد أنشطة فيها بنك أسئلة</option>`;
+    const list = examHwList(), ok = new Set(list.map(h => String(h.id)));
+    let ids = examHwIds().filter(id => ok.has(id));
+    if(!ids.length && list.length) ids = [String(list[0].id)];      // كالسابق: أول نشاط محدد افتراضيًا
+    sel.value = ids.join(',');
   }
+  examHwRenderPick();
   syncExamHwBank();
   const fill = (id, v) => { const el=document.getElementById(id); if(el && !el.value) el.value = v || ''; };
   fill('ex-subject', rcGet('subject') || 'العلوم');
@@ -10501,7 +10503,7 @@ function renderExamHwBank(){
   const c=document.getElementById('ex-hw-bank-count');
   if(!all.length){
     if(c) c.textContent='0 محدد من 0';
-    list.innerHTML='<div class="exam-bank-empty">لا توجد أسئلة اختيار متعدد أو صح/خطأ محفوظة في هذا النشاط.</div>';
+    list.innerHTML=`<div class="exam-bank-empty">${examHwIds().length?'لا توجد أسئلة اختيار متعدد أو صح/خطأ في الأنشطة المحددة.':'اختر نشاطًا أو أكثر من القائمة أعلاه.'}</div>`;
     return;
   }
   const q=(document.getElementById('ex-hw-bank-search')?.value||'').trim().toLowerCase();
@@ -10519,7 +10521,7 @@ function renderExamHwBank(){
     const type=x.kind==='tf'?'صح / خطأ':'اختيار متعدد';
     return `<label class="exam-bank-item">
       <input type="checkbox" ${x.selected!==false?'checked':''} onchange="toggleExamHwQuestion(${idx},this.checked)">
-      <span class="qtxt"><span class="qnum">${idx+1}.</span> ${escExamText(x.q)}<span class="qmeta"><span class="qtype">${type}</span></span></span>
+      <span class="qtxt"><span class="qnum">${idx+1}.</span> ${escExamText(x.q)}<span class="qmeta"><span class="qtype">${type}</span>${EXAM_HW_BANK.multi&&x.src?`<span class="qtype">📚 ${esc(x.src)}</span>`:''}</span></span>
       ${x.kind==='mc'?`<span class="qtype">${x.o.length} خيارات</span>`:''}
     </label>`;
   }).join('');
@@ -10722,37 +10724,67 @@ function examLoadJson(ev){
   r.readAsText(f, 'utf-8');
 }
 
+/* 📚 عدة أنشطة في اختبار واحد: المحدد يُحفظ في #ex-hw كمعرّفات مفصولة بفواصل */
+function examHwList(){ return HW.filter(h => (h.qs||[]).some(q => q && (q.t==='q' || q.t==='tf' || q.t==='f' || q.t==='m' || q.t==='e'))); }
+function examHwIds(){ return String(document.getElementById('ex-hw')?.value || '').split(',').map(s => s.trim()).filter(Boolean); }
+function examHwActs(){ const ids = examHwIds(); return ids.map(id => HW.find(x => String(x.id) === id)).filter(Boolean); }
+function examHwRenderPick(){
+  const box = document.getElementById('ex-hw-pick'); if(!box) return;
+  const list = examHwList(), on = new Set(examHwIds());
+  if(!list.length){ box.innerHTML = '<div class="exam-bank-empty">لا توجد أنشطة فيها بنك أسئلة</div>'; return; }
+  const q = String(window._exHwQ || '').trim();
+  const cnt = h => { const qs = (h.qs||[]).filter(Boolean); const mc = qs.filter(x => x.t==='q').length, tf = qs.filter(x => x.t==='tf').length, ex = qs.filter(x => ['f','m','e'].includes(x.t)).length;
+    return [mc ? `${mc} اختيار` : '', tf ? `${tf} صح/خطأ` : '', ex ? `${ex} أخرى` : ''].filter(Boolean).join(' · '); };
+  box.innerHTML = `<div class="exhw-top">
+      <input class="inp" type="search" placeholder="🔍 ابحث عن نشاط" value="${esc(q)}" oninput="window._exHwQ=this.value;examHwFilter()">
+      <span class="pill pts">${on.size} ${on.size === 1 ? 'نشاط محدد' : 'أنشطة محددة'}</span>
+      ${on.size ? `<button type="button" class="btn ghost sm" onclick="examHwSet([])">إلغاء الكل</button>` : ''}
+    </div>
+    <div class="exhw-list">${list.map(h => `<label class="exhw-item ${on.has(String(h.id)) ? 'on' : ''}" data-t="${esc(h.title||'')}">
+      <input type="checkbox" ${on.has(String(h.id)) ? 'checked' : ''} onchange="examHwToggle('${esc(String(h.id))}',this.checked)">
+      <span class="exhw-t">${esc(h.title||'نشاط')}</span><span class="exhw-c">${cnt(h)}</span></label>`).join('')}</div>`;
+  examHwFilter();
+}
+function examHwFilter(){
+  const q = String(window._exHwQ || '').trim();
+  document.querySelectorAll('#ex-hw-pick .exhw-item').forEach(el => { el.style.display = !q || String(el.dataset.t || '').includes(q) ? '' : 'none'; });
+}
+function examHwSet(ids){
+  const el = document.getElementById('ex-hw'); if(el) el.value = ids.join(',');
+  examHwRenderPick(); syncExamHwBank(); examBuild();
+}
+function examHwToggle(id, on){
+  const ids = examHwIds().filter(x => x !== String(id));
+  if(on) ids.push(String(id));
+  examHwSet(ids);
+}
+/* أسئلة الأنشطة المحددة مجتمعة. تُرتَّب بالتناوب بين الأنشطة (١ من الأول، ١ من الثاني…)
+   فيأخذ الاختبار من كل نشاط بالتساوي بدل أن يستهلك النشاط الأول وحده. ويُحفظ ما ألغيته من أسئلة عند إضافة نشاط آخر. */
+function examHwCollect(withState){
+  const acts = examHwActs(), per = acts.map(h => ({ mc:[], tf:[] }));
+  const prev = new Map(examHwBankAll().map(x => [x.key, x.selected]));
+  acts.forEach((h, k) => (h.qs||[]).forEach((q, i) => {
+    if(!q) return;
+    const key = String(h.id) + '|' + i, src = h.title || 'نشاط';
+    if(q.t==='q' && Array.isArray(q.o) && q.o.filter(Boolean).length>=2)
+      per[k].mc.push(withState ? {q:String(q.q||''),o:q.o.map(x=>String(x||'')).slice(0,4),a:Number(q.a)||0,kind:'mc',key,src,selected:prev.has(key)?prev.get(key):true}
+                               : { q:String(q.q||''), o:q.o.map(x=>String(x||'')).slice(0,4), a:Number(q.a)||0 });
+    else if(q.t==='tf')
+      per[k].tf.push(withState ? {q:String(q.q||''),a:q.a===true,kind:'tf',key,src,selected:prev.has(key)?prev.get(key):true}
+                               : { q:String(q.q||''), a: q.a === true });
+  }));
+  const weave = t => { const out = [], max = Math.max(0, ...per.map(p => p[t].length)); for(let i = 0; i < max; i++) per.forEach(p => { if(p[t][i]) out.push(p[t][i]); }); return out; };
+  return { mc:weave('mc'), tf:weave('tf'), title:acts.map(h => h.title || 'نشاط').join(' + '), acts };
+}
 function syncExamHwBank(){
-  const id = document.getElementById('ex-hw')?.value || '';
-  const h = HW.find(x => String(x.id) === String(id));
-  const mc=[], tf=[];
-  if(h){
-    (h.qs||[]).forEach(q=>{
-      if(!q) return;
-      if(q.t==='q' && Array.isArray(q.o) && q.o.filter(Boolean).length>=2){
-        mc.push({q:String(q.q||''),o:q.o.map(x=>String(x||'')).slice(0,4),a:Number(q.a)||0,kind:'mc',selected:true});
-      }else if(q.t==='tf'){
-        tf.push({q:String(q.q||''),a:q.a===true,kind:'tf',selected:true});
-      }
-    });
-  }
-  EXAM_HW_BANK={id:String(id),title:h?.title||'',mc,tf};
+  const C = examHwCollect(true);
+  EXAM_HW_BANK={id:examHwIds().join(','),title:C.title,mc:C.mc,tf:C.tf,multi:C.acts.length>1};
   renderExamHwBank();
 }
 
 function examSourceFromActivity(){
-  const id = document.getElementById('ex-hw')?.value;
-  const h = HW.find(x => String(x.id) === String(id));
-  if(!h) return { mc: [], tf: [], label: '' };
-  const mc = [], tf = [];
-  (h.qs||[]).forEach(q => {
-    if(!q) return;
-    if(q.t === 'q' && Array.isArray(q.o) && q.o.filter(Boolean).length >= 2)
-      mc.push({ q:String(q.q||''), o:q.o.map(x=>String(x||'')).slice(0,4), a:Number(q.a)||0 });
-    else if(q.t === 'tf')
-      tf.push({ q:String(q.q||''), a: q.a === true });
-  });
-  return { mc, tf, label: h.title || '' };
+  const C = examHwCollect(false);
+  return { mc:C.mc, tf:C.tf, label:C.title };
 }
 
 /* مقاسات A4 بالبكسل عند 96dpi — الأساس الذي يُبنى عليه تقسيم الصفحات */
@@ -11566,9 +11598,8 @@ function examExtrasFromRaw(raw){
   return { fill, match, open };
 }
 function examExtrasFromActivity(){
-  const id = document.getElementById('ex-hw')?.value;
-  const h = HW.find(x => String(x.id) === String(id));
-  return examExtrasFromRaw(h ? { questions:(h.qs || []).filter(Boolean) } : null);
+  const acts = examHwActs();
+  return examExtrasFromRaw(acts.length ? { questions:acts.flatMap(h => (h.qs || []).filter(Boolean)) } : null);
 }
 function examApplyExtras(ex, quiet){
   const set = (id, arr) => { const el = document.getElementById(id); if(el && arr.length) el.value = arr.join('\n'); };
@@ -24369,6 +24400,12 @@ async function wrSendAll(){
 .rt-row .btn{flex:none;min-height:38px}
 
 /* ═══ قالبا الاختبار ٢ و٣: وصل + أكمل الفراغ + أجب عن كل مما يلي ═══ */
+.exhw{border:1px solid var(--ui-border,#D5E0EC);border-radius:12px;background:var(--ui-bg,#fff);padding:.5rem}
+.exhw-top{display:flex;gap:.45rem;align-items:center;flex-wrap:wrap;margin-bottom:.4rem}.exhw-top .inp{flex:1;min-width:170px}
+.exhw-list{max-height:230px;overflow:auto;display:grid;gap:.25rem}
+.exhw-item{display:flex;align-items:center;gap:.5rem;padding:.4rem .55rem;border:1px solid transparent;border-radius:9px;cursor:pointer;font-size:.86rem}
+.exhw-item:hover{background:var(--ui-surface-2,#F3F7FB)}.exhw-item.on{border-color:#2E9E6B;background:rgba(46,158,107,.07)}
+.exhw-item input{width:auto;margin:0}.exhw-t{flex:1;font-weight:600}.exhw-c{font-size:.74rem;color:var(--ink-soft)}
 .exf-page{border:1px solid var(--ui-border,#D5E0EC);border-radius:12px;padding:.6rem .7rem;margin-bottom:.55rem;background:var(--ui-bg,#fff)}
 .exf-ph{display:flex;align-items:center;gap:.5rem;margin-bottom:.45rem;font-size:.88rem}.exf-ph .muted{font-size:.74rem}
 .exf-row{display:grid;grid-template-columns:5.2rem minmax(150px,1.4fr) 5.5rem 6.5rem 6.5rem 4.6rem auto;gap:.45rem;align-items:end;padding:.4rem 0;border-top:1px dashed var(--ui-border,#D5E0EC)}
