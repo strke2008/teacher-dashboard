@@ -7027,6 +7027,7 @@ body{
 <input id="ex-flex" type="hidden" value=""/>
 <div class="sheet" id="ex-flex-ui" style="display:none;margin:.2rem 0 1rem;padding:.85rem"></div>
 <div class="sheet" id="ex-extra" style="display:none;margin:.2rem 0 1rem;padding:.85rem">
+<div class="exm-bar" id="ex-extra-models" style="display:none"></div>
 <div class="muted" style="font-size:.76rem;line-height:1.8;margin-bottom:.6rem">
         الصفحة الأولى تخرج بنفس تصميم القالب ١ من بنك الأسئلة أعلاه (٥ + ٥ ثابتة). أسئلة الصفحة الثانية تُكتب هنا سطرًا لكل سؤال، أو تُسحب من النشاط/الملف إن كان فيه أسئلة وصل وأكمل الفراغ. المحتوى لا يتجاوز صفحتين: تُضغط المسافات تلقائيًا إن لزم.
       </div>
@@ -10868,6 +10869,9 @@ function openExamAIGenerator(){
   const perMc=nmc, perTf=ntf;
   const big=!!document.getElementById('ex-ai-big')?.checked;   // 📦 بنك موسّع: الحد الأقصى لكل نوع مطلوب
   const genMc=big?(perMc?40:0):Math.min(40,perMc*models), genTf=big?(perTf?40:0):Math.min(40,perTf*models);
+  // الوصل والفراغ و«أجب»: نسخة مختلفة لكل نموذج (تُكتب في الحقول بالتتابع: أ ثم ب…)
+  const genFill=Math.min(40,nfill*models), genMatch=Math.min(40,nmatch*models);
+  const genEssay=essayMarks.length?Array.from({length:models},()=>essayMarks).flat().slice(0,24):[];
   if(tpl==='t3'){
     essayMarks=examParseMarks(document.getElementById('ex-open-marks')?.value);
     if(!essayMarks.length) essayMarks=examSplitMarks(Number(examAr2En(document.getElementById('ex-open-total')?.value))||5, Number(document.getElementById('ex-open-n')?.value)||3);
@@ -10881,7 +10885,7 @@ function openExamAIGenerator(){
     title:(document.getElementById('ex-title')?.value||'اختبار ورقي').trim(),
     kind:'normal', qs:[], games:[], published:false,
     __examProxy:true,
-    __examExtra: (tpl==='t1' && models===1) ? null : { tpl, matchPairs:tpl==='t1'?0:(T4?nmatch:EX_N), essayMarks, fill:nfill>0, models }
+    __examExtra: (tpl==='t1' && models===1) ? null : { tpl, matchPairs:tpl==='t1'?0:(T4?genMatch:EX_N*models), essayMarks:genEssay, fill:nfill>0, models }
   };
   HW.push(proxy);
   // مرجع مستقل عن HW لأن المزامنة الخلفية قد تعيد بناء HW أثناء انتظار مزود الذكاء.
@@ -10915,7 +10919,7 @@ function openExamAIGenerator(){
     const row=document.getElementById('nai-row-'+k);
     const cb=document.getElementById('nai-'+k);
     const n=document.getElementById('nai-count-'+k);
-    const wanted=k==='quiz'?genMc:k==='truefalse'?genTf:k==='fillblank'?nfill:k==='match'?nmatch:0;
+    const wanted=k==='quiz'?genMc:k==='truefalse'?genTf:k==='fillblank'?genFill:k==='match'?(tpl==='t1'?0:T4?genMatch:EX_N*models):0;
     if(n) n.max=String(naiMaxCount());
     const shown=(k==='quiz'&&(!T4||nmc>0))||(k==='truefalse'&&(!T4||ntf>0))||(k==='fillblank'&&nfill>0)||(k==='match'&&nmatch>0);
     if(n)n.value=wanted;
@@ -10934,7 +10938,8 @@ function openExamAIGenerator(){
     + (tpl==='t1' ? '' : ' رقم الوصل هو عدد الأزواج في سؤال الوصل.')
     + (big ? ` 📦 بنك موسّع: يُولَّد ${[genMc?genMc+' اختيار':'',genTf?genTf+' صح/خطأ':''].filter(Boolean).join(' و')} — يستغرق وقتًا أطول، وبعدها توزّعها على النماذج من البنك (تلقائيًا أو بنفسك).` : '')
     + (!big && models>1 ? ` الاختبار ${models} نماذج، لذلك يُولَّد ${genMc?genMc+' اختيار':''}${genMc&&genTf?' و':''}${genTf?genTf+' صح/خطأ':''} ليأخذ كل نموذج أسئلة مختلفة${(perMc*models>40||perTf*models>40)?' (الحد ٤٠، فقد تتكرر بعض الأسئلة بين النماذج)':''}.` : '')
-    + (essayMarks.length ? ` وسيُولَّد أيضًا ${essayMarks.length} أسئلة «أجب عن كل مما يلي» بدرجات: ${essayMarks.join('، ')} (من إعداد القالب ${T4?'٤':'٣'}).` : '');
+    + (models>1 && (genFill||genEssay.length||nmatch) ? ` الوصل والفراغ و«أجب» تُولَّد أيضًا بعدد النماذج لتختلف بينها.` : '')
+    + (genEssay.length ? ` وسيُولَّد أيضًا ${genEssay.length} أسئلة «أجب عن كل مما يلي» بدرجات: ${genEssay.join('، ')} (من إعداد القالب ${T4?'٤':'٣'}).` : '');
   const title=modal.querySelector('.reading-ai-head');
   if(title) title.setAttribute('data-exam-proxy','1');
   naiCtxSummary();
@@ -11422,6 +11427,9 @@ function examTplSyncUI(){
     }
   });
   if(t === 't4') examFlexRenderUI();
+  const mh = document.getElementById('ex-extra-models'), MC = Math.max(1, Number(document.getElementById('ex-model-count')?.value) || 1);
+  if(mh){ mh.style.display = MC > 1 ? '' : 'none';
+    mh.innerHTML = MC > 1 ? `🗂️ <b>${MC} نماذج:</b> كل حقل أدناه بنكٌ يُقسم بالتتابع — الأسطر الأولى للنموذج (أ) ثم (ب)… فاكتب ما يكفي كل النماذج ليختلف كل نموذج (وإلا يشترك مع (أ) بترتيب مختلف).` : ''; }
 }
 
 /* ═══════════ 📐 القالب ٤: اختبار مصمَّم ═══════════
@@ -11523,7 +11531,17 @@ function examFlexData(o){
   const mcQ = o.mc.slice(), tfQ = o.tf.slice();
   const M = examParseMatch(o.val('ex-match-txt'));
   const fills = examParseFill(o.val('ex-fill-txt')), opens = examLines(o.val('ex-open-txt'));
-  let mi = 0, fi = 0, oi = 0, mcN = 0, tfN = 0, extraUsed = false, total = 0, no = 0;
+  let mcN = 0, tfN = 0, extraUsed = false, total = 0, no = 0;
+  // عدة نماذج: كل نموذج يبدأ من كتلته في الحقل النصي (أ أولًا ثم ب…) إن كفت الأسطر
+  const need = t => L.reduce((a, pg) => a + pg.filter(x => x.t === t).reduce((b, x) => b + x.n, 0), 0);
+  const MM = Math.max(1, o.modelCount || 1), Tm = need('match'), Tf = need('fill'), To = need('open');
+  const startOf = (len, T, label) => {
+    if(MM < 2 || !T) return 0;
+    if(len >= T * (o.modelIndex + 1)) return o.modelIndex * T;
+    if(o.modelIndex > 0 && len >= T) notes.push(`${label}: الأسطر تكفي ${Math.floor(len / T)} من ${MM} نماذج — النموذج (${examModelLetter(o.modelIndex)}) يشترك في أسئلة (أ). أضف ${T * MM - len} سطرًا ليختلف`);
+    return 0;
+  };
+  let mi = startOf(M.pairs.length, Tm, 'الوصل'), fi = startOf(fills.length, Tf, 'أكمل الفراغ'), oi = startOf(opens.length, To, 'أجب');
   const pages = L.map((pg, pi) => pg.map((x, si) => {
     const ord = EX_ORD[no++] || String(no), sec = { t:x.t, ord, m:x.m, key:`${pi}-${si}` };
     if(x.t === 'mc' || x.t === 'tf'){
@@ -11568,9 +11586,9 @@ function examFlexData(o){
     total += sec.marks;
     return sec;
   }));
-  if(M.pairs.length > mi) notes.push(`الوصل: ${M.pairs.length - mi} زوجًا زائدًا لم يُستخدم`);
-  if(fills.length > fi) notes.push(`أكمل الفراغ: ${fills.length - fi} سؤالًا زائدًا لم يُستخدم`);
-  if(opens.length > oi) notes.push(`أجب: ${opens.length - oi} سؤالًا زائدًا لم يُستخدم`);
+  if(M.pairs.length > Tm * MM) notes.push(`الوصل: ${M.pairs.length - Tm * MM} زوجًا زائدًا لم يُستخدم`);
+  if(fills.length > Tf * MM) notes.push(`أكمل الفراغ: ${fills.length - Tf * MM} سؤالًا زائدًا لم يُستخدم`);
+  if(opens.length > To * MM) notes.push(`أجب: ${opens.length - To * MM} سؤالًا زائدًا لم يُستخدم`);
   return { pages, notes, total: +total.toFixed(2), mcN, tfN };
 }
 function examFlexSecHtml(sec, o){
@@ -11677,13 +11695,23 @@ function examPullExtras(){
   examApplyExtras(ex);
 }
 
+/* 🗂️ الوصل والفراغ و«أجب» مع عدة نماذج: الحقل النصي هو البنك، يُقسم بالتتابع —
+   الأسطر الأولى للنموذج (أ) ثم (ب)… فإن لم تكفِ الأسطر يشترك النموذج في أسئلة (أ) مع خلط ترتيبها، ويُنبَّه. */
+function examModelLines(arr, need, o, label, notes){
+  arr = Array.isArray(arr) ? arr : []; need = Math.max(0, need | 0);
+  const M = Math.max(1, o.modelCount || 1), idx = o.modelIndex || 0;
+  if(M > 1 && arr.length >= need * (idx + 1)) return arr.slice(idx * need, idx * need + need);
+  if(M > 1 && idx > 0 && arr.length >= need) notes.push(`${label}: الأسطر تكفي ${Math.floor(arr.length / need)} من ${M} نماذج — النموذج (${examModelLetter(idx)}) يشترك في أسئلة (أ). أضف ${need * M - arr.length} سطرًا ليختلف`);
+  return arr.slice(0, need);
+}
 /* بيانات القسمين الإضافيين (وصل + أكمل الفراغ/أجب). لا تقرأ إلا من الحقول أعلاه. */
 function examExtras(tpl, o){
   const notes = [], n = EX_N, mk = o.mark;
-  const M = examParseMatch(o.val('ex-match-txt'));
-  if(M.pairs.length > n) notes.push(`الوصل: استُخدمت أول ${n} أزواج من ${M.pairs.length}`);
+  const M = examParseMatch(o.val('ex-match-txt')), MM = Math.max(1, o.modelCount || 1);
+  if(M.pairs.length > n * MM) notes.push(`الوصل: استُخدمت أول ${n * MM} أزواج من ${M.pairs.length}`);
   if(M.pairs.length < n) notes.push(`الوصل: ${M.pairs.length} من ${n} أزواج فقط — تُترك الباقية فارغة`);
-  const A = Array.from({length:n}, (_, i) => M.pairs[i] || { a:'', b:'' });
+  const mPairs = examModelLines(M.pairs, n, o, 'الوصل', notes);
+  const A = Array.from({length:n}, (_, i) => mPairs[i] || { a:'', b:'' });
   let B = A.map((p, i) => ({ t:p.b, ans:i }));
   M.extra.slice(0, 3).forEach(t => B.push({ t, ans:-1 }));
   B = o.shuffle(B, o.seed + '|mt|' + o.modelIndex);
@@ -11693,9 +11721,9 @@ function examExtras(tpl, o){
   X.marksMatch = n * mk;
   if(tpl === 't2'){
     let F = examParseFill(o.val('ex-fill-txt'));
-    if(F.length > n) notes.push(`أكمل الفراغ: استُخدمت أول ${n} أسئلة من ${F.length}`);
+    if(F.length > n * MM) notes.push(`أكمل الفراغ: استُخدمت أول ${n * MM} أسئلة من ${F.length}`);
     if(F.length < n) notes.push(`أكمل الفراغ: ${F.length} من ${n} — تُترك الباقية فارغة`);
-    F = F.slice(0, n); while(F.length < n) F.push({ q:'', a:'', blank:true });
+    F = examModelLines(F, n, o, 'أكمل الفراغ', notes); while(F.length < n) F.push({ q:'', a:'', blank:true });
     if(o.modelCount > 1 || o.mix) F = o.shuffle(F, o.seed + '|fl|' + o.modelIndex);
     X.fill = F; X.marksTail = n * mk;
     /* بنك الكلمات (اختياري للتبسيط): إجابات الفراغات + كلمات تمويه، بترتيب مخلوط لا يطابق ترتيب الأسئلة */
@@ -11718,8 +11746,9 @@ function examExtras(tpl, o){
     }
     if(ms.length > EX_OPEN_MAX){ notes.push(`أجب: الحد الأقصى ${EX_OPEN_MAX} أسئلة`); ms = ms.slice(0, EX_OPEN_MAX); }
     let Q = examLines(o.val('ex-open-txt'));
-    if(Q.length > ms.length) notes.push(`أجب: ${Q.length} سؤالًا مكتوبًا والمحدد ${ms.length} — استُخدمت الأولى فقط`);
+    if(Q.length > ms.length * MM) notes.push(`أجب: ${Q.length} سؤالًا مكتوبًا والمحدد ${ms.length * MM} — استُخدمت الأولى فقط`);
     if(Q.length < ms.length) notes.push(`أجب: ${Q.length} من ${ms.length} أسئلة مكتوبة — تُترك الباقية فارغة`);
+    Q = examModelLines(Q, ms.length, o, 'أجب', notes);
     let items = ms.map((m, i) => ({ q:Q[i] || '', m }));
     if(o.modelCount > 1 || o.mix){ const idx = o.shuffle(items.map((_, i) => i), o.seed + '|op|' + o.modelIndex); items = idx.map(i => ({ q:items[i].q, m:items[i].m })); }
     X.open = items; X.marksTail = +ms.reduce((a, b) => a + b, 0).toFixed(2);
@@ -25374,14 +25403,18 @@ function naiExamBatches(opts){
   const rest=Object.entries(c).filter(([k])=>k!=='quiz'&&k!=='truefalse').reduce((t,[,v])=>t+(Number(v)||0),0);
   const essays=(opts.examExtra&&Array.isArray(opts.examExtra.essayMarks))?opts.examExtra.essayMarks.length:0;
   if(mc+tf+rest+essays<=15) return null;
-  const n=Math.max(1,Math.ceil((mc+tf)/NAI_BATCH));
+  // الاختيار والصح/خطأ والفراغ و«أجب» تُوزَّع على الدفعات؛ الوصل (سؤال واحد بأزواجه) في الأولى
+  const fb=Number(c.fillblank)||0;
+  const n=Math.max(1,Math.ceil((mc+tf+fb+essays)/NAI_BATCH));
   const share=(tot,i)=>Math.floor(tot/n)+(i<tot%n?1:0);
+  const startOf=(tot,i)=>{let a=0;for(let j=0;j<i;j++)a+=share(tot,j);return a;};
+  const marks=essays?opts.examExtra.essayMarks:[];
   return Array.from({length:n},(_,i)=>{
     const counts={}; Object.keys(c).forEach(k=>counts[k]=0);
-    counts.quiz=share(mc,i); counts.truefalse=share(tf,i);
-    if(i===0) Object.keys(c).forEach(k=>{ if(k!=='quiz'&&k!=='truefalse') counts[k]=c[k]; });
+    counts.quiz=share(mc,i); counts.truefalse=share(tf,i); if('fillblank' in c) counts.fillblank=share(fb,i);
+    if(i===0) Object.keys(c).forEach(k=>{ if(!['quiz','truefalse','fillblank'].includes(k)) counts[k]=c[k]; });
     const ex=opts.examExtra?{...opts.examExtra}:null;
-    if(ex&&i>0){ ex.matchPairs=0; ex.essayMarks=[]; ex.fill=false; }
+    if(ex){ ex.essayMarks=marks.slice(startOf(essays,i),startOf(essays,i)+share(essays,i)); ex.fill=counts.fillblank>0; if(i>0) ex.matchPairs=0; }
     return { ...opts, counts, examExtra:ex };
   }).filter(p=>Object.values(p.counts).some(v=>v>0)||(p.examExtra&&p.examExtra.essayMarks&&p.examExtra.essayMarks.length));
 }
