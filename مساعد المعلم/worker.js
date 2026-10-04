@@ -5401,6 +5401,42 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       return json({ ok: true, results });
     }
 
+    // ── 🖨️ الاختبارات الورقية المحفوظة: كل اختبار في pexam:<id> + فهرس خفيف pexam:index ──
+    if (url.pathname === '/paper-exams' && request.method === 'GET') {
+      if (!env.TEACHER_TOKEN || url.searchParams.get('t') !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
+      const id = String(url.searchParams.get('id') || '').slice(0, 60);
+      if (id) {
+        const raw = await env.HW.get(`pexam:${id}`);
+        return raw ? json({ ok: true, exam: JSON.parse(raw) }) : json({ error: 'not found' }, 404);
+      }
+      let idx = []; try { idx = JSON.parse(await env.HW.get('pexam:index') || '[]'); } catch {}
+      return json({ ok: true, list: Array.isArray(idx) ? idx : [] });
+    }
+    if (url.pathname === '/paper-exams' && request.method === 'POST') {
+      let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
+      if (!env.TEACHER_TOKEN || b.t !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
+      let idx = []; try { idx = JSON.parse(await env.HW.get('pexam:index') || '[]'); } catch {}
+      if (!Array.isArray(idx)) idx = [];
+      if (b.del) {
+        const id = String(b.del).slice(0, 60);
+        await env.HW.delete(`pexam:${id}`);
+        idx = idx.filter(x => x && x.id !== id);
+        await env.HW.put('pexam:index', JSON.stringify(idx));
+        return json({ ok: true });
+      }
+      const ex = b.exam && typeof b.exam === 'object' ? b.exam : null;
+      const id = ex && /^[\w-]{3,60}$/.test(String(ex.id || '')) ? String(ex.id) : '';
+      if (!id) return json({ error: 'missing exam' }, 400);
+      const body = JSON.stringify(ex);
+      if (body.length > 3_000_000) return json({ error: 'too large' }, 413);
+      await env.HW.put(`pexam:${id}`, body);
+      const meta = { id, title: String(ex.title || 'اختبار ورقي').slice(0, 120), savedAt: String(ex.savedAt || new Date().toISOString()),
+        mc: Array.isArray(ex.bank && ex.bank.mc) ? ex.bank.mc.length : 0, tf: Array.isArray(ex.bank && ex.bank.tf) ? ex.bank.tf.length : 0 };
+      idx = [meta, ...idx.filter(x => x && x.id !== id)].slice(0, 200);
+      await env.HW.put('pexam:index', JSON.stringify(idx));
+      return json({ ok: true, meta });
+    }
+
     // ── 🏷️ مهارات أسئلة نشاط: { t, hw, map:{ i: 'اسم المهارة' } } ──
     if (url.pathname === '/skills' && request.method === 'POST') {
       let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }

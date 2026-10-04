@@ -11383,12 +11383,27 @@ function saveCurrentPaperExam(){
     else all.unshift(payload);
   }else all.unshift(payload);
   if(all.length>50) all.length=50;
-  if(!writeSavedPaperExams(all)) return;
+  writeSavedPaperExams(all);                       // نسخة احتياطية على الجهاز (تُستخدم إن تعذّر الخادم)
   window.__LOADED_PAPER_EXAM_ID=payload.id;
   const st=document.getElementById('exam-save-status');
-  if(st) st.textContent='✓ محفوظ على هذا الجهاز';
-  toast('تم حفظ الاختبار الورقي','good');
+  if(st) st.textContent='⏳ جارٍ الحفظ على الخادم…';
+  paperExamPush(payload).then(ok=>{
+    if(ok){ paperExamMarkCloud(payload.id); if(st) st.textContent='☁️ محفوظ على الخادم — يظهر في كل أجهزتك'; toast('☁️ حُفظ الاختبار على الخادم','good'); }
+    else { if(st) st.textContent='💾 محفوظ على هذا الجهاز فقط — تعذّر الاتصال بالخادم، وسيُرفع تلقائيًا عند فتح «الاختبارات المحفوظة»'; toast('حُفظ على الجهاز، وتعذّر الخادم الآن','bad'); }
+  });
 }
+/* ☁️ الخادم هو الأصل: /paper-exams (قائمة، جلب، حفظ، حذف) — والجهاز نسخة احتياطية */
+async function paperExamApi(method, q, body){
+  const api=(getApi()||'').replace(/\/+$/,''), tok=getTok();
+  if(!api||!tok) throw new Error('no server');
+  const url=api+'/paper-exams'+(method==='GET'?'?t='+encodeURIComponent(tok)+(q||''):'');
+  const r=await fetch(url, method==='GET'?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:tok,...body})});
+  const j=await r.json().catch(()=>null);
+  if(!r.ok||!j||!j.ok) throw new Error((j&&j.error)||('HTTP '+r.status));
+  return j;
+}
+async function paperExamPush(exam){ try{ await paperExamApi('POST','',{exam}); return true; }catch(e){ console.warn('paperExamPush',e); return false; } }
+function paperExamMarkCloud(id){ const all=readSavedPaperExams(); const x=all.find(e=>e&&e.id===id); if(x){ x.cloud=true; writeSavedPaperExams(all); } }
 function applySavedPaperExam(exam){
   if(!exam) return;
   const cfg=exam.config||{}, checks=exam.checks||{};
@@ -11413,23 +11428,52 @@ function applySavedPaperExam(exam){
   toast('تم تحميل الاختبار المحفوظ','good');
   examBuild(true);
 }
-function deleteSavedPaperExam(id){
-  const all=readSavedPaperExams().filter(x=>x&&x.id!==id);
-  writeSavedPaperExams(all);
+async function deleteSavedPaperExam(id){
+  if(typeof askConfirm==='function' && !(await askConfirm('يُحذف من الخادم ومن هذا الجهاز، ولا يمكن التراجع.',{title:'حذف الاختبار المحفوظ؟',yes:'احذف',no:'إبقاء',danger:true}))) return;
+  let cloudOk=true;
+  try{ await paperExamApi('POST','',{del:id}); }catch(e){ cloudOk=false; }
+  writeSavedPaperExams(readSavedPaperExams().filter(x=>x&&x.id!==id));
   openSavedPaperExams();
-  toast('تم حذف الاختبار المحفوظ','good');
+  toast(cloudOk?'تم حذف الاختبار المحفوظ':'حُذف من الجهاز، وتعذّر الوصول للخادم — قد يعود عند الفتح القادم', cloudOk?'good':'bad');
 }
-function openSavedPaperExams(){
-  const all=readSavedPaperExams();
+async function openSavedPaperExamById(id){
+  let ex=null;
+  try{ ex=(await paperExamApi('GET','&id='+encodeURIComponent(id))).exam; }catch(e){}
+  if(!ex) ex=readSavedPaperExams().find(e=>e&&e.id===id);
+  if(!ex){ toast('تعذّر فتح الاختبار — تحقق من الاتصال','bad'); return; }
+  applySavedPaperExam(ex);
+  document.getElementById('saved-paper-exams-modal')?.classList.remove('on');
+}
+async function openSavedPaperExams(){
   let veil=document.getElementById('saved-paper-exams-modal');
   if(!veil){
     veil=document.createElement('div'); veil.id='saved-paper-exams-modal'; veil.className='veil'; document.body.appendChild(veil);
   }
   veil.classList.add('on');
+  const head=note=>`<div class="sheet-head"><div><h2>📂 الاختبارات الورقية المحفوظة</h2><div class="muted" style="font-size:.78rem">${note}</div></div><span class="spacer"></span><button class="btn ghost sm" onclick="document.getElementById('saved-paper-exams-modal').classList.remove('on')">إغلاق</button></div>`;
+  veil.innerHTML=`<div class="modal" style="width:min(720px,100%)">${head('⏳ جارٍ جلب الاختبارات من الخادم…')}</div>`;
+  const local=readSavedPaperExams();
+  let server=null;
+  try{ server=(await paperExamApi('GET','')).list; }catch(e){}
+  // اختبارات محفوظة على هذا الجهاز فقط (قبل الخادم أو أثناء انقطاعه): تُرفع تلقائيًا
+  let uploaded=0;
+  if(server){
+    const onServer=new Set(server.map(x=>x.id));
+    for(const ex of local.filter(x=>x&&x.id&&!onServer.has(x.id))){
+      if(await paperExamPush(ex)){ uploaded++; server.unshift({id:ex.id,title:ex.title,savedAt:ex.savedAt,mc:ex.bank?.mc?.length||0,tf:ex.bank?.tf?.length||0}); ex.cloud=true; }
+    }
+    if(uploaded) writeSavedPaperExams(local);
+  }
+  const list=server
+    ? server.slice().sort((a,b)=>String(b.savedAt).localeCompare(String(a.savedAt))).map(x=>({...x,where:'cloud'}))
+    : local.map(x=>({id:x.id,title:x.title,savedAt:x.savedAt,mc:x.bank?.mc?.length||0,tf:x.bank?.tf?.length||0,where:'local'}));
   const fmt=d=>{try{return new Date(d).toLocaleString('ar-SA',{dateStyle:'medium',timeStyle:'short'});}catch(e){return String(d||'');}};
-  veil.innerHTML=`<div class="modal" style="width:min(720px,100%)">
-    <div class="sheet-head"><div><h2>📂 الاختبارات الورقية المحفوظة</h2><div class="muted" style="font-size:.78rem">محفوظة محليًا على هذا الجهاز، وتشمل الأسئلة والإعدادات والترويسة.</div></div><span class="spacer"></span><button class="btn ghost sm" onclick="document.getElementById('saved-paper-exams-modal').classList.remove('on')">إغلاق</button></div>
-    ${all.length?`<div style="display:flex;flex-direction:column;gap:.55rem">${all.map(x=>`<div class="ruled" style="padding:.75rem 1rem"><div class="row"><div class="name">${esc(x.title||'اختبار ورقي')}<div class="muted" style="font-size:.72rem">${fmt(x.savedAt)} · ${(x.bank?.mc?.length||0)} اختيار + ${(x.bank?.tf?.length||0)} صح/خطأ</div></div><button class="btn tick sm" onclick="applySavedPaperExam(readSavedPaperExams().find(e=>e.id==='${String(x.id).replace(/'/g,"\\'")}'));document.getElementById('saved-paper-exams-modal').classList.remove('on')">فتح</button><button class="btn ghost sm" onclick="deleteSavedPaperExam('${String(x.id).replace(/'/g,"\\'")}')">حذف</button></div></div>`).join('')}</div>`:`<div class="empty"><span class="big">📂</span>لا توجد اختبارات محفوظة حتى الآن.</div>`}
+  const q=v=>String(v).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+  const note=server
+    ? `☁️ محفوظة على الخادم وتظهر في كل أجهزتك، وتشمل الأسئلة والإعدادات والترويسة.${uploaded?` رُفع الآن ${uploaded} اختبار كان على هذا الجهاز فقط.`:''}`
+    : '⚠️ تعذّر الاتصال بالخادم — تُعرض النسخ المحفوظة على هذا الجهاز فقط.';
+  veil.innerHTML=`<div class="modal" style="width:min(720px,100%)">${head(note)}
+    ${list.length?`<div style="display:flex;flex-direction:column;gap:.55rem">${list.map(x=>`<div class="ruled" style="padding:.75rem 1rem"><div class="row"><div class="name">${esc(x.title||'اختبار ورقي')}<div class="muted" style="font-size:.72rem">${x.where==='cloud'?'☁️':'💻'} ${fmt(x.savedAt)} · ${x.mc||0} اختيار + ${x.tf||0} صح/خطأ</div></div><button class="btn tick sm" onclick="openSavedPaperExamById('${q(x.id)}')">فتح</button><button class="btn ghost sm" onclick="deleteSavedPaperExam('${q(x.id)}')">حذف</button></div></div>`).join('')}</div>`:`<div class="empty"><span class="big">📂</span>لا توجد اختبارات محفوظة حتى الآن.</div>`}
   </div>`;
 }
 
