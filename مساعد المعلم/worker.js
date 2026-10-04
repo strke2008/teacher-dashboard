@@ -1059,18 +1059,78 @@ function planConfidence(b, a) {
            nBefore: b.total, nAfter: a.total };
 }
 /* تغيّر الزملاء في الفترتين نفسيهما وبالأداة نفسها (أنشطة أو المهارات المستهدفة) */
-function planPeers(ids, cls, students, assignments, data_ref, start, to, targets, cut) {
+function planPeers(ids, cls, students, assignments, data_ref, start, to, targets, cut, by) {
   if (!start || !cls) return null;
   const skip = new Set(ids.map(String)), gains = [];
   for (const s of students) {
     if (!s || skip.has(String(s.id)) || String(s.cls || '') !== cls) continue;
-    const fn = targets ? (f, t) => skillAgg(skillWindow(data_ref, assignments, s.id, f, t, targets, cut))
-                       : (f, t) => masteryWindow(assignments, s.id, f, t, true, cut);
-    const b = planBaseline(fn, start).win, a = fn(start, to);
+    let b, a;
+    if (by && by !== 'academic') { const c = planConduct(data_ref, s.id, start, to); b = c[by].before; a = c[by].after; }
+    else {
+      const fn = targets ? (f, t) => skillAgg(skillWindow(data_ref, assignments, s.id, f, t, targets, cut))
+                         : (f, t) => masteryWindow(assignments, s.id, f, t, true, cut);
+      b = planBaseline(fn, start).win; a = fn(start, to);
+    }
     if (b.measured && a.measured) gains.push(a.rate - b.rate);
   }
   if (gains.length < PLAN_PEER_MIN) return { n: gains.length, gain: null };
   return { n: gains.length, gain: Math.round(gains.reduce((t, v) => t + v, 0) / gains.length) };
+}
+/* 🧭 المؤشرات الانضباطية قبل وبعد: كل مؤشر نسبةٌ من سجلات المعلم الفعلية (لا تُدمج مع الدرجة في رقم واحد)
+   - تسليم الواجبات: أنجز ÷ (أنجز + لم ينجز) — «معذور» لا يُحسب له ولا عليه
+   - المشاركة: شارك ÷ (شارك + لم يشارك)
+   - الحضور: أيام الحضور ÷ الأيام المرصودة — الغياب بعذر لا يُحسب عليه
+   - السلوك: أيام الحضور بلا ملاحظة سلبية ÷ أيام الحضور
+   الخطة تُحكم بمؤشر نمطها: «عدم إنجاز المهام» بالواجبات، «انقطاع عن التعلّم» بالحضور،
+   «سلوك يعيق التعلّم» بالسلوك، وبقية الأنماط بالتحصيل (الأنشطة/المهارات). */
+const CONDUCT = {
+  hw:   { label: 'تسليم الواجبات', unit: 'واجبًا', target: 80 },
+  part: { label: 'المشاركة الصفية', unit: 'حصة', target: 70 },
+  att:  { label: 'الحضور', unit: 'يومًا', target: 90 },
+  beh:  { label: 'أيام بلا ملاحظة سلوكية سلبية', unit: 'يوم حضور', target: 90 },
+};
+const PATTERN_MEASURE = { unsubmitted: 'hw', absence: 'att', behavior: 'beh' };
+const PATTERN_BY_LABEL = { 'انقطاع عن التعلّم': 'absence', 'عدم إنجاز المهام': 'unsubmitted', 'سلوك يعيق التعلّم': 'behavior',
+  'تراجع حديث في المستوى': 'decline', 'فجوة في الفهم': 'gap', 'ضعف في الاختبارات': 'exams' };
+function planMeasureKey(plan) {
+  const m = String(plan.measure || 'auto');
+  if (['academic', 'hw', 'att', 'beh'].includes(m)) return m;
+  const pat = String(plan.pattern || '') || PATTERN_BY_LABEL[String(plan.reason || '').split(' — ')[0].trim()] || '';
+  return PATTERN_MEASURE[pat] || 'academic';
+}
+function conductWindow(data, sid, from, to) {
+  const P = (data && data.participation) || {}, H = (data && data.homework) || {};
+  const inR = d => !((from && d < from) || (to && d > to));
+  let hwDone = 0, hwMiss = 0, yes = 0, no = 0, days = 0, absent = 0;
+  const present = new Set();
+  for (const d of Object.keys(H)) { if (!inR(d)) continue; const st = gStatus(H, d, sid);
+    if (st === 'أنجز') hwDone++; else if (st === 'لم ينجز') hwMiss++; }
+  for (const d of Object.keys(P)) { if (!inR(d)) continue; const st = gStatus(P, d, sid); if (!st || st === 'غائب بعذر') continue;
+    days++; if (st === 'غائب') absent++; else present.add(d);
+    if (st === 'شارك') yes++; else if (st === 'لم يشارك') no++; }
+  const negDays = new Set();
+  let neg = 0;
+  for (const x of ((data && data.behavior) || [])) {
+    if (!x || x.deleted || x.type === 'positive' || String(x.studentId || x.sid || '') !== String(sid)) continue;
+    const d = String(x.date || ''); if (!d || !inR(d)) continue;
+    neg++; negDays.add(d);
+  }
+  const clean = [...present].filter(d => !negDays.has(d)).length;
+  const r = (c, t, extra) => ({ rate: t ? Math.round((c / t) * 100) : null, correct: c, total: t, measured: t >= 3, ...(extra || {}) });
+  return { hw: r(hwDone, hwDone + hwMiss), part: r(yes, yes + no), att: r(days - absent, days), beh: r(clean, present.size, { neg }) };
+}
+function planConduct(data, sid, start, to, baseFrom) {
+  if (!start || !data) return null;
+  const b = conductWindow(data, sid, baseFrom || shiftDay(start, -PLAN_BASE_DAYS), prevDay(start));
+  const a = conductWindow(data, sid, start, to);
+  const out = {};
+  for (const k of Object.keys(CONDUCT)) {
+    const gain = b[k].measured && a[k].measured ? a[k].rate - b[k].rate : null;
+    out[k] = { key: k, ...CONDUCT[k], before: b[k], after: a[k], gain,
+      verdict: gain == null ? (a[k].measured ? 'لا يوجد قياس قبلي للمقارنة' : 'لا سجلات كافية') : gain >= PLAN.minGain ? 'تحسّن' : gain <= -PLAN.minGain ? 'تراجع' : 'بلا فرق يُعتد به',
+      confidence: gain == null ? null : planConfidence(b[k], a[k]) };
+  }
+  return out;
 }
 function memberReport(sid, plan, students, assignments, data_ref) {
   const st = students.find(s => String(s.id) === String(sid));
@@ -1109,6 +1169,19 @@ function memberReport(sid, plan, students, assignments, data_ref) {
     gain = after.rate - before.rate;
     verdict = gain >= PLAN.minGain ? 'تحسّن' : gain <= -PLAN.minGain ? 'تراجع' : 'بلا فرق يُعتد به';
   }
+  const conduct = planConduct(data_ref, sid, start, to);
+  const academic = { before: { ...before }, after: { ...after }, gain, verdict, basis };
+  const measureKey = planMeasureKey(plan);
+  let mainBy = 'academic', measureNote = '';
+  if (measureKey !== 'academic' && conduct) {
+    const ind = conduct[measureKey];
+    if (ind.after.measured) {
+      mainBy = measureKey; basis = measureKey;
+      Object.assign(before, { rate: ind.before.rate, correct: ind.before.correct, total: ind.before.total, measured: ind.before.measured, acts: undefined });
+      after = { ...after, rate: ind.after.rate, correct: ind.after.correct, total: ind.after.total, measured: true, acts: undefined };
+      gain = ind.gain; verdict = ind.verdict;
+    } else measureNote = `لا توجد سجلات كافية في «${CONDUCT[measureKey].label}» بعد البدء — قيس مؤقتًا على التحصيل`;
+  }
   const ctx = planContext(data_ref, sid, start, to);
   const exBefore = examWindow(data_ref, sid, '', start ? prevDay(start) : '');
   const exAfter = examWindow(data_ref, sid, start, to);
@@ -1120,14 +1193,17 @@ function memberReport(sid, plan, students, assignments, data_ref) {
   else if (verdict === 'تحسّن' && ev.verdict === 'تراجع') caution = 'تحسّنت الأنشطة لكن الاختبارات تراجعت — قد يكون التحسّن في التدريب لا في الفهم';
   else if (verdict === 'تراجع' && ev.verdict === 'تحسّن') caution = 'تحسّنت الاختبارات رغم تراجع الأنشطة — راجع الأنشطة الأخيرة قبل الحكم';
   // 📏 قياس محدود: الحكم من أقل من 10 أسئلة ضعيف (والطالب المختار لضعفه يرتفع غالبًا وحده — الارتداد للمتوسط)
-  const limited = !!(after.measured && after.total < 10);
-  if (!caution && limited && gain != null) caution = `قياس محدود (${after.total} أسئلة فقط بعد البدء) — انتظر نشاطًا آخر قبل الحكم النهائي`;
+  const limited = mainBy === 'academic' ? !!(after.measured && after.total < 10) : !!(after.measured && after.total < 6);
+  if (!caution && limited && gain != null) caution = mainBy === 'academic' ? `قياس محدود (${after.total} أسئلة فقط بعد البدء) — انتظر نشاطًا آخر قبل الحكم النهائي`
+    : `قياس محدود (${after.total} ${CONDUCT[mainBy].unit} فقط بعد البدء) — انتظر سجلات أكثر قبل الحكم النهائي`;
+  if (!caution && measureNote) caution = measureNote;
   const confidence = gain != null ? planConfidence(before, after) : null;
   if (!caution && confidence && confidence.level === 'weak' && Math.abs(gain) >= PLAN.minGain)
-    caution = `الفرق (${gain > 0 ? '+' : ''}${gain}) ضمن هامش الصدفة لعدد الأسئلة (${before.total} قبل، ${after.total} بعد) — لا يُجزم به بعد`;
+    caution = `الفرق (${gain > 0 ? '+' : ''}${gain}) ضمن هامش الصدفة لعدد ${mainBy === 'academic' ? 'الأسئلة' : 'السجلات'} (${before.total} قبل، ${after.total} بعد) — لا يُجزم به بعد`;
   const window = { baseFrom, baseTo: start ? prevDay(start) : '', from: start, to };
   return { studentId: String(sid), name: st ? st.name : 'طالب محذوف', cls: st ? (st.cls || '') : '',
-           before, after, gain, verdict, exam, context: ctx, caution, basis, skill, limited, actBefore, confidence, window };
+           before, after, gain, verdict, exam, context: ctx, caution, basis, skill, limited, actBefore, confidence, window,
+           mainBy, conduct, academic: mainBy === 'academic' ? null : { ...academic, confidence: academic.gain != null ? planConfidence(academic.before, academic.after) : null } };
 }
 function planReport(plan, students, assignments, data_ref) {
   // التوافق مع الخطط الفردية القديمة: studentId مفرد يُقرأ كعضو واحد
@@ -1164,7 +1240,9 @@ function planReport(plan, students, assignments, data_ref) {
   const allSkills = isGroup ? members.every(m => m.basis === 'skills') : first.basis === 'skills';
   const pTargets = allSkills && Array.isArray(plan.skills) ? plan.skills.map(String).filter(Boolean).slice(0, 6) : null;
   const pw = first.window || {};
-  const peers = planPeers(ids, first.cls || '', students, assignments, data_ref, pw.from, pw.to, pTargets, { start: pw.from, at: Number(plan.createdAt) || 0 });
+  const by = isGroup ? (members.every(m => m.mainBy === first.mainBy) ? first.mainBy : 'academic') : first.mainBy;
+  const peers = by === 'academic' || by === first.mainBy
+    ? planPeers(ids, first.cls || '', students, assignments, data_ref, pw.from, pw.to, by === 'academic' ? pTargets : null, { start: pw.from, at: Number(plan.createdAt) || 0 }, by) : null;
   const myGain = isGroup ? groupGain : first.gain;
   const net = peers && peers.gain != null && myGain != null ? myGain - peers.gain : null;
   if (!caution && net != null && myGain >= PLAN.minGain && net < PLAN.minGain)
@@ -1189,6 +1267,7 @@ function planReport(plan, students, assignments, data_ref) {
     })() : first.exam,
     verdict, caution, context: first.context, improved, declined, unmeasured,
     confidence, peers, net, window: first.window,
+    mainBy: by, measureLabel: by === 'academic' ? '' : CONDUCT[by].label, mainUnit: by === 'academic' ? 'سؤالًا' : CONDUCT[by].unit, conduct: isGroup ? null : first.conduct, academic: isGroup ? null : first.academic,
     actionsTotal: actions.length, actionsDone: doneCount,
     progress: actions.length ? Math.round((doneCount / actions.length) * 100) : 0,
     basis: isGroup ? (members.every(m => m.basis === 'skills') ? 'skills' : 'activities') : first.basis,
@@ -1197,7 +1276,7 @@ function planReport(plan, students, assignments, data_ref) {
         __q: isGroup ? Math.min(...members.map(m => (m.after && m.after.total) || 0)) : ((first.after && first.after.total) || 0) },
       isGroup ? groupGain : first.gain,
       isGroup ? (measured.length ? avg(members.filter(m => m.after.measured).map(m => m.after.rate)) : null) : (first.after && first.after.measured ? first.after.rate : null),
-      isGroup ? measured.length > 0 : !!(first.after && first.after.measured), { confidence, net }),
+      isGroup ? measured.length > 0 : !!(first.after && first.after.measured), { confidence, net, by }),
   };
 }
 /* ⏰ مدة الخطة والقرار المقترح بعد انتهائها (المعلم يؤكده من اللوحة)
@@ -1216,16 +1295,19 @@ function planTiming(plan, gain, afterRate, measured, ev) {
   const changed = !!plan.interventionChanged;
   let decision, why;
   const weak = !!(ev && ev.confidence && ev.confidence.level === 'weak');
+  const ind = ev && ev.by && CONDUCT[ev.by];
+  const TARGET = ind ? ind.target : PLAN.target;   // هدف المؤشر: تسليم 80% · حضور 90% · سلوك 90%
+  const enough = ind ? (plan.__q || 0) >= 6 : ((plan.__acts || 0) >= 2 || (plan.__q || 0) >= 10);
   const classToo = !!(ev && ev.net != null && ev.net < PLAN.minGain);
-  if (!measured) { decision = 'extend_measure'; why = 'لم يحل الطالب أي نشاط بعد بدء الخطة، فلا يمكن الحكم عليها — غالبًا المشكلة مشاركة لا فهم'; }
-  else if (gain == null && afterRate >= PLAN.target) { decision = 'close_success'; why = `لا يوجد قياس قبل الخطة للمقارنة، لكنه وصل إلى ${afterRate}% (الهدف ${PLAN.target}%)`; }
-  else if (gain == null) { decision = round > 1 ? 'change' : 'extend'; why = `لا يوجد قياس قبل الخطة للمقارنة، ومستواه ${afterRate}% دون الهدف ${PLAN.target}%`; }
+  if (!measured) { decision = 'extend_measure'; why = ind ? `لا سجلات كافية في «${ind.label}» بعد بدء الخطة — نمدّد أسبوعًا لجمعها` : 'لم يحل الطالب أي نشاط بعد بدء الخطة، فلا يمكن الحكم عليها — غالبًا المشكلة مشاركة لا فهم'; }
+  else if (gain == null && afterRate >= TARGET) { decision = 'close_success'; why = `لا يوجد قياس قبل الخطة للمقارنة، لكنه وصل إلى ${afterRate}% (الهدف ${TARGET}%)`; }
+  else if (gain == null) { decision = round > 1 ? 'change' : 'extend'; why = `لا يوجد قياس قبل الخطة للمقارنة، ومستواه ${afterRate}% دون الهدف ${TARGET}%`; }
   // ⚖️ لا يُغلق «ناجحًا» تحسّنٌ قد يكون صدفة أو أصاب الفصل كله — يُمدَّد لجمع دليل أقوى
   else if (gain >= PLAN.minGain && weak) { decision = 'extend'; why = `تحسّن ${gain} نقطة لكن من أسئلة قليلة (ضمن هامش الصدفة) — نمدّد لنتأكد`; }
   else if (gain >= PLAN.minGain && classToo) { decision = 'extend'; why = `تحسّن ${gain} نقطة، لكن الفصل كله تحسّن بقدر قريب — لا يُنسب للخطة بعد`; }
-  else if (gain >= PLAN.minGain && afterRate >= PLAN.target && ((plan.__acts || 0) >= 2 || (plan.__q || 0) >= 10)) { decision = 'close_success'; why = `تحسّن ${gain} نقطة ووصل إلى ${afterRate}%`; }
-  else if (gain >= PLAN.minGain && afterRate >= PLAN.target) { decision = 'extend'; why = `تحسّن ${gain} نقطة ووصل إلى ${afterRate}% — لكن من قياس واحد؛ نؤكده بقياس ثانٍ قبل الإغلاق`; }
-  else if (gain >= PLAN.minGain) { decision = 'extend'; why = `تحسّن ${gain} نقطة لكنه ${afterRate}% — دون الهدف ${PLAN.target}%`; }
+  else if (gain >= PLAN.minGain && afterRate >= TARGET && enough) { decision = 'close_success'; why = `تحسّن ${gain} نقطة ووصل إلى ${afterRate}%`; }
+  else if (gain >= PLAN.minGain && afterRate >= TARGET) { decision = 'extend'; why = `تحسّن ${gain} نقطة ووصل إلى ${afterRate}% — لكن من قياس واحد؛ نؤكده بقياس ثانٍ قبل الإغلاق`; }
+  else if (gain >= PLAN.minGain) { decision = 'extend'; why = `تحسّن ${gain} نقطة لكنه ${afterRate}% — دون الهدف ${TARGET}%`; }
   else if (changed) { decision = 'refer'; why = 'لم يتحسّن رغم تغيير نوع التدخل سابقًا'; }
   else { decision = 'change'; why = gain <= -PLAN.minGain ? `تراجع ${-gain} نقطة` : 'لم يظهر فرق يُعتد به'; }
   return { due, days, left, expired, round, changed, decision, why };

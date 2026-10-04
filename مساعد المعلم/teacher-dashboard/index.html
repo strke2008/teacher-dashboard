@@ -359,6 +359,8 @@ body.pf-open{overflow:hidden}
 .plan-evid{display:flex;flex-wrap:wrap;gap:.35rem .7rem;align-items:center;margin-top:.55rem;font-size:.8rem}
 .plan-skt{margin-top:.55rem;font-size:.82rem}.plan-skt table{width:100%;border-collapse:collapse;margin-top:.3rem}
 .plan-skt th,.plan-skt td{border-bottom:1px solid var(--ui-border);padding:.3rem .4rem;text-align:start}
+.plan-skt tr.main td{background:rgba(46,158,107,.08)}
+.pc-by{font-size:.74rem;color:var(--ink-soft);font-weight:700;margin-inline-end:.3rem}
 .plan-skt th{font-weight:700;color:var(--ink-soft);font-size:.76rem}.plan-skt .up{color:#2E7D32}.plan-skt .down{color:#C62828}
 .pf-skills{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.35rem}
 #plan-form .pf-skills label.ann-chip,.pf-skills .ann-chip{display:inline-flex;flex-direction:row;align-items:center;margin:0;font-weight:600}
@@ -8803,7 +8805,7 @@ async function planSyncRemActions(){
 /* الحقول المحفوظة للخطة — مصدر واحد حتى لا تضيع المدة وسجل القرارات عند أي حفظ */
 function planRaw(p){return {id:p.id,studentId:p.studentId,studentIds:p.studentIds,startDate:p.startDate,endDate:p.endDate,reason:p.reason,
   actions:(p.actions||[]).map(a=>({...a})),notes:p.notes,status:p.status,durationDays:p.durationDays,dueDate:p.dueDate,
-  round:p.round,createdAt:p.createdAt,interventionChanged:p.interventionChanged,outcome:p.outcome,skills:Array.isArray(p.skills)?p.skills.slice():undefined,history:Array.isArray(p.history)?p.history.map(x=>({...x})):undefined,
+  round:p.round,createdAt:p.createdAt,measure:p.measure,pattern:p.pattern,interventionChanged:p.interventionChanged,outcome:p.outcome,skills:Array.isArray(p.skills)?p.skills.slice():undefined,history:Array.isArray(p.history)?p.history.map(x=>({...x})):undefined,
   at:Date.now() /* أحدث من أي رقعة تلقائية سبقت: ما يراه المعلم الآن يصبح هو الأصل */}}
 const PLAN_DECISIONS={
   close_success:{icon:'✅',t:'إغلاق: نجحت الخطة',d:'وصل للهدف — تُغلق الخطة.'},
@@ -9058,6 +9060,7 @@ function openPlanForm(id){
   planEditId=id||'';window._pfMemCls=undefined;window._pfMemQ='';
   const p=(PLAN_DATA&&PLAN_DATA.plans||[]).find(x=>x.id===id);
   window._pfSkills=p&&Array.isArray(p.skills)?p.skills.slice():[];
+  window._pfPattern=p&&p.pattern||'';
   const grp=!!(p&&p.group);
   window._pfMembers=grp?(p.members||[]).map(m=>String(m.studentId)):[];
   const box=document.getElementById('plan-form'); if(!box) return;
@@ -9076,6 +9079,7 @@ function openPlanForm(id){
       <label style="min-width:150px;align-self:flex-end">نوع الخطة<span style="display:flex;align-items:center;gap:.35rem;font-weight:400;padding:.45rem 0"><input type="checkbox" id="pf-group" ${grp?'checked':''} onchange="togglePlanGroup()"> خطة جماعية</span></label>
       <label style="min-width:150px">تاريخ البدء<input id="pf-start" type="date" class="inp" value="${planEsc(p?p.startDate:new Date().toISOString().slice(0,10))}"></label>
       <label style="min-width:150px">مدة الخطة<select id="pf-dur" class="inp">${[7,14,21,28].map(d=>`<option value="${d}" ${((p&&p.durationDays)||14)==d?'selected':''}>${d===7?'أسبوع':d===14?'أسبوعان (موصى به)':d===21?'ثلاثة أسابيع':'أربعة أسابيع'}</option>`).join('')}</select></label>
+      <label style="min-width:190px">أساس الحكم على الخطة<select id="pf-measure" class="inp" title="بماذا يُقاس نجاح الخطة">${[['auto','تلقائي حسب نمط الطالب'],['academic','📘 التحصيل (الأنشطة والمهارات)'],['hw','📚 تسليم الواجبات'],['att','🗓️ الحضور'],['beh','🙂 السلوك']].map(([v,t])=>`<option value="${v}" ${((p&&p.measure)||'auto')===v?'selected':''}>${t}</option>`).join('')}</select></label>
       <input id="pf-end" type="hidden" value="${planEsc(p?p.endDate:'')}">
       ${p?'':`<label style="flex-basis:100%;display:flex;gap:.45rem;align-items:center;font-weight:600;font-size:.88rem;margin-top:.2rem"><input type="checkbox" id="pf-send" checked> 🩹 أرسل مهمة علاجية للبوابة فور إنشاء الخطة <span class="muted" style="font-weight:400;font-size:.78rem">(من أخطائه في أضعف نشاطين — تُعلَّم إجراءاتها تلقائيًا عند الحل)</span></label>`}
     </div>
@@ -9133,6 +9137,7 @@ function applyDiagnosis(sid){
   if(!dx||!dx.pattern) return;
   const rs=document.getElementById('pf-reason');
   if(rs) rs.value=dx.summary||'';
+  window._pfPattern=dx.pattern||'';
   window._pfSkills=(dx.skills||[]).map(s=>s.skill);
   renderPlanSkills();
   window._pfActions=(dx.actions||[]).slice();
@@ -9297,7 +9302,8 @@ async function submitPlan(){
     notes:document.getElementById('pf-notes').value||'',
     status:(prev&&prev.status)||'active',
     actions:acts.map(t=>{const old=prev&&(prev.actions||[]).find(a=>a.text===t);return {text:t,done:!!(old&&old.done)}}), at:Date.now(),
-    skills:(window._pfSkills||[]).slice(0,6) };
+    skills:(window._pfSkills||[]).slice(0,6),
+    measure:(document.getElementById('pf-measure')||{}).value||'auto', pattern:window._pfPattern||(prev&&prev.pattern)||'' };
   const sendNow=!planEditId&&!!document.getElementById('pf-send')?.checked;
   if(sendNow&&!rec.actions.some(a=>a.text===PLAN_REM_ACTION))rec.actions.push({text:PLAN_REM_ACTION,done:false});
   const next=planEditId?all.map(p=>p.id===planEditId?rec:p):[rec,...all];
@@ -9352,10 +9358,23 @@ function planBaseText(p){const w=p.window||{};if(!w.baseTo)return '';return w.ba
 function planPeerText(p){const r=p.peers;if(!r)return '';if(r.gain==null)return `لا مقارنة بالفصل (قِيس ${r.n} من زملائه فقط، والحد الأدنى 3)`;return `تغيّر زملائه في الفترة نفسها ${planSigned(r.gain)} (${r.n} طالبًا) ← الأثر الصافي للخطة ${planSigned(p.net)} نقطة`}
 function planEvidenceHTML(p){
   const c=p.confidence, parts=[];
-  if(c)parts.push(`<span class="chip ${PLAN_CONF_TONE[c.level]||'ghost'}" title="مجال الثقة 95% للفرق: من ${c.lo} إلى ${c.hi} نقطة">📊 ${planEsc(c.label)}</span><span class="muted">الفرق الحقيقي غالبًا بين ${planSigned(c.lo)} و${planSigned(c.hi)} نقطة · ${c.nBefore} سؤالًا قبل و${c.nAfter} بعد</span>`);
+  if(c)parts.push(`<span class="chip ${PLAN_CONF_TONE[c.level]||'ghost'}" title="مجال الثقة 95% للفرق: من ${c.lo} إلى ${c.hi} نقطة">📊 ${planEsc(c.label)}</span><span class="muted">الفرق الحقيقي غالبًا بين ${planSigned(c.lo)} و${planSigned(c.hi)} نقطة · ${c.nBefore} ${planEsc(p.mainUnit||'سؤالًا')} قبل و${c.nAfter} بعد</span>`);
   const pt=planPeerText(p); if(pt)parts.push(`<span>👥 ${planEsc(pt)}</span>`);
   const bt=planBaseText(p); if(bt)parts.push(`<span class="muted">📅 خط الأساس: ${planEsc(bt)}</span>`);
   return parts.length?`<div class="plan-evid">${parts.join('')}</div>`:'';
+}
+/* 🧭 المؤشرات الانضباطية (من الخادم): الواجبات، المشاركة، الحضور، السلوك — قبل وبعد */
+const PLAN_MEASURE_ICON={academic:'📘',hw:'📚',att:'🗓️',beh:'🙂',part:'🙋'};
+function planMainLabel(p){return p.mainBy&&p.mainBy!=='academic'?`${PLAN_MEASURE_ICON[p.mainBy]||''} ${p.measureLabel||''}`:(p.basis==='skills'?'📘 المهارات المستهدفة':'📘 التحصيل')}
+function planConductRows(p){const c=p.conduct;if(!c)return [];return ['hw','part','att','beh'].map(k=>c[k]).filter(x=>x&&(x.before.total||x.after.total))}
+function planConductHTML(p){
+  const rows=planConductRows(p); if(!rows.length&&!p.academic) return '';
+  const r=m=>m&&m.total?`${m.rate}% <small class="muted">(${m.correct}/${m.total})</small>`:'—';
+  const ac=p.academic;
+  return `<div class="plan-skt"><b>🧭 كل عناصر التقييم قبل الخطة وبعدها</b><table><thead><tr><th>العنصر</th><th>قبل</th><th>بعد</th><th>الفرق</th></tr></thead><tbody>
+    ${ac?`<tr><td>📘 التحصيل (${ac.basis==='skills'?'المهارات':'الأنشطة'})</td><td>${r(ac.before)}</td><td>${r(ac.after)}</td><td>${ac.gain==null?'<span class="muted">—</span>':`<b class="${ac.gain>=5?'up':ac.gain<=-5?'down':''}">${planSigned(ac.gain)}</b>`}</td></tr>`:''}
+    ${rows.map(x=>`<tr ${x.key===p.mainBy?'class="main"':''}><td>${PLAN_MEASURE_ICON[x.key]||''} ${planEsc(x.label)}${x.key===p.mainBy?' <span class="chip tick" style="font-size:.68rem">أساس الحكم</span>':''}${x.key==='beh'&&x.after.neg?` <small class="muted">(${x.after.neg} ملاحظة بعد)</small>`:''}</td><td>${r(x.before)}</td><td>${r(x.after)}</td><td>${x.gain==null?'<span class="muted">لا يكفي</span>':`<b class="${x.gain>=5?'up':x.gain<=-5?'down':''}">${planSigned(x.gain)}</b>`}</td></tr>`).join('')}
+  </tbody></table><div class="muted" style="font-size:.74rem">من سجلات المعلم الفعلية: آخر 30 يومًا قبل البدء مقابل مدة الخطة. الغياب بعذر والواجب «معذور» لا يُحسبان على الطالب. كل عنصر مستقل ولا يُدمج في رقم واحد.</div></div>`;
 }
 function planSkillRows(p){const it=p.skill&&Array.isArray(p.skill.items)?p.skill.items:[];return it}
 function planSkillTableHTML(p){
@@ -9385,7 +9404,7 @@ function planCard(p){
       <div class="pc-badges">${planBadge(p.verdict)}${conf}</div>
     </div>
     <div class="pc-mid">
-      <div class="pc-score"><span>${planRate(p.before)}</span><i>←</i><span>${planRate(p.after)}</span>
+      <div class="pc-score"><span class="pc-by">${planMainLabel(p)}</span><span>${planRate(p.before)}</span><i>←</i><span>${planRate(p.after)}</span>
         ${p.gain==null?'':`<b class="pc-gain ${tone}">${arrow} ${planSigned(p.gain)}</b>`}</div>
       <div class="pc-meta">
         ${p.net!=null?`<span title="${planEsc(planPeerText(p))}">👥 صافي ${planSigned(p.net)}</span>`:''}
@@ -9402,10 +9421,11 @@ function planCard(p){
         ${planEvidenceHTML(p)}
         ${planExamRow(p)}
         ${p.group?`<div class="mem-table">${(p.members||[]).map(m=>`<div class="mem-row"><span>${planEsc(m.name)}</span><span class="muted">قبل ${m.before.measured?m.before.rate+'%':'—'} · بعد ${m.after.measured?m.after.rate+'%':'—'}${m.exam?` · 📝 ${m.exam.before.measured?m.exam.before.rate+'%':'—'} ← ${m.exam.after.measured?m.exam.after.rate+'%':'—'}`:''}</span><span class="chip ${m.verdict==='تحسّن'?'tick':m.verdict==='تراجع'?'bad':'ghost'}">${m.gain==null?planEsc(m.verdict):(m.gain>0?'+':'')+m.gain}</span></div>`).join('')}</div>`:''}
+        ${planConductHTML(p)}
         ${planSkillTableHTML(p)}
         <div class="pc-sub">الإجراءات</div>
         <ul class="pc-acts">${(p.actions||[]).map((a,i)=>`<li><label><input type="checkbox" ${a.done?'checked':''} onchange="togglePlanAction('${id}',${i})"> ${planEsc(a.text)}</label></li>`).join('')||'<li class="muted">بلا إجراءات</li>'}</ul>
-        <div class="muted" style="font-size:.8rem">خلال الخطة: الحضور ${p.context&&p.context.attendanceRate!=null?p.context.attendanceRate+'%':'—'} (${p.context?p.context.missedDays:0} غياب) · الواجب ${p.context?p.context.hwDone:0} مسلَّم و${p.context?p.context.hwMissed:0} غير مسلَّم · ${p.after.acts||0} نشاط بعد البدء · من ${planEsc(p.startDate||'')}</div>
+        <div class="muted" style="font-size:.8rem">خلال الخطة: الحضور ${p.context&&p.context.attendanceRate!=null?p.context.attendanceRate+'%':'—'} (${p.context?p.context.missedDays:0} غياب) · الواجب ${p.context?p.context.hwDone:0} مسلَّم و${p.context?p.context.hwMissed:0} غير مسلَّم · ${(p.academic?p.academic.after.acts:p.after.acts)||0} نشاط بعد البدء · من ${planEsc(p.startDate||'')}</div>
         ${p.notes?`<div class="muted" style="font-size:.85rem;margin-top:.3rem">📝 ${planEsc(p.notes)}</div>`:''}
         ${t.expired&&!done?'':planTimingHTML(p)}
         <div id="plan-rem-${id}">${planRemHTML(p)}</div>
@@ -9486,7 +9506,7 @@ function printPlans(id){
   const dt=new Date(), today=`${dt.getFullYear()}/${String(dt.getMonth()+1).padStart(2,'0')}/${String(dt.getDate()).padStart(2,'0')}`;
   const pct=m=>m&&m.measured&&m.rate!=null?m.rate+'%':'—';
   const diff=g=>g==null?'—':((g>0?'+':'')+g+' نقطة');
-  const detail=m=>m&&m.measured&&m.total?`<small>${m.correct} من ${m.total} سؤالًا في ${m.acts} نشاط</small>`:'';
+  const detail=m=>m&&m.measured&&m.total?`<small>${m.correct} من ${m.total} ${m.acts?`سؤالًا في ${m.acts} نشاط`:''}</small>`:'';
   const exDet=m=>m&&m.measured&&m.tests?`<small>${m.tests} ${m.tests===1?'اختبار':'اختبارات'}</small>`:'';
   const page=p=>{
     const ex=p.exam||null, c=p.context||{}, acts=Array.isArray(p.actions)?p.actions:[];
@@ -9510,16 +9530,18 @@ function printPlans(id){
         ${acts.length?acts.map((a,i)=>`<tr><td>${i+1}</td><td style="text-align:start">${planEsc(a.text)}</td><td>${a.done?'✔ نُفِّذ':'لم يُنفَّذ'}</td></tr>`).join(''):'<tr><td colspan="3">لا توجد إجراءات مسجّلة</td></tr>'}
       </tbody></table>
       <div class="plan-note">نُفِّذ ${p.actionsDone||0} من ${p.actionsTotal||0} إجراء</div></div>
-      <div class="rep-sec">ثالثًا: قياس الأثر (من إجابات الطالب الفعلية)</div>
+      <div class="rep-sec">ثالثًا: قياس الأثر في عناصر التقييم (من السجلات الفعلية)</div>
       <div class="rep-box"><table class="rt"><thead><tr><th>أداة القياس</th><th>قبل الخطة</th><th>بعد الخطة</th><th>الفرق</th><th>الحكم</th></tr></thead><tbody>
-        <tr><td><b>${p.basis==='skills'?'المهارات المستهدفة':'الأنشطة'}</b></td><td>${pct(p.before)}${p.group?'':detail(p.before)}</td><td>${pct(p.after)}${p.group?'':detail(p.after)}</td><td>${diff(p.gain)}</td><td>${planEsc(p.verdict||'—')}</td></tr>
+        <tr><td><b>${planMainLabel(p).replace(/^\S+\s/,'')}</b>${p.mainBy&&p.mainBy!=='academic'?'<small>أساس الحكم</small>':''}</td><td>${pct(p.before)}${p.group?'':detail(p.before)}</td><td>${pct(p.after)}${p.group?'':detail(p.after)}</td><td>${diff(p.gain)}</td><td>${planEsc(p.verdict||'—')}</td></tr>
+        ${p.academic?`<tr><td><b>التحصيل (${p.academic.basis==='skills'?'المهارات':'الأنشطة'})</b></td><td>${pct(p.academic.before)}${detail(p.academic.before)}</td><td>${pct(p.academic.after)}${detail(p.academic.after)}</td><td>${diff(p.academic.gain)}</td><td>${planEsc(p.academic.verdict||'—')}</td></tr>`:''}
+        ${planConductRows(p).filter(x=>x.key!==p.mainBy).map(x=>`<tr><td><b>${planEsc(x.label)}</b></td><td>${x.before.total?x.before.rate+'%<small>'+x.before.correct+' من '+x.before.total+'</small>':'—'}</td><td>${x.after.total?x.after.rate+'%<small>'+x.after.correct+' من '+x.after.total+'</small>':'—'}</td><td>${diff(x.gain)}</td><td>${planEsc(x.verdict)}</td></tr>`).join('')}
         ${ex?`<tr><td><b>الاختبارات</b></td><td>${pct(ex.before)}${exDet(ex.before)}</td><td>${pct(ex.after)}${exDet(ex.after)}</td><td>${diff(ex.gain)}</td><td>${planEsc(ex.verdict||'—')}</td></tr>`:''}
       </tbody></table>
       ${p.group?`<table class="rt" style="margin-top:.6rem"><thead><tr><th>الطالب</th><th>الأنشطة قبل</th><th>الأنشطة بعد</th><th>الاختبارات قبل</th><th>الاختبارات بعد</th><th>الحكم</th></tr></thead><tbody>
         ${(p.members||[]).map(m=>`<tr><td style="text-align:start">${planEsc(m.name)}</td><td>${pct(m.before)}</td><td>${pct(m.after)}</td><td>${pct(m.exam&&m.exam.before)}</td><td>${pct(m.exam&&m.exam.after)}</td><td>${planEsc(m.verdict||'—')}</td></tr>`).join('')}
       </tbody></table><div class="plan-note">تحسّن ${p.improved||0} · تراجع ${p.declined||0} · لم يُقَس ${p.unmeasured||0}</div>`:''}
       ${p.confidence||p.peers?`<table class="rt" style="margin-top:.6rem"><tbody>
-        ${p.confidence?`<tr><td style="width:150px"><b>دلالة الفرق</b></td><td style="text-align:start">${planEsc(p.confidence.label)} — الفرق الحقيقي بثقة 95% بين ${planSigned(p.confidence.lo)} و${planSigned(p.confidence.hi)} نقطة (${p.confidence.nBefore} سؤالًا قبل، ${p.confidence.nAfter} بعد)</td></tr>`:''}
+        ${p.confidence?`<tr><td style="width:150px"><b>دلالة الفرق</b></td><td style="text-align:start">${planEsc(p.confidence.label)} — الفرق الحقيقي بثقة 95% بين ${planSigned(p.confidence.lo)} و${planSigned(p.confidence.hi)} نقطة (${p.confidence.nBefore} ${planEsc(p.mainUnit||'سؤالًا')} قبل، ${p.confidence.nAfter} بعد)</td></tr>`:''}
         ${p.peers?`<tr><td><b>المقارنة بالفصل</b></td><td style="text-align:start">${planEsc(planPeerText(p))}</td></tr>`:''}
         ${planBaseText(p)?`<tr><td><b>فترة خط الأساس</b></td><td style="text-align:start">${planEsc(planBaseText(p))}</td></tr>`:''}
       </tbody></table>`:''}
@@ -9529,10 +9551,11 @@ function printPlans(id){
       ${ex&&ex.undated?`<div class="plan-note">بعض درجات الاختبارات بلا تاريخ اختبار، فحُسبت بتاريخ رصدها.</div>`:''}
       <div class="plan-note"><b>منهجية القياس:</b> النسب من إجابات الطالب الفعلية المسجّلة آليًا لا من التقدير. خط الأساس آخر 30 يومًا قبل الخطة (أو كل ما قبلها إن قلّ عن 10 أسئلة).
         الأنشطة العلاجية مستبعدة من القياس لأن أسئلتها مأخوذة من أخطائه فهي تدريب لا دليل فهم. ${p.basis==='skills'?'القياس على أسئلة المهارات المستهدفة وحدها. ':''}
-        يُحكم بالتحسّن عند فرق 5 نقاط فأكثر، ويُبيَّن هل الفرق أكبر من هامش الصدفة لعدد الأسئلة، ويُقارَن بتغيّر زملائه في الفصل خلال الفترة نفسها.</div></div>
+        يُحكم بالتحسّن عند فرق 5 نقاط فأكثر، ويُبيَّن هل الفرق أكبر من هامش الصدفة لعدد الأسئلة، ويُقارَن بتغيّر زملائه في الفصل خلال الفترة نفسها.
+        ${p.mainBy&&p.mainBy!=='academic'?`الحكم على هذه الخطة بمؤشر «${planEsc(p.measureLabel)}» لأنه سبب إنشائها، وبقية العناصر أدلة مساندة. `:''}الواجبات والمشاركة والحضور والسلوك من سجلات المعلم اليومية؛ الغياب بعذر والواجب «معذور» لا يُحسبان على الطالب.</div></div>
       ${p.group?'':`<div class="rep-sec">رابعًا: سياق التنفيذ خلال الخطة</div>
       <div class="rep-box"><table class="rt"><thead><tr><th>نسبة الحضور</th><th>أيام الغياب</th><th>واجبات مُسلّمة</th><th>واجبات غير مُسلّمة</th><th>أنشطة بعد البدء</th></tr></thead><tbody>
-        <tr><td>${c.attendanceRate!=null?c.attendanceRate+'%':'—'}</td><td>${c.missedDays||0}</td><td>${c.hwDone||0}</td><td>${c.hwMissed||0}</td><td>${(p.after&&p.after.acts)||0}</td></tr></tbody></table></div>`}
+        <tr><td>${c.attendanceRate!=null?c.attendanceRate+'%':'—'}</td><td>${c.missedDays||0}</td><td>${c.hwDone||0}</td><td>${c.hwMissed||0}</td><td>${((p.academic?p.academic.after:p.after)||{}).acts||0}</td></tr></tbody></table></div>`}
       ${Array.isArray(p.history)&&p.history.length?`<div class="rep-sec">سجل القرارات بعد انتهاء المدة</div><div class="rep-box"><table class="rt"><thead><tr><th>التاريخ</th><th>الجولة</th><th>الأثر وقتها</th><th>القرار</th></tr></thead><tbody>
         ${p.history.map(x=>`<tr><td>${planEsc(String(x.at||'').replace(/-/g,'/'))}</td><td>${x.round||1}</td><td>${planEsc(x.verdict||'—')}${x.gain!=null?` (${x.gain>0?'+':''}${x.gain})`:''}</td><td style="text-align:start">${planEsc(x.label||'')}</td></tr>`).join('')}</tbody></table></div>`:''}
       ${p.notes?`<div class="rep-sec">${p.group?'رابعًا':'خامسًا'}: ملاحظات المعلم</div><div class="rep-box plan-txt">${planEsc(p.notes)}</div>`:''}
