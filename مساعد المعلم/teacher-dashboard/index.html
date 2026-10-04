@@ -6904,9 +6904,14 @@ body{
 <div class="field" id="ex-hw-wrap" style="grid-column:1/-1"><label>الأنشطة <span class="muted" style="font-weight:400">(اختر نشاطًا أو أكثر)</span></label>
 <input id="ex-hw" type="hidden" value=""/>
 <div class="exhw" id="ex-hw-pick"></div></div>
-<div class="field" id="ex-json-wrap" style="display:none"><label>ملف الأسئلة</label>
-<label class="btn ghost" style="cursor:pointer;justify-content:center">📥 اختر ملف JSON
-          <input accept=".json,application/json" id="ex-file" onchange="examLoadJson(event)" style="display:none" type="file"/></label></div>
+<div class="field" id="ex-json-wrap" style="display:none"><label>ملفات الأسئلة <span class="muted" style="font-weight:400">(ملف أو أكثر — تُدمج في بنك واحد)</span></label>
+<div class="row" style="gap:.4rem;flex-wrap:wrap">
+<label class="btn ghost" style="cursor:pointer;justify-content:center;flex:1" title="يستبدل البنك الحالي بالملفات المختارة">📥 اختر ملف/ملفات JSON
+          <input accept=".json,application/json" id="ex-file" multiple onchange="examLoadJson(event,false)" style="display:none" type="file"/></label>
+<label class="btn ghost" style="cursor:pointer;justify-content:center;flex:1" title="يضيف أسئلة الملفات إلى البنك الحالي دون حذف شيء">➕ دمج ملف آخر في البنك
+          <input accept=".json,application/json" id="ex-file-add" multiple onchange="examLoadJson(event,true)" style="display:none" type="file"/></label>
+</div>
+<div id="ex-json-files" class="exjf"></div></div>
 </div>
 <div class="sheet" id="ex-ai-wrap" style="display:none;margin:.4rem 0 1rem;padding:.85rem">
 <div class="sheet-head" style="margin-bottom:.55rem">
@@ -10562,6 +10567,13 @@ function renderExamJsonBank(){
   const wrap=document.getElementById('ex-json-bank');
   const list=document.getElementById('ex-bank-list');
   if(!wrap||!list) return;
+  const fbox=document.getElementById('ex-json-files');
+  if(fbox){
+    const fs=EXAM_JSON_BANK.files||[];
+    const cnt=n=>[...EXAM_JSON_BANK.mc,...EXAM_JSON_BANK.tf].filter(q=>q.src===n).length;
+    fbox.innerHTML=fs.length&&(document.getElementById('ex-src')?.value||'json')==='json'
+      ? fs.map(n=>`<span class="exjf-chip">📄 ${esc(n)} <b>${cnt(n)}</b>${fs.length>1?`<button type="button" title="إزالة أسئلة هذا الملف" aria-label="إزالة" onclick="examJsonRemoveFile(${esc(JSON.stringify(n))})">✕</button>`:''}</span>`).join('') : '';
+  }
   examModelsBarInto('ex-bank-list','json');
 
   const source=document.getElementById('ex-src')?.value || 'json';
@@ -10596,7 +10608,7 @@ function renderExamJsonBank(){
     const type=x.kind==='tf'?'صح / خطأ':'اختيار متعدد';
     return `<label class="exam-bank-item">
       <input type="checkbox" ${x.selected!==false?'checked':''} onchange="toggleExamJsonQuestion(${idx},this.checked)">
-      <span class="qtxt"><span class="qnum">${idx+1}.</span> ${escExamText(x.q)}<span class="qmeta"><span class="qtype">${type}</span></span></span>
+      <span class="qtxt"><span class="qnum">${idx+1}.</span> ${escExamText(x.q)}<span class="qmeta"><span class="qtype">${type}</span>${EXAM_JSON_BANK.multi&&x.src?`<span class="qtype">📄 ${esc(x.src)}</span>`:''}</span></span>
       ${x.kind==='mc'?`<span class="qtype">${x.o.length} خيارات</span>`:''}${examModelSel('json',idx,x)}
     </label>`;
   }).join('');
@@ -10706,33 +10718,70 @@ function examNormalizeSource(raw){
   return { mc, tf };
 }
 
-function examLoadJson(ev){
-  const f = ev.target.files?.[0];
-  if(!f) return;
+/* 📚 بنك JSON من ملف أو أكثر: «اختر» يستبدل البنك، و«دمج» يضيف إليه.
+   المكرر (نفس نص السؤال بعد تطبيع الحروف) يُحذف، ويبقى ما حددته أو ثبّتّه لنموذج. */
+function examReadFile(f){ return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result || '')); r.onerror = () => rej(r.error); r.readAsText(f, 'utf-8'); }); }
+function examQKey(q){ return (q.kind === 'tf' ? 'tf' : 'mc') + '|' + rdNormAr(q.q); }
+/* يدمج الوصل/الفراغ/«أجب» مع ما في الحقول (بلا تكرار) أو يستبدلها */
+function examMergeExtras(list, append){
+  const cur = id => append ? examLines(document.getElementById(id)?.value || '') : [];
+  const merge = (id, key) => { const out = cur(id), seen = new Set(out.map(rdNormAr)); list.forEach(ex => (ex[key] || []).forEach(l => { const k = rdNormAr(l); if(!seen.has(k)){ seen.add(k); out.push(l); } })); return out; };
+  const ex = { match:merge('ex-match-txt','match'), fill:merge('ex-fill-txt','fill'), open:merge('ex-open-txt','open') };
+  if(ex.match.length || ex.fill.length || ex.open.length) examApplyExtras(ex, true);
+  return ex;
+}
+async function examLoadJson(ev, append){
+  const files = [...(ev.target.files || [])];
   ev.target.value = '';
-  const r = new FileReader();
-  r.onload = () => {
+  if(!files.length) return;
+  const base = append && (EXAM_JSON_BANK.mc.length || EXAM_JSON_BANK.tf.length || (EXAM_JSON_BANK.raws||[]).length)
+    ? { mc:EXAM_JSON_BANK.mc.slice(), tf:EXAM_JSON_BANK.tf.slice(), raws:(EXAM_JSON_BANK.raws || (EXAM_JSON_BANK.raw ? [{ name:EXAM_JSON_BANK.label || 'ملف', raw:EXAM_JSON_BANK.raw }] : [])).slice(), files:(EXAM_JSON_BANK.files || [EXAM_JSON_BANK.label]).filter(Boolean) }
+    : { mc:[], tf:[], raws:[], files:[] };
+  const seen = new Set([...base.mc, ...base.tf].map(examQKey));
+  let addMc = 0, addTf = 0, dup = 0; const bad = [], exList = [];
+  for(const f of files){
     try{
-      const raw = JSON.parse(String(r.result||''));
+      const raw = JSON.parse(await examReadFile(f));
       const { mc, tf } = examNormalizeSource(raw);
-      if(!mc.length && !tf.length) throw new Error('لم أجد أسئلة اختيار أو صح/خطأ في الملف');
-      try{ const ex = examExtrasFromRaw(raw); if(ex.match.length || ex.fill.length) examApplyExtras(ex, true); }catch(e){}
-      mc.forEach((q,i)=>{ q.kind='mc'; q.id=`mc-${i}`; q.selected=true; });
-      tf.forEach((q,i)=>{ q.kind='tf'; q.id=`tf-${i}`; q.selected=true; });
-      EXAM_JSON_BANK = { mc, tf, label:f.name, raw };
-      EXAM_SRC = { mc:mc.slice(), tf:tf.slice(), label:f.name };
-      const use=document.getElementById('ex-use-selected'); if(use) use.checked=true;
-      renderExamJsonBank();
-      const t = document.getElementById('ex-title');
-      if(t && !t.value.trim()) t.value = 'اختبار قصير';
-      examBuild();
-      toast(`تم تحميل ${mc.length} اختيار و${tf.length} صح/خطأ`,'good');
-    }catch(e){
-      console.error('examLoadJson:', e);
-      toast(e?.message || 'ملف JSON غير صالح', 'bad');
-    }
-  };
-  r.readAsText(f, 'utf-8');
+      let ex = { match:[], fill:[], open:[] }; try{ ex = examExtrasFromRaw(raw); }catch(e){}
+      if(!mc.length && !tf.length && !ex.match.length && !ex.fill.length && !ex.open.length) throw new Error('لا أسئلة صالحة');
+      mc.forEach(q => { q.kind = 'mc'; q.selected = true; q.src = f.name; const k = examQKey(q); if(seen.has(k)){ dup++; return; } seen.add(k); base.mc.push(q); addMc++; });
+      tf.forEach(q => { q.kind = 'tf'; q.selected = true; q.src = f.name; const k = examQKey(q); if(seen.has(k)){ dup++; return; } seen.add(k); base.tf.push(q); addTf++; });
+      exList.push(ex); base.raws.push({ name:f.name, raw }); if(!base.files.includes(f.name)) base.files.push(f.name);
+    }catch(e){ console.error('examLoadJson:', f.name, e); bad.push(f.name); }
+  }
+  if(!base.mc.length && !base.tf.length && !exList.length){ toast(bad.length ? `تعذّر قراءة: ${bad.join('، ')}` : 'لم أجد أسئلة في الملفات', 'bad'); return; }
+  base.mc.forEach((q, i) => { q.id = `mc-${i}`; }); base.tf.forEach((q, i) => { q.id = `tf-${i}`; });
+  const label = base.files.join(' + ');
+  EXAM_JSON_BANK = { mc:base.mc, tf:base.tf, label, raw:null, raws:base.raws, files:base.files, multi:base.files.length > 1 };
+  EXAM_SRC = { mc:base.mc.slice(), tf:base.tf.slice(), label };
+  const X = examMergeExtras(exList, append);
+  const use = document.getElementById('ex-use-selected'); if(use) use.checked = true;
+  renderExamJsonBank();
+  const t = document.getElementById('ex-title'); if(t && !t.value.trim()) t.value = 'اختبار قصير';
+  examBuild(true);
+  toast(`${append ? 'دُمج' : 'حُمّل'} ${files.length - bad.length} ملف: +${addMc} اختيار و+${addTf} صح/خطأ`
+    + (dup ? ` · تُجوهل ${dup} مكرر` : '') + (bad.length ? ` · تعذّر: ${bad.join('، ')}` : '')
+    + ` · البنك الآن ${base.mc.length} اختيار و${base.tf.length} صح/خطأ` + ((X.match.length || X.fill.length || X.open.length) ? ` + ${X.match.length} وصل و${X.fill.length} فراغ و${X.open.length} «أجب»` : ''), bad.length ? 'bad' : 'good');
+}
+/* إزالة ملف من البنك المدمج (أسئلته فقط؛ أسطر الحقول النصية تبقى) */
+function examJsonRemoveFile(name){
+  const keep = q => q.src !== name;
+  EXAM_JSON_BANK.mc = EXAM_JSON_BANK.mc.filter(keep); EXAM_JSON_BANK.tf = EXAM_JSON_BANK.tf.filter(keep);
+  EXAM_JSON_BANK.raws = (EXAM_JSON_BANK.raws || []).filter(r => r.name !== name);
+  EXAM_JSON_BANK.files = (EXAM_JSON_BANK.files || []).filter(f => f !== name);
+  EXAM_JSON_BANK.multi = EXAM_JSON_BANK.files.length > 1; EXAM_JSON_BANK.label = EXAM_JSON_BANK.files.join(' + ');
+  EXAM_SRC = { mc:EXAM_JSON_BANK.mc.slice(), tf:EXAM_JSON_BANK.tf.slice(), label:EXAM_JSON_BANK.label };
+  renderExamJsonBank(); examBuild(true); toast(`أُزيلت أسئلة «${name}» من البنك`);
+}
+function examJsonExtras(){
+  const rs = EXAM_JSON_BANK.raws;
+  if(Array.isArray(rs) && rs.length){
+    const out = { fill:[], match:[], open:[] };
+    rs.forEach(r => { try{ const e = examExtrasFromRaw(r.raw); ['fill','match','open'].forEach(k => out[k].push(...e[k])); }catch(_){} });
+    return out;
+  }
+  return examExtrasFromRaw(EXAM_JSON_BANK.raw);
 }
 
 /* 📚 عدة أنشطة في اختبار واحد: المحدد يُحفظ في #ex-hw كمعرّفات مفصولة بفواصل */
@@ -11730,7 +11779,7 @@ function examApplyExtras(ex, quiet){
 }
 function examPullExtras(){
   const src = document.getElementById('ex-src')?.value || 'hw';
-  const ex = src === 'hw' ? examExtrasFromActivity() : examExtrasFromRaw(EXAM_JSON_BANK.raw);
+  const ex = src === 'hw' ? examExtrasFromActivity() : examJsonExtras();
   if(!ex.match.length && !ex.fill.length && !ex.open.length){ toast(src === 'ai' ? 'لم يُولَّد وصل أو فراغ بعد — اختر القالب ٢ أو ٣ ثم ولّد من جديد' : 'لا توجد أسئلة وصل أو أكمل الفراغ في هذا المصدر', 'bad'); return; }
   examApplyExtras(ex);
 }
@@ -24554,6 +24603,9 @@ async function wrSendAll(){
 
 /* ═══ قالبا الاختبار ٢ و٣: وصل + أكمل الفراغ + أجب عن كل مما يلي ═══ */
 .exm-bar{display:flex;flex-wrap:wrap;gap:.35rem .5rem;align-items:center;border:1px dashed #2E9E6B;border-radius:10px;padding:.5rem .6rem;margin-bottom:.55rem;background:rgba(46,158,107,.05);font-size:.8rem}
+.exjf{display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.4rem}
+.exjf-chip{display:inline-flex;align-items:center;gap:.3rem;border:1px solid var(--ui-border,#D5E0EC);border-radius:999px;padding:.15rem .55rem;font-size:.76rem;background:var(--ui-bg,#fff)}
+.exjf-chip button{border:0;background:none;cursor:pointer;color:var(--pen,#B4232F);font-weight:800;padding:0 .1rem}
 .exx{flex-basis:100%;margin-top:.3rem}.exx>summary{cursor:pointer;font-weight:700;font-size:.8rem}
 .exx-list{max-height:260px;overflow:auto;margin-top:.35rem;display:grid;gap:.2rem}
 .exx-h{font-weight:800;font-size:.78rem;margin-top:.35rem;color:var(--ink-soft)}
