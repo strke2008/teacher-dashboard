@@ -327,7 +327,6 @@ input,select,textarea{font-family:inherit;font-size:1rem}
 .plan-due-a{display:flex;flex-wrap:wrap;gap:.45rem;align-items:center}
 .plan-basis{margin-top:.45rem;font-size:.82rem;font-weight:700;color:#1565C0}
 .pc{margin-bottom:.6rem;padding:.8rem .9rem;overflow:visible;position:relative}
-.pc:has(.pc-more[open]){z-index:20}
 .pc-need{border-inline-start:4px solid #E9B949}
 .pc-top{display:flex;justify-content:space-between;gap:.6rem;align-items:flex-start}
 .pc-who b{font-size:1rem}.pc-why{font-size:.8rem;color:var(--ink-soft);margin-top:.15rem;line-height:1.5}
@@ -345,9 +344,7 @@ input,select,textarea{font-family:inherit;font-size:1rem}
 .pc-sub{font-weight:700;font-size:.82rem;margin-top:.55rem}
 .pc-acts{margin:.3rem 0 .4rem;padding-inline-start:1.1rem;font-size:.86rem}.pc-acts li{margin:.15rem 0}.pc-acts label{cursor:pointer}
 .pc-btns{display:flex;gap:.35rem;align-items:center;flex-wrap:wrap;margin-top:.55rem}
-.pc-more{position:relative}.pc-more>summary{list-style:none}.pc-more>summary::-webkit-details-marker{display:none}
-.pc-menu{position:absolute;z-index:30;inset-block-end:calc(100% + 4px);inset-inline-start:0;display:grid;gap:.25rem;background:var(--ui-bg);border:1px solid var(--ui-border);border-radius:10px;padding:.4rem;box-shadow:0 6px 20px rgba(0,0,0,.12);min-width:190px}
-.pc-menu .btn{justify-content:flex-start;width:100%}
+.pc-ic{min-width:2.3rem;justify-content:center;font-size:1rem;padding-inline:.5rem}
 .plan-sum{display:flex;flex-wrap:wrap;gap:.4rem}.plan-sum span{background:var(--ui-surface-2);border:1px solid var(--ui-border);border-radius:10px;padding:.35rem .65rem;font-size:.82rem}.plan-sum b{font-size:1rem;margin-inline-end:.2rem}
 .plan-sum .need{border-color:#E9B949;background:rgba(233,185,73,.14)}
 .card.plan-fold{min-height:0;display:block}
@@ -9355,8 +9352,6 @@ function planSkillTableHTML(p){
    والتفاصيل والأدلة في قسم قابل للطي يُحفظ فتحه بين التحديثات. */
 window._planOpen=window._planOpen||new Set();
 function planToggleOpen(id,on){if(on)window._planOpen.add(id);else window._planOpen.delete(id)}
-/* قائمة «المزيد» تُغلق عند النقر خارجها أو بعد اختيار أحد أزرارها */
-document.addEventListener('click',e=>{document.querySelectorAll('.pc-more[open]').forEach(d=>{if(!d.querySelector('summary').contains(e.target))d.open=false})});
 function planCard(p){
   const id=planEsc(p.id), t=p.timing||{}, done=p.status==='done';
   const arrow=p.gain==null?'':(p.gain>0?'▲':p.gain<0?'▼':'=');
@@ -9399,13 +9394,11 @@ function planCard(p){
         <div id="plan-rem-${id}">${planRemHTML(p)}</div>
       </div></details>
     <div class="pc-btns">
-      <button class="btn ghost sm" onclick="openPlanForm('${id}')">✏️ تعديل</button>
-      <button class="btn ghost sm" onclick="printPlans('${id}')">🖨️ طباعة</button>
-      <details class="pc-more"><summary class="btn ghost sm">⋯ المزيد</summary><div class="pc-menu">
-        <button class="btn ghost sm" onclick="planParentMsg('${id}')">✉️ رسالة لولي الأمر</button>
-        ${done?'':`<button class="btn ghost sm" onclick="planSendRemedial('${id}')">🩹 ${p.group?'أرسل لهم مهمة علاجية':'أرسل له مهمة علاجية'}</button>`}
-        ${done?`<button class="btn ghost sm" onclick="closePlan('${id}','active')">↺ إعادة فتح</button>`:''}
-      </div></details>
+      <button class="btn ghost sm pc-ic" onclick="openPlanForm('${id}')" title="تعديل الخطة" aria-label="تعديل الخطة">✏️</button>
+      <button class="btn ghost sm pc-ic" onclick="printPlans('${id}')" title="طباعة الخطة" aria-label="طباعة الخطة">🖨️</button>
+      <button class="btn ghost sm pc-ic" onclick="planParentMsg('${id}')" title="رسالة لولي الأمر" aria-label="رسالة لولي الأمر">✉️</button>
+      ${done?`<button class="btn ghost sm pc-ic" onclick="closePlan('${id}','active')" title="إعادة فتح الخطة" aria-label="إعادة فتح الخطة">↺</button>`
+        :`<button class="btn ghost sm pc-ic" onclick="planSendRemedial('${id}')" title="${p.group?'أرسل لهم مهمة علاجية':'أرسل له مهمة علاجية'}" aria-label="أرسل مهمة علاجية">🩹</button>`}
       ${done?'':`<button class="btn tick sm" style="margin-inline-start:auto" onclick="closePlan('${id}','done')">✔ إنهاء</button>`}
     </div>
   </div>`;
