@@ -906,10 +906,11 @@ function gradeDuties(data, sid, range) {
    إن لم يسلّم شيئًا بعد البدء فالنتيجة «لم يُقَس بعد» — ولا يجوز الحكم بنجاح
    خطة لم يُقَس أثرها. الفرق المعتد به 5 نقاط مئوية فأكثر حتى لا يُحتفى بضجيج. */
 const PLAN = { minGain: 5, target: 75, days: 14 };
-function masteryWindow(assignments, sid, from, to) {
+function masteryWindow(assignments, sid, from, to, skipRemedial) {
   let correct = 0, total = 0, acts = 0;
   for (const h of (assignments || [])) {
     if (!h || !['normal','lab'].includes(h.kind || 'normal')) continue;
+    if (skipRemedial && h.remedial) continue;
     const sub = h.subs && h.subs[String(sid)];
     if (!sub) continue;
     const d = new Date(Number(sub.at) || 0).toISOString().slice(0, 10);
@@ -940,7 +941,7 @@ async function attachSkills(env, data) {
 function skillWindow(data, assignments, sid, from, to, only) {
   const map = (data && data.__skills) || {}, out = {};
   for (const h of (assignments || [])) {
-    if (!h || (h.kind || 'normal') !== 'normal') continue;
+    if (!h || (h.kind || 'normal') !== 'normal' || h.remedial) continue;
     const sk = map[String(h.sid || '')]; if (!sk) continue;
     const sub = h.subs && h.subs[String(sid)]; if (!sub || !sub.d) continue;
     const d = new Date(Number(sub.at) || 0).toISOString().slice(0, 10);
@@ -1023,23 +1024,73 @@ function planContext(data, sid, from, to) {
   return { days, missedDays, attendanceRate: rate, hwDone, hwMissed,
            lowAttendance: rate != null && rate < PLAN_MIN_ATTEND };
 }
+/* 📐 منهجية قياس الخطة (لتكون النتيجة واقعية يُعتمد عليها أمام المشرف):
+   1) خط الأساس = آخر 30 يومًا قبل البدء (مستواه عند بدء الخطة لا متوسط العام كله)،
+      وإن قلّت أسئلتها عن 10 يُؤخذ كل ما قبل البدء حتى لا يُبنى الحكم على عينة صغيرة.
+   2) الأنشطة العلاجية مستبعدة من القياس: أسئلتها منسوخة من أخطائه، فحلّها تدريب لا دليل فهم.
+   3) الدلالة: فرق نسبتين بتصحيح Agresti–Caffo (يضيف نجاحًا وإخفاقًا لكل جهة فلا ينهار عند 0% أو 100%)،
+      مع مجال ثقة 95% — فرق 10 نقاط من 8 أسئلة ليس كفرق 10 نقاط من 80 سؤالًا.
+   4) المقارنة بالفصل: متوسط تغيّر زملائه في الفترتين نفسيهما على الأداة نفسها.
+      الأثر الصافي = تغيّر الطالب − تغيّر الفصل، فلا يُنسب للخطة تحسّنٌ أصاب الفصل كله (درس أسهل مثلًا). */
+const PLAN_BASE_DAYS = 30, PLAN_BASE_MINQ = 10, PLAN_PEER_MIN = 3;
+function shiftDay(d, n) { const t = Date.parse(d + 'T00:00:00Z'); return t ? new Date(t + n * 86400000).toISOString().slice(0, 10) : d; }
+function planBaseline(fn, start) {
+  if (!start) return { win: fn('', ''), from: '' };
+  const to = prevDay(start), from = shiftDay(start, -PLAN_BASE_DAYS);
+  const recent = fn(from, to);
+  if (recent.measured && recent.total >= PLAN_BASE_MINQ) return { win: recent, from };
+  return { win: fn('', to), from: '' };
+}
+function planConfidence(b, a) {
+  if (!b || !a || !b.measured || !a.measured || !(b.total > 0) || !(a.total > 0)) return null;
+  const p1 = (b.correct + 1) / (b.total + 2), p2 = (a.correct + 1) / (a.total + 2);
+  const se = Math.sqrt(p1 * (1 - p1) / (b.total + 2) + p2 * (1 - p2) / (a.total + 2));
+  const diff = p2 - p1, z = se ? diff / se : 0, az = Math.abs(z);
+  const level = az >= 1.96 ? 'strong' : az >= 1.28 ? 'likely' : 'weak';
+  const label = level === 'strong' ? 'فرق مؤكد إحصائيًا (ثقة 95%)' : level === 'likely' ? 'فرق مرجّح (ثقة 80%)' : 'قد يكون الفرق صدفة — العينة لا تكفي للجزم';
+  return { level, label, z: Math.round(z * 100) / 100, lo: Math.round((diff - 1.96 * se) * 100), hi: Math.round((diff + 1.96 * se) * 100),
+           nBefore: b.total, nAfter: a.total };
+}
+/* تغيّر الزملاء في الفترتين نفسيهما وبالأداة نفسها (أنشطة أو المهارات المستهدفة) */
+function planPeers(ids, cls, students, assignments, data_ref, start, to, targets) {
+  if (!start || !cls) return null;
+  const skip = new Set(ids.map(String)), gains = [];
+  for (const s of students) {
+    if (!s || skip.has(String(s.id)) || String(s.cls || '') !== cls) continue;
+    const fn = targets ? (f, t) => skillAgg(skillWindow(data_ref, assignments, s.id, f, t, targets))
+                       : (f, t) => masteryWindow(assignments, s.id, f, t, true);
+    const b = planBaseline(fn, start).win, a = fn(start, to);
+    if (b.measured && a.measured) gains.push(a.rate - b.rate);
+  }
+  if (gains.length < PLAN_PEER_MIN) return { n: gains.length, gain: null };
+  return { n: gains.length, gain: Math.round(gains.reduce((t, v) => t + v, 0) / gains.length) };
+}
 function memberReport(sid, plan, students, assignments, data_ref) {
   const st = students.find(s => String(s.id) === String(sid));
   const start = String(plan.startDate || '');
   const end = String(plan.endDate || '');
   const today = gToday();
   const to = end && end < today ? end : today;
-  const before = masteryWindow(assignments, sid, '', start ? prevDay(start) : '');
-  const actBefore = masteryWindow(assignments, sid, '', start ? prevDay(start) : '');
-  let after = masteryWindow(assignments, sid, start, to);
+  const actFn = (f, t) => masteryWindow(assignments, sid, f, t, true);
+  const base = planBaseline(actFn, start);
+  const before = { ...base.win }, actBefore = { ...base.win };
+  let baseFrom = base.from;
+  let after = masteryWindow(assignments, sid, start, to, true);
   let basis = 'activities', skill = null;
   const targets = Array.isArray(plan.skills) ? plan.skills.map(String).filter(Boolean).slice(0, 6) : [];
   if (targets.length && data_ref) {
-    const sb = skillAgg(skillWindow(data_ref, assignments, sid, '', start ? prevDay(start) : '', targets));
-    const sa = skillAgg(skillWindow(data_ref, assignments, sid, start, to, targets));
-    skill = { targets, before: sb, after: sa };
+    const skFn = (f, t) => skillAgg(skillWindow(data_ref, assignments, sid, f, t, targets));
+    const sbase = planBaseline(skFn, start), sb = sbase.win;
+    const sa = skFn(start, to);
+    // نتيجة كل مهارة على حدة: يرى المعلم والمشرف ما تحسّن وما لم يتحسّن
+    const wb = skillWindow(data_ref, assignments, sid, sbase.from, start ? prevDay(start) : '', targets);
+    const wa = skillWindow(data_ref, assignments, sid, start, to, targets);
+    const one = v => v && v.t ? { rate: Math.round((v.c / v.t) * 100), correct: v.c, total: v.t } : null;
+    const items = targets.map(k => { const b = one(wb[k]), a = one(wa[k]);
+      return { skill: k, before: b, after: a, gain: b && a && b.total >= 2 && a.total >= 2 ? a.rate - b.rate : null }; });
+    skill = { targets, before: sb, after: sa, items, baseFrom: sbase.from };
     // 🎯 القياس على المهارات المستهدفة نفسها متى توفّر في الجهتين (3 أسئلة فأكثر)
-    if (sb.measured && sa.measured) { basis = 'skills'; before.rate = sb.rate; before.correct = sb.correct; before.total = sb.total;
+    if (sb.measured && sa.measured) { basis = 'skills'; baseFrom = sbase.from; before.rate = sb.rate; before.correct = sb.correct; before.total = sb.total;
       after = { ...after, rate: sa.rate, correct: sa.correct, total: sa.total, measured: true }; }
   }
   let verdict = 'قيد التنفيذ', gain = null;
@@ -1063,8 +1114,12 @@ function memberReport(sid, plan, students, assignments, data_ref) {
   // 📏 قياس محدود: الحكم من أقل من 10 أسئلة ضعيف (والطالب المختار لضعفه يرتفع غالبًا وحده — الارتداد للمتوسط)
   const limited = !!(after.measured && after.total < 10);
   if (!caution && limited && gain != null) caution = `قياس محدود (${after.total} أسئلة فقط بعد البدء) — انتظر نشاطًا آخر قبل الحكم النهائي`;
+  const confidence = gain != null ? planConfidence(before, after) : null;
+  if (!caution && confidence && confidence.level === 'weak' && Math.abs(gain) >= PLAN.minGain)
+    caution = `الفرق (${gain > 0 ? '+' : ''}${gain}) ضمن هامش الصدفة لعدد الأسئلة (${before.total} قبل، ${after.total} بعد) — لا يُجزم به بعد`;
+  const window = { baseFrom, baseTo: start ? prevDay(start) : '', from: start, to };
   return { studentId: String(sid), name: st ? st.name : 'طالب محذوف', cls: st ? (st.cls || '') : '',
-           before, after, gain, verdict, exam, context: ctx, caution, basis, skill, limited, actBefore };
+           before, after, gain, verdict, exam, context: ctx, caution, basis, skill, limited, actBefore, confidence, window };
 }
 function planReport(plan, students, assignments, data_ref) {
   // التوافق مع الخطط الفردية القديمة: studentId مفرد يُقرأ كعضو واحد
@@ -1093,6 +1148,19 @@ function planReport(plan, students, assignments, data_ref) {
     else if (unmeasured) caution = `${unmeasured} من ${members.length} لم يُقَس أثرهم بعد`;
   }
   if (!doneCount && actions.length && !caution) caution = 'لم يُنفَّذ أي إجراء من إجراءات الخطة';
+  // 📊 دلالة المجموعة: من مجموع أسئلة أعضائها المقيسين (لا من متوسط النسب)
+  const sum = (arr, k) => arr.reduce((t, m) => t + (Number(m[k]) || 0), 0);
+  const pool = side => ({ measured: measured.length > 0, correct: sum(measured.map(m => m[side]), 'correct'), total: sum(measured.map(m => m[side]), 'total') });
+  const confidence = isGroup ? (measured.length ? planConfidence(pool('before'), pool('after')) : null) : first.confidence;
+  // 👥 المقارنة بالفصل بالأداة نفسها التي قيس بها الطالب
+  const allSkills = isGroup ? members.every(m => m.basis === 'skills') : first.basis === 'skills';
+  const pTargets = allSkills && Array.isArray(plan.skills) ? plan.skills.map(String).filter(Boolean).slice(0, 6) : null;
+  const pw = first.window || {};
+  const peers = planPeers(ids, first.cls || '', students, assignments, data_ref, pw.from, pw.to, pTargets);
+  const myGain = isGroup ? groupGain : first.gain;
+  const net = peers && peers.gain != null && myGain != null ? myGain - peers.gain : null;
+  if (!caution && net != null && myGain >= PLAN.minGain && net < PLAN.minGain)
+    caution = `تحسّن الفصل كله تقريبًا بالقدر نفسه (${peers.gain > 0 ? '+' : ''}${peers.gain}) — التحسّن قد لا يعود للخطة`;
   return {
     ...plan, group: isGroup, members, size: members.length,
     name: isGroup ? `مجموعة (${members.length} طلاب)` : first.name,
@@ -1112,6 +1180,7 @@ function planReport(plan, students, assignments, data_ref) {
                undated: members.reduce((t, m) => t + m.exam.undated, 0), measuredMembers: both.length };
     })() : first.exam,
     verdict, caution, context: first.context, improved, declined, unmeasured,
+    confidence, peers, net, window: first.window,
     actionsTotal: actions.length, actionsDone: doneCount,
     progress: actions.length ? Math.round((doneCount / actions.length) * 100) : 0,
     basis: isGroup ? (members.every(m => m.basis === 'skills') ? 'skills' : 'activities') : first.basis,
@@ -2221,6 +2290,14 @@ async function planPatchMerge(env, id, upd) {
 async function planRemedialSend(env, planId, sids, round, state) {
   const students = Array.isArray(state.students) ? state.students : [];
   const asg = (Array.isArray(state.assignments) ? state.assignments : []).filter(h => h && h.sid && (h.kind || 'normal') === 'normal' && !h.remedial && !h.noRem);
+  // 🎯 المهارات المستهدفة في الخطة: المهمة تُبنى من أخطائه فيها هي أولًا، فتتوافق المهمة مع ما يُقاس
+  let targets = [], skMap = {};
+  try {
+    const cd = await loadClassroom(env);
+    const plan = (Array.isArray(cd.plans) ? cd.plans : []).find(p => p && String(p.id) === String(planId));
+    targets = plan && Array.isArray(plan.skills) ? plan.skills.map(String).filter(Boolean).slice(0, 6) : [];
+    skMap = cd.__skills || {};
+  } catch {}
   const results = [];
   for (const sid of sids) {
     const s = students.find(x => String(x.id) === String(sid));
@@ -2229,15 +2306,31 @@ async function planRemedialSend(env, planId, sids, round, state) {
     const weak = asg.map(h => ({ h, sub: h.subs && h.subs[st.id] }))
       .filter(x => x.sub && Number(x.sub.total) > 0 && String(x.sub.d || '').includes('0'))
       .sort((a, b2) => a.sub.correct / a.sub.total - b2.sub.correct / b2.sub.total).slice(0, 2);
-    if (!weak.length) { results.push({ sid, name: st.name, ok: false, reason: 'لا توجد أخطاء مسجّلة في أنشطته' }); continue; }
-    let q1 = [], q2 = [], fallback = false;
-    for (const w of weak) {
-      const wrong = String(w.sub.d).split('').map((c, i) => c === '0' ? i : -1).filter(i => i >= 0);
-      const r = await remQuestionsFor(env, String(w.h.sid), Array.isArray(w.h.qs) ? w.h.qs : [], wrong.slice(0, REM.maxQ));
-      q1 = q1.concat(r.q1); q2 = q2.concat(r.q2); fallback = fallback || r.fallback;
+    // أخطاؤه في المهارات المستهدفة، من الأكثر أخطاءً فيها
+    const onSkill = targets.length ? asg.map(h => {
+      const sub = h.subs && h.subs[st.id], sk = skMap[String(h.sid)];
+      if (!sub || !sk || !sub.d) return null;
+      const wrong = String(sub.d).split('').map((c, i) => c === '0' && targets.includes(sk[i]) ? i : -1).filter(i => i >= 0);
+      return wrong.length ? { h, sub, wrong } : null;
+    }).filter(Boolean).sort((a, b2) => b2.wrong.length - a.wrong.length) : [];
+    if (!weak.length && !onSkill.length) { results.push({ sid, name: st.name, ok: false, reason: 'لا توجد أخطاء مسجّلة في أنشطته' }); continue; }
+    let q1 = [], q2 = [], fallback = false, used = [];
+    if (onSkill.length) {
+      for (const w of onSkill) {
+        if (q1.length >= REM.maxQ) break;
+        const r = await remQuestionsFor(env, String(w.h.sid), Array.isArray(w.h.qs) ? w.h.qs : [], w.wrong.slice(0, REM.maxQ - q1.length));
+        q1 = q1.concat(r.q1); q2 = q2.concat(r.q2); fallback = fallback || r.fallback; used.push(w);
+      }
+    } else {
+      for (const w of weak) {
+        const wrong = String(w.sub.d).split('').map((c, i) => c === '0' ? i : -1).filter(i => i >= 0);
+        const r = await remQuestionsFor(env, String(w.h.sid), Array.isArray(w.h.qs) ? w.h.qs : [], wrong.slice(0, REM.maxQ));
+        q1 = q1.concat(r.q1); q2 = q2.concat(r.q2); fallback = fallback || r.fallback; used.push(w);
+      }
     }
-    const titles = weak.map(w => String(w.h.title || 'نشاط')).join(' و');
-    const rate = Math.round(weak[0].sub.correct / weak[0].sub.total * 100);
+    const titles = onSkill.length ? targets.filter(k => used.some(w => w.wrong.some(i => (skMap[String(w.h.sid)] || {})[i] === k))).join(' و')
+                                  : used.map(w => String(w.h.title || 'نشاط')).join(' و');
+    const rate = Math.round(used[0].sub.correct / used[0].sub.total * 100);
     const made = await remCreate(env, { st, cls: st.cls, src: round > 1 ? `plan:${planId}:${round}` : `plan:${planId}`, srcTitle: titles, kind: 'plan', planId, force: true,
       reason: `خطة علاجية: ${titles}`, before: rate, q1: q1.slice(0, REM.maxQ), q2: q2.slice(0, REM.maxQ), fallback,
       title: `🩹 خطتك العلاجية: ${titles}`.slice(0, 120), api: '' });
