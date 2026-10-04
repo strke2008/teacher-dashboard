@@ -326,6 +326,33 @@ input,select,textarea{font-family:inherit;font-size:1rem}
 .plan-due-h{font-weight:800;color:#7A5212;font-size:.9rem}.plan-due-why{font-size:.82rem;color:#5B4300}
 .plan-due-a{display:flex;flex-wrap:wrap;gap:.45rem;align-items:center}
 .plan-basis{margin-top:.45rem;font-size:.82rem;font-weight:700;color:#1565C0}
+.pc{margin-bottom:.6rem;padding:.8rem .9rem;overflow:visible;position:relative}
+.pc:has(.pc-more[open]){z-index:20}
+.pc-need{border-inline-start:4px solid #E9B949}
+.pc-top{display:flex;justify-content:space-between;gap:.6rem;align-items:flex-start}
+.pc-who b{font-size:1rem}.pc-why{font-size:.8rem;color:var(--ink-soft);margin-top:.15rem;line-height:1.5}
+.pc-badges{display:flex;gap:.3rem;flex-wrap:wrap;justify-content:flex-end}
+.pc-mid{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem 1.2rem;margin-top:.55rem}
+.pc-score{display:flex;align-items:baseline;gap:.4rem;font-size:1.25rem;font-weight:800}.pc-score i{font-style:normal;color:var(--ink-soft);font-size:.9rem}
+.pc-gain{font-size:.95rem;padding:.1rem .45rem;border-radius:8px;background:var(--ui-surface-2)}.pc-gain.up{color:#2E7D32}.pc-gain.down{color:#C62828}
+.pc-meta{display:flex;flex-wrap:wrap;align-items:center;gap:.35rem .8rem;font-size:.8rem}
+.pc-prog{display:inline-block;width:70px;height:6px;border-radius:9px;background:var(--ui-border);overflow:hidden;vertical-align:middle}.pc-prog i{display:block;height:100%;background:#2E9E6B}
+.plan-need{color:#9A6A00}
+.pc-warn{margin-top:.5rem;font-size:.78rem;color:#8A5A00;background:rgba(233,185,73,.12);border-radius:8px;padding:.3rem .55rem}
+.pc-det{margin-top:.5rem}.pc-det>summary{cursor:pointer;font-size:.8rem;color:var(--ink-soft);font-weight:700;list-style:none}
+.pc-det>summary::before{content:'▸ '}.pc-det[open]>summary::before{content:'▾ '}
+.pc-body{padding:.4rem .1rem 0;border-top:1px dashed var(--ui-border);margin-top:.35rem}
+.pc-sub{font-weight:700;font-size:.82rem;margin-top:.55rem}
+.pc-acts{margin:.3rem 0 .4rem;padding-inline-start:1.1rem;font-size:.86rem}.pc-acts li{margin:.15rem 0}.pc-acts label{cursor:pointer}
+.pc-btns{display:flex;gap:.35rem;align-items:center;flex-wrap:wrap;margin-top:.55rem}
+.pc-more{position:relative}.pc-more>summary{list-style:none}.pc-more>summary::-webkit-details-marker{display:none}
+.pc-menu{position:absolute;z-index:30;inset-block-end:calc(100% + 4px);inset-inline-start:0;display:grid;gap:.25rem;background:var(--ui-bg);border:1px solid var(--ui-border);border-radius:10px;padding:.4rem;box-shadow:0 6px 20px rgba(0,0,0,.12);min-width:190px}
+.pc-menu .btn{justify-content:flex-start;width:100%}
+.plan-sum{display:flex;flex-wrap:wrap;gap:.4rem}.plan-sum span{background:var(--ui-surface-2);border:1px solid var(--ui-border);border-radius:10px;padding:.35rem .65rem;font-size:.82rem}.plan-sum b{font-size:1rem;margin-inline-end:.2rem}
+.plan-sum .need{border-color:#E9B949;background:rgba(233,185,73,.14)}
+.card.plan-fold{min-height:0;display:block}
+.plan-fold>summary{cursor:pointer;list-style:none;font-weight:700}.plan-fold>summary::-webkit-details-marker{display:none}
+.plan-fold>summary::before{content:'▸ ';color:var(--ink-soft)}.plan-fold[open]>summary::before{content:'▾ '}
 .plan-evid{display:flex;flex-wrap:wrap;gap:.35rem .7rem;align-items:center;margin-top:.55rem;font-size:.8rem}
 .plan-skt{margin-top:.55rem;font-size:.82rem}.plan-skt table{width:100%;border-collapse:collapse;margin-top:.3rem}
 .plan-skt th,.plan-skt td{border-bottom:1px solid var(--ui-border);padding:.3rem .4rem;text-align:start}
@@ -9217,16 +9244,15 @@ function renderPlanGroups(){
   const cls=document.getElementById('plan-class')?.value||'';
   const gs=((PLAN_DATA&&PLAN_DATA.planGroups)||[]).filter(g=>!cls||g.cls===cls);
   if(!gs.length){ box.innerHTML=''; return }
-  box.innerHTML=`<div class="card" style="background:var(--ui-surface-2)">
-    <div class="row" style="justify-content:space-between;align-items:center;gap:.5rem">
-      <h3 style="margin:0">👥 مجموعات مقترحة</h3><span class="muted" style="font-size:.82rem">${gs.length} مجموعة</span></div>
+  box.innerHTML=`<details class="card plan-fold" style="background:var(--ui-surface-2)" ${window._planFoldG?'open':''} ontoggle="window._planFoldG=this.open">
+    <summary>👥 مجموعات مقترحة <span class="chip ghost">${gs.length}</span> <span class="muted" style="font-size:.78rem;font-weight:400">طلاب تجمعهم فجوة واحدة</span></summary>
     <div class="muted" style="font-size:.8rem;margin-top:.3rem">طلاب يشتركون في نفس الفجوة — تدخّل واحد يكفيهم بدل خطط منفصلة.</div>
     <div style="margin-top:.5rem">${gs.slice(0,8).map(g=>`<div class="grp-row">
       <div><b>${planEsc(g.label)}</b> <span class="muted">${planEsc(g.cls)}</span>
         <div class="muted" style="font-size:.82rem;margin-top:.2rem">${g.members.map(m=>planEsc(m.name)).join(' · ')}</div>
         ${g.classWide?`<div class="grp-wide">⚠️ ${planEsc(g.note)}</div>`:`<div class="muted" style="font-size:.8rem;margin-top:.2rem">${planEsc(g.note)}</div>`}</div>
       <button class="btn ${g.classWide?'ghost':'tick'} sm" onclick="planFromGroup('${planEsc(g.key)}')">＋ خطة جماعية</button>
-    </div>`).join('')}</div></div>`;
+    </div>`).join('')}</div></details>`;
 }
 function renderPlanActions(){
   const ul=document.getElementById('pf-actions'); if(!ul) return;
@@ -9325,41 +9351,62 @@ function planSkillTableHTML(p){
     ${it.map(x=>`<tr><td>${planEsc(x.skill)}</td><td>${r(x.before)}</td><td>${r(x.after)}</td><td>${x.gain==null?'<span class="muted">لا يكفي</span>':`<b class="${x.gain>=5?'up':x.gain<=-5?'down':''}">${planSigned(x.gain)}</b>`}</td></tr>`).join('')}</tbody></table>
     <div class="muted" style="font-size:.74rem">الفرق يُحسب للمهارة متى أُجيب عنها بسؤالين على الأقل قبل البدء وبعده.</div></div>`;
 }
+/* 🗂️ البطاقة المختصرة: ما يحتاجه المعلم في نظرة (النتيجة، الثقة، التقدم، المطلوب منه)،
+   والتفاصيل والأدلة في قسم قابل للطي يُحفظ فتحه بين التحديثات. */
+window._planOpen=window._planOpen||new Set();
+function planToggleOpen(id,on){if(on)window._planOpen.add(id);else window._planOpen.delete(id)}
+/* قائمة «المزيد» تُغلق عند النقر خارجها أو بعد اختيار أحد أزرارها */
+document.addEventListener('click',e=>{document.querySelectorAll('.pc-more[open]').forEach(d=>{if(!d.querySelector('summary').contains(e.target))d.open=false})});
 function planCard(p){
-  const gain=p.gain==null?'':(p.gain>0?'+':'')+p.gain;
+  const id=planEsc(p.id), t=p.timing||{}, done=p.status==='done';
   const arrow=p.gain==null?'':(p.gain>0?'▲':p.gain<0?'▼':'=');
-  return `<div class="card plan-card" style="margin-bottom:.7rem">
-    <div class="row" style="justify-content:space-between;gap:.6rem;flex-wrap:wrap">
-      <div><b style="font-size:1.02rem">${planEsc(p.name)}</b> <span class="muted">${planEsc(p.cls)}</span>
-        <div class="muted" style="font-size:.82rem">من ${planEsc(p.startDate||'')}${p.endDate?' إلى '+planEsc(p.endDate):' — جارية'} · ${planEsc(p.reason||'بلا سبب محدد')}</div></div>
-      <div>${planBadge(p.verdict)} ${p.status==='done'?'<span class="chip ghost">منتهية</span>':''}</div>
+  const tone=p.gain==null?'':p.gain>=5?'up':p.gain<=-5?'down':'';
+  const c=p.confidence, conf=c?`<span class="chip ${PLAN_CONF_TONE[c.level]||'ghost'}" title="${planEsc(c.label)} — المدى ${planSigned(c.lo)} إلى ${planSigned(c.hi)}">${c.level==='strong'?'مؤكد':c.level==='likely'?'مرجّح':'غير مؤكد'}</span>`:'';
+  const prog=p.actionsTotal?Math.round((p.actionsDone/p.actionsTotal)*100):0;
+  const when=done?(p.outcome?`🏁 ${planEsc(p.outcome)}`:'منتهية'):t.due?(t.expired?'<b class="plan-need">⏰ قرارك مطلوب</b>':`📅 ${t.left===0?'تنتهي اليوم':`باقي ${t.left} ${t.left===1?'يوم':t.left<=10?'أيام':'يومًا'}`}`):'';
+  const skills=Array.isArray(p.skills)&&p.skills.length?p.skills:[];
+  const open=window._planOpen.has(String(p.id));
+  return `<div class="card plan-card pc ${t.expired&&!done?'pc-need':''}">
+    <div class="pc-top">
+      <div class="pc-who"><b>${planEsc(p.name)}</b> <span class="muted">${planEsc(p.cls)}</span>
+        <div class="pc-why">${planEsc(String(p.reason||'بلا سبب محدد').split(' — ')[0])}${skills.length?` · 🏷️ ${skills.slice(0,3).map(planEsc).join('، ')}${skills.length>3?` +${skills.length-3}`:''}`:''}</div></div>
+      <div class="pc-badges">${planBadge(p.verdict)}${conf}</div>
     </div>
-    <div class="row" style="gap:.5rem;margin-top:.6rem;flex-wrap:wrap">
-      <div class="kpi-box"><span class="muted">قبل الخطة${p.group?' (متوسط)':''}</span><b>${planRate(p.before)}</b><small class="muted">${p.group?`متوسط ${p.size} طلاب`:(p.before.measured?p.before.correct+'/'+p.before.total+' في '+p.before.acts+' نشاط':'لا قياس')}</small></div>
-      <div class="kpi-box"><span class="muted">بعد الخطة${p.group?' (متوسط)':''}</span><b>${planRate(p.after)}</b><small class="muted">${p.group?`قِيس ${p.size-p.unmeasured} من ${p.size}`:(p.after.measured?p.after.correct+'/'+p.after.total+' في '+p.after.acts+' نشاط':'لم يسلّم بعد')}</small></div>
-      <div class="kpi-box"><span class="muted">الفرق</span><b>${gain===''?'—':arrow+' '+gain+' نقطة'}</b><small class="muted">${p.actionsDone}/${p.actionsTotal} إجراء منفَّذ</small></div>
+    <div class="pc-mid">
+      <div class="pc-score"><span>${planRate(p.before)}</span><i>←</i><span>${planRate(p.after)}</span>
+        ${p.gain==null?'':`<b class="pc-gain ${tone}">${arrow} ${planSigned(p.gain)}</b>`}</div>
+      <div class="pc-meta">
+        ${p.net!=null?`<span title="${planEsc(planPeerText(p))}">👥 صافي ${planSigned(p.net)}</span>`:''}
+        ${p.group?`<span>👨‍🎓 ${p.size} طلاب · تحسّن ${p.improved}</span>`:''}
+        <span class="pc-prog" title="الإجراءات المنفّذة"><i style="width:${prog}%"></i></span><span class="muted">${p.actionsDone}/${p.actionsTotal} إجراء</span>
+        <span>${when}</span>
+      </div>
     </div>
-    ${planEvidenceHTML(p)}
-    ${planExamRow(p)}
-    ${p.group?`<div class="mem-table">${(p.members||[]).map(m=>`<div class="mem-row"><span>${planEsc(m.name)}</span><span class="muted">قبل ${m.before.measured?m.before.rate+'%':'—'} · بعد ${m.after.measured?m.after.rate+'%':'—'}${m.exam?` · 📝 ${m.exam.before.measured?m.exam.before.rate+'%':'—'} ← ${m.exam.after.measured?m.exam.after.rate+'%':'—'}`:''}</span><span class="chip ${m.verdict==='تحسّن'?'tick':m.verdict==='تراجع'?'bad':'ghost'}">${m.gain==null?planEsc(m.verdict):(m.gain>0?'+':'')+m.gain}</span></div>`).join('')}</div>
-      <div class="muted" style="font-size:.82rem;margin-top:.35rem">تحسّن ${p.improved} · تراجع ${p.declined} · لم يُقَس ${p.unmeasured}</div>`:''}
-    ${p.caution?`<div class="plan-caution">⚠️ ${planEsc(p.caution)}</div>`:''}
-    <div class="muted" style="font-size:.82rem;margin-top:.45rem">خلال الخطة: الحضور ${p.context&&p.context.attendanceRate!=null?p.context.attendanceRate+'%':'—'} (${p.context?p.context.missedDays:0} غياب) · الواجب ${p.context?p.context.hwDone:0} مسلَّم و${p.context?p.context.hwMissed:0} غير مسلَّم · ${p.after.acts} نشاط بعد البدء</div>
-    <ul style="margin:.6rem 0;padding-inline-start:1.1rem">
-      ${(p.actions||[]).map((a,i)=>`<li style="margin:.2rem 0"><label style="cursor:pointer"><input type="checkbox" ${a.done?'checked':''} onchange="togglePlanAction('${planEsc(p.id)}',${i})"> ${planEsc(a.text)}</label></li>`).join('')||'<li class="muted">بلا إجراءات</li>'}
-    </ul>
-    ${p.notes?`<div class="muted" style="font-size:.85rem">${planEsc(p.notes)}</div>`:''}
-    ${p.basis==='skills'&&p.skill?`<div class="plan-basis">📐 يُقاس على المهارات المستهدفة: ${p.skill.targets.map(planEsc).join('، ')}</div>`:(Array.isArray(p.skills)&&p.skills.length?`<div class="plan-basis muted">📐 المهارات المستهدفة: ${p.skills.map(planEsc).join('، ')} — يُقاس عليها متى توفّر 3 أسئلة قبل البدء وبعده (حتى ذلك الحين: الأنشطة)</div>`:'')}
-    ${planSkillTableHTML(p)}
-    ${planTimingHTML(p)}
-    <div id="plan-rem-${planEsc(p.id)}">${planRemHTML(p)}</div>
-    <div class="row" style="gap:.4rem;margin-top:.5rem;flex-wrap:wrap">
-      <button class="btn ghost sm" onclick="openPlanForm('${planEsc(p.id)}')">✏️ تعديل</button>
-      <button class="btn ghost sm" onclick="printPlans('${planEsc(p.id)}')">🖨️ طباعة</button>
-      <button class="btn ghost sm" onclick="planParentMsg('${planEsc(p.id)}')">✉️ لولي الأمر</button>
-      ${p.status==='done'?'':`<button class="btn ghost sm" onclick="planSendRemedial('${planEsc(p.id)}')">🩹 ${p.group?'أرسل لهم مهمة علاجية':'أرسل له مهمة علاجية'}</button>`}
-      ${p.status==='done'?`<button class="btn ghost sm" onclick="closePlan('${planEsc(p.id)}','active')">إعادة فتح</button>`
-        :`<button class="btn tick sm" onclick="closePlan('${planEsc(p.id)}','done')">✔ إنهاء الخطة</button>`}
+    ${p.caution?`<div class="pc-warn">⚠️ ${planEsc(p.caution)}</div>`:''}
+    ${t.expired&&!done?planTimingHTML(p):''}
+    <details class="pc-det" ${open?'open':''} ontoggle="planToggleOpen('${id}',this.open)"><summary>التفاصيل والأدلة</summary>
+      <div class="pc-body">
+        ${p.reason?`<div class="muted" style="font-size:.82rem">${planEsc(p.reason)}</div>`:''}
+        ${planEvidenceHTML(p)}
+        ${planExamRow(p)}
+        ${p.group?`<div class="mem-table">${(p.members||[]).map(m=>`<div class="mem-row"><span>${planEsc(m.name)}</span><span class="muted">قبل ${m.before.measured?m.before.rate+'%':'—'} · بعد ${m.after.measured?m.after.rate+'%':'—'}${m.exam?` · 📝 ${m.exam.before.measured?m.exam.before.rate+'%':'—'} ← ${m.exam.after.measured?m.exam.after.rate+'%':'—'}`:''}</span><span class="chip ${m.verdict==='تحسّن'?'tick':m.verdict==='تراجع'?'bad':'ghost'}">${m.gain==null?planEsc(m.verdict):(m.gain>0?'+':'')+m.gain}</span></div>`).join('')}</div>`:''}
+        ${planSkillTableHTML(p)}
+        <div class="pc-sub">الإجراءات</div>
+        <ul class="pc-acts">${(p.actions||[]).map((a,i)=>`<li><label><input type="checkbox" ${a.done?'checked':''} onchange="togglePlanAction('${id}',${i})"> ${planEsc(a.text)}</label></li>`).join('')||'<li class="muted">بلا إجراءات</li>'}</ul>
+        <div class="muted" style="font-size:.8rem">خلال الخطة: الحضور ${p.context&&p.context.attendanceRate!=null?p.context.attendanceRate+'%':'—'} (${p.context?p.context.missedDays:0} غياب) · الواجب ${p.context?p.context.hwDone:0} مسلَّم و${p.context?p.context.hwMissed:0} غير مسلَّم · ${p.after.acts||0} نشاط بعد البدء · من ${planEsc(p.startDate||'')}</div>
+        ${p.notes?`<div class="muted" style="font-size:.85rem;margin-top:.3rem">📝 ${planEsc(p.notes)}</div>`:''}
+        ${t.expired&&!done?'':planTimingHTML(p)}
+        <div id="plan-rem-${id}">${planRemHTML(p)}</div>
+      </div></details>
+    <div class="pc-btns">
+      <button class="btn ghost sm" onclick="openPlanForm('${id}')">✏️ تعديل</button>
+      <button class="btn ghost sm" onclick="printPlans('${id}')">🖨️ طباعة</button>
+      <details class="pc-more"><summary class="btn ghost sm">⋯ المزيد</summary><div class="pc-menu">
+        <button class="btn ghost sm" onclick="planParentMsg('${id}')">✉️ رسالة لولي الأمر</button>
+        ${done?'':`<button class="btn ghost sm" onclick="planSendRemedial('${id}')">🩹 ${p.group?'أرسل لهم مهمة علاجية':'أرسل له مهمة علاجية'}</button>`}
+        ${done?`<button class="btn ghost sm" onclick="closePlan('${id}','active')">↺ إعادة فتح</button>`:''}
+      </div></details>
+      ${done?'':`<button class="btn tick sm" style="margin-inline-start:auto" onclick="closePlan('${id}','done')">✔ إنهاء</button>`}
     </div>
   </div>`;
 }
@@ -9368,15 +9415,15 @@ function renderPlanCandidates(){
   const cls=document.getElementById('plan-class')?.value||'';
   const c=((PLAN_DATA&&PLAN_DATA.planCandidates)||[]).filter(x=>!cls||x.cls===cls);
   if(!c.length){ box.innerHTML=''; return }
-  box.innerHTML=`<div class="card" style="background:var(--ui-surface-2)">
-    <div class="row" style="justify-content:space-between;align-items:center;gap:.5rem">
-      <h3 style="margin:0">🎯 مرشحون لخطة علاجية</h3><span class="muted" style="font-size:.82rem">${c.length} طالب · الأولوية لمن اجتمعت عليه أكثر من مؤشر</span></div>
+  box.innerHTML=`<details class="card plan-fold" style="background:var(--ui-surface-2)" ${window._planFoldC?'open':''} ontoggle="window._planFoldC=this.open">
+    <summary>🎯 مرشحون لخطة علاجية <span class="chip ghost">${c.length}</span></summary>
+    <div class="row" style="justify-content:space-between;align-items:center;gap:.5rem;margin-top:.3rem"><span class="muted" style="font-size:.82rem">${c.length} طالب · الأولوية لمن اجتمعت عليه أكثر من مؤشر</span></div>
     <div class="muted" style="font-size:.8rem;margin-top:.3rem">الغياب وعدم تسليم الواجب مؤشران مبكّران — يُرشّحان للخطة ولا يقيسان نجاحها.</div>
     <div style="margin-top:.6rem">${c.slice(0,12).map(x=>`<div class="cand-row">
       <div><b>${planEsc(x.name)}</b> <span class="muted">${planEsc(x.cls)}</span>
         <div style="margin-top:.25rem">${x.diagnosis&&x.diagnosis.label?`<span class="chip bad">${planEsc(x.diagnosis.label)}</span> `:''}${x.reasons.map(r=>`<span class="chip ghost">${planEsc(r.text)}</span>`).join(' ')}</div></div>
       <button class="btn tick sm" onclick="planFromCandidate('${planEsc(x.studentId)}',${JSON.stringify(x.reasons.map(r=>r.text).join(' · ')).replace(/"/g,'&quot;')})">＋ خطة</button>
-    </div>`).join('')}</div></div>`;
+    </div>`).join('')}</div></details>`;
 }
 function planFromCandidate(sid,reason){
   openPlanForm();
@@ -9408,10 +9455,14 @@ async function renderPlans(force=false){
     const cs=[...new Set((STUDENTS||[]).map(s=>String(s.cls||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ar'));
     sel.innerHTML='<option value="">كل الفصول</option>'+cs.map(c=>`<option value="${planEsc(c)}">${planEsc(c)}</option>`).join('');
   }
-  const rows=planFiltered();
+  const rank=p=>p.status==='done'?3:(p.timing&&p.timing.expired)?0:(p.timing&&p.timing.left!=null&&p.timing.left<=3)?1:2;
+  const rows=planFiltered().slice().sort((x,y)=>rank(x)-rank(y)||((x.timing&&x.timing.left)??999)-((y.timing&&y.timing.left)??999));
   const improved=rows.filter(p=>p.verdict==='تحسّن').length;
-  const pending=rows.filter(p=>p.verdict==='لم يُقَس أثرها بعد').length;
-  state.innerHTML=`${rows.length} خطة · <b>${improved}</b> تحسّن · <b>${pending}</b> لم يُقَس أثرها بعد`;
+  const sure=rows.filter(p=>p.verdict==='تحسّن'&&p.confidence&&p.confidence.level!=='weak').length;
+  const need=rows.filter(p=>p.status!=='done'&&p.timing&&p.timing.expired).length;
+  const soon=rows.filter(p=>p.status!=='done'&&p.timing&&!p.timing.expired&&p.timing.left!=null&&p.timing.left<=7).length;
+  const pending=rows.filter(p=>p.gain==null).length;
+  state.innerHTML=`<div class="plan-sum"><span><b>${rows.length}</b>خطة</span>${need?`<span class="need"><b>${need}</b>تحتاج قرارك</span>`:''}${soon?`<span><b>${soon}</b>تنتهي خلال أسبوع</span>`:''}<span><b>${improved}</b>تحسّن${sure!==improved?` (${sure} مؤكد)`:''}</span>${pending?`<span><b>${pending}</b>لم تُقَس بعد</span>`:''}</div>`;
   renderPlanGroups();
   renderPlanCandidates();
   list.innerHTML=rows.map(planCard).join('')||'<div class="muted" style="padding:1.5rem;text-align:center">لا توجد خطط. ابدأ بـ«خطة جديدة» أو من قائمة المرشحين.</div>';
