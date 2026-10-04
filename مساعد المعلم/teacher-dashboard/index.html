@@ -11341,7 +11341,8 @@ function examFlexClean(L){
     const t = EX_FLEX_TYPES[x && x.t] ? x.t : 'mc';
     const n = Math.max(1, Math.min(EX_FLEX_TYPES[t].max, Math.round(Number(x && x.n) || 1)));
     const m = Math.max(0.25, Math.min(20, Math.round((Number(x && x.m) || 1) * 4) / 4));
-    return { t, n, m };
+    const l = t === 'open' ? Math.max(0, Math.min(15, Math.round(Number(x && x.l) || 0))) : 0;   // أسطر الإجابة: 0 = تلقائي حسب الدرجة
+    return l ? { t, n, m, l } : { t, n, m };
   }));
   return pages.length ? pages : null;
 }
@@ -11393,6 +11394,7 @@ function examFlexRenderUI(){
         <select class="inp" onchange="examFlexEdit(${pi},${si},'t',this.value)" aria-label="نوع السؤال">${Object.entries(EX_FLEX_TYPES).map(([k, v]) => `<option value="${k}" ${k === x.t ? 'selected' : ''}>${v.label}</option>`).join('')}</select>
         <label class="exf-f">العدد<input class="inp" type="number" min="1" max="${EX_FLEX_TYPES[x.t].max}" value="${x.n}" onchange="examFlexEdit(${pi},${si},'n',this.value)"></label>
         <label class="exf-f">درجة ${x.t === 'match' ? 'الزوج' : x.t === 'open' ? 'السؤال' : 'الفقرة'}<input class="inp" type="number" min="0.25" step="0.25" value="${x.m}" onchange="examFlexEdit(${pi},${si},'m',this.value)"></label>
+        ${x.t === 'open' ? `<label class="exf-f">أسطر الإجابة<input class="inp" type="number" min="1" max="15" placeholder="تلقائي" title="عدد الأسطر تحت كل سؤال — فارغ = تلقائي حسب الدرجة" value="${x.l || ''}" onchange="examFlexEdit(${pi},${si},'l',this.value)"></label>` : '<span></span>'}
         <span class="exf-sub">${sub} درجة</span>
         <span class="exf-tools">
           <button type="button" class="btn ghost sm" title="تحريك لأعلى" aria-label="تحريك لأعلى" onclick="examFlexAct('up',${pi},${si})" ${pi === 0 && si === 0 ? 'disabled' : ''}>▲</button>
@@ -11420,7 +11422,6 @@ function examFlexData(o){
   const M = examParseMatch(o.val('ex-match-txt'));
   const fills = examParseFill(o.val('ex-fill-txt')), opens = examLines(o.val('ex-open-txt'));
   let mi = 0, fi = 0, oi = 0, mcN = 0, tfN = 0, extraUsed = false, total = 0, no = 0;
-  const Lf = Number(examAr2En(o.val('ex-open-lines')));
   const pages = L.map((pg, pi) => pg.map((x, si) => {
     const ord = EX_ORD[no++] || String(no), sec = { t:x.t, ord, m:x.m, key:`${pi}-${si}` };
     if(x.t === 'mc' || x.t === 'tf'){
@@ -11458,7 +11459,8 @@ function examFlexData(o){
       if(Q.length < x.n) notes.push(`أجب (السؤال ${ord}): ${Q.length} من ${x.n} أسئلة مكتوبة — تُترك الباقية فارغة`);
       let items = Array.from({length:x.n}, (_, i) => ({ q:Q[i] || '', m:x.m }));
       if(o.modelCount > 1 || o.mix) items = o.shuffle(items, o.seed + '|op' + sec.key + '|' + o.modelIndex);
-      sec.X = { open:items, marksTail: +(x.n * x.m).toFixed(2), linesFixed: Number.isFinite(Lf) && Lf >= 1 ? Math.min(8, Math.round(Lf)) : 0 };
+      // أسطر القسم كما حددها المعلم، وإلا تلقائي حسب الدرجة (حقل الأسطر العام خاص بالقالب ٣)
+      sec.X = { open:items, marksTail: +(x.n * x.m).toFixed(2), linesFixed: x.l || 0, linesSet: !!x.l };
       sec.marks = sec.X.marksTail;
     }
     total += sec.marks;
@@ -11488,7 +11490,7 @@ function examFlexSecHtml(sec, o){
   }
   if(sec.t === 'match') return examMatchSec(sec.X, { D, key, no:sec.ord });
   if(sec.t === 'fill') return examFillSec(sec.X, { D, key, no:sec.ord });
-  return examOpenSec(sec.X, { D, key, no:sec.ord, shrink:o.shrink || 0 });
+  return examOpenSec(sec.X, { D, key, no:sec.ord, shrink: sec.X.linesSet ? 0 : (o.shrink || 0) });   // الأسطر المحددة يدويًا لا تُضغط
 }
 /* كل صفحة كما صمّمها المعلم؛ إن لم تتسع تُضغط المسافات (٣ مستويات)، ثم تُوزّع أقسامها على صفحة إضافية مع تنبيه */
 function examFlexRender(F, c){
@@ -24362,7 +24364,7 @@ async function wrSendAll(){
 /* ═══ قالبا الاختبار ٢ و٣: وصل + أكمل الفراغ + أجب عن كل مما يلي ═══ */
 .exf-page{border:1px solid var(--ui-border,#D5E0EC);border-radius:12px;padding:.6rem .7rem;margin-bottom:.55rem;background:var(--ui-bg,#fff)}
 .exf-ph{display:flex;align-items:center;gap:.5rem;margin-bottom:.45rem;font-size:.88rem}.exf-ph .muted{font-size:.74rem}
-.exf-row{display:grid;grid-template-columns:5.2rem minmax(150px,1.4fr) 5.5rem 6.5rem 4.6rem auto;gap:.45rem;align-items:end;padding:.4rem 0;border-top:1px dashed var(--ui-border,#D5E0EC)}
+.exf-row{display:grid;grid-template-columns:5.2rem minmax(150px,1.4fr) 5.5rem 6.5rem 6.5rem 4.6rem auto;gap:.45rem;align-items:end;padding:.4rem 0;border-top:1px dashed var(--ui-border,#D5E0EC)}
 .exf-row:first-of-type{border-top:0}
 .exf-no{font-weight:800;font-size:.8rem;color:var(--ink-soft);align-self:center}.exf-sub{font-size:.8rem;font-weight:700;align-self:center}
 .exf-f{display:grid;gap:.15rem;font-size:.72rem;color:var(--ink-soft);font-weight:600}.exf-f .inp{padding:.35rem .45rem}
