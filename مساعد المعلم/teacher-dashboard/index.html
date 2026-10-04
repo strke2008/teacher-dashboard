@@ -326,6 +326,12 @@ input,select,textarea{font-family:inherit;font-size:1rem}
 .plan-due-h{font-weight:800;color:#7A5212;font-size:.9rem}.plan-due-why{font-size:.82rem;color:#5B4300}
 .plan-due-a{display:flex;flex-wrap:wrap;gap:.45rem;align-items:center}
 .plan-basis{margin-top:.45rem;font-size:.82rem;font-weight:700;color:#1565C0}
+.pf-modal{position:fixed;inset:0;z-index:1150;margin:0!important;background:rgba(15,23,42,.55);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:4vh 16px;overscroll-behavior:contain}
+.pf-modal[style*="display: none"],.pf-modal[style*="display:none"]{display:none}
+.pf-modal>.pf-dialog{width:100%;max-width:780px;margin:0 auto 4vh;box-shadow:0 18px 50px rgba(0,0,0,.3)}
+.pf-head{display:flex;justify-content:space-between;align-items:center;gap:.5rem}.pf-head h3{margin:0}
+body.pf-open{overflow:hidden}
+@media (max-width:640px){.pf-modal{padding:8px}}
 .pc{margin-bottom:.6rem;padding:.8rem .9rem;overflow:visible;position:relative}
 .pc-need{border-inline-start:4px solid #E9B949}
 .pc-top{display:flex;justify-content:space-between;gap:.6rem;align-items:flex-start}
@@ -382,6 +388,7 @@ input,select,textarea{font-family:inherit;font-size:1rem}
 .grp-wide{background:#FBF1E0;border-radius:10px;padding:.55rem .7rem;color:#96651B;font-size:.83rem;font-weight:600;margin-top:.35rem}
 #p-plans label{display:block;font-weight:600;font-size:.85rem}
 #p-plans .inp{margin-top:.25rem}
+#plan-form label{display:block;font-weight:600;font-size:.85rem}#plan-form .inp{margin-top:.25rem}
 .rep-page{background:#fff;margin-bottom:1.2rem;box-shadow:var(--shadow);border-radius:10px;overflow:hidden}
 .rep-head{position:relative;background:#0E5B4E;color:#fff;padding:1.1rem 1.3rem;
   display:flex;align-items:center;gap:1rem}
@@ -9041,6 +9048,12 @@ function planBadge(v){
   const map={'تحسّن':'tick','تراجع':'bad','بلا فرق يُعتد به':'warn','لم يُقَس أثرها بعد':'ghost','لا يوجد قياس قبلي للمقارنة':'ghost','لا يوجد قياس بعد':'ghost'};
   return `<span class="chip ${map[v]||'ghost'}">${planEsc(v)}</span>`;
 }
+/* ✏️ نموذج الخطة نافذة فوق الصفحة: يبقى المعلم في مكانه من القائمة، ويرجع إليه عند الإغلاق */
+function closePlanForm(){
+  const box=document.getElementById('plan-form'); if(box){ box.style.display='none'; box.innerHTML=''; }
+  document.body.classList.remove('pf-open');
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.body.classList.contains('pf-open')&&!document.querySelector('.veil.on,.ask-veil'))closePlanForm()});
 function openPlanForm(id){
   planEditId=id||'';window._pfMemCls=undefined;window._pfMemQ='';
   const p=(PLAN_DATA&&PLAN_DATA.plans||[]).find(x=>x.id===id);
@@ -9051,9 +9064,13 @@ function openPlanForm(id){
   const opts=(STUDENTS||[]).slice().sort((a,b)=>String(a.name).localeCompare(String(b.name),'ar'))
     .map(s=>`<option value="${planEsc(s.id)}" ${p&&p.studentId===s.id?'selected':''}>${planEsc(s.name)}${s.cls?' — '+planEsc(s.cls):''}</option>`).join('');
   const acts=(p&&Array.isArray(p.actions)?p.actions:[]).map(a=>a.text);
-  box.style.display='';
-  box.innerHTML=`<div class="card" style="background:var(--ui-surface-2)">
-    <h3>${p?'تعديل الخطة':'خطة علاجية جديدة'}</h3>
+  // يُنقل إلى body: أحد آباء التبويب عليه transform فيجعل position:fixed نسبيًا له لا للشاشة
+  if(box.parentElement!==document.body) document.body.appendChild(box);
+  box.style.display=''; box.classList.add('pf-modal'); document.body.classList.add('pf-open');
+  box.setAttribute('role','dialog'); box.setAttribute('aria-modal','true');
+  box.innerHTML=`<div class="card pf-dialog" style="background:var(--ui-surface-2)">
+    <div class="pf-head"><h3>${p?`✏️ تعديل خطة ${planEsc(p.name||'')}`:'＋ خطة علاجية جديدة'}</h3>
+      <button type="button" class="btn ghost sm" onclick="closePlanForm()" title="إغلاق (Esc)" aria-label="إغلاق">✕</button></div>
     <div class="row" style="gap:.5rem;flex-wrap:wrap;margin-top:.5rem">
       <label style="flex:1;min-width:240px">الطالب<select id="pf-student" class="inp">${opts}</select></label>
       <label style="min-width:150px;align-self:flex-end">نوع الخطة<span style="display:flex;align-items:center;gap:.35rem;font-weight:400;padding:.45rem 0"><input type="checkbox" id="pf-group" ${grp?'checked':''} onchange="togglePlanGroup()"> خطة جماعية</span></label>
@@ -9078,7 +9095,7 @@ function openPlanForm(id){
     <label style="display:block">ملاحظات<textarea id="pf-notes" class="inp" rows="2">${planEsc(p?p.notes:'')}</textarea></label>
     <div class="row" style="gap:.5rem;margin-top:.7rem">
       <button class="btn tick" onclick="submitPlan()">💾 حفظ الخطة</button>
-      <button class="btn ghost" onclick="document.getElementById('plan-form').style.display='none'">إلغاء</button>
+      <button class="btn ghost" onclick="closePlanForm()">إلغاء</button>
       ${p?`<button class="btn bad" onclick="deletePlan('${planEsc(p.id)}')">🗑️ حذف</button>`:''}
     </div>
   </div>`;
@@ -9234,7 +9251,6 @@ function planFromGroup(key){
   renderPlanMembers();
   const rs=document.getElementById('pf-reason'); if(rs) rs.value=g.label||'';
   window._pfActions=(g.actions||[]).slice(); renderPlanActions();
-  const pf=document.getElementById('plan-form'); if(pf&&pf.scrollIntoView) pf.scrollIntoView({block:'center',behavior:'smooth'});
 }
 function renderPlanGroups(){
   const box=document.getElementById('plan-groups'); if(!box) return;
@@ -9284,7 +9300,7 @@ async function submitPlan(){
   const sendNow=!planEditId&&!!document.getElementById('pf-send')?.checked;
   if(sendNow&&!rec.actions.some(a=>a.text===PLAN_REM_ACTION))rec.actions.push({text:PLAN_REM_ACTION,done:false});
   const next=planEditId?all.map(p=>p.id===planEditId?rec:p):[rec,...all];
-  try{ await savePlans(next); document.getElementById('plan-form').style.display='none'; toast('حُفظت الخطة'); }
+  try{ await savePlans(next); closePlanForm(); toast('حُفظت الخطة'); }
   catch(e){ toast('تعذّر الحفظ — تحقق من الاتصال','bad'); return }
   if(sendNow){
     try{const ids=isGroup?members:[sid];
@@ -9301,7 +9317,7 @@ async function deletePlan(id){
   if(!(await askConfirm('لا يمكن التراجع بعد الحذف.',{title:'حذف الخطة نهائيًا؟',yes:'احذف',no:'إبقاء',danger:true}))) return;
   const all=(PLAN_DATA&&PLAN_DATA.plans||[]).filter(p=>p.id!==id)
     .map(planRaw);
-  try{ await savePlans(all); document.getElementById('plan-form').style.display='none'; toast('حُذفت الخطة'); renderPlans(true); }
+  try{ await savePlans(all); closePlanForm(); toast('حُذفت الخطة'); renderPlans(true); }
   catch(e){ toast('تعذّر الحذف','bad') }
 }
 async function togglePlanAction(id,i){
@@ -9423,7 +9439,6 @@ function planFromCandidate(sid,reason){
   const sel=document.getElementById('pf-student'); if(sel) sel.value=sid;
   showDiagnosis(sid,true);
   const rs=document.getElementById('pf-reason'); if(rs&&!rs.value) rs.value=reason||'';
-  const pf=document.getElementById('plan-form');if(pf&&pf.scrollIntoView)pf.scrollIntoView({block:'center',behavior:'smooth'});
 }
 function planFiltered(){
   const cls=document.getElementById('plan-class')?.value||'';
