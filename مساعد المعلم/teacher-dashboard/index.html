@@ -25365,6 +25365,52 @@ function normalAIExamBlock(x){
   return '\n'+L.join('\n');
 }
 
+/* 📦 تقسيم طلب الاختبار الكبير إلى دفعات (١٢ سؤالًا لكل دفعة تقريبًا).
+   الوصل والفراغ و«أجب» في الدفعة الأولى فقط؛ الاختيار والصح/خطأ تُوزَّع على الدفعات.
+   يُرجع null إن كان الطلب صغيرًا (≤ ١٥) فيبقى التوليد طلبًا واحدًا كما كان. */
+const NAI_BATCH=12;
+function naiExamBatches(opts){
+  const c=opts.counts||{}, mc=Number(c.quiz)||0, tf=Number(c.truefalse)||0;
+  const rest=Object.entries(c).filter(([k])=>k!=='quiz'&&k!=='truefalse').reduce((t,[,v])=>t+(Number(v)||0),0);
+  const essays=(opts.examExtra&&Array.isArray(opts.examExtra.essayMarks))?opts.examExtra.essayMarks.length:0;
+  if(mc+tf+rest+essays<=15) return null;
+  const n=Math.max(1,Math.ceil((mc+tf)/NAI_BATCH));
+  const share=(tot,i)=>Math.floor(tot/n)+(i<tot%n?1:0);
+  return Array.from({length:n},(_,i)=>{
+    const counts={}; Object.keys(c).forEach(k=>counts[k]=0);
+    counts.quiz=share(mc,i); counts.truefalse=share(tf,i);
+    if(i===0) Object.keys(c).forEach(k=>{ if(k!=='quiz'&&k!=='truefalse') counts[k]=c[k]; });
+    const ex=opts.examExtra?{...opts.examExtra}:null;
+    if(ex&&i>0){ ex.matchPairs=0; ex.essayMarks=[]; ex.fill=false; }
+    return { ...opts, counts, examExtra:ex };
+  }).filter(p=>Object.values(p.counts).some(v=>v>0)||(p.examExtra&&p.examExtra.essayMarks&&p.examExtra.essayMarks.length));
+}
+async function naiRunBatches(parts,opts,provider,model,status){
+  const items=[], seen=new Set(); let ok=0, failed=0, salv=null;
+  for(let i=0;i<parts.length;i++){
+    if(status) status.textContent=`⏳ بنك كبير: الدفعة ${i+1} من ${parts.length} — جُمع ${items.filter(x=>x.t==='q'||x.t==='tf').length} سؤالًا حتى الآن...`;
+    const p={...parts[i]};
+    if(seen.size){   // الدفعات اللاحقة: لا تكرار، وتغطية جوانب أخرى من الدرس
+      const prev=items.filter(x=>x.q).slice(-40).map(x=>'- '+String(x.q).slice(0,70)).join('\n');
+      p.content=(opts.content||'')+`\n\n[تعليمات الدفعة ${i+1}: هذه دفعة إضافية لبنك اختبار. غطِّ جوانب أخرى من الدرس، ولا تكرر هذه الأسئلة أو أفكارها:\n${prev}]`;
+    }
+    try{
+      const raw=await readingAICall(provider,model,normalAIBuildPrompt(p),__normalAIAbort.signal);
+      try{ window.__AI_SALVAGED=undefined; }catch(_){}
+      const arr=normalAINormalize(readingAIParse(raw));
+      if(window.__AI_SALVAGED){ salv=salv||{ok:0,bad:0}; salv.ok+=window.__AI_SALVAGED.ok; salv.bad+=window.__AI_SALVAGED.bad; }
+      arr.forEach(q=>{ const k=q.t+'|'+rdNormAr(q.q||q.w||q.s||JSON.stringify(q)); if(seen.has(k)) return; seen.add(k); items.push(q); });
+      ok++;
+    }catch(e){
+      if(e&&e.name==='AbortError') throw e;          // أوقف المعلم التوليد
+      console.warn('naiRunBatches: تعذّرت دفعة',i+1,e);
+      failed++;
+      if(!items.length && i===parts.length-1) throw e;   // لم تنجح أي دفعة: أظهر الخطأ كالسابق
+    }
+  }
+  if(failed) salv=Object.assign(salv||{ok:items.length,bad:0},{batchesFailed:failed});
+  return { items, salvaged:salv };
+}
 function normalAIBuildPrompt(opts){
   const dist=[];
   const BANK_LABELS={
@@ -25986,10 +26032,19 @@ async function normalAIGenerate(id){
   try{
     const provider=raiProvider();
     const model=localStorage.getItem('ai_model_'+provider)||READING_AI_PROVIDERS[provider].defaultModel;
-    const raw=await readingAICall(provider,model,normalAIBuildPrompt(opts),__normalAIAbort.signal);
-    try{ window.__AI_SALVAGED=undefined; }catch(_){}
-    const normalized=normalAINormalize(readingAIParse(raw));
-    const salvaged=window.__AI_SALVAGED;   // رد فيه خلل في الصيغة: أُنقذ الصالح منه
+    let normalized, salvaged;
+    const parts=h.__examProxy ? naiExamBatches(opts) : null;
+    if(!parts){
+      // ✅ المسار الأصلي كما هو: طلب واحد (الأنشطة العادية، والاختبار حين يكون العدد صغيرًا)
+      const raw=await readingAICall(provider,model,normalAIBuildPrompt(opts),__normalAIAbort.signal);
+      try{ window.__AI_SALVAGED=undefined; }catch(_){}
+      normalized=normalAINormalize(readingAIParse(raw));
+      salvaged=window.__AI_SALVAGED;   // رد فيه خلل في الصيغة: أُنقذ الصالح منه
+    }else{
+      // 📦 بنك كبير للاختبار: دفعات صغيرة لأن المزوّد يقطع الرد الطويل (~٣٨ سؤالًا في الرد الواحد)
+      const R=await naiRunBatches(parts,opts,provider,model,status);
+      normalized=R.items; salvaged=R.salvaged;
+    }
 
     // فرز: بنك الأسئلة ← h.qs ، وكلمات memory ← محتوى اللعبة
     const bank=[]; const used={}; const memoryWords=[];
@@ -26033,7 +26088,8 @@ async function normalAIGenerate(id){
     const existing=(h.qs||[]).length;
     status.textContent=`✅ جاهز للمراجعة — ${bank.length} سؤال${game?` · ${gameTypeLabel(game.type)}: ${game.data.length}`:''}`
       + (shortfall.length?` · نقص: ${shortfall.join('، ')}`:'')
-      + (salvaged?` · ⚠️ رد الذكاء كان فيه خلل في الصيغة، فأُنقذ ${salvaged.ok} سؤالًا وتُرك ${salvaged.bad} معطوبًا — اعتمد الموجود أو ولّد دفعة أخرى`:'');
+      + (salvaged&&salvaged.bad?` · ⚠️ رد الذكاء كان فيه خلل في الصيغة، فأُنقذ ${salvaged.ok} سؤالًا وتُرك ${salvaged.bad} معطوبًا — اعتمد الموجود أو ولّد دفعة أخرى`:'')
+      + (salvaged&&salvaged.batchesFailed?` · ⚠️ تعذّرت ${salvaged.batchesFailed} دفعة — اعتمد الموجود أو ولّد مرة أخرى`:'');
 
     result.classList.add('show');
     result.innerHTML=`
