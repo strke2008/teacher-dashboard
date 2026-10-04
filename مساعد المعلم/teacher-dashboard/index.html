@@ -25191,15 +25191,65 @@ function aiRepairJson(src){
   return out.replace(/,(\s*[}\]])/g,'$1');
 }
 
+/* 🩹 ترميم أعمق لردود الذكاء الطويلة (البنك الموسّع):
+   ١) علامة " داخل نص السؤال بلا تهريب: لا تُغلق النص إلا إذا تلاها , أو : أو } أو ] — وإلا تُهرَّب.
+   ٢) فاصلة ناقصة بين عنصرين: }{ ← },{  و "…" "…" ← "…","…" */
+function aiFixQuotes(src){
+  const s=String(src).replace(/[\u201C\u201D\u201E\u201F\u2033]/g,'"');
+  let out='', inStr=false;
+  for(let i=0;i<s.length;i++){
+    const c=s[i];
+    if(!inStr){ if(c==='"') inStr=true; out+=c; continue; }
+    if(c==='\\'){ out+=c+(s[i+1]??''); i++; continue; }
+    if(c==='\n'||c==='\r'){ out+='\\n'; continue; }
+    if(c==='"'){
+      let j=i+1; while(j<s.length && /[ \t]/.test(s[j])) j++;
+      const nx=s[j];
+      if(nx===undefined || ',:}]\n\r'.includes(nx)){ inStr=false; out+=c; }
+      else out+='\\"';
+      continue;
+    }
+    out+=c;
+  }
+  return out.replace(/}\s*{/g,'},{').replace(/"\s*\n\s*"/g,'",\n"').replace(/,(\s*[}\]])/g,'$1');
+}
+/* آخر محاولة: يُنقذ كل سؤال صالح وحده من مصفوفة questions، ويتجاهل المعطوب والمقطوع في آخر الرد */
+function aiSalvageQuestions(src){
+  const s=aiFixQuotes(src);
+  const k=s.search(/"questions"\s*:\s*\[/); if(k<0) return null;
+  let i=s.indexOf('[',k)+1, depth=0, start=-1, inStr=false;
+  const items=[];
+  for(;i<s.length;i++){
+    const c=s[i];
+    if(inStr){ if(c==='\\') i++; else if(c==='"') inStr=false; continue; }
+    if(c==='"'){ inStr=true; continue; }
+    if(c==='{'){ if(depth===0) start=i; depth++; }
+    else if(c==='}'){ depth=Math.max(0,depth-1); if(depth===0 && start>=0){ items.push(s.slice(start,i+1)); start=-1; } }   // قوس زائد في عنصر معطوب لا يُفسد ما بعده
+    else if(c===']' && depth===0) break;
+  }
+  const qs=[]; let bad=0;
+  items.forEach(t=>{ try{ qs.push(JSON.parse(t)); }catch(e){ try{ qs.push(JSON.parse(aiRepairJson(t))); }catch(e2){ bad++; } } });
+  if(start>=0) bad++;                               // عنصر أخير مقطوع (الرد تجاوز حد الطول)
+  return qs.length ? { questions:qs, __salvaged:{ ok:qs.length, bad } } : null;
+}
 function readingAIParse(raw,opts){
   let x=String(raw||'').replace(/```json|```/g,'').trim();
+  const full=x;
   const a=x.indexOf('{'), b=x.lastIndexOf('}');
   if(a>=0 && b>a) x=x.slice(a,b+1);
   let d;
   try{ d=JSON.parse(x); }
   catch(e){
     try{ d=JSON.parse(aiRepairJson(x)); console.warn('readingAIParse: أُصلح JSON غير صالح من النموذج', e.message); }
-    catch(e2){ throw e; }                        // تعذّر الترميم: أظهر الخطأ الأصلي
+    catch(e2){
+      try{ d=JSON.parse(aiFixQuotes(x)); console.warn('readingAIParse: أُصلحت علامات تنصيص/فواصل في رد النموذج', e.message); }
+      catch(e3){
+        d=aiSalvageQuestions(a>=0?full.slice(a):full);
+        if(!d) throw e;                            // لا شيء يمكن إنقاذه: أظهر الخطأ الأصلي
+        console.warn('readingAIParse: أُنقذت الأسئلة الصالحة منفردة', d.__salvaged, e.message);
+        try{ window.__AI_SALVAGED=d.__salvaged; }catch(_){}
+      }
+    }
   }
   if(!Array.isArray(d.questions)) throw new Error('الناتج لا يحتوي على questions');
   if(Array.isArray(d.paragraphs) && !d.passage) d.passage=d.paragraphs.map(p=>String(p||'').trim()).filter(Boolean).join('\n\n');
@@ -25359,6 +25409,7 @@ ${gameLine}
 - في وصّل: 3 أزواج مترابطة على الأقل.
 - أسئلة الاختيار من متعدد هي بنك المصدر لأي لعبة حالية أو مستقبلية، فاجعل كل سؤال مستقلاً وقابلاً لإعادة الاستخدام.
 - التزم بالأعداد المطلوبة بدقة، ولا تضف أي شرح خارج JSON.
+- لا تكتب علامة التنصيص " داخل نص أي سؤال أو خيار؛ استخدم «» بدلًا منها، وافصل بين عناصر المصفوفة بفاصلة دائمًا.
 ${normalAICustomRules(opts.rules)}${normalAIExamBlock(opts.examExtra)}
 
 أعد JSON فقط بهذا الشكل:
@@ -25936,7 +25987,9 @@ async function normalAIGenerate(id){
     const provider=raiProvider();
     const model=localStorage.getItem('ai_model_'+provider)||READING_AI_PROVIDERS[provider].defaultModel;
     const raw=await readingAICall(provider,model,normalAIBuildPrompt(opts),__normalAIAbort.signal);
+    try{ window.__AI_SALVAGED=undefined; }catch(_){}
     const normalized=normalAINormalize(readingAIParse(raw));
+    const salvaged=window.__AI_SALVAGED;   // رد فيه خلل في الصيغة: أُنقذ الصالح منه
 
     // فرز: بنك الأسئلة ← h.qs ، وكلمات memory ← محتوى اللعبة
     const bank=[]; const used={}; const memoryWords=[];
@@ -25979,7 +26032,8 @@ async function normalAIGenerate(id){
 
     const existing=(h.qs||[]).length;
     status.textContent=`✅ جاهز للمراجعة — ${bank.length} سؤال${game?` · ${gameTypeLabel(game.type)}: ${game.data.length}`:''}`
-      + (shortfall.length?` · نقص: ${shortfall.join('، ')}`:'');
+      + (shortfall.length?` · نقص: ${shortfall.join('، ')}`:'')
+      + (salvaged?` · ⚠️ رد الذكاء كان فيه خلل في الصيغة، فأُنقذ ${salvaged.ok} سؤالًا وتُرك ${salvaged.bad} معطوبًا — اعتمد الموجود أو ولّد دفعة أخرى`:'');
 
     result.classList.add('show');
     result.innerHTML=`
