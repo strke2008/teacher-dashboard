@@ -8803,7 +8803,7 @@ async function planSyncRemActions(){
 /* الحقول المحفوظة للخطة — مصدر واحد حتى لا تضيع المدة وسجل القرارات عند أي حفظ */
 function planRaw(p){return {id:p.id,studentId:p.studentId,studentIds:p.studentIds,startDate:p.startDate,endDate:p.endDate,reason:p.reason,
   actions:(p.actions||[]).map(a=>({...a})),notes:p.notes,status:p.status,durationDays:p.durationDays,dueDate:p.dueDate,
-  round:p.round,interventionChanged:p.interventionChanged,outcome:p.outcome,skills:Array.isArray(p.skills)?p.skills.slice():undefined,history:Array.isArray(p.history)?p.history.map(x=>({...x})):undefined,
+  round:p.round,createdAt:p.createdAt,interventionChanged:p.interventionChanged,outcome:p.outcome,skills:Array.isArray(p.skills)?p.skills.slice():undefined,history:Array.isArray(p.history)?p.history.map(x=>({...x})):undefined,
   at:Date.now() /* أحدث من أي رقعة تلقائية سبقت: ما يراه المعلم الآن يصبح هو الأصل */}}
 const PLAN_DECISIONS={
   close_success:{icon:'✅',t:'إغلاق: نجحت الخطة',d:'وصل للهدف — تُغلق الخطة.'},
@@ -9288,7 +9288,8 @@ async function submitPlan(){
   const all=(PLAN_DATA&&PLAN_DATA.plans||[]).map(planRaw);
   const prev=all.find(p=>p.id===planEditId);
   const dur=parseInt((document.getElementById('pf-dur')||{}).value,10)||14;
-  const rec={ ...(prev||{}), id: planEditId||('pl'+Date.now().toString(36)),
+  // createdAt: ما سلّمه الطالب يوم البدء قبل إنشاء الخطة يُحسب قبليًا لا أثرًا لها
+  const rec={ ...(prev||{}), id: planEditId||('pl'+Date.now().toString(36)), createdAt: (prev&&prev.createdAt)||(prev?0:Date.now()),
     durationDays: dur, dueDate: (prev&&prev.dueDate&&prev.startDate===start&&prev.durationDays===dur)?prev.dueDate:addDays(start,dur),
     studentId: isGroup?'':sid, studentIds: isGroup?members:undefined, startDate:start,
     endDate:document.getElementById('pf-end').value||'',

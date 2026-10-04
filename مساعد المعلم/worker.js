@@ -906,14 +906,21 @@ function gradeDuties(data, sid, range) {
    إن لم يسلّم شيئًا بعد البدء فالنتيجة «لم يُقَس بعد» — ولا يجوز الحكم بنجاح
    خطة لم يُقَس أثرها. الفرق المعتد به 5 نقاط مئوية فأكثر حتى لا يُحتفى بضجيج. */
 const PLAN = { minGain: 5, target: 75, days: 14 };
-function masteryWindow(assignments, sid, from, to, skipRemedial) {
+/* 📅 يوم التسليم في قياس الخطة: بتوقيت السعودية (كما gToday)، وما سُلّم يوم البدء قبل إنشاء الخطة
+   يُعدّ من القياس القبلي — النشاط الذي بُنيت عليه الخطة صباحًا ليس أثرًا لها. */
+function planSubDay(at, cut) {
+  const t = Number(at) || 0, d = new Date(t + 3 * 3600000).toISOString().slice(0, 10);
+  if (cut && cut.start && cut.at && d === cut.start && t < cut.at) return prevDay(cut.start);
+  return d;
+}
+function masteryWindow(assignments, sid, from, to, skipRemedial, cut) {
   let correct = 0, total = 0, acts = 0;
   for (const h of (assignments || [])) {
     if (!h || !['normal','lab'].includes(h.kind || 'normal')) continue;
     if (skipRemedial && h.remedial) continue;
     const sub = h.subs && h.subs[String(sid)];
     if (!sub) continue;
-    const d = new Date(Number(sub.at) || 0).toISOString().slice(0, 10);
+    const d = skipRemedial ? planSubDay(sub.at, cut) : new Date(Number(sub.at) || 0).toISOString().slice(0, 10);
     if (from && d < from) continue;
     if (to && d > to) continue;
     const t = Number(sub.total) || 0;
@@ -938,13 +945,13 @@ async function attachSkills(env, data) {
   Object.defineProperty(data, '__skills', { value: map, enumerable: false, configurable: true });
   return data;
 }
-function skillWindow(data, assignments, sid, from, to, only) {
+function skillWindow(data, assignments, sid, from, to, only, cut) {
   const map = (data && data.__skills) || {}, out = {};
   for (const h of (assignments || [])) {
     if (!h || (h.kind || 'normal') !== 'normal' || h.remedial) continue;
     const sk = map[String(h.sid || '')]; if (!sk) continue;
     const sub = h.subs && h.subs[String(sid)]; if (!sub || !sub.d) continue;
-    const d = new Date(Number(sub.at) || 0).toISOString().slice(0, 10);
+    const d = planSubDay(sub.at, cut);
     if (from && d < from) continue;
     if (to && d > to) continue;
     String(sub.d).split('').forEach((c, i) => {
@@ -1052,13 +1059,13 @@ function planConfidence(b, a) {
            nBefore: b.total, nAfter: a.total };
 }
 /* تغيّر الزملاء في الفترتين نفسيهما وبالأداة نفسها (أنشطة أو المهارات المستهدفة) */
-function planPeers(ids, cls, students, assignments, data_ref, start, to, targets) {
+function planPeers(ids, cls, students, assignments, data_ref, start, to, targets, cut) {
   if (!start || !cls) return null;
   const skip = new Set(ids.map(String)), gains = [];
   for (const s of students) {
     if (!s || skip.has(String(s.id)) || String(s.cls || '') !== cls) continue;
-    const fn = targets ? (f, t) => skillAgg(skillWindow(data_ref, assignments, s.id, f, t, targets))
-                       : (f, t) => masteryWindow(assignments, s.id, f, t, true);
+    const fn = targets ? (f, t) => skillAgg(skillWindow(data_ref, assignments, s.id, f, t, targets, cut))
+                       : (f, t) => masteryWindow(assignments, s.id, f, t, true, cut);
     const b = planBaseline(fn, start).win, a = fn(start, to);
     if (b.measured && a.measured) gains.push(a.rate - b.rate);
   }
@@ -1071,20 +1078,21 @@ function memberReport(sid, plan, students, assignments, data_ref) {
   const end = String(plan.endDate || '');
   const today = gToday();
   const to = end && end < today ? end : today;
-  const actFn = (f, t) => masteryWindow(assignments, sid, f, t, true);
+  const cut = { start, at: Number(plan.createdAt) || 0 };
+  const actFn = (f, t) => masteryWindow(assignments, sid, f, t, true, cut);
   const base = planBaseline(actFn, start);
   const before = { ...base.win }, actBefore = { ...base.win };
   let baseFrom = base.from;
-  let after = masteryWindow(assignments, sid, start, to, true);
+  let after = masteryWindow(assignments, sid, start, to, true, cut);
   let basis = 'activities', skill = null;
   const targets = Array.isArray(plan.skills) ? plan.skills.map(String).filter(Boolean).slice(0, 6) : [];
   if (targets.length && data_ref) {
-    const skFn = (f, t) => skillAgg(skillWindow(data_ref, assignments, sid, f, t, targets));
+    const skFn = (f, t) => skillAgg(skillWindow(data_ref, assignments, sid, f, t, targets, cut));
     const sbase = planBaseline(skFn, start), sb = sbase.win;
     const sa = skFn(start, to);
     // نتيجة كل مهارة على حدة: يرى المعلم والمشرف ما تحسّن وما لم يتحسّن
-    const wb = skillWindow(data_ref, assignments, sid, sbase.from, start ? prevDay(start) : '', targets);
-    const wa = skillWindow(data_ref, assignments, sid, start, to, targets);
+    const wb = skillWindow(data_ref, assignments, sid, sbase.from, start ? prevDay(start) : '', targets, cut);
+    const wa = skillWindow(data_ref, assignments, sid, start, to, targets, cut);
     const one = v => v && v.t ? { rate: Math.round((v.c / v.t) * 100), correct: v.c, total: v.t } : null;
     const items = targets.map(k => { const b = one(wb[k]), a = one(wa[k]);
       return { skill: k, before: b, after: a, gain: b && a && b.total >= 2 && a.total >= 2 ? a.rate - b.rate : null }; });
@@ -1156,7 +1164,7 @@ function planReport(plan, students, assignments, data_ref) {
   const allSkills = isGroup ? members.every(m => m.basis === 'skills') : first.basis === 'skills';
   const pTargets = allSkills && Array.isArray(plan.skills) ? plan.skills.map(String).filter(Boolean).slice(0, 6) : null;
   const pw = first.window || {};
-  const peers = planPeers(ids, first.cls || '', students, assignments, data_ref, pw.from, pw.to, pTargets);
+  const peers = planPeers(ids, first.cls || '', students, assignments, data_ref, pw.from, pw.to, pTargets, { start: pw.from, at: Number(plan.createdAt) || 0 });
   const myGain = isGroup ? groupGain : first.gain;
   const net = peers && peers.gain != null && myGain != null ? myGain - peers.gain : null;
   if (!caution && net != null && myGain >= PLAN.minGain && net < PLAN.minGain)
@@ -1189,13 +1197,13 @@ function planReport(plan, students, assignments, data_ref) {
         __q: isGroup ? Math.min(...members.map(m => (m.after && m.after.total) || 0)) : ((first.after && first.after.total) || 0) },
       isGroup ? groupGain : first.gain,
       isGroup ? (measured.length ? avg(members.filter(m => m.after.measured).map(m => m.after.rate)) : null) : (first.after && first.after.measured ? first.after.rate : null),
-      isGroup ? measured.length > 0 : !!(first.after && first.after.measured)),
+      isGroup ? measured.length > 0 : !!(first.after && first.after.measured), { confidence, net }),
   };
 }
 /* ⏰ مدة الخطة والقرار المقترح بعد انتهائها (المعلم يؤكده من اللوحة)
    تحسّن ووصل للهدف ← إغلاق ناجح · تحسّن دون الهدف ← تمديد · بلا فرق/تراجع ← تغيير التدخل
    (وبعد تغيير سابق ← إحالة) · لم يُقَس ← تمديد أسبوع مع مهمة علاجية */
-function planTiming(plan, gain, afterRate, measured) {
+function planTiming(plan, gain, afterRate, measured, ev) {
   const start = String(plan.startDate || '');
   const days = Math.max(3, Math.min(60, parseInt(plan.durationDays, 10) || PLAN.days));
   let due = /^\d{4}-\d{2}-\d{2}$/.test(String(plan.dueDate || '')) ? String(plan.dueDate) : '';
@@ -1207,7 +1215,14 @@ function planTiming(plan, gain, afterRate, measured) {
   const round = parseInt(plan.round, 10) || 1;
   const changed = !!plan.interventionChanged;
   let decision, why;
+  const weak = !!(ev && ev.confidence && ev.confidence.level === 'weak');
+  const classToo = !!(ev && ev.net != null && ev.net < PLAN.minGain);
   if (!measured) { decision = 'extend_measure'; why = 'لم يحل الطالب أي نشاط بعد بدء الخطة، فلا يمكن الحكم عليها — غالبًا المشكلة مشاركة لا فهم'; }
+  else if (gain == null && afterRate >= PLAN.target) { decision = 'close_success'; why = `لا يوجد قياس قبل الخطة للمقارنة، لكنه وصل إلى ${afterRate}% (الهدف ${PLAN.target}%)`; }
+  else if (gain == null) { decision = round > 1 ? 'change' : 'extend'; why = `لا يوجد قياس قبل الخطة للمقارنة، ومستواه ${afterRate}% دون الهدف ${PLAN.target}%`; }
+  // ⚖️ لا يُغلق «ناجحًا» تحسّنٌ قد يكون صدفة أو أصاب الفصل كله — يُمدَّد لجمع دليل أقوى
+  else if (gain >= PLAN.minGain && weak) { decision = 'extend'; why = `تحسّن ${gain} نقطة لكن من أسئلة قليلة (ضمن هامش الصدفة) — نمدّد لنتأكد`; }
+  else if (gain >= PLAN.minGain && classToo) { decision = 'extend'; why = `تحسّن ${gain} نقطة، لكن الفصل كله تحسّن بقدر قريب — لا يُنسب للخطة بعد`; }
   else if (gain >= PLAN.minGain && afterRate >= PLAN.target && ((plan.__acts || 0) >= 2 || (plan.__q || 0) >= 10)) { decision = 'close_success'; why = `تحسّن ${gain} نقطة ووصل إلى ${afterRate}%`; }
   else if (gain >= PLAN.minGain && afterRate >= PLAN.target) { decision = 'extend'; why = `تحسّن ${gain} نقطة ووصل إلى ${afterRate}% — لكن من قياس واحد؛ نؤكده بقياس ثانٍ قبل الإغلاق`; }
   else if (gain >= PLAN.minGain) { decision = 'extend'; why = `تحسّن ${gain} نقطة لكنه ${afterRate}% — دون الهدف ${PLAN.target}%`; }
