@@ -1176,12 +1176,13 @@ html[data-pt] body,html[data-pt] .sheet,html[data-pt] .btn,html[data-pt] .studen
 .mc-btn{border:1px solid #0E8C7A;background:#0E8C7A;color:#fff;border-radius:10px;padding:.4rem .75rem;font:inherit;font-size:.82rem;font-weight:700;cursor:pointer}
 .mc-btn.ghost{background:#fff;color:#16233A;border-color:#CBD5E1}
 @media(max-width:520px){.mc-item{grid-template-columns:1fr}}
-.mc-cert{position:relative;width:100%;aspect-ratio:297/210;container-type:inline-size;overflow:hidden;direction:rtl;font-family:'Readex Pro','Tajawal','Segoe UI',Tahoma,sans-serif;color:#6E6E6E;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.mc-cert{position:relative;width:100%;aspect-ratio:297/210;container-type:inline-size;overflow:hidden;direction:rtl;font-family:'Readex Pro','Tajawal','Segoe UI',Tahoma,sans-serif;color:#575757;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .mc-cert>img.mc-bg{position:absolute;inset:0;width:100%;height:100%;display:block;max-width:none}
 .mc-cert>div{position:absolute;left:0;right:0;text-align:center;z-index:1}
-.mc-pre{top:36.4%;font-size:2.02cqw;font-weight:800;padding:0 17%}
+.mc-pre{top:36.4%;font-size:2.02cqw;font-weight:800;margin:0 16%}
+.mc-cert [data-fs]{white-space:nowrap;overflow:hidden;display:block}.mc-name span{max-width:94%}.mc-sig b,.mc-sig span{max-width:100%}
 .mc-name{top:44.2%;left:25%!important;right:25%!important;height:5.4%;display:flex;align-items:center;justify-content:center;font-size:2.38cqw;font-weight:800;color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.18)}
-.mc-body{top:53.3%;font-size:1.96cqw;font-weight:800;line-height:2.05;padding:0 18%}
+.mc-body{top:53.3%;font-size:1.96cqw;font-weight:800;line-height:2.05;margin:0 17%}
 .mc-date{font-size:1.37cqw;font-weight:700;color:#8A8A8A;line-height:1.6}
 .mc-sig{top:79.4%;width:26%;display:flex;flex-direction:column;gap:.5cqw;font-size:1.78cqw;font-weight:800}
 .mc-sig span{font-weight:700;min-height:1.2em}.mc-sig.r{right:13%!important;left:auto!important}.mc-sig.l{left:13%!important;right:auto!important}
@@ -8604,13 +8605,22 @@ async function myCertsLoad(){
         <div class="mc-acts"><button type="button" class="mc-btn" onclick="myCertSave('${esc(c.id)}')">⬇️ حفظ صورة</button><button type="button" class="mc-btn" onclick="myCertPrint('${esc(c.id)}')">🖨️ طباعة</button></div></div>
     </div>`).join('')}</div></section>`;
   try{localStorage.setItem(MC_SEEN_KEY,JSON.stringify([...new Set([...seen,...rows.map(c=>c.id)])].slice(-100)))}catch(e){}
+  requestAnimationFrame(()=>myCertFit(box));
 }
 function myCertHTML(c){
   return `<div class="mc-cert"><img class="mc-bg" src="${MC_BG}" alt="">
-    <div class="mc-pre">${esc(c.pre)}</div><div class="mc-name">${esc(c.name)}</div>
-    <div class="mc-body"><div>وذلك نظير ${esc(c.reason)}</div><div>${esc(c.dua)}</div><div class="mc-date">${c.cls?`الفصل ${esc(c.cls)} · `:''}${esc(c.date)}</div></div>
-    <div class="mc-sig r"><b>${esc(c.rTitle)}</b><span>${esc(c.rName)}</span></div>
-    <div class="mc-sig l"><b>${esc(c.lTitle)}</b><span>${esc(c.lName)}</span></div></div>`;
+    <div class="mc-pre" data-fs="2.02">${esc(c.pre)}</div><div class="mc-name"><span data-fs="2.38">${esc(c.name)}</span></div>
+    <div class="mc-body"><div data-fs="1.96">وذلك نظير ${esc(c.reason)}</div><div data-fs="1.96">${esc(c.dua)}</div><div class="mc-date" data-fs="1.37">${/\d/.test(c.cls||'')?`الفصل ${esc(c.cls)} · `:''}${esc(c.date)}</div></div>
+    <div class="mc-sig r"><b data-fs="1.78">${esc(c.rTitle)}</b><span data-fs="1.78">${esc(c.rName)}</span></div>
+    <div class="mc-sig l"><b data-fs="1.78">${esc(c.lTitle)}</b><span data-fs="1.78">${esc(c.lName)}</span></div></div>`;
+}
+/* كل سطر في سطر واحد: يُصغَّر بنسبة من عرض الشهادة (cqw) فيبقى صحيحًا مصغّرًا ومكبّرًا ومطبوعًا */
+function myCertFit(root){
+  (root||document).querySelectorAll('.mc-cert [data-fs]').forEach(el=>{
+    const base=parseFloat(el.dataset.fs)||2; let k=1, n=0; el.style.fontSize=base+'cqw';
+    if(!el.clientWidth) return;
+    while(el.scrollWidth>el.clientWidth+1&&k>0.4&&n++<40){ k*=0.95; el.style.fontSize=(base*k)+'cqw'; }
+  });
 }
 function myCertOpen(id){
   const c=MY_CERTS.find(x=>x.id===id);if(!c)return;
@@ -8618,12 +8628,16 @@ function myCertOpen(id){
   ov.innerHTML=`<div class="mc-view-in"><div class="mc-view-cert">${myCertHTML(c)}</div>
     <div class="mc-acts"><button type="button" class="mc-btn" onclick="myCertSave('${esc(id)}')">⬇️ حفظ صورة</button><button type="button" class="mc-btn" onclick="myCertPrint('${esc(id)}')">🖨️ طباعة</button><button type="button" class="mc-btn ghost" onclick="document.getElementById('mc-view').remove()">إغلاق</button></div></div>`;
   ov.onclick=e=>{if(e.target===ov)ov.remove()};
+  requestAnimationFrame(()=>myCertFit(ov));
 }
 function myCertPrint(id){
   const c=MY_CERTS.find(x=>x.id===id);if(!c)return;
   document.getElementById('mc-print')?.remove();document.getElementById('mc-print-page')?.remove();
   const box=document.createElement('div');box.id='mc-print';box.innerHTML=myCertHTML(c);document.body.appendChild(box);
   const st=document.createElement('style');st.id='mc-print-page';st.textContent='@media print{@page{size:A4 landscape!important;margin:0!important}}';document.body.appendChild(st);
+  // القياس بمقاس الورقة الفعلي قبل الطباعة (الحاوية مخفية على الشاشة)
+  box.style.cssText='display:block;position:absolute;left:-20000px;top:0;width:297mm;visibility:hidden';
+  box.querySelector('.mc-cert').style.width='297mm'; myCertFit(box); box.style.cssText=''; box.querySelector('.mc-cert').style.width='';
   document.body.classList.add('printing-mycert');
   const done=()=>{document.body.classList.remove('printing-mycert');box.remove();st.remove();window.removeEventListener('afterprint',done)};
   window.addEventListener('afterprint',done);

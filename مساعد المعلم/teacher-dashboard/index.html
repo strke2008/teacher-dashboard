@@ -366,15 +366,17 @@ body.pf-open{overflow:hidden}
 .ct-cert.t-gold{border:3mm double #B8892B}.ct-cert.t-gold .ct-cert-t{color:#9A6A00}.ct-cert.t-gold .ct-cert-n{border-color:#B8892B}
 .ct-cert.t-modern .ct-cert-in{background:linear-gradient(135deg,rgba(21,101,192,.06),rgba(46,158,107,.08));border-radius:6mm}.ct-cert.t-modern .ct-cert-t{color:#1565C0;letter-spacing:.5px}.ct-cert.t-modern .ct-cert-n{border:0;background:#1565C0;color:#fff;border-radius:3mm;padding:1mm 10mm}
 .ct-cert.t-classic{border:1.2mm solid #0E5E4E}
-.ct-moe{position:relative;width:297mm;height:210mm;background-size:100% 100%;background-repeat:no-repeat;overflow:hidden;font-family:'Tajawal','Readex Pro','Noto Naskh Arabic',Arial,sans-serif;color:#6E6E6E;direction:rtl;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.ct-moe{position:relative;width:297mm;height:210mm;background-size:100% 100%;background-repeat:no-repeat;overflow:hidden;font-family:'Tajawal','Readex Pro','Noto Naskh Arabic',Arial,sans-serif;color:#575757;direction:rtl;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .ct-moe>div{position:absolute;left:0;right:0;text-align:center;z-index:1}
 .ct-moe>img.ct-moe-bg{position:absolute;inset:0;width:100%;height:100%;z-index:0;display:block!important;max-width:none!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-.ct-moe-pre{top:36.4%;font-size:17pt;font-weight:800;padding:0 17%}
+.ct-moe-pre{top:36.4%;font-size:17pt;font-weight:800;margin:0 16%;white-space:nowrap;overflow:hidden}
+.ct-moe [data-fit]{white-space:nowrap;overflow:hidden;display:block}
+.ct-moe-name span{max-width:94%}
 .ct-moe-name{top:44.2%;left:25%!important;right:25%!important;height:5.4%;display:flex;align-items:center;justify-content:center;font-size:20pt;font-weight:800;color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.18)}
-.ct-moe-body{top:53.3%;font-size:16.5pt;font-weight:800;line-height:2.05;padding:0 18%}
-.ct-moe-date{font-size:11.5pt;font-weight:700;color:#8A8A8A;line-height:1.6;margin-top:.6mm}
+.ct-moe-body{top:53.3%;font-size:16.5pt;font-weight:800;line-height:2.05;margin:0 17%}
+.ct-moe-date{font-size:11.5pt;font-weight:700;color:#777;line-height:1.6;margin-top:.6mm}
 .ct-moe-sig{top:79.4%;width:26%;display:flex;flex-direction:column;gap:1.6mm;font-size:15pt;font-weight:800}
-.ct-moe-sig span{font-weight:700;min-height:1.2em}
+.ct-moe-sig span{font-weight:700;min-height:1.2em}.ct-moe-sig b,.ct-moe-sig span{max-width:100%}
 .ct-moe-sig.r{right:13%!important;left:auto!important}.ct-moe-sig.l{left:13%!important;right:auto!important}
 @media screen{#plan-print .ct-moe{margin:0 auto 6mm;box-shadow:0 4px 18px rgba(0,0,0,.15)}}
 @media print{
@@ -9392,16 +9394,35 @@ function ctCertMoeSave(){
   try{ localStorage.setItem(CT_MOE_KEY,JSON.stringify({pre:v('cm-pre'),dua:v('cm-dua'),rTitle:v('cm-rt'),rName:v('cm-rn'),lTitle:v('cm-lt'),lName:v('cm-ln')})); }catch(e){}
   closeModal(); toast('حُفظ نص الشهادة','good');
 }
+/* التاريخ هجريًا (أم القرى) مع الميلادي، والفصل يُذكر فقط إن كان فصلًا فعليًا (مثل 2/1) */
+function ctCertDateLine(d){
+  const g=String(d||'').replace(/-/g,'/').replace(/\d/g,x=>'٠١٢٣٤٥٦٧٨٩'[x]); let h='';
+  try{ const t=Date.parse(String(d||'')+'T12:00:00Z'); if(t) h=new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura',{day:'numeric',month:'numeric',year:'numeric'}).format(new Date(t)).replace(/\s*هـ$/,'').replace(/\u200f/g,''); }catch(e){}
+  return h?`حُررت في ${h}هـ الموافق ${g}م`:(g?`حُررت في ${g}م`:'');
+}
+function ctCertCls(cls){ cls=String(cls||'').trim(); return /\d/.test(cls)?cls:''; }
+/* كل سطر في سطر واحد: يُصغَّر خطه حتى يتسع مكانه مهما كان خط الجهاز أعرض */
+function ctFitCert(root){
+  if(!root) return;
+  const host=root.closest('#plan-print')||root, hidden=getComputedStyle(host).display==='none';
+  const keep=host.getAttribute('style')||'';
+  if(hidden) host.setAttribute('style',keep+';display:block!important;position:absolute!important;left:-20000px!important;top:0!important;visibility:hidden!important');
+  root.querySelectorAll('[data-fit]').forEach(el=>{
+    el.style.fontSize=''; let fs=parseFloat(getComputedStyle(el).fontSize)||16, n=0;
+    while(el.scrollWidth>el.clientWidth+1&&fs>8&&n++<40){ fs*=0.95; el.style.fontSize=fs+'px'; }
+  });
+  if(hidden) host.setAttribute('style',keep);
+}
 function ctCertMoeHTML(c){
   const s=(STUDENTS||[]).find(a=>String(a.id)===String(c.studentId))||{}, k=ctMoeCfg();
   const reason=String(c.reason||'التميز والمشاركة الفاعلة').trim();
   return `<div class="ct-moe"><img class="ct-moe-bg" src="${CT_CERT_BG}" alt="">
-    <div class="ct-moe-pre">${esc(ctMoeFill(k.pre,s))}</div>
-    <div class="ct-moe-name">${esc(s.name||'')}</div>
-    <div class="ct-moe-body"><div>وذلك نظير ${esc(reason)}</div><div>${esc(ctMoeFill(k.dua,s))}</div>
-      <div class="ct-moe-date">${s.cls?`الفصل ${esc(s.cls)} · `:''}${esc(String(c.date||'').replace(/-/g,'/'))}</div></div>
-    <div class="ct-moe-sig r"><b>${esc(ctMoeFill(k.rTitle,s))}</b><span>${esc(ctMoeFill(k.rName,s))}</span></div>
-    <div class="ct-moe-sig l"><b>${esc(ctMoeFill(k.lTitle,s))}</b><span>${esc(ctMoeFill(k.lName,s))}</span></div>
+    <div class="ct-moe-pre" data-fit>${esc(ctMoeFill(k.pre,s))}</div>
+    <div class="ct-moe-name"><span data-fit>${esc(s.name||'')}</span></div>
+    <div class="ct-moe-body"><div data-fit>وذلك نظير ${esc(reason)}</div><div data-fit>${esc(ctMoeFill(k.dua,s))}</div>
+      <div class="ct-moe-date" data-fit>${ctCertCls(s.cls)?`الفصل ${esc(ctCertCls(s.cls))} · `:''}${esc(ctCertDateLine(c.date))}</div></div>
+    <div class="ct-moe-sig r"><b data-fit>${esc(ctMoeFill(k.rTitle,s))}</b><span data-fit>${esc(ctMoeFill(k.rName,s))}</span></div>
+    <div class="ct-moe-sig l"><b data-fit>${esc(ctMoeFill(k.lTitle,s))}</b><span data-fit>${esc(ctMoeFill(k.lName,s))}</span></div>
   </div>`;
 }
 /* 📤 إرسال الشهادة إلى بوابة الطالب: يُحفظ نصّها النهائي معها (المدرسة والمعلم والمدير من إعداداتك)
@@ -9414,8 +9435,8 @@ async function ctCertShare(ids,on=true){
     await ctSave(D=>{ (D.certificates||[]).forEach(c=>{ if(!c||!ids.includes(String(c.id))) return;
       if(!on){ delete c.shared; c.at=Date.now(); return; }
       const s=(STUDENTS||[]).find(a=>String(a.id)===String(c.studentId))||{};
-      c.shared={ at:Date.now(), name:s.name||'', cls:s.cls||'', pre:ctMoeFill(k.pre,s), reason:String(c.reason||'التميز والمشاركة الفاعلة'),
-        dua:ctMoeFill(k.dua,s), date:String(c.date||'').replace(/-/g,'/'), rTitle:ctMoeFill(k.rTitle,s), rName:ctMoeFill(k.rName,s), lTitle:ctMoeFill(k.lTitle,s), lName:ctMoeFill(k.lName,s) };
+      c.shared={ at:Date.now(), name:s.name||'', cls:ctCertCls(s.cls), pre:ctMoeFill(k.pre,s), reason:String(c.reason||'التميز والمشاركة الفاعلة'),
+        dua:ctMoeFill(k.dua,s), date:ctCertDateLine(c.date), rTitle:ctMoeFill(k.rTitle,s), rName:ctMoeFill(k.rName,s), lTitle:ctMoeFill(k.lTitle,s), lName:ctMoeFill(k.lName,s) };
       c.at=Date.now(); }); });
     toast(on?`📤 أُرسلت ${ids.length===1?'الشهادة':ids.length+' شهادات'} إلى بوابة الطالب`:'↩️ سُحبت من بوابة الطالب','good');
   }catch(e){ toast('تعذّر الإرسال — تحقق من الاتصال','bad'); }
@@ -9428,6 +9449,7 @@ function ctCertPrint(ids){
   if(ctCertTpl()==='moe'){
     let box=document.getElementById('plan-print'); if(!box){ box=document.createElement('div'); box.id='plan-print'; box.className='rep'; document.body.appendChild(box); }
     box.innerHTML=recs.map(ctCertMoeHTML).join('');
+    box.querySelectorAll('.ct-moe').forEach(ctFitCert);
     // قواعد طباعة في آخر الصفحة تفرض «عموديًا»؛ هذه تُلحق بعدها لتتقدّم عليها، وتُزال بعد الطباعة
     document.getElementById('ct-cert-page')?.remove();
     const st=document.createElement('style'); st.id='ct-cert-page';
