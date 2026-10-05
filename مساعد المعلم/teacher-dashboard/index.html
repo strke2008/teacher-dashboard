@@ -16092,7 +16092,7 @@ function normalizeImportedQuestions(arr, kind){
       const o=x.o.map(String).filter(Boolean).slice(0,4);
       if(kind==='style') out.push({t:'q',q:String(x.q),o,a:0,tags:STYLE_ORDER.slice(0,o.length)});
       else { const ai=Math.max(0,Math.min(o.length-1,Number.isFinite(Number(x.a))?Number(x.a):0)); out.push(Object.assign({t:'q',q:String(x.q),o,a:ai}, kind==='diag'?{domain:String(x.domain||'المفاهيم الأساسية'),skill:String(x.skill||'مهارة أساسية')}:{}) ); }
-    } else if(x.t==='tf' && x.q){ out.push(Object.assign({t:'tf',q:String(x.q),a:x.a===true||x.a==='true'}, kind==='diag'?{domain:String(x.domain||'المفاهيم الأساسية'),skill:String(x.skill||'مهارة أساسية')}:{}) ); }
+    } else if(x.t==='tf' && x.q){ out.push(Object.assign({t:'tf',q:String(x.q),a:impBool(x.a ?? x.answer)}, kind==='diag'?{domain:String(x.domain||'المفاهيم الأساسية'),skill:String(x.skill||'مهارة أساسية')}:{}) ); }
     else if(x.t==='f' && x.q && x.a!=null){ out.push(Object.assign({t:'f',q:String(x.q),a:String(x.a)}, kind==='diag'?{domain:String(x.domain||'المفاهيم الأساسية'),skill:String(x.skill||'مهارة أساسية')}:{}) ); }
     else if(x.t==='a' && x.w){ out.push({t:'a',w:String(x.w),h:String(x.h||'')}); }
     else if(x.t==='s' && x.s){ out.push({t:'s',s:String(x.s)}); }
@@ -16101,27 +16101,48 @@ function normalizeImportedQuestions(arr, kind){
   return out;
 }
 
+/* إجابة صح/خطأ بأي صيغة: true · "true" · 1 · "صح" … — تصدير الاختبار الورقي يكتبها في answer لا في a */
+function impBool(v){
+  if(v===true||v===1) return true;
+  const t=String(v??'').trim().toLowerCase();
+  return ['true','1','صح','صحيح','صحيحة','t','✓','✔','yes','نعم'].includes(t);
+}
+/* موضع الإجابة الصحيحة في الخيارات: نص الخيار، أو رقمه، أو حرفه (أ ب ج د / A B C D) */
+function impAnswerIndex(o, v){
+  if(v==null||v==='') return -1;
+  const norm=x=>String(x??'').replace(/[\u064B-\u0652\u0640]/g,'').replace(/\s+/g,' ').trim();
+  const byText=o.findIndex(x=>norm(x)===norm(v)); if(byText>=0) return byText;
+  if(typeof v==='number'&&Number.isInteger(v)&&v>=0&&v<o.length) return v;
+  const t=String(v).trim(), L=['أ','ب','ج','د'].indexOf(t), E=['a','b','c','d'].indexOf(t.toLowerCase());
+  if(L>=0&&L<o.length) return L; if(E>=0&&E<o.length) return E;
+  if(/^\d+$/.test(t)&&+t<o.length) return +t;
+  return -1;
+}
 function convertGamesJson(d){
   const pools = { q:[], tf:[], a:[], s:[], m:[] };
   const skipped = [];
   const arr = k => Array.isArray(d[k]) ? d[k] : [];
+  let noKey = 0;
 
   arr('quiz').forEach(x=>{
-    const o = Array.isArray(x.opts) ? x.opts.filter(Boolean) : [];
+    const o = Array.isArray(x.opts) ? x.opts.filter(Boolean) : Array.isArray(x.o) ? x.o.filter(Boolean) : [];
     if(!x.q || o.length<2) return;
-    let ai = o.indexOf(x.a); if(ai < 0) ai = 0;
+    let ai = impAnswerIndex(o, x.a ?? x.answer ?? x.correct);
+    if(ai < 0){ ai = 0; noKey++; }
     const sh = shuffleOpts(o, ai);
     pools.q.push({ t:'q', q:x.q, o:sh.o, a:sh.a });
   });
 
-  arr('truefalse').forEach(x=>{ if(x.q) pools.tf.push({ t:'tf', q:x.q, a: x.a===true || x.a==='true' }); });
+  arr('truefalse').forEach(x=>{ if(x.q) pools.tf.push({ t:'tf', q:x.q, a: impBool(x.a ?? x.answer) }); });
   arr('anagram').forEach(x=>{ if(x.w) pools.a.push({ t:'a', w:String(x.w), h:x.hint||'' }); });
   arr('sentence').forEach(x=>{
     const s = x.sentence || x.s || '';
     if(s && String(s).trim().split(/\s+/).length >= 2) pools.s.push({ t:'s', s:String(s) });
   });
 
-  const pairs = arr('match').filter(x=>x.a && x.b).map(x=>[String(x.a), String(x.b)]);
+  // صيغتان: [{a,b}] من مولد الألعاب، و[{pairs:[[a,b],…]}] من تصدير الاختبار الورقي
+  const pairs = arr('match').flatMap(x=>Array.isArray(x&&x.pairs) ? x.pairs.filter(p=>Array.isArray(p)&&p[0]&&p[1]).map(p=>[String(p[0]),String(p[1])])
+    : (x&&x.a&&x.b) ? [[String(x.a),String(x.b)]] : []);
   for(let i=0;i<pairs.length;i+=3){
     const chunk = pairs.slice(i, i+3);
     if(chunk.length >= 2) pools.m.push({ t:'m', p:chunk });
@@ -16129,6 +16150,7 @@ function convertGamesJson(d){
 
   if(arr('fillblank').length) skipped.push('أكمل الفراغ');
   if(d.classify && d.classify.buckets) skipped.push('التصنيف');
+  if(noKey) skipped.push(`${noKey} سؤال اختيار بلا إجابة صحيحة معروفة (اعتُمد الخيار الأول — راجعها)`);
   if(Array.isArray(d.memory) && d.memory.length) skipped.push('الذاكرة');
   return { pools, skipped };
 }
