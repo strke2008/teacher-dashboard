@@ -6501,7 +6501,6 @@ body{
 </div>
 <div class="app-sidebar-scroll">
 <section class="app-nav-group">
-<div class="app-nav-title">الرئيسية</div>
 <button class="tab on" data-tab="dashboard" type="button"><span class="app-nav-icon">🏠</span><span>اليوم</span></button>
 </section>
 <section class="app-nav-group">
@@ -6512,20 +6511,23 @@ body{
 <button class="tab" data-tab="madrasati" type="button"><span class="app-nav-icon">📚</span><span>مدرستي</span></button>
 </section>
 <section class="app-nav-group">
-<div class="app-nav-title">🧭 المتابعة والدعم</div>
+<div class="app-nav-title">👥 الطلاب والمتابعة</div>
 <button class="tab" data-tab="students" type="button"><span class="app-nav-icon">👥</span><span>الطلاب</span></button>
 <button class="tab" data-tab="classtools" data-view="profile" type="button"><span class="app-nav-icon">👤</span><span>ملف الطالب</span></button>
-<button class="tab" data-tab="classtools" data-view="classfile" type="button"><span class="app-nav-icon">🏫</span><span>ملف الفصل</span></button>
 <button class="tab" data-tab="classtools" data-view="records" type="button"><span class="app-nav-icon">🗂️</span><span>السجلات والحضور</span></button>
 <button class="tab" data-tab="plans" type="button"><span class="app-nav-icon">🩺</span><span>الخطط العلاجية</span></button>
 </section>
 <section class="app-nav-group">
-<div class="app-nav-title">📊 التقييم</div>
-<button class="tab" data-tab="reports" type="button"><span class="app-nav-icon">📑</span><span>الكشوف</span></button>
-<button class="tab" data-tab="grades" type="button"><span class="app-nav-icon">📊</span><span>التحليل والتقارير</span></button>
-<button class="tab" data-tab="classtools" data-view="analysis" type="button"><span class="app-nav-icon">📈</span><span>المستويات والمهارات</span></button>
+<div class="app-nav-title">📝 الاختبارات والدرجات</div>
 <button class="tab" data-tab="classtools" data-view="exams" type="button"><span class="app-nav-icon">📝</span><span>دفتر الاختبارات</span></button>
 <button class="tab" data-tab="exam" type="button"><span class="app-nav-icon">🖨️</span><span>الاختبار الورقي</span></button>
+<button class="tab" data-tab="reports" type="button"><span class="app-nav-icon">📑</span><span>الكشوف</span></button>
+</section>
+<section class="app-nav-group">
+<div class="app-nav-title">📈 التقارير والتحليل</div>
+<button class="tab" data-tab="grades" type="button"><span class="app-nav-icon">📊</span><span>تقارير الأنشطة</span></button>
+<button class="tab" data-tab="classtools" data-view="analysis" type="button"><span class="app-nav-icon">📈</span><span>المستويات والمهارات</span></button>
+<button class="tab" data-tab="classtools" data-view="classfile" type="button"><span class="app-nav-icon">🏫</span><span>ملف الفصل</span></button>
 <button class="tab" data-tab="classtools" data-view="portfolio" type="button"><span class="app-nav-icon">🧾</span><span>ملف الإنجاز</span></button>
 </section>
 <section class="app-nav-group">
@@ -6535,7 +6537,6 @@ body{
 <button class="tab" data-tab="exam-shop" type="button"><span class="app-nav-icon">🎓</span><span>متجر الدرجات</span></button>
 </section>
 <section class="app-nav-group">
-<div class="app-nav-title">⚙️ الإعدادات</div>
 <button class="tab" data-tab="data" type="button"><span class="app-nav-icon">⚙️</span><span>الإعدادات</span></button>
 </section>
 </div>
@@ -6546,8 +6547,8 @@ body{
 <section class="panel on" id="p-dashboard">
 <div class="sheet-head">
 <div>
-<h2>لوحة التحكم</h2>
-<span class="sub">ملخص سريع لحالة كراسة النشاط</span>
+<h2>🏠 اليوم</h2>
+<span class="sub">ما يحتاجك الآن، ثم تفاصيل المتابعة</span>
 </div>
 <span class="spacer"></span>
 <button class="btn sm" onclick="openQuickStudent()">+ طالب</button>
@@ -6555,10 +6556,7 @@ body{
 <div class="today-hub no-print" id="today-hub"></div>
 <h3 class="no-print" id="dash-details-h">📋 تفاصيل المتابعة</h3>
 <div class="feature-grid" id="dash-stats"></div>
-<div class="dashboard-actions">
-<button class="btn ghost sm" onclick="openStudentSearch()">بحث طالب</button>
-<button class="btn ghost sm" onclick="openNotifications()">التنبيهات</button>
-</div>
+
 <div class="feature-cols">
 <div class="sheet alerts-sheet" style="margin:0">
 <div class="alert-section-head">
@@ -6846,7 +6844,7 @@ body{
 <div class="sheet-head">
 <div>
 <h2>🗂️ الكشوف</h2>
-<span class="sub">مساحة مستقلة للكشف الشامل والكشف الأسبوعي، مع إبقاء بقية التقارير في تبويب التقارير.</span>
+<span class="sub">الكشف الشامل وتحليله والكشف الأسبوعي — للطباعة والرفع الرسمي.</span>
 </div>
 <span class="spacer"></span>
 <span class="pill quiet">بيانات النظام الفعلية</span>
@@ -7222,18 +7220,13 @@ body{
 </section>
 <section class="panel" id="p-reports-main">
 <div class="sheet-head">
-  <div><h2>📊 التقارير</h2><span class="sub">التقارير التحليلية ودرجات الأنشطة، منفصلة عن الكشوف.</span></div>
+  <div><h2>📊 تقارير الأنشطة</h2><span class="sub">درجات الأنشطة وتحليلها والاختبارات التشخيصية وأنماط التعلّم. (الكشوف الرسمية في «الكشوف»، ومستويات الطلاب في «المستويات والمهارات».)</span></div>
 </div>
 <div class="reports-hub-grid reports-main-grid">
   <button class="report-hub-card" onclick="switchReportView('grades')" type="button"><span class="report-hub-icon">📋</span><span><b>درجات الأنشطة</b><small>عرض درجات الطلاب في الأنشطة والتسليمات.</small></span><span class="report-hub-arrow">←</span></button>
   <button class="report-hub-card" onclick="switchReportView('analysis')" type="button"><span class="report-hub-icon">📈</span><span><b>تحليل الأنشطة</b><small>تحليل أداء الطلاب والأنشطة ومؤشرات الإنجاز.</small></span><span class="report-hub-arrow">←</span></button>
   <button class="report-hub-card" onclick="switchReportView('diag')" type="button"><span class="report-hub-icon">🔍</span><span><b>التشخيصي</b><small>عرض نتائج الاختبارات التشخيصية وتحليلها.</small></span><span class="report-hub-arrow">←</span></button>
   <button class="report-hub-card" onclick="switchReportView('styles')" type="button"><span class="report-hub-icon">🧠</span><span><b>أنماط التعلّم</b><small>تحليل مؤشرات وأنماط تعلم الطلاب.</small></span><span class="report-hub-arrow">←</span></button>
-  <button class="report-hub-card" onclick="goTab('classtools:analysis')" type="button"><span class="report-hub-icon">📈</span><span><b>المستويات والمهارات</b><small>مستوى كل طالب واتجاهه، وخريطة المهارات للفصل.</small></span><span class="report-hub-arrow">←</span></button>
-  <button class="report-hub-card" onclick="goTab('classtools:exams')" type="button"><span class="report-hub-icon">📝</span><span><b>دفتر الاختبارات</b><small>درجات الاختبارات القصيرة والفترية لكل فصل.</small></span><span class="report-hub-arrow">←</span></button>
-  <button class="report-hub-card" onclick="goTab('classtools:classfile')" type="button"><span class="report-hub-icon">🏫</span><span><b>ملف الفصل</b><small>المستويات والمهارات والمحتاجون والمتميزون ومقارنة الفصول.</small></span><span class="report-hub-arrow">←</span></button>
-  <button class="report-hub-card" onclick="goTab('classtools:portfolio')" type="button"><span class="report-hub-icon">🧾</span><span><b>ملف إنجاز المعلم</b><small>تقرير فصلي يجمع إنجازك للمشرف وملف الأداء.</small></span><span class="report-hub-arrow">←</span></button>
-  <button class="report-hub-card" onclick="goTab('plans')" type="button"><span class="report-hub-icon">🩺</span><span><b>الخطط العلاجية</b><small>قياس قبلي وبعدي محسوب من السجلات الفعلية.</small></span><span class="report-hub-arrow">←</span></button>
 </div>
 </section>
 <section class="panel" id="p-grades">
@@ -7672,12 +7665,10 @@ body{
 </section>
 </main>
 <nav aria-label="التنقل الرئيسي للجوال" class="mobile-nav" id="mobile-nav">
-<button class="on" data-tab="dashboard"><span class="mnav-icon">⌂</span><b>الرئيسية</b></button>
+<button class="on" data-tab="dashboard"><span class="mnav-icon">⌂</span><b>اليوم</b></button>
 <button data-tab="hw"><span class="mnav-icon">📋</span><b>الأنشطة</b></button>
 <button data-tab="students"><span class="mnav-icon">👥</span><b>الطلاب</b></button>
-<button data-tab="projects"><span class="mnav-icon">📁</span><b>المشاريع</b></button>
-<button data-tab="grades"><span class="mnav-icon">📊</span><b>التقارير</b></button>
-<button data-tab="reports"><span class="mnav-icon">🗂️</span><b>الكشوف</b></button>
+<button data-tab="classtools" data-view="records"><span class="mnav-icon">🗂️</span><b>السجلات</b></button>
 <button id="nav-more-btn" type="button"><span class="mnav-icon">•••</span><b>المزيد</b></button>
 </nav>
 <div id="toast"></div>
@@ -8241,11 +8232,12 @@ function goTab(name){
   const b = document.getElementById('nav-more-btn');
   if(!b) return;
   b.onclick = ()=>{
-    const items = [['—','📚 التعليم'],['live','🎮 المسابقات المباشرة'],['madrasati','📚 مدرستي'],
-      ['—','🧭 المتابعة والدعم'],['classtools:profile','👤 ملف الطالب'],['classtools:classfile','🏫 ملف الفصل'],['classtools:records','🗂️ السجلات والحضور'],['plans','🩺 الخطط العلاجية'],
-      ['—','📊 التقييم'],['classtools:analysis','📈 المستويات والمهارات'],['classtools:exams','📝 دفتر الاختبارات'],['exam','🖨️ الاختبار الورقي'],['classtools:portfolio','🧾 ملف الإنجاز'],
+    const items = [['—','📚 التعليم'],['projects','📁 المشاريع'],['live','🎮 المسابقات المباشرة'],['madrasati','📚 مدرستي'],
+      ['—','👥 الطلاب والمتابعة'],['classtools:profile','👤 ملف الطالب'],['plans','🩺 الخطط العلاجية'],
+      ['—','📝 الاختبارات والدرجات'],['classtools:exams','📝 دفتر الاختبارات'],['exam','🖨️ الاختبار الورقي'],['reports','📑 الكشوف'],
+      ['—','📈 التقارير والتحليل'],['grades','📊 تقارير الأنشطة'],['classtools:analysis','📈 المستويات والمهارات'],['classtools:classfile','🏫 ملف الفصل'],['classtools:portfolio','🧾 ملف الإنجاز'],
       ['—','🏅 التواصل والتحفيز'],['messages','💬 رسائل الطلاب'],['classtools:certs','🏅 الشهادات'],['exam-shop','🎓 متجر الدرجات'],
-      ['—','⚙️ أخرى'],['data','⚙️ الإعدادات']];
+      ['—','⚙️'],['data','⚙️ الإعدادات']];
     const portal = getPortal();
     openModal(`<div style="padding:1rem">
       <h3 style="margin:0 0 .8rem">المزيد</h3>
@@ -30097,16 +30089,10 @@ function thDraw(){
   const acts=thActions();
   const loading=TH_BUSY&&!hasData;
   box.innerHTML=`
-    <div class="th-card"><h3>🔎 ملف طالب</h3>
+    <div class="th-card"><h3>🔎 ملف طالب<small>أو Ctrl+K من أي صفحة</small></h3>
       <input class="inp th-q" id="th-q" placeholder="اكتب اسم الطالب لفتح ملفه الشامل…" oninput="thSearch()" autocomplete="off">
       <div class="th-res" id="th-res"></div>
-      <div class="th-short">
-        <button type="button" onclick="ctGo('records')">🗂️ رصد اليوم</button>
-        <button type="button" onclick="goTab('hw')">📋 الأنشطة</button>
-        <button type="button" onclick="ctGo('exams')">📝 دفتر الاختبارات</button>
-        <button type="button" onclick="ctGo('certs')">🏅 شهادة شكر</button>
-        <button type="button" onclick="goTab('exam')">🖨️ اختبار ورقي</button>
-      </div></div>
+</div></div>
     <div class="th-card"><h3>📅 حصص اليوم<small>اضغط الحصة لرصدها</small></h3>
       ${hasData?ctTodayHTML():loading?'<div class="muted" style="font-size:.84rem">⏳ جارٍ جلب الجدول…</div>':'<div class="muted" style="font-size:.84rem">اربط الخادم من الإعدادات لعرض حصص اليوم.</div>'}</div>
     <div class="th-card"><h3>🔔 يحتاج انتباهك${acts.length?`<small>${acts.length===1?'بند واحد':acts.length===2?'بندان':acts.length+' بنود'}</small>`:''}</h3>
