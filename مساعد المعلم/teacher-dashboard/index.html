@@ -29893,6 +29893,10 @@ async function srepWithdraw(){
 .th-act button b{margin-inline-start:auto}
 @keyframes thFlash{0%,100%{box-shadow:none}30%,70%{box-shadow:0 0 0 4px rgba(224,161,0,.55)}}
 #attention-requests.th-flash{animation:thFlash 1.6s ease 2;border-radius:14px}
+.th-al-cls{border:1px solid var(--ui-border,#e5e7eb);border-radius:12px;padding:.6rem .7rem;margin-bottom:.6rem}
+.th-al-h{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.45rem}.th-al-h .btn{margin-inline-start:auto}
+.th-al{display:flex;align-items:center;gap:.5rem;padding:.45rem .55rem;border-radius:8px;background:var(--ui-bg,#f8fafc);border-inline-start:4px solid #e0a100;margin-top:.35rem}
+.th-al.bad{border-inline-start-color:#d6455b}.th-al span{display:flex;flex-direction:column;min-width:0;flex:1}.th-al small{color:var(--ink-soft);font-size:.78rem}
 .today-hub .ct-today{margin:0}.today-hub .ct-today > b:first-child{display:none}
 @media (max-width:980px){.today-hub{grid-template-columns:1fr}}
 </style>
@@ -29954,12 +29958,30 @@ function thActions(){
   if(typeof CT_DATA!=='undefined'&&CT_DATA){
     let al=[]; try{ al=ctAlerts(''); }catch(e){}
     const bad=al.filter(a=>a.lvl==='bad').length, warn=al.length-bad;
-    if(bad) out.push(['bad','🚫',`${bad} ${bad===1?'طالب غائب':'طلاب غائبون'} 3 أيام متتالية أو أكثر`,bad,"ctGo('records')"]);
-    if(warn) out.push(['warn','⚠️','تنبيهات متابعة: غياب أو واجبات أو مشاركة',warn,"ctGo('records')"]);
+    if(bad) out.push(['bad','🚫',`${bad===1?'طالب غائب':bad+' طلاب غائبون'} 3 أيام متتالية أو أكثر — اضغط لعرض الأسماء`,bad,"thShowAlerts('bad')"]);
+    if(warn){ const k=t=>al.filter(a=>a.lvl==='warn'&&a.t.includes(t)).length, parts=[[k('غياب'),'غياب'],[k('الواجب'),'واجبات'],[k('لم يشارك'),'مشاركة']].filter(x=>x[0]).map(x=>`${x[1]} ${x[0]}`);
+      out.push(['warn','⚠️',`طلاب يحتاجون متابعة (${parts.join(' · ')}) — اضغط لعرض الأسماء`,warn,"thShowAlerts('warn')"]); }
   }
   try{ const pend=(typeof REQS!=='undefined'&&Array.isArray(REQS))?REQS.length:0; if(pend) out.push(['warn','💌',`${pend===1?'طالب اشترى':pend+' طلاب اشتروا'} «رسالة شكر لولي الأمر» من المتجر — بانتظار إرسالك`,pend,"thGoReqs()"]); }catch(e){}
   return out;
 }
+/* تنبيهات الانضباط من كل الفصول في نافذة واحدة: الاسم والفصل والسبب، ومنها مباشرة إلى الملف أو سجل الفصل */
+function thShowAlerts(lvl){
+  let al=[]; try{ al=ctAlerts(''); }catch(e){}
+  if(lvl) al=al.filter(a=>a.lvl===lvl);
+  const byCls={}; al.forEach(a=>{ const c=String(a.s.cls||'بدون فصل'); (byCls[c]=byCls[c]||[]).push(a); });
+  const clsList=Object.keys(byCls).sort((a,b)=>a.localeCompare(b,'ar',{numeric:true}));
+  openModal(`<h2>${lvl==='bad'?'🚫 غياب متتالٍ':'⚠️ طلاب يحتاجون متابعة'}</h2>
+    <p class="muted" style="font-size:.84rem;margin:.2rem 0 .8rem">محسوبة من رصد الحضور والواجب والمشاركة: الغياب في آخر 30 يومًا، والواجب والمشاركة في آخر أسبوعين.
+    الإجراء المقترح: تواصل مع الطالب أو ولي أمره، أو افتح سجل الفصل للتحقق من الرصد.</p>
+    ${clsList.length?clsList.map(c=>`<div class="th-al-cls"><div class="th-al-h"><b>🎓 ${thEsc(c)}</b><span class="muted">${byCls[c].length} تنبيه</span>
+        <button type="button" class="btn ghost sm" onclick="closeModal();thOpenRecords('${thEsc(c)}')">🗂️ سجل الفصل الشهري</button></div>
+      ${byCls[c].map(a=>`<div class="th-al ${a.lvl}"><span><b>${thEsc(a.s.name)}</b><small>${thEsc(a.t)}</small></span>
+        <button type="button" class="btn ghost sm" onclick="ctOpenProfile('${thEsc(a.s.id)}')">👤 الملف الشامل</button></div>`).join('')}</div>`).join('')
+      :'<div class="feature-empty">لا توجد تنبيهات الآن 🌿</div>'}
+    <div class="modal-foot"><button class="btn ghost" onclick="closeModal()">إغلاق</button></div>`);
+}
+function thOpenRecords(cls){ window._ctRcCls=cls; window._ctRcView='month'; window._ctAlOpen=true; ctGo('records'); }
 /* طلبات رسائل الشكر معروضة في «يحتاج انتباهك» أسفل الرئيسية — ننزل إليها ونُبرزها */
 function thGoReqs(){
   if(!document.getElementById('p-dashboard')?.classList.contains('on')) goTab('dashboard');
