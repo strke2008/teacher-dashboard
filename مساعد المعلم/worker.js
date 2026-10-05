@@ -6364,6 +6364,10 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         learning:mergeDateMap(old.learning,x.learning),
         behavior:mergeList(old.behavior,x.behavior,5000),
         certificates:mergeList(old.certificates,x.certificates,2000),
+        // 📞 سجل التواصل مع أولياء الأمور و🗒️ ملاحظات المعلم الخاصة: اتحاد بالمعرّف، والأحدث يغلب.
+        // البوابة لا ترسلهما فيبقى المحفوظ كما هو.
+        contacts:mergeList(old.contacts,x.contacts,5000),
+        notes:mergeList(old.notes,x.notes,5000),
         // القوالب تُحفظ من آخر نسخة كاملة لأن الحذف منها يجب أن يبقى حذفًا حقيقيًا.
         behaviorTemplates:incomingTemplates,
         // فترة التقييم: تُمرَّر كما هي ليراها المعلم من الجوال والكمبيوتر معًا.
