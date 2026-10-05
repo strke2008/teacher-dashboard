@@ -29891,6 +29891,8 @@ async function srepWithdraw(){
 .th-act button{display:flex;align-items:center;gap:.5rem;text-align:start;border:0;border-inline-start:4px solid #94a3b8;background:var(--ui-bg,#f8fafc);border-radius:8px;padding:.5rem .65rem;font:inherit;font-size:.84rem;cursor:pointer;color:var(--ink)}
 .th-act button.bad{border-inline-start-color:#d6455b}.th-act button.warn{border-inline-start-color:#e0a100}.th-act button.ok{border-inline-start-color:#1b9c6b;cursor:default}
 .th-act button b{margin-inline-start:auto}
+@keyframes thFlash{0%,100%{box-shadow:none}30%,70%{box-shadow:0 0 0 4px rgba(224,161,0,.55)}}
+#attention-requests.th-flash{animation:thFlash 1.6s ease 2;border-radius:14px}
 .today-hub .ct-today{margin:0}.today-hub .ct-today > b:first-child{display:none}
 @media (max-width:980px){.today-hub{grid-template-columns:1fr}}
 </style>
@@ -29955,8 +29957,15 @@ function thActions(){
     if(bad) out.push(['bad','🚫',`${bad} ${bad===1?'طالب غائب':'طلاب غائبون'} 3 أيام متتالية أو أكثر`,bad,"ctGo('records')"]);
     if(warn) out.push(['warn','⚠️','تنبيهات متابعة: غياب أو واجبات أو مشاركة',warn,"ctGo('records')"]);
   }
-  try{ const pend=(typeof REQS!=='undefined'&&Array.isArray(REQS))?REQS.length:0; if(pend) out.push(['warn','🙋',`${pend} طلب انضمام بانتظار الموافقة`,pend,"goTab('students')"]); }catch(e){}
+  try{ const pend=(typeof REQS!=='undefined'&&Array.isArray(REQS))?REQS.length:0; if(pend) out.push(['warn','💌',`${pend===1?'طالب اشترى':pend+' طلاب اشتروا'} «رسالة شكر لولي الأمر» من المتجر — بانتظار إرسالك`,pend,"thGoReqs()"]); }catch(e){}
   return out;
+}
+/* طلبات رسائل الشكر معروضة في «يحتاج انتباهك» أسفل الرئيسية — ننزل إليها ونُبرزها */
+function thGoReqs(){
+  if(!document.getElementById('p-dashboard')?.classList.contains('on')) goTab('dashboard');
+  setTimeout(()=>{ const el=document.getElementById('attention-requests'); if(!el) return;
+    el.scrollIntoView({behavior:'smooth',block:'center'});
+    el.classList.remove('th-flash'); void el.offsetWidth; el.classList.add('th-flash'); }, 120);
 }
 function thDraw(){
   const box=document.getElementById('today-hub'); if(!box) return;
