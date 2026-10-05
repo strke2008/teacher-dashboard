@@ -30029,7 +30029,7 @@ function thActions(){
     if(pub.length) out.push(['warn','🔄','أنشطة تحتاج نشرًا أو إكمال محتوى',pub.length,"thGoTo('dash-alerts')"]);
     if(fast.length) out.push(['warn','⚡','تسليمات بسرعة مريبة تحتاج مراجعة',fast.length,"thGoTo('dash-alerts')"]); }catch(e){}
   try{ const sp=(Array.isArray(STORE_PURCHASES)?STORE_PURCHASES:[]).filter(isStorePurchaseNew).length; if(sp) out.push(['info','🛒',`${sp===1?'عملية شراء جديدة':sp+' عمليات شراء جديدة'} من متجر الطلاب`,sp,"thGoTo('store-purchases-panel')"]); }catch(e){}
-  try{ const dv=deviceAudit().length; if(dv) out.push(['bad','🚩',`${dv===1?'جهاز واحد مستخدم':dv+' أجهزة مستخدمة'} لأكثر من طالب — تحقّق`,dv,"goTab('students')"]); }catch(e){}
+  try{ const dv=devPending().length; if(dv) out.push(['bad','🚩',`${dv===1?'جهاز واحد مستخدم':dv+' أجهزة مستخدمة'} لأكثر من طالب — اضغط للتحقق`,dv,"thShowDevices()"]); }catch(e){}
   const rank={bad:0,warn:1,info:2}; out.sort((a,b)=>rank[a[0]]-rank[b[0]]);
   return out;
 }
@@ -30050,6 +30050,30 @@ function thShowAlerts(lvl){
     <div class="modal-foot"><button class="btn ghost" onclick="closeModal()">إغلاق</button></div>`);
 }
 function thOpenRecords(cls){ window._ctRcCls=cls; window._ctRcView='month'; window._ctAlOpen=true; ctGo('records'); }
+/* 🚩 الأجهزة المشتركة: نافذة تعرض كل جهاز وطلابه وأنشطتهم، ويُعلَّم الجهاز «تحققت» فلا يعود التنبيه
+   إلا إذا دخل منه طالب جديد (المفتاح = الجهاز + أسماء طلابه) */
+const DEV_OK_KEY='dash_dev_ok_v1';
+function devOkList(){ try{ return JSON.parse(localStorage.getItem(DEV_OK_KEY)||'[]'); }catch(e){ return []; } }
+function devSig(x){ return x.dv+'|'+x.names.map(n=>n[0]).sort().join('،'); }
+function devPending(){ const ok=new Set(devOkList()); return deviceAudit().filter(x=>!ok.has(devSig(x))); }
+function devMarkOk(sig){ const L=devOkList(); if(!L.includes(sig)) L.push(sig); try{ localStorage.setItem(DEV_OK_KEY,JSON.stringify(L.slice(-300))); }catch(e){} thShowDevices(); try{ thDraw(); }catch(e){} }
+function devUnmark(sig){ try{ localStorage.setItem(DEV_OK_KEY,JSON.stringify(devOkList().filter(x=>x!==sig))); }catch(e){} thShowDevices(true); try{ thDraw(); }catch(e){} }
+function thShowDevices(showOk){
+  const ok=new Set(devOkList()), all=deviceAudit(), pend=all.filter(x=>!ok.has(devSig(x))), done=all.filter(x=>ok.has(devSig(x)));
+  const stu=nm=>(STUDENTS||[]).find(s=>s.name===nm)||(STUDENTS||[]).find(s=>normAr(s.name)===normAr(nm));
+  const card=(x,i,isOk)=>{ const sig=devSig(x), sameCls=new Set(x.names.map(([nm])=>String(stu(nm)?.cls||''))).size===1;
+    return `<div class="th-al-cls"><div class="th-al-h"><b>📱 جهاز ${i+1}</b><span class="muted">${x.names.length===2?'طالبان':x.names.length+' طلاب'}${sameCls?' · من الفصل نفسه':' · من فصول مختلفة (غالبًا إخوة)'}</span>
+      ${isOk?`<button type="button" class="btn ghost sm" onclick='devUnmark(${JSON.stringify(sig)})'>↩️ إعادة للتنبيه</button>`:`<button type="button" class="btn tick sm" onclick='devMarkOk(${JSON.stringify(sig)})'>✓ تحققت — لا مشكلة</button>`}</div>
+      ${x.names.map(([nm,acts])=>{ const s=stu(nm), u=[...new Set(acts)];
+        return `<div class="th-al ${isOk?'':'bad'}"><span><b>${thEsc(nm)}</b><small>${thEsc(s?.cls||'')} · ${u.length} ${u.length===1?'نشاط':'أنشطة'}: ${thEsc(u.slice(0,4).join('، '))}${u.length>4?'…':''}</small></span>
+          ${s?`<button type="button" class="btn ghost sm" onclick="ctOpenProfile('${thEsc(s.id)}','report')">📄 إجاباته</button>`:''}</div>`; }).join('')}</div>`; };
+  openModal(`<h2>🚩 جهاز واحد لأكثر من طالب</h2>
+    <p class="muted" style="font-size:.84rem;margin:.2rem 0 .8rem">كل جهاز يُعرف ببصمته عند التسليم. إن سلّم منه أكثر من طالب فقد يكونون <b>إخوة على جوال واحد</b> — وهذا طبيعي —
+    وقد يكون <b>حلًّا نيابة عن زميل</b>. قارن إجاباتهم من «📄 إجاباته»، ثم اضغط «تحققت» ليختفي التنبيه (يعود تلقائيًا إن سلّم من الجهاز طالب جديد).</p>
+    ${pend.length?pend.map((x,i)=>card(x,i,false)).join(''):'<div class="feature-empty">لا أجهزة تحتاج تحققًا 🌿</div>'}
+    ${done.length?`<details style="margin-top:.6rem" ${showOk?'open':''}><summary class="muted" style="cursor:pointer">✓ أجهزة تحققت منها (${done.length})</summary>${done.map((x,i)=>card(x,i,true)).join('')}</details>`:''}
+    <div class="modal-foot"><button class="btn ghost" onclick="closeModal()">إغلاق</button></div>`);
+}
 /* انتقال إلى قسم في «تفاصيل المتابعة» أسفل الرئيسية مع إبرازه */
 function thGoTo(id){
   if(!document.getElementById('p-dashboard')?.classList.contains('on')) goTab('dashboard');
