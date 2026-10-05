@@ -29909,6 +29909,8 @@ async function srepWithdraw(){
 
 </script>
 <style id="dash-reorg-css">
+/* الشريط السفلي: أعمدة بعدد الأزرار الفعلي — كان مثبتًا على 7 فيبقى فراغ عند 5 أزرار */
+.mobile-nav{grid-template-columns:none!important;grid-auto-flow:column!important;grid-auto-columns:minmax(0,1fr)!important}
 .more-grp{font-size:.74rem;font-weight:800;color:var(--ink-soft);margin:.7rem .2rem .35rem;letter-spacing:.2px}
 .set-tabs{display:flex;flex-wrap:wrap;gap:.4rem;margin:0 0 .9rem;position:sticky;top:0;z-index:5;background:var(--paper,#fff);padding:.5rem 0;border-bottom:1px solid var(--ui-border,#e5e7eb)}
 .set-tabs button{border:1px solid var(--ui-border,#e5e7eb);background:var(--ui-surface,#fff);color:var(--ink);border-radius:999px;padding:.4rem .85rem;font:inherit;font-size:.84rem;font-weight:700;cursor:pointer}
