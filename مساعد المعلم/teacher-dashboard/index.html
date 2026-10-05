@@ -6840,56 +6840,24 @@ body{
 <div class="no-print" id="ct-today-box"></div>
 <div class="row no-print" id="ct-nav" style="gap:.4rem;flex-wrap:wrap;margin:.2rem 0 .8rem"></div>
 <div class="card" id="ct-body"></div>
-</section><section class="panel" id="p-reports">
-<div class="sheet-head">
-<div>
-<h2>🗂️ الكشوف</h2>
-<span class="sub">الكشف الشامل وتحليله والكشف الأسبوعي — للطباعة والرفع الرسمي.</span>
-</div>
-<span class="spacer"></span>
-<span class="pill quiet">بيانات النظام الفعلية</span>
-</div>
-<div class="reports-hub-grid">
-<button class="report-hub-card" onclick="openDedicatedReport('comprehensive')" type="button">
-<span class="report-hub-icon">📒</span>
-<span><b>الكشف الشامل</b><small>أعمال السنة والدرجات والاختبارات حسب الفصل والفترة والصف.</small></span>
-<span class="report-hub-arrow">←</span>
-</button>
-<button class="report-hub-card" onclick="openDedicatedReport('compan')" type="button">
-<span class="report-hub-icon">📊</span>
-<span><b>تحليل الكشف الشامل</b><small>تحليل متوسطات الكشف وتوزيع مستويات الطلاب والعناصر الأضعف.</small></span>
-<span class="report-hub-arrow">←</span>
-</button>
-<button class="report-hub-card" onclick="openDedicatedReport('weekly')" type="button">
-<span class="report-hub-icon">🗓️</span>
-<span><b>الكشف الأسبوعي</b><small>متابعة المشاركة والواجبات والسلوك خلال أسبوع محدد.</small></span>
-<span class="report-hub-arrow">←</span>
-</button>
-</div>
-<div class="sheet" style="margin-top:1rem">
-<div class="section-title"><h3>كيف أستخدم الكشوف؟</h3><span>واجهة مركّزة</span></div>
-<div class="reports-hub-help">
-<div><b>📒 الشامل</b><span>اختر الفصل الدراسي والفترة والصف، ثم راجع الكشف أو اطبعه A4.</span></div>
-<div><b>🗓️ الأسبوعي</b><span>اختر الصف والأسبوع، ثم راجع مؤشرات المتابعة أو اطبع الكشف.</span></div>
-</div>
-</div>
 </section>
 <section class="panel" id="p-comprehensive">
-<div class="report-topbar no-print">
+<div class="report-topbar no-print kashf-bar">
 <div aria-label="الكشوف" class="report-switch no-print" role="tablist">
-<button class="report-switch-btn" onclick="switchReportView('weekly')" role="tab">🗓️ الكشف الأسبوعي</button>
-<button class="report-switch-btn" onclick="switchReportView('comprehensive')" role="tab">📒 الكشف الشامل</button>
-<button class="report-switch-btn report-back-btn" onclick="goTab('reports')" role="tab">↩️ العودة للكشوف</button>
+<button class="report-switch-btn" data-kmain="weekly" onclick="kashfGo('weekly')" role="tab">🗓️ الكشف الأسبوعي</button>
+<button class="report-switch-btn" data-kmain="comprehensive" onclick="kashfGo('comprehensive')" role="tab">📒 الكشف الشامل (الفترة)</button>
 </div>
+<div aria-label="طريقة العرض" class="ct-seg kashf-sub" role="tablist"><button type="button" data-ksub="comprehensive" onclick="kashfGo('comprehensive')">📋 الجدول</button><button type="button" data-ksub="compan" onclick="kashfGo('compan')">📊 التحليل</button></div>
 </div>
 <div class="sheet-head no-print">
 <div>
 <h2>📒 الكشف الشامل لأعمال السنة</h2>
-<span class="sub">الكشف النهائي لكل فترة من 60 درجة: أعمال السنة 40 + الاختبار 20</span>
+<span class="sub">الكشف النهائي لكل فترة من 60 درجة: أعمال السنة 40 + الاختبار 20 · إغلاق الفترات وإنهاء السنة من ⚙️ الإعدادات ← 📅 السنة الدراسية</span>
 </div>
 <span class="spacer"></span>
 <button class="btn ghost sm" onclick="renderComprehensive(true)">🔄 تحديث</button>
-<button class="btn tick sm" onclick="printComprehensive()">🖨️ طباعة الكشف</button>
+<button class="btn tick sm" onclick="printComprehensive()">🖨️ طباعة</button>
+<button class="btn sm" onclick="srepOpen()" title="معاينة وإرسال تقرير الفترة إلى بوابة كل طالب">📤 إرسال للطلاب</button>
 </div>
 <div class="sheet no-print report-filters" style="padding:.7rem 1rem">
 <div class="row report-filter-row">
@@ -6900,27 +6868,18 @@ body{
 <label style="font-size:.84rem;color:var(--ink-soft)">الفصل</label>
 <select class="inp" id="comp-class" onchange="renderComprehensive()" style="width:auto;min-width:130px"><option value="">كل الفصول</option></select>
 <input autocomplete="off" class="inp" id="comp-search" oninput="renderComprehensive()" placeholder="🔍 ابحث باسم الطالب" style="flex:1;min-width:220px"/>
-<button class="btn tick sm no-print" type="button" onclick="srepOpen()" title="معاينة وإرسال تقرير الفترة إلى بوابة الطالب">📤 تقارير الطلاب</button>
-</div>
-<div class="row report-academic-row" id="dashboard-academic-control">
-<span class="chip ghost" id="dashboard-academic-status">جاري قراءة الحالة الأكاديمية…</span>
-<span class="spacer"></span>
-<button class="btn ghost sm" id="dashboard-academic-action" onclick="runDashboardAcademicAction()" style="display:none" type="button"></button>
-<button class="btn ghost sm" id="dashboard-year-archive" onclick="finishYearFromDashboard('archive')" style="display:none" type="button">🏁 إنهاء السنة وأرشفة البيانات</button>
-<button class="btn ghost sm report-danger" id="dashboard-year-delete" onclick="finishYearFromDashboard('delete')" style="display:none" type="button">🗑️ إنهاء السنة وحذف بيانات الرصد</button>
 </div>
 </div>
 <div class="muted no-print report-state" id="comp-state">جارٍ تجهيز الكشف…</div>
 <div id="comp-table"></div>
 </section>
 <section class="panel" id="p-compan">
-<div class="report-topbar no-print">
+<div class="report-topbar no-print kashf-bar">
 <div aria-label="الكشوف" class="report-switch no-print" role="tablist">
-<button class="report-switch-btn" onclick="switchReportView('comprehensive')" role="tab">📒 الكشف الشامل</button>
-<button class="report-switch-btn" onclick="switchReportView('compan')" role="tab">📊 تحليل الكشف الشامل</button>
-<button class="report-switch-btn" onclick="switchReportView('weekly')" role="tab">🗓️ الكشف الأسبوعي</button>
-<button class="report-switch-btn report-back-btn" onclick="goTab('reports')" role="tab">↩️ العودة للكشوف</button>
+<button class="report-switch-btn" data-kmain="weekly" onclick="kashfGo('weekly')" role="tab">🗓️ الكشف الأسبوعي</button>
+<button class="report-switch-btn" data-kmain="comprehensive" onclick="kashfGo('comprehensive')" role="tab">📒 الكشف الشامل (الفترة)</button>
 </div>
+<div aria-label="طريقة العرض" class="ct-seg kashf-sub" role="tablist"><button type="button" data-ksub="comprehensive" onclick="kashfGo('comprehensive')">📋 الجدول</button><button type="button" data-ksub="compan" onclick="kashfGo('compan')">📊 التحليل</button></div>
 </div>
 <div class="sheet-head no-print">
 <div>
@@ -6937,6 +6896,10 @@ body{
 </div>
 <div class="sheet no-print report-filters" style="padding:.7rem 1rem">
 <div class="row report-filter-row">
+<label style="font-size:.84rem;color:var(--ink-soft)">الفصل الدراسي</label>
+<select class="inp" id="ca-semester" onchange="kashfSP(this)" style="width:auto;min-width:160px"><option value="1">الفصل الدراسي الأول</option><option value="2">الفصل الدراسي الثاني</option></select>
+<label style="font-size:.84rem;color:var(--ink-soft)">الفترة</label>
+<select class="inp" id="ca-period" onchange="kashfSP(this)" style="width:auto;min-width:130px"><option value="1">الفترة الأولى</option><option value="2">الفترة الثانية</option></select>
 <label style="font-size:.84rem;color:var(--ink-soft)">الفصل</label>
 <select class="inp" id="ca-class" onchange="renderCompAnalysis()" style="width:auto;min-width:130px"><option value="">كل الفصول</option></select>
 </div>
@@ -6945,11 +6908,10 @@ body{
 <div id="ca-body"></div>
 </section>
 <section class="panel" id="p-weekly">
-<div class="report-topbar no-print">
+<div class="report-topbar no-print kashf-bar">
 <div aria-label="الكشوف" class="report-switch no-print" role="tablist">
-<button class="report-switch-btn" onclick="switchReportView('weekly')" role="tab">🗓️ الكشف الأسبوعي</button>
-<button class="report-switch-btn" onclick="switchReportView('comprehensive')" role="tab">📒 الكشف الشامل</button>
-<button class="report-switch-btn report-back-btn" onclick="goTab('reports')" role="tab">↩️ العودة للكشوف</button>
+<button class="report-switch-btn" data-kmain="weekly" onclick="kashfGo('weekly')" role="tab">🗓️ الكشف الأسبوعي</button>
+<button class="report-switch-btn" data-kmain="comprehensive" onclick="kashfGo('comprehensive')" role="tab">📒 الكشف الشامل (الفترة)</button>
 </div>
 </div>
 <div class="sheet-head no-print">
@@ -6960,7 +6922,7 @@ body{
 <span class="spacer"></span>
 <button class="btn ghost sm" onclick="renderWeekly(true)">🔄 تحديث</button>
 <button class="btn tick sm" onclick="printWeekly()">🖨️ طباعة</button>
-<button class="btn sm" onclick="wrOpen()">📨 تقارير الأسبوع للطلاب</button>
+<button class="btn sm" onclick="wrOpen()" title="تقرير أسبوع كل طالب يصل إلى بوابته">📤 إرسال للطلاب</button>
 </div>
 <div class="sheet no-print wkauto" id="wkauto">
 <label class="wkauto-tg"><input type="checkbox" id="wkauto-on" onchange="wkAutoSet(this.checked)"/>
@@ -7476,6 +7438,17 @@ body{
 <div class="projects-grid" id="projects-list"></div>
 </section>
 <section class="panel" id="p-data">
+<div class="sheet" id="academic-year-sheet">
+<div class="sheet-head"><h2>📅 السنة الدراسية والفترات</h2></div>
+<p class="muted" style="margin:0 0 .6rem;font-size:.85rem">حالة الفصل الدراسي والفترة الحالية، والانتقال للفترة التالية، وإنهاء السنة. الكشوف والتقارير تتبع الفترة النشطة هنا.</p>
+<div class="row report-academic-row" id="dashboard-academic-control">
+<span class="chip ghost" id="dashboard-academic-status">جاري قراءة الحالة الأكاديمية…</span>
+<span class="spacer"></span>
+<button class="btn ghost sm" id="dashboard-academic-action" onclick="runDashboardAcademicAction()" style="display:none" type="button"></button>
+<button class="btn ghost sm" id="dashboard-year-archive" onclick="finishYearFromDashboard('archive')" style="display:none" type="button">🏁 إنهاء السنة وأرشفة البيانات</button>
+<button class="btn ghost sm report-danger" id="dashboard-year-delete" onclick="finishYearFromDashboard('delete')" style="display:none" type="button">🗑️ إنهاء السنة وحذف بيانات الرصد</button>
+</div>
+</div>
 <div class="sheet" id="official-names-sheet">
 <div class="sheet-head"><h2>🏫 بيانات المدرسة والتوقيعات الرسمية</h2><span class="pill" id="off-names-status">—</span></div>
 <p style="margin:0 0 .9rem;color:var(--ink-soft);font-size:.88rem;line-height:1.7">تظهر هذه الأسماء تلقائيًا في ترويسة وتوقيعات كل التقارير الرسمية: الكشوف، وتحليل النتائج، والتشخيصي، والخطط العلاجية، وكليشة الاختبار الورقي. أي تعديل هنا يسري على التقارير فورًا، ويُحفظ على الخادم فيظهر في كل أجهزتك.</p>
@@ -8264,10 +8237,7 @@ document.querySelectorAll('.tab,.mobile-nav button[data-tab]').forEach(t => t.on
     document.getElementById('p-reports-main')?.classList.add('on');
     document.querySelectorAll('.tab,.mobile-nav button[data-tab]').forEach(x=>x.classList.toggle('on',x.dataset.tab==='grades'));
   }
-  if (t.dataset.tab === 'reports') { __reportsHubActive=true;
-    document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('on',p.id==='p-reports'));
-    document.querySelectorAll('.tab,.mobile-nav button[data-tab]').forEach(x=>x.classList.toggle('on',x.dataset.tab==='reports'));
-  }
+  if (t.dataset.tab === 'reports') { __reportsHubActive=true; kashfGo(null); }
   if (t.dataset.tab === 'projects') { loadProjects(false); }
   if (t.dataset.tab === 'madrasati') { madLoad(false); madBridgeInit(false); }
   if (t.dataset.tab === 'exam-shop') { loadExamShopPolicy(false); }
@@ -29952,11 +29922,11 @@ async function srepWithdraw(){
 /* ═══ ⚙️ الإعدادات: تبويبات داخلية — كل قسم مستقل بدل صفحة طويلة. لا يُحذف شيء: «الكل» يعرض كل الأقسام كما كانت ═══ */
 (function settingsTabsInit(){
   const pd=document.getElementById('p-data'); if(!pd||pd.querySelector('.set-tabs')) return;
-  const CATS=[['school','🏫 المدرسة والمظهر',['بيانات المدرسة','مظهر التطبيق']],['ai','🤖 الذكاء الاصطناعي',['الذكاء الاصطناعي']],
+  const CATS=[['year','📅 السنة الدراسية',['السنة الدراسية']],['school','🏫 المدرسة والمظهر',['بيانات المدرسة','مظهر التطبيق']],['ai','🤖 الذكاء الاصطناعي',['الذكاء الاصطناعي']],
     ['students','👥 الطلاب والنقل',['نقل الطلاب','طرق استيراد','استعادة طالب']],
     ['links','🔗 الروابط والخادم والإشعارات',['الإشعارات','رابط صفحة','رابط بوابة','الخادم']],
     ['backup','💾 النسخ والتنظيف',['النسخ الاحتياطية','تنظيف']],['danger','⛔ منطقة الخطر',['منطقة الخطر']]];
-  let cur='school';
+  let cur='year';
   [...pd.children].forEach(el=>{
     const h=(el.querySelector('h2')?.textContent||'').trim();
     const c=h&&CATS.find(([,,keys])=>keys.some(k=>h.includes(k)));
@@ -30524,4 +30494,47 @@ function ctCmpClassHTML(cls){
   return items.length?`<div class="cmp-row"><span class="cmp-h">📈 مقارنة بـ${esc(CT_PREV.label)}:</span>${items.join('')}</div>`:'';
 }
 
+</script>
+<style id="kashf-css">
+.kashf-bar{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem;justify-content:space-between}
+.kashf-sub button{font-weight:700}
+</style>
+<script id="kashf-js">
+/* ═══ 📑 الكشوف: صفحة واحدة بتبويبين (الأسبوعي · الشامل) و«الجدول | التحليل» داخل الشامل.
+   تفتح على آخر كشف استخدمته، ويُحمل الفصل المختار عند التنقل بينها. ═══ */
+const KASHF_KEY='dash_kashf_v1', KASHF_SEL={weekly:'wk-class',comprehensive:'comp-class',compan:'ca-class'};
+document.addEventListener('change',e=>{ const id=e.target&&e.target.id; if(Object.values(KASHF_SEL).includes(id)) window._kashfCls=e.target.value; },true);
+function kashfMark(v){
+  document.querySelectorAll('[data-kmain]').forEach(b=>b.classList.toggle('on',(v==='weekly')===(b.dataset.kmain==='weekly')));
+  document.querySelectorAll('[data-ksub]').forEach(b=>b.classList.toggle('on',b.dataset.ksub===v));
+}
+function kashfSyncSP(v){ // التحليل يتبع فلاتر الكشف نفسها
+  const cs=document.getElementById('comp-semester'), cp=document.getElementById('comp-period');
+  const as=document.getElementById('ca-semester'), ap=document.getElementById('ca-period');
+  if(v==='compan'&&cs&&as){ as.value=cs.value; ap.value=cp.value; }
+}
+function kashfSP(){
+  const cs=document.getElementById('comp-semester'), cp=document.getElementById('comp-period');
+  cs.value=document.getElementById('ca-semester').value; cp.value=document.getElementById('ca-period').value;
+  renderCompAnalysis(true);
+}
+function kashfCarry(v){
+  const c=window._kashfCls; if(c==null) return false;
+  const sel=document.getElementById(KASHF_SEL[v]); if(!sel) return false;
+  if(sel.value===c) return true;
+  if([...sel.options].some(o=>o.value===c)){ sel.value=c; return true; }
+  return false;
+}
+function kashfGo(v){
+  if(!v){ try{ v=localStorage.getItem(KASHF_KEY)||'weekly'; }catch(e){ v='weekly'; } }
+  if(!KASHF_SEL[v]) v='weekly';
+  try{ localStorage.setItem(KASHF_KEY,v); }catch(e){}
+  closeModal&&closeModal();
+  kashfSyncSP(v);
+  const preset=kashfCarry(v);
+  openDedicatedReport(v);
+  kashfMark(v);
+  // أول زيارة: قائمة الفصول تُملأ أثناء الرسم، فنطبّق الفصل بعده ونعيد الرسم مرة واحدة
+  if(!preset&&window._kashfCls!=null) setTimeout(()=>{ if(kashfCarry(v)){ v==='weekly'?renderWeekly(false):v==='compan'?renderCompAnalysis(false):renderComprehensive(false); } },350);
+}
 </script>
