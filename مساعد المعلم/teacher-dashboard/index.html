@@ -7040,8 +7040,8 @@ body{
 <label class="row" style="gap:.4rem;font-size:.82rem;cursor:pointer">
 <input checked="" id="ex-use-selected" onchange="examBuild()" type="checkbox"/> استخدام الأسئلة المحددة فقط في الاختبار</label>
 <div class="row" style="gap:.4rem">
-<button class="btn ghost sm" onclick="exportExamJson(false)" type="button">⬇️ تصدير المحدد</button>
-<button class="btn ghost sm" onclick="exportExamJson(true)" type="button">⬇️ تصدير كامل البنك</button>
+<button class="btn ghost sm" onclick="exportExamJson(true)" type="button">⬇️ تصدير المحدد</button>
+<button class="btn ghost sm" onclick="exportExamJson(false)" type="button">⬇️ تصدير كامل البنك</button>
 </div>
 </div>
 <div class="exam-bank-list" id="ex-bank-list"></div>
@@ -11484,12 +11484,16 @@ function exportExamJson(selectedOnly){
   const bank=selectedOnly?examJsonSelected():{mc:EXAM_JSON_BANK.mc||[],tf:EXAM_JSON_BANK.tf||[]};
   const quiz=bank.mc.map(q=>({q:examJsonText(q.q),opts:q.o.map(examJsonText),answer:examJsonText(q.o[q.a]??q.a)}));
   const truefalse=bank.tf.map(q=>({q:q.q,answer:!!q.a}));
-  if(!quiz.length&&!truefalse.length){toast('لا توجد أسئلة للتصدير','bad');return;}
-  const payload={quiz,truefalse,meta:{source:EXAM_JSON_BANK.label||'أسئلة الاختبار',exportedAt:new Date().toISOString()}};
+  // أكمل الفراغ والتوصيل كما هما في حقول الاختبار (الصفحة الثانية) — كانت لا تُصدَّر فتضيع عند الاستيراد للأنشطة
+  const val=id=>document.getElementById(id)?.value||'';
+  const fillblank=examParseFill(val('ex-fill-txt')).filter(x=>x.a).map(x=>({q:examJsonText(x.q),answer:examJsonText(x.a)}));
+  const mp=examParseMatch(val('ex-match-txt')).pairs.map(x=>[examJsonText(x.a),examJsonText(x.b)]);
+  if(!quiz.length&&!truefalse.length&&!fillblank.length&&!mp.length){toast('لا توجد أسئلة للتصدير','bad');return;}
+  const payload={quiz,truefalse,...(fillblank.length?{fillblank}:{}),...(mp.length?{match:[{pairs:mp}]}:{}),meta:{source:EXAM_JSON_BANK.label||'أسئلة الاختبار',exportedAt:new Date().toISOString()}};
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json;charset=utf-8'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=(selectedOnly?'الأسئلة-المحددة':'بنك-الأسئلة')+'.json';
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
-  toast(`تم تصدير ${quiz.length+truefalse.length} سؤال`,'good');
+  toast(`تم تصدير ${quiz.length+truefalse.length+fillblank.length} سؤال${mp.length?` و${mp.length} زوج توصيل`:''}`,'good');
 }
 
 /* يقبل صيغة مولّد الكليشة {quiz,truefalse} وصيغة تصدير المنصة {questions:[{t}]} */
@@ -16119,10 +16123,11 @@ function impAnswerIndex(o, v){
   return -1;
 }
 function convertGamesJson(d){
-  const pools = { q:[], tf:[], a:[], s:[], m:[] };
+  const pools = { q:[], tf:[], f:[], a:[], s:[], m:[] };
   const skipped = [];
   const arr = k => Array.isArray(d[k]) ? d[k] : [];
   let noKey = 0;
+  arr('fillblank').forEach(x=>{ const q=String(x&&(x.q??x.question)||'').trim(), a=String(x&&(x.answer??x.a)||'').trim(); if(q&&a) pools.f.push({ t:'f', q, a }); });
 
   arr('quiz').forEach(x=>{
     const o = Array.isArray(x.opts) ? x.opts.filter(Boolean) : Array.isArray(x.o) ? x.o.filter(Boolean) : [];
@@ -16143,12 +16148,14 @@ function convertGamesJson(d){
   // صيغتان: [{a,b}] من مولد الألعاب، و[{pairs:[[a,b],…]}] من تصدير الاختبار الورقي
   const pairs = arr('match').flatMap(x=>Array.isArray(x&&x.pairs) ? x.pairs.filter(p=>Array.isArray(p)&&p[0]&&p[1]).map(p=>[String(p[0]),String(p[1])])
     : (x&&x.a&&x.b) ? [[String(x.a),String(x.b)]] : []);
-  for(let i=0;i<pairs.length;i+=3){
-    const chunk = pairs.slice(i, i+3);
+  // مجموعات من 3، ولا يبقى زوج وحيد: 4 ← 2+2 · 7 ← 3+2+2
+  for(let i=0;i<pairs.length;){
+    const left=pairs.length-i, take=left===4?2:Math.min(3,left);
+    const chunk = pairs.slice(i, i+take); i+=take;
     if(chunk.length >= 2) pools.m.push({ t:'m', p:chunk });
   }
 
-  if(arr('fillblank').length) skipped.push('أكمل الفراغ');
+  const fbNoAns=arr('fillblank').length-pools.f.length; if(fbNoAns>0) skipped.push(`${fbNoAns} فراغ بلا إجابة`);
   if(d.classify && d.classify.buckets) skipped.push('التصنيف');
   if(noKey) skipped.push(`${noKey} سؤال اختيار بلا إجابة صحيحة معروفة (اعتُمد الخيار الأول — راجعها)`);
   if(Array.isArray(d.memory) && d.memory.length) skipped.push('الذاكرة');
