@@ -6514,7 +6514,7 @@ body{
 <section class="app-nav-group">
 <div class="app-nav-title">🧭 المتابعة والدعم</div>
 <button class="tab" data-tab="students" type="button"><span class="app-nav-icon">👥</span><span>الطلاب</span></button>
-<button class="tab" data-tab="classtools" data-view="profile" type="button"><span class="app-nav-icon">👤</span><span>ملف الطالب الشامل</span></button>
+<button class="tab" data-tab="classtools" data-view="profile" type="button"><span class="app-nav-icon">👤</span><span>ملف الطالب</span></button>
 <button class="tab" data-tab="classtools" data-view="records" type="button"><span class="app-nav-icon">🗂️</span><span>السجلات والحضور</span></button>
 <button class="tab" data-tab="plans" type="button"><span class="app-nav-icon">🩺</span><span>الخطط العلاجية</span></button>
 </section>
@@ -8237,7 +8237,7 @@ function goTab(name){
   if(!b) return;
   b.onclick = ()=>{
     const items = [['—','📚 التعليم'],['live','🎮 المسابقات المباشرة'],['madrasati','📚 مدرستي'],
-      ['—','🧭 المتابعة والدعم'],['classtools:profile','👤 ملف الطالب الشامل'],['classtools:records','🗂️ السجلات والحضور'],['plans','🩺 الخطط العلاجية'],
+      ['—','🧭 المتابعة والدعم'],['classtools:profile','👤 ملف الطالب'],['classtools:records','🗂️ السجلات والحضور'],['plans','🩺 الخطط العلاجية'],
       ['—','📊 التقييم'],['classtools:analysis','📈 المستويات والمهارات'],['classtools:exams','📝 دفتر الاختبارات'],['exam','🖨️ الاختبار الورقي'],
       ['—','🏅 التواصل والتحفيز'],['messages','💬 رسائل الطلاب'],['classtools:certs','🏅 الشهادات'],['exam-shop','🎓 متجر الدرجات'],
       ['—','⚙️ أخرى'],['data','⚙️ الإعدادات']];
@@ -9148,7 +9148,7 @@ const CT_TABS=[['profile','👤 ملف الطالب'],['levels','📊 المست
 /* أقسام القائمة الجانبية: كل قسم يعرض جزءًا من الأدوات بعنوانه، ويبقى «أدوات الفصل» كاملًا لمن يفتحها بلا قسم */
 let CT_VIEW='';
 const CT_VIEWS={
-  profile:{tabs:['profile'],title:'👤 ملف الطالب الشامل',sub:'كل ما يخص الطالب في صفحة واحدة: المستوى والاتجاه والمهارات والحضور والسلوك والخطط — مع طباعة رسمية.'},
+  profile:{tabs:['profile'],title:'👤 ملف الطالب',sub:'ملف واحد لكل طالب: النظرة الشاملة، الأنشطة والإجراءات، تقرير الأنشطة المفصل، وتقرير الفترة — مع الطباعة.'},
   records:{tabs:['records','schedule'],title:'🗂️ السجلات والحضور',sub:'رصد الحضور والمشاركة والواجب والسلوك يوميًا، والسجل الشهري، وجدول الحصص.'},
   analysis:{tabs:['levels','skills'],title:'📈 المستويات والمهارات',sub:'مستوى كل طالب واتجاهه من حساب الخادم، وخريطة المهارات للفصل لاكتشاف ما يحتاج إعادة شرح.'},
   exams:{tabs:['exams'],title:'📝 دفتر الاختبارات',sub:'رصد درجات الاختبارات القصيرة والفترية، اللصق من جدول، والتصدير.'},
@@ -9199,8 +9199,8 @@ async function renderClassTools(force){
     nav.innerHTML=tabs.map(([k,l])=>`<button type="button" class="btn ${k===CT_TAB?'':'ghost'} sm" onclick="CT_TAB='${k}';renderClassTools()">${l}</button>`).join(''); }
   if(force||!CT_DATA){
     box.innerHTML='<div class="muted" style="padding:1rem">⏳ جارٍ جلب بيانات الفصل من الخادم…</div>';
-    try{ try{ await loadDashboardAcademic(); }catch(e){} CT_DATA=await ctLoad(); }
-    catch(e){ box.innerHTML='<div class="ct-warn">تعذّر الاتصال بالخادم — تحقق من الاتصال ثم اضغط 🔄 تحديث.</div>'; return; }
+    try{ try{ await loadDashboardAcademic(); }catch(e){} CT_DATA=await ctLoad(); window._ctOffline=false; }
+    catch(e){ if(CT_TAB!=='profile'){ box.innerHTML='<div class="ct-warn">تعذّر الاتصال بالخادم — تحقق من الاتصال ثم اضغط 🔄 تحديث.</div>'; return; } window._ctOffline=true; }
   }
   const tb=document.getElementById('ct-today-box'); if(tb) tb.innerHTML=(!CT_VIEW||CT_VIEW==='records')?ctTodayHTML():'';
   try{
@@ -9574,7 +9574,7 @@ function ctHeat(rate){
   const h=Math.round(Math.max(0,Math.min(100,rate))*1.2);   // 0=أحمر ← 120=أخضر
   return `background:hsl(${h} 62% 88%);color:hsl(${h} 70% 22%)`;
 }
-function ctOpenProfile(sid){ window._ctPfSid=String(sid); const s=(STUDENTS||[]).find(x=>String(x.id)===String(sid)); if(s) window._ctPfCls=String(s.cls||''); closeModal(); ctGo('profile'); }
+function ctOpenProfile(sid,sub){ window._ctPfSub=sub||'overview'; window._ctPfSid=String(sid); const s=(STUDENTS||[]).find(x=>String(x.id)===String(sid)); if(s) window._ctPfCls=String(s.cls||''); closeModal(); ctGo('profile'); }
 function ctNameLink(s){ return `<a href="#" class="ct-name" onclick="event.preventDefault();ctOpenProfile('${esc(s.id)}')">${esc(s.name)}</a>`; }
 
 /* ── 📅 حصصي اليوم (أعلى التبويب دائمًا) ── */
@@ -9779,16 +9779,54 @@ function ctSchPrint(){
 }
 
 /* ── 👤 ملف الطالب الشامل ── */
+/* 👤 ملف الطالب الموحّد: كل ما يخص الطالب في صفحة واحدة بتبويبات —
+   النظرة الشاملة (حساب الخادم) · الأنشطة والإجراءات · تقرير الأنشطة المفصل · تقرير الفترة كما يراه الطالب */
+const CT_PF_SUBS=[['overview','📊 نظرة شاملة'],['acts','📚 الأنشطة والإجراءات'],['report','📄 تقرير الأنشطة المفصل'],['period','📤 تقرير الفترة']];
 async function ctProfile(box,force){
-  await ctEnsureGrades(force);
+  let off=!!window._ctOffline; if(!off){ try{ await ctEnsureGrades(force); }catch(e){ off=true; } }
   const cls=window._ctPfCls??(ctClasses()[0]||''), roster=ctRoster(cls);
   let sid=window._ctPfSid; if(!roster.some(s=>String(s.id)===String(sid))) sid=roster[0]?String(roster[0].id):'';
   window._ctPfSid=sid;
+  const sub=CT_PF_SUBS.some(x=>x[0]===window._ctPfSub)?window._ctPfSub:'overview';
+  const printBtn={overview:`<button class="btn sm" onclick="ctProfilePrint()">🖨️ طباعة الملف الشامل</button>`,
+    report:`<button class="btn sm" onclick="printStudentReport('${esc(sid)}')">🖨️ طباعة تقرير الأنشطة</button>`,
+    period:`<button class="btn sm" onclick="window.__srepPreview&&srpPrint(window.__srepPreview)">🖨️ طباعة تقرير الفترة</button>`}[sub]||'';
   const head=`<div class="row ct-tools no-print">${ctClassSel('ct-pf-cls',cls,"window._ctPfCls=this.value;window._ctPfSid='';renderClassTools()",false)}
-      <select class="inp" style="flex:1;min-width:200px" onchange="window._ctPfSid=this.value;renderClassTools()">${roster.map(s=>`<option value="${esc(s.id)}" ${String(s.id)===sid?'selected':''}>${esc(s.name)}</option>`).join('')}</select>
-      ${sid?`<button class="btn sm" onclick="ctProfilePrint()">🖨️ طباعة التقرير</button>`:''}</div>`;
+      <select class="inp" id="ct-pf-sel" style="flex:1;min-width:200px" onchange="window._ctPfSid=this.value;renderClassTools()">${roster.map(s=>`<option value="${esc(s.id)}" ${String(s.id)===sid?'selected':''}>${esc(s.name)}</option>`).join('')}</select>
+      ${sid?`<button class="btn ghost sm" title="الطالب السابق" onclick="ctPfStep(-1)">→</button><button class="btn ghost sm" title="الطالب التالي" onclick="ctPfStep(1)">←</button>`:''}</div>`;
   if(!sid){ box.innerHTML=head+'<div class="muted">لا طلاب في هذا الفصل.</div>'; return; }
-  box.innerHTML=head+`<div id="ct-pf">${ctProfileBody(sid)}</div>`;
+  const bar=`<div class="sf-bar no-print"><span class="ct-seg sf-subs">${CT_PF_SUBS.map(([k,l])=>`<button type="button" class="${k===sub?'on':''}" onclick="window._ctPfSub='${k}';renderClassTools()">${l}</button>`).join('')}</span>
+      <span class="sf-acts"><button class="btn ghost sm" onclick="openStudentForm('${esc(sid)}')">✏️ تعديل البيانات</button>
+      <button class="btn ghost sm" onclick="openStudentReminder('${esc(sid)}')">📨 تذكير</button>
+      <button class="btn ghost sm" onclick="openAddStudentPoints('${esc(sid)}')">＋ نقاط</button>${printBtn}</span></div>`;
+  box.innerHTML=head+bar+`<div id="ct-pf" class="sf-body"></div>`;
+  const el=document.getElementById('ct-pf');
+  if(sub==='overview') el.innerHTML=(off?'<div class="ct-warn">تعذّر الاتصال بالخادم — المستوى والحضور والسلوك تحتاج الخادم. تبويب «الأنشطة والإجراءات» يعمل من بيانات هذا الجهاز.</div>':'')+ctProfileBody(sid);
+  else if(sub==='acts'){ el.classList.add('sf-embed'); sfEmbed(el,()=>_legacyStudentProfile(sid)); }
+  else if(sub==='report'){ el.classList.add('sf-embed'); sfEmbed(el,()=>_legacyStudentReport(sid)); }
+  else sfPeriod(el,sid);
+}
+function ctPfStep(d){
+  const r=ctRoster(window._ctPfCls??(ctClasses()[0]||'')), i=r.findIndex(s=>String(s.id)===String(window._ctPfSid));
+  const n=r[(i+d+r.length)%r.length]; if(n){ window._ctPfSid=String(n.id); renderClassTools(); }
+}
+/* يعرض محتوى نافذة قديمة داخل الصفحة: نلتقط ما كانت سترسله إلى النافذة ونضعه هنا */
+function sfEmbed(el,fn){
+  const orig=window.openModal; let got=false;
+  window.openModal=h=>{ got=true; el.innerHTML=h; };
+  try{ fn(); }catch(e){ console.error('sfEmbed',e); }
+  finally{ window.openModal=orig; }
+  if(!got) el.innerHTML='<div class="muted">لا توجد بيانات لعرضها.</div>';
+}
+async function sfPeriod(el,sid){
+  const {sem,per}=ctSem(), s=(STUDENTS||[]).find(x=>String(x.id)===String(sid));
+  el.innerHTML='<div class="muted" style="padding:1rem">⏳ جارٍ إعداد تقرير الفترة…</div>'; window.__srepPreview=null;
+  try{
+    const j=await healthApi('/student-report/preview',{semester:sem,period:per,sid,note:'',acts:srepActsFor(s?[s]:[])});
+    if(String(window._ctPfSid)!==String(sid)) return;
+    window.__srepPreview=j.report;
+    el.innerHTML=`<div class="muted no-print" style="font-size:.8rem;margin-bottom:.5rem">هكذا يظهر التقرير للطالب في بوابته. الإرسال لكل الفصل من «الكشوف ← 📤 تقارير الطلاب».</div>${srpHTML(j.report)}`;
+  }catch(e){ el.innerHTML='<div class="ct-warn">تعذّر إعداد تقرير الفترة — يحتاج اتصالًا بالخادم.</div>'; }
 }
 function ctProfileBody(sid){
   const s=(STUDENTS||[]).find(x=>String(x.id)===String(sid))||{}, g=ctG(sid), D=CT_DATA||{}, {sem,per}=ctSem();
@@ -22579,7 +22617,7 @@ function openStudentProfile(id){
         }
         return '';
       })()}
-    </div><button class="btn sm" onclick="ctOpenProfile('${s.id}')" title="المستوى والمهارات والحضور والسلوك والخطط">📊 الملف الشامل</button><button class="btn ghost sm" onclick="openStudentForm('${s.id}');setTimeout(()=>{},0)">✏️ تعديل</button></div>
+    </div><button class="btn ghost sm" onclick="openStudentForm('${s.id}');setTimeout(()=>{},0)">✏️ تعديل</button></div>
     <div class="mini-grid">
       <div class="mini-stat"><b>${s.points||0}</b><span>نقطة</span></div>
       <div class="mini-stat"><b>${st.done}/${st.acts.length}</b><span>أنشطة</span></div>
@@ -22843,7 +22881,6 @@ function renderFeatureStudentSearch(){
       </div>
       <div class="student-search-actions">
         <button class="btn ghost sm" type="button" onclick="openStudentProfile('${esc(s.id)}')">👤 ملف الطالب</button>
-        <button class="btn ghost sm" type="button" onclick="ctOpenProfile('${esc(s.id)}')">📊 الشامل</button>
         ${missing>0 ? `<button class="btn sm" type="button" onclick="openStudentReminder('${esc(s.id)}')">📨 تذكير</button>` : ''}
       </div>
     </div>`;
@@ -23911,7 +23948,7 @@ function renderStudentCenterDetail(){
       </div>
       <div class="student-hero-actions">
         <button class="btn ghost sm" onclick="openStudentForm('${esc(s.id)}')">تعديل</button>
-        <button class="btn ghost sm" onclick="studentReport('${esc(s.id)}')">التقرير الكامل</button>
+        <button class="btn sm" onclick="ctOpenProfile('${esc(s.id)}')">📂 ملف الطالب</button>
         <button class="btn tick sm" onclick="openAddStudentPoints('${esc(s.id)}')">＋ إضافة نقاط</button>
         <button class="btn danger sm" onclick="delStudent('${esc(s.id)}')">حذف الطالب</button>
       </div>
@@ -29897,6 +29934,10 @@ async function srepWithdraw(){
 .th-al-h{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.45rem}.th-al-h .btn{margin-inline-start:auto}
 .th-al{display:flex;align-items:center;gap:.5rem;padding:.45rem .55rem;border-radius:8px;background:var(--ui-bg,#f8fafc);border-inline-start:4px solid #e0a100;margin-top:.35rem}
 .th-al.bad{border-inline-start-color:#d6455b}.th-al span{display:flex;flex-direction:column;min-width:0;flex:1}.th-al small{color:var(--ink-soft);font-size:.78rem}
+.sf-bar{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin:.2rem 0 .8rem}
+.sf-subs{flex-wrap:wrap}.sf-acts{display:flex;flex-wrap:wrap;gap:.35rem;margin-inline-start:auto}
+.sf-embed .modal-foot,.sf-embed .modal-mobile-close{display:none!important}
+.sf-embed .feature-list{max-height:none!important}.sf-embed .profile-head>button{display:none}
 .today-hub .ct-today{margin:0}.today-hub .ct-today > b:first-child{display:none}
 @media (max-width:980px){.today-hub{grid-template-columns:1fr}}
 </style>
@@ -29935,6 +29976,11 @@ async function srepWithdraw(){
     return orig.apply(this,arguments);
   };
 })();
+
+/* ═══ 👤 كل المداخل القديمة لملف/تقرير الطالب تفتح الملف الموحّد على التبويب المناسب ═══ */
+const _legacyStudentProfile=openStudentProfile, _legacyStudentReport=studentReport;
+openStudentProfile=function(id){ if(byId(id)) ctOpenProfile(id,'acts'); };
+studentReport=function(sid){ if(byId(sid)) ctOpenProfile(sid,'report'); };
 
 /* ═══ 🏠 اليوم: حصص اليوم + ما يحتاج قرارك + بحث سريع يفتح الملف الشامل ═══ */
 let TH_AT=0, TH_BUSY=false;
