@@ -6533,7 +6533,6 @@ body{
 <section class="app-nav-group">
 <div class="app-nav-title">🏅 التواصل والتحفيز</div>
 <button class="tab" data-tab="messages" type="button"><span class="app-nav-icon">💬</span><span>رسائل الطلاب</span></button>
-<button class="tab" data-tab="classtools" data-view="weekly" type="button"><span class="app-nav-icon">📨</span><span>التقرير الأسبوعي</span></button>
 <button class="tab" data-tab="classtools" data-view="certs" type="button"><span class="app-nav-icon">🏅</span><span>الشهادات</span></button>
 <button class="tab" data-tab="exam-shop" type="button"><span class="app-nav-icon">🎓</span><span>متجر الدرجات</span></button>
 </section>
@@ -8237,7 +8236,7 @@ function goTab(name){
       ['—','👥 الطلاب والمتابعة'],['classtools:profile','👤 ملف الطالب'],['plans','🩺 الخطط العلاجية'],
       ['—','📝 الاختبارات والدرجات'],['classtools:exams','📝 دفتر الاختبارات'],['exam','🖨️ الاختبار الورقي'],['reports','📑 الكشوف'],
       ['—','📈 التقارير والتحليل'],['grades','📊 تقارير الأنشطة'],['classtools:analysis','📈 المستويات والمهارات'],['classtools:classfile','🏫 ملف الفصل'],['classtools:portfolio','🧾 ملف الإنجاز'],
-      ['—','🏅 التواصل والتحفيز'],['messages','💬 رسائل الطلاب'],['classtools:weekly','📨 التقرير الأسبوعي'],['classtools:certs','🏅 الشهادات'],['exam-shop','🎓 متجر الدرجات'],
+      ['—','🏅 التواصل والتحفيز'],['messages','💬 رسائل الطلاب'],['classtools:certs','🏅 الشهادات'],['exam-shop','🎓 متجر الدرجات'],
       ['—','⚙️'],['data','⚙️ الإعدادات']];
     const portal = getPortal();
     openModal(`<div style="padding:1rem">
@@ -9210,7 +9209,6 @@ async function renderClassTools(force){
     else if(CT_TAB==='certs'){ try{ await ctEnsureGrades(force); }catch(e){} ctCerts(box); }
     else if(CT_TAB==='classfile') await ctClassFile(box, force);
     else if(CT_TAB==='portfolio') await ctPortfolio(box, force);
-    else if(CT_TAB==='weekly') await ctWeekly(box, force);
     else ctSchedule(box);
   }catch(e){ console.error('classTools',e); box.innerHTML='<div class="ct-warn">حدث خطأ أثناء العرض.</div>'; }
 }
@@ -30027,9 +30025,6 @@ function thActions(){
     if(soon.length) out.push(['warn','⏳',`${soon.length===1?'نشاط ينتهي':soon.length+' أنشطة تنتهي'} خلال يومين ولم يكتمل التسليم`,soon.length,"thGoTo('dash-alerts')"]);
     if(pub.length) out.push(['warn','🔄','أنشطة تحتاج نشرًا أو إكمال محتوى',pub.length,"thGoTo('dash-alerts')"]);
     if(fast.length) out.push(['warn','⚡','تسليمات بسرعة مريبة تحتاج مراجعة',fast.length,"thGoTo('dash-alerts')"]); }catch(e){}
-  try{ const dw=new Date(Date.now()+3*3600000).getUTCDay();
-    if((dw===3||dw===4)&&typeof wrWeek==='function'&&CT_DATA){ const W=wrWeek(), sent=wrSentSet(W), n=(STUDENTS||[]).filter(s=>!sent.has(String(s.id))).length;
-      if(n&&sent.size<(STUDENTS||[]).length) out.push(['info','📨',`التقرير الأسبوعي لأولياء الأمور — لم يُرسل لـ ${n} طالب`,n,"goTab('classtools:weekly')"]); } }catch(e){}
   try{ const sp=(Array.isArray(STORE_PURCHASES)?STORE_PURCHASES:[]).filter(isStorePurchaseNew).length; if(sp) out.push(['info','🛒',`${sp===1?'عملية شراء جديدة':sp+' عمليات شراء جديدة'} من متجر الطلاب`,sp,"thGoTo('store-purchases-panel')"]); }catch(e){}
   try{ const dv=devPending().length; if(dv) out.push(['bad','🚩',`${dv===1?'جهاز واحد مستخدم':dv+' أجهزة مستخدمة'} لأكثر من طالب — اضغط للتحقق`,dv,"thShowDevices()"]); }catch(e){}
   const rank={bad:0,warn:1,info:2}; out.sort((a,b)=>rank[a[0]]-rank[b[0]]);
@@ -30412,12 +30407,6 @@ document.addEventListener('keydown',e=>{ if((e.ctrlKey||e.metaKey)&&(e.key==='k'
 .cmp-row .cmp-h{font-weight:800;color:var(--ink-soft)}
 .cmp-it{border:1px solid var(--ui-border,#e5e7eb);border-radius:999px;padding:.15rem .6rem;background:var(--ui-surface,#fff)}
 .cmp-it .up{color:#13734f;font-weight:800}.cmp-it .dn{color:#a3283c;font-weight:800}.cmp-it .eq{color:var(--ink-soft)}
-.wr-row{border:1px solid var(--ui-border,#e5e7eb);border-radius:12px;padding:.55rem .7rem;margin:.4rem 0}
-.wr-row.sent{border-color:#1b9c6b;background:rgba(27,156,107,.05)}
-.wr-top{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}.wr-top b{flex:1;min-width:140px}
-.wr-ph{width:150px!important;direction:ltr}
-.wr-msg{white-space:pre-wrap;font-size:.8rem;background:var(--ui-bg,#f8fafc);border-radius:8px;padding:.5rem .6rem;margin-top:.45rem;line-height:1.7}
-.wr-flags{font-size:.74rem;color:var(--ink-soft)}
 </style>
 <script id="dash-v3-js">
 /* ═════════ 🔬 تحليل الفقرات: الصعوبة والتمييز والبدائل والثبات ═════════
@@ -30535,80 +30524,4 @@ function ctCmpClassHTML(cls){
   return items.length?`<div class="cmp-row"><span class="cmp-h">📈 مقارنة بـ${esc(CT_PREV.label)}:</span>${items.join('')}</div>`:'';
 }
 
-/* ═════════ 📨 التقرير الأسبوعي لأولياء الأمور ═════════ */
-function wrWeek(){ // من الأحد إلى الخميس للأسبوع المختار
-  const base=window._wrFrom||ctToday(), t=Date.parse(base+'T00:00:00Z'), dow=new Date(t).getUTCDay();
-  const sun=t-dow*864e5, days=[0,1,2,3,4].map(i=>new Date(sun+i*864e5).toISOString().slice(0,10));
-  return {days,from:days[0],to:days[4],key:days[0]};
-}
-function wrPhone(p){ let d=String(p||'').replace(/[^\d]/g,''); if(d.startsWith('00')) d=d.slice(2); if(d.startsWith('05')&&d.length===10) d='966'+d.slice(1); else if(d.startsWith('5')&&d.length===9) d='966'+d; return d.length>=10?d:''; }
-function wrData(s,W){
-  const D=CT_DATA||{}, S=String(s.id), st=(m,d)=>ctStatus(D,m,d,S);
-  const P={}, Hm={}; W.days.forEach(d=>{ const a=st('participation',d); if(a) P[a]=(P[a]||0)+1; const b=st('homework',d); if(b) Hm[b]=(Hm[b]||0)+1; });
-  const rec=Object.values(P).reduce((a,x)=>a+x,0);
-  const beh=(D.behavior||[]).filter(x=>x&&!x.deleted&&String(x.studentId)===S&&W.days.includes(x.date));
-  const t0=Date.parse(W.from+'T00:00:00+03:00'), t1=Date.parse(W.to+'T23:59:59+03:00');
-  const acts=HW.filter(h=>hwFor(h,s.cls)&&h.due&&h.due>=W.from&&h.due<=W.to);
-  const sub=acts.filter(h=>h.subs&&h.subs[S]), miss=acts.filter(h=>!(h.subs&&h.subs[S]));
-  const extra=HW.filter(h=>h.subs&&h.subs[S]&&+h.subs[S].at>=t0&&+h.subs[S].at<=t1&&!acts.includes(h));
-  const certs=(D.certificates||[]).filter(c=>c&&!c.deleted&&String(c.studentId)===S&&c.date>=W.from&&c.date<=W.to);
-  return {P,Hm,rec,beh,acts,sub,miss,extra,certs};
-}
-function wrMsg(s,W){
-  const x=wrData(s,W), first=String(s.name||'').trim().split(/\s+/)[0]||'', L=[];
-  const fmt=d=>d.slice(5).replace('-','/');
-  L.push(`السلام عليكم ورحمة الله، ولي أمر الطالب ${s.name} المحترم`);
-  L.push(`ملخص الأسبوع (${fmt(W.from)} – ${fmt(W.to)}) في مادة ${rcGet('subject')||'العلوم'}:`);
-  L.push('');
-  if(x.rec){ const ab=(x.P['غائب']||0), ex=(x.P['غائب بعذر']||0), pr=x.rec-ab-ex;
-    L.push(`🗓️ الحضور: حضر ${pr} من ${x.rec===1?'حصة واحدة':x.rec===2?'حصتين':x.rec+' حصص'}${ab?` · غاب ${ab} بدون عذر`:''}${ex?` · ${ex} بعذر`:''}`);
-    if(x.P['شارك']||x.P['لم يشارك']) L.push(`🙋 المشاركة: شارك ${x.P['شارك']||0} ${(x.P['لم يشارك']||0)?`· لم يشارك ${x.P['لم يشارك']}`:''}`.trim()); }
-  if(x.Hm['أنجز']||x.Hm['لم ينجز']) L.push(`📚 الواجبات: أنجز ${x.Hm['أنجز']||0} من ${(x.Hm['أنجز']||0)+(x.Hm['لم ينجز']||0)}`);
-  if(x.acts.length) L.push(`💻 الأنشطة الإلكترونية: سلّم ${x.sub.length} من ${x.acts.length}${x.miss.length?`\n   لم يُسلَّم: ${x.miss.map(h=>h.title).join('، ')}`:''}`);
-  else if(x.extra.length) L.push(`💻 الأنشطة الإلكترونية: سلّم ${x.extra.length} ${x.extra.length===1?'نشاطًا':'أنشطة'} هذا الأسبوع`);
-  const pos=x.beh.filter(b=>b.type==='positive'), neg=x.beh.filter(b=>b.type!=='positive');
-  if(pos.length) L.push(`🌟 تميّز في: ${[...new Set(pos.map(b=>b.category||b.note).filter(Boolean))].join('، ')}`);
-  if(neg.length) L.push(`⚠️ يحتاج متابعة في: ${[...new Set(neg.map(b=>b.category||b.note).filter(Boolean))].join('، ')}`);
-  if(x.certs.length) L.push(`🏅 حصل على شهادة شكر وتقدير: ${x.certs[0].reason}`);
-  const good=!x.miss.length&&!(x.P['غائب']||0)&&!(x.Hm['لم ينجز']||0)&&!neg.length;
-  L.push('');
-  L.push(good?`👏 أداء ${first} هذا الأسبوع مميز، شكرًا لمتابعتكم.`:`نأمل متابعة ${first} في البنود أعلاه، وشكرًا لتعاونكم.`);
-  L.push(`معلم المادة: ${rcGet('teacher')||''}`);
-  return {text:L.join('\n'),good,empty:!x.rec&&!x.acts.length&&!x.extra.length&&!x.beh.length&&!(x.Hm['أنجز']||x.Hm['لم ينجز'])};
-}
-function wrSentSet(W){ return new Set(((CT_DATA&&CT_DATA.contacts)||[]).filter(c=>c&&!c.deleted&&c.reason==='تقرير أسبوعي'&&c.week===W.key).map(c=>String(c.studentId))); }
-async function ctWeekly(box,force){
-  const W=wrWeek(), cls=window._wrCls??(ctClasses()[0]||''), roster=ctRoster(cls), sent=wrSentSet(W), ph=(CT_DATA&&CT_DATA.phones)||{};
-  const flt=window._wrF||'all';
-  const rows=roster.map(s=>({s,m:wrMsg(s,W),sent:sent.has(String(s.id))})).filter(r=>flt==='all'||(flt==='need'&&!r.m.good)||(flt==='unsent'&&!r.sent));
-  const left=roster.filter(s=>!sent.has(String(s.id))).length;
-  box.innerHTML=`<div class="row ct-tools no-print">${ctClassSel('wr-cls',cls,"window._wrCls=this.value;renderClassTools()",false)}
-      <label class="muted" style="font-size:.8rem">الأسبوع <input class="inp" type="date" value="${W.from}" style="width:auto" onchange="window._wrFrom=this.value;renderClassTools()"></label>
-      <span class="ct-seg"><button type="button" class="${flt==='all'?'on':''}" onclick="window._wrF='all';renderClassTools()">الكل</button><button type="button" class="${flt==='need'?'on':''}" onclick="window._wrF='need';renderClassTools()">يحتاجون متابعة</button><button type="button" class="${flt==='unsent'?'on':''}" onclick="window._wrF='unsent';renderClassTools()">لم يُرسل</button></span>
-      <span class="spacer"></span><b style="font-size:.85rem">أُرسل ${roster.length-left} من ${roster.length}</b>
-      ${left?`<button class="btn tick sm" onclick="wrNext()">💬 إرسال التالي ▶</button>`:''}</div>
-    <div class="muted" style="font-size:.78rem;margin:.1rem 0 .5rem">الرسالة تُبنى تلقائيًا من رصد الأسبوع (الأحد–الخميس). أضف رقم ولي الأمر مرة واحدة ليفتح واتساب على محادثته مباشرة، وإلا تختار المحادثة بنفسك. كل إرسال يُسجَّل في «سجل التواصل» بملف الطالب.</div>
-    ${rows.map(r=>`<div class="wr-row ${r.sent?'sent':''}" id="wr-${esc(r.s.id)}"><div class="wr-top"><b>${ctNameLink(r.s)} ${r.sent?'<span class="chip tick">✓ أُرسل</span>':''} ${r.m.good?'<span class="chip tick">👏 مميز</span>':'<span class="chip warn">يحتاج متابعة</span>'}</b>
-        <input class="inp wr-ph" placeholder="05xxxxxxxx" value="${esc(ph[String(r.s.id)]||'')}" onchange="wrSetPhone('${esc(r.s.id)}',this.value)" title="رقم ولي الأمر">
-        <button class="btn ghost sm" onclick="wrCopy('${esc(r.s.id)}')">📋 نسخ</button>
-        <button class="btn sm" onclick="wrSend('${esc(r.s.id)}')">💬 واتساب</button></div>
-      <details ${r.m.empty?'':''}><summary class="wr-flags">${r.m.empty?'⚪ لا رصد له هذا الأسبوع — ':''}عرض الرسالة</summary><div class="wr-msg">${esc(r.m.text)}</div></details></div>`).join('')||'<div class="muted">لا طلاب.</div>'}`;
-}
-function wrStudent(sid){ return (STUDENTS||[]).find(x=>String(x.id)===String(sid)); }
-async function wrSetPhone(sid,v){ const p=String(v||'').trim();
-  try{ await ctSave(D=>{ D.phones=D.phones&&typeof D.phones==='object'?D.phones:{}; D.phones[String(sid)]=p; }); toast(p?'📱 حُفظ الرقم':'حُذف الرقم','good'); }catch(e){ toast('تعذّر حفظ الرقم','bad'); } }
-function wrCopy(sid){ const s=wrStudent(sid); if(!s) return; const t=wrMsg(s,wrWeek()).text;
-  (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>toast('📋 نُسخت الرسالة','good')).catch(()=>{ prompt('انسخ الرسالة:',t); }); }
-async function wrSend(sid){
-  const s=wrStudent(sid); if(!s) return; const W=wrWeek(), t=wrMsg(s,W).text, ph=wrPhone(((CT_DATA&&CT_DATA.phones)||{})[String(sid)]);
-  window.open(`https://wa.me/${ph}?text=${encodeURIComponent(t)}`,'_blank','noopener');
-  if(wrSentSet(W).has(String(sid))) return;
-  try{ await ctSave(D=>{ D.contacts=Array.isArray(D.contacts)?D.contacts:[]; D.contacts.push({id:v2Id(),studentId:String(sid),date:ctToday(),channel:'واتساب',reason:'تقرير أسبوعي',result:`ملخص أسبوع ${W.from}`,week:W.key,at:Date.now()}); }); }catch(e){}
-  renderClassTools();
-}
-function wrNext(){ const W=wrWeek(), sent=wrSentSet(W), cls=window._wrCls??(ctClasses()[0]||''); const s=ctRoster(cls).find(x=>!sent.has(String(x.id))); if(s) wrSend(s.id); }
-
-/* تسجيل القسم الجديد + المقارنة في ملف الطالب وملف الفصل */
-CT_TABS.push(['weekly','📨 التقرير الأسبوعي']);
-CT_VIEWS.weekly={tabs:['weekly'],title:'📨 التقرير الأسبوعي لأولياء الأمور',sub:'رسالة لكل ولي أمر مبنية من رصد الأسبوع: الحضور والمشاركة والواجبات والأنشطة والسلوك — تُرسل بالواتساب واحدًا تلو الآخر وتُسجَّل في سجل التواصل.'};
 </script>
