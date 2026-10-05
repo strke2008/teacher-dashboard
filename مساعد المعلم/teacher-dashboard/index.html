@@ -332,6 +332,40 @@ input,select,textarea{font-family:inherit;font-size:1rem}
 .pf-head{display:flex;justify-content:space-between;align-items:center;gap:.5rem}.pf-head h3{margin:0}
 body.pf-open{overflow:hidden}
 @media (max-width:640px){.pf-modal{padding:8px}}
+.ct-name{color:inherit;text-decoration:none;border-bottom:1px dashed var(--ui-border)}.ct-name:hover{color:#1565C0;border-color:#1565C0}
+.ct-trend{font-weight:800;font-size:.8rem}.ct-trend.up{color:#2E7D32}.ct-trend.down{color:#C62828}.ct-trend.flat{color:var(--ink-soft)}
+.ct-today{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;margin:.1rem 0 .7rem;font-size:.85rem}
+.ct-per{border:1px solid var(--ui-border);background:var(--ui-surface-2);border-radius:999px;padding:.3rem .7rem;cursor:pointer;font:inherit;font-size:.8rem}.ct-per.done{border-color:#2E9E6B;background:rgba(46,158,107,.08)}
+.ct-heat td{text-align:center;font-weight:700;font-size:.8rem;min-width:3.4rem}.ct-heat .ct-avg td{font-size:.78rem}
+.ct-sk-h{max-width:8rem;white-space:normal;line-height:1.3;font-size:.74rem}
+.ct-stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.5rem;margin-bottom:.6rem}
+.ct-stat{border:1px solid var(--ui-border);border-radius:12px;padding:.55rem .7rem;background:var(--ui-surface-2);font-size:.8rem}
+.ct-stat-r{display:flex;flex-wrap:wrap;gap:.2rem .7rem;margin:.25rem 0}
+.ct-bins{display:flex;align-items:flex-end;gap:3px;height:36px;margin-top:.2rem}.ct-bins i{flex:1;background:#2E9E6B;border-radius:3px 3px 0 0;opacity:.8}
+.ct-miss{color:#8A5A00;font-size:.76rem;margin-top:.2rem}
+.ct-miss-on .ct-sc.empty{background:rgba(214,69,91,.1);border-color:#D6455B}
+.ct-seg{display:inline-flex;border:1px solid var(--ui-border);border-radius:10px;overflow:hidden}.ct-seg button{border:0;background:none;padding:.35rem .8rem;cursor:pointer;font:inherit;font-size:.82rem}.ct-seg button.on{background:#1F2D45;color:#fff}
+.ct-alerts{border:1px solid #E9B949;background:rgba(233,185,73,.08);border-radius:12px;padding:.45rem .7rem;margin-bottom:.6rem}.ct-alerts summary{cursor:pointer;font-weight:800;font-size:.84rem}
+.ct-al{font-size:.82rem;padding:.2rem 0;border-top:1px dashed var(--ui-border)}.ct-al.bad{color:#B4232F}
+.ct-month td.ct-m{text-align:center;cursor:pointer;font-weight:800;font-size:.76rem;min-width:1.7rem;position:relative;padding:.3rem .15rem}
+.ct-month th{font-size:.72rem;padding:.3rem .2rem;text-align:center}
+.ct-m.p{background:rgba(46,158,107,.14);color:#1B6B47}.ct-m.n{background:rgba(233,185,73,.2);color:#8A5A00}.ct-m.a{background:rgba(214,69,91,.18);color:#B4232F}.ct-m.e{background:rgba(120,130,150,.15);color:#555}
+.ct-m i{position:absolute;top:2px;inset-inline-start:2px;width:5px;height:5px;border-radius:50%;background:#D6455B}
+.ct-month b.bad,.ct-table b.bad{color:#B4232F}
+.ct-cand{display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.35rem 0;border-top:1px dashed var(--ui-border);font-size:.85rem}
+.ct-cmp{display:grid;gap:.3rem;margin-bottom:.6rem}.ct-cmp-r{display:grid;grid-template-columns:5rem 1fr 3rem;gap:.5rem;align-items:center;font-size:.82rem}
+.ct-cmp-bar{display:flex;height:12px;border-radius:6px;overflow:hidden;background:var(--ui-border)}.ct-cmp-bar i.t{background:#2E9E6B}.ct-cmp-bar i.w{background:#E9B949}.ct-cmp-bar i.b{background:#D6455B}
+.ct-pf-head{display:flex;justify-content:space-between;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:.6rem}
+.ct-kpis.ct-kpis6{grid-template-columns:repeat(6,1fr)}.ct-kpi small{display:block;font-size:.68rem;color:var(--ink-soft);margin-top:.15rem}
+.ct-pf-grid{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-top:.6rem}
+.ct-bar{display:grid;grid-template-columns:minmax(90px,1.2fr) 2fr 3.6rem;gap:.45rem;align-items:center;font-size:.8rem;margin-top:.3rem}
+.ct-bar i{height:9px;border-radius:5px;background:var(--ui-border);overflow:hidden;display:block}.ct-bar u{display:block;height:100%;text-decoration:none}
+.ct-li{display:flex;justify-content:space-between;gap:.5rem;font-size:.8rem;padding:.25rem 0;border-top:1px dashed var(--ui-border)}
+@media(max-width:900px){.ct-kpis.ct-kpis6{grid-template-columns:repeat(3,1fr)}.ct-pf-grid{grid-template-columns:1fr}}
+.ct-pf-print .ct-kpis.ct-kpis6{grid-template-columns:repeat(3,1fr)}.ct-pf-print .ct-card{break-inside:avoid}
+.ct-cert.t-gold{border:3mm double #B8892B}.ct-cert.t-gold .ct-cert-t{color:#9A6A00}.ct-cert.t-gold .ct-cert-n{border-color:#B8892B}
+.ct-cert.t-modern .ct-cert-in{background:linear-gradient(135deg,rgba(21,101,192,.06),rgba(46,158,107,.08));border-radius:6mm}.ct-cert.t-modern .ct-cert-t{color:#1565C0;letter-spacing:.5px}.ct-cert.t-modern .ct-cert-n{border:0;background:#1565C0;color:#fff;border-radius:3mm;padding:1mm 10mm}
+.ct-cert.t-classic{border:1.2mm solid #0E5E4E}
 .ct-tools{gap:.5rem;align-items:center;flex-wrap:wrap;margin-bottom:.6rem}
 .ct-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem;margin-bottom:.4rem}
 .ct-kpi{border:1px solid var(--ui-border);border-radius:12px;padding:.55rem;text-align:center;background:var(--ui-surface-2)}.ct-kpi b{display:block;font-size:1.25rem}.ct-kpi span{font-size:.78rem;color:var(--ink-soft)}
@@ -6769,6 +6803,7 @@ body{
 <div class="sheet-head no-print"><div><h2>🧰 أدوات الفصل</h2>
 <span class="sub">المستويات ودفتر الاختبارات والسجلات والشهادات والجدول — على شاشة كبيرة. البيانات نفسها التي في بوابة المعلم، وما تعدّله هنا يظهر هناك.</span></div>
 <span class="spacer"></span><button class="btn ghost sm" onclick="renderClassTools(true)">🔄 تحديث</button></div>
+<div class="no-print" id="ct-today-box"></div>
 <div class="row no-print" id="ct-nav" style="gap:.4rem;flex-wrap:wrap;margin:.2rem 0 .8rem"></div>
 <div class="card" id="ct-body"></div>
 </section><section class="panel" id="p-reports">
@@ -9063,7 +9098,7 @@ function printPlansSummary(){
    تقرأ وتكتب بيانات الفصل نفسها على الخادم (/classroom) التي تستخدمها البوابة، فيبقى الاثنان متزامنين.
    كل حفظ يجلب أحدث نسخة من الخادم أولًا ثم يعدّل الحقل المطلوب وحده — فلا يُمحى ما رصدته البوابة للتو. */
 let CT_TAB='levels', CT_DATA=null, CT_GRADES=null, CT_BUSY=false;
-const CT_TABS=[['levels','📊 المستويات'],['exams','📝 دفتر الاختبارات'],['records','🗂️ السجلات'],['certs','🏅 الشهادات'],['schedule','🗓️ الجدول']];
+const CT_TABS=[['profile','👤 ملف الطالب'],['levels','📊 المستويات'],['skills','🧭 خريطة المهارات'],['exams','📝 دفتر الاختبارات'],['records','🗂️ السجلات'],['certs','🏅 الشهادات'],['schedule','🗓️ الجدول']];
 function ctApi(){ return (typeof getApi==='function'?getApi():'').replace(/\/+$/,''); }
 async function ctLoad(){
   const r=await fetch(ctApi()+'/classroom?t='+encodeURIComponent(getTok()));
@@ -9094,11 +9129,14 @@ async function renderClassTools(force){
     try{ try{ await loadDashboardAcademic(); }catch(e){} CT_DATA=await ctLoad(); }
     catch(e){ box.innerHTML='<div class="ct-warn">تعذّر الاتصال بالخادم — تحقق من الاتصال ثم اضغط 🔄 تحديث.</div>'; return; }
   }
+  const tb=document.getElementById('ct-today-box'); if(tb) tb.innerHTML=ctTodayHTML();
   try{
     if(CT_TAB==='levels') await ctLevels(box, force);
+    else if(CT_TAB==='skills') await ctSkills(box, force);
+    else if(CT_TAB==='profile') await ctProfile(box, force);
     else if(CT_TAB==='exams') ctExams(box);
     else if(CT_TAB==='records') ctRecords(box);
-    else if(CT_TAB==='certs') ctCerts(box);
+    else if(CT_TAB==='certs'){ try{ await ctEnsureGrades(force); }catch(e){} ctCerts(box); }
     else ctSchedule(box);
   }catch(e){ console.error('classTools',e); box.innerHTML='<div class="ct-warn">حدث خطأ أثناء العرض.</div>'; }
 }
@@ -9106,7 +9144,7 @@ async function renderClassTools(force){
 /* ── 📊 المستويات: من حساب الخادم نفسه (/grades) الذي تعرضه البوابة ── */
 async function ctLevels(box, force){
   const {sem,per}=ctSem();
-  if(force||!CT_GRADES){ box.innerHTML='<div class="muted" style="padding:1rem">⏳ جارٍ حساب المستويات…</div>'; CT_GRADES=await loadServerGrades(true,sem,per); }
+  if(force||!CT_GRADES){ box.innerHTML='<div class="muted" style="padding:1rem">⏳ جارٍ حساب المستويات…</div>'; await ctEnsureGrades(true); }
   const cls=window._ctLvCls??'', q=String(window._ctLvQ||'').trim();
   const M=CT_GRADES.mastery||{excellent:85,near:70};
   const rows=ctRoster(cls).map(s=>({s,l:(CT_GRADES.map&&CT_GRADES.map[String(s.id)]?.level)||{measured:false}})).filter(x=>!q||String(x.s.name).includes(q));
@@ -9119,14 +9157,24 @@ async function ctLevels(box, force){
       <input class="inp" type="search" placeholder="🔍 ابحث بالاسم" value="${esc(q)}" oninput="window._ctLvQ=this.value;clearTimeout(window._ctLvT);window._ctLvT=setTimeout(()=>{renderClassTools();setTimeout(()=>{const e=document.querySelector('#ct-body input[type=search]');if(e){e.focus();e.setSelectionRange(e.value.length,e.value.length)}},0)},250)" style="flex:1;min-width:160px">
       <span class="muted" style="font-size:.78rem">الفصل ${sem===1?'الأول':'الثاني'} · الفترة ${per===1?'الأولى':'الثانية'}</span></div>
     <div class="ct-kpis">${groups.map(g=>`<div class="ct-kpi ${tone[g]}"><b>${cnt(g)}</b><span>${g}</span></div>`).join('')}<div class="ct-kpi"><b>${un}</b><span>لم يُقَس بعد</span></div></div>
-    <div class="muted" style="font-size:.76rem;margin:.2rem 0 .6rem">من نسبة الإجابات الصحيحة في أنشطة الفترة: ${M.excellent}% فأكثر «متقن» · ${M.near}%–${M.excellent-1}% «قريب من الإتقان» · أقل «يحتاج دعم».</div>
-    <div class="ct-table"><table><thead><tr><th>الطالب</th><th>الفصل</th><th>المستوى</th><th>النسبة</th><th>الأساس</th><th></th></tr></thead><tbody>
-    ${rows.map(x=>`<tr><td><b>${esc(x.s.name)}</b></td><td class="muted">${esc(x.s.cls||'')}</td>
+    <div class="muted" style="font-size:.76rem;margin:.2rem 0 .6rem">من نسبة الإجابات الصحيحة في أنشطة الفترة: ${M.excellent}% فأكثر «متقن» · ${M.near}%–${M.excellent-1}% «قريب من الإتقان» · أقل «يحتاج دعم». الاتجاه: أول أنشطة الفترة مقابل آخرها.</div>
+    ${!cls?ctClassCompare():''}
+    ${(()=>{const dn=rows.filter(x=>x.l.measured&&x.s&&ctG(x.s.id).trend&&ctG(x.s.id).trend.measurable&&ctG(x.s.id).trend.change<=-10&&x.l.status!=='يحتاج دعم');return dn.length?`<div class="ct-warn" style="margin-bottom:.6rem">⚠️ يتراجعون قبل أن يصلوا «يحتاج دعم»: ${dn.map(x=>ctNameLink(x.s)+' '+ctTrendHTML(ctG(x.s.id).trend)).join(' · ')}</div>`:''})()}
+    <div class="ct-table"><table><thead><tr><th>الطالب</th><th>الفصل</th><th>المستوى</th><th>النسبة</th><th>الاتجاه</th><th>الأساس</th><th></th></tr></thead><tbody>
+    ${rows.map(x=>`<tr><td><b>${ctNameLink(x.s)}</b></td><td class="muted">${esc(x.s.cls||'')}</td>
       <td>${x.l.measured?`<span class="chip ${tone[x.l.status]||'ghost'}">${esc(x.l.status||x.l.label||'')}</span>`:'<span class="chip ghost">لم يُقَس</span>'}</td>
-      <td>${x.l.measured?`<b>${x.l.rate}%</b>`:'—'}</td>
+      <td>${x.l.measured?`<b>${x.l.rate}%</b>`:'—'}</td><td>${ctTrendHTML(ctG(x.s.id).trend)}</td>
       <td class="muted" style="font-size:.78rem">${x.l.measured?`${x.l.correct} من ${x.l.total} سؤالًا في ${x.l.count} نشاط`:'لم يحل أي نشاط في الفترة'}</td>
-      <td>${x.l.measured&&x.l.status==='يحتاج دعم'?`<button class="btn tick sm" onclick="ctPlanFor('${esc(x.s.id)}','${esc(String(x.l.rate))}')">＋ خطة</button>`:''}</td></tr>`).join('')||'<tr><td colspan="6" class="muted">لا يوجد طلاب.</td></tr>'}
+      <td>${x.l.measured&&x.l.status==='يحتاج دعم'?`<button class="btn tick sm" onclick="ctPlanFor('${esc(x.s.id)}','${esc(String(x.l.rate))}')">＋ خطة</button>`:''}</td></tr>`).join('')||'<tr><td colspan="7" class="muted">لا يوجد طلاب.</td></tr>'}
     </tbody></table></div>`;
+}
+/* مقارنة الفصول: متوسط الإتقان وتوزيع المستويات */
+function ctClassCompare(){
+  const rows=ctClasses().map(c=>{ const r=ctRoster(c).map(s=>ctG(s.id).level||{}).filter(l=>l.measured);
+    const c2=k=>r.filter(l=>l.status===k).length, tot=r.reduce((a,l)=>a+(l.total||0),0), cor=r.reduce((a,l)=>a+(l.correct||0),0);
+    return { c, n:r.length, avg:tot?Math.round(cor/tot*100):null, m:c2('متقن'), q:c2('قريب من الإتقان'), w:c2('يحتاج دعم') }; }).filter(x=>x.n);
+  if(rows.length<2) return '';
+  return `<div class="ct-cmp">${rows.map(x=>`<div class="ct-cmp-r"><b>${esc(x.c)}</b><span class="ct-cmp-bar" title="متقن ${x.m} · قريب ${x.q} · يحتاج دعم ${x.w}"><i class="t" style="flex:${x.m}"></i><i class="w" style="flex:${x.q}"></i><i class="b" style="flex:${x.w}"></i></span><span>${x.avg==null?'—':x.avg+'%'}</span></div>`).join('')}</div>`;
 }
 async function ctPlanFor(sid,rate){
   goTab('plans');
@@ -9161,9 +9209,12 @@ function ctExams(box){
         <label>التاريخ<input class="inp" type="date" value="${esc(t.date||'')}" ${dis} onchange="ctExamEdit('${esc(t.id)}','date',this.value)"></label>
         ${t.date?'':'<span class="chip warn" title="بلا تاريخ تُحسب درجاته بتاريخ رصدها">بلا تاريخ</span>'}
         <button class="btn ghost sm" ${dis} title="حذف الاختبار ودرجاته" aria-label="حذف" onclick="ctExamDel('${esc(t.id)}')">🗑️</button></div>`).join('')||'<div class="muted">لا اختبارات بعد — أضف أول اختبار.</div>'}</div>
-    ${b.tests.length?`<div class="row ct-tools" style="margin-top:.8rem">${ctClassSel('ct-ex-cls',cls,"window._ctExCls=this.value;renderClassTools()",false)}<span class="muted" style="font-size:.78rem">الدرجة تُحفظ عند الخروج من الخانة · فارغ = لم يُرصد</span></div>
-    <div class="ct-table"><table><thead><tr><th>الطالب</th>${b.tests.map(t=>`<th>${esc(t.title||'اختبار')}<br><small class="muted">من ${Number(t.max)||10}</small></th>`).join('')}<th>المجموع</th><th>من 20</th></tr></thead><tbody>
-    ${ctRoster(cls).map(s=>`<tr><td><b>${esc(s.name)}</b></td>${b.tests.map(t=>`<td><input class="inp ct-sc" type="number" min="0" max="${Number(t.max)||10}" step="0.25" value="${sc(s.id,t.id)}" ${dis} onchange="ctExamScore('${esc(s.id)}','${esc(t.id)}',this)"></td>`).join('')}
+    ${b.tests.length?`<div class="row ct-tools" style="margin-top:.8rem">${ctClassSel('ct-ex-cls',cls,"window._ctExCls=this.value;renderClassTools()",false)}<span class="muted" style="font-size:.78rem">الدرجة تُحفظ عند الخروج من الخانة · فارغ = لم يُرصد</span><span class="spacer"></span>
+      <label class="row" style="gap:.3rem;font-size:.8rem;cursor:pointer"><input type="checkbox" ${window._ctExMiss?'checked':''} onchange="window._ctExMiss=this.checked;renderClassTools()"> إبراز غير المرصود</label>
+      <button class="btn ghost sm" onclick="ctExamExport()">⬇️ تصدير Excel</button></div>
+    ${ctExamStatsHTML(ctExamStats(b,ctRoster(cls)))}
+    <div class="ct-table ${window._ctExMiss?'ct-miss-on':''}"><table><thead><tr><th>الطالب</th>${b.tests.map(t=>`<th>${esc(t.title||'اختبار')}<br><small class="muted">من ${Number(t.max)||10}</small>${closed?'':`<br><button class="btn ghost sm" style="margin-top:.2rem" onclick="ctExamPaste('${esc(t.id)}')" title="لصق عمود درجات من Excel">📋 لصق</button>`}</th>`).join('')}<th>المجموع</th><th>من 20</th></tr></thead><tbody>
+    ${ctRoster(cls).map(s=>`<tr><td><b>${ctNameLink(s)}</b></td>${b.tests.map(t=>`<td><input class="inp ct-sc ${sc(s.id,t.id)===''?'empty':''}" type="number" min="0" max="${Number(t.max)||10}" step="0.25" value="${sc(s.id,t.id)}" ${dis} onchange="ctExamScore('${esc(s.id)}','${esc(t.id)}',this)"></td>`).join('')}
       <td class="ct-raw" data-sid="${esc(s.id)}">${has(s.id)?raw(s.id):'—'}</td><td class="ct-20" data-sid="${esc(s.id)}"><b>${has(s.id)&&max>0?+(raw(s.id)/max*20).toFixed(2):'—'}</b></td></tr>`).join('')}
     </tbody></table></div><div class="muted" style="font-size:.74rem;margin-top:.3rem">«من 20» هنا قبل بطاقات رفع الدرجة؛ الدرجة النهائية بعدها تظهر في الكشوف.</div>`:''}`;
 }
@@ -9214,11 +9265,18 @@ function ctRecords(box){
   const beh=(Array.isArray(D.behavior)?D.behavior:[]).filter(x=>x&&!x.deleted&&x.date===d&&roster.some(s=>String(s.id)===String(x.studentId)));
   const sel=(m,sid,opts)=>`<select class="inp ct-st ${st(m,sid)?'on':''}" onchange="ctSetStatus('${m}','${esc(sid)}',this.value)"><option value="">—</option>${opts.map(o=>`<option ${st(m,sid)===o?'selected':''}>${o}</option>`).join('')}</select>`;
   const c=(m,v)=>roster.filter(s=>st(m,s.id)===v).length;
-  box.innerHTML=`<div class="row ct-tools">${ctClassSel('ct-rc-cls',cls,"window._ctRcCls=this.value;renderClassTools()",false)}
+  const view=window._ctRcView||'day', al=ctAlerts(cls);
+  const top=`<div class="row ct-tools">${ctClassSel('ct-rc-cls',cls,"window._ctRcCls=this.value;renderClassTools()",false)}
+      <span class="ct-seg"><button type="button" class="${view==='day'?'on':''}" onclick="window._ctRcView='day';renderClassTools()">يوم</button><button type="button" class="${view==='month'?'on':''}" onclick="window._ctRcView='month';renderClassTools()">شهر</button></span>
+      ${view==='month'?`<input class="inp" type="month" value="${esc(window._ctRcM||ctToday().slice(0,7))}" style="width:auto" onchange="window._ctRcM=this.value;renderClassTools()">`:''}</div>
+    ${al.length?`<details class="ct-alerts" ${window._ctAlOpen!==false?'open':''} ontoggle="window._ctAlOpen=this.open"><summary>🔔 تنبيهات الانضباط (${al.length})</summary>${al.map(a=>`<div class="ct-al ${a.lvl}">${ctNameLink(a.s)} — ${esc(a.t)}</div>`).join('')}</details>`:''}`;
+  if(view==='month'){ box.innerHTML=top+ctRecordsMonth(box); return; }
+  box.innerHTML=top+`<div class="row ct-tools">
       <input class="inp" type="date" value="${esc(d)}" style="width:auto" onchange="window._ctRcD=this.value;renderClassTools()">
+      <button class="btn ghost sm" onclick="ctAllPresent()" title="يرصد «شارك» لكل من لم يُرصد له شيء في هذا اليوم">✅ الكل شارك</button>
       <span class="muted" style="font-size:.78rem">شارك ${c('participation','شارك')} · لم يشارك ${c('participation','لم يشارك')} · غائب ${c('participation','غائب')+c('participation','غائب بعذر')} · أنجز الواجب ${c('homework','أنجز')} · لم ينجز ${c('homework','لم ينجز')}</span></div>
     <div class="ct-table"><table><thead><tr><th>الطالب</th><th>الحضور والمشاركة</th><th>الواجب</th></tr></thead><tbody>
-      ${roster.map(s=>`<tr><td><b>${esc(s.name)}</b></td><td>${sel('participation',s.id,CT_PART)}</td><td>${sel('homework',s.id,CT_HW)}</td></tr>`).join('')||'<tr><td colspan="3" class="muted">لا طلاب في هذا الفصل.</td></tr>'}
+      ${roster.map(s=>`<tr><td><b>${ctNameLink(s)}</b></td><td>${sel('participation',s.id,CT_PART)}</td><td>${sel('homework',s.id,CT_HW)}</td></tr>`).join('')||'<tr><td colspan="3" class="muted">لا طلاب في هذا الفصل.</td></tr>'}
     </tbody></table></div>
     <div class="ct-card" style="margin-top:.7rem"><b>📝 ملاحظات السلوك في هذا اليوم (${beh.length})</b>
       ${beh.map(x=>{const s=roster.find(a=>String(a.id)===String(x.studentId));return `<div class="ct-beh"><span>${x.type==='positive'?'🌟':'⚠️'} <b>${esc(s?s.name:'')}</b> — ${esc([x.category,x.note].filter(Boolean).join(' — ')||'')}</span><button class="btn ghost sm" onclick="ctBehDel('${esc(String(x.id))}')" title="حذف الملاحظة">🗑️</button></div>`}).join('')||'<div class="muted" style="font-size:.82rem">لا ملاحظات.</div>'}
@@ -9255,18 +9313,24 @@ function ctCerts(box){
   const list=(Array.isArray(D.certificates)?D.certificates:[]).filter(x=>x&&!x.deleted).map(x=>({x,s:(STUDENTS||[]).find(a=>String(a.id)===String(x.studentId))}))
     .filter(r=>r.s&&(!cls||String(r.s.cls||'')===cls)).sort((a,b)=>(Number(b.x.at)||0)-(Number(a.x.at)||0));
   window._ctCeSel=window._ctCeSel||new Set();
-  box.innerHTML=`<div class="ct-card"><b>＋ شهادة جديدة</b>
+  const cand=ctCertCandidates(cls);
+  box.innerHTML=`${cand.length?`<div class="ct-card" style="margin-bottom:.7rem"><b>✨ مرشحون للتكريم من بياناتك (${cand.length})</b>
+      <div class="muted" style="font-size:.76rem;margin:.2rem 0 .4rem">إتقان، أو تحسّن ملحوظ، أو نجاح خطته العلاجية، أو انضباط كامل. من كُرّم خلال آخر 45 يومًا يظهر في الآخر.</div>
+      ${cand.slice(0,15).map(c=>`<div class="ct-cand"><span>${ctNameLink(c.s)} <span class="muted">${esc(c.s.cls||'')}</span> ${c.why.map(w=>`<span class="chip tick" title="${esc(w[1])}">${esc(w[0])}</span>`).join(' ')}${c.had?' <span class="chip ghost">كُرّم مؤخرًا</span>':''}<br><small class="muted">${c.why.map(w=>esc(w[1])).join(' · ')}</small></span>
+        <button class="btn tick sm" onclick='ctCertQuick(${JSON.stringify(String(c.s.id))},${JSON.stringify(CT_CERT_REASON[c.why[0][0]])})'>🏅 إصدار</button></div>`).join('')}</div>`:''}
+    <div class="ct-card"><b>＋ شهادة جديدة</b>
       <div class="row" style="gap:.45rem;flex-wrap:wrap;margin-top:.45rem">
         <select class="inp" id="ct-ce-st" style="flex:1;min-width:200px"><option value="">اختر الطالب…</option>${ctRoster(cls).map(s=>`<option value="${esc(s.id)}">${esc(s.name)}${s.cls?' — '+esc(s.cls):''}</option>`).join('')}</select>
         <input class="inp" id="ct-ce-reason" placeholder="سبب التكريم" value="التميز والمشاركة الفاعلة" style="flex:1;min-width:200px">
         <button class="btn tick sm" onclick="ctCertAdd()">إصدار وطباعة</button></div></div>
     <div class="row ct-tools" style="margin-top:.7rem">${ctClassSel('ct-ce-cls',cls,"window._ctCeCls=this.value;renderClassTools()")}
       <span class="muted" style="font-size:.78rem">${list.length} شهادة</span><span class="spacer"></span>
+      <select class="inp" style="width:auto" title="تصميم الشهادة" onchange="window._ctCeTpl=this.value">${[['classic','تصميم كلاسيكي'],['gold','تصميم ذهبي'],['modern','تصميم حديث']].map(([v,t])=>`<option value="${v}" ${(window._ctCeTpl||'classic')===v?'selected':''}>${t}</option>`).join('')}</select>
       <button class="btn sm" onclick="ctCertPrint()">🖨️ طباعة المحدد (${[...window._ctCeSel].filter(id=>list.some(r=>String(r.x.id)===id)).length})</button></div>
     <div class="ct-table"><table><thead><tr><th></th><th>الطالب</th><th>الفصل</th><th>السبب</th><th>التاريخ</th><th></th></tr></thead><tbody>
       ${list.map(r=>`<tr><td><input type="checkbox" ${window._ctCeSel.has(String(r.x.id))?'checked':''} onchange="this.checked?_ctCeSel.add('${esc(String(r.x.id))}'):_ctCeSel.delete('${esc(String(r.x.id))}');renderClassTools()"></td>
         <td><b>${esc(r.s.name)}</b></td><td class="muted">${esc(r.s.cls||'')}</td><td>${esc(r.x.reason||'')}</td><td class="muted">${esc(String(r.x.date||'').replace(/-/g,'/'))}</td>
-        <td><button class="btn ghost sm" onclick="ctCertPrint(['${esc(String(r.x.id))}'])" title="طباعة">🖨️</button><button class="btn ghost sm" onclick="ctCertDel('${esc(String(r.x.id))}')" title="حذف">🗑️</button></td></tr>`).join('')||'<tr><td colspan="6" class="muted">لا شهادات بعد — تُصدر من هنا أو من بوابة المعلم.</td></tr>'}
+        <td><button class="btn ghost sm" onclick="ctCertPrint(['${esc(String(r.x.id))}'])" title="طباعة">🖨️</button><button class="btn ghost sm" onclick="ctCertMsg('${esc(String(r.x.id))}')" title="نسخ رسالة لولي الأمر">✉️</button><button class="btn ghost sm" onclick="ctCertDel('${esc(String(r.x.id))}')" title="حذف">🗑️</button></td></tr>`).join('')||'<tr><td colspan="6" class="muted">لا شهادات بعد — تُصدر من هنا أو من بوابة المعلم.</td></tr>'}
     </tbody></table></div>`;
 }
 async function ctCertAdd(){
@@ -9290,7 +9354,7 @@ function ctCertPrint(ids){
   ensureLogo();
   let box=document.getElementById('plan-print'); if(!box){ box=document.createElement('div'); box.id='plan-print'; box.className='rep'; document.body.appendChild(box); }
   box.innerHTML=recs.map(c=>{ const s=(STUDENTS||[]).find(a=>String(a.id)===String(c.studentId))||{};
-    return `<div class="rep-page ct-cert">${repHead('شهادة تقدير','')}
+    return `<div class="rep-page ct-cert t-${esc(window._ctCeTpl||'classic')}">${repHead('شهادة تقدير','')}
       <div class="ct-cert-in"><div class="ct-cert-t">شهادة شكر وتقدير</div>
         <p>تتقدم إدارة المدرسة ومعلم مادة ${esc(rcGet('subject')||'العلوم')} بالشكر والتقدير للطالب</p>
         <div class="ct-cert-n">${esc(s.name||'')}</div>
@@ -9311,7 +9375,7 @@ function ctSch(D){
 function ctSchedule(box){
   const s=ctSch(CT_DATA||{}), cls=ctClasses();
   const used={}; for(const dy of Object.keys(s.grid)) for(const p of Object.keys(s.grid[dy]||{})){ const c=s.grid[dy][p]; if(c) used[c]=(used[c]||0)+1; }
-  box.innerHTML=`<div class="muted" style="font-size:.8rem;margin-bottom:.5rem">حدد الفصل في كل حصة. يظهر الجدول في بوابة المعلم فورًا، ومنه تنبيه بداية الحصة والتحضير التلقائي. أوقات الحصص وطولها تُضبط من البوابة.</div>
+  box.innerHTML=`<div class="row" style="justify-content:flex-end;margin-bottom:.3rem"><button class="btn ghost sm" onclick="ctSchPrint()">🖨️ طباعة الجدول</button></div><div class="muted" style="font-size:.8rem;margin-bottom:.5rem">حدد الفصل في كل حصة. يظهر الجدول في بوابة المعلم فورًا، ومنه تنبيه بداية الحصة والتحضير التلقائي. أوقات الحصص وطولها تُضبط من البوابة.</div>
     <div class="ct-table"><table class="ct-sch"><thead><tr><th>اليوم</th>${Array.from({length:s.count},(_,i)=>`<th>الحصة ${i+1}</th>`).join('')}</tr></thead><tbody>
     ${CT_DAYS.map((dn,dy)=>`<tr><th>${dn}</th>${Array.from({length:s.count},(_,i)=>{ const v=(s.grid[String(dy)]||{})[String(i+1)]||'';
       return `<td><select class="inp ${v?'on':''}" onchange="ctSchSet(${dy},${i+1},this.value)"><option value="">—</option>${cls.map(c=>`<option ${c===v?'selected':''}>${esc(c)}</option>`).join('')}${v&&!cls.includes(v)?`<option selected>${esc(v)}</option>`:''}</select></td>`; }).join('')}</tr>`).join('')}
@@ -9329,6 +9393,279 @@ async function ctSchSet(dy,p,cls){
     toast('حُفظ الجدول','good');
   }catch(e){ toast('تعذّر الحفظ','bad'); }
   renderClassTools();
+}
+
+/* ═══════════ 🧰 أدوات الفصل — الإضافات المتقدمة ═══════════ */
+async function ctEnsureGrades(force){
+  const {sem,per}=ctSem();
+  if(force||!CT_GRADES) CT_GRADES=await loadServerGrades(true,sem,per);
+  return CT_GRADES;
+}
+function ctG(sid){ return (CT_GRADES&&CT_GRADES.map&&CT_GRADES.map[String(sid)])||{}; }
+function ctTrendHTML(t){
+  if(!t||!t.measurable) return '<span class="muted">—</span>';
+  const c=t.change, cls=c>=10?'up':c<=-10?'down':'flat';
+  return `<span class="ct-trend ${cls}" title="أول الفترة ${t.early}% ← آخرها ${t.late}%">${c>=10?'▲':c<=-10?'▼':'●'} ${c>0?'+':''}${c}</span>`;
+}
+function ctHeat(rate){
+  if(rate==null) return 'background:transparent';
+  const h=Math.round(Math.max(0,Math.min(100,rate))*1.2);   // 0=أحمر ← 120=أخضر
+  return `background:hsl(${h} 62% 88%);color:hsl(${h} 70% 22%)`;
+}
+function ctOpenProfile(sid){ window._ctPfSid=String(sid); const s=(STUDENTS||[]).find(x=>String(x.id)===String(sid)); if(s) window._ctPfCls=String(s.cls||''); CT_TAB='profile'; renderClassTools(); }
+function ctNameLink(s){ return `<a href="#" class="ct-name" onclick="event.preventDefault();ctOpenProfile('${esc(s.id)}')">${esc(s.name)}</a>`; }
+
+/* ── 📅 حصصي اليوم (أعلى التبويب دائمًا) ── */
+function ctTodayHTML(){
+  const D=CT_DATA||{}, s=ctSch(D);
+  const dow=Number(new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Riyadh',weekday:'short'}).format(new Date()).replace(/Sun/,'0').replace(/Mon/,'1').replace(/Tue/,'2').replace(/Wed/,'3').replace(/Thu/,'4').replace(/Fri/,'5').replace(/Sat/,'6'));
+  if(!(dow>=0&&dow<=4)) return '<div class="ct-today muted">📅 لا دوام اليوم.</div>';
+  const g=s.grid[String(dow)]||{}, ps=Object.keys(g).map(Number).sort((a,b)=>a-b).filter(p=>g[String(p)]);
+  if(!ps.length) return `<div class="ct-today muted">📅 ${CT_DAYS[dow]}: لا حصص في جدولك اليوم — أضفها من «🗓️ الجدول».</div>`;
+  const d=ctToday(), done=c=>{ const P=D.participation&&D.participation[d]||{}; return ctRoster(c).some(x=>P[String(x.id)]); };
+  return `<div class="ct-today"><b>📅 حصص اليوم (${CT_DAYS[dow]})</b>${ps.map(p=>{ const c=g[String(p)];
+    return `<button type="button" class="ct-per ${done(c)?'done':''}" onclick="window._ctRcCls='${esc(c)}';window._ctRcD='${d}';window._ctRcView='day';CT_TAB='records';renderClassTools()" title="افتح سجل ${esc(c)} لليوم">الحصة ${p} · <b>${esc(c)}</b> ${done(c)?'✓ رُصد':'— لم يُرصد'}</button>`; }).join('')}</div>`;
+}
+
+/* ── 🧭 خريطة المهارات: الطالب × المهارة ── */
+async function ctSkills(box,force){
+  await ctEnsureGrades(force);
+  const cls=window._ctSkCls??(ctClasses()[0]||''), roster=ctRoster(cls);
+  const all={}; roster.forEach(s=>Object.entries(ctG(s.id).skills||{}).forEach(([k,v])=>{ const a=all[k]||(all[k]={c:0,t:0,n:0}); a.c+=v.c; a.t+=v.t; a.n++; }));
+  const skills=Object.keys(all).filter(k=>all[k].t>=3).sort((a,b)=>all[a].c/all[a].t-all[b].c/all[b].t);
+  if(!skills.length){ box.innerHTML=`<div class="row ct-tools">${ctClassSel('ct-sk-cls',cls,"window._ctSkCls=this.value;renderClassTools()",false)}</div><div class="ct-warn">لا توجد أسئلة مصنّفة بالمهارات لهذا الفصل في الفترة. صنّف أسئلة الأنشطة من «🩹 العلاج التلقائي» في تبويب الخطط العلاجية (زر «🏷️ صنّف الآن»).</div>`; return; }
+  const avg=k=>Math.round(all[k].c/all[k].t*100);
+  box.innerHTML=`<div class="row ct-tools">${ctClassSel('ct-sk-cls',cls,"window._ctSkCls=this.value;renderClassTools()",false)}
+      <span class="muted" style="font-size:.78rem">${skills.length} مهارة مرتبة من الأضعف · اللون من الأحمر (ضعيف) إلى الأخضر (متقن) · المهارة التي ضعفت عند معظم الفصل تحتاج إعادة شرح، لا خطة فردية</span></div>
+    <div class="ct-table"><table class="ct-heat"><thead><tr><th>الطالب</th>${skills.map(k=>`<th title="${esc(k)}"><div class="ct-sk-h">${esc(k)}</div></th>`).join('')}</tr>
+      <tr class="ct-avg"><th>متوسط الفصل</th>${skills.map(k=>`<td style="${ctHeat(avg(k))}"><b>${avg(k)}%</b></td>`).join('')}</tr>
+      <tr><th></th>${skills.map(k=>{ const weak=roster.filter(s=>{const v=ctG(s.id).skills?.[k];return v&&v.t>=2&&v.rate<60}); const wide=weak.length>=Math.max(3,roster.length*0.6);
+        return `<td>${weak.length>=2?`<button class="btn ghost sm" title="${wide?'معظم الفصل ضعيف فيها — الأنسب إعادة شرحها للفصل كله':'خطة جماعية لمن هم دون 60% فيها'}" onclick='ctGroupPlan(${JSON.stringify(k)},${JSON.stringify(weak.map(s=>String(s.id)))})'>${wide?'⚠️':'👥'} ${weak.length}</button>`:''}</td>`; }).join('')}</tr></thead><tbody>
+    ${roster.map(s=>`<tr><td>${ctNameLink(s)}</td>${skills.map(k=>{ const v=ctG(s.id).skills?.[k]; return v?`<td style="${ctHeat(v.rate)}" title="${v.c} من ${v.t}">${v.rate}%</td>`:'<td class="muted">—</td>'; }).join('')}</tr>`).join('')}
+    </tbody></table></div>`;
+}
+function ctGroupPlan(skill,ids){
+  goTab('plans');
+  setTimeout(()=>{ try{
+    openPlanForm();
+    const cb=document.getElementById('pf-group'); if(cb) cb.checked=true;
+    window._pfMembers=ids.slice(); renderPlanMembers();
+    window._pfSkills=[skill]; renderPlanSkills();
+    const rs=document.getElementById('pf-reason'); if(rs) rs.value=`فجوة في الفهم — ضعف مشترك في مهارة «${skill}»`;
+  }catch(e){ console.warn(e); } },700);
+}
+
+/* ── 📝 دفتر الاختبارات: إحصاءات + لصق + تصدير ── */
+function ctExamStats(b,roster){
+  return b.tests.map(t=>{
+    const mx=Number(t.max)||10, vals=roster.map(s=>{const v=b.scores[String(s.id)]&&b.scores[String(s.id)][String(t.id)];const n=v&&typeof v==='object'?Number(v.score):Number(v);return Number.isFinite(n)?n:null});
+    const got=vals.filter(v=>v!==null), n=got.length;
+    if(!n) return { t, n, miss:roster.length };
+    const avg=got.reduce((a,v)=>a+v,0)/n, pass=got.filter(v=>v>=mx/2).length;
+    const bins=[0,0,0,0,0]; got.forEach(v=>bins[Math.min(4,Math.floor(v/mx*5))]++);
+    return { t, n, miss:roster.length-n, avg:+avg.toFixed(2), pct:Math.round(avg/mx*100), max:Math.max(...got), min:Math.min(...got), pass:Math.round(pass/n*100), bins };
+  });
+}
+function ctExamStatsHTML(st){
+  if(!st.length) return '';
+  return `<div class="ct-stats">${st.map(x=>`<div class="ct-stat"><b>${esc(x.t.title||'اختبار')}</b>
+    ${x.n?`<div class="ct-stat-r"><span>المتوسط <b>${x.avg}</b> (${x.pct}%)</span><span>الأعلى <b>${x.max}</b></span><span>الأدنى <b>${x.min}</b></span><span>النجاح <b>${x.pass}%</b></span></div>
+    <div class="ct-bins" title="توزيع الدرجات من الأدنى إلى الأعلى">${x.bins.map((c,i)=>`<i style="height:${Math.max(4,Math.round(c/Math.max(...x.bins,1)*34))}px" title="${['0–20%','20–40%','40–60%','60–80%','80–100%'][i]}: ${c}"></i>`).join('')}</div>`:'<div class="muted" style="font-size:.78rem">لم تُرصد درجات بعد</div>'}
+    ${x.miss?`<div class="ct-miss">⚠️ ${x.miss} بلا درجة</div>`:''}</div>`).join('')}</div>`;
+}
+function ctExamPaste(tid){
+  const {sem,per}=ctExamSP(), cls=window._ctExCls??(ctClasses()[0]||''), b=ctBook(JSON.parse(JSON.stringify(CT_DATA)),sem,per), t=b.tests.find(x=>String(x.id)===String(tid));
+  if(!t) return;
+  openModal(`<h2>📋 لصق درجات «${esc(t.title||'اختبار')}»</h2>
+    <p class="muted" style="font-size:.84rem;line-height:1.8">الصق من Excel أو Google Sheets بإحدى طريقتين:<br>
+      • <b>عمود الدرجات وحده</b> بترتيب أسماء الفصل ${esc(cls)} كما في الجدول (سطر لكل طالب، والسطر الفارغ يُترك).<br>
+      • <b>عمودان: الاسم ثم الدرجة</b> — يُطابَق الاسم تلقائيًا بأي ترتيب.</p>
+    <textarea id="ct-paste" class="inp" rows="10" style="width:100%;font-family:inherit" placeholder="8&#10;9.5&#10;7"></textarea>
+    <div id="ct-paste-prev" class="muted" style="font-size:.8rem;margin-top:.4rem"></div>
+    <div class="modal-foot"><button class="btn ghost" onclick="closeModal()">إلغاء</button><button class="btn" onclick="ctExamPastePreview('${esc(tid)}')">معاينة</button><button class="btn tick" onclick="ctExamPasteApply('${esc(tid)}')">حفظ الدرجات</button></div>`);
+}
+function ctExamPasteParse(tid){
+  const {sem,per}=ctExamSP(), cls=window._ctExCls??(ctClasses()[0]||''), roster=ctRoster(cls);
+  const b=ctBook(JSON.parse(JSON.stringify(CT_DATA)),sem,per), t=b.tests.find(x=>String(x.id)===String(tid)), mx=Number(t&&t.max)||10;
+  const lines=String(document.getElementById('ct-paste')?.value||'').split(/\r?\n/);
+  while(lines.length&&!lines[lines.length-1].trim()) lines.pop();
+  const norm=v=>rdNormAr(String(v||''));
+  const out=[], bad=[];
+  const named=lines.some(l=>/[\t,;]/.test(l)&&/[؀-ۿa-z]/i.test(l));
+  lines.forEach((l,i)=>{
+    if(named){
+      const parts=l.split(/\t|;|,(?=\s*[\d٠-٩.])/).map(x=>x.trim()).filter(Boolean); if(parts.length<2){ if(l.trim()) bad.push(l.trim()); return; }
+      const name=parts.find(p=>/[؀-ۿa-z]/i.test(p))||'', num=parts.find(p=>/^[\d٠-٩.,٫]+$/.test(p));
+      const s=roster.find(x=>norm(x.name)===norm(name))||roster.find(x=>norm(x.name).includes(norm(name))||norm(name).includes(norm(x.name)));
+      const v=Number(examAr2En(num||'').replace(',','.'));
+      if(!s||!Number.isFinite(v)) bad.push(l.trim()); else out.push({s,v:Math.max(0,Math.min(mx,v))});
+    }else{
+      const raw=l.trim(); if(!raw) return; const s=roster[i]; const v=Number(examAr2En(raw).replace(',','.'));
+      if(!s||!Number.isFinite(v)) bad.push(raw); else out.push({s,v:Math.max(0,Math.min(mx,v))});
+    }
+  });
+  return { out, bad, named, mx };
+}
+function ctExamPastePreview(tid){
+  const R=ctExamPasteParse(tid), el=document.getElementById('ct-paste-prev'); if(!el) return;
+  el.innerHTML=`${R.named?'طريقة: الاسم والدرجة':'طريقة: الترتيب'} · ستُحفظ ${R.out.length} درجة${R.bad.length?` · <span style="color:#B4232F">لم تُفهم ${R.bad.length}: ${R.bad.slice(0,4).map(esc).join('، ')}</span>`:''}<br>${R.out.slice(0,8).map(x=>`${esc(x.s.name)}: <b>${x.v}</b>`).join(' · ')}${R.out.length>8?' …':''}`;
+}
+async function ctExamPasteApply(tid){
+  const R=ctExamPasteParse(tid); if(!R.out.length){ ctExamPastePreview(tid); toast('لم أجد درجات صالحة','bad'); return; }
+  const {sem,per}=ctExamSP();
+  try{ await ctSave(d=>{ const b=ctBook(d,sem,per); R.out.forEach(x=>{ const k=String(x.s.id); b.scores[k]=b.scores[k]||{}; b.scores[k][String(tid)]={score:x.v,at:Date.now()}; }); });
+    closeModal(); toast(`📋 حُفظت ${R.out.length} درجة${R.bad.length?` · تُرك ${R.bad.length} سطرًا`:''}`,'good'); }
+  catch(e){ toast('تعذّر الحفظ','bad'); }
+  renderClassTools();
+}
+function ctExamExport(){
+  const {sem,per}=ctExamSP(), cls=window._ctExCls??(ctClasses()[0]||''), roster=ctRoster(cls), b=ctBook(JSON.parse(JSON.stringify(CT_DATA)),sem,per);
+  const mx=b.tests.reduce((t,x)=>t+Math.max(0,Number(x.max)||0),0);
+  const cell=v=>`"${String(v??'').replace(/"/g,'""')}"`;
+  const rows=[['الطالب','الفصل',...b.tests.map(t=>`${t.title||'اختبار'} (من ${t.max})`),'المجموع','من 20']];
+  roster.forEach(s=>{ const by=b.scores[String(s.id)]||{}; let r=0,has=false;
+    const vals=b.tests.map(t=>{const v=by[String(t.id)];const n=v&&typeof v==='object'?Number(v.score):Number(v);if(Number.isFinite(n)){has=true;r+=Math.min(Number(t.max)||0,n);return n}return ''});
+    rows.push([s.name,s.cls||'',...vals,has?r:'',has&&mx>0?+(r/mx*20).toFixed(2):'']); });
+  const blob=new Blob(['﻿'+rows.map(r=>r.map(cell).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`دفتر-الاختبارات-${cls||'كل الفصول'}-ف${sem}-${per}.csv`; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);
+}
+
+/* ── 🗂️ السجلات: عرض شهري + تنبيهات الانضباط + «الكل شارك» ── */
+function ctDaysBack(n){ const out=[]; const t=Date.parse(ctToday()+'T00:00:00Z'); for(let i=0;i<n;i++) out.push(new Date(t-i*86400000).toISOString().slice(0,10)); return out; }
+function ctStatus(D,m,d,sid){ const r=D[m]&&D[m][d]&&D[m][d][String(sid)]; return String((r&&(typeof r==='string'?r:r.status))||''); }
+function ctAlerts(cls){
+  const D=CT_DATA||{}, out=[];
+  const days30=ctDaysBack(30), days14=ctDaysBack(14);
+  ctRoster(cls).forEach(s=>{
+    // غياب متتالٍ حتى آخر يوم مرصود له
+    const rec=Object.keys(D.participation||{}).filter(d=>ctStatus(D,'participation',d,s.id)).sort().reverse();
+    let streak=0; for(const d of rec){ if(ctStatus(D,'participation',d,s.id)==='غائب') streak++; else break; }
+    const abs=days30.filter(d=>ctStatus(D,'participation',d,s.id)==='غائب').length;
+    const miss=days14.filter(d=>ctStatus(D,'homework',d,s.id)==='لم ينجز').length;
+    const nopart=days14.filter(d=>ctStatus(D,'participation',d,s.id)==='لم يشارك').length;
+    if(streak>=3) out.push({s,lvl:'bad',t:`غائب ${streak} أيام متتالية حتى آخر رصد`});
+    else if(abs>=3) out.push({s,lvl:'warn',t:`${abs} أيام غياب بلا عذر في آخر 30 يومًا`});
+    if(miss>=3) out.push({s,lvl:'warn',t:`لم ينجز الواجب ${miss} مرات في آخر أسبوعين`});
+    if(nopart>=4) out.push({s,lvl:'warn',t:`«لم يشارك» ${nopart} مرات في آخر أسبوعين`});
+  });
+  return out;
+}
+function ctRecordsMonth(box){
+  const cls=window._ctRcCls??(ctClasses()[0]||''), D=CT_DATA||{}, m=window._ctRcM||ctToday().slice(0,7);
+  const [Y,M]=m.split('-').map(Number), n=new Date(Date.UTC(Y,M,0)).getUTCDate();
+  const days=Array.from({length:n},(_,i)=>`${m}-${String(i+1).padStart(2,'0')}`).filter(d=>{const w=new Date(d+'T00:00:00Z').getUTCDay();return w<=4});
+  const roster=ctRoster(cls);
+  const P={'شارك':['ش','p'],'لم يشارك':['ل','n'],'غائب':['غ','a'],'غائب بعذر':['ع','e']};
+  const recDays=days.filter(d=>roster.some(s=>ctStatus(D,'participation',d,s.id)||ctStatus(D,'homework',d,s.id)));
+  return `<div class="muted" style="font-size:.76rem;margin-bottom:.4rem">ش شارك · ل لم يشارك · غ غائب · ع غائب بعذر · النقطة الحمراء = لم ينجز الواجب · تظهر أيام الدوام المرصودة فقط (${recDays.length} يومًا)</div>
+    <div class="ct-table"><table class="ct-month"><thead><tr><th>الطالب</th>${recDays.map(d=>`<th title="${d}">${Number(d.slice(8))}</th>`).join('')}<th>غياب</th><th>لم يشارك</th><th>لم ينجز</th></tr></thead><tbody>
+    ${roster.map(s=>{ let a=0,nn=0,hw=0; const cells=recDays.map(d=>{ const st=ctStatus(D,'participation',d,s.id), h=ctStatus(D,'homework',d,s.id); const p=P[st];
+        if(st==='غائب')a++; if(st==='لم يشارك')nn++; if(h==='لم ينجز')hw++;
+        return `<td class="ct-m ${p?p[1]:''}" title="${d}: ${esc(st||'—')}${h?' · الواجب: '+esc(h):''}" onclick="window._ctRcD='${d}';window._ctRcView='day';renderClassTools()">${p?p[0]:''}${h==='لم ينجز'?'<i></i>':''}</td>`; }).join('');
+      return `<tr><td>${ctNameLink(s)}</td>${cells}<td><b class="${a>=3?'bad':''}">${a}</b></td><td>${nn}</td><td><b class="${hw>=3?'bad':''}">${hw}</b></td></tr>`; }).join('')}
+    </tbody></table></div>`;
+}
+async function ctAllPresent(){
+  const cls=window._ctRcCls??(ctClasses()[0]||''), d=window._ctRcD||ctToday(), D=CT_DATA||{};
+  const ids=ctRoster(cls).filter(s=>!ctStatus(D,'participation',d,s.id)).map(s=>String(s.id));
+  if(!ids.length){ toast('كل الطلاب مرصودون في هذا اليوم'); return; }
+  try{ await ctSave(X=>{ X.participation=X.participation||{}; X.participation[d]=X.participation[d]||{}; ids.forEach(id=>{ if(!X.participation[d][id]) X.participation[d][id]={status:'شارك',at:Date.now()}; }); });
+    toast(`✅ رُصد «شارك» لـ ${ids.length} طالبًا — عدّل الاستثناءات`,'good'); }
+  catch(e){ toast('تعذّر الحفظ','bad'); }
+  renderClassTools();
+}
+
+/* ── 🏅 الشهادات: مرشحون تلقائيون + تصاميم + رسالة ولي الأمر ── */
+function ctCertCandidates(cls){
+  const D=CT_DATA||{}, out=[], have=new Set((D.certificates||[]).filter(c=>c&&!c.deleted&&(Date.now()-(Number(c.at)||0))<45*86400000).map(c=>String(c.studentId)));
+  const plans=(CT_GRADES&&CT_GRADES.plans)||[];
+  ctRoster(cls).forEach(s=>{
+    const g=ctG(s.id), why=[];
+    if(g.level&&g.level.measured&&g.level.status==='متقن'&&g.level.count>=2) why.push(['إتقان',`متقن بنسبة ${g.level.rate}%`]);
+    if(g.trend&&g.trend.measurable&&g.trend.change>=15) why.push(['تحسّن',`تحسّن من ${g.trend.early}% إلى ${g.trend.late}%`]);
+    if(plans.some(p=>p.status==='done'&&/نجحت/.test(p.outcome||'')&&(p.members||[]).some(m=>String(m.studentId)===String(s.id)))) why.push(['خطة',`نجحت خطته العلاجية`]);
+    const at=g.attendance||{}, hw=g.homework||{};
+    if(at.measured&&at.days>=10&&!(at.absent||0)&&hw.measured&&!(hw.missed||0)&&(hw.done||0)>=3) why.push(['انضباط','حضور كامل وكل واجباته منجزة']);
+    if(why.length) out.push({s,why,had:have.has(String(s.id))});
+  });
+  return out.sort((a,b)=>a.had-b.had||b.why.length-a.why.length);
+}
+const CT_CERT_REASON={ 'إتقان':'إتقانه مهارات المادة وتميّزه في التحصيل', 'تحسّن':'تحسّن مستواه الملحوظ واجتهاده', 'خطة':'جدّه ومثابرته حتى حقق أهداف خطته', 'انضباط':'انضباطه والتزامه بالحضور وأداء واجباته' };
+async function ctCertQuick(sid,reason){
+  const rec={id:Date.now().toString(36)+Math.random().toString(36).slice(2,5),studentId:String(sid),reason,date:ctToday(),at:Date.now()};
+  try{ await ctSave(D=>{ D.certificates=Array.isArray(D.certificates)?D.certificates:[]; D.certificates.unshift(rec); }); toast('🏅 صدرت الشهادة','good'); }
+  catch(e){ toast('تعذّر الحفظ','bad'); return; }
+  window._ctCeSel=window._ctCeSel||new Set(); window._ctCeSel.add(rec.id); renderClassTools();
+}
+function ctCertMsg(id){
+  const c=((CT_DATA&&CT_DATA.certificates)||[]).find(x=>String(x.id)===String(id)); if(!c) return;
+  const s=(STUDENTS||[]).find(a=>String(a.id)===String(c.studentId))||{};
+  const txt=`السلام عليكم، ولي أمر الطالب ${s.name||''}،\n\nيسعدنا إبلاغكم بحصول ابنكم على شهادة شكر وتقدير في مادة ${rcGet('subject')||'العلوم'}، وذلك لـ${c.reason||'تميّزه'}.\nنشكر متابعتكم، ونتمنى له دوام التوفيق.\n\n${rcGet('teacher')||'معلم المادة'}`;
+  try{ navigator.clipboard.writeText(txt).then(()=>toast('📋 نُسخت الرسالة — الصقها في واتساب أو مدرستي','good'),()=>openModal(`<h2>رسالة ولي الأمر</h2><textarea class="inp" rows="8" style="width:100%">${esc(txt)}</textarea><div class="modal-foot"><button class="btn" onclick="closeModal()">إغلاق</button></div>`)); }
+  catch(e){ openModal(`<h2>رسالة ولي الأمر</h2><textarea class="inp" rows="8" style="width:100%">${esc(txt)}</textarea><div class="modal-foot"><button class="btn" onclick="closeModal()">إغلاق</button></div>`); }
+}
+
+/* ── 🗓️ طباعة الجدول ── */
+function ctSchPrint(){
+  const s=ctSch(CT_DATA||{}); ensureLogo();
+  let box=document.getElementById('plan-print'); if(!box){ box=document.createElement('div'); box.id='plan-print'; box.className='rep'; document.body.appendChild(box); }
+  box.innerHTML=`<div class="rep-page">${repHead('الجدول الدراسي الأسبوعي','')}<div class="rep-in">
+    <div class="rep-info"><div>المعلم<b>${esc(rcGet('teacher')||'')}</b></div><div>المادة<b>${esc(rcGet('subject')||'العلوم')}</b></div></div>
+    <div class="rep-box"><table class="rt"><thead><tr><th>اليوم</th>${Array.from({length:s.count},(_,i)=>`<th>الحصة ${i+1}</th>`).join('')}</tr></thead><tbody>
+    ${CT_DAYS.map((dn,dy)=>`<tr><td><b>${dn}</b></td>${Array.from({length:s.count},(_,i)=>`<td>${esc((s.grid[String(dy)]||{})[String(i+1)]||'')}</td>`).join('')}</tr>`).join('')}</tbody></table></div></div></div>`;
+  unifiedA4Print({bodyClass:'printing-plans',title:'الجدول الدراسي',selector:'#plan-print',orientation:'landscape',margin:'8mm'});
+}
+
+/* ── 👤 ملف الطالب الشامل ── */
+async function ctProfile(box,force){
+  await ctEnsureGrades(force);
+  const cls=window._ctPfCls??(ctClasses()[0]||''), roster=ctRoster(cls);
+  let sid=window._ctPfSid; if(!roster.some(s=>String(s.id)===String(sid))) sid=roster[0]?String(roster[0].id):'';
+  window._ctPfSid=sid;
+  const head=`<div class="row ct-tools no-print">${ctClassSel('ct-pf-cls',cls,"window._ctPfCls=this.value;window._ctPfSid='';renderClassTools()",false)}
+      <select class="inp" style="flex:1;min-width:200px" onchange="window._ctPfSid=this.value;renderClassTools()">${roster.map(s=>`<option value="${esc(s.id)}" ${String(s.id)===sid?'selected':''}>${esc(s.name)}</option>`).join('')}</select>
+      ${sid?`<button class="btn sm" onclick="ctProfilePrint()">🖨️ طباعة التقرير</button>`:''}</div>`;
+  if(!sid){ box.innerHTML=head+'<div class="muted">لا طلاب في هذا الفصل.</div>'; return; }
+  box.innerHTML=head+`<div id="ct-pf">${ctProfileBody(sid)}</div>`;
+}
+function ctProfileBody(sid){
+  const s=(STUDENTS||[]).find(x=>String(x.id)===String(sid))||{}, g=ctG(sid), D=CT_DATA||{}, {sem,per}=ctSem();
+  const L=g.level||{}, A=g.attendance||{}, H=g.homework||{}, P=g.participation||{}, B=g.behavior||{}, E=g.exam||{};
+  const kpi=(t,v,sub,tone='')=>`<div class="ct-kpi ${tone}"><b>${v}</b><span>${t}</span>${sub?`<small>${sub}</small>`:''}</div>`;
+  const tone={ 'متقن':'tick','قريب من الإتقان':'warn','يحتاج دعم':'bad' }[L.status]||'';
+  const skills=Object.entries(g.skills||{}).filter(([,v])=>v.t>=2).sort((a,b)=>a[1].rate-b[1].rate);
+  const b=ctBook(JSON.parse(JSON.stringify(D)),sem,per), by=b.scores[String(sid)]||{};
+  const beh=(D.behavior||[]).filter(x=>x&&!x.deleted&&String(x.studentId)===String(sid)).sort((a,c)=>(Number(c.at)||0)-(Number(a.at)||0));
+  const certs=(D.certificates||[]).filter(x=>x&&!x.deleted&&String(x.studentId)===String(sid));
+  const plans=((CT_GRADES&&CT_GRADES.plans)||[]).filter(p=>(p.members||[]).some(m=>String(m.studentId)===String(sid)));
+  const days30=ctDaysBack(30), abs30=days30.filter(d=>ctStatus(D,'participation',d,sid)==='غائب').length;
+  return `<div class="ct-pf-head"><div><h3 style="margin:0">${esc(s.name||'')}</h3><span class="muted">${esc(s.cls||'')} · الفصل ${sem===1?'الأول':'الثاني'} · الفترة ${per===1?'الأولى':'الثانية'}</span></div>
+      <div>${L.measured?`<span class="chip ${tone}">${esc(L.status||'')}</span>`:'<span class="chip ghost">لم يُقَس</span>'} ${ctTrendHTML(g.trend)}</div></div>
+    <div class="ct-kpis ct-kpis6">
+      ${kpi('الإتقان',L.measured?L.rate+'%':'—',L.measured?`${L.correct}/${L.total} في ${L.count} نشاط`:'',tone)}
+      ${kpi('الاختبارات',E.measured&&E.score!=null?`${E.score}/20`:'—','')}
+      ${kpi('المشاركة',P.measured?`${P.score}/10`:'—',P.measured?`شارك ${P.yes} · لم يشارك ${P.no}`:'')}
+      ${kpi('الواجبات',H.measured?`${H.score}/10`:'—',H.measured?`أنجز ${H.done||0} · لم ينجز ${H.missed||0}`:'')}
+      ${kpi('السلوك',B.measured?`${B.score}/10`:'10/10',`🌟 ${B.pos||0} · ⚠️ ${B.neg||0}`)}
+      ${kpi('الحضور',A.measured&&A.rate!=null?A.rate+'%':'—',A.measured?`غياب ${A.absent||0} · بعذر ${A.excused||0}${abs30?` · ${abs30} في آخر شهر`:''}`:'', A.rate!=null&&A.rate<90?'warn':'')}
+    </div>
+    <div class="ct-pf-grid">
+      <div class="ct-card"><b>🏷️ المهارات</b>${skills.length?skills.map(([k,v])=>`<div class="ct-bar"><span>${esc(k)}</span><i><u style="width:${v.rate}%;${ctHeat(v.rate)}"></u></i><b>${v.rate}%</b></div>`).join(''):'<div class="muted" style="font-size:.82rem">لا أسئلة مصنّفة بالمهارات بعد.</div>'}</div>
+      <div class="ct-card"><b>📝 الاختبارات</b>${b.tests.length?b.tests.map(t=>{const v=by[String(t.id)];const n=v&&typeof v==='object'?Number(v.score):Number(v);return `<div class="ct-bar"><span>${esc(t.title||'اختبار')}</span><i><u style="width:${Number.isFinite(n)?Math.round(n/(Number(t.max)||10)*100):0}%;${Number.isFinite(n)?ctHeat(n/(Number(t.max)||10)*100):''}"></u></i><b>${Number.isFinite(n)?`${n}/${t.max}`:'—'}</b></div>`}).join(''):'<div class="muted" style="font-size:.82rem">لا اختبارات في الفترة.</div>'}</div>
+      <div class="ct-card"><b>🩺 الخطط العلاجية (${plans.length})</b>${plans.map(p=>`<div class="ct-li"><span>${esc(String(p.reason||'').split(' — ')[0]||'خطة')} · ${esc(p.startDate||'')}</span><span class="chip ${p.verdict==='تحسّن'?'tick':p.verdict==='تراجع'?'bad':'ghost'}">${esc(p.status==='done'?(p.outcome||'منتهية'):p.verdict||'')}</span></div>`).join('')||'<div class="muted" style="font-size:.82rem">لا خطط.</div>'}</div>
+      <div class="ct-card"><b>📝 السلوك (${beh.length})</b>${beh.slice(0,8).map(x=>`<div class="ct-li"><span>${x.type==='positive'?'🌟':'⚠️'} ${esc([x.category,x.note].filter(Boolean).join(' — '))}</span><span class="muted">${esc(String(x.date||'').replace(/-/g,'/'))}</span></div>`).join('')||'<div class="muted" style="font-size:.82rem">لا ملاحظات.</div>'}</div>
+      <div class="ct-card"><b>🏅 الشهادات (${certs.length})</b>${certs.map(c=>`<div class="ct-li"><span>${esc(c.reason||'')}</span><span class="muted">${esc(String(c.date||'').replace(/-/g,'/'))}</span></div>`).join('')||'<div class="muted" style="font-size:.82rem">لا شهادات.</div>'}</div>
+    </div>`;
+}
+function ctProfilePrint(){
+  const sid=window._ctPfSid; if(!sid) return; ensureLogo();
+  let box=document.getElementById('plan-print'); if(!box){ box=document.createElement('div'); box.id='plan-print'; box.className='rep'; document.body.appendChild(box); }
+  box.innerHTML=`<div class="rep-page ct-pf-print">${repHead('ملف الطالب الشامل','تقرير')}<div class="rep-in">${ctProfileBody(sid)}
+    <div class="plan-note">البيانات من سجلات المعلم الفعلية وإجابات الطالب في الأنشطة خلال الفترة الحالية.</div>
+    <div class="plan-sign"><div>معلم المادة<b>${esc(rcGet('teacher')||'')}</b><span>التوقيع: ....................</span></div>
+      <div>المرشد الطلابي<b>${esc(rcGet('counselor')||'')||'&nbsp;'}</b><span>التوقيع: ....................</span></div>
+      <div>ولي الأمر<b>&nbsp;</b><span>التوقيع: ....................</span></div></div></div></div>`;
+  unifiedA4Print({bodyClass:'printing-plans',title:'ملف الطالب',selector:'#plan-print',orientation:'portrait',margin:'8mm'});
 }
 
 /* ═══ الخطط العلاجية ═══

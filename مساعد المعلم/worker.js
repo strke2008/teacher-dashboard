@@ -1670,6 +1670,11 @@ function computeAllGrades(students, data, assignments, semester = 1, period = 1)
         homework: gradeHomework(data, sid, range, now),
         behavior: gradeBehavior(data, sid, range),
         level: gradeLevel(assignments, sid, range),
+        // 📈 اتجاه الإتقان (النصف الأول من أنشطة الفترة مقابل الثاني) — لعرض من يتحسّن ومن يتراجع
+        trend: masteryTrend(assignments, sid, range),
+        // 🏷️ نسبة الطالب في كل مهارة خلال الفترة — لخريطة المهارات وملف الطالب
+        skills: Object.fromEntries(Object.entries(skillWindow(data, assignments, sid, range && range.start, range && range.end))
+          .map(([k, v]) => [k, { rate: Math.round((v.c / v.t) * 100), c: v.c, t: v.t }])),
         attendance: gradeAttendance(data, sid, range),
         duties: gradeDuties(data, sid, range),
         exam: gradeExam(data, sid, semester, period),
