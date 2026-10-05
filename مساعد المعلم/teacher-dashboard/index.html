@@ -361,8 +361,13 @@ body.pf-open{overflow:hidden}
 .ct-bar{display:grid;grid-template-columns:minmax(90px,1.2fr) 2fr 3.6rem;gap:.45rem;align-items:center;font-size:.8rem;margin-top:.3rem}
 .ct-bar i{height:9px;border-radius:5px;background:var(--ui-border);overflow:hidden;display:block}.ct-bar u{display:block;height:100%;text-decoration:none}
 .ct-li{display:flex;justify-content:space-between;gap:.5rem;font-size:.8rem;padding:.25rem 0;border-top:1px dashed var(--ui-border)}
+.ct-li .chip{white-space:nowrap;flex:none;align-self:center}.ct-li>span:first-child{min-width:0}
 @media(max-width:900px){.ct-kpis.ct-kpis6{grid-template-columns:repeat(3,1fr)}.ct-pf-grid{grid-template-columns:1fr}}
-.ct-pf-print .ct-kpis.ct-kpis6{grid-template-columns:repeat(3,1fr)}.ct-pf-print .ct-card{break-inside:avoid}
+.ct-pf-print .ct-kpis.ct-kpis6{grid-template-columns:repeat(3,1fr)!important}.ct-pf-print .ct-card{break-inside:avoid}
+.ct-pf-print .ct-pf-grid{grid-template-columns:1fr 1fr!important;gap:.45rem!important}
+.ct-pf-print .ct-kpi{padding:.4rem!important}.ct-pf-print .ct-kpi b{font-size:1.05rem!important}
+.ct-pf-print .ct-card{padding:.5rem .6rem!important}
+@media print{.ct-pf-print .ct-kpi,.ct-pf-print .ct-card,.ct-pf-print .chip,.ct-pf-print .ct-bar u{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}}
 .ct-cert.t-gold{border:3mm double #B8892B}.ct-cert.t-gold .ct-cert-t{color:#9A6A00}.ct-cert.t-gold .ct-cert-n{border-color:#B8892B}
 .ct-cert.t-modern .ct-cert-in{background:linear-gradient(135deg,rgba(21,101,192,.06),rgba(46,158,107,.08));border-radius:6mm}.ct-cert.t-modern .ct-cert-t{color:#1565C0;letter-spacing:.5px}.ct-cert.t-modern .ct-cert-n{border:0;background:#1565C0;color:#fff;border-radius:3mm;padding:1mm 10mm}
 .ct-cert.t-classic{border:1.2mm solid #0E5E4E}
@@ -9463,7 +9468,7 @@ function ctCertPrint(ids){
   ensureLogo();
   let box=document.getElementById('plan-print'); if(!box){ box=document.createElement('div'); box.id='plan-print'; box.className='rep'; document.body.appendChild(box); }
   box.innerHTML=recs.map(c=>{ const s=(STUDENTS||[]).find(a=>String(a.id)===String(c.studentId))||{};
-    return `<div class="rep-page ct-cert t-${esc(ctCertTpl())}">${repHead('شهادة تقدير','')}
+    return `<div class="rep-page plan-doc ct-cert t-${esc(ctCertTpl())}">${repHead('شهادة تقدير','')}
       <div class="ct-cert-in"><div class="ct-cert-t">شهادة شكر وتقدير</div>
         <p>تتقدم إدارة المدرسة ومعلم مادة ${esc(rcGet('subject')||'العلوم')} بالشكر والتقدير للطالب</p>
         <div class="ct-cert-n">${esc(s.name||'')}</div>
@@ -9718,7 +9723,7 @@ function ctCertMsg(id){
 function ctSchPrint(){
   const s=ctSch(CT_DATA||{}); ensureLogo();
   let box=document.getElementById('plan-print'); if(!box){ box=document.createElement('div'); box.id='plan-print'; box.className='rep'; document.body.appendChild(box); }
-  box.innerHTML=`<div class="rep-page">${repHead('الجدول الدراسي الأسبوعي','')}<div class="rep-in">
+  box.innerHTML=`<div class="rep-page plan-doc">${repHead('الجدول الدراسي الأسبوعي','')}<div class="rep-in">
     <div class="rep-info"><div>المعلم<b>${esc(rcGet('teacher')||'')}</b></div><div>المادة<b>${esc(rcGet('subject')||'العلوم')}</b></div></div>
     <div class="rep-box"><table class="rt"><thead><tr><th>اليوم</th>${Array.from({length:s.count},(_,i)=>`<th>الحصة ${i+1}</th>`).join('')}</tr></thead><tbody>
     ${CT_DAYS.map((dn,dy)=>`<tr><td><b>${dn}</b></td>${Array.from({length:s.count},(_,i)=>`<td>${esc((s.grid[String(dy)]||{})[String(i+1)]||'')}</td>`).join('')}</tr>`).join('')}</tbody></table></div></div></div>`;
@@ -9749,7 +9754,7 @@ function ctProfileBody(sid){
   const plans=((CT_GRADES&&CT_GRADES.plans)||[]).filter(p=>(p.members||[]).some(m=>String(m.studentId)===String(sid)));
   const days30=ctDaysBack(30), abs30=days30.filter(d=>ctStatus(D,'participation',d,sid)==='غائب').length;
   return `<div class="ct-pf-head"><div><h3 style="margin:0">${esc(s.name||'')}</h3><span class="muted">${esc(s.cls||'')} · الفصل ${sem===1?'الأول':'الثاني'} · الفترة ${per===1?'الأولى':'الثانية'}</span></div>
-      <div>${L.measured?`<span class="chip ${tone}">${esc(L.status||'')}</span>`:'<span class="chip ghost">لم يُقَس</span>'} ${ctTrendHTML(g.trend)}</div></div>
+      <div>${L.measured?`<span class="chip ${tone}">${esc(L.status||'')}</span>`:'<span class="chip ghost">لم يُقَس</span>'} ${g.trend&&g.trend.measurable?ctTrendHTML(g.trend):''}</div></div>
     <div class="ct-kpis ct-kpis6">
       ${kpi('الإتقان',L.measured?L.rate+'%':'—',L.measured?`${L.correct}/${L.total} في ${L.count} نشاط`:'',tone)}
       ${kpi('الاختبارات',E.measured&&E.score!=null?`${E.score}/20`:'—','')}
@@ -9769,7 +9774,7 @@ function ctProfileBody(sid){
 function ctProfilePrint(){
   const sid=window._ctPfSid; if(!sid) return; ensureLogo();
   let box=document.getElementById('plan-print'); if(!box){ box=document.createElement('div'); box.id='plan-print'; box.className='rep'; document.body.appendChild(box); }
-  box.innerHTML=`<div class="rep-page ct-pf-print">${repHead('ملف الطالب الشامل','تقرير')}<div class="rep-in">${ctProfileBody(sid)}
+  box.innerHTML=`<div class="rep-page plan-doc ct-pf-print">${repHead('ملف الطالب الشامل','تقرير')}<div class="rep-in">${ctProfileBody(sid)}
     <div class="plan-note">البيانات من سجلات المعلم الفعلية وإجابات الطالب في الأنشطة خلال الفترة الحالية.</div>
     <div class="plan-sign"><div>معلم المادة<b>${esc(rcGet('teacher')||'')}</b><span>التوقيع: ....................</span></div>
       <div>المرشد الطلابي<b>${esc(rcGet('counselor')||'')||'&nbsp;'}</b><span>التوقيع: ....................</span></div>
