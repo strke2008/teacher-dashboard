@@ -5463,6 +5463,19 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       } catch {}
       return json({ ok: true, hw: keys.map(k => k.slice(7)), names: [...names].slice(0, 500) });
     }
+    // ── 🏅 شهاداتي: الشهادات التي أرسلها المعلم إلى بوابة الطالب (نصّها النهائي محفوظ مع الشهادة) ──
+    if (url.pathname === '/my-certs' && request.method === 'GET') {
+      const st = await resolveStudent(env, { id: String(url.searchParams.get('sid') || '').slice(0, 40), name: String(url.searchParams.get('name') || '').slice(0, 80) });
+      if (!st.known) return json({ ok: false, error: 'student not recognized' }, 403);
+      let data = {}; try { data = JSON.parse(await env.HW.get('teacher:classroom') || '{}') || {}; } catch {}
+      const rows = (Array.isArray(data.certificates) ? data.certificates : [])
+        .filter(c => c && !c.deleted && c.shared && typeof c.shared === 'object' && String(c.studentId) === String(st.id))
+        .sort((a, b) => (Number(b.shared.at) || 0) - (Number(a.shared.at) || 0)).slice(0, 30)
+        .map(c => { const x = c.shared; const t = v => String(v || '').slice(0, 200);
+          return { id: String(c.id), at: Number(x.at) || 0, name: t(x.name), cls: t(x.cls), pre: t(x.pre), reason: t(x.reason), dua: t(x.dua), date: t(x.date),
+                   rTitle: t(x.rTitle), rName: t(x.rName), lTitle: t(x.lTitle), lName: t(x.lName) }; });
+      return json({ ok: true, rows });
+    }
     // ── 🎯 خطتي: الطالب يرى خطته الجارية (الهدف، أين وصل، المهام، المدة) ──
     if (url.pathname === '/my-plan' && request.method === 'GET') {
       const st = await resolveStudent(env, { id: String(url.searchParams.get('sid') || '').slice(0, 40), name: String(url.searchParams.get('name') || '').slice(0, 80) });
