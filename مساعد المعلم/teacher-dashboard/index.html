@@ -25012,7 +25012,7 @@ function wrRender(info){
         <span class="muted"> ${WR_LIST.length} جاهزة${skipped?` · ${skipped} بلا بيانات كافية (لن تُرسل)`:''}</span></div>
       <div style="display:flex;gap:.35rem">
         <button class="btn sm" onclick="wrCopyAll()">📋 نسخ الكل</button>
-        <button class="btn tick sm" onclick="wrSendAll()">📨 إرسال الكل</button>
+        <button class="btn tick sm" onclick="wrSendAll()">📨 إرسال الكل${document.getElementById('wk-class')?.value?` لـ ${esc(document.getElementById('wk-class').value)}`:''}</button>
         <button class="btn ghost sm" onclick="wrClose()">إغلاق</button>
       </div>
     </div>
@@ -25047,6 +25047,10 @@ function wrFillClasses(){
   const set=[...new Set(WR_LIST.map(x=>String(x.s.cls||x.s.className||x.s.class||'').trim()).filter(Boolean))]
             .sort((a,b)=>a.localeCompare(b,'ar'));
   sel.innerHTML='<option value="">كل الفصول</option>'+set.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  // التقارير مبنية لفصل الكشف المختار: نعرضه هو بدل «كل الفصول» كي لا يوحي بالإرسال للجميع
+  const kc=String(document.getElementById('wk-class')?.value||'');
+  if(kc){ sel.value=kc; sel.disabled=true; sel.title='الفصل من فلتر الكشف الأسبوعي — غيّره من الأعلى'; }
+  else { sel.disabled=false; sel.title=''; }
 }
 const wrNorm = t => String(t||'').replace(/[\u064B-\u0652\u0640]/g,'').replace(/[أإآٱ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').trim();
 function wrAttn(x){   // كلما زاد الرقم زادت حاجته للانتباه
@@ -30526,6 +30530,11 @@ function kashfCarry(v){
   if([...sel.options].some(o=>o.value===c)){ sel.value=c; return true; }
   return false;
 }
+/* نافذة «تقارير الأسبوع» تُعاد بناؤها إذا تغيّر الفصل أو الأسبوع وهي مفتوحة — كي لا تُرسل بيانات قديمة */
+function wrPanelOpen(){ const p=document.getElementById('wr-panel'); return !!(p&&p.style.display!=='none'&&p.innerHTML.trim()); }
+document.addEventListener('change',e=>{ if(e.target&&e.target.id==='wk-class'&&wrPanelOpen()) setTimeout(wrOpen,250); });
+(function(){ const _ws=window.weekShift; if(typeof _ws!=='function') return;
+  window.weekShift=function(){ const r=_ws.apply(this,arguments); if(wrPanelOpen()) setTimeout(wrOpen,350); return r; }; })();
 function kashfGo(v){
   if(!v){ try{ v=localStorage.getItem(KASHF_KEY)||'weekly'; }catch(e){ v='weekly'; } }
   if(!KASHF_SEL[v]) v='weekly';
