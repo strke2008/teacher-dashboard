@@ -9375,7 +9375,7 @@ function ctCerts(box){
     <div class="ct-table"><table><thead><tr><th></th><th>الطالب</th><th>الفصل</th><th>السبب</th><th>التاريخ</th><th></th></tr></thead><tbody>
       ${list.map(r=>`<tr><td><input type="checkbox" ${window._ctCeSel.has(String(r.x.id))?'checked':''} onchange="this.checked?_ctCeSel.add('${esc(String(r.x.id))}'):_ctCeSel.delete('${esc(String(r.x.id))}');renderClassTools()"></td>
         <td><b>${esc(r.s.name)}</b></td><td class="muted">${esc(r.s.cls||'')}</td><td>${esc(r.x.reason||'')}</td><td class="muted">${esc(String(r.x.date||'').replace(/-/g,'/'))}</td>
-        <td>${r.x.shared?'<span class="chip tick" title="الطالب يراها في بوابته ويستطيع حفظها وطباعتها">📤 في بوابة الطالب</span> ':''}<button class="btn ghost sm" onclick="ctCertPrint(['${esc(String(r.x.id))}'])" title="طباعة">🖨️</button><button class="btn ghost sm" onclick="ctCertShare(['${esc(String(r.x.id))}'],${r.x.shared?'false':'true'})" title="${r.x.shared?'سحبها من بوابة الطالب':'إرسالها إلى بوابة الطالب ليحفظها أو يطبعها بنفسه'}">${r.x.shared?'↩️':'📤'}</button><button class="btn ghost sm" onclick="ctCertMsg('${esc(String(r.x.id))}')" title="نسخ رسالة لولي الأمر">✉️</button><button class="btn ghost sm" onclick="ctCertDel('${esc(String(r.x.id))}')" title="حذف">🗑️</button></td></tr>`).join('')||'<tr><td colspan="6" class="muted">لا شهادات بعد — تُصدر من هنا أو من بوابة المعلم.</td></tr>'}
+        <td>${(()=>{ const L=ctCertLeft(r.x); return L>0?`<span class="chip tick" title="الطالب يراها في بوابته ويستطيع حفظها وطباعتها — تختفي بعد 7 أيام من الإرسال">📤 في البوابة · ${L===1?'يوم':L===2?'يومان':L+' أيام'}</span> `:r.x.shared?'<span class="chip ghost" title="انتهت أيامها السبعة في بوابة الطالب — أعد إرسالها إن أردت">⌛ انتهى عرضها</span> ':''; })()}<button class="btn ghost sm" onclick="ctCertPrint(['${esc(String(r.x.id))}'])" title="طباعة">🖨️</button><button class="btn ghost sm" onclick="ctCertShare(['${esc(String(r.x.id))}'],${ctCertLeft(r.x)>0?'false':'true'})" title="${ctCertLeft(r.x)>0?'سحبها من بوابة الطالب':r.x.shared?'إعادة إرسالها إلى بوابة الطالب (7 أيام جديدة)':'إرسالها إلى بوابة الطالب ليحفظها أو يطبعها بنفسه (تبقى 7 أيام)'}">${ctCertLeft(r.x)>0?'↩️':'📤'}</button><button class="btn ghost sm" onclick="ctCertMsg('${esc(String(r.x.id))}')" title="نسخ رسالة لولي الأمر">✉️</button><button class="btn ghost sm" onclick="ctCertDel('${esc(String(r.x.id))}')" title="حذف">🗑️</button></td></tr>`).join('')||'<tr><td colspan="6" class="muted">لا شهادات بعد — تُصدر من هنا أو من بوابة المعلم.</td></tr>'}
     </tbody></table></div>`;
 }
 async function ctCertAdd(){
@@ -9729,6 +9729,8 @@ async function ctCertQuick(sid,reason){
   catch(e){ toast('تعذّر الحفظ','bad'); return; }
   window._ctCeSel=window._ctCeSel||new Set(); window._ctCeSel.add(rec.id); renderClassTools();
 }
+/* أيام بقاء الشهادة في بوابة الطالب (7 من إرسالها) — 0 إن لم تُرسل أو انتهت */
+function ctCertLeft(c){ const at=c&&c.shared&&Number(c.shared.at); if(!at) return 0; return Math.max(0,Math.ceil((7*864e5-(Date.now()-at))/864e5)); }
 function ctCertMsg(id){
   const c=((CT_DATA&&CT_DATA.certificates)||[]).find(x=>String(x.id)===String(id)); if(!c) return;
   const s=(STUDENTS||[]).find(a=>String(a.id)===String(c.studentId))||{};

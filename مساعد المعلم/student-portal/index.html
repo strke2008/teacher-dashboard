@@ -1175,6 +1175,7 @@ html[data-pt] body,html[data-pt] .sheet,html[data-pt] .btn,html[data-pt] .studen
 .mc-acts{display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.45rem}
 .mc-btn{border:1px solid #0E8C7A;background:#0E8C7A;color:#fff;border-radius:10px;padding:.4rem .75rem;font:inherit;font-size:.82rem;font-weight:700;cursor:pointer}
 .mc-btn.ghost{background:#fff;color:#16233A;border-color:#CBD5E1}
+.mc-note{font-size:.76rem;color:#5A6B84;margin-top:.55rem;text-align:center}
 @media(max-width:520px){.mc-item{grid-template-columns:1fr}}
 .mc-cert{position:relative;width:100%;aspect-ratio:297/210;container-type:inline-size;overflow:hidden;direction:rtl;font-family:'Readex Pro','Tajawal','Segoe UI',Tahoma,sans-serif;color:#575757;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .mc-cert>img.mc-bg{position:absolute;inset:0;width:100%;height:100%;display:block;max-width:none}
@@ -8592,6 +8593,8 @@ async function myCertsLoad(){
   try{const api=((typeof HW!=='undefined'&&HW&&HW.api)||API||'').replace(/\/+$/,'');
     const r=await fetch(api+'/my-certs?'+new URLSearchParams({sid,name}).toString(),{cache:'no-store'});const j=await r.json();rows=(j&&j.rows)||[]}catch(e){}
   if(String(mySid||'')!==sid)return;
+  let hid=[];try{hid=JSON.parse(localStorage.getItem(MC_HIDE_KEY)||'[]')}catch(e){}
+  rows=rows.filter(c=>!hid.includes(c.id));
   MY_CERTS=rows;
   if(!rows.length){box.innerHTML='';return}
   let seen=[];try{seen=JSON.parse(localStorage.getItem(MC_SEEN_KEY)||'[]')}catch(e){}
@@ -8601,11 +8604,21 @@ async function myCertsLoad(){
     ${fresh.length?`<div class="mc-new">🎉 مبروك! وصلتك ${fresh.length===1?'شهادة جديدة':fresh.length+' شهادات جديدة'} — احفظها أو اطبعها.</div>`:''}
     <div class="mc-list">${rows.map(c=>`<div class="mc-item">
       <div class="mc-thumb" onclick="myCertOpen('${esc(c.id)}')" title="عرض الشهادة">${myCertHTML(c)}</div>
-      <div class="mc-meta"><b>${esc(c.reason)}</b><small>${esc(c.date)}</small>
-        <div class="mc-acts"><button type="button" class="mc-btn" onclick="myCertSave('${esc(c.id)}')">⬇️ حفظ صورة</button><button type="button" class="mc-btn" onclick="myCertPrint('${esc(c.id)}')">🖨️ طباعة</button></div></div>
-    </div>`).join('')}</div></section>`;
+      <div class="mc-meta"><b>${esc(c.reason)}</b><small>${esc(c.date)}${mcLeft(c)}</small>
+        <div class="mc-acts"><button type="button" class="mc-btn" onclick="myCertSave('${esc(c.id)}')">⬇️ حفظ صورة</button><button type="button" class="mc-btn" onclick="myCertPrint('${esc(c.id)}')">🖨️ طباعة</button><button type="button" class="mc-btn ghost" onclick="myCertHide('${esc(c.id)}')" title="إخفاؤها من صفحتي">🗑️ إخفاء</button></div></div>
+    </div>`).join('')}</div>
+    <div class="mc-note">تبقى الشهادة هنا 7 أيام — احفظها صورة أو اطبعها قبل ذلك.</div></section>`;
   try{localStorage.setItem(MC_SEEN_KEY,JSON.stringify([...new Set([...seen,...rows.map(c=>c.id)])].slice(-100)))}catch(e){}
   requestAnimationFrame(()=>myCertFit(box));
+}
+const MC_HIDE_KEY='my_certs_hidden_v1';
+/* الأيام المتبقية قبل أن تختفي الشهادة من الصفحة (7 أيام من مشاركتها) */
+function mcLeft(c){ const d=Math.ceil((7*864e5-(Date.now()-(Number(c.at)||0)))/864e5); return d>0?` · تبقى ${d===1?'يومًا واحدًا':d===2?'يومين':d+' أيام'}`:''; }
+function myCertHide(id){
+  if(!confirm('إخفاء هذه الشهادة من صفحتك؟ احفظها صورة أو اطبعها أولًا إن أردت الاحتفاظ بها.')) return;
+  let hid=[];try{hid=JSON.parse(localStorage.getItem(MC_HIDE_KEY)||'[]')}catch(e){}
+  try{localStorage.setItem(MC_HIDE_KEY,JSON.stringify([...new Set([...hid,id])].slice(-100)))}catch(e){}
+  document.getElementById('mc-view')?.remove(); myCertsLoad();
 }
 function myCertHTML(c){
   return `<div class="mc-cert"><img class="mc-bg" src="${MC_BG}" alt="">
@@ -8678,7 +8691,7 @@ async function myPlanLoad(){
   box.innerHTML=rows.map(p=>{
     const now=p.now, tgt=p.target||75, pct=now==null?0:Math.max(4,Math.min(100,Math.round(now/tgt*100)));
     const reached=now!=null&&now>=tgt;
-    const left=p.left==null?'':p.left<0?'انتهت مدتها':p.left===0?'تنتهي اليوم':`باقي ${p.left} ${p.left===1?'يوم':p.left===2?'يومان':'أيام'}`;
+    const left=p.left==null?'':p.left<0?'⏳ معلمك يراجع نتيجتك':p.left===0?'تنتهي اليوم':`باقي ${p.left} ${p.left===1?'يوم':p.left===2?'يومان':'أيام'}`;
     return `<section class="mp-card">
       <div class="mp-h"><span class="mp-ic">🎯</span><div><b>خطتي العلاجية</b><small>${left}</small></div></div>
       <div class="mp-goal">${p.goal&&p.goal.length?`<span>هدفي: إتقان</span>${p.goal.map(g=>`<span class="mp-chip">${esc(g)}</span>`).join('')}`:`<span>${esc(p.reason||'تحسين مستواي')}</span>`}</div>

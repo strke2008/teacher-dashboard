@@ -5469,7 +5469,9 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       if (!st.known) return json({ ok: false, error: 'student not recognized' }, 403);
       let data = {}; try { data = JSON.parse(await env.HW.get('teacher:classroom') || '{}') || {}; } catch {}
       const rows = (Array.isArray(data.certificates) ? data.certificates : [])
-        .filter(c => c && !c.deleted && c.shared && typeof c.shared === 'object' && String(c.studentId) === String(st.id))
+        // 🏅 تظهر في صفحة الطالب 7 أيام من مشاركتها فقط — يحفظها أو يطبعها خلالها
+        .filter(c => c && !c.deleted && c.shared && typeof c.shared === 'object' && String(c.studentId) === String(st.id)
+          && (Date.now() - (Number(c.shared.at) || 0)) < 7 * 86400000)
         .sort((a, b) => (Number(b.shared.at) || 0) - (Number(a.shared.at) || 0)).slice(0, 30)
         .map(c => { const x = c.shared; const t = v => String(v || '').slice(0, 200);
           return { id: String(c.id), at: Number(x.at) || 0, name: t(x.name), cls: t(x.cls), pre: t(x.pre), reason: t(x.reason), dua: t(x.dua), date: t(x.date),
@@ -5487,8 +5489,11 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         ((Array.isArray(p.studentIds) && p.studentIds.map(String).includes(String(st.id))) || String(p.studentId || '') === String(st.id)));
       const idx = await remIndex(env, st.id);
       const rows = [];
-      for (const p of mine.slice(0, 3)) {
+      for (const p of mine) {
+        if (rows.length >= 3) break;
         const m = memberReport(st.id, p, students, assignments, data), t = planTiming(p, m.gain, m.after && m.after.rate, !!(m.after && m.after.measured));
+        // 🎯 حقق الطالب هدف الخطة ← لا داعي لبقائها في صفحته (تبقى عند المعلم ليتخذ قراره)
+        if (m.after && m.after.measured && m.after.rate != null && m.after.rate >= PLAN.target) continue;
         const tasks = [];
         for (const x of idx.filter(x => x && String(x.src || '').startsWith(`plan:${p.id}`))) { try { const r = JSON.parse(await env.HW.get(`rem:${x.id}`)); if (r) tasks.push({ title: r.srcTitle, status: r.status }); } catch {} }
         rows.push({ id: p.id, goal: (Array.isArray(p.skills) && p.skills.length) ? p.skills.slice(0, 4) : [], reason: String(p.reason || '').split(' — ')[0].slice(0, 80),
