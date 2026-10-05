@@ -20336,7 +20336,8 @@ function anBuild(){
 function renderAnalysis(){
   anFillClasses(); anFillHw();
   const MODE = anMode();
-  document.querySelectorAll('.an-mode').forEach(b=>b.classList.toggle('on', b.dataset.m===MODE));
+  // أزرار تحليل الأنشطة فقط — أزرار تحليل الكشف الشامل (data-ca) لها وضعها المستقل
+  document.querySelectorAll('.an-mode:not([data-ca])').forEach(b=>b.classList.toggle('on', b.dataset.m===MODE));
   const A = anBuild();
   const box = document.getElementById('an-body'); if(!box) return;
 
