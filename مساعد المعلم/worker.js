@@ -6368,6 +6368,8 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         // البوابة لا ترسلهما فيبقى المحفوظ كما هو.
         contacts:mergeList(old.contacts,x.contacts,5000),
         notes:mergeList(old.notes,x.notes,5000),
+        // 📱 أرقام أولياء الأمور (للتقرير الأسبوعي): دمج بالمعرّف، والبوابة لا ترسلها فتبقى
+        phones:Object.assign({},(old.phones&&typeof old.phones==='object')?old.phones:{},(x.phones&&typeof x.phones==='object')?x.phones:{}),
         // القوالب تُحفظ من آخر نسخة كاملة لأن الحذف منها يجب أن يبقى حذفًا حقيقيًا.
         behaviorTemplates:incomingTemplates,
         // فترة التقييم: تُمرَّر كما هي ليراها المعلم من الجوال والكمبيوتر معًا.
