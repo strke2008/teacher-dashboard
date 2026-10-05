@@ -6502,31 +6502,38 @@ body{
 <div class="app-sidebar-scroll">
 <section class="app-nav-group">
 <div class="app-nav-title">الرئيسية</div>
-<button class="tab on" data-tab="dashboard" type="button"><span class="app-nav-icon">🏠</span><span>الرئيسية</span></button>
+<button class="tab on" data-tab="dashboard" type="button"><span class="app-nav-icon">🏠</span><span>اليوم</span></button>
 </section>
 <section class="app-nav-group">
-<div class="app-nav-title">التعلم</div>
+<div class="app-nav-title">📚 التعليم</div>
 <button class="tab" data-tab="hw" type="button"><span class="app-nav-icon">📋</span><span>الأنشطة</span></button>
 <button class="tab" data-tab="projects" type="button"><span class="app-nav-icon">📁</span><span>المشاريع</span></button>
-<button class="tab" data-tab="madrasati" type="button"><span class="app-nav-icon">📚</span><span>مدرستي</span></button>
 <button class="tab" data-tab="live" type="button"><span class="app-nav-icon">🎮</span><span>المسابقات المباشرة</span></button>
-<button class="tab" data-tab="plans" type="button"><span class="app-nav-icon">🩺</span><span>الخطط العلاجية</span></button>
-<button class="tab" data-tab="classtools" type="button"><span class="app-nav-icon">🧰</span><span>أدوات الفصل</span></button>
+<button class="tab" data-tab="madrasati" type="button"><span class="app-nav-icon">📚</span><span>مدرستي</span></button>
 </section>
 <section class="app-nav-group">
-<div class="app-nav-title">إدارة الطلاب</div>
+<div class="app-nav-title">🧭 المتابعة والدعم</div>
 <button class="tab" data-tab="students" type="button"><span class="app-nav-icon">👥</span><span>الطلاب</span></button>
-<button class="tab" data-tab="exam-shop" type="button"><span class="app-nav-icon">🎓</span><span>تحكم درجات المتجر</span></button>
+<button class="tab" data-tab="classtools" data-view="profile" type="button"><span class="app-nav-icon">👤</span><span>ملف الطالب الشامل</span></button>
+<button class="tab" data-tab="classtools" data-view="records" type="button"><span class="app-nav-icon">🗂️</span><span>السجلات والحضور</span></button>
+<button class="tab" data-tab="plans" type="button"><span class="app-nav-icon">🩺</span><span>الخطط العلاجية</span></button>
+</section>
+<section class="app-nav-group">
+<div class="app-nav-title">📊 التقييم</div>
+<button class="tab" data-tab="reports" type="button"><span class="app-nav-icon">📑</span><span>الكشوف</span></button>
+<button class="tab" data-tab="grades" type="button"><span class="app-nav-icon">📊</span><span>التحليل والتقارير</span></button>
+<button class="tab" data-tab="classtools" data-view="analysis" type="button"><span class="app-nav-icon">📈</span><span>المستويات والمهارات</span></button>
+<button class="tab" data-tab="classtools" data-view="exams" type="button"><span class="app-nav-icon">📝</span><span>دفتر الاختبارات</span></button>
+<button class="tab" data-tab="exam" type="button"><span class="app-nav-icon">🖨️</span><span>الاختبار الورقي</span></button>
+</section>
+<section class="app-nav-group">
+<div class="app-nav-title">🏅 التواصل والتحفيز</div>
 <button class="tab" data-tab="messages" type="button"><span class="app-nav-icon">💬</span><span>رسائل الطلاب</span></button>
+<button class="tab" data-tab="classtools" data-view="certs" type="button"><span class="app-nav-icon">🏅</span><span>الشهادات</span></button>
+<button class="tab" data-tab="exam-shop" type="button"><span class="app-nav-icon">🎓</span><span>متجر الدرجات</span></button>
 </section>
 <section class="app-nav-group">
-<div class="app-nav-title">التقييم والكشوف</div>
-<button class="tab" data-tab="grades" type="button"><span class="app-nav-icon">📊</span><span>التقارير</span></button>
-<button class="tab" data-tab="reports" type="button"><span class="app-nav-icon">🗂️</span><span>الكشوف</span></button>
-<button class="tab" data-tab="exam" type="button"><span class="app-nav-icon">🖨️</span><span>اختبار ورقي</span></button>
-</section>
-<section class="app-nav-group">
-<div class="app-nav-title">الأدوات</div>
+<div class="app-nav-title">⚙️ الإعدادات</div>
 <button class="tab" data-tab="data" type="button"><span class="app-nav-icon">⚙️</span><span>الإعدادات</span></button>
 </section>
 </div>
@@ -6543,6 +6550,7 @@ body{
 <span class="spacer"></span>
 <button class="btn sm" onclick="openQuickStudent()">+ طالب</button>
 </div>
+<div class="today-hub no-print" id="today-hub"></div>
 <div class="feature-grid" id="dash-stats"></div>
 <div class="dashboard-actions">
 <button class="btn ghost sm" onclick="openStudentSearch()">بحث طالب</button>
@@ -6825,8 +6833,8 @@ body{
 <div id="plan-list" style="margin-top:.7rem"></div>
 </div>
 </section><section class="panel" id="p-classtools">
-<div class="sheet-head no-print"><div><h2>🧰 أدوات الفصل</h2>
-<span class="sub">المستويات ودفتر الاختبارات والسجلات والشهادات والجدول — على شاشة كبيرة. البيانات نفسها التي في بوابة المعلم، وما تعدّله هنا يظهر هناك.</span></div>
+<div class="sheet-head no-print"><div><h2 id="ct-title">🧰 أدوات الفصل</h2>
+<span class="sub" id="ct-sub">المستويات ودفتر الاختبارات والسجلات والشهادات والجدول — على شاشة كبيرة. البيانات نفسها التي في بوابة المعلم، وما تعدّله هنا يظهر هناك.</span></div>
 <span class="spacer"></span><button class="btn ghost sm" onclick="renderClassTools(true)">🔄 تحديث</button></div>
 <div class="no-print" id="ct-today-box"></div>
 <div class="row no-print" id="ct-nav" style="gap:.4rem;flex-wrap:wrap;margin:.2rem 0 .8rem"></div>
@@ -7218,6 +7226,9 @@ body{
   <button class="report-hub-card" onclick="switchReportView('analysis')" type="button"><span class="report-hub-icon">📈</span><span><b>تحليل الأنشطة</b><small>تحليل أداء الطلاب والأنشطة ومؤشرات الإنجاز.</small></span><span class="report-hub-arrow">←</span></button>
   <button class="report-hub-card" onclick="switchReportView('diag')" type="button"><span class="report-hub-icon">🔍</span><span><b>التشخيصي</b><small>عرض نتائج الاختبارات التشخيصية وتحليلها.</small></span><span class="report-hub-arrow">←</span></button>
   <button class="report-hub-card" onclick="switchReportView('styles')" type="button"><span class="report-hub-icon">🧠</span><span><b>أنماط التعلّم</b><small>تحليل مؤشرات وأنماط تعلم الطلاب.</small></span><span class="report-hub-arrow">←</span></button>
+  <button class="report-hub-card" onclick="goTab('classtools:analysis')" type="button"><span class="report-hub-icon">📈</span><span><b>المستويات والمهارات</b><small>مستوى كل طالب واتجاهه، وخريطة المهارات للفصل.</small></span><span class="report-hub-arrow">←</span></button>
+  <button class="report-hub-card" onclick="goTab('classtools:exams')" type="button"><span class="report-hub-icon">📝</span><span><b>دفتر الاختبارات</b><small>درجات الاختبارات القصيرة والفترية لكل فصل.</small></span><span class="report-hub-arrow">←</span></button>
+  <button class="report-hub-card" onclick="goTab('plans')" type="button"><span class="report-hub-icon">🩺</span><span><b>الخطط العلاجية</b><small>قياس قبلي وبعدي محسوب من السجلات الفعلية.</small></span><span class="report-hub-arrow">←</span></button>
 </div>
 </section>
 <section class="panel" id="p-grades">
@@ -8212,18 +8223,28 @@ function askAlert(msg, title){
    الأصلي في الشريط العلوي، فلا يتكرّر منطق التنقّل في مكانين. */
 function goTab(name){
   closeModal();
-  const btn = document.querySelector(`.tab[data-tab="${name}"], .mobile-nav button[data-tab="${name}"]`);
+  const [tab,view] = String(name||'').split(':');
+  const btn = view
+    ? document.querySelector(`.tab[data-tab="${tab}"][data-view="${view}"]`)
+    : document.querySelector(`.tab[data-tab="${tab}"]:not([data-view]), .mobile-nav button[data-tab="${tab}"]:not([data-view])`);
   if(btn) btn.click();
+  else if(tab==='classtools'){ // أدوات الفصل كاملة (بلا قسم)
+    CT_VIEW=view||''; document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('on',p.id==='p-classtools'));
+    ctMarkNav(); renderClassTools(true); }
 }
 (function navMoreInit(){
   const b = document.getElementById('nav-more-btn');
   if(!b) return;
   b.onclick = ()=>{
-    const items = [['live','🎮 المسابقات المباشرة'],['madrasati','📚 مدرستي'],['exam-shop','🎓 تحكم درجات المتجر'],['messages','💬 رسائل الطلاب'],['plans','🩺 الخطط العلاجية'],['classtools','🧰 أدوات الفصل'],['exam','🖨️ اختبار ورقي'],['data','⚙️ الإعدادات']];
+    const items = [['—','📚 التعليم'],['live','🎮 المسابقات المباشرة'],['madrasati','📚 مدرستي'],
+      ['—','🧭 المتابعة والدعم'],['classtools:profile','👤 ملف الطالب الشامل'],['classtools:records','🗂️ السجلات والحضور'],['plans','🩺 الخطط العلاجية'],
+      ['—','📊 التقييم'],['classtools:analysis','📈 المستويات والمهارات'],['classtools:exams','📝 دفتر الاختبارات'],['exam','🖨️ الاختبار الورقي'],
+      ['—','🏅 التواصل والتحفيز'],['messages','💬 رسائل الطلاب'],['classtools:certs','🏅 الشهادات'],['exam-shop','🎓 متجر الدرجات'],
+      ['—','⚙️ أخرى'],['data','⚙️ الإعدادات']];
     const portal = getPortal();
     openModal(`<div style="padding:1rem">
       <h3 style="margin:0 0 .8rem">المزيد</h3>
-      ${items.map(([k,l])=>`<button class="btn ghost" style="width:100%;min-height:48px;margin-bottom:.5rem;justify-content:flex-start"
+      ${items.map(([k,l])=>k==='—'?`<div class="more-grp">${l}</div>`:`<button class="btn ghost" style="width:100%;min-height:46px;margin-bottom:.4rem;justify-content:flex-start"
         onclick="goTab('${k}')">${l}</button>`).join('')}
       ${portal?`<button class="btn ghost" style="width:100%;min-height:48px;margin-bottom:.5rem;justify-content:flex-start"
         onclick="closeModal();openPortal()">🧭 بوابة المعلم ↗</button>`:''}
@@ -8234,9 +8255,9 @@ function goTab(name){
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
 document.querySelectorAll('.tab,.mobile-nav button[data-tab]').forEach(t => t.onclick = () => {
-  document.querySelectorAll('.tab,.mobile-nav button[data-tab]').forEach(x => x.classList.toggle('on', x.dataset.tab === t.dataset.tab));
+  document.querySelectorAll('.tab,.mobile-nav button[data-tab]').forEach(x => x.classList.toggle('on', x.dataset.tab === t.dataset.tab && (x.dataset.view||'') === (t.dataset.view||'')));
   document.querySelectorAll('.panel').forEach(p => p.classList.toggle('on', p.id === 'p-' + t.dataset.tab));
-  if (t.dataset.tab === 'dashboard') { renderDashboard(); syncStore(true); }
+  if (t.dataset.tab === 'dashboard') { renderDashboard(); syncStore(true); try{ renderTodayHub(true); }catch(e){} }
   if (t.dataset.tab === 'messages') { initStudentMessages(); msgqLoad(); try{ annInit(); annLoad(); }catch(e){} }
   if (t.dataset.tab === 'students') { renderReqs(); renderDevWarn(); renderStudentsCenter(); syncStore(true); }
   if (t.dataset.tab === 'hw') { renderHw(); pullAll(true); }
@@ -8254,7 +8275,7 @@ document.querySelectorAll('.tab,.mobile-nav button[data-tab]').forEach(t => t.on
   if (t.dataset.tab === 'madrasati') { madLoad(false); madBridgeInit(false); }
   if (t.dataset.tab === 'exam-shop') { loadExamShopPolicy(false); }
   if (t.dataset.tab === 'plans') { renderPlans(true); }
-  if (t.dataset.tab === 'classtools') { renderClassTools(true); }
+  if (t.dataset.tab === 'classtools') { CT_VIEW = t.dataset.view || ''; renderClassTools(true); }
   if (t.dataset.tab === 'exam') { examInit(); }
   if (t.dataset.tab === 'data') { try{ backupLoad(); }catch(e){} }
   if (t.dataset.tab === 'live') { try{ liveTLoad(); }catch(e){} }
@@ -9124,6 +9145,27 @@ function printPlansSummary(){
    كل حفظ يجلب أحدث نسخة من الخادم أولًا ثم يعدّل الحقل المطلوب وحده — فلا يُمحى ما رصدته البوابة للتو. */
 let CT_TAB='levels', CT_DATA=null, CT_GRADES=null, CT_BUSY=false;
 const CT_TABS=[['profile','👤 ملف الطالب'],['levels','📊 المستويات'],['skills','🧭 خريطة المهارات'],['exams','📝 دفتر الاختبارات'],['records','🗂️ السجلات'],['certs','🏅 الشهادات'],['schedule','🗓️ الجدول']];
+/* أقسام القائمة الجانبية: كل قسم يعرض جزءًا من الأدوات بعنوانه، ويبقى «أدوات الفصل» كاملًا لمن يفتحها بلا قسم */
+let CT_VIEW='';
+const CT_VIEWS={
+  profile:{tabs:['profile'],title:'👤 ملف الطالب الشامل',sub:'كل ما يخص الطالب في صفحة واحدة: المستوى والاتجاه والمهارات والحضور والسلوك والخطط — مع طباعة رسمية.'},
+  records:{tabs:['records','schedule'],title:'🗂️ السجلات والحضور',sub:'رصد الحضور والمشاركة والواجب والسلوك يوميًا، والسجل الشهري، وجدول الحصص.'},
+  analysis:{tabs:['levels','skills'],title:'📈 المستويات والمهارات',sub:'مستوى كل طالب واتجاهه من حساب الخادم، وخريطة المهارات للفصل لاكتشاف ما يحتاج إعادة شرح.'},
+  exams:{tabs:['exams'],title:'📝 دفتر الاختبارات',sub:'رصد درجات الاختبارات القصيرة والفترية، اللصق من جدول، والتصدير.'},
+  certs:{tabs:['certs'],title:'🏅 الشهادات',sub:'شهادات الشكر والتقدير: المرشحون، الطباعة، والإرسال إلى بوابة الطالب.'}
+};
+function ctViewOf(tab){ return Object.keys(CT_VIEWS).find(v=>CT_VIEWS[v].tabs.includes(tab))||''; }
+function ctMarkNav(){
+  document.querySelectorAll('.tab,.mobile-nav button[data-tab]').forEach(x=>x.classList.toggle('on', x.dataset.tab==='classtools' && (x.dataset.view||'')===CT_VIEW));
+}
+/* فتح أداة من أي مكان: ينتقل إلى قسمها في القائمة ويُبقي الاختيار الحالي داخلها */
+function ctGo(tab){
+  CT_TAB=tab;
+  const view=ctViewOf(tab), panel=document.getElementById('p-classtools');
+  if(!panel||!panel.classList.contains('on')){ goTab('classtools:'+view); return; }
+  if(CT_VIEW&&CT_VIEW!==view) CT_VIEW=view;
+  ctMarkNav(); renderClassTools();
+}
 function ctApi(){ return (typeof getApi==='function'?getApi():'').replace(/\/+$/,''); }
 async function ctLoad(){
   const r=await fetch(ctApi()+'/classroom?t='+encodeURIComponent(getTok()));
@@ -9148,13 +9190,19 @@ function ctClassSel(id,val,onch,all=true){ return `<select class="inp" id="${id}
 
 async function renderClassTools(force){
   const box=document.getElementById('ct-body'), nav=document.getElementById('ct-nav'); if(!box) return;
-  if(nav) nav.innerHTML=CT_TABS.map(([k,l])=>`<button type="button" class="btn ${k===CT_TAB?'':'ghost'} sm" onclick="CT_TAB='${k}';renderClassTools()">${l}</button>`).join('');
+  const V=CT_VIEWS[CT_VIEW], tabs=V?CT_TABS.filter(([k])=>V.tabs.includes(k)):CT_TABS;
+  if(!tabs.some(([k])=>k===CT_TAB)) CT_TAB=tabs[0][0];
+  const h=document.getElementById('ct-title'), sb=document.getElementById('ct-sub');
+  if(h) h.textContent=V?V.title:'🧰 أدوات الفصل';
+  if(sb) sb.textContent=V?V.sub:'المستويات ودفتر الاختبارات والسجلات والشهادات والجدول — على شاشة كبيرة. البيانات نفسها التي في بوابة المعلم، وما تعدّله هنا يظهر هناك.';
+  if(nav){ nav.style.display=tabs.length>1?'':'none';
+    nav.innerHTML=tabs.map(([k,l])=>`<button type="button" class="btn ${k===CT_TAB?'':'ghost'} sm" onclick="CT_TAB='${k}';renderClassTools()">${l}</button>`).join(''); }
   if(force||!CT_DATA){
     box.innerHTML='<div class="muted" style="padding:1rem">⏳ جارٍ جلب بيانات الفصل من الخادم…</div>';
     try{ try{ await loadDashboardAcademic(); }catch(e){} CT_DATA=await ctLoad(); }
     catch(e){ box.innerHTML='<div class="ct-warn">تعذّر الاتصال بالخادم — تحقق من الاتصال ثم اضغط 🔄 تحديث.</div>'; return; }
   }
-  const tb=document.getElementById('ct-today-box'); if(tb) tb.innerHTML=ctTodayHTML();
+  const tb=document.getElementById('ct-today-box'); if(tb) tb.innerHTML=(!CT_VIEW||CT_VIEW==='records')?ctTodayHTML():'';
   try{
     if(CT_TAB==='levels') await ctLevels(box, force);
     else if(CT_TAB==='skills') await ctSkills(box, force);
@@ -9526,7 +9574,7 @@ function ctHeat(rate){
   const h=Math.round(Math.max(0,Math.min(100,rate))*1.2);   // 0=أحمر ← 120=أخضر
   return `background:hsl(${h} 62% 88%);color:hsl(${h} 70% 22%)`;
 }
-function ctOpenProfile(sid){ window._ctPfSid=String(sid); const s=(STUDENTS||[]).find(x=>String(x.id)===String(sid)); if(s) window._ctPfCls=String(s.cls||''); CT_TAB='profile'; renderClassTools(); }
+function ctOpenProfile(sid){ window._ctPfSid=String(sid); const s=(STUDENTS||[]).find(x=>String(x.id)===String(sid)); if(s) window._ctPfCls=String(s.cls||''); closeModal(); ctGo('profile'); }
 function ctNameLink(s){ return `<a href="#" class="ct-name" onclick="event.preventDefault();ctOpenProfile('${esc(s.id)}')">${esc(s.name)}</a>`; }
 
 /* ── 📅 حصصي اليوم (أعلى التبويب دائمًا) ── */
@@ -9538,7 +9586,7 @@ function ctTodayHTML(){
   if(!ps.length) return `<div class="ct-today muted">📅 ${CT_DAYS[dow]}: لا حصص في جدولك اليوم — أضفها من «🗓️ الجدول».</div>`;
   const d=ctToday(), done=c=>{ const P=D.participation&&D.participation[d]||{}; return ctRoster(c).some(x=>P[String(x.id)]); };
   return `<div class="ct-today"><b>📅 حصص اليوم (${CT_DAYS[dow]})</b>${ps.map(p=>{ const c=g[String(p)];
-    return `<button type="button" class="ct-per ${done(c)?'done':''}" onclick="window._ctRcCls='${esc(c)}';window._ctRcD='${d}';window._ctRcView='day';CT_TAB='records';renderClassTools()" title="افتح سجل ${esc(c)} لليوم">الحصة ${p} · <b>${esc(c)}</b> ${done(c)?'✓ رُصد':'— لم يُرصد'}</button>`; }).join('')}</div>`;
+    return `<button type="button" class="ct-per ${done(c)?'done':''}" onclick="window._ctRcCls='${esc(c)}';window._ctRcD='${d}';window._ctRcView='day';ctGo('records')" title="افتح سجل ${esc(c)} لليوم">الحصة ${p} · <b>${esc(c)}</b> ${done(c)?'✓ رُصد':'— لم يُرصد'}</button>`; }).join('')}</div>`;
 }
 
 /* ── 🧭 خريطة المهارات: الطالب × المهارة ── */
@@ -22531,7 +22579,7 @@ function openStudentProfile(id){
         }
         return '';
       })()}
-    </div><button class="btn ghost sm" onclick="openStudentForm('${s.id}');setTimeout(()=>{},0)">✏️ تعديل</button></div>
+    </div><button class="btn sm" onclick="ctOpenProfile('${s.id}')" title="المستوى والمهارات والحضور والسلوك والخطط">📊 الملف الشامل</button><button class="btn ghost sm" onclick="openStudentForm('${s.id}');setTimeout(()=>{},0)">✏️ تعديل</button></div>
     <div class="mini-grid">
       <div class="mini-stat"><b>${s.points||0}</b><span>نقطة</span></div>
       <div class="mini-stat"><b>${st.done}/${st.acts.length}</b><span>أنشطة</span></div>
@@ -22795,6 +22843,7 @@ function renderFeatureStudentSearch(){
       </div>
       <div class="student-search-actions">
         <button class="btn ghost sm" type="button" onclick="openStudentProfile('${esc(s.id)}')">👤 ملف الطالب</button>
+        <button class="btn ghost sm" type="button" onclick="ctOpenProfile('${esc(s.id)}')">📊 الشامل</button>
         ${missing>0 ? `<button class="btn sm" type="button" onclick="openStudentReminder('${esc(s.id)}')">📨 تذكير</button>` : ''}
       </div>
     </div>`;
@@ -29820,4 +29869,132 @@ async function srepWithdraw(){
   catch(_){ toast('تعذّر السحب','bad'); }
 }
 
+</script>
+<style id="dash-reorg-css">
+.more-grp{font-size:.74rem;font-weight:800;color:var(--ink-soft);margin:.7rem .2rem .35rem;letter-spacing:.2px}
+.set-tabs{display:flex;flex-wrap:wrap;gap:.4rem;margin:0 0 .9rem;position:sticky;top:0;z-index:5;background:var(--paper,#fff);padding:.5rem 0;border-bottom:1px solid var(--ui-border,#e5e7eb)}
+.set-tabs button{border:1px solid var(--ui-border,#e5e7eb);background:var(--ui-surface,#fff);color:var(--ink);border-radius:999px;padding:.4rem .85rem;font:inherit;font-size:.84rem;font-weight:700;cursor:pointer}
+.set-tabs button.on{background:var(--ui-accent,#2563eb);border-color:var(--ui-accent,#2563eb);color:#fff}
+.set-tabs button.danger.on{background:#c0392b;border-color:#c0392b}
+#p-data > .set-off{display:none!important}
+.today-hub{display:grid;grid-template-columns:1.1fr 1fr 1fr;gap:.8rem;margin:0 0 1rem}
+.th-card{background:var(--ui-surface,#fff);border:1px solid var(--ui-border,#e5e7eb);border-radius:var(--ui-radius,14px);padding:.85rem .95rem;box-shadow:var(--ui-shadow,none);min-width:0}
+.th-card h3{margin:0 0 .55rem;font-size:.95rem;display:flex;align-items:center;gap:.4rem}
+.th-card h3 small{font-weight:600;color:var(--ink-soft);font-size:.74rem;margin-inline-start:auto}
+.th-q{width:100%}
+.th-res{display:flex;flex-direction:column;gap:.3rem;margin-top:.45rem}
+.th-res button{display:flex;align-items:center;gap:.5rem;text-align:start;border:1px solid var(--ui-border,#e5e7eb);background:var(--ui-bg,#f8fafc);border-radius:10px;padding:.4rem .6rem;font:inherit;font-size:.84rem;cursor:pointer;color:var(--ink)}
+.th-res button small{color:var(--ink-soft);margin-inline-start:auto;font-size:.74rem}
+.th-short{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.6rem}
+.th-short button{border:1px dashed var(--ui-border-strong,#cbd5e1);background:transparent;border-radius:999px;padding:.3rem .65rem;font:inherit;font-size:.78rem;cursor:pointer;color:var(--ink)}
+.th-act{display:flex;flex-direction:column;gap:.35rem}
+.th-act button{display:flex;align-items:center;gap:.5rem;text-align:start;border:0;border-inline-start:4px solid #94a3b8;background:var(--ui-bg,#f8fafc);border-radius:8px;padding:.5rem .65rem;font:inherit;font-size:.84rem;cursor:pointer;color:var(--ink)}
+.th-act button.bad{border-inline-start-color:#d6455b}.th-act button.warn{border-inline-start-color:#e0a100}.th-act button.ok{border-inline-start-color:#1b9c6b;cursor:default}
+.th-act button b{margin-inline-start:auto}
+.today-hub .ct-today{margin:0}.today-hub .ct-today > b:first-child{display:none}
+@media (max-width:980px){.today-hub{grid-template-columns:1fr}}
+</style>
+<script id="dash-reorg-js">
+/* ═══ ⚙️ الإعدادات: تبويبات داخلية — كل قسم مستقل بدل صفحة طويلة. لا يُحذف شيء: «الكل» يعرض كل الأقسام كما كانت ═══ */
+(function settingsTabsInit(){
+  const pd=document.getElementById('p-data'); if(!pd||pd.querySelector('.set-tabs')) return;
+  const CATS=[['school','🏫 المدرسة والمظهر',['بيانات المدرسة','مظهر التطبيق']],['ai','🤖 الذكاء الاصطناعي',['الذكاء الاصطناعي']],
+    ['students','👥 الطلاب والنقل',['نقل الطلاب','طرق استيراد','استعادة طالب']],
+    ['links','🔗 الروابط والخادم والإشعارات',['الإشعارات','رابط صفحة','رابط بوابة','الخادم']],
+    ['backup','💾 النسخ والتنظيف',['النسخ الاحتياطية','تنظيف']],['danger','⛔ منطقة الخطر',['منطقة الخطر']]];
+  let cur='school';
+  [...pd.children].forEach(el=>{
+    const h=(el.querySelector('h2')?.textContent||'').trim();
+    const c=h&&CATS.find(([,,keys])=>keys.some(k=>h.includes(k)));
+    if(c) cur=c[0];
+    el.dataset.setcat=cur;
+  });
+  const bar=document.createElement('div'); bar.className='set-tabs no-print';
+  bar.innerHTML=CATS.map(([k,l])=>`<button type="button" data-set="${k}" class="${k==='danger'?'danger':''}">${l}</button>`).join('')+'<button type="button" data-set="all">☰ الكل</button>';
+  pd.prepend(bar);
+  function setCat(k){
+    [...pd.children].forEach(el=>{ if(el===bar) return; el.classList.toggle('set-off', k!=='all' && el.dataset.setcat!==k); });
+    bar.querySelectorAll('button').forEach(b=>b.classList.toggle('on', b.dataset.set===k));
+    try{ localStorage.setItem('dash_set_cat_v1',k); }catch(e){}
+  }
+  window.settingsCat=setCat;
+  bar.addEventListener('click',e=>{ const b=e.target.closest('[data-set]'); if(b) setCat(b.dataset.set); });
+  let first='school'; try{ first=localStorage.getItem('dash_set_cat_v1')||'school'; }catch(e){}
+  if(first==='danger') first='school';
+  setCat(CATS.some(c=>c[0]===first)||first==='all'?first:'school');
+  // أي انتقال برمجي إلى قسم في الإعدادات (مثل فتح إعدادات الإشعارات) يُظهر تبويبه أولًا
+  const orig=Element.prototype.scrollIntoView;
+  Element.prototype.scrollIntoView=function(){
+    try{ if(pd.contains(this)){ const sec=[...pd.children].find(c=>c.contains(this)); if(sec&&sec.classList.contains('set-off')) setCat(sec.dataset.setcat); } }catch(e){}
+    return orig.apply(this,arguments);
+  };
+})();
+
+/* ═══ 🏠 اليوم: حصص اليوم + ما يحتاج قرارك + بحث سريع يفتح الملف الشامل ═══ */
+let TH_AT=0, TH_BUSY=false;
+function thEsc(x){ return typeof esc==='function'?esc(x):String(x??''); }
+function thSearch(){
+  const q=document.getElementById('th-q'), out=document.getElementById('th-res'); if(!q||!out) return;
+  const n=v=>typeof normAr==='function'?normAr(v):String(v||'');
+  const t=n(q.value).trim();
+  if(!t){ out.innerHTML=''; return; }
+  const list=(STUDENTS||[]).filter(s=>n(`${s.name||''} ${s.cls||''}`).includes(t)).slice(0,6);
+  out.innerHTML=list.map(s=>`<button type="button" onclick="ctOpenProfile('${thEsc(s.id)}')" title="الملف الشامل">👤 ${thEsc(s.name)}<small>${thEsc(s.cls||'')}</small></button>`).join('')
+    ||'<div class="muted" style="font-size:.8rem">لا يوجد طالب بهذا الاسم.</div>';
+}
+function thActions(){
+  const out=[];
+  const plans=((typeof CT_GRADES!=='undefined'&&CT_GRADES&&CT_GRADES.plans)||(typeof PLAN_DATA!=='undefined'&&PLAN_DATA&&PLAN_DATA.plans)||[]).filter(p=>p.status!=='done');
+  const need=plans.filter(p=>p.timing&&p.timing.expired).length;
+  const soon=plans.filter(p=>p.timing&&!p.timing.expired&&p.timing.left!=null&&p.timing.left<=3).length;
+  if(need) out.push(['bad','🩺',`${need} ${need===1?'خطة علاجية انتهت مدتها وتنتظر قرارك':'خطط علاجية انتهت مدتها وتنتظر قرارك'}`,need,"goTab('plans')"]);
+  if(soon) out.push(['warn','⏳',`${soon} ${soon===1?'خطة تنتهي':'خطط تنتهي'} خلال 3 أيام`,soon,"goTab('plans')"]);
+  if(typeof CT_DATA!=='undefined'&&CT_DATA){
+    let al=[]; try{ al=ctAlerts(''); }catch(e){}
+    const bad=al.filter(a=>a.lvl==='bad').length, warn=al.length-bad;
+    if(bad) out.push(['bad','🚫',`${bad} ${bad===1?'طالب غائب':'طلاب غائبون'} 3 أيام متتالية أو أكثر`,bad,"ctGo('records')"]);
+    if(warn) out.push(['warn','⚠️','تنبيهات متابعة: غياب أو واجبات أو مشاركة',warn,"ctGo('records')"]);
+  }
+  try{ const pend=(typeof REQS!=='undefined'&&Array.isArray(REQS))?REQS.length:0; if(pend) out.push(['warn','🙋',`${pend} طلب انضمام بانتظار الموافقة`,pend,"goTab('students')"]); }catch(e){}
+  return out;
+}
+function thDraw(){
+  const box=document.getElementById('today-hub'); if(!box) return;
+  const hasData=typeof CT_DATA!=='undefined'&&CT_DATA;
+  const q=document.getElementById('th-q')?.value||'';
+  const acts=thActions();
+  const loading=TH_BUSY&&!hasData;
+  box.innerHTML=`
+    <div class="th-card"><h3>🔎 ملف طالب</h3>
+      <input class="inp th-q" id="th-q" placeholder="اكتب اسم الطالب لفتح ملفه الشامل…" oninput="thSearch()" autocomplete="off">
+      <div class="th-res" id="th-res"></div>
+      <div class="th-short">
+        <button type="button" onclick="ctGo('records')">🗂️ رصد اليوم</button>
+        <button type="button" onclick="goTab('hw')">📋 الأنشطة</button>
+        <button type="button" onclick="ctGo('exams')">📝 دفتر الاختبارات</button>
+        <button type="button" onclick="ctGo('certs')">🏅 شهادة شكر</button>
+        <button type="button" onclick="goTab('exam')">🖨️ اختبار ورقي</button>
+      </div></div>
+    <div class="th-card"><h3>📅 حصص اليوم<small>اضغط الحصة لرصدها</small></h3>
+      ${hasData?ctTodayHTML():loading?'<div class="muted" style="font-size:.84rem">⏳ جارٍ جلب الجدول…</div>':'<div class="muted" style="font-size:.84rem">اربط الخادم من الإعدادات لعرض حصص اليوم.</div>'}</div>
+    <div class="th-card"><h3>✅ يحتاج قرارك</h3>
+      <div class="th-act">${acts.length?acts.map(([lv,ic,t,n,go])=>`<button type="button" class="${lv}" onclick="${go}">${ic} ${t}<b>${n}</b></button>`).join('')
+        :loading?'<div class="muted" style="font-size:.84rem">⏳ جارٍ الفحص…</div>':'<button type="button" class="ok">🌿 لا شيء عاجل — كل شيء تحت السيطرة</button>'}</div></div>`;
+  if(q){ const i=document.getElementById('th-q'); i.value=q; thSearch(); }
+}
+async function renderTodayHub(fetchNow){
+  thDraw();
+  const api=typeof getApi==='function'?getApi():'', tok=typeof getTok==='function'?getTok():'';
+  if(!api||!tok||TH_BUSY) return;
+  if(!fetchNow&&CT_DATA&&Date.now()-TH_AT<180000) return;
+  if(Date.now()-TH_AT<20000&&CT_DATA) return;
+  TH_BUSY=true; thDraw();
+  try{
+    try{ await loadDashboardAcademic(); }catch(e){}
+    CT_DATA=await ctLoad(); TH_AT=Date.now(); thDraw();
+    if(!CT_GRADES){ try{ await ctEnsureGrades(false); }catch(e){} }
+  }catch(e){}
+  TH_BUSY=false; thDraw();
+}
+setTimeout(()=>{ try{ if(document.getElementById('p-dashboard')?.classList.contains('on')) renderTodayHub(true); else thDraw(); }catch(e){ console.warn('todayHub',e); } }, 1200);
 </script>
