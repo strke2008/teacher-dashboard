@@ -266,6 +266,8 @@ th{font-family:var(--display);font-weight:600;background:var(--bench)}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 /* ===== الجوال ===== */
 .ls{display:none}
+.wmhold,.frzone canvas,#wkWall{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:none}
+body.wm-holding{-webkit-user-select:none;user-select:none}
 .swipe-hint{display:none;margin:6px 2px 0;font-size:.8rem;color:var(--ink-2);text-align:center}
 @media (max-width:760px){.swipe-hint{display:block}}
 @media (max-width:640px){
@@ -2526,7 +2528,7 @@ const WMSIM=(()=>{
   function toC(e){const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)*W/r.width,y:(e.clientY-r.top)*H/r.height}}
   function scroller(){return cv&&cv.closest('.frscroll')}
   function bind(){
-    cv.style.touchAction='pan-y';
+    cv.style.touchAction='pan-y';cv.addEventListener('contextmenu',e=>e.preventDefault());cv.addEventListener('selectstart',e=>e.preventDefault());
     cv.addEventListener('pointerdown',e=>{const p=toC(e);
       if(H_&&H_.hit&&!tw&&H_.hit(p)){ptr={cap:true,id:e.pointerId,sx:e.clientX,sy:e.clientY};try{cv.setPointerCapture(e.pointerId)}catch(_){}e.preventDefault();H_.down&&H_.down(p);return}
       const sc=scroller();if(sc&&sc.scrollWidth>sc.clientWidth+2)ptr={scroll:true,x:e.clientX,sl:sc.scrollLeft};});
@@ -2750,7 +2752,7 @@ function wkMount(id,mode){WK_CV=id;const v=wkView;Object.assign(v,{mode:mode||'p
 function wkStart(F,d,onEnd,drag){const v=wkView;Object.assign(v,{x:0,tx:0,F,d,Fs:0,active:true,drag:!!drag,onEnd,done:false,held:!!drag,moving:false});
   if(!drag)WMSIM.animate(900+650*d,(k)=>{v.moving=k<1;v.x=d*k;v.held=true;frFollowEl(WK_CV,WK.X0+d*k*WK.PX+120)},()=>{v.x=d;v.moving=false});}
 function wkPull(F,d,onEnd){wkStart(F,d,onEnd,false)}
-function wkWallHold(on){const w=wkView.wall;if(!on){if(w.hold&&!w.done&&w.eff<1.6)note('استمر بالضغط على الزر… ادفع الجدار حتى تتعب، وراقب عدّاد الشغل.');w.hold=false;return}if(APP.run&&APP.run.step!=='wall')return;w.hold=true}
+function wkWallHold(on){const w=wkView.wall;document.body.classList.toggle('wm-holding',!!on);try{window.getSelection().removeAllRanges()}catch(e){}if(!on){if(w.hold&&!w.done&&w.eff<1.6)note('استمر بالضغط على الزر… ادفع الجدار حتى تتعب، وراقب عدّاد الشغل.');w.hold=false;return}if(APP.run&&APP.run.step!=='wall')return;w.hold=true}
 
 function wkChips(attr,list,cur,unit){return list.map(v=>`<button class="chip" data-${attr}="${v}" aria-pressed="${v===cur?'true':'false'}"><span class="num">${v} ${unit}</span></button>`).join('')}
 
@@ -2788,7 +2790,7 @@ function renderWork(){
   $$('.frin').forEach(x=>x.addEventListener('input',()=>{const v=arNum(x.value.replace(/[,،]/g,'.'));if(v!==x.value)x.value=v}));
   $('#wkGo').onclick=()=>wkGo('auto');
   [0,1,2].forEach(i=>{$('#wrec'+i).onclick=()=>wkRecord(i);$('#wv'+i).addEventListener('keydown',e=>{if(e.key==='Enter')wkRecord(i)})});
-  {const wb=$('#wkWall');wb.addEventListener('pointerdown',e=>{e.preventDefault();wkWallHold(true)});['pointerup','pointerleave','pointercancel'].forEach(ev=>wb.addEventListener(ev,()=>wkWallHold(false)));
+  {const wb=$('#wkWall');wb.addEventListener('contextmenu',e=>e.preventDefault());wb.addEventListener('selectstart',e=>e.preventDefault());wb.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});wb.addEventListener('pointerdown',e=>{e.preventDefault();wkWallHold(true)});['pointerup','pointerleave','pointercancel'].forEach(ev=>wb.addEventListener(ev,()=>wkWallHold(false)));
     wb.addEventListener('click',e=>{if(e.detail===0){wkWallHold(true);setTimeout(()=>wkWallHold(false),2200)}})}$('#wkWrec').onclick=wkWallRec;$('#wkWv').addEventListener('keydown',e=>{if(e.key==='Enter')wkWallRec()});
   wkGuide();
 }
