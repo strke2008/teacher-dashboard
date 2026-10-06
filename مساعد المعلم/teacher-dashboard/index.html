@@ -24751,6 +24751,10 @@ async function sendStudentMessage(){
       ? ` · لم تصل إلى ${j.skipped.length}: `+j.skipped.map(x=>`${x.name||'?'} (${x.why||''})`).join('، ')
       : '';
     status.textContent=`تم إرسال الرسالة إلى ${j.count||0} من ${j.requested||j.count||0} طالب.`+missed;
+    // 📅 الاختبار المعلن يظهر في «شريط الأسبوع» بصفحة اليوم
+    if(type==='exam'&&examDate){ try{ const L=JSON.parse(localStorage.getItem('dash_exam_dates_v1')||'[]');
+      L.push({d:examDate,title:title||'اختبار',cls:audience==='class'?[...MSG_SELECTED_CLASSES]:audience==='all'?['كل الفصول']:['طلاب محددون'],at:Date.now()});
+      localStorage.setItem('dash_exam_dates_v1',JSON.stringify(L.filter(x=>x.d>=new Date(Date.now()-30*864e5).toISOString().slice(0,10)).slice(-80))); }catch(e){} }
     document.getElementById('msg-title').value='';document.getElementById('msg-body').value='';updateMessagePreview();
     if(document.getElementById('msg-exam-date')) document.getElementById('msg-exam-date').value='';
     if(document.getElementById('msg-visible-from')) document.getElementById('msg-visible-from').value='';
@@ -30119,13 +30123,14 @@ function tdNowBar(){
   const rec=t=>tdRecorded(D,g[String(t.n)],k.day);
   const cur=T.find(t=>k.min>=t.sm&&k.min<t.em), next=T.find(t=>t.sm>k.min);
   const pend=T.filter(t=>t.em<=k.min&&!rec(t)).pop();
-  const go=t=>`window._ctRcCls='${thEsc(g[String(t.n)])}';window._ctRcD='${k.day}';window._ctRcView='day';ctGo('records')`;
+  const go=t=>`tdQuick('${thEsc(g[String(t.n)])}')`;
   let head;
+  if(!cur&&!next) return tdDaySummary(D,k,T,rec);   // انتهى اليوم: ملخص (وفيه الحصص غير المرصودة)
   if(cur&&!rec(cur)) head=`<b>⏰ الآن: الحصة ${cur.n} · ${thEsc(g[String(cur.n)])}</b><small>تنتهي ${cur.e}</small><button class="btn tick sm" onclick="${go(cur)}">🗂️ ارصدها</button>`;
   else if(pend) head=`<b>⚠️ الحصة ${pend.n} · ${thEsc(g[String(pend.n)])} انتهت ولم تُرصد</b><button class="btn sm" onclick="${go(pend)}">🗂️ ارصدها الآن</button>`;
   else if(cur) head=`<b>⏰ الآن: الحصة ${cur.n} · ${thEsc(g[String(cur.n)])}</b><small>تنتهي ${cur.e}</small><span class="td-ok">✓ رُصدت</span>`;
   else if(next) head=`<b>⏭️ القادمة: الحصة ${next.n} · ${thEsc(g[String(next.n)])}</b><small>تبدأ ${next.s}</small>`;
-  else head=`<b>✅ انتهت حصص اليوم</b><small>${T.filter(rec).length} من ${T.length} مرصودة</small>`;
+  else return tdDaySummary(D,k,T,rec);
   const chip=t=>{ const st=rec(t)?'done':(cur&&cur.n===t.n)?'cur':t.em<=k.min?'miss':'soon';
     return `<button type="button" class="td-per ${st}" onclick="${go(t)}" title="${t.s}–${t.e}">${st==='done'?'✓':st==='cur'?'●':st==='miss'?'!':'○'} ${t.n} · ${thEsc(g[String(t.n)])}<small>${t.s}</small></button>`; };
   return `<div class="td-now"><div class="td-now-h">${head}</div><div class="td-pers">${T.map(chip).join('')}</div></div>`;
@@ -30145,6 +30150,8 @@ function tdKpis(){
 function brOpenFor(id){ BR.act=String(id); BR.cls=''; BR.sel=null; openBulkReminder(); }
 function tdTasks(){
   const L=[], now=new Date(), t0=remKsaDay(0), t1=remKsaDay(1);
+  tdRemToday().forEach(x=>{ if(x.done) return;
+    L.push({key:'rem:'+x.r.id+':'+t0,lv:x.late?'warn':'info',ic:'⏰',t:`${tdRemTitle(x.r)} — ${x.hm}`,acts:[],remId:x.r.id}); });
   HW.filter(remPublished).forEach(h=>{
     const miss=hwPool(h).filter(s=>!(h.subs&&h.subs[s.id])).length; if(!miss||!h.due) return;
     const id=thEsc(h.id), acts=[['📨 ذكّرهم',`brOpenFor('${id}')`],['📊',`openReport('${id}')`]];
@@ -30164,11 +30171,13 @@ function thDraw(){
   const done=tdDone(), all=tdTasks(), open=all.filter(x=>!done[x.key]), hid=all.length-open.length;
   const main=open.filter(x=>x.lv!=='info'), low=open.filter(x=>x.lv==='info');
   const row=x=>`<div class="td-task ${x.lv}"><span class="td-ic">${x.ic}</span><span class="td-t">${thEsc(x.t)}</span>
-    <span class="td-acts">${x.acts.map(([l,go])=>`<button type="button" class="btn ghost sm" onclick="${go}">${l}</button>`).join('')}<button type="button" class="td-done" title="تم — إخفاؤه حتى يتغيّر" onclick="tdMarkDone('${thEsc(x.key).replace(/'/g,"\\'")}')">✓ تم</button></span></div>`;
-  box.innerHTML=`${tdNowBar()}${tdKpis()}
+    <span class="td-acts">${x.acts.map(([l,go])=>`<button type="button" class="btn ghost sm" onclick="${go}">${l}</button>`).join('')}${x.remId?`<button type="button" class="td-done" title="تمّت — تُحفظ في تذكيراتك بالبوابة أيضًا" onclick="tdRemDone('${thEsc(x.remId)}')">✓ تم</button>`:`<button type="button" class="td-done" title="تم — إخفاؤه حتى يتغيّر" onclick="tdMarkDone('${thEsc(x.key).replace(/'/g,"\\'")}')">✓ تم</button>`}</span></div>`;
+  tdLiveTick();
+  box.innerHTML=`${tdNowBar()}${tdKpis()}${tdAbsentLine()}
     <div class="td-card"><div class="td-card-h"><b>✅ مهام اليوم</b><small>${open.length?`${open.length} ${open.length===1?'مهمة':'مهام'}`:''}${hid?` · <a href="#" onclick="event.preventDefault();tdUndoAll()">إظهار المنجزة (${hid})</a>`:''}</small></div>
       ${main.length?main.map(row).join(''):(TH_BUSY&&!CT_DATA?'<div class="muted" style="padding:.6rem">⏳ جارٍ الفحص…</div>':'<div class="td-empty">🌿 لا شيء عاجل — كل شيء تحت السيطرة</div>')}
-      ${low.length?`<details class="td-low"><summary>أقل أهمية (${low.length})</summary>${low.map(row).join('')}</details>`:''}</div>`;
+      ${low.length?`<details class="td-low"><summary>أقل أهمية (${low.length})</summary>${low.map(row).join('')}</details>`:''}</div>
+    ${tdWeek()}`;
 }
 /* كل تحديث للوحة (تسليم جديد، مزامنة، إرسال تذكير) يعيد رسم «مهام اليوم» */
 (function(){ const _rd=window.renderDashboard; if(typeof _rd!=='function') return;
@@ -30878,4 +30887,171 @@ ctSchPrint=function(){
     requestAnimationFrame(fit); setTimeout(fit,150);
   };
 })();
+</script>
+<style id="today-v3-css">
+.tq-list{max-height:58vh;overflow:auto;border:1px solid var(--ui-border,#e5e7eb);border-radius:12px}
+.tq-row{display:flex;align-items:center;gap:.5rem;padding:.45rem .6rem;border-bottom:1px solid var(--ui-border,#eef2f7);flex-wrap:wrap}
+.tq-row:last-child{border-bottom:0}.tq-row.ch{background:rgba(37,99,235,.05)}
+.tq-n{flex:1;min-width:130px;font-weight:700;font-size:.88rem}
+.tq-seg{display:inline-flex;border:1px solid var(--ui-border,#e5e7eb);border-radius:9px;overflow:hidden}
+.tq-seg button{border:0;background:var(--ui-surface,#fff);padding:.32rem .55rem;font:inherit;font-size:.78rem;cursor:pointer;color:var(--ink)}
+.tq-seg button+button{border-inline-start:1px solid var(--ui-border,#e5e7eb)}
+.tq-seg button.on.p{background:#1b9c6b;color:#fff}.tq-seg button.on.n{background:#e0a100;color:#fff}.tq-seg button.on.a{background:#d6455b;color:#fff}.tq-seg button.on.e{background:#64748b;color:#fff}
+.tq-seg button.on.hd{background:#2563eb;color:#fff}.tq-seg button.on.hn{background:#b45309;color:#fff}
+.tq-top{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin:.2rem 0 .6rem}
+.tq-foot{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-top:.6rem}
+.td-abs{font-size:.84rem;margin:-.2rem 0 .7rem;display:flex;flex-wrap:wrap;gap:.3rem;align-items:center}
+.td-abs a{background:rgba(214,69,91,.08);color:#a3283c;border-radius:999px;padding:.12rem .55rem;text-decoration:none;font-weight:700}
+.td-week{display:grid;grid-template-columns:repeat(5,1fr);gap:.4rem;margin-bottom:1rem}
+.td-day{background:var(--ui-surface,#fff);border:1px solid var(--ui-border,#e5e7eb);border-radius:12px;padding:.45rem .5rem;min-height:74px;min-width:0}
+.td-day.today{border-color:#2563eb;box-shadow:0 0 0 2px rgba(37,99,235,.15)}.td-day.past{opacity:.6}
+.td-day h4{margin:0 0 .3rem;font-size:.8rem;display:flex;justify-content:space-between}.td-day h4 small{color:var(--ink-soft);font-weight:600}
+.td-ev{display:block;font-size:.72rem;line-height:1.35;margin:.15rem 0;padding:.12rem .35rem;border-radius:6px;background:var(--ui-bg,#f1f5f9);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border:0;width:100%;text-align:start;font-family:inherit;cursor:pointer;color:var(--ink)}
+.td-ev.ex{background:rgba(214,69,91,.1);color:#a3283c;font-weight:700}.td-ev.act{background:rgba(37,99,235,.08)}.td-ev.rm{background:rgba(224,161,0,.12)}
+.td-sum{background:linear-gradient(135deg,rgba(27,156,107,.08),rgba(37,99,235,.06));border:1px solid var(--ui-border,#e5e7eb);border-radius:14px;padding:.7rem .9rem;margin-bottom:.6rem}
+.td-sum-g{display:flex;flex-wrap:wrap;gap:.4rem .9rem;font-size:.85rem;margin-top:.4rem}
+@media (max-width:700px){.td-week{grid-template-columns:repeat(5,minmax(110px,1fr));overflow-x:auto}}
+</style>
+<script id="today-v3-js">
+/* ═════════ 🗂️ رصد سريع من صفحة اليوم — تعديلات محلية ثم حفظ واحد ═════════ */
+const TQ={cls:'',day:'',ch:{}};
+const TQ_P=[['شارك','p','✓ شارك'],['لم يشارك','n','لم يشارك'],['غائب','a','غائب'],['غائب بعذر','e','بعذر']];
+const TQ_H=[['أنجز','hd','أنجز'],['لم ينجز','hn','لم ينجز']];
+function tqVal(m,sid){ const k=m+'|'+sid; if(k in TQ.ch) return TQ.ch[k]; return ctStatus(CT_DATA||{},m,TQ.day,sid); }
+function tdQuick(cls){
+  if(!CT_DATA){ toast('بيانات الفصل لم تُحمّل بعد — حاول بعد لحظة','bad'); return; }
+  TQ.cls=cls; TQ.day=tdKsaNow().day; TQ.ch={}; tqRender();
+}
+function tqRender(){
+  const roster=ctRoster(TQ.cls), n=Object.keys(TQ.ch).length;
+  const cnt=v=>roster.filter(s=>tqVal('participation',s.id)===v).length;
+  openModal(`<h2>🗂️ رصد ${esc(TQ.cls)} — اليوم</h2>
+    <div class="tq-top"><button class="btn tick sm" onclick="tqAll()">✅ الكل شارك</button>
+      <span class="muted" style="font-size:.8rem">ثم عدّل الاستثناءات · شارك ${cnt('شارك')} · لم يشارك ${cnt('لم يشارك')} · غائب ${cnt('غائب')+cnt('غائب بعذر')}</span></div>
+    <div class="tq-list">${roster.map(s=>{ const id=String(s.id), p=tqVal('participation',id), h=tqVal('homework',id), ch=('participation|'+id in TQ.ch)||('homework|'+id in TQ.ch);
+      return `<div class="tq-row ${ch?'ch':''}"><span class="tq-n">${esc(s.name)}</span>
+        <span class="tq-seg">${TQ_P.map(([v,c,l])=>`<button type="button" class="${c} ${p===v?'on':''}" onclick="tqSet('participation','${esc(id)}','${v}')">${l}</button>`).join('')}</span>
+        <span class="tq-seg">${TQ_H.map(([v,c,l])=>`<button type="button" class="${c} ${h===v?'on':''}" onclick="tqSet('homework','${esc(id)}','${v}')">${l}</button>`).join('')}</span></div>`; }).join('')||'<div class="feature-empty">لا طلاب في هذا الفصل.</div>'}</div>
+    <div class="tq-foot"><button class="btn tick" id="tq-save" onclick="tqSave()" ${n?'':'disabled'}>💾 حفظ ${n?`(${n} تعديل)`:''}</button>
+      <button class="btn ghost sm" onclick="tqClose(true)">فتح السجل الكامل</button><span class="spacer"></span>
+      <button class="btn ghost" onclick="tqClose()">إغلاق</button></div>`);
+}
+function tqSet(m,sid,v){
+  const k=m+'|'+sid, cur=tqVal(m,sid);
+  TQ.ch[k]=cur===v?'':v;   // ضغطة ثانية على الاختيار نفسه تلغيه
+  if(TQ.ch[k]===ctStatus(CT_DATA||{},m,TQ.day,sid)) delete TQ.ch[k];
+  tqRender();
+}
+function tqAll(){ ctRoster(TQ.cls).forEach(s=>{ if(!tqVal('participation',String(s.id))) TQ.ch['participation|'+s.id]='شارك'; }); tqRender(); }
+async function tqSave(){
+  const ch=Object.entries(TQ.ch); if(!ch.length) return;
+  const b=document.getElementById('tq-save'); if(b){ b.disabled=true; b.textContent='جارٍ الحفظ…'; }
+  const d=TQ.day, now=Date.now();
+  try{
+    await ctSave(D=>{ ch.forEach(([k,v])=>{ const [m,sid]=k.split('|'); D[m]=D[m]||{}; D[m][d]=D[m][d]||{};
+      if(v) D[m][d][sid]={status:v,at:now}; else delete D[m][d][sid];
+      // كما في البوابة: الغائب «معذور» في واجب يومه تلقائيًا
+      if(m==='participation'){ D.homework=D.homework||{}; D.homework[d]=D.homework[d]||{}; const h=D.homework[d][sid], hs=String(h&&h.status||'');
+        if(v==='غائب'||v==='غائب بعذر'){ if(!hs||hs==='لم ينجز') D.homework[d][sid]={status:'معذور',at:now,auto:true,prev:hs}; }
+        else if(h&&h.auto) D.homework[d][sid]={status:h.prev||'',at:now}; } }); });
+    toast(`✓ حُفظ رصد ${TQ.cls}`,'good'); TQ.ch={}; closeModal(); thDraw();
+  }catch(e){ toast('تعذّر الحفظ — تحقق من الاتصال','bad'); if(b){ b.disabled=false; b.textContent='💾 حفظ'; } }
+}
+async function tqClose(full){
+  if(Object.keys(TQ.ch).length&&!(await askConfirm('لم تحفظ تعديلات الرصد. إغلاق بدون حفظ؟',{yes:'إغلاق',danger:true}))) return;
+  TQ.ch={}; closeModal();
+  if(full){ window._ctRcCls=TQ.cls; window._ctRcD=TQ.day; window._ctRcView='day'; ctGo('records'); }
+}
+
+/* ═════════ ⏰ تذكيرات المعلم من البوابة (data.reminders) — نفس حساب المواعيد ═════════ */
+function tdRemTitle(r){
+  if(r.kind==='duty'){ const D=CT_DATA||{}, x=(D.roles||[]).find(o=>o&&o.active&&o.cls===r.cls&&o.title==='مسؤول رصد الواجبات'), st=x&&(STUDENTS||[]).find(s=>String(s.id)===String(x.studentId));
+    return st?`ذكّر ${String(st.name).split(' ').slice(0,2).join(' ')} برصد واجبات ${r.cls}`:`ذكّر مسؤول رصد الواجبات · ${r.cls}`; }
+  return r.title||'تذكير';
+}
+function tdRemToday(){
+  const D=CT_DATA; if(!D||!Array.isArray(D.reminders)) return [];
+  const k=tdKsaNow(), sc=D.schedule||{}, T=tdTimes(sc), g=(sc.grid||{})[String(k.dow)]||{};
+  const hm=t=>{ const p=String(t||'7:00').split(':'); return (+p[0]||0)*60+(+p[1]||0); };
+  const lbl=m=>{ m=((m%1440)+1440)%1440; const h=Math.floor(m/60), mi=m%60; return `${((h+11)%12)+1}:${String(mi).padStart(2,'0')} ${h<12?'ص':'م'}`; };
+  const out=[];
+  D.reminders.forEach(r=>{ if(!r||r.paused) return;
+    if(r.repeat==='once'?r.date!==k.day:!(r.days||[]).includes(k.dow)) return;
+    const a=r.at||{}; let sm=null;
+    if(a.t==='class'){ const t=T.find(x=>String(g[String(x.n)]||'').trim()===a.cls); if(t) sm=t.sm; }
+    else if(a.t==='period'){ const t=T.find(x=>x.n===Number(a.p)); if(t) sm=t.sm; }
+    else if(a.t==='time'&&/^\d{1,2}:\d{2}$/.test(a.hm||'')) sm=hm(a.hm);
+    if(sm==null) return;
+    const fire=Math.max(0,sm-(Number(r.lead)||0));
+    out.push({r,fire,hm:lbl(fire),late:fire<=k.min,done:!!(r.done&&r.done[k.day])}); });
+  return out.sort((a,b)=>a.fire-b.fire);
+}
+async function tdRemDone(id){
+  const d=tdKsaNow().day;
+  try{ await ctSave(D=>{ const r=(D.reminders||[]).find(x=>x&&x.id===id); if(r){ r.done=r.done||{}; r.done[d]=true; } }); toast('✓ تمّت — وتظهر منجزة في بوابة المعلم أيضًا','good'); thDraw(); }
+  catch(e){ toast('تعذّر الحفظ','bad'); }
+}
+
+/* ═════════ 🙋 غائبو اليوم ═════════ */
+function tdAbsentLine(){
+  const D=CT_DATA; if(!D) return '';
+  const day=tdKsaNow().day, P=(D.participation||{})[day]||{};
+  const ab=(STUDENTS||[]).filter(s=>{ const r=P[String(s.id)], st=r&&(typeof r==='string'?r:r.status); return st==='غائب'||st==='غائب بعذر'; });
+  if(!ab.length) return '';
+  return `<div class="td-abs"><b>🙋 غائبو اليوم (${ab.length}):</b>${ab.slice(0,12).map(s=>`<a href="#" onclick="event.preventDefault();ctOpenProfile('${thEsc(s.id)}')" title="${thEsc(s.cls||'')}">${thEsc(String(s.name).split(' ').slice(0,2).join(' '))}</a>`).join('')}${ab.length>12?`<span class="muted">+${ab.length-12}</span>`:''}</div>`;
+}
+
+/* ═════════ 🌙 ملخص نهاية اليوم (بعد آخر حصة) — والخميس ملخص الأسبوع ═════════ */
+function tdDaySummary(D,k,T,rec){
+  const P=(D.participation||{})[k.day]||{}, st=r=>r&&(typeof r==='string'?r:r.status);
+  const ab=Object.values(P).filter(r=>/غائب/.test(st(r)||'')).length;
+  const t0=Date.parse(k.day+'T00:00:00+03:00'); let subs=0; HW.forEach(h=>Object.values(h.subs||{}).forEach(v=>{ if(v&&+v.at>=t0) subs++; }));
+  const beh=(D.behavior||[]).filter(x=>x&&!x.deleted&&x.date===k.day), pos=beh.filter(x=>x.type==='positive').length;
+  const done=T.filter(rec).length, thu=k.dow===4;
+  return `<div class="td-sum"><b>🌙 انتهت حصص اليوم — ${done===T.length?'رصدتها كلها 👏':`رُصد ${done} من ${T.length}`}</b>
+    <div class="td-sum-g"><span>🙋 الغياب: <b>${ab}</b></span><span>📥 تسليمات اليوم: <b>${subs}</b></span><span>🌟 ملاحظات إيجابية: <b>${pos}</b></span><span>⚠️ سلوكية: <b>${beh.length-pos}</b></span></div>
+    ${done<T.length?`<div class="td-pers" style="margin-top:.5rem">${T.filter(t=>!rec(t)).map(t=>`<button type="button" class="td-per miss" onclick="tdQuick('${thEsc(((D.schedule||{}).grid||{})[String(k.dow)][String(t.n)])}')">! ${t.n} · ${thEsc(((D.schedule||{}).grid||{})[String(k.dow)][String(t.n)])} — ارصدها</button>`).join('')}</div>`:''}
+    ${thu?`<div style="margin-top:.55rem;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap"><b>📆 نهاية الأسبوع</b><button class="btn sm" onclick="kashfGo('weekly');setTimeout(()=>wrOpen(),600)">📤 إرسال تقارير الأسبوع للطلاب</button></div>`:''}</div>`;
+}
+
+/* ═════════ 📅 شريط الأسبوع: مواعيد الأنشطة والاختبارات والتذكيرات المؤرخة ═════════ */
+function tdWeek(){
+  const k=tdKsaNow(), sun=Date.parse(k.day+'T00:00:00Z')-k.dow*864e5;
+  const days=[0,1,2,3,4].map(i=>new Date(sun+i*864e5).toISOString().slice(0,10));
+  let ex=[]; try{ ex=JSON.parse(localStorage.getItem('dash_exam_dates_v1')||'[]'); }catch(e){}
+  const D=CT_DATA||{};
+  try{ const {sem,per}=ctSem(), b=ctBook(JSON.parse(JSON.stringify(D)),sem,per); b.tests.forEach(t=>{ if(t&&t.date) ex.push({d:t.date,title:t.title||'اختبار',cls:[]}); }); }catch(e){}
+  const evs=d=>{
+    const L=[];
+    ex.filter(x=>x.d===d).forEach(x=>L.push(`<button type="button" class="td-ev ex" title="${thEsc((x.cls||[]).join('، '))}">📝 ${thEsc(x.title)}${x.cls&&x.cls.length?` · ${thEsc(x.cls.join('، '))}`:''}</button>`));
+    HW.filter(h=>remPublished(h)&&h.due===d).forEach(h=>{ const m=hwPool(h).filter(s=>!(h.subs&&h.subs[s.id])).length;
+      L.push(`<button type="button" class="td-ev act" onclick="openReport('${thEsc(h.id)}')" title="يُغلق هذا اليوم">📋 ${thEsc(h.title)}${m?` · ${m} لم يسلّموا`:' · ✓'}</button>`); });
+    (D.reminders||[]).filter(r=>r&&!r.paused&&r.repeat==='once'&&r.date===d).forEach(r=>L.push(`<span class="td-ev rm">⏰ ${thEsc(tdRemTitle(r))}</span>`));
+    return L.join('');
+  };
+  const any=days.some(d=>evs(d));
+  return `<div class="td-card-h" style="margin:0 0 .4rem"><b>📅 هذا الأسبوع</b>${any?'':'<small>لا مواعيد هذا الأسبوع</small>'}</div>
+    <div class="td-week">${days.map((d,i)=>`<div class="td-day ${d===k.day?'today':d<k.day?'past':''}"><h4>${CT_DAYS[i]}<small>${Number(d.slice(8))}/${Number(d.slice(5,7))}</small></h4>${evs(d)}</div>`).join('')}</div>`;
+}
+
+/* ═════════ 🔄 صفحة حيّة: كل دقيقة يُعاد الرسم (الوقت يتقدّم)، وكل 5 دقائق جلب جديد ═════════ */
+let TD_LAST_PER=null, TD_LAST_PULL=0;
+function tdLiveTick(){
+  const D=CT_DATA; if(!D) return;
+  const k=tdKsaNow(); if(!(k.dow>=0&&k.dow<=4)) return;
+  const sc=D.schedule||{}, g=(sc.grid||{})[String(k.dow)]||{}, cur=tdTimes(sc).find(t=>g[String(t.n)]&&k.min>=t.sm&&k.min<t.em);
+  const key=cur?k.day+':'+cur.n:'';
+  if(TD_LAST_PER!==null&&key&&key!==TD_LAST_PER){
+    const msg=`🔔 بدأت الحصة ${cur.n} · ${g[String(cur.n)]}`; toast(msg,'good');
+    try{ if('Notification' in window&&Notification.permission==='granted'&&document.hidden) new Notification('مساعد المعلم',{body:msg.replace('🔔 ','')}); }catch(e){}
+  }
+  TD_LAST_PER=key;
+}
+setInterval(()=>{
+  const on=document.getElementById('p-dashboard')?.classList.contains('on'); if(!on||document.hidden) return;
+  if(document.getElementById('veil')?.classList.contains('on')) return;   // لا نرسم فوق نافذة مفتوحة
+  try{ thDraw(); }catch(e){}
+  if(Date.now()-TD_LAST_PULL>5*60000){ TD_LAST_PULL=Date.now();
+    (async()=>{ try{ await renderTodayHub(true); }catch(e){} try{ if(typeof pullAll==='function'){ await pullAll(true); renderDashboard(); } }catch(e){} })(); }
+},60000);
 </script>
