@@ -30938,11 +30938,13 @@ function tdQuick(cls){
 function tqRender(){
   const roster=ctRoster(TQ.cls), n=Object.keys(TQ.ch).length+TQ.beh.length;
   const cnt=v=>roster.filter(s=>tqVal('participation',s.id)===v).length;
+  // إعادة الرسم كانت تُرجع القائمة لأعلاها، فتفتح قائمة السلوك لطالب في الأسفل خارج الشاشة
+  const _q=()=>[document.querySelector('#modal .tq-list'),document.getElementById('modal')], _sc=_q().map(e=>e?e.scrollTop:0);
   openModal(`<h2>🗂️ رصد ${esc(TQ.cls)} — اليوم</h2>
     <div class="tq-top"><button class="btn tick sm" onclick="tqAll()">✅ الكل شارك</button>
       <span class="muted" style="font-size:.8rem">ثم عدّل الاستثناءات · شارك ${cnt('شارك')} · لم يشارك ${cnt('لم يشارك')} · غائب ${cnt('غائب')+cnt('غائب بعذر')}</span></div>
     <div class="tq-list">${roster.map(s=>{ const id=String(s.id), p=tqVal('participation',id), h=tqVal('homework',id), ch=('participation|'+id in TQ.ch)||('homework|'+id in TQ.ch);
-      return `<div class="tq-row ${ch?'ch':''}"><span class="tq-n">${esc(s.name)}</span>
+      return `<div class="tq-row ${ch?'ch':''}" data-sid="${esc(id)}"><span class="tq-n">${esc(s.name)}</span>
         <span class="tq-seg">${TQ_P.map(([v,c,l])=>`<button type="button" class="${c} ${p===v?'on':''}" onclick="tqSet('participation','${esc(id)}','${v}')">${l}</button>`).join('')}</span>
         <span class="tq-seg">${TQ_H.map(([v,c,l])=>`<button type="button" class="${c} ${h===v?'on':''}" onclick="tqSet('homework','${esc(id)}','${v}')">${l}</button>`).join('')}</span>
         <button type="button" class="tq-bbtn ${TQ.openBeh===id?'on':''}" onclick="tqBehToggle('${esc(id)}')" title="ملاحظة سلوكية">🌟⚠️${(()=>{ const n=bhvToday(id)+TQ.beh.filter(b=>b.sid===id).length; return n?` ${n}`:''; })()}</button>
@@ -30951,6 +30953,8 @@ function tqRender(){
     <div class="tq-foot"><button class="btn tick" id="tq-save" onclick="tqSave()" ${n?'':'disabled'}>💾 حفظ ${n?`(${n} تعديل)`:''}</button>
       <button class="btn ghost sm" onclick="tqClose(true)">فتح السجل الكامل</button><span class="spacer"></span>
       <button class="btn ghost" onclick="tqClose()">إغلاق</button></div>`);
+  _q().forEach((e,i)=>{ if(e) e.scrollTop=_sc[i]; });
+  if(TQ.openBeh&&TQ._scrollBeh){ TQ._scrollBeh=false; const r=document.querySelector(`.tq-row[data-sid="${CSS.escape(TQ.openBeh)}"]`); if(r) r.scrollIntoView({block:'nearest',behavior:'smooth'}); }
 }
 function tqSet(m,sid,v){
   const k=m+'|'+sid, cur=tqVal(m,sid);
@@ -31195,7 +31199,7 @@ function bhvPickerHTML(sid,mode){
       <button type="button" class="btn sm" onclick="bhvCustom('${esc(sid)}','${mode}')">＋</button>
       ${T.length?`<a href="#" style="font-size:.76rem" onclick="event.preventDefault();bhvTplManage()">⚙️ القوالب (${T.length})</a>`:''}</div>`;
 }
-function tqBehToggle(sid){ TQ.openBeh=TQ.openBeh===sid?'':sid; tqRender(); }
+function tqBehToggle(sid){ TQ.openBeh=TQ.openBeh===sid?'':sid; TQ._scrollBeh=!!TQ.openBeh; tqRender(); }
 function tqBehAdd(sid,type,cat,note){ TQ.beh.push({sid,type,category:cat,note}); TQ.openBeh=''; tqRender(); }
 function bhvCustom(sid,mode){
   const g=id=>document.getElementById(id), t=String(g('bh-title-'+sid)?.value||'').trim(), type=g('bh-type-'+sid)?.value||'negative', save=!!g('bh-tpl-'+sid)?.checked;
