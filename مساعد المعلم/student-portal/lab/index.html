@@ -2528,10 +2528,10 @@ const WMSIM=(()=>{
   function bind(){
     cv.style.touchAction='pan-y';
     cv.addEventListener('pointerdown',e=>{const p=toC(e);
-      if(H_&&H_.hit&&!tw&&H_.hit(p)){ptr={cap:true,id:e.pointerId};try{cv.setPointerCapture(e.pointerId)}catch(_){}e.preventDefault();H_.down&&H_.down(p);return}
+      if(H_&&H_.hit&&!tw&&H_.hit(p)){ptr={cap:true,id:e.pointerId,sx:e.clientX,sy:e.clientY};try{cv.setPointerCapture(e.pointerId)}catch(_){}e.preventDefault();H_.down&&H_.down(p);return}
       const sc=scroller();if(sc&&sc.scrollWidth>sc.clientWidth+2)ptr={scroll:true,x:e.clientX,sl:sc.scrollLeft};});
     cv.addEventListener('pointermove',e=>{const p=toC(e);
-      if(ptr&&ptr.cap){H_&&H_.move&&H_.move(p);return}
+      if(ptr&&ptr.cap){const r=cv.getBoundingClientRect(),k=W/r.width;H_&&H_.move&&H_.move(p,{dx:(e.clientX-ptr.sx)*k,dy:(e.clientY-ptr.sy)*k});return}
       if(ptr&&ptr.scroll){const sc=scroller();if(sc)sc.scrollLeft=ptr.sl-(e.clientX-ptr.x);return}
       cv.style.cursor=H_&&H_.hit&&!tw&&H_.hit(p)?'grab':'default';});
     const up=e=>{if(ptr&&ptr.cap){H_&&H_.up&&H_.up(toC(e))}ptr=null};
@@ -2691,7 +2691,7 @@ function wkDraw(c,col,t,dt){
   if(v.active){
     if(v.drag){const nx=v.x+(v.tx-v.x)*Math.min(1,dt*10);v.moving=nx-v.x>.0008;v.x=Math.min(v.d,Math.max(v.x,nx))}
     v.Fs+=((v.active&&(v.moving||v.held)?v.F:0)-v.Fs)*Math.min(1,dt*9);
-    if(v.moving){v.phase+=dt*9;if(Math.random()<.5)WMSIM.puff(wkBoxX()-24,G-2,1)}
+    if(v.moving){v.phase+=dt*9;if(Math.random()<.5)WMSIM.puff(wkBoxX()-24,G-2,1);if(v.drag)frFollowEl(WK_CV,wkBoxX()+120)}
     if(v.x>=v.d-.004){v.x=v.d;v.active=false;v.done=true;v.Fs=v.F;const f=v.onEnd;v.onEnd=null;WMSIM.puff(wkBoxX()-20,G-2,8);f&&f()}
   }else if(!v.done){v.Fs*=Math.exp(-dt*6)}
   const bx=wkBoxX(),hand=wkHand();
@@ -2740,9 +2740,9 @@ function wkMount(id,mode){WK_CV=id;const v=wkView;Object.assign(v,{mode:mode||'p
     hit(p){if(v.mode==='wall'){return p.x>380&&p.x<620&&p.y>30}
       const h=wkHand();return Math.hypot(p.x-h.x,p.y-h.y)<55||(p.x>h.x-70&&p.x<h.x+70&&p.y>WK_G-140&&p.y<WK_G)},
     down(p){if(v.mode==='wall'){wkWallHold(true);return}
-      if(v.active&&v.drag){v.held=true;v.grabDx=p.x-wkHand().x;return}
-      if(!v.active&&WKH.grab&&WKH.grab()){v.held=true;v.grabDx=p.x-wkHand().x}},
-    move(p){if(v.mode==='wall')return;if(v.active&&v.drag&&v.held){v.tx=Math.max(0,Math.min(v.d,(p.x-v.grabDx-180-WK.X0)/WK.PX))}},
+      if(v.active&&v.drag){v.held=true;v.base=v.x;return}
+      if(!v.active&&WKH.grab&&WKH.grab()){v.held=true;v.base=0}},
+    move(p,dl){if(v.mode==='wall')return;if(v.active&&v.drag&&v.held){v.tx=Math.max(0,Math.min(v.d,v.base+dl.dx/WK.PX))}},
     up(){if(v.mode==='wall'){wkWallHold(false);return}v.held=false;v.moving=false}});
   setTimeout(()=>frFollowEl(id,mode==='wall'?470:WK.X0+150),0);
 }
@@ -2750,7 +2750,7 @@ function wkMount(id,mode){WK_CV=id;const v=wkView;Object.assign(v,{mode:mode||'p
 function wkStart(F,d,onEnd,drag){const v=wkView;Object.assign(v,{x:0,tx:0,F,d,Fs:0,active:true,drag:!!drag,onEnd,done:false,held:!!drag,moving:false});
   if(!drag)WMSIM.animate(900+650*d,(k)=>{v.moving=k<1;v.x=d*k;v.held=true;frFollowEl(WK_CV,WK.X0+d*k*WK.PX+120)},()=>{v.x=d;v.moving=false});}
 function wkPull(F,d,onEnd){wkStart(F,d,onEnd,false)}
-function wkWallHold(on){const w=wkView.wall;if(!on){w.hold=false;return}if(APP.run&&APP.run.step!=='wall')return;w.hold=true}
+function wkWallHold(on){const w=wkView.wall;if(!on){if(w.hold&&!w.done&&w.eff<1.6)note('استمر بالضغط على الزر… ادفع الجدار حتى تتعب، وراقب عدّاد الشغل.');w.hold=false;return}if(APP.run&&APP.run.step!=='wall')return;w.hold=true}
 
 function wkChips(attr,list,cur,unit){return list.map(v=>`<button class="chip" data-${attr}="${v}" aria-pressed="${v===cur?'true':'false'}"><span class="num">${v} ${unit}</span></button>`).join('')}
 
@@ -3024,9 +3024,9 @@ function lvMount(id,load){const v=lvView;Object.assign(v,{load,F:0,Fs:0,pull:0,a
       if(!v.active)for(const m of MC.arms){const mx=LV.cx+Math.cos(v.ang)*m*LV.PX,my=LV.cy+Math.sin(v.ang)*m*LV.PX;if(Math.hypot(p.x-mx,p.y-my)<22)return true}return false},
     down(p){const r=lvRing();
       if(!v.active)for(const m of MC.arms){const mx=LV.cx+Math.cos(v.ang)*m*LV.PX,my=LV.cy+Math.sin(v.ang)*m*LV.PX;if(Math.hypot(p.x-mx,p.y-my)<22){LVH.pick&&LVH.pick(m);return}}
-      if(v.active&&v.drag){v.held=true;v.y0=p.y-v.pull;return}
-      if(!v.active&&LVH.grab&&LVH.grab()){v.held=true;v.y0=p.y}},
-    move(p){if(v.active&&v.drag&&v.held&&!v.ok){v.pull=Math.max(0,Math.min(70,p.y-v.y0))}},
+      if(v.active&&v.drag){v.held=true;v.base=v.pull;return}
+      if(!v.active&&LVH.grab&&LVH.grab()){v.held=true;v.base=0}},
+    move(p,dl){if(v.active&&v.drag&&v.held&&!v.ok){v.pull=Math.max(0,Math.min(70,v.base+dl.dy))}},
     up(){if(!(v.active&&v.drag))return;v.held=false;
       if(!v.ok&&v.F>=v.cap-1e-9){v.active=false;v.fail=true;const f=v.onEnd;v.onEnd=null;setTimeout(()=>{f&&f(false,v.need)},350)}}});
   setTimeout(()=>frFollowEl(id,430),0);
@@ -3039,14 +3039,14 @@ function lvPull(d,maxF,onEnd){lvStart(d,maxF||70,onEnd,false)}
 /* ---- مشهد السطح المائل: اسحب الصندوق على السطح؛ عدّاد الشغل يتوقف عند القيمة نفسها ---- */
 const RP={G:262,x1:590,PX:220};
 const rpView={L:1,Ld:1,s:0,ts:0,F:0,Fs:0,active:false,drag:false,held:false,done:false,onEnd:null};
-const RPH={grab:null};
+const RPH={grab:null};let RP_CV='#mcB';
 function rpGeom(){const h=MC.h*RP.PX,Lp=rpView.Ld*RP.PX,run=Math.sqrt(Math.max(0,Lp*Lp-h*h)),x1=RP.x1,top=RP.G-h,vert=run<8;
   const ang=vert?Math.PI/2:Math.atan2(h,run),x0=vert?x1-30:x1-run;return {h,Lp,run,x1,top,vert,ang,x0}}
 function rpBox(){const g=rpGeom(),s=rpView.s;if(g.vert)return {x:g.x0,y:RP.G-s*g.h,ang:0,g};return {x:g.x0+Math.cos(g.ang)*s*g.Lp,y:RP.G-Math.sin(g.ang)*s*g.Lp,ang:g.ang,g}}
 function rpDraw(c,col,t,dt){
   const v=rpView,G=RP.G;WMD.bg(c,col,800,300,G);
   if(v.active){if(v.drag){const n=v.s+(v.ts-v.s)*Math.min(1,dt*10);v.moving=n-v.s>.0008;v.s=Math.max(v.s,Math.min(1,n))}
-    if(v.moving&&Math.random()<.4){const b=rpBox();WMSIM.puff(b.x,b.y,1)}
+    if(v.moving){const b=rpBox();if(Math.random()<.4)WMSIM.puff(b.x,b.y,1);if(v.drag)frFollowEl(RP_CV,b.x+60)}
     if(v.s>=.995){v.s=1;v.active=false;v.done=true;const f=v.onEnd;v.onEnd=null;f&&f(v.F)}}
   v.Fs+=(((v.active&&(v.moving||v.held))||v.done?v.F:0)-v.Fs)*Math.min(1,dt*9);
   const g=rpGeom(),{h,Lp,x1,top,vert,ang,x0}=g;
@@ -3076,17 +3076,17 @@ function rpDraw(c,col,t,dt){
   if(v.done)WMD.pill(c,360,74,`✓ وصل الصندوق — الشغل ${fx1(v.F*v.Ld)} J`,'#1E8A5C');
   else if(!WMSIM.tweening()&&!v.held){const bb=rpBox();WMD.hint(c,bb.x+(vert?-70:0),bb.y-80,'اسحب الصندوق إلى أعلى ↗',t)}
 }
-function rpMount(id,L){const v=rpView;Object.assign(v,{L,Ld:L,s:0,ts:0,F:0,Fs:0,active:false,drag:false,held:false,done:false,onEnd:null});
+function rpMount(id,L){RP_CV=id;const v=rpView;Object.assign(v,{L,Ld:L,s:0,ts:0,F:0,Fs:0,active:false,drag:false,held:false,done:false,onEnd:null});
   WMSIM.mount($(id),800,300,rpDraw,{
     hit(p){const b=rpBox();return Math.hypot(p.x-b.x,p.y-(b.y-23))<48},
-    down(p){if(v.active&&v.drag){v.held=true;return}if(!v.active&&RPH.grab&&RPH.grab()){v.held=true}},
-    move(p){if(!(v.active&&v.drag&&v.held))return;const g=rpGeom();let s;
-      if(g.vert)s=(RP.G-(p.y+23))/g.h;else{const ux=Math.cos(g.ang),uy=-Math.sin(g.ang);s=((p.x-g.x0)*ux+((p.y+23)-RP.G)*uy)/g.Lp}
+    down(p){if(v.active&&v.drag){v.held=true;v.base=v.s;return}if(!v.active&&RPH.grab&&RPH.grab()){v.held=true;v.base=0}},
+    move(p,dl){if(!(v.active&&v.drag&&v.held))return;const g=rpGeom();let s;
+      if(g.vert)s=v.base-dl.dy/g.h;else s=v.base+(dl.dx*Math.cos(g.ang)-dl.dy*Math.sin(g.ang))/g.Lp;
       v.ts=Math.max(0,Math.min(1,s))},
     up(){v.held=false;v.moving=false}});
-  setTimeout(()=>frFollowEl(id,560),0);
+  setTimeout(()=>frFollowEl(id,rpBox().x+130),0);
 }
-function rpSetL(L){const v=rpView;if(v.active)return;const from=v.Ld;Object.assign(v,{L,s:0,done:false,F:0});WMSIM.animate(600,k=>{v.Ld=from+(L-from)*k},()=>{v.Ld=L})}
+function rpSetL(L){const v=rpView;if(v.active)return;const from=v.Ld;Object.assign(v,{L,s:0,done:false,F:0});WMSIM.animate(600,k=>{v.Ld=from+(L-from)*k;frFollowEl(RP_CV,rpBox().x+130)},()=>{v.Ld=L})}
 function rpStart(L,onEnd,drag){const v=rpView;Object.assign(v,{L,Ld:L,F:mcRampF(L),s:0,ts:0,active:true,drag:!!drag,held:!!drag,done:false,onEnd,moving:false});
   if(!drag)WMSIM.animate(900+700*L,k=>{v.s=k;v.moving=k<1;v.held=true},()=>{v.s=1})}
 function rpPull(L,onEnd){rpStart(L,onEnd,false)}
