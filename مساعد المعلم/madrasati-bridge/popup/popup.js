@@ -143,6 +143,10 @@ $('history-delete-all').onclick = async () => {
   } catch (e) { alert(e.message || 'تعذر مسح السجل'); }
 };
 
+const mbDur = min => min < 60 ? `${min} د` : min < 1440 ? `${Math.round(min / 60)} س` : `${Math.round(min / 1440)} يوم`;
+const mbSessText = s => { if (!s || !s.since) return ''; const now = Date.now();
+  return (s.dead ? `🔒 انتهت جلسة مدرستي قبل ${mbDur(Math.max(1, Math.round((now - s.dead) / 60000)))}` : `🫀 جلسة مدرستي حيّة منذ ${mbDur(Math.max(1, Math.round((now - s.since) / 60000)))}`)
+    + ((s.durs || []).length ? ` · بقيت الجلسات السابقة: ${(s.durs || []).map(mbDur).join('، ')}` : ''); };
 async function autoRender(cfg) {
   cfg = cfg || await bg({ type: 'mb:autoGet' }); if (!cfg) return;
   $('auto-on').checked = !!cfg.enabled;
@@ -155,6 +159,7 @@ async function autoRender(cfg) {
   $('auto-status').innerHTML = (cfg.enabled && cfg.nextAt ? `الموعد القادم: <b>${f(cfg.nextAt)}</b><br>` : '') +
     (cfg.running ? '⏳ المزامنة تعمل الآن…<br>' : '') +
     (cfg.pendingLogin ? '🔑 بانتظار تسجيل دخولك لمدرستي لإكمال المزامنة<br>' : '') +
+    (mbSessText(cfg.sess) ? esc(mbSessText(cfg.sess)) + '<br>' : '') +
     (lr ? `آخر تشغيل: ${f(lr.at)} — ${lr.error === 'login_needed' ? 'احتاج تسجيل دخول' : lr.error === 'no_token' ? 'لا توجد كلمة سر محفوظة' : lr.error ? 'خطأ: ' + esc(lr.error) : `حُدّث ${lr.saved} فصل${lr.readErrors ? ` · تعذّرت قراءة ${lr.readErrors}` : ''}${lr.saveErrors ? ` · تعذّر حفظ ${lr.saveErrors} (${esc(lr.lastSaveError || '')})` : ''}`}` : '');
 }
 async function autoSave() {

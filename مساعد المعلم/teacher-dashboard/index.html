@@ -29400,6 +29400,8 @@ async function madbRefresh(){
     : lr.error && lr.error!=='running'?`آخر محاولة ${f(lr.at)}: ${lr.error}`
     : `آخر مزامنة ${f(lr.at)}: حُدّث ${lr.saved||0} فصل${lr.skipped?` · تُخطّي ${lr.skipped} (سُحب سابقًا)`:''}${lr.readErrors?` · تعذّرت قراءة ${lr.readErrors}`:''}${lr.saveErrors?` · تعذّر حفظ ${lr.saveErrors}`:''}.`;
   madbEl('madb-last').innerHTML=`${esc(lrTxt)}${a.enabled&&a.nextAt?`<br>⏰ المزامنة القادمة: <b>${esc(f(a.nextAt))}</b>`:a.enabled?'':'<br>⏰ الجدولة متوقفة.'}${a.pendingLogin?'<br>🔑 بانتظار تسجيل دخولك لمدرستي لإكمال المزامنة.':''}`;
+  { const mbDur=min=>min<60?`${min} د`:min<1440?`${Math.round(min/60)} س`:`${Math.round(min/1440)} يوم`, ss=a.sess;
+    if(ss&&ss.since){ const now=Date.now(); madbEl('madb-last').innerHTML+=`<br>${esc(ss.dead?`🔒 انتهت جلسة مدرستي قبل ${mbDur(Math.max(1,Math.round((now-ss.dead)/60000)))}`:`🫀 جلسة مدرستي حيّة منذ ${mbDur(Math.max(1,Math.round((now-ss.since)/60000)))} — تُبقيها الإضافة نشطة ما دام المتصفح مفتوحًا`)}${(ss.durs||[]).length?`<br><small class="muted">مدة بقاء الجلسات السابقة: ${esc(ss.durs.map(mbDur).join('، '))}</small>`:''}`; } }
   madbEl('madb-on').checked=!!a.enabled;
   madbEl('madb-days').innerHTML=MADB_DAYS.map((n,i)=>`<label class="madb-day ${a.days.includes(i)?'on':''}"><input type="checkbox" value="${i}" ${a.days.includes(i)?'checked':''} onchange="this.parentNode.classList.toggle('on',this.checked)">${n}</label>`).join('');
   madbEl('madb-time').value=String(a.hour).padStart(2,'0')+':'+String(a.minute).padStart(2,'0');
@@ -30175,6 +30177,9 @@ function tdTasks(){
     else if(h.due===t0||h.due===t1) L.push({key:`soon:${h.id}:${miss}:${h.due}`,lv:'warn',ic:'⏳',t:`«${h.title}» ينتهي ${h.due===t0?'اليوم':'غدًا'} · ${miss} لم ${miss===1?'يسلّم':'يسلّموا'} بعد`,acts});
   });
   { const e=typeof brEffect==='function'?brEffect():null; if(e&&e.n&&e.pending.length) L.push({key:'bre:'+e.last+':'+e.pending.length,lv:'info',ic:'📈',t:`أثر التذكير: سلّم ${e.done} من ${e.n} ذكّرتهم — لم يستجب ${e.pending.length}`,acts:[['📨 ذكّرهم','brRemindPending()']]}); }
+  { const M=typeof TD_MAD!=='undefined'?TD_MAD:null;
+    if(M&&M.pendingLogin) L.push({key:'madlogin:'+M.pendingLogin,lv:'warn',ic:'🔑',t:'مزامنة مدرستي تنتظر تسجيل دخولك — بعد الدخول تكتمل وحدها',acts:[['فتح مدرستي',"window.open('https://schools.madrasati.sa/','_blank','noopener')"]]});
+    else if(M&&M.n&&M.last&&Date.now()-M.last>72*3600e3) L.push({key:'madstale:'+M.last,lv:'warn',ic:'📱',t:`آخر مزامنة لمدرستي ${remAgo(M.last)} — «من حل ومن لم يحل» قد لا يكون دقيقًا`,acts:[['🔄 زامن الآن','tdMadSync()']]}); }
   { const ns=typeof nsList==='function'?nsList():[]; if(ns.length) L.push({key:'ns:'+ns.map(x=>x.s.id).join(','),lv:'warn',ic:'🚶',t:`${ns.length===1?'طالب واحد لم يبدأ':ns.length===2?'طالبان لم يبدآ':ns.length+' طلاب لم يبدؤوا'} بعد — لم ${ns.length===1?'يسلّم':ns.length===2?'يسلّما':'يسلّموا'} أي نشاط في البوابة`,acts:[['عرض','nsOpen()']]}); }
   thActions().forEach(([lv,ic,t,n,go])=>{
     if(/انتهت مواعيدها|ينتهي خلال يومين|متأخر(ون)? لم تذكّر/.test(t)) return;   // مغطّاة بأسطر الأنشطة أعلاه
@@ -30182,6 +30187,19 @@ function tdTasks(){
     L.push({key:`a:${ic}:${t}:${n}`,lv:isDash?'info':lv,ic,t:t.replace(/ — (اضغط للتحقق|اضغط لعرض الأسماء)$/,''),acts:[[/thGoReqs|attention/.test(go)?'عرض':/plans/.test(go)?'قرّر':'عرض',go]],n});
   });
   return L;
+}
+/* 📱 حالة مزامنة مدرستي لصفحة اليوم: آخر مزامنة من الخادم (تعمل من الجوال أيضًا) + «بانتظار الدخول» من الإضافة إن وُجدت */
+let TD_MAD=(()=>{ try{ return JSON.parse(localStorage.getItem('dash_today_mad_v1')||'null'); }catch(e){ return null; } })();
+async function tdMadLoad(){
+  try{ const j=await madApi('/madrasati/list'); const L=(j&&j.assignments)||[]; const m={n:L.length,last:L.reduce((x,a)=>Math.max(x,Number(a.syncedAt)||0),0),pendingLogin:0,at:Date.now()};
+    try{ if(typeof madbCall==='function'){ const p=await madbCall('ping',null,1200); if(p&&p.ok){ const a=await madbCall('getAuto',null,2000); if(a&&a.pendingLogin&&Date.now()-a.pendingLogin<3*864e5) m.pendingLogin=a.pendingLogin; } } }catch(e){}
+    TD_MAD=m; try{ localStorage.setItem('dash_today_mad_v1',JSON.stringify(m)); }catch(e){} thDraw(); }catch(e){}
+}
+async function tdMadSync(){
+  // فحص سريع واحد (1.2 ث) — بلا الإضافة نذهب لصفحة مدرستي فورًا بدل انتظار المحاولات
+  let on=false; try{ const p=await madbCall('ping',null,1200); on=!!(p&&p.ok); if(on) await madBridgeInit(true); }catch(e){}
+  if(on&&typeof MADB!=='undefined'&&MADB.ok){ toast('🔄 بدأت مزامنة مدرستي — إن احتاجت تسجيل دخول يصلك إشعار، وبعد الدخول تكتمل وحدها','good'); await madBridgeSync(); tdMadLoad(); }
+  else { goTab('madrasati'); toast('المزامنة تعمل من الكمبيوتر المثبّتة عليه إضافة «جسر مدرستي»','bad'); }
 }
 /* ⚡ نسخة مختصرة من بيانات اليوم تُحفظ على الجهاز فتُرسم الصفحة فور فتحها، ثم تُحدَّث من الخادم */
 const TD_CACHE_KEY='dash_today_cache_v1';
@@ -30230,6 +30248,7 @@ async function renderTodayHub(fetchNow){
     // الإعدادات الأكاديمية والفصل معًا لا بالتتابع
     const [,cd]=await Promise.all([loadDashboardAcademic().catch(()=>null), ctLoad()]);
     CT_DATA=cd; TH_AT=Date.now(); thDraw(); tdCacheSave();
+    tdMadLoad();
     if(!CT_GRADES){ try{ await ctEnsureGrades(false); tdCacheSave(); }catch(e){} }
   }catch(e){}
   TH_BUSY=false; thDraw();

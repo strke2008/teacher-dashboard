@@ -113,7 +113,7 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
 /* ═══ ⏰ المزامنة التلقائية — في متصفح المعلم وبجلسته فقط (لا تسجيل دخول نيابة عنه) ═══ */
 const AUTO_KEY = 'mb_auto';
 const API_DEFAULT_BG = 'https://homework.ahmadalmarzooq2009.workers.dev';
-const getAuto = async () => Object.assign({ enabled: false, days: [4], hour: 20, minute: 0, windowDays: 14, skipExisting: true }, (await chrome.storage.local.get(AUTO_KEY))[AUTO_KEY] || {});
+const getAuto = async () => Object.assign({ enabled: false, days: [0, 1, 2, 3, 4], hour: 19, minute: 0, windowDays: 14, skipExisting: true, onLogin: true, keepAlive: true }, (await chrome.storage.local.get(AUTO_KEY))[AUTO_KEY] || {});
 const setAuto = async patch => { const a = await getAuto(); const n = Object.assign(a, patch); await chrome.storage.local.set({ [AUTO_KEY]: n }); return n; };
 
 /* الموعد القادم بتوقيت الجهاز: أقرب يوم مختار بعد «الآن» */
@@ -149,9 +149,65 @@ async function reschedule() {
   }
   return when;
 }
-chrome.runtime.onInstalled.addListener(() => { reschedule(); });
-chrome.runtime.onStartup.addListener(() => { reschedule(); });
-chrome.alarms.onAlarm.addListener(a => { if (a.name === 'mb-auto' || a.name === 'mb-auto-catchup') runAuto('schedule'); });
+/* v0.16: الجدولة الأسبوعية القديمة (الخميس فقط — كانت الافتراضي) تصبح يومية مرة واحدة */
+async function migrateDaily() {
+  const raw = (await chrome.storage.local.get(AUTO_KEY))[AUTO_KEY] || {};
+  if (raw.v16) return;
+  const patch = { v16: true };
+  if (Array.isArray(raw.days) && raw.days.length === 1 && raw.days[0] === 4) patch.days = [0, 1, 2, 3, 4];
+  await setAuto(patch);
+}
+const ensureKeepAlive = () => chrome.alarms.get('mb-keepalive', a => { if (!a) chrome.alarms.create('mb-keepalive', { delayInMinutes: 1, periodInMinutes: 15 }); });
+chrome.runtime.onInstalled.addListener(() => { migrateDaily().then(reschedule); ensureKeepAlive(); });
+chrome.runtime.onStartup.addListener(() => { migrateDaily().then(reschedule); ensureKeepAlive(); });
+chrome.alarms.onAlarm.addListener(a => {
+  if (a.name === 'mb-auto' || a.name === 'mb-auto-catchup') runAuto('schedule');
+  if (a.name === 'mb-keepalive') keepAlive();
+});
+
+/* ═══ v0.16: 🫀 إبقاء جلسة مدرستي حيّة + 🔁 المزامنة مع الدخول العادي + ⏱️ قياس مدة بقاء الجلسة ═══
+   لا تسجيل دخول نيابة عن المعلم: فقط طلب صفحة عادية كل 15 دقيقة ما دام المتصفح مفتوحًا،
+   كأن المعلم يتصفح — فلا تنتهي الجلسة بسبب الخمول. */
+const STALE_MS = 6 * 3600e3;
+async function sessMark(alive) {
+  const cfg = await getAuto(), now = Date.now(), s = Object.assign({ since: 0, lastAlive: 0, dead: 0, lastDurMin: 0, durs: [] }, cfg.sess || {});
+  if (alive) { if (!s.since || s.dead) { s.since = now; s.dead = 0; } s.lastAlive = now; }
+  else if (s.since && !s.dead) { s.dead = now; s.lastDurMin = Math.round((s.lastAlive - s.since) / 60000); s.durs = [s.lastDurMin, ...(s.durs || [])].slice(0, 5); }
+  await setAuto({ sess: s });
+  return s;
+}
+/* مزامنة «انتهازية»: إن كانت الجلسة حيّة ومضت 6 ساعات على آخر مزامنة — لا تنتظر الموعد */
+async function maybeSyncNow(trigger) {
+  const cfg = await getAuto();
+  if (cfg.running && Date.now() - cfg.running < 30 * 60000) return;
+  if (cfg.pendingLogin && Date.now() - cfg.pendingLogin < 3 * 864e5) return runAuto('resume-after-login');
+  const last = lastScheduledBefore(cfg);
+  if (cfg.enabled && last && (cfg.lastRunAt || 0) < last) return runAuto('catchup-' + trigger);       // موعد فات وهو مغلق/منتهي الجلسة
+  if (cfg.onLogin === false || Date.now() - (cfg.lastRunAt || 0) < STALE_MS) return;
+  if (Date.now() - (cfg.lastOppAt || 0) < 30 * 60000) return;                                        // لا تكرار مع كل صفحة تُفتح
+  await setAuto({ lastOppAt: Date.now() });
+  return runAuto(trigger);
+}
+async function keepAlive() {
+  const cfg = await getAuto(); if (cfg.keepAlive === false) return;
+  const school = (await chrome.storage.local.get('mb_school')).mb_school || ''; if (!school) return;
+  let alive = null;
+  // من تبويب مدرستي مفتوح إن وُجد (أضمن للكوكيز)، وإلا طلب مباشر من الإضافة
+  const tabs = await chrome.tabs.query({ url: 'https://schools.madrasati.sa/*' }).catch(() => []);
+  for (const t of tabs) { const r = await tabMsg(t.id, { type: 'mb:ping', school }); if (r && r.ok) { alive = !!r.alive; break; } }
+  if (alive === null) {
+    try {
+      const r = await fetch(`https://schools.madrasati.sa/SchoolManagment/Actions/Teacher/${encodeURIComponent(school)}`, { credentials: 'include', cache: 'no-store' });
+      const html = await r.text();
+      alive = r.status === 200 && /^https:\/\/schools\.madrasati\.sa\//i.test(r.url) && !/login|signin|auth/i.test(new URL(r.url).pathname) && (html.includes('hSchoolId') || html.includes(school));
+      if (alive) await setAuto({ swPingOk: true });
+      else if (!cfg.swPingOk) alive = null;            // لم يثبت أن الطلب المباشر يحمل الجلسة — لا نحكم بانتهائها
+    } catch { alive = null; }
+  }
+  if (alive === null) return;
+  await sessMark(alive);
+  if (alive) maybeSyncNow('alive');
+}
 
 function notify(title, message, kind = 'info') {
   try { chrome.notifications.create(`mb-${kind}-${Date.now()}`, { type: 'basic', iconUrl: 'icons/icon-128.png', title, message, priority: kind === 'login' ? 2 : 1, requireInteraction: kind === 'login' }); } catch (_) {}
@@ -218,7 +274,7 @@ async function runAuto(trigger, options = {}) {
   try {
     home = await openMadrasatiHome(school);
     if (!home.tab || home.loginNeeded) {
-      await setAuto({ pendingLogin: Date.now() });
+      await setAuto({ pendingLogin: Date.now() }); await sessMark(false);
       notify('🔑 سجّل دخولك لمدرستي', 'اضغط هنا لفتح مدرستي. بمجرد تسجيل الدخول تكتمل مزامنة الواجبات تلقائيًا.', 'login');
       summary.error = 'login_needed';
       return summary;
@@ -319,7 +375,9 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
     return;
   }
   if (msg && msg.type === 'mb:sessionAlive') {
-    getAuto().then(cfg => { if (cfg.enabled && cfg.pendingLogin && Date.now() - cfg.pendingLogin < 3 * 864e5 && !cfg.running) runAuto('resume-after-login'); });
+    // دخولك العادي لمدرستي (لأي سبب) = فرصة مزامنة: معلّقة، أو موعد فات، أو مضت 6 ساعات
+    sessMark(true).then(() => maybeSyncNow('on-login'));
+    ensureKeepAlive();
     return;
   }
   if (msg && msg.type === 'mb:autoGet') { getAuto().then(reply); return true; }

@@ -85,6 +85,14 @@
     if (msg && msg.type === 'mb:published') { rememberPublished().then(reply); return true; }
     if (msg && msg.type === 'mb:listAll') { adapter.listAllAssignments().then(reply, e => reply({ ok: false, error: String(e && e.message || e) })); return true; }
     if (msg && msg.type === 'mb:school') { reply({ school: adapter.schoolId() }); return; }
+    /* 🫀 إبقاء الجلسة: طلب GET عادي لصفحة المعلم من داخل تبويب مدرستي المفتوح (بكوكيز الجلسة نفسها) */
+    if (msg && msg.type === 'mb:ping') {
+      const school = adapter.schoolId() || msg.school || '';
+      fetch(`/SchoolManagment/Actions/Teacher/${encodeURIComponent(school)}`, { credentials: 'include', cache: 'no-store' })
+        .then(async r => { const html = await r.text(); reply({ ok: true, alive: r.status === 200 && /schools\.madrasati\.sa/i.test(r.url) && !/login|signin|auth/i.test(new URL(r.url).pathname) && (html.includes('hSchoolId') || (school && html.includes(school))) }); })
+        .catch(() => reply({ ok: false }));
+      return true;
+    }
     if (msg && msg.type === 'mb:status') {
       reply({ platform: adapter.label, path: MB.pathPattern(location.pathname), responses: state.network.size,
               tables: document.querySelectorAll('table').length, loggedInHint: MB.Schema.domSummary(document).loggedInHint,
