@@ -2515,38 +2515,103 @@ function renderInLearned(){
 }
 
 /* =========================================================
-   🏋️ الشغل والآلات البسيطة — محاكٍ مشترك بسيط (Canvas)
+   🏋️ الشغل والآلات البسيطة — محرك رسم حيّ (Canvas)
+   حلقة رسم مستمرة + سحب باللمس/الفأرة + أدوات رسم (ميزان نابضي، شخصية، صندوق، أسهم، عدّادات)
    ========================================================= */
 const WMSIM=(()=>{
-  let cv,c,raf=0,col={},draw=null;
-  function readColors(){const cs=getComputedStyle(document.documentElement);
-    col={ink:cs.getPropertyValue('--ink').trim()||'#13324A',ink2:cs.getPropertyValue('--ink-2').trim()||'#4F6879',paper:cs.getPropertyValue('--paper').trim()||'#fff',
-      line:cs.getPropertyValue('--line').trim()||'#D5E0E8',glass:cs.getPropertyValue('--glass').trim()||'#4FB3C8',amber:cs.getPropertyValue('--amber').trim()||'#D98E1F',
-      ok:cs.getPropertyValue('--ok').trim()||'#1E8A5C',bad:cs.getPropertyValue('--bad').trim()||'#C3473E'}}
-  function mount(canvas,W,H,fn){stop();cv=canvas;c=cv.getContext('2d');readColors();const dpr=Math.min(2,window.devicePixelRatio||1);
-    cv.width=W*dpr;cv.height=H*dpr;cv.style.aspectRatio=`${W}/${H}`;c.setTransform(dpr,0,0,dpr,0,0);draw=fn;frame(0)}
-  function frame(){if(!c||!draw)return;c.clearRect(0,0,cv.width,cv.height);draw(c,col)}
-  /* حركة من 0 إلى 1 خلال ms ثم onEnd */
-  function animate(ms,onStep,onEnd){cancelAnimationFrame(raf);const t0=performance.now();
-    const tick=t=>{const k=Math.min(1,(t-t0)/ms);onStep(k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2);frame();if(k<1)raf=requestAnimationFrame(tick);else{raf=0;onEnd&&onEnd()}};raf=requestAnimationFrame(tick)}
-  function stop(){cancelAnimationFrame(raf);raf=0}
-  const busy=()=>!!raf;
-  /* أدوات رسم */
-  function scale(c,x,y,F,maxF,col,vertical){   // ميزان نابضي
-    c.save();c.translate(x,y);if(vertical)c.rotate(Math.PI/2);
-    c.fillStyle=col.paper;c.strokeStyle=col.ink;c.lineWidth=2;c.beginPath();c.roundRect?c.roundRect(-34,-11,68,22,6):c.rect(-34,-11,68,22);c.fill();c.stroke();
-    const k=Math.max(0,Math.min(1,F/maxF));c.fillStyle=col.amber;c.fillRect(-28,-5,56*k,10);c.restore();
-    c.fillStyle=col.ink;c.font='bold 15px system-ui,sans-serif';c.textAlign=vertical?'left':'center';c.fillText(`${Math.round(F)} N`,vertical?x+20:x,vertical?y+5:y-18);
+  let cv=null,c=null,raf=0,col={},draw=null,W=800,H=260,tw=null,H_=null,ptr=null,last=0,parts=[];
+  function readColors(){const cs=getComputedStyle(document.documentElement),g=(k,d)=>cs.getPropertyValue(k).trim()||d;
+    col={ink:g('--ink','#13324A'),ink2:g('--ink-2','#4F6879'),paper:g('--paper','#fff'),line:g('--line','#D5E0E8'),glass:g('--glass','#4FB3C8'),
+      amber:g('--amber','#D98E1F'),ok:g('--ok','#1E8A5C'),bad:g('--bad','#C3473E'),dark:document.documentElement.matches('[data-theme="dark"]')||matchMedia('(prefers-color-scheme: dark)').matches&&!document.documentElement.matches('[data-theme="light"]')}}
+  function toC(e){const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)*W/r.width,y:(e.clientY-r.top)*H/r.height}}
+  function scroller(){return cv&&cv.closest('.frscroll')}
+  function bind(){
+    cv.style.touchAction='pan-y';
+    cv.addEventListener('pointerdown',e=>{const p=toC(e);
+      if(H_&&H_.hit&&!tw&&H_.hit(p)){ptr={cap:true,id:e.pointerId};try{cv.setPointerCapture(e.pointerId)}catch(_){}e.preventDefault();H_.down&&H_.down(p);return}
+      const sc=scroller();if(sc&&sc.scrollWidth>sc.clientWidth+2)ptr={scroll:true,x:e.clientX,sl:sc.scrollLeft};});
+    cv.addEventListener('pointermove',e=>{const p=toC(e);
+      if(ptr&&ptr.cap){H_&&H_.move&&H_.move(p);return}
+      if(ptr&&ptr.scroll){const sc=scroller();if(sc)sc.scrollLeft=ptr.sl-(e.clientX-ptr.x);return}
+      cv.style.cursor=H_&&H_.hit&&!tw&&H_.hit(p)?'grab':'default';});
+    const up=e=>{if(ptr&&ptr.cap){H_&&H_.up&&H_.up(toC(e))}ptr=null};
+    cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
   }
-  function box(c,x,y,w,h,label,col,fill){c.fillStyle=fill||'#C8955A';c.strokeStyle=col.ink;c.lineWidth=2;c.fillRect(x,y,w,h);c.strokeRect(x,y,w,h);
-    c.strokeStyle='rgba(0,0,0,.25)';c.beginPath();c.moveTo(x,y);c.lineTo(x+w,y+h);c.moveTo(x+w,y);c.lineTo(x,y+h);c.stroke();
-    if(label){c.fillStyle='#fff';c.font='bold 14px system-ui,sans-serif';c.textAlign='center';c.fillStyle=col.ink;c.fillText(label,x+w/2,y-8)}}
-  return {mount,animate,stop,busy,frame,scale,box,col:()=>col};
+  function mount(canvas,w,h,fn,handlers){stop();cv=canvas;W=w;H=h;c=cv.getContext('2d');readColors();draw=fn;H_=handlers||null;parts=[];
+    const dpr=Math.min(2,window.devicePixelRatio||1);cv.width=W*dpr;cv.height=H*dpr;cv.style.aspectRatio=`${W}/${H}`;c.setTransform(dpr,0,0,dpr,0,0);
+    bind();last=performance.now();raf=requestAnimationFrame(loop)}
+  function loop(t){
+    const dt=Math.min(.05,(t-last)/1000);last=t;
+    if(tw){const k=Math.min(1,(t-tw.t0)/tw.ms),e=tw.lin?k:(k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2);tw.step(e,dt);if(k>=1){const f=tw.end;tw=null;f&&f()}}
+    if(c&&draw){c.clearRect(0,0,W,H);draw(c,col,t/1000,dt);
+      parts=parts.filter(p=>(p.life-=dt)>0);parts.forEach(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=p.g*dt;c.globalAlpha=Math.max(0,p.life/p.max)*.7;c.fillStyle=p.col;c.beginPath();c.arc(p.x,p.y,p.r*(1.6-p.life/p.max),0,7);c.fill()});c.globalAlpha=1}
+    raf=requestAnimationFrame(loop)}
+  function animate(ms,step,end,lin){tw={t0:performance.now(),ms,step,end,lin}}
+  function stop(){cancelAnimationFrame(raf);raf=0;tw=null;ptr=null}
+  function puff(x,y,n,cl,o){for(let i=0;i<n;i++){const m=.35+Math.random()*.4;parts.push({x:x+(Math.random()-.5)*8,y,vx:(o&&o.vx||0)+(Math.random()-.5)*40,vy:(o&&o.vy!=null?o.vy:-25)-Math.random()*25,g:(o&&o.g)||30,r:2+Math.random()*3,life:m,max:m,col:cl||'rgba(150,130,100,.8)'})}}
+  return {mount,animate,stop,puff,busy:()=>!!tw||!!(ptr&&ptr.cap),tweening:()=>!!tw,frame(){},col:()=>col,size:()=>({W,H})};
 })();
 const fx1=v=>(Math.round(v*10)/10).toFixed(1);
+const WMD={
+  rr(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath()},
+  bg(c,col,W,H,G){const d=col.dark;
+    const g=c.createLinearGradient(0,0,0,G);g.addColorStop(0,d?'#16283A':'#EEF5FA');g.addColorStop(1,d?'#1C3247':'#DCE9F2');c.fillStyle=g;c.fillRect(0,0,W,G);
+    c.strokeStyle=d?'rgba(255,255,255,.04)':'rgba(19,50,74,.05)';c.lineWidth=1;for(let x=0;x<W;x+=40){c.beginPath();c.moveTo(x,0);c.lineTo(x,G);c.stroke()}
+    const f=c.createLinearGradient(0,G,0,H);f.addColorStop(0,d?'#5A4632':'#C99A66');f.addColorStop(1,d?'#3E3022':'#A97C4C');c.fillStyle=f;c.fillRect(0,G,W,H-G);
+    c.strokeStyle='rgba(0,0,0,.12)';for(let x=-20;x<W;x+=90){c.beginPath();c.moveTo(x,G);c.lineTo(x+30,H);c.stroke()}
+    c.fillStyle='rgba(0,0,0,.18)';c.fillRect(0,G,W,3)},
+  shadow(c,x,y,w){c.save();c.fillStyle='rgba(0,0,0,.22)';c.beginPath();c.ellipse(x,y,w/2,5,0,0,7);c.fill();c.restore()},
+  crate(c,x,y,w,h,label){const g=c.createLinearGradient(x,y,x+w,y+h);g.addColorStop(0,'#D9A86A');g.addColorStop(1,'#B9834A');c.fillStyle=g;WMD.rr(c,x,y,w,h,4);c.fill();
+    c.strokeStyle='#7A5228';c.lineWidth=2;c.stroke();c.fillStyle='rgba(255,240,200,.55)';c.fillRect(x+w/2-6,y,12,h);
+    c.strokeStyle='rgba(90,60,30,.35)';c.lineWidth=1;c.beginPath();c.moveTo(x+5,y+h*.33);c.lineTo(x+w-5,y+h*.33);c.moveTo(x+5,y+h*.66);c.lineTo(x+w-5,y+h*.66);c.stroke();
+    if(label){c.fillStyle='#4A2E12';c.font='bold 12px system-ui,sans-serif';c.textAlign='center';c.fillText(label,x+w/2,y+h/2+4)}},
+  weights(c,x,y,n,label){for(let i=0;i<n;i++){const yy=y-i*16;const g=c.createLinearGradient(x-26,yy-14,x+26,yy);g.addColorStop(0,'#7C8794');g.addColorStop(.5,'#B8C2CC');g.addColorStop(1,'#5D6873');
+      c.fillStyle=g;WMD.rr(c,x-26,yy-14,52,14,5);c.fill();c.strokeStyle='#3B444D';c.lineWidth=1.5;c.stroke()}
+    if(label){WMD.pill(c,x,y-n*16-14,label,'#3B444D')}},
+  pill(c,x,y,t,bg,fg){c.font='bold 13px system-ui,sans-serif';const w=c.measureText(arNum(t)).width+16;c.fillStyle=bg||'#13324A';WMD.rr(c,x-w/2,y-11,w,22,11);c.fill();c.fillStyle=fg||'#fff';c.textAlign='center';c.fillText(t,x,y+4)},
+  arrow(c,x1,y1,x2,y2,cl,lbl,w){const a=Math.atan2(y2-y1,x2-x1),L=Math.hypot(x2-x1,y2-y1);if(L<4)return;c.save();c.strokeStyle=cl;c.fillStyle=cl;c.lineWidth=w||3.5;c.lineCap='round';
+    c.beginPath();c.moveTo(x1,y1);c.lineTo(x2-Math.cos(a)*9,y2-Math.sin(a)*9);c.stroke();c.beginPath();c.moveTo(x2,y2);c.lineTo(x2-Math.cos(a-.45)*13,y2-Math.sin(a-.45)*13);c.lineTo(x2-Math.cos(a+.45)*13,y2-Math.sin(a+.45)*13);c.closePath();c.fill();
+    if(lbl){c.font='bold 13px system-ui,sans-serif';c.textAlign='center';c.fillText(lbl,(x1+x2)/2-Math.sin(a)*14,(y1+y2)/2+Math.cos(a)*(-10)-2)}c.restore()},
+  dim(c,x1,y1,x2,y2,cl,lbl,off){const a=Math.atan2(y2-y1,x2-x1),nx=-Math.sin(a)*(off||0),ny=Math.cos(a)*(off||0);c.save();c.strokeStyle=cl;c.fillStyle=cl;c.lineWidth=1.6;c.setLineDash([]);
+    const A={x:x1+nx,y:y1+ny},B={x:x2+nx,y:y2+ny};c.beginPath();c.moveTo(A.x,A.y);c.lineTo(B.x,B.y);c.stroke();
+    [[A,a],[B,a+Math.PI]].forEach(([P,aa])=>{c.beginPath();c.moveTo(P.x,P.y);c.lineTo(P.x+Math.cos(aa-.5)*8,P.y+Math.sin(aa-.5)*8);c.moveTo(P.x,P.y);c.lineTo(P.x+Math.cos(aa+.5)*8,P.y+Math.sin(aa+.5)*8);c.stroke();
+      c.beginPath();c.moveTo(P.x-nx*.6,P.y-ny*.6);c.lineTo(P.x+nx*.25,P.y+ny*.25);c.stroke()});
+    if(lbl){c.save();c.translate((A.x+B.x)/2,(A.y+B.y)/2);let r=a;if(r>Math.PI/2||r<-Math.PI/2)r+=Math.PI;c.rotate(Math.abs(r)>1.3?0:r);WMD.pill(c,0,0,lbl,cl);c.restore()}c.restore()},
+  /* ميزان نابضي من الخطاف (x1,y1) إلى الحلقة (x2,y2) — يتمدد النابض مع القوة ويتحرك المؤشر */
+  scale(c,x1,y1,x2,y2,F,maxF){const a=Math.atan2(y2-y1,x2-x1),L=Math.hypot(x2-x1,y2-y1),k=Math.max(0,Math.min(1,F/maxF));c.save();c.translate(x1,y1);c.rotate(a);
+    c.strokeStyle='#5D6873';c.lineWidth=2.5;c.beginPath();c.arc(6,0,6,Math.PI*.3,Math.PI*1.7);c.stroke();
+    const bx=14,bl=Math.min(78,L-34);const g=c.createLinearGradient(0,-10,0,10);g.addColorStop(0,'#F7F9FB');g.addColorStop(1,'#C9D3DC');c.fillStyle=g;WMD.rr(c,bx,-10,bl,20,6);c.fill();c.strokeStyle='#4F5B66';c.lineWidth=1.5;c.stroke();
+    c.strokeStyle='#8C99A6';c.lineWidth=1;for(let i=0;i<=10;i++){const tx=bx+6+i*(bl-12)/10;c.beginPath();c.moveTo(tx,-9);c.lineTo(tx,i%5?-5:-2);c.stroke()}
+    const sx=bx+6,ex=bx+6+(bl-12)*(.15+.85*k);c.strokeStyle='#9AA6B2';c.lineWidth=1.4;c.beginPath();c.moveTo(sx,3);const coils=9;for(let i=1;i<=coils*2;i++){c.lineTo(sx+(ex-sx)*i/(coils*2),i%2?8:-1)}c.stroke();
+    c.fillStyle='#C3473E';c.fillRect(ex-1.5,-9,3,18);
+    c.strokeStyle='#5D6873';c.lineWidth=3;c.beginPath();c.moveTo(ex,0);c.lineTo(L-8,0);c.stroke();c.lineWidth=2.5;c.beginPath();c.arc(L-4,0,6,0,7);c.stroke();c.restore();
+    const mx=x1+Math.cos(a)*(bx+bl/2),my=y1+Math.sin(a)*(bx+bl/2);WMD.pill(c,mx-Math.sin(a)*24,my+Math.cos(a)*(-24)+(Math.abs(a)>1.2?0:0),`${fx1(F)} N`,'#C3473E')},
+  /* شخصية بسيطة: قدماها عند (x,y)، تميل وتمشي، ويداها إلى نقطة الإمساك */
+  person(c,o){const {x,y}=o,dir=o.dir||1,lean=o.lean||0,ph=o.phase||0,sh=o.shake?Math.sin(o.t*60)*1.2:0;c.save();c.translate(x+sh,y);
+    const hipY=-52,shY=-98,shX=-lean*46*dir,hdY=shY-18;c.lineCap='round';c.lineJoin='round';
+    const leg=(p)=>{const s=Math.sin(p)*14;c.beginPath();c.moveTo(shX*.25,hipY);c.lineTo(shX*.1+s*.5*dir,hipY+26);c.lineTo(s*dir,0);c.stroke();c.beginPath();c.moveTo(s*dir,0);c.lineTo(s*dir+9*dir,0);c.stroke()};
+    c.strokeStyle='#26384A';c.lineWidth=9;leg(ph);c.strokeStyle='#33495E';leg(ph+Math.PI);
+    c.strokeStyle=o.shirt||'#2E7DB5';c.lineWidth=17;c.beginPath();c.moveTo(shX*.25,hipY+2);c.lineTo(shX,shY+6);c.stroke();
+    const arm=(hx,hy,cl)=>{const ax=shX,ay=shY+8,mx=(ax+hx)/2-dir*4,my=(ay+hy)/2+10;c.strokeStyle=cl;c.lineWidth=7;c.beginPath();c.moveTo(ax,ay);c.quadraticCurveTo(mx,my,hx,hy);c.stroke();c.fillStyle='#E9B98F';c.beginPath();c.arc(hx,hy,5,0,7);c.fill()};
+    (o.hands||[]).forEach((h,i)=>arm(h.x-x-sh,h.y-y,i?'#2A6FA0':(o.shirt||'#2E7DB5')));
+    c.fillStyle='#E9B98F';c.beginPath();c.arc(shX+dir*2,hdY,13,0,7);c.fill();c.fillStyle='#2B2118';c.beginPath();c.arc(shX+dir*1,hdY-4,13,Math.PI*1.05,Math.PI*1.95);c.fill();
+    c.fillStyle='#2B2118';c.beginPath();c.arc(shX+dir*7,hdY+1,1.8,0,7);c.fill();
+    if(o.strain){c.strokeStyle='#2B2118';c.lineWidth=1.6;c.beginPath();c.moveTo(shX+dir*3,hdY+7);c.lineTo(shX+dir*10,hdY+6);c.stroke();
+      const sw=(o.t*1.5)%1;c.fillStyle='#4FB3C8';c.globalAlpha=1-sw;c.beginPath();c.ellipse(shX-dir*12,hdY-8+sw*18,2.5,4,0,0,7);c.fill();c.globalAlpha=1}
+    else{c.strokeStyle='#2B2118';c.lineWidth=1.6;c.beginPath();c.arc(shX+dir*6,hdY+4,4,.2,1.2);c.stroke()}
+    c.restore()},
+  /* لوحة قراءات حيّة */
+  hud(c,x,y,rows){c.save();c.font='bold 13px system-ui,sans-serif';const w=Math.max(...rows.map(r=>c.measureText(arNum(r[0]+'  '+r[1])).width))+28,h=rows.length*22+12;
+    c.fillStyle='rgba(19,50,74,.88)';WMD.rr(c,x,y,w,h,10);c.fill();rows.forEach((r,i)=>{c.textAlign='right';c.fillStyle='rgba(255,255,255,.75)';c.fillText(r[0],x+w-12,y+24+i*22);
+      c.textAlign='left';c.fillStyle=r[2]||'#fff';c.fillText(r[1],x+12,y+24+i*22)});c.restore();return w},
+  meter(c,x,y,w,val,max,lbl,cl){c.save();c.fillStyle='rgba(19,50,74,.12)';WMD.rr(c,x,y,w,14,7);c.fill();const k=Math.max(0,Math.min(1,val/max));
+    if(k>0){const g=c.createLinearGradient(x,0,x+w,0);g.addColorStop(0,cl||'#1E8A5C');g.addColorStop(1,'#4CC28E');c.fillStyle=g;WMD.rr(c,x,y,Math.max(14,w*k),14,7);c.fill()}
+    c.fillStyle='#13324A';c.font='bold 12px system-ui,sans-serif';c.textAlign='center';c.fillText(lbl,x+w/2,y-6);c.restore()},
+  hint(c,x,y,t,tm){const b=Math.sin(tm*4)*4;c.save();c.globalAlpha=.9;WMD.pill(c,x,y+b,t,'#D98E1F','#1b1206');c.restore()}
+};
 
 /* ===================== 🏋️ تجربة الشغل ===================== */
-const WK={forces:[5,10,15,20],dists:[1,1.5,2,3],wallF:50,PX:190,X0:70,target:30};
+const WK={forces:[5,10,15,20],dists:[1,1.5,2,3],wallF:50,PX:160,X0:80,target:30};
 const WK_OBS={
   w_dist:'عند مضاعفة المسافة مع القوة نفسها تضاعف الشغل',
   w_force:'عند مضاعفة القوة مع المسافة نفسها تضاعف الشغل',
@@ -2606,41 +2671,87 @@ const WORK={
 };
 CONTENT.work=WORK;
 
-/* ---- رسم تجربة الشغل ---- */
-const wkView={mode:'pull',x:0,F:0,d:0,label:''};
-function wkDraw(c,col){
-  const W=800,G=150,X0=WK.X0,PX=WK.PX;
-  c.fillStyle=col.line;c.fillRect(0,G,W,4);
-  // مسطرة
-  c.strokeStyle=col.ink2;c.fillStyle=col.ink2;c.lineWidth=1.5;c.font='12px system-ui,sans-serif';c.textAlign='center';
-  for(let m=0;m<=3;m+=.5){const x=X0+m*PX;c.beginPath();c.moveTo(x,G+6);c.lineTo(x,G+(m%1?14:20));c.stroke();if(m%1===0)c.fillText(`${m} m`,x,G+34)}
-  if(wkView.mode==='wall'){
-    c.fillStyle='#9AA7B3';c.fillRect(470,40,40,G-40);c.strokeStyle=col.ink;c.strokeRect(470,40,40,G-40);
-    c.strokeStyle='rgba(0,0,0,.18)';for(let y=55;y<G;y+=20){c.beginPath();c.moveTo(470,y);c.lineTo(510,y);c.stroke()}
-    // شخص يدفع
-    const px=360;c.strokeStyle=col.ink;c.lineWidth=4;c.beginPath();c.arc(px-30,68,12,0,7);c.stroke();
-    c.beginPath();c.moveTo(px-30,80);c.lineTo(px-40,118);c.lineTo(px-55,G);c.moveTo(px-40,118);c.lineTo(px-25,G);c.moveTo(px-32,90);c.lineTo(px+8,92);c.stroke();
-    WMSIM.scale(c,px+30,92,wkView.F,60,col);
-    c.fillStyle=col.ink;c.font='bold 15px system-ui,sans-serif';c.textAlign='center';c.fillText(`القوة ${Math.round(wkView.F)} N · المسافة = ${fx2(wkView.d)} m`,400,22);
-    return;
-  }
-  const bx=X0+wkView.x*PX;
-  WMSIM.box(c,bx-26,G-52,52,52,'',col);
-  // حبل + ميزان + يد
-  c.strokeStyle=col.ink;c.lineWidth=2;c.beginPath();c.moveTo(bx+26,G-26);c.lineTo(bx+70,G-26);c.stroke();
-  WMSIM.scale(c,bx+106,G-26,wkView.F,25,col);
-  c.beginPath();c.moveTo(bx+140,G-26);c.lineTo(bx+160,G-26);c.stroke();
-  c.fillStyle=col.amber;c.beginPath();c.arc(bx+166,G-26,7,0,7);c.fill();
-  if(wkView.d){const fx=X0+wkView.d*PX;c.strokeStyle=col.bad;c.lineWidth=2;c.beginPath();c.moveTo(fx,G-70);c.lineTo(fx,G);c.stroke();c.fillStyle=col.bad;c.fillRect(fx,G-70,22,13)}
-  c.fillStyle=col.ink;c.font='bold 15px system-ui,sans-serif';c.textAlign='center';
-  if(wkView.label)c.fillText(wkView.label,400,22);
-}
+/* ---- مشهد تجربة الشغل: سحب حيّ للصندوق + دفع الجدار بالضغط المطوّل ---- */
+const wkView={mode:'pull',x:0,tx:0,F:0,Fs:0,d:0,active:false,drag:false,onEnd:null,done:false,phase:0,
+  wall:{F:0,eff:0,hold:false,done:false,onEnd:null}};
+const WKH={grab:null};
 let WK_CV='#wkA';
-function wkMount(id,mode){WK_CV=id;wkView.mode=mode||'pull';wkView.x=0;wkView.F=0;wkView.d=0;wkView.label='';WMSIM.mount($(id),800,200,wkDraw);setTimeout(()=>frFollowEl(id,mode==='wall'?420:WK.X0+120),0)}
-function wkPull(F,d,onEnd){
-  wkView.mode='pull';wkView.x=0;wkView.F=0;wkView.d=d;wkView.label='';
-  WMSIM.animate(900+700*d,k=>{wkView.F=k<.08?F*k/.08:F;wkView.x=d*k;frFollowEl(WK_CV,WK.X0+d*k*WK.PX+80);wkView.label=`القوة ${F} N · المسافة ${fx2(d*k)} m`},()=>{wkView.F=F;onEnd&&onEnd()});
+const WK_G=205;
+function wkBoxX(){return WK.X0+wkView.x*WK.PX}
+function wkHand(){const bx=wkBoxX();return {x:bx+180,y:WK_G-34}}
+function wkDraw(c,col,t,dt){
+  const W=800,H=270,G=WK_G,X0=WK.X0,PX=WK.PX,v=wkView;
+  WMD.bg(c,col,W,H,G);
+  // المسطرة على الأرض
+  c.fillStyle='rgba(255,250,235,.92)';WMD.rr(c,X0-14,G+8,3*PX+28,26,5);c.fill();c.strokeStyle='#8A6A44';c.lineWidth=1;c.stroke();
+  c.fillStyle='#4A3420';c.strokeStyle='#4A3420';c.font='11px system-ui,sans-serif';c.textAlign='center';
+  for(let m=0;m<=3.001;m+=.25){const x=X0+m*PX;c.beginPath();c.moveTo(x,G+8);c.lineTo(x,G+(m%1===0?20:m%.5===0?16:13));c.stroke();if(m%.5===0)c.fillText(`${m} m`,x,G+31)}
+  if(v.mode==='wall') return wkDrawWall(c,col,t,dt);
+  // حركة السحب
+  if(v.active){
+    if(v.drag){const nx=v.x+(v.tx-v.x)*Math.min(1,dt*10);v.moving=nx-v.x>.0008;v.x=Math.min(v.d,Math.max(v.x,nx))}
+    v.Fs+=((v.active&&(v.moving||v.held)?v.F:0)-v.Fs)*Math.min(1,dt*9);
+    if(v.moving){v.phase+=dt*9;if(Math.random()<.5)WMSIM.puff(wkBoxX()-24,G-2,1)}
+    if(v.x>=v.d-.004){v.x=v.d;v.active=false;v.done=true;v.Fs=v.F;const f=v.onEnd;v.onEnd=null;WMSIM.puff(wkBoxX()-20,G-2,8);f&&f()}
+  }else if(!v.done){v.Fs*=Math.exp(-dt*6)}
+  const bx=wkBoxX(),hand=wkHand();
+  // العلم
+  if(v.d){const fx=X0+v.d*PX,wv=Math.sin(t*5)*4;c.strokeStyle='#5D4A36';c.lineWidth=3;c.beginPath();c.moveTo(fx,G);c.lineTo(fx,G-92);c.stroke();
+    c.fillStyle=v.done?'#1E8A5C':'#C3473E';c.beginPath();c.moveTo(fx,G-92);c.quadraticCurveTo(fx+16,G-86+wv,fx+30,G-80);c.quadraticCurveTo(fx+16,G-74-wv,fx,G-68);c.closePath();c.fill()}
+  // الصندوق
+  WMD.shadow(c,bx,G+1,62);WMD.crate(c,bx-28,G-56,56,56,'صندوق');
+  // الحبل والميزان والشخص
+  c.strokeStyle='#7A5A3A';c.lineWidth=3;c.beginPath();c.moveTo(bx+28,G-30);c.lineTo(bx+58,G-32);c.stroke();
+  WMD.scale(c,bx+58,G-32,hand.x-6,hand.y,v.Fs,25);
+  const lean=v.Fs>.5?.28*Math.min(1,v.Fs/20)+.06:0;
+  WMD.person(c,{x:hand.x+40,y:G,dir:-1,lean,phase:v.phase,t,strain:v.Fs>12,hands:[{x:hand.x,y:hand.y},{x:hand.x+8,y:hand.y+3}],shirt:'#2E7DB5'});
+  // أسهم القوة والإزاحة
+  if(v.Fs>.5)WMD.arrow(c,bx+4,G-74,bx+4+30+v.Fs*3.4,G-74,'#C3473E',`ق = ${fx1(v.Fs)} N`);
+  if(v.x>.02)WMD.dim(c,X0,G+50,bx,G+50,'#2E7DB5',`ف = ${fx2(v.x)} m`);
+  // قراءات حيّة
+  const Wk=v.Fs>.5||v.done?v.F*v.x:0;
+  WMD.hud(c,12,12,[['القوة',`${fx1(v.Fs)} N`,'#FFB4A8'],['المسافة',`${fx2(v.x)} m`,'#A8D8FF'],['الشغل = ق × ف',`${fx1(Wk)} J`,'#9BE6BF']]);
+  WMD.meter(c,560,30,220,Wk,60,`عدّاد الشغل ${fx1(Wk)} J`);
+  if(v.done)WMD.pill(c,wkBoxX(),G-110,'✓ وصل الصندوق إلى العلم','#1E8A5C');
+  else if(v.d&&!WMSIM.tweening()&&!(v.active&&v.held))WMD.hint(c,hand.x,hand.y-62,v.active?'تابع السحب →':'امسك هنا واسحب →',t);
 }
+function wkDrawWall(c,col,t,dt){
+  const G=WK_G,w=wkView.wall;
+  if(w.hold)w.F+=(WK.wallF-w.F)*Math.min(1,dt*3.5);else w.F*=Math.exp(-dt*5);
+  if(w.hold&&w.F>WK.wallF*.85){w.eff+=dt;if(Math.random()<.15)WMSIM.puff(470,G-2,1)}
+  if(!w.done&&w.eff>=1.6){w.done=true;const f=w.onEnd;w.onEnd=null;f&&f()}
+  // جدار من الطوب
+  const x0=540,x1=610,top=40;c.fillStyle='#A9B4BE';c.fillRect(x0,top,x1-x0,G-top);
+  for(let y=top,r=0;y<G;y+=16,r++){for(let x=x0-(r%2?16:0);x<x1;x+=32){c.fillStyle=r%2?'#B9C3CC':'#C6CFD7';c.fillRect(Math.max(x0,x)+1,y+1,Math.min(x+30,x1)-Math.max(x0,x)-2,14)}}
+  c.strokeStyle='#5D6873';c.lineWidth=2;c.strokeRect(x0,top,x1-x0,G-top);
+  const shake=w.hold&&w.F>10;
+  WMD.person(c,{x:450,y:G,dir:1,lean:-(.22+.18*Math.min(1,w.F/WK.wallF)),phase:0,t,shake,strain:w.F>20,hands:[{x:x0-2,y:G-92},{x:x0-2,y:G-80}],shirt:'#2E7DB5'});
+  if(w.F>1)WMD.arrow(c,x0-70,G-128,x0-70+20+w.F*.9,G-128,'#C3473E',`ق = ${fx1(w.F)} N`);
+  WMD.pill(c,x0+35,G+52,'ف = 0.00 m — الجدار لم يتحرك','#2E7DB5');
+  WMD.hud(c,12,12,[['القوة',`${fx1(w.F)} N`,'#FFB4A8'],['المسافة','0.00 m','#A8D8FF'],['الشغل = ق × ف','0.0 J','#9BE6BF']]);
+  WMD.meter(c,560,24,220,w.eff,1.6,`الجهد الذي بذلته (التعب) ${Math.round(Math.min(1,w.eff/1.6)*100)}%`,'#D98E1F');
+  WMD.meter(c,560,62,220,0,60,'عدّاد الشغل 0.0 J');
+  if(w.done)WMD.pill(c,300,40,'تعبت… لكن الشغل = 0 J','#C3473E');
+  else if(!w.hold)WMD.hint(c,430,G-150,'اضغط مطوّلًا لتدفع الجدار',t);
+}
+function wkMount(id,mode){WK_CV=id;const v=wkView;Object.assign(v,{mode:mode||'pull',x:0,tx:0,F:0,Fs:0,d:0,active:false,drag:false,onEnd:null,done:false,held:false});
+  if(mode==='wall')v.wall={F:0,eff:0,hold:false,done:false,onEnd:v.wall&&v.wall.onEnd||null};
+  WMSIM.mount($(id),800,270,wkDraw,{
+    hit(p){if(v.mode==='wall'){return p.x>380&&p.x<620&&p.y>30}
+      const h=wkHand();return Math.hypot(p.x-h.x,p.y-h.y)<55||(p.x>h.x-70&&p.x<h.x+70&&p.y>WK_G-140&&p.y<WK_G)},
+    down(p){if(v.mode==='wall'){wkWallHold(true);return}
+      if(v.active&&v.drag){v.held=true;v.grabDx=p.x-wkHand().x;return}
+      if(!v.active&&WKH.grab&&WKH.grab()){v.held=true;v.grabDx=p.x-wkHand().x}},
+    move(p){if(v.mode==='wall')return;if(v.active&&v.drag&&v.held){v.tx=Math.max(0,Math.min(v.d,(p.x-v.grabDx-180-WK.X0)/WK.PX))}},
+    up(){if(v.mode==='wall'){wkWallHold(false);return}v.held=false;v.moving=false}});
+  setTimeout(()=>frFollowEl(id,mode==='wall'?470:WK.X0+150),0);
+}
+/* جلسة سحب: drag=true يسحبها الطالب بيده، وإلا تتحرك وحدها */
+function wkStart(F,d,onEnd,drag){const v=wkView;Object.assign(v,{x:0,tx:0,F,d,Fs:0,active:true,drag:!!drag,onEnd,done:false,held:!!drag,moving:false});
+  if(!drag)WMSIM.animate(900+650*d,(k)=>{v.moving=k<1;v.x=d*k;v.held=true;frFollowEl(WK_CV,WK.X0+d*k*WK.PX+120)},()=>{v.x=d;v.moving=false});}
+function wkPull(F,d,onEnd){wkStart(F,d,onEnd,false)}
+function wkWallHold(on){const w=wkView.wall;if(!on){w.hold=false;return}if(APP.run&&APP.run.step!=='wall')return;w.hold=true}
+
 function wkChips(attr,list,cur,unit){return list.map(v=>`<button class="chip" data-${attr}="${v}" aria-pressed="${v===cur?'true':'false'}"><span class="num">${v} ${unit}</span></button>`).join('')}
 
 /* ---- شاشة تجربة الشغل ---- */
@@ -2654,7 +2765,8 @@ function renderWork(){
     <h3 class="inh">الجزء الأول: اسحب الصندوق بالميزان النابضي</h3>
     <div class="frbar"><div class="seg" role="group" aria-label="القوة"><span>القوة:</span>${wkChips('wf',WK.forces,r.wkF,'N')}</div>
       <div class="seg" role="group" aria-label="المسافة"><span>المسافة:</span>${wkChips('wd',WK.dists,r.wkD,'m')}</div>
-      <button class="btn amber" id="wkGo">اسحب الصندوق</button></div>
+      <button class="btn ghost" id="wkGo" title="أو امسك مقبض الميزان في الرسم واسحبه بنفسك">▶ اسحب تلقائيًا</button></div>
+    <p class="note" style="margin:0 2px 6px">✋ امسك مقبض الميزان في الرسم واسحب الصندوق بنفسك نحو العلم، وراقب عدّاد الشغل.</p>
     <div class="beakerzone frzone"><div class="frscroll" dir="ltr"><canvas id="wkA" aria-label="صندوق يُسحب بميزان نابضي على مسطرة"></canvas></div></div><p class="swipe-hint">↔ اسحب الرسم يمينًا ويسارًا لرؤيته كاملًا</p>
     <div class="tablewrap" style="margin-top:12px"><table class="frtab"><thead><tr><th>السحبة</th><th>القوة</th><th>المسافة</th><th>الشغل (احسبه)</th></tr></thead><tbody>
     ${[0,1,2].map(i=>`<tr><td><b>${['أ','ب','ج'][i]}</b><div class="note" style="margin:0;font-size:.78rem">${['اختر أي قوة ومسافة','القوة نفسها ومسافة مختلفة','المسافة نفسها وقوة مختلفة'][i]}</div></td>
@@ -2663,33 +2775,35 @@ function renderWork(){
     </tbody></table></div>
     <div id="wkPartB" class="hide-b">
       <h3 class="inh" style="margin-top:16px">الجزء الثاني: ادفع الجدار</h3>
-      <div class="frbar"><button class="btn amber" id="wkWall">ادفع الجدار بقوة ${WK.wallF} N</button>
+      <div class="frbar"><button class="btn amber" id="wkWall" style="touch-action:none;user-select:none">✋ اضغط مطوّلًا لتدفع الجدار بقوة ${WK.wallF} N</button>
         <span style="display:inline-flex;gap:6px;align-items:center">الشغل: <input type="text" inputmode="decimal" autocomplete="off" class="frin" id="wkWv" disabled placeholder="٠"> J <button class="btn ghost sm-btn" id="wkWrec" disabled>سجّل</button><span id="wkWok"></span></span></div>
       <div class="beakerzone frzone"><div class="frscroll" dir="ltr"><canvas id="wkB" aria-label="شخص يدفع جدارًا"></canvas></div></div><p class="swipe-hint">↔ اسحب الرسم يمينًا ويسارًا لرؤيته كاملًا</p>
     </div>
   </section>
   <div id="obsPanel" class="frobs"></div>
   <div class="panel safety" style="margin-top:12px"><h3>قواعد السلامة</h3><ul>${WORK.safety.map(x=>`<li>${x}</li>`).join('')}</ul></div>`;
-  wkMount('#wkA','pull');
+  wkMount('#wkA','pull');WKH.grab=()=>wkGo('drag');
   $$('[data-wf]').forEach(b=>b.onclick=()=>{r.wkF=+b.dataset.wf;$$('[data-wf]').forEach(x=>x.setAttribute('aria-pressed',x===b?'true':'false'))});
   $$('[data-wd]').forEach(b=>b.onclick=()=>{r.wkD=+b.dataset.wd;$$('[data-wd]').forEach(x=>x.setAttribute('aria-pressed',x===b?'true':'false'))});
   $$('.frin').forEach(x=>x.addEventListener('input',()=>{const v=arNum(x.value.replace(/[,،]/g,'.'));if(v!==x.value)x.value=v}));
-  $('#wkGo').onclick=wkGo;
+  $('#wkGo').onclick=()=>wkGo('auto');
   [0,1,2].forEach(i=>{$('#wrec'+i).onclick=()=>wkRecord(i);$('#wv'+i).addEventListener('keydown',e=>{if(e.key==='Enter')wkRecord(i)})});
-  $('#wkWall').onclick=wkWall;$('#wkWrec').onclick=wkWallRec;$('#wkWv').addEventListener('keydown',e=>{if(e.key==='Enter')wkWallRec()});
+  {const wb=$('#wkWall');wb.addEventListener('pointerdown',e=>{e.preventDefault();wkWallHold(true)});['pointerup','pointerleave','pointercancel'].forEach(ev=>wb.addEventListener(ev,()=>wkWallHold(false)));
+    wb.addEventListener('click',e=>{if(e.detail===0){wkWallHold(true);setTimeout(()=>wkWallHold(false),2200)}})}$('#wkWrec').onclick=wkWallRec;$('#wkWv').addEventListener('keydown',e=>{if(e.key==='Enter')wkWallRec()});
   wkGuide();
 }
-function wkGo(){
-  const r=APP.run,x=r.wk;if(r.step==='predict')return note('اختر توقعك أولًا.');if(r.step!=='pull')return;if(WMSIM.busy())return;
-  const i=x.rows.findIndex(w=>!w.rec);if(i<0)return;
+function wkGo(mode){
+  const r=APP.run,x=r.wk;if(r.step==='predict'){note('اختر توقعك أولًا.');return false}if(r.step!=='pull')return false;if(WMSIM.tweening()||wkView.active)return false;
+  const i=x.rows.findIndex(w=>!w.rec);if(i<0)return false;
   const F=r.wkF,d=r.wkD,a=x.rows[0];let ok=true,why='';
   if(i===1&&a.rec&&(F!==a.F||d===a.d)){ok=false;why=`في السحبة (ب) غيّر المسافة فقط: اجعل القوة ${a.F} N كما في (أ)، واختر مسافة غير ${fx1(a.d)} m.`}
   if(i===2&&a.rec&&(d!==a.d||F===a.F)){ok=false;why=`في السحبة (ج) غيّر القوة فقط: اجعل المسافة ${fx1(a.d)} m كما في (أ)، واختر قوة غير ${a.F} N.`}
   x.runs.push({row:i,F,d,ok});
-  if(!ok){r.mist.exec++;r.log.push(`سحبة لا تغيّر متغيرًا واحدًا فقط (${F} N، ${fx1(d)} m)`);return note(why+' هكذا نعرف سبب تغيّر الشغل.',true)}
+  if(!ok){r.mist.exec++;r.log.push(`سحبة لا تغيّر متغيرًا واحدًا فقط (${F} N، ${fx1(d)} m)`);note(why+' هكذا نعرف سبب تغيّر الشغل.',true);return false}
   const w=x.rows[i];Object.assign(w,{F,d,calc:[],done:false});
   $('#wkGo').disabled=true;$('#wF'+i).textContent=`${F} N`;$('#wD'+i).textContent='…';
-  wkPull(F,d,()=>{$('#wkGo').disabled=false;w.done=true;$('#wD'+i).textContent=`${fx2(d)} m`;$('#wv'+i).disabled=false;$('#wrec'+i).disabled=false;$('#wv'+i).focus();wkGuide()});
+  wkStart(F,d,()=>{$('#wkGo').disabled=false;w.done=true;$('#wD'+i).textContent=`${fx2(d)} m`;$('#wv'+i).disabled=false;$('#wrec'+i).disabled=false;$('#wv'+i).focus();wkGuide()},mode==='drag');
+  return true;
 }
 function wkRecord(i){
   const r=APP.run,w=r.wk.rows[i];if(!w.done||w.rec)return;
@@ -2700,11 +2814,8 @@ function wkRecord(i){
   else{w.rec=true;$('#wv'+i).value=arNum(fx1(t));$('#wok'+i).textContent=`الصحيح ${fx1(t)}`;$('#wv'+i).disabled=true;$('#wrec'+i).disabled=true}
   wkGuide();
 }
-function wkShowB(){const box=$('#wkPartB');if(!box||box.dataset.on)return;box.dataset.on='1';box.classList.remove('hide-b');$('#wkGo').disabled=true;$$('[data-wf],[data-wd]').forEach(b=>b.disabled=true);wkMount('#wkB','wall');box.scrollIntoView({behavior:'smooth',block:'nearest'})}
-function wkWall(){
-  const r=APP.run;if(r.step!=='wall'||WMSIM.busy())return;$('#wkWall').disabled=true;
-  WMSIM.animate(1600,k=>{wkView.F=Math.min(1,k*1.4)*WK.wallF;wkView.d=0},()=>{r.wk.wallDone=true;$('#wkWall').disabled=false;$('#wkWv').disabled=false;$('#wkWrec').disabled=false;$('#wkWv').focus();note('دفعت بقوة 50 N… انظر إلى المسطرة: كم تحرك الجدار؟');wkGuide()});
-}
+function wkShowB(){const box=$('#wkPartB');if(!box||box.dataset.on)return;box.dataset.on='1';box.classList.remove('hide-b');$('#wkGo').disabled=true;$$('[data-wf],[data-wd]').forEach(b=>b.disabled=true);wkMount('#wkB','wall');wkView.wall.onEnd=wkWallDone;box.scrollIntoView({behavior:'smooth',block:'nearest'})}
+function wkWallDone(){const r=APP.run;r.wk.wallDone=true;$('#wkWv').disabled=false;$('#wkWrec').disabled=false;$('#wkWv').focus();note('دفعت بقوة 50 N حتى تعبت… انظر إلى المسطرة وعدّاد الشغل.');wkGuide()}
 function wkWallRec(){
   const r=APP.run,x=r.wk;if(!x.wallDone||x.wallRec)return;
   const v=parseNum($('#wkWv').value);if(!isFinite(v)||v<0)return note('اكتب الشغل بالجول.');
@@ -2763,16 +2874,18 @@ function renderWkChal(){
     <div class="frbar"><div class="seg"><span>القوة:</span>${wkChips('wf',WK.forces,r.wkF,'N')}</div><div class="seg"><span>المسافة:</span>${wkChips('wd',WK.dists,r.wkD,'m')}</div><button class="btn amber" id="chGo">اسحب</button></div>
     <div class="beakerzone frzone"><div class="frscroll" dir="ltr"><canvas id="wkC"></canvas></div></div><p class="swipe-hint">↔ اسحب الرسم يمينًا ويسارًا لرؤيته كاملًا</p>
   </section>`;
-  wkMount('#wkC','pull');
+  wkMount('#wkC','pull');WKH.grab=()=>wkChalPull(true);
   $$('[data-wf]').forEach(b=>b.onclick=()=>{r.wkF=+b.dataset.wf;$$('[data-wf]').forEach(x=>x.setAttribute('aria-pressed',x===b?'true':'false'))});
   $$('[data-wd]').forEach(b=>b.onclick=()=>{r.wkD=+b.dataset.wd;$$('[data-wd]').forEach(x=>x.setAttribute('aria-pressed',x===b?'true':'false'))});
-  $('#chGo').onclick=()=>{if(r.chalDone||WMSIM.busy())return;const F=r.wkF,d=r.wkD;r.chal.push([F,d]);$('#chGo').disabled=true;
-    wkPull(F,d,()=>{$('#chGo').disabled=false;const W=F*d,t=$('#gtext'),act=$('#gact');
+  $('#chGo').textContent='▶ اسحب تلقائيًا';$('#chGo').onclick=()=>wkChalPull(false);
+}
+function wkChalPull(drag){const r=APP.run;if(r.chalDone||WMSIM.tweening()||wkView.active)return false;const F=r.wkF,d=r.wkD;r.chal.push([F,d]);$('#chGo').disabled=true;
+    wkStart(F,d,()=>{$('#chGo').disabled=false;const W=F*d,t=$('#gtext'),act=$('#gact');
       if(Math.abs(W-WK.target)<1e-9){r.chalDone=true;t.textContent=bidi(`أحسنت! ${F} N × ${fx1(d)} m = ${fx1(W)} J. يمكن الوصول إلى الشغل نفسه بقوة أصغر ومسافة أطول، أو العكس.`);
         act.innerHTML='<button class="btn amber" id="toLearn">إلى الخلاصة</button>';$('#toLearn').onclick=()=>go('learned');return}
       t.textContent=bidi(`الشغل في هذه السحبة = ${F} × ${fx1(d)} = ${fx1(W)} J، ${W>WK.target?'أكبر':'أقل'} من ${WK.target} J.${r.chal.length>=3?' تلميح: ما العددان من القوائم اللذان حاصل ضربهما 30؟':''}`);
       if(r.chal.length>=4){act.innerHTML='<button class="btn" id="skipCh" style="background:transparent;border:1px solid currentColor;color:inherit;padding:6px 12px">تخطَّ التحدي</button>';
-        $('#skipCh').onclick=()=>{r.log.push('تخطى التحدي العملي');go('learned')}}})};
+        $('#skipCh').onclick=()=>{r.log.push('تخطى التحدي العملي');go('learned')}}},drag);return true;
 }
 function renderWkLearned(){
   const r=APP.run,L=WORK.learned(null,r),x=r.wk;
@@ -2857,52 +2970,126 @@ const MACHINES={
 };
 CONTENT.machines=MACHINES;
 
-/* ---- رسم الرافعة ---- */
-const lvView={d:1,F:0,ang:-.12,load:MC.load,label:''};
-function lvDraw(c,col){
-  const W=800,cx=380,cy=120,PX=MC.PX;
-  c.fillStyle=col.line;c.fillRect(0,196,W,4);
+/* ---- مشهد الرافعة: اسحب الميزان إلى أسفل حتى يرتفع الحمل ---- */
+const LV={cx:300,cy:112,PX:150,G:275};
+const lvView={d:.5,load:MC.load,need:60,cap:70,F:0,Fs:0,ang:-.13,active:false,drag:false,held:false,done:false,ok:false,fail:false,onEnd:null,y0:0,pull:0,settle:0};
+const LVH={grab:null,pick:null};
+function lvHook(){const v=lvView;return {x:LV.cx+Math.cos(v.ang)*v.d*LV.PX,y:LV.cy+Math.sin(v.ang)*v.d*LV.PX+8}}
+function lvRing(){const h=lvHook();return {x:h.x,y:h.y+74+lvView.pull*.8}}
+function lvDraw(c,col,t,dt){
+  const v=lvView,{cx,cy,PX,G}=LV;WMD.bg(c,col,800,300,G);
+  // منطق الاتزان
+  if(v.active){
+    if(v.drag){v.F=Math.min(v.cap,Math.max(0,v.pull*1.15))}
+    if(!v.ok&&v.F>=v.need-1e-9){v.ok=true;v.F=v.need;v.settle=0;WMSIM.puff(LV.cx-v.load/60*0+(-.5*PX),cy-30,6,'rgba(120,130,140,.7)')}
+    if(v.ok){v.settle+=dt;if(v.settle>.6){v.active=false;v.done=true;const f=v.onEnd;v.onEnd=null;f&&f(true,v.need)}}
+  }
+  if(!v.active&&!v.done&&!v.fail){v.F*=Math.exp(-dt*6);v.pull*=Math.exp(-dt*6)}
+  if(v.ok||v.done)v.pull+= (Math.max(v.pull,v.need/1.15)-v.pull)*Math.min(1,dt*6);
+  v.Fs+=(v.F-v.Fs)*Math.min(1,dt*12);
+  const tgt=v.ok||v.done?.04:-.13+(v.Fs/v.need)*.025;v.ang+=(tgt-v.ang)*Math.min(1,dt*5);
   // نقطة الارتكاز
-  c.fillStyle=col.ink2;c.beginPath();c.moveTo(cx,cy+6);c.lineTo(cx-26,196);c.lineTo(cx+26,196);c.closePath();c.fill();
-  c.save();c.translate(cx,cy);c.rotate(lvView.ang);
-  c.fillStyle='#B7834F';c.strokeStyle=col.ink;c.lineWidth=2;c.fillRect(-MC.la*PX-60,-7,MC.la*PX+60+1.6*PX,14);c.strokeRect(-MC.la*PX-60,-7,MC.la*PX+60+1.6*PX,14);
-  c.fillStyle=col.ink;c.font='11px system-ui,sans-serif';c.textAlign='center';
-  for(const m of [.5,1,1.5]){c.fillRect(m*PX-1,-7,2,14);c.fillText(`${m} m`,m*PX,24)}
-  c.fillText('0.5 m',-MC.la*PX,24);
-  // الحمل
-  WMSIM.box(c,-MC.la*PX-26,-61,52,54,`${lvView.load} N`,col,'#8F9BA8');
-  // الميزان يسحب إلى أسفل
-  {const hx=lvView.d*PX;c.strokeStyle=col.ink;c.lineWidth=2;c.beginPath();c.moveTo(hx,7);c.lineTo(hx,30);c.stroke();}
+  const g=c.createLinearGradient(cx-30,0,cx+30,0);g.addColorStop(0,'#5D6873');g.addColorStop(.5,'#8C99A6');g.addColorStop(1,'#4F5B66');
+  c.fillStyle=g;c.beginPath();c.moveTo(cx,cy+6);c.lineTo(cx-34,G);c.lineTo(cx+34,G);c.closePath();c.fill();WMD.shadow(c,cx,G+2,80);
+  // أذرع (أقواس قياس) تحت العارضة
+  const hk=lvHook();
+  WMD.dim(c,cx,cy+40,cx-.5*PX,cy+40,'#C3473E','ذراع المقاومة 0.5 m');
+  WMD.dim(c,cx,cy-30,cx+v.d*PX,cy-30,'#2E7DB5',`ذراع القوة ${v.d} m`);
+  // العارضة والحمل (تدور معًا)
+  c.save();c.translate(cx,cy);c.rotate(v.ang);
+  const bg2=c.createLinearGradient(0,-9,0,9);bg2.addColorStop(0,'#D2A06A');bg2.addColorStop(1,'#A8743F');c.fillStyle=bg2;WMD.rr(c,-.5*PX-48,-9,.5*PX+48+1.62*PX,18,5);c.fill();
+  c.strokeStyle='#6E4A26';c.lineWidth=1.5;c.stroke();c.strokeStyle='rgba(110,74,38,.35)';c.beginPath();c.moveTo(-.5*PX-40,-2);c.lineTo(1.55*PX,-3);c.moveTo(-.5*PX-30,4);c.lineTo(1.5*PX,3);c.stroke();
+  c.fillStyle='#3B444D';c.beginPath();c.arc(0,0,5,0,7);c.fill();
+  MC.arms.forEach(m=>{const on=Math.abs(m-v.d)<1e-9;c.fillStyle=on?'#2E7DB5':'#FFF8EC';c.strokeStyle='#6E4A26';c.lineWidth=1.5;c.beginPath();c.arc(m*PX,0,6,0,7);c.fill();c.stroke()});
+  WMD.weights(c,-.5*PX,-10,v.load>=90?4:3,`${v.load} N`);
   c.restore();
-  const ex=cx+Math.cos(lvView.ang)*lvView.d*PX,ey=cy+Math.sin(lvView.ang)*lvView.d*PX;
-  WMSIM.scale(c,ex,ey+58,lvView.F,70,col,true);
-  c.fillStyle=col.amber;c.beginPath();c.arc(ex,ey+100,7,0,7);c.fill();
-  c.fillStyle=col.ink;c.font='bold 15px system-ui,sans-serif';c.textAlign='center';if(lvView.label)c.fillText(lvView.label,400,22);
+  // سهم وزن الحمل
+  const lx=cx+Math.cos(v.ang)*(-.5*PX),ly=cy+Math.sin(v.ang)*(-.5*PX);WMD.arrow(c,lx-46,ly-40,lx-46,ly+10,'#7A5A3A',`${v.load} N`);
+  // الميزان والشخص
+  const ring=lvRing();WMD.scale(c,hk.x,hk.y,ring.x,ring.y,v.Fs,v.cap>=70?70:v.cap);
+  WMD.person(c,{x:ring.x+62,y:G,dir:-1,lean:.1+.12*Math.min(1,v.Fs/40),t,strain:v.Fs>v.cap*.9,hands:[{x:ring.x+2,y:ring.y},{x:ring.x+10,y:ring.y+4}],shirt:'#2E7DB5'});
+  if(v.Fs>1)WMD.arrow(c,ring.x-44,ring.y-10,ring.x-44,ring.y+6+v.Fs*.7,'#C3473E',`ق`);
+  // القراءات
+  const rows=[['الحمل (المقاومة)',`${v.load} N`,'#FFD6A8'],['قراءة الميزان',`${fx1(v.Fs)} N`,'#FFB4A8']];
+  if(v.ok||v.done)rows.push(['الفائدة الآلية',`${v.load} ÷ ${fx1(v.need)} = ${fx1(v.load/v.need)}`,'#9BE6BF']);
+  WMD.hud(c,560,12,rows);
+  if(v.ok||v.done)WMD.pill(c,640,128,'✓ اتّزنت الرافعة وارتفع الحمل','#1E8A5C');
+  else if(v.fail)WMD.pill(c,640,128,`الميزان وصل حدّه ${v.cap} N ولم يرتفع الحمل`,'#C3473E');
+  else if(!WMSIM.tweening()&&!v.held)WMD.hint(c,ring.x+5,ring.y+38,'اسحب الميزان إلى أسفل ↓',t);
 }
-function lvPull(d,maxF,onEnd){
-  const need=MC.load*MC.la/d,F=Math.min(need,maxF||1e9),ok=need<=(maxF||1e9)+1e-9;
-  lvView.d=d;lvView.F=0;lvView.ang=-.12;lvView.label='';
-  WMSIM.animate(1500,k=>{lvView.F=F*Math.min(1,k*1.25);lvView.ang=ok?-.12*(1-Math.max(0,(k-.55)/.45)):-.12;lvView.label=ok&&k>.95?'اتّزنت الرافعة':''},()=>{lvView.F=F;if(!ok)lvView.label=`الميزان وصل ${F} N ولم يرتفع الحمل`;onEnd&&onEnd(ok,need)});
+function lvMount(id,load){const v=lvView;Object.assign(v,{load,F:0,Fs:0,pull:0,ang:-.13,active:false,drag:false,held:false,done:false,ok:false,fail:false,onEnd:null});
+  v.need=v.load*MC.la/v.d;
+  WMSIM.mount($(id),800,300,lvDraw,{
+    hit(p){const r=lvRing(),h=lvHook();if(Math.hypot(p.x-r.x,p.y-r.y)<50||(Math.abs(p.x-h.x)<26&&p.y>h.y&&p.y<r.y))return true;
+      if(!v.active)for(const m of MC.arms){const mx=LV.cx+Math.cos(v.ang)*m*LV.PX,my=LV.cy+Math.sin(v.ang)*m*LV.PX;if(Math.hypot(p.x-mx,p.y-my)<22)return true}return false},
+    down(p){const r=lvRing();
+      if(!v.active)for(const m of MC.arms){const mx=LV.cx+Math.cos(v.ang)*m*LV.PX,my=LV.cy+Math.sin(v.ang)*m*LV.PX;if(Math.hypot(p.x-mx,p.y-my)<22){LVH.pick&&LVH.pick(m);return}}
+      if(v.active&&v.drag){v.held=true;v.y0=p.y-v.pull;return}
+      if(!v.active&&LVH.grab&&LVH.grab()){v.held=true;v.y0=p.y}},
+    move(p){if(v.active&&v.drag&&v.held&&!v.ok){v.pull=Math.max(0,Math.min(70,p.y-v.y0))}},
+    up(){if(!(v.active&&v.drag))return;v.held=false;
+      if(!v.ok&&v.F>=v.cap-1e-9){v.active=false;v.fail=true;const f=v.onEnd;v.onEnd=null;setTimeout(()=>{f&&f(false,v.need)},350)}}});
+  setTimeout(()=>frFollowEl(id,430),0);
 }
-/* ---- رسم السطح المائل ---- */
-const rpView={L:1,s:0,F:0,label:''};
-function rpDraw(c,col){
-  const W=800,G=196,PX=MC.PX*1.25,h=MC.h*PX,L=rpView.L*PX,run=Math.sqrt(Math.max(0,L*L-h*h)),x1=640,x0=run>1?x1-run:x1-30;
-  c.fillStyle=col.line;c.fillRect(0,G,W,4);
-  c.fillStyle='#C9D3DC';c.fillRect(x1,G-h,130,h);c.strokeStyle=col.ink;c.strokeRect(x1,G-h,130,h);
-  c.fillStyle=col.ink2;c.font='12px system-ui,sans-serif';c.textAlign='center';c.fillText(`الارتفاع ${MC.h} m`,x1+65,G-h/2);
-  if(run>1){c.fillStyle='#D8B98F';c.beginPath();c.moveTo(x0,G);c.lineTo(x1,G-h);c.lineTo(x1,G);c.closePath();c.fill();c.strokeStyle=col.ink;c.stroke()}
-  else{c.strokeStyle=col.ink2;c.setLineDash([4,4]);c.beginPath();c.moveTo(x1-2,G);c.lineTo(x1-2,G-h);c.stroke();c.setLineDash([])}
-  const ang=run>1?Math.atan2(h,run):Math.PI/2,px=x0+Math.cos(ang)*rpView.s*L,py=G-Math.sin(ang)*rpView.s*L;
-  c.save();c.translate(px,py);c.rotate(-ang);WMSIM.box(c,-24,-44,48,44,'',col);c.restore();
-  // حبل باتجاه السطح إلى الميزان
-  const tx=x1+20,ty=G-h-24;c.strokeStyle=col.ink;c.lineWidth=2;c.beginPath();c.moveTo(px+Math.cos(ang)*24-Math.sin(ang)*22,py-Math.sin(ang)*24-Math.cos(ang)*22);c.lineTo(tx,ty);c.stroke();
-  WMSIM.scale(c,tx+56,ty,rpView.F,45,col);
-  c.fillStyle=col.ink;c.font='bold 13px system-ui,sans-serif';c.textAlign='center';c.fillText(run>1?`طول السطح ${fx2(rpView.L)} m`:`رفع رأسي ${fx2(rpView.L)} m`,run>1?(x0+x1)/2-30:x1-60,G+20);
-  c.font='bold 15px system-ui,sans-serif';if(rpView.label)c.fillText(rpView.label,400,22);
+function lvSetD(d){const v=lvView;if(v.active)return;Object.assign(v,{d,need:v.load*MC.la/d,F:0,pull:0,done:false,ok:false,fail:false})}
+function lvStart(d,cap,onEnd,drag){const v=lvView;Object.assign(v,{d,need:v.load*MC.la/d,cap:cap||70,F:0,pull:0,active:true,drag:!!drag,held:!!drag,done:false,ok:false,fail:false,onEnd});
+  if(!drag){const top=Math.min(v.need,v.cap);WMSIM.animate(1400,k=>{v.F=top*k;v.pull=v.F/1.15},()=>{if(v.need>v.cap+1e-9){v.active=false;v.fail=true;const f=v.onEnd;v.onEnd=null;setTimeout(()=>f&&f(false,v.need),350)}})}}
+function lvPull(d,maxF,onEnd){lvStart(d,maxF||70,onEnd,false)}
+
+/* ---- مشهد السطح المائل: اسحب الصندوق على السطح؛ عدّاد الشغل يتوقف عند القيمة نفسها ---- */
+const RP={G:262,x1:590,PX:220};
+const rpView={L:1,Ld:1,s:0,ts:0,F:0,Fs:0,active:false,drag:false,held:false,done:false,onEnd:null};
+const RPH={grab:null};
+function rpGeom(){const h=MC.h*RP.PX,Lp=rpView.Ld*RP.PX,run=Math.sqrt(Math.max(0,Lp*Lp-h*h)),x1=RP.x1,top=RP.G-h,vert=run<8;
+  const ang=vert?Math.PI/2:Math.atan2(h,run),x0=vert?x1-30:x1-run;return {h,Lp,run,x1,top,vert,ang,x0}}
+function rpBox(){const g=rpGeom(),s=rpView.s;if(g.vert)return {x:g.x0,y:RP.G-s*g.h,ang:0,g};return {x:g.x0+Math.cos(g.ang)*s*g.Lp,y:RP.G-Math.sin(g.ang)*s*g.Lp,ang:g.ang,g}}
+function rpDraw(c,col,t,dt){
+  const v=rpView,G=RP.G;WMD.bg(c,col,800,300,G);
+  if(v.active){if(v.drag){const n=v.s+(v.ts-v.s)*Math.min(1,dt*10);v.moving=n-v.s>.0008;v.s=Math.max(v.s,Math.min(1,n))}
+    if(v.moving&&Math.random()<.4){const b=rpBox();WMSIM.puff(b.x,b.y,1)}
+    if(v.s>=.995){v.s=1;v.active=false;v.done=true;const f=v.onEnd;v.onEnd=null;f&&f(v.F)}}
+  v.Fs+=(((v.active&&(v.moving||v.held))||v.done?v.F:0)-v.Fs)*Math.min(1,dt*9);
+  const g=rpGeom(),{h,Lp,x1,top,vert,ang,x0}=g;
+  // المنصة (طاولة)
+  c.fillStyle='#8C99A6';c.fillRect(x1+6,top+14,10,G-top-14);c.fillRect(x1+180,top+14,10,G-top-14);
+  const tg=c.createLinearGradient(0,top,0,top+16);tg.addColorStop(0,'#C9D3DC');tg.addColorStop(1,'#9AA7B3');c.fillStyle=tg;WMD.rr(c,x1,top,200,16,3);c.fill();c.strokeStyle='#5D6873';c.lineWidth=1.5;c.stroke();
+  WMD.dim(c,x1+100,G,x1+100,top+16,'#7A5A3A',`الارتفاع ${MC.h} m`);
+  // السطح المائل أو البكرة
+  if(!vert){c.save();c.translate(x0,G);c.rotate(-ang);const rg=c.createLinearGradient(0,-10,0,0);rg.addColorStop(0,'#D8B07A');rg.addColorStop(1,'#B48650');c.fillStyle=rg;c.fillRect(0,-10,Lp,10);
+      c.strokeStyle='#7A5228';c.lineWidth=1.5;c.strokeRect(0,-10,Lp,10);c.restore();
+    c.strokeStyle='rgba(122,82,40,.6)';c.lineWidth=4;c.beginPath();c.moveTo(x0+Math.cos(ang)*Lp*.55,G-Math.sin(ang)*Lp*.55);c.lineTo(x0+Math.cos(ang)*Lp*.55,G);c.stroke();
+    WMD.dim(c,x0,G,x1,top,'#2E7DB5',`طول السطح ${fx2(v.Ld)} m`,26)}
+  else{c.strokeStyle='#5D6873';c.lineWidth=3;c.beginPath();c.moveTo(x1+2,top);c.lineTo(x0,top-46);c.stroke();c.fillStyle='#B8C2CC';c.beginPath();c.arc(x0,top-46,11,0,7);c.fill();c.strokeStyle='#3B444D';c.lineWidth=2;c.stroke();
+    WMD.dim(c,x0-40,G,x0-40,top,'#2E7DB5','رفع رأسي 0.5 m')}
+  // الصندوق
+  const b=rpBox();c.save();c.translate(b.x,b.y);c.rotate(-b.ang);if(!vert)WMD.shadow(c,0,1,50);WMD.crate(c,-24,-46,48,46,`${MC.boxW} N`);c.restore();
+  // الحبل والميزان والشخص على المنصة
+  const hand={x:x1+120,y:top-34};let rx,ry,ex,ey;
+  if(vert){rx=b.x;ry=b.y-46;c.strokeStyle='#7A5A3A';c.lineWidth=3;c.beginPath();c.moveTo(rx,ry);c.lineTo(x0,top-46+11);c.stroke();ex=x0+11;ey=top-46}
+  else{rx=b.x+Math.cos(ang)*24-Math.sin(ang)*30;ry=b.y-Math.sin(ang)*24-Math.cos(ang)*30;ex=x1+8;ey=top-30;c.strokeStyle='#7A5A3A';c.lineWidth=3;c.beginPath();c.moveTo(rx,ry);c.lineTo(ex,ey);c.stroke()}
+  WMD.scale(c,ex,ey,hand.x-6,hand.y,v.Fs,45);
+  WMD.person(c,{x:hand.x+44,y:top,dir:-1,lean:v.Fs>.5?.12+.18*Math.min(1,v.Fs/40):0,phase:0,t,strain:v.Fs>30,hands:[{x:hand.x,y:hand.y},{x:hand.x+8,y:hand.y+3}],shirt:'#2E7DB5'});
+  if(v.Fs>.5){const ax=b.x+Math.cos(ang)*30-Math.sin(ang)*60,ay=b.y-Math.sin(ang)*30-Math.cos(ang)*60;WMD.arrow(c,ax,ay,ax+Math.cos(ang)*(20+v.Fs*1.6),ay-Math.sin(ang)*(20+v.Fs*1.6),'#C3473E',`ق = ${fx1(v.Fs)} N`)}
+  const dist=v.s*v.Ld,Wk=(v.Fs>.5||v.done)?v.F*dist:0;
+  WMD.hud(c,12,12,[['القوة',`${fx1(v.Fs)} N`,'#FFB4A8'],['المسافة على السطح',`${fx2(dist)} m`,'#A8D8FF'],['الشغل = ق × ف',`${fx1(Wk)} J`,'#9BE6BF']]);
+  WMD.meter(c,250,30,220,Wk,25,`عدّاد الشغل ${fx1(Wk)} J`);
+  if(v.done)WMD.pill(c,360,74,`✓ وصل الصندوق — الشغل ${fx1(v.F*v.Ld)} J`,'#1E8A5C');
+  else if(!WMSIM.tweening()&&!v.held){const bb=rpBox();WMD.hint(c,bb.x+(vert?-70:0),bb.y-80,'اسحب الصندوق إلى أعلى ↗',t)}
 }
-function rpPull(L,onEnd){const F=mcRampF(L);rpView.L=L;rpView.s=0;rpView.F=0;rpView.label='';
-  WMSIM.animate(900+700*L,k=>{rpView.F=k<.08?F*k/.08:F;rpView.s=k;rpView.label=`القوة ${fx1(F)} N · قطع ${fx2(L*k)} m`},()=>{rpView.F=F;onEnd&&onEnd(F)})}
+function rpMount(id,L){const v=rpView;Object.assign(v,{L,Ld:L,s:0,ts:0,F:0,Fs:0,active:false,drag:false,held:false,done:false,onEnd:null});
+  WMSIM.mount($(id),800,300,rpDraw,{
+    hit(p){const b=rpBox();return Math.hypot(p.x-b.x,p.y-(b.y-23))<48},
+    down(p){if(v.active&&v.drag){v.held=true;return}if(!v.active&&RPH.grab&&RPH.grab()){v.held=true}},
+    move(p){if(!(v.active&&v.drag&&v.held))return;const g=rpGeom();let s;
+      if(g.vert)s=(RP.G-(p.y+23))/g.h;else{const ux=Math.cos(g.ang),uy=-Math.sin(g.ang);s=((p.x-g.x0)*ux+((p.y+23)-RP.G)*uy)/g.Lp}
+      v.ts=Math.max(0,Math.min(1,s))},
+    up(){v.held=false;v.moving=false}});
+  setTimeout(()=>frFollowEl(id,560),0);
+}
+function rpSetL(L){const v=rpView;if(v.active)return;const from=v.Ld;Object.assign(v,{L,s:0,done:false,F:0});WMSIM.animate(600,k=>{v.Ld=from+(L-from)*k},()=>{v.Ld=L})}
+function rpStart(L,onEnd,drag){const v=rpView;Object.assign(v,{L,Ld:L,F:mcRampF(L),s:0,ts:0,active:true,drag:!!drag,held:!!drag,done:false,onEnd,moving:false});
+  if(!drag)WMSIM.animate(900+700*L,k=>{v.s=k;v.moving=k<1;v.held=true},()=>{v.s=1})}
+function rpPull(L,onEnd){rpStart(L,onEnd,false)}
 
 /* ---- شاشة التجربة ---- */
 function renderMach(){
@@ -2914,7 +3101,8 @@ function renderMach(){
   <section class="bench">${inGuideBox()}
     <h3 class="inh">الجزء الأول: الرافعة (الحمل ${MC.load} N على بعد ${MC.la} m من نقطة الارتكاز)</h3>
     <div class="frbar"><div class="seg" role="group" aria-label="موضع الميزان"><span>ضع الميزان على بعد:</span>${wkChips('md',MC.arms,r.mcD,'m')}</div>
-      <button class="btn amber" id="mcGoL">اسحب الميزان حتى تتزن الرافعة</button></div>
+      <button class="btn ghost" id="mcGoL">▶ اسحب تلقائيًا</button></div>
+    <p class="note" style="margin:0 2px 6px">✋ امسك الميزان في الرسم واسحبه إلى أسفل حتى يرتفع الحمل. يمكنك نقل الميزان بالنقر على الدوائر فوق العارضة.</p>
     <div class="beakerzone frzone"><div class="frscroll" dir="ltr"><canvas id="mcA" aria-label="رافعة وحمل وميزان نابضي"></canvas></div></div><p class="swipe-hint">↔ اسحب الرسم يمينًا ويسارًا لرؤيته كاملًا</p>
     <div class="tablewrap" style="margin-top:12px"><table class="frtab"><thead><tr><th>بعد القوة عن نقطة الارتكاز</th><th>القوة المقيسة</th><th>الفائدة الآلية = ${MC.load} ÷ القوة (احسبها)</th></tr></thead><tbody>
     ${MC.arms.map((d,i)=>`<tr><td class="num"><b>${d} m</b></td><td id="lF${i}">—</td>
@@ -2923,7 +3111,8 @@ function renderMach(){
     <div id="mcPartB" class="hide-b">
       <h3 class="inh" style="margin-top:16px">الجزء الثاني: السطح المائل (صندوق ${MC.boxW} N إلى ارتفاع ${MC.h} m)</h3>
       <div class="frbar"><div class="seg" role="group" aria-label="طول السطح"><span>طول السطح:</span>${wkChips('ml',MC.ramps,r.mcL,'m')}</div>
-        <button class="btn amber" id="mcGoR">اسحب الصندوق إلى أعلى</button></div>
+        <button class="btn ghost" id="mcGoR">▶ اسحب تلقائيًا</button></div>
+      <p class="note" style="margin:0 2px 6px">✋ امسك الصندوق في الرسم واسحبه إلى أعلى المنصة، وراقب عدّاد الشغل عند كل طول.</p>
       <div class="beakerzone frzone"><div class="frscroll" dir="ltr"><canvas id="mcB" aria-label="سطح مائل وصندوق وميزان"></canvas></div></div><p class="swipe-hint">↔ اسحب الرسم يمينًا ويسارًا لرؤيته كاملًا</p>
       <div class="tablewrap" style="margin-top:12px"><table class="frtab"><thead><tr><th>طول السطح (المسافة)</th><th>القوة المقيسة</th><th>الشغل = القوة × المسافة (احسبه)</th></tr></thead><tbody>
       ${MC.ramps.map((L,i)=>`<tr><td class="num"><b>${L} m</b>${L===MC.h?' <span class="note" style="font-size:.78rem">(رفع رأسي)</span>':''}</td><td id="rF${i}">—</td>
@@ -2933,25 +3122,29 @@ function renderMach(){
   </section>
   <div id="obsPanel" class="frobs"></div>
   <div class="panel safety" style="margin-top:12px"><h3>قواعد السلامة</h3><ul>${MACHINES.safety.map(x=>`<li>${x}</li>`).join('')}</ul></div>`;
-  lvView.d=r.mcD;lvView.F=0;lvView.ang=-.12;lvView.load=MC.load;lvView.label='';WMSIM.mount($('#mcA'),800,215,lvDraw);setTimeout(()=>frFollowEl('#mcA',450),0);
-  $$('[data-md]').forEach(b=>b.onclick=()=>{if(WMSIM.busy())return;r.mcD=+b.dataset.md;$$('[data-md]').forEach(x=>x.setAttribute('aria-pressed',x===b?'true':'false'));lvView.d=r.mcD;lvView.F=0;lvView.ang=-.12;lvView.label='';WMSIM.frame()});
+  lvView.d=r.mcD;lvMount('#mcA',MC.load);
+  const pickD=d=>{if(WMSIM.busy()||lvView.active||r.step!=='lever')return;r.mcD=d;$$('[data-md]').forEach(x=>x.setAttribute('aria-pressed',+x.dataset.md===d?'true':'false'));lvSetD(d)};
+  LVH.pick=pickD;LVH.grab=()=>mcGoLever('drag');
+  $$('[data-md]').forEach(b=>b.onclick=()=>pickD(+b.dataset.md));
   $$('.frin').forEach(x=>x.addEventListener('input',()=>{const v=arNum(x.value.replace(/[,،]/g,'.'));if(v!==x.value)x.value=v}));
-  $('#mcGoL').onclick=mcGoLever;
+  $('#mcGoL').onclick=()=>mcGoLever('auto');
   MC.arms.forEach((_,i)=>{$('#lrec'+i).onclick=()=>mcRec('lev',i);$('#lv'+i).addEventListener('keydown',e=>{if(e.key==='Enter')mcRec('lev',i)})});
   MC.ramps.forEach((_,i)=>{$('#rrec'+i).onclick=()=>mcRec('ramp',i);$('#rv'+i).addEventListener('keydown',e=>{if(e.key==='Enter')mcRec('ramp',i)})});
   mcGuide();
 }
-function mcGoLever(){
-  const r=APP.run;if(r.step==='predict')return note('اختر توقعك أولًا.');if(r.step!=='lever'||WMSIM.busy())return;
-  const i=MC.arms.indexOf(r.mcD),w=r.mc.lev[i];if(w.rec)return note('سجّلت هذا الموضع. انقل الميزان إلى موضع آخر.');
+function mcGoLever(mode){
+  const r=APP.run;if(r.step==='predict'){note('اختر توقعك أولًا.');return false}if(r.step!=='lever'||WMSIM.tweening()||lvView.active)return false;
+  const i=MC.arms.indexOf(r.mcD),w=r.mc.lev[i];if(w.rec){note('سجّلت هذا الموضع. انقل الميزان إلى موضع آخر (انقر دائرة أخرى على العارضة).');return false}
   $('#mcGoL').disabled=true;$('#lF'+i).textContent='…';
-  lvPull(r.mcD,0,(ok,need)=>{$('#mcGoL').disabled=false;w.F=need;w.done=true;$('#lF'+i).textContent=`${fx1(need)} N`;$('#lv'+i).disabled=false;$('#lrec'+i).disabled=false;$('#lv'+i).focus();mcGuide()});
+  lvStart(r.mcD,70,(ok,need)=>{$('#mcGoL').disabled=false;w.F=need;w.done=true;$('#lF'+i).textContent=`${fx1(need)} N`;$('#lv'+i).disabled=false;$('#lrec'+i).disabled=false;$('#lv'+i).focus();mcGuide()},mode==='drag');
+  return true;
 }
-function mcGoRamp(){
-  const r=APP.run;if(r.step!=='ramp'||WMSIM.busy())return;
-  const i=MC.ramps.indexOf(r.mcL),w=r.mc.ramp[i];if(w.rec)return note('سجّلت هذا السطح. اختر سطحًا بطول آخر.');
+function mcGoRamp(mode){
+  const r=APP.run;if(r.step!=='ramp'||WMSIM.tweening()||rpView.active)return false;
+  const i=MC.ramps.indexOf(r.mcL),w=r.mc.ramp[i];if(w.rec){note('سجّلت هذا السطح. اختر سطحًا بطول آخر.');return false}
   $('#mcGoR').disabled=true;$('#rF'+i).textContent='…';
-  rpPull(r.mcL,F=>{$('#mcGoR').disabled=false;w.F=F;w.done=true;$('#rF'+i).textContent=`${fx1(F)} N`;$('#rv'+i).disabled=false;$('#rrec'+i).disabled=false;$('#rv'+i).focus();mcGuide()});
+  rpStart(r.mcL,F=>{$('#mcGoR').disabled=false;w.F=F;w.done=true;$('#rF'+i).textContent=`${fx1(F)} N`;$('#rv'+i).disabled=false;$('#rrec'+i).disabled=false;$('#rv'+i).focus();mcGuide()},mode==='drag');
+  return true;
 }
 function mcRec(kind,i){
   const r=APP.run,w=r.mc[kind][i],p=kind==='lev'?'l':'r';if(!w.done||w.rec)return;
@@ -2966,9 +3159,9 @@ function mcRec(kind,i){
 }
 function mcShowB(){const r=APP.run,box=$('#mcPartB');if(!box||box.dataset.on)return;box.dataset.on='1';box.classList.remove('hide-b');
   $('#mcGoL').disabled=true;$$('[data-md]').forEach(b=>b.disabled=true);
-  rpView.L=r.mcL;rpView.s=0;rpView.F=0;rpView.label='';WMSIM.mount($('#mcB'),800,240,rpDraw);setTimeout(()=>frFollowEl('#mcB',560),0);
-  $$('[data-ml]').forEach(b=>b.onclick=()=>{if(WMSIM.busy())return;r.mcL=+b.dataset.ml;$$('[data-ml]').forEach(x=>x.setAttribute('aria-pressed',x===b?'true':'false'));rpView.L=r.mcL;rpView.s=0;rpView.F=0;rpView.label='';WMSIM.frame()});
-  $('#mcGoR').onclick=mcGoRamp;box.scrollIntoView({behavior:'smooth',block:'nearest'})}
+  rpMount('#mcB',r.mcL);RPH.grab=()=>mcGoRamp('drag');
+  $$('[data-ml]').forEach(b=>b.onclick=()=>{if(WMSIM.busy()||rpView.active)return;r.mcL=+b.dataset.ml;$$('[data-ml]').forEach(x=>x.setAttribute('aria-pressed',x===b?'true':'false'));rpSetL(r.mcL)});
+  $('#mcGoR').onclick=()=>mcGoRamp('auto');box.scrollIntoView({behavior:'smooth',block:'nearest'})}
 function mcGuide(){
   const r=APP.run,x=r.mc,t=$('#gtext'),act=$('#gact');if(!t)return;act.innerHTML='';
   const cyc=$('#cyc');if(cyc)cyc.innerHTML=cycleHTML(r.step==='predict'?0:r.step==='observe'?2:1);
@@ -2995,22 +3188,26 @@ function renderMcChal(){
   const r=APP.run;r.chal=r.chal||[];r.chalDone=false;r.mcD=MC.arms[0];
   app.innerHTML=`${cycleHTML(4)}<section class="bench">
     <div class="guide" role="status" aria-live="polite"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 29V4M8 5h16l-5 5 5 5H8"/></svg>
-      <div class="gt"><span class="who">التحدي العملي</span><p id="gtext">حمل جديد مقداره ${MC.chLoad} N على بعد ${MC.la} m من نقطة الارتكاز، وميزانك يتحمل ${MC.chF} N فقط. أين تضع الميزان لترفع الحمل؟</p><div class="gact" id="gact"></div></div></div>
+      <div class="gt"><span class="who">التحدي العملي</span><p id="gtext">حمل جديد مقداره ${MC.chLoad} N على بعد ${MC.la} m من نقطة الارتكاز، وميزانك يتحمل ${MC.chF} N فقط. اختر موضع الميزان (انقر دائرة على العارضة)، ثم اسحبه إلى أسفل.</p><div class="gact" id="gact"></div></div></div>
     <div class="gnote" id="gnote" role="alert"></div>
     <div class="frbar"><div class="seg"><span>ضع الميزان على بعد:</span>${wkChips('md',MC.arms,r.mcD,'m')}</div><button class="btn amber" id="chGo">اسحب</button></div>
     <div class="beakerzone frzone"><div class="frscroll" dir="ltr"><canvas id="mcC"></canvas></div></div><p class="swipe-hint">↔ اسحب الرسم يمينًا ويسارًا لرؤيته كاملًا</p>
   </section>`;
-  lvView.d=r.mcD;lvView.F=0;lvView.ang=-.12;lvView.load=MC.chLoad;lvView.label='';WMSIM.mount($('#mcC'),800,215,lvDraw);setTimeout(()=>frFollowEl('#mcC',450),0);
-  $$('[data-md]').forEach(b=>b.onclick=()=>{if(WMSIM.busy())return;r.mcD=+b.dataset.md;$$('[data-md]').forEach(x=>x.setAttribute('aria-pressed',x===b?'true':'false'));lvView.d=r.mcD;lvView.F=0;lvView.ang=-.12;lvView.label='';WMSIM.frame()});
-  $('#chGo').onclick=()=>{if(r.chalDone||WMSIM.busy())return;const d=r.mcD;r.chal.push(d);$('#chGo').disabled=true;
-    const need=MC.chLoad*MC.la/d;
-    WMSIM.animate(1500,k=>{const F=Math.min(need,MC.chF);lvView.F=F*Math.min(1,k*1.25);lvView.ang=need<=MC.chF+1e-9?-.12*(1-Math.max(0,(k-.55)/.45)):-.12},()=>{$('#chGo').disabled=false;const t=$('#gtext'),act=$('#gact');
-      if(need<=MC.chF+1e-9){r.chalDone=true;lvView.label='اتّزنت الرافعة';WMSIM.frame();t.textContent=bidi(`أحسنت! على بعد ${d} m تكفي ${fx1(need)} N لرفع ${MC.chLoad} N: الفائدة الآلية = ${MC.chLoad} ÷ ${fx1(need)} = ${fx1(MC.chLoad/need)}.`);
-        act.innerHTML='<button class="btn amber" id="toLearn">إلى الخلاصة</button>';$('#toLearn').onclick=()=>go('learned');return}
-      lvView.label=`الميزان وصل ${MC.chF} N ولم يرتفع الحمل`;WMSIM.frame();
-      t.textContent=bidi(`على بعد ${d} m يحتاج الحمل ${fx1(need)} N، وهذا أكبر من ${MC.chF} N.${r.chal.length>=2?' تلميح: أبعد الميزان عن نقطة الارتكاز.':''}`);
-      if(r.chal.length>=4){act.innerHTML='<button class="btn" id="skipCh" style="background:transparent;border:1px solid currentColor;color:inherit;padding:6px 12px">تخطَّ التحدي</button>';
-        $('#skipCh').onclick=()=>{r.log.push('تخطى التحدي العملي');go('learned')}}})};
+  lvView.d=r.mcD;lvMount('#mcC',MC.chLoad);lvView.cap=MC.chF;
+  const pickD=d=>{if(WMSIM.busy()||lvView.active||r.chalDone)return;r.mcD=d;$$('[data-md]').forEach(x=>x.setAttribute('aria-pressed',+x.dataset.md===d?'true':'false'));lvSetD(d);lvView.cap=MC.chF};
+  LVH.pick=pickD;LVH.grab=()=>mcChalPull(true);
+  $$('[data-md]').forEach(b=>b.onclick=()=>pickD(+b.dataset.md));
+  $('#chGo').textContent='▶ اسحب تلقائيًا';$('#chGo').onclick=()=>mcChalPull(false);
+}
+function mcChalPull(drag){
+  const r=APP.run;if(r.chalDone||WMSIM.tweening()||lvView.active)return false;const d=r.mcD;r.chal.push(d);$('#chGo').disabled=true;
+  lvStart(d,MC.chF,(ok,need)=>{$('#chGo').disabled=false;const t=$('#gtext'),act=$('#gact');
+    if(ok){r.chalDone=true;t.textContent=bidi(`أحسنت! على بعد ${d} m تكفي ${fx1(need)} N لرفع ${MC.chLoad} N: الفائدة الآلية = ${MC.chLoad} ÷ ${fx1(need)} = ${fx1(MC.chLoad/need)}.`);
+      act.innerHTML='<button class="btn amber" id="toLearn">إلى الخلاصة</button>';$('#toLearn').onclick=()=>go('learned');return}
+    t.textContent=bidi(`على بعد ${d} m يحتاج الحمل ${fx1(need)} N، وهذا أكبر من ${MC.chF} N.${r.chal.length>=2?' تلميح: أبعد الميزان عن نقطة الارتكاز.':''}`);
+    if(r.chal.length>=4){act.innerHTML='<button class="btn" id="skipCh" style="background:transparent;border:1px solid currentColor;color:inherit;padding:6px 12px">تخطَّ التحدي</button>';
+      $('#skipCh').onclick=()=>{r.log.push('تخطى التحدي العملي');go('learned')}}},drag);
+  return true;
 }
 function renderMcLearned(){
   const r=APP.run,L=MACHINES.learned(null,r),x=r.mc;
