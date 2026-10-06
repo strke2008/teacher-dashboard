@@ -2071,7 +2071,7 @@ const START_GATE_KEY = 'hw_startgate_v1';
 function startGateWho(){ try{ return localStorage.getItem(SID_KEY) || localStorage.getItem(NAME_KEY) || ''; }catch(e){ return ''; } }
 function startGateSave(open){ try{ const w = mySid || myName || startGateWho(); if(w) localStorage.setItem(START_GATE_KEY, JSON.stringify({ who:String(w), open:!!open, at:Date.now() })); }catch(e){} }
 function startGateClosedFor(){ try{ const o = JSON.parse(localStorage.getItem(START_GATE_KEY)||'null'); const w = startGateWho(); return !!(o && o.open === false && w && String(o.who) === String(w)); }catch(e){ return false; } }
-function startGated(h){ const k = String((h && h.kind) || 'normal'); return !(h && h.remedial) && !['style','diag','game','games'].includes(k); }
+function startGated(h){ const k = String((h && h.kind) || 'normal'); return !(h && h.remedial) && !['style','diag'].includes(k); }   // الألعاب أيضًا تُقفل حتى اختباري البداية (مثل قسم الألعاب)
 const START_GATE_MSG = 'يُفتح هذا النشاط بعد إكمال اختباري البداية: «اكتشف طريقة تعلمك» ثم «اعرف مستواك».';
 async function boot(){
   if(!HW || !Array.isArray(HW.q) || (HW.kind !== 'files' && !HW.q.length)){ show('s-empty'); return; }
@@ -3798,7 +3798,9 @@ async function loadStudentSpace(nm, rows){
       const retry=!!h.done && Number(MYPERKS.retry || 0)>0;
       return (teacher||project||retry)?0:1;
     };
-    return actionScore(a)-actionScore(b) || String(a.due||'9999').localeCompare(String(b.due||'9999'));
+    // 🧭 قبل اختباري البداية: «مهمتك الآن» = اكتشف طريقة تعلمك، ثم اعرف مستواك
+    const startScore=h=>h.done?2:String(h.kind||'')==='style'?0:String(h.kind||'')==='diag'?1:2;
+    return startScore(a)-startScore(b) || actionScore(a)-actionScore(b) || String(a.due||'9999').localeCompare(String(b.due||'9999'));
   });
   const next = sortedOpen[0] || null;
   const nextTitle = $('space-next');
@@ -3809,7 +3811,8 @@ async function loadStudentSpace(nm, rows){
     const teacherRetry = Number(next.extra || next.extraAttempts || 0) > 0;
     const purchasedRetry = !!next.done && Number(MYPERKS.retry || 0) > 0;
     const projectResubmit = next.kind === 'files' && String(next.reviewStatus||'').toLowerCase() === 'rejected' && Number(next.resubmitUntil||0) > Date.now();
-    const nextIcon = isRemedial ? '🩹'
+    const startKind = !next.done && ['style','diag'].includes(String(next.kind||'')) ? String(next.kind) : '';
+    const nextIcon = startKind==='style' ? '🧠' : startKind==='diag' ? '🔍' : isRemedial ? '🩹'
       : projectResubmit ? '🔁'
       : teacherRetry ? '🔓'
       : purchasedRetry ? '🔁'
@@ -3819,7 +3822,11 @@ async function loadStudentSpace(nm, rows){
       : '✏️';
     if($('space-next-icon')) $('space-next-icon').textContent = nextIcon;
     if(nextTitle) nextTitle.textContent = next.t || 'نشاط تعليمي';
-    if(nextMeta) nextMeta.textContent = isRemedial
+    if(nextMeta) nextMeta.textContent = startKind==='style'
+      ? '🧠 اختبار البداية الأول · بعده «اعرف مستواك» ثم تُفتح الأنشطة والألعاب'
+      : startKind==='diag'
+      ? '🔍 اختبار البداية الثاني · بعده تُفتح الأنشطة والألعاب'
+      : isRemedial
       ? '🩹 نشاط علاجي · مراجعة المهارات التي تحتاج إلى تعزيز'
       : projectResubmit
         ? '🔁 إعادة تسليم المشروع · يحتاج إلى تحسين ثم إعادة التسليم'
@@ -3834,7 +3841,7 @@ async function loadStudentSpace(nm, rows){
                 : next.kind==='game'
                   ? '🎮 تحدٍ تعليمي · أنجزه الآن'
                   : '✏️ تدريب وممارسة · ابدأ لإكمال مهمتك الحالية';
-    if(nextAction) nextAction.textContent = isRemedial ? '🎯 ابدأ التطوير' : projectResubmit ? '🔁 أعد التسليم' : teacherRetry ? '🔓 أعد التسليم' : purchasedRetry ? '🔁 أعد المحاولة' : '🚀 ابدأ النشاط الآن';
+    if(nextAction) nextAction.textContent = startKind ? '🚀 ابدأ الاختبار' : isRemedial ? '🎯 ابدأ التطوير' : projectResubmit ? '🔁 أعد التسليم' : teacherRetry ? '🔓 أعد التسليم' : purchasedRetry ? '🔁 أعد المحاولة' : '🚀 ابدأ النشاط الآن';
   }else{
     if($('space-next-icon')) $('space-next-icon').textContent = '✓';
     if(nextTitle) nextTitle.textContent = 'لا توجد مهمة مفتوحة الآن 🎉';
