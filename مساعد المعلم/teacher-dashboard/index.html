@@ -30159,7 +30159,7 @@ function tdKpis(){
   out.push(['🩺','خطط تنتظر قرارك',plans,"goTab('plans')"]);
   return `<div class="td-kpis">${out.map(([i,l,v,go])=>`<button type="button" class="td-kpi" onclick="${go}">${i} <span>${l}</span> <b>${v}</b></button>`).join('')}</div>`;
 }
-function brOpenFor(id){ BR.act=String(id); BR.cls=''; BR.sel=null; openBulkReminder(); }
+function brOpenFor(id){ BR.act=String(id); BR.cls=''; BR.sel=null; BR.only=null; openBulkReminder(); }
 function tdTasks(){
   const L=[], now=new Date(), t0=remKsaDay(0), t1=remKsaDay(1);
   ((typeof CT_GRADES!=='undefined'&&CT_GRADES&&CT_GRADES.alerts)||[]).forEach(a=>{
@@ -30174,6 +30174,7 @@ function tdTasks(){
     if(new Date(h.due+'T23:59:59')<now) L.push({key:`od:${h.id}:${miss}`,lv:'bad',ic:'⏰',t:`«${h.title}» انتهى موعده · ${miss} لم ${miss===1?'يسلّم':'يسلّموا'}`,acts});
     else if(h.due===t0||h.due===t1) L.push({key:`soon:${h.id}:${miss}:${h.due}`,lv:'warn',ic:'⏳',t:`«${h.title}» ينتهي ${h.due===t0?'اليوم':'غدًا'} · ${miss} لم ${miss===1?'يسلّم':'يسلّموا'} بعد`,acts});
   });
+  { const e=typeof brEffect==='function'?brEffect():null; if(e&&e.n&&e.pending.length) L.push({key:'bre:'+e.last+':'+e.pending.length,lv:'info',ic:'📈',t:`أثر التذكير: سلّم ${e.done} من ${e.n} ذكّرتهم — لم يستجب ${e.pending.length}`,acts:[['📨 ذكّرهم','brRemindPending()']]}); }
   { const ns=typeof nsList==='function'?nsList():[]; if(ns.length) L.push({key:'ns:'+ns.map(x=>x.s.id).join(','),lv:'warn',ic:'🚶',t:`${ns.length===1?'طالب واحد لم يبدأ':ns.length===2?'طالبان لم يبدآ':ns.length+' طلاب لم يبدؤوا'} بعد — لم ${ns.length===1?'يسلّم':ns.length===2?'يسلّما':'يسلّموا'} أي نشاط في البوابة`,acts:[['عرض','nsOpen()']]}); }
   thActions().forEach(([lv,ic,t,n,go])=>{
     if(/انتهت مواعيدها|ينتهي خلال يومين|متأخر(ون)? لم تذكّر/.test(t)) return;   // مغطّاة بأسطر الأنشطة أعلاه
@@ -30746,10 +30747,23 @@ function remCompose(s,x){
 }
 
 /* ═════════ 📨 التذكير الجماعي: رسالة شخصية لكل طالب إلى بوابته ═════════ */
-const BR={cls:'',act:'',soon:true,paper:true,mad:true,sel:null,rows:[],D:null,madBy:null,busy:false};
-async function openBulkReminder(){
+const BR={cls:'',act:'',soon:true,paper:true,mad:true,sel:null,only:null,rows:[],D:null,madBy:null,busy:false};
+/* 🚶 لم يسلّم أي نشاط قط ⇒ الأرجح أنه لا يفتح البوابة: التذكير لبوابته لا يصله، فالأنفع ولي الأمر */
+function brNoPortal(s){ return !(HW||[]).some(h=>h&&h.subs&&h.subs[s.id]); }
+/* 📈 أثر التذكير: من ذكّرتهم في آخر 7 أيام — من سلّم بعد التذكير، ومن ما زال عليه شيء */
+function brEffect(){
+  const since=Date.now()-7*864e5, out={n:0,done:0,pending:[],last:0};
+  (STUDENTS||[]).forEach(s=>{ const r=remLast(s,'student'); if(!r||r.at<since) return; out.n++; out.last=Math.max(out.last,r.at);
+    const after=(HW||[]).some(h=>{ const v=h&&h.subs&&h.subs[s.id]; return v&&Number(v.at)>r.at; });
+    if(after) out.done++; else if(getStudentMissingActivities(s).length||remSoonActivities(s).length) out.pending.push(String(s.id)); });
+  return out;
+}
+function brEffectLine(){ const e=brEffect(); if(!e.n) return '';
+  return `<div class="br-eff">📈 <b>أثر التذكير:</b> ذكّرت ${e.n===1?'طالبًا واحدًا':e.n===2?'طالبين':e.n+(e.n<=10?' طلاب':' طالبًا')} خلال الأسبوع — سلّم منهم بعد التذكير <b style="color:#13734f">${e.done} ✓</b>${e.pending.length?` · لم يستجب ${e.pending.length} <button class="btn ghost sm" onclick="brRemindPending()">📨 ذكّر من لم يستجب</button>`:' · 👏 استجاب الجميع'}</div>`; }
+function brRemindPending(){ const e=brEffect(); BR.cls=''; BR.act=''; BR.only=new Set(e.pending); BR.sel=null; if(document.getElementById('modal')&&/تذكير جماعي/.test(document.getElementById('modal').textContent||'')) brRender(); else openBulkReminder(true); }
+async function openBulkReminder(keepOnly){
   openModal('<h2>📨 تذكير جماعي</h2><div class="muted" style="padding:1rem">⏳ جارٍ تجهيز القائمة…</div>');
-  BR.sel=null;
+  BR.sel=null; if(!keepOnly) BR.only=null;
   try{ BR.D=await loadComprehensiveClassroom(false); }catch(e){ BR.D=null; }
   BR.madBy=null;
   try{ const dates=[...Array(14)].map((_,i)=>remKsaDay(-i));
@@ -30762,7 +30776,7 @@ function brMad(sid){
   return [...(md.m||[]).map(t=>({title:t,st:'closed'})),...(md.o||[]).map(o=>({title:o.t,st:'pending',dueAt:o.d}))];
 }
 function brBuild(){
-  const roster=(STUDENTS||[]).filter(s=>!BR.cls||String(s.cls||'')===BR.cls);
+  const roster=(STUDENTS||[]).filter(s=>(!BR.cls||String(s.cls||'')===BR.cls)&&(!BR.only||BR.only.has(String(s.id))));
   BR.rows=roster.map(s=>{
     const missing=getStudentMissingActivities(s), soonAll=remSoonActivities(s);
     // نشاط محدد: متأخر أو ينتهي اليوم/غدًا — من لم يسلّمه فقط
@@ -30771,9 +30785,10 @@ function brBuild(){
     const x={missing, soon:(BR.soon||actSoon)?soonAll:[], paper:BR.paper?remPaperMissed(s,BR.D):[], mad:BR.mad?brMad(s.id):[]};
     if(!x.missing.length&&!x.soon.length&&!x.paper.length&&!x.mad.length) return null;
     const last=remLast(s,'student'), recent=!!(last&&Date.now()-last.at<REM_GUARD_MS);
-    return {s,x,last,recent,msg:remCompose(s,x).student};
+    const cm=remCompose(s,x); return {s,x,last,recent,np:brNoPortal(s),msg:cm.student,pmsg:cm.parent};
   }).filter(Boolean).sort((a,b)=>(b.x.missing.length-a.x.missing.length)||String(a.s.name).localeCompare(String(b.s.name),'ar'));
-  if(!BR.sel) BR.sel=new Set(BR.rows.filter(r=>!r.recent).map(r=>String(r.s.id)));
+  // التحديد الافتراضي: لا من ذكّرته قبل يومين، ولا من لا يفتح البوابة (رسالته لولي أمره) — إلا في «ذكّر من لم يستجب»
+  if(!BR.sel) BR.sel=new Set(BR.rows.filter(r=>BR.only?!r.np:(!r.recent&&!r.np)).map(r=>String(r.s.id)));
   else { const ids=new Set(BR.rows.map(r=>String(r.s.id))); [...BR.sel].forEach(i=>{ if(!ids.has(i)) BR.sel.delete(i); }); }
 }
 function brRender(){
@@ -30784,6 +30799,8 @@ function brRender(){
   const chip=(c,t)=>`<span class="br-chip ${c}">${t}</span>`;
   openModal(`<h2>📨 تذكير جماعي</h2>
     <p class="muted" style="font-size:.82rem;margin:.1rem 0 .4rem">رسالة شخصية لكل طالب بما عليه هو فقط، تصل إلى «أنشطتي» في بوابته وتنبيهًا على جواله. من ذكّرته خلال يومين غير محدد تلقائيًا.</p>
+    ${BR.only?`<div class="br-eff">🎯 تعرض فقط من ذكّرتهم ولم يستجيبوا (${BR.rows.length}) <button class="btn ghost sm" onclick="BR.only=null;BR.sel=null;brRender()">عرض الكل</button></div>`:brEffectLine()}
+    ${(()=>{ const np=BR.rows.filter(r=>r.np).length; return np?`<div class="br-np">🚶 ${np===1?'<b>طالب</b> لم يسلّم':np===2?'<b>طالبان</b> لم يسلّما':`<b>${np}</b> ${np<=10?'طلاب':'طالبًا'} لم يسلّموا`} أي نشاط قط — الأرجح أنهم لا يفتحون البوابة، فلم يُحدَّدوا. أرسل لأولياء أمورهم بزر «💬 ولي الأمر» بجانب كل اسم.</div>`:''; })()}
     <div class="br-tools">
       <select class="inp" style="width:auto" onchange="BR.cls=this.value;BR.act='';BR.sel=null;brRender()"><option value="">كل الفصول</option>${classes.map(c=>`<option ${c===BR.cls?'selected':''}>${esc(c)}</option>`).join('')}</select>
       <select class="inp" style="width:auto;max-width:240px" onchange="BR.act=this.value;BR.sel=null;brRender()"><option value="">كل الأنشطة المتأخرة والقريبة</option>${overdueActs.map(h=>`<option value="${esc(h.id)}" ${String(h.id)===BR.act?'selected':''}>${esc(h.title)}</option>`).join('')}</select>
@@ -30795,8 +30812,9 @@ function brRender(){
       return `<div class="br-row ${on?'':'off'}"><input type="checkbox" ${on?'checked':''} onchange="brToggle('${esc(id)}',this.checked)">
         <div class="br-main"><b>${esc(r.s.name)}</b><small>${esc(r.s.cls||'')}</small>
           <div class="br-chips">${r.x.missing.length?chip('late',`⏰ ${r.x.missing.length} متأخر`):''}${r.x.soon.length?chip('soon',`⏳ ${r.x.soon.length} قريب`):''}${r.x.paper.length?chip('paper',`📕 ورقي ${r.x.paper.length}`):''}${r.x.mad.length?chip('mad',`📱 مدرستي ${r.x.mad.length}`):''}
-          ${r.last?`<span class="br-last">آخر تذكير ${remAgo(r.last.at)}</span>`:''}</div>
-          <details><summary class="muted" style="font-size:.74rem;cursor:pointer">عرض الرسالة</summary><div class="br-msg">${esc(r.msg)}</div></details></div></div>`; }).join('')}</div>`
+          ${r.np?chip('np','🚶 لا يفتح البوابة'):''}${r.last?`<span class="br-last">آخر تذكير ${remAgo(r.last.at)}</span>`:''}${(()=>{ const pl=remLast(r.s,'parent'); return pl?`<span class="br-last">· ولي الأمر ${remAgo(pl.at)}</span>`:''; })()}</div>
+          <details><summary class="muted" style="font-size:.74rem;cursor:pointer">عرض الرسالة</summary><div class="br-msg">${esc(r.msg)}</div></details></div>
+        <div class="br-par"><button class="btn ghost sm" title="رسالة جاهزة لولي الأمر عبر واتساب" onclick="brParent('${esc(id)}','wa')">💬 ولي الأمر</button><button class="btn ghost sm" title="نسخ رسالة ولي الأمر" onclick="brParent('${esc(id)}','copy')">📋</button></div></div>`; }).join('')}</div>`
       :'<div class="feature-empty">لا يوجد طالب يحتاج تذكيرًا بهذه الشروط 🌿</div>'}
     <div class="br-foot"><button class="btn ghost sm" onclick="brAll(true)">تحديد الكل</button><button class="btn ghost sm" onclick="brAll(false)">إلغاء التحديد</button>
       <span class="spacer"></span><span class="br-status" id="br-status"></span>
@@ -30812,8 +30830,8 @@ async function brSend(){
   if(!(await askConfirm(`سيصل تذكير شخصي إلى بوابة ${list.length} ${list.length===1?'طالب':'طلاب'}، كلٌّ بما عليه فقط.`,{title:'تأكيد التذكير الجماعي',yes:'أرسل'}))) return;
   BR.busy=true; const st=document.getElementById('br-status'), btn=document.getElementById('br-send'); if(btn) btn.disabled=true;
   let ok=0; const fails=[];
-  for(const r of list){
-    if(st) st.textContent=`جارٍ الإرسال… ${ok}/${list.length}`;
+  // ⚡ عدة طلاب في وقت واحد (6) بدل واحد تلو الآخر
+  const one=async r=>{
     try{
       const res=await fetch(api.replace(/\/+$/,'')+'/messages',{method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({t:tok,audience:'students',title:'تذكير: أنشطة لم تُسلَّم',body:r.msg,type:'activity',priority:'important',recipients:[{id:String(r.s.id),name:String(r.s.name||'')}]})});
@@ -30821,8 +30839,10 @@ async function brSend(){
       if(res.ok&&j.ok){ ok++; remLogAdd(r.s.id,'student','bulk'); markFollowupHandled(r.s.id); BR.sel.delete(String(r.s.id)); }
       else fails.push(r.s.name);
     }catch(e){ fails.push(r.s.name); }
-  }
-  BR.busy=false;
+    if(st) st.textContent=`جارٍ الإرسال… ${ok+fails.length}/${list.length}`;
+  };
+  const q=list.slice(); await Promise.all(Array.from({length:Math.min(6,q.length)},async()=>{ while(q.length) await one(q.shift()); }));
+  BR.busy=false; BR.only=null;
   try{ renderDashboard(); thDraw(); }catch(e){}
   brRender();
   const st2=document.getElementById('br-status');
@@ -31554,4 +31574,23 @@ async function tlReset(){ try{ localStorage.removeItem(TL_KEY); }catch(e){} tlAp
   // على الشاشة الواسعة تُفتح البطاقات التفصيلية تلقائيًا؛ على الجوال تبقى مطوية
   try{ if(window.matchMedia('(min-width:1000px)').matches) B.querySelectorAll(':scope>details.td-blk').forEach(d=>d.open=true); }catch(e){}
 })();
+</script><style id="br-v2-css">
+.br-eff,.br-np{font-size:.8rem;border-radius:10px;padding:.45rem .6rem;margin:.3rem 0;line-height:1.8}
+.br-eff .btn{margin-inline-start:.35rem}
+.br-eff{background:rgba(27,156,107,.08);border:1px solid rgba(27,156,107,.25)}
+.br-np{background:rgba(224,161,0,.1);border:1px solid rgba(224,161,0,.3)}
+.br-chip.np{background:rgba(100,116,139,.14);color:#475569}
+.br-row{position:relative}.br-par{display:flex;gap:.2rem;align-items:flex-start;flex:none}
+.br-row.off{opacity:1}.br-row.off>input,.br-row.off>.br-main{opacity:.55}   /* غير المحدد باهت، لكن زر ولي الأمر يبقى واضحًا */
+</style>
+<script id="br-v2-js">
+/* 💬 رسالة ولي الأمر من التذكير الجماعي — النص المبني من حالة الطالب (remCompose.parent) */
+async function brParent(id,how){
+  const r=(BR.rows||[]).find(x=>String(x.s.id)===String(id)); if(!r) return; const t=r.pmsg;
+  if(how==='wa'){ const w=window.open('https://wa.me/?text='+encodeURIComponent(t),'_blank','noopener'); if(!w) location.href='https://wa.me/?text='+encodeURIComponent(t); }
+  else { try{ await navigator.clipboard.writeText(t); toast('📋 نُسخت رسالة ولي الأمر','good'); }catch(e){ prompt('انسخ الرسالة:',t); } }
+  remLogAdd(r.s.id,'parent','bulk');
+  try{ await ctSave(D=>{ D.contacts=Array.isArray(D.contacts)?D.contacts:[]; D.contacts.push({id:v2Id(),studentId:String(r.s.id),date:ctToday(),channel:how==='wa'?'واتساب':'رسالة نصية',reason:'تذكير بالأنشطة المتأخرة',result:'',at:Date.now()}); }); }catch(e){}
+  brRender();
+}
 </script>
