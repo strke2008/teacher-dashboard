@@ -29388,7 +29388,10 @@ async function madBridgeInit(force){
   try{ if(!localStorage.getItem('madb_scope_v2')){ if(localStorage.getItem('madb_scope')==='2w') localStorage.setItem('madb_scope','7d'); localStorage.setItem('madb_scope_v2','1'); } }catch(e){}
   const sc=localStorage.getItem('madb_scope'), sk=localStorage.getItem('madb_skip');
   { const sel=madbEl('madb-scope'); if(sel&&!sel._hint){ sel._hint=1; const h=document.createElement('small'); h.id='madb-scope-hint'; h.style.cssText='color:#a3283c;font-weight:700';
-      sel.after(h); const upd=()=>{ h.textContent=['term','4w'].includes(sel.value)?'⚠️ نطاق واسع — قد تستغرق المزامنة وقتًا طويلًا':''; }; sel.addEventListener('change',upd); setTimeout(upd,0); } }
+      sel.after(h); const upd=()=>{ h.textContent=['term','4w'].includes(sel.value)?'⚠️ نطاق واسع — قد تستغرق المزامنة وقتًا طويلًا':''; }; sel.addEventListener('change',upd); setTimeout(upd,0);
+      // 💾 يُحفظ فور التغيير (لا عند المزامنة فقط): هنا وفي الإضافة، فيبقى بعد إغلاق الصفحة ويطبَّق على المزامنة التلقائية
+      sel.addEventListener('change',()=>{ try{ localStorage.setItem('madb_scope',sel.value); }catch(e){} madbCall('setAuto',{scope:sel.value}); });
+      const sk2=madbEl('madb-skip'); if(sk2) sk2.addEventListener('change',()=>{ try{ localStorage.setItem('madb_skip',sk2.value); }catch(e){} madbCall('setAuto',{skipMode:sk2.value}); }); } }
   if(sc) madbEl('madb-scope').value=sc; if(sk) madbEl('madb-skip').value=sk;
   await madbRefresh();
   const pr=await madbCall('progress'); if(pr && pr.running) madbProgress(pr);
@@ -29409,7 +29412,9 @@ async function madbRefresh(){
   madbEl('madb-on').checked=!!a.enabled;
   madbEl('madb-days').innerHTML=MADB_DAYS.map((n,i)=>`<label class="madb-day ${a.days.includes(i)?'on':''}"><input type="checkbox" value="${i}" ${a.days.includes(i)?'checked':''} onchange="this.parentNode.classList.toggle('on',this.checked)">${n}</label>`).join('');
   madbEl('madb-time').value=String(a.hour).padStart(2,'0')+':'+String(a.minute).padStart(2,'0');
-  if(a.scope && !localStorage.getItem('madb_scope')){ madbEl('madb-scope').value=a.scope; madbEl('madb-scope').dispatchEvent(new Event('change')); }
+  // مصدر الحقيقة: النطاق المحفوظ هنا؛ وإلا ما في الإضافة (rangeMode) — لا «scope» القديم المحفوظ من جدولة سابقة
+  if(!localStorage.getItem('madb_scope')){ const R2S={last7:'7d',current:'week',last2:'2w',last4:'4w',all:'term'}, v=R2S[a.rangeMode]||'7d';
+    madbEl('madb-scope').value=v; localStorage.setItem('madb_scope',v); madbEl('madb-scope').dispatchEvent(new Event('change')); }
   if(a.skipMode && !localStorage.getItem('madb_skip')) madbEl('madb-skip').value=a.skipMode;
 }
 function madbProgress(p){
