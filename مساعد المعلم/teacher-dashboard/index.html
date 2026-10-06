@@ -17711,11 +17711,12 @@ function previewThanksMessage(btn){
 
   openModal(`
     <h2>💌 رسالة الشكر — ${esc(studentName)}</h2>
+    <p class="muted" style="font-size:.8rem;margin:.1rem 0 .5rem">أوصلها بالطريقة الأسهل لك: لمساحة الطالب في البوابة، أو انسخها لواتساب ولي الأمر — ثم «✓ تم» لإنهاء الطلب وتسجيلها في ملفه.</p>
     <div class="thanks-preview-inner thanks-modal-preview"></div>
     <div class="modal-foot">
       <button class="btn primary" onclick="copyThanksMessage(this)" data-message="${esc(message)}">📋 نسخ الرسالة</button>
     ${btn.dataset.sid ? `<button class="btn tick${thanksPortalAt(btn.dataset.key) ? ' tp-sent' : ''}" onclick="sendThanksToPortal(this)" data-message="${esc(message)}" data-sid="${esc(btn.dataset.sid)}" data-name="${esc(btn.dataset.name || '')}" data-key="${esc(btn.dataset.key || '')}">${thanksPortalLabel(btn.dataset.key, true)}</button>` : ''}
-    ${btn.dataset.key ? `<button class="btn ghost" onclick="closeModal();resolveReq('${esc(btn.dataset.key)}','sent')">✓ أرسلتها</button>` : ''}
+    ${btn.dataset.key ? `<button class="btn tick" onclick="doResolveReq('${esc(btn.dataset.key)}','sent')" title="يُزيل الطلب ويسجّل الرسالة في ملف الطالب">✓ تم — أنهِ الطلب</button>` : ''}
       <button class="btn ghost" onclick="closeModal()">إغلاق</button>
     </div>
   `);
@@ -17747,7 +17748,7 @@ async function sendThanksToPortal(btn){
     const j = await r.json().catch(() => ({}));
     if(!r.ok || !j.ok) throw new Error(j.error || ('http_' + r.status));
     if(key){ const m = thanksPortalMap(); m[key] = Date.now(); try{ localStorage.setItem(TP_SENT_KEY, JSON.stringify(m)); }catch(e){} const q=(REQS||[]).find(x=>x.key===key); if(q){ q.portalAt=Date.now(); save(K.reqs, REQS); } }
-    toast(`📨 وصلت رسالة الشكر إلى مساحة ${name} — ويمكنك نسخها للواتساب أيضًا`, 'good');
+    toast(`📨 وصلت رسالة الشكر إلى مساحة ${name} — اضغط «✓ تم» لإنهاء الطلب`, 'good'); try{ renderReqs(); }catch(e){}
     btn.disabled = false; btn.classList.add('tp-sent'); btn.textContent = thanksPortalLabel(key, btn.classList.contains('tick'));
     if(btn.classList.contains('tick')) btn.textContent = thanksPortalLabel(key);
     document.querySelectorAll('.attention-request-actions button[data-key]').forEach(b => { if(b.dataset.key === key && (b.getAttribute('onclick') || '').startsWith('sendThanksToPortal')){ b.classList.add('tp-sent'); b.textContent = thanksPortalLabel(key); } });
@@ -17920,15 +17921,14 @@ function renderReqs(){
               <span class="attention-request-avatar">${esc(initials(name))}</span>
               <div>
                 <b>${esc(name)}</b>
-                <small>${cls ? `<span class="pill quiet" style="font-size:.72rem;margin-inline-end:.3rem">🎓 ${esc(cls)}</span>` : ''}يستحق رسالة شكر لولي الأمر</small>
+                <small>${cls ? `<span class="pill quiet" style="font-size:.72rem;margin-inline-end:.3rem">🎓 ${esc(cls)}</span>` : ''}${(()=>{ const pa=thanksPortalAt(q.key); let ago=''; try{ if(q.at){ const dd=Math.floor((Date.now()-q.at)/864e5); ago=dd<=0?'اليوم':dd===1?'أمس':`منذ ${dd} أيام`; } }catch(e){}
+                  return `اشترى رسالة شكر لولي أمره${ago?' · '+ago:''}${pa?` · <span style="color:#13734f;font-weight:700">${esc(thanksPortalLabel(q.key))}</span>`:''}`; })()}</small>
               </div>
             </div>
-            <div class="attention-request-actions">
-              <button class="btn sm" onclick="previewThanksMessage(this)" data-message="${esc(message)}" data-sid="${esc(st ? st.id : '')}" data-name="${esc(name)}" data-key="${esc(q.key)}">👁️ عرض</button>
-       <button class="btn sm${thanksPortalAt(q.key) ? ' tp-sent' : ''}" onclick="sendThanksToPortal(this)" data-message="${esc(message)}" data-sid="${esc(st ? st.id : '')}" data-name="${esc(name)}" data-key="${esc(q.key)}" ${st ? '' : 'disabled title="الاسم غير موجود في قائمة الطلاب — لا يمكن تحديد مساحته"'}>${thanksPortalLabel(q.key)}</button>
-              <button class="btn primary sm" onclick="copyThanksMessage(this)" data-message="${esc(message)}">📋 نسخ</button>
-              <button class="btn tick sm" onclick="resolveReq('${esc(q.key)}','sent')">✓ أرسلتها</button>
-              <button class="btn ghost sm" onclick="resolveReq('${esc(q.key)}','skipped')" title="أزله وسجّل أنه لم يُرسل">تخطٍّ</button>
+            <div class="attention-request-actions">${(()=>{ const pa=thanksPortalAt(q.key), d=`data-message="${esc(message)}" data-sid="${esc(st ? st.id : '')}" data-name="${esc(name)}" data-key="${esc(q.key)}"`;
+              return pa
+                ? `<button class="btn tick sm" onclick="doResolveReq('${esc(q.key)}','sent')" title="الرسالة وصلت لمساحة الطالب — أنهِ الطلب وسجّله في ملفه">✓ إنهاء الطلب</button><button class="btn ghost sm" onclick="previewThanksMessage(this)" ${d}>💌 الرسالة</button>`
+                : `<button class="btn primary sm" onclick="previewThanksMessage(this)" ${d}>💌 أرسل الرسالة</button><button class="btn ghost sm" onclick="resolveReq('${esc(q.key)}','skipped')" title="أزله وسجّل أنه لم يُرسل">تخطٍّ</button>`; })()}
             </div>
           </div>`;
         }).join('')}
