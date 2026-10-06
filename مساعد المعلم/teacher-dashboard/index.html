@@ -6552,6 +6552,7 @@ body{
 <button class="btn ghost sm" onclick="openQuickStudent()">+ طالب</button>
 </div>
 <div class="today-hub no-print" id="today-hub"></div>
+<div class="td-more-grid">
 <details class="td-more" id="td-more-alerts"><summary>🔔 التنبيهات بالتفصيل والطلبات <span class="alert-count" id="dash-alert-badge">0</span><span class="attention-req-count" id="attention-req-count" style="display:none">0</span><span class="attention-req-count" id="dev-warn-count" style="display:none;background:var(--pen)">0</span></summary>
 <div class="sheet alerts-sheet" style="margin:0">
 <div class="alert-section-head"><span class="alert-summary" id="dash-alert-count">كل شيء جيد</span></div>
@@ -6564,6 +6565,7 @@ body{
 <details class="td-more"><summary>🕐 آخر التسليمات</summary><div class="sheet" style="margin:0"><div class="feature-list" id="dash-recent"></div></div></details>
 <details class="td-more"><summary>📚 حالة الأنشطة <span class="muted" id="dash-hw-summary"></span></summary><div class="sheet" style="margin:0"><div id="dash-hw"></div></div></details>
 <details class="td-more"><summary>📊 أرقام عامة</summary><div class="feature-grid" id="dash-stats"></div></details>
+</div>
 <div hidden><div class="sheet"><div class="feature-list" id="dash-next-actions"></div></div></div>
 </section>
 <!-- ═══ رسائل الطلاب ═══ -->
@@ -30185,10 +30187,10 @@ function thDraw(){
     <span class="td-acts">${x.acts.map(([l,go])=>`<button type="button" class="btn ghost sm" onclick="${go}">${l}</button>`).join('')}${x.doneJs?`<button type="button" class="td-done" title="تم الإرسال — يُزال حتى يتكرر من جديد" onclick="${x.doneJs}">✓ تم</button>`:x.remId?`<button type="button" class="td-done" title="تمّت — تُحفظ في تذكيراتك بالبوابة أيضًا" onclick="tdRemDone('${thEsc(x.remId)}')">✓ تم</button>`:`<button type="button" class="td-done" title="تم — إخفاؤه حتى يتغيّر" onclick="tdMarkDone('${thEsc(x.key).replace(/'/g,"\\'")}')">✓ تم</button>`}</span></div>`;
   tdLiveTick();
   box.innerHTML=`${tdNowBar()}${tdKpis()}${tdAbsentLine()}
-    <div class="td-card"><div class="td-card-h"><b>✅ مهام اليوم</b><a href="#" class="td-link" onclick="event.preventDefault();rmgOpen()">⏰ تذكيراتي</a><small>${open.length?`${open.length} ${open.length===1?'مهمة':'مهام'}`:''}${hid?` · <a href="#" onclick="event.preventDefault();tdUndoAll()">إظهار المنجزة (${hid})</a>`:''}</small></div>
+    <div class="td-split"><div class="td-card td-taskcard"><div class="td-card-h"><b>✅ مهام اليوم</b><a href="#" class="td-link" onclick="event.preventDefault();rmgOpen()">⏰ تذكيراتي</a><small>${open.length?`${open.length} ${open.length===1?'مهمة':'مهام'}`:''}${hid?` · <a href="#" onclick="event.preventDefault();tdUndoAll()">إظهار المنجزة (${hid})</a>`:''}</small></div>
       ${main.length?main.map(row).join(''):(TH_BUSY&&!CT_DATA?'<div class="muted" style="padding:.6rem">⏳ جارٍ الفحص…</div>':'<div class="td-empty">🌿 لا شيء عاجل — كل شيء تحت السيطرة</div>')}
       ${low.length?`<details class="td-low"><summary>أقل أهمية (${low.length})</summary>${low.map(row).join('')}</details>`:''}</div>
-    ${tdWeek()}`;
+    <div class="td-weekcard">${tdWeek()}</div></div>`;
 }
 /* كل تحديث للوحة (تسليم جديد، مزامنة، إرسال تذكير) يعيد رسم «مهام اليوم» */
 (function(){ const _rd=window.renderDashboard; if(typeof _rd!=='function') return;
@@ -31417,4 +31419,28 @@ function nsOpen(){
       <button class="btn ghost sm" onclick="ctOpenProfile('${esc(x.s.id)}')">📁</button></div>`).join('')}`).join('')||'<div class="feature-empty">🎉 كل الطلاب بدؤوا.</div>'}
     <div class="modal-foot"><button class="btn ghost" onclick="closeModal()">إغلاق</button></div>`);
 }
+</script><style id="today-layout-css">
+/* 🖥️ الشاشة الواسعة: المهام قائمة مرتبة بالأولوية، وبجانبها الأسبوع عموديًا؛ والأقسام التفصيلية بطاقات متجاورة مفتوحة */
+@media (min-width:1000px){
+  .td-split{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(250px,1fr);gap:.8rem;align-items:start;margin-bottom:1rem}
+  .td-split>.td-card{margin-bottom:0}
+  .td-weekcard{background:var(--ui-surface,#fff);border:1px solid var(--ui-border,#e5e7eb);border-radius:14px;padding:.7rem .8rem}
+  .td-weekcard .td-week{grid-template-columns:1fr;overflow:visible;margin:0;gap:.35rem}
+  .td-weekcard .td-day{min-height:0;display:flex;gap:.5rem;align-items:flex-start;flex-wrap:wrap;padding:.35rem .5rem}
+  .td-weekcard .td-day h4{margin:0;flex:0 0 92px;gap:.3rem;justify-content:flex-start}
+  .td-weekcard .td-day>:not(h4){flex:1 1 140px}
+  .td-more-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.7rem;align-items:start}
+  .td-more-grid>.td-more{margin:0;background:var(--ui-surface,#fff);border:1px solid var(--ui-border,#e5e7eb);border-radius:14px;min-width:0}
+  .td-more-grid>.td-more>summary{border:0;border-bottom:1px solid transparent;border-radius:14px 14px 0 0;background:none}
+  .td-more-grid>.td-more[open]>summary{border-bottom-color:var(--ui-border,#e5e7eb);margin-bottom:0}
+  .td-more-grid>.td-more>:not(summary){max-height:300px;overflow:auto;padding:.5rem .6rem;box-shadow:none!important;border:0!important}
+  .td-more-grid>#td-more-alerts{grid-column:span 2}
+  .td-more-grid>#td-more-alerts>:not(summary){max-height:360px}
+  .td-more-grid>.td-more>summary .btn{white-space:nowrap;flex:none}
+  .td-more-grid #dash-stats{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}
+</style>
+<script id="today-layout-js">
+/* على الشاشة الواسعة تُفتح البطاقات التفصيلية تلقائيًا (مرة عند التحميل) — على الجوال تبقى مطوية */
+(function(){ try{ if(window.matchMedia('(min-width:1000px)').matches) document.querySelectorAll('.td-more-grid>.td-more').forEach(d=>d.open=true); }catch(e){} })();
 </script>
