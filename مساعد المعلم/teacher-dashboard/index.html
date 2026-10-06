@@ -29404,11 +29404,13 @@ async function madbRefresh(){
   const lrTxt=!lr?'لم تُشغَّل مزامنة بعد.'
     : lr.error==='login_needed'?`آخر محاولة ${f(lr.at)}: احتاجت تسجيل دخول لمدرستي.`
     : lr.error==='no_token'?'آخر محاولة: لا توجد كلمة سر — افتح هذه الصفحة وسيُمرَّر إعدادك تلقائيًا.'
+    : lr.error==='cancelled'?`آخر مزامنة ${f(lr.at)}: أُوقفت يدويًا بعد ${lr.saved||0} فصل.`
     : lr.error && lr.error!=='running'?`آخر محاولة ${f(lr.at)}: ${lr.error}`
     : `آخر مزامنة ${f(lr.at)}: حُدّث ${lr.saved||0} فصل${lr.skipped?` · تُخطّي ${lr.skipped} (سُحب سابقًا)`:''}${lr.readErrors?` · تعذّرت قراءة ${lr.readErrors}`:''}${lr.saveErrors?` · تعذّر حفظ ${lr.saveErrors}`:''}.`;
   madbEl('madb-last').innerHTML=`${esc(lrTxt)}${a.enabled&&a.nextAt?`<br>⏰ المزامنة القادمة: <b>${esc(f(a.nextAt))}</b>`:a.enabled?'':'<br>⏰ الجدولة متوقفة.'}${a.pendingLogin?'<br>🔑 بانتظار تسجيل دخولك لمدرستي لإكمال المزامنة.':''}`;
   { const mbDur=min=>min<60?`${min} د`:min<1440?`${Math.round(min/60)} س`:`${Math.round(min/1440)} يوم`, ss=a.sess;
     if(ss&&ss.since){ const now=Date.now(); madbEl('madb-last').innerHTML+=`<br>${esc(ss.dead?`🔒 انتهت جلسة مدرستي قبل ${mbDur(Math.max(1,Math.round((now-ss.dead)/60000)))}`:`🟢 جلسة مدرستي حيّة منذ ${mbDur(Math.max(1,Math.round((now-ss.since)/60000)))} — تُبقيها الإضافة نشطة ما دام المتصفح مفتوحًا`)}${(ss.durs||[]).length?`<br><small class="muted">مدة بقاء الجلسات السابقة: ${esc(ss.durs.map(mbDur).join('، '))}</small>`:''}`; } }
+  if(lr&&lr.plan){ const P=lr.plan; madbEl('madb-last').innerHTML+=`<br><small class="muted">📋 خطة آخر مزامنة: ${P.open} مفتوح · ${P.ended} انتهى حديثًا${P.noDate?` · ${P.noDate} بلا تاريخ`:''} — تُخطّي ${P.final} نهائي (قُرئ بعد إغلاقه) و${P.out} أقدم من النطاق</small>`; }
   madbEl('madb-on').checked=!!a.enabled;
   madbEl('madb-days').innerHTML=MADB_DAYS.map((n,i)=>`<label class="madb-day ${a.days.includes(i)?'on':''}"><input type="checkbox" value="${i}" ${a.days.includes(i)?'checked':''} onchange="this.parentNode.classList.toggle('on',this.checked)">${n}</label>`).join('');
   madbEl('madb-time').value=String(a.hour).padStart(2,'0')+':'+String(a.minute).padStart(2,'0');

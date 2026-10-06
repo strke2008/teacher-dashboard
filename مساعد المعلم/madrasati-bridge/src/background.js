@@ -293,7 +293,7 @@ async function runAuto(trigger, options = {}) {
       return summary;
     }
     let saved = { ok: true, keys: new Set(), records: new Map(), count: 0 };
-    if (cfg.skipExisting) saved = await getMadrasatiSavedKeys(api, token);
+    saved = await getMadrasatiSavedKeys(api, token);   // دائمًا: نحتاجه لمعرفة الواجب المنتهي الذي قُرئت نتيجته النهائية
     summary.savedHistory = saved.count || 0;
     const selectedKeys = new Set(
       Array.isArray(options.selectedKeys)
@@ -336,7 +336,13 @@ async function runAuto(trigger, options = {}) {
     for (const a of list.assignments) for (const c of a.classes) {
       const key = String(c.key || '').toUpperCase();
       if (hasSelection && !selectedKeys.has(key)) continue;
-      if (from && c.dueAt && (c.dueAt < from || (to && c.dueAt >= to))) continue;
+      const rec = saved.records.get(key), ended = !!c.ended || !!(c.dueAt && c.dueAt < Date.now());
+      /* ✅ منتهٍ وقُرئ بعد إغلاقه = نتيجته نهائية لا تتغير — لا يُعاد (إلا بـ«أعد سحب كل شيء») */
+      if (!hasSelection && skipMode !== 'none' && ended && rec && Number(rec.syncedAt) > 0 &&
+          (c.dueAt ? Number(rec.syncedAt) > c.dueAt : true)) { summary.skippedFinal = (summary.skippedFinal || 0) + 1; continue; }
+      if (from && c.dueAt && (c.dueAt < from || (to && c.dueAt >= to))) { summary.outOfRange = (summary.outOfRange || 0) + 1; continue; }
+      /* بلا تاريخ مقروء: المفتوح يُقرأ، والمنتهي يُقرأ فقط إن لم يُحفظ قط (مرة واحدة) — كان يُقرأ كل مرة مهما قدُم */
+      if (from && !c.dueAt && ended && rec) { summary.skippedFinal = (summary.skippedFinal || 0) + 1; continue; }
 
       if (!hasSelection && cfg.skipExisting) {
         const savedRecord = saved.records.get(key);
@@ -350,8 +356,11 @@ async function runAuto(trigger, options = {}) {
         }
       }
 
-      jobs.push({ a, c });
+      jobs.push({ a, c, ended });
     }
+    summary.plan = { open: jobs.filter(j => !j.ended).length, ended: jobs.filter(j => j.ended && j.c.dueAt).length, noDate: jobs.filter(j => !j.c.dueAt).length,
+                     final: summary.skippedFinal || 0, out: summary.outOfRange || 0 };
+    await setProgress({ stage: 'plan', label: `سيُقرأ ${jobs.length}: ${summary.plan.open} مفتوح · ${summary.plan.ended} انتهى حديثًا${summary.plan.noDate ? ` · ${summary.plan.noDate} بلا تاريخ` : ''} — تُخطّي ${summary.plan.final} نهائي و${summary.plan.out} قديم`, done: 0, total: jobs.length, startedAt });
     summary.selected = hasSelection ? selectedKeys.size : 0;
     summary.assignments = new Set(jobs.map(j => j.a.id)).size;
     let n = 0;
@@ -373,7 +382,7 @@ async function runAuto(trigger, options = {}) {
     }
     if (summary.error === 'cancelled') notify('⏹ أُوقفت مزامنة مدرستي', `حُفظ ${summary.saved} فصلًا قبل الإيقاف.`);
     if (!summary.error) notify(summary.errors ? '⚠️ مزامنة مدرستي اكتملت جزئيًا' : '✅ مزامنة مدرستي اكتملت',
-      `${summary.saved} فصلًا حُدّث من ${summary.assignments} واجب${summary.savedHistory ? ` · تم تخطي ${summary.skippedExisting} واجب محفوظًا` : ''}` +
+      `${summary.saved} فصلًا حُدّث من ${summary.assignments} واجب${summary.skippedFinal ? ` · ${summary.skippedFinal} نهائي لم يُعَد` : ''}${summary.savedHistory ? ` · تم تخطي ${summary.skippedExisting} واجب محفوظًا` : ''}` +
       (summary.readErrors ? ` · تعذّرت قراءة ${summary.readErrors} من مدرستي` : '') +
       (summary.saveErrors ? ` · تعذّر حفظ ${summary.saveErrors}: ${summary.lastSaveError}` : '') + '.');
     return summary;
