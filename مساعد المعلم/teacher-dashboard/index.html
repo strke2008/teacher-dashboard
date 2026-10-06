@@ -29934,7 +29934,7 @@ async function srepWithdraw(){
 .td-now-h .btn,.td-ok{margin-inline-start:auto}.td-ok{color:#13734f;font-weight:800;font-size:.85rem}
 .td-pers{display:flex;flex-wrap:wrap;gap:.35rem}
 .td-per{border:1px solid var(--ui-border,#e5e7eb);background:var(--ui-bg,#f8fafc);border-radius:999px;padding:.25rem .7rem;font:inherit;font-size:.8rem;cursor:pointer;color:var(--ink)}
-.td-per small{color:var(--ink-soft);margin-inline-start:.3rem;font-size:.7rem}
+.td-per small{color:var(--ink-soft);margin-inline-start:.45rem;padding-inline-start:.45rem;border-inline-start:1px solid var(--ui-border,#d6dbe3);font-size:.7rem;display:inline-block;unicode-bidi:isolate;direction:ltr}
 .td-per.done{border-color:#1b9c6b;background:rgba(27,156,107,.08)}.td-per.cur{border-color:#2563eb;background:rgba(37,99,235,.1);font-weight:800}
 .td-per.miss{border-color:#d6455b;background:rgba(214,69,91,.07)}
 .td-kpis{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.7rem}
@@ -30118,6 +30118,8 @@ function tdDateLabel(){
     const h=now.toLocaleDateString('ar-SA-u-ca-islamic-umalqura',{...tz,day:'numeric',month:'long'}); return `${g} · ${h}`; }catch(e){ return ''; }
 }
 function tdRecorded(D,cls,day){ const P=(D.participation||{})[day]||{}; return ctRoster(cls).some(x=>P[String(x.id)]); }
+function tdShortName(n){ const t=String(n||'').trim().split(/\s+/).filter(Boolean); if(t.length<3) return t.join(' ');
+  const k=['عبد','عبدال','أبو','ابو','أم','ام'].includes(t[0])?2:1; return t.slice(0,k).concat(t.length>k?[t[t.length-1]]:[]).join(' '); }
 function tdNowBar(){
   const D=(typeof CT_DATA!=='undefined'&&CT_DATA)||null, k=tdKsaNow();
   if(!D) return `<div class="td-now muted">${TH_BUSY?'⏳ جارٍ جلب الجدول…':'اربط الخادم من الإعدادات لعرض حصص اليوم.'}</div>`;
@@ -30130,13 +30132,13 @@ function tdNowBar(){
   const go=t=>`tdQuick('${thEsc(g[String(t.n)])}')`;
   let head;
   if(!cur&&!next) return tdDaySummary(D,k,T,rec);   // انتهى اليوم: ملخص (وفيه الحصص غير المرصودة)
-  if(cur&&!rec(cur)) head=`<b>⏰ الآن: الحصة ${cur.n} · ${thEsc(g[String(cur.n)])}</b><small>تنتهي ${cur.e}</small><button class="btn tick sm" onclick="${go(cur)}">🗂️ ارصدها</button>`;
-  else if(pend) head=`<b>⚠️ الحصة ${pend.n} · ${thEsc(g[String(pend.n)])} انتهت ولم تُرصد</b><button class="btn sm" onclick="${go(pend)}">🗂️ ارصدها الآن</button>`;
-  else if(cur) head=`<b>⏰ الآن: الحصة ${cur.n} · ${thEsc(g[String(cur.n)])}</b><small>تنتهي ${cur.e}</small><span class="td-ok">✓ رُصدت</span>`;
-  else if(next) head=`<b>⏭️ القادمة: الحصة ${next.n} · ${thEsc(g[String(next.n)])}</b><small>تبدأ ${next.s}</small>`;
+  if(cur&&!rec(cur)) head=`<b>⏰ الآن: الحصة ${cur.n} · <bdi>${thEsc(g[String(cur.n)])}</bdi></b><small>تنتهي ${cur.e}</small><button class="btn tick sm" onclick="${go(cur)}">🗂️ ارصدها</button>`;
+  else if(pend) head=`<b>⚠️ الحصة ${pend.n} · <bdi>${thEsc(g[String(pend.n)])}</bdi> انتهت ولم تُرصد</b><button class="btn sm" onclick="${go(pend)}">🗂️ ارصدها الآن</button>`;
+  else if(cur) head=`<b>⏰ الآن: الحصة ${cur.n} · <bdi>${thEsc(g[String(cur.n)])}</bdi></b><small>تنتهي ${cur.e}</small><span class="td-ok">✓ رُصدت</span>`;
+  else if(next) head=`<b>⏭️ القادمة: الحصة ${next.n} · <bdi>${thEsc(g[String(next.n)])}</bdi></b><small>تبدأ ${next.s}</small>`;
   else return tdDaySummary(D,k,T,rec);
   const chip=t=>{ const st=rec(t)?'done':(cur&&cur.n===t.n)?'cur':t.em<=k.min?'miss':'soon';
-    return `<button type="button" class="td-per ${st}" onclick="${go(t)}" title="${t.s}–${t.e}">${st==='done'?'✓':st==='cur'?'●':st==='miss'?'!':'○'} ${t.n} · ${thEsc(g[String(t.n)])}<small>${t.s}</small></button>`; };
+    return `<button type="button" class="td-per ${st}" onclick="${go(t)}" title="${t.s}–${t.e}">${st==='done'?'✓':st==='cur'?'●':st==='miss'?'!':'○'} ${t.n} · <bdi>${thEsc(g[String(t.n)])}</bdi><small>${t.s}</small></button>`; };
   return `<div class="td-now"><div class="td-now-h">${head}</div><div class="td-pers">${T.map(chip).join('')}</div></div>`;
 }
 function tdKpis(){
@@ -30156,7 +30158,7 @@ function tdTasks(){
   const L=[], now=new Date(), t0=remKsaDay(0), t1=remKsaDay(1);
   ((typeof CT_GRADES!=='undefined'&&CT_GRADES&&CT_GRADES.alerts)||[]).forEach(a=>{
     const dis=encodeURIComponent(JSON.stringify(a.dismiss||{[a.key]:a.count}));
-    L.push({key:'pm:'+a.key+':'+a.count,lv:a.tone==='positive'?'info':'warn',ic:a.tone==='positive'?'💌':'💬',t:`${String(a.name||'').split(' ').slice(0,2).join(' ')}: ${a.reason} — يحتاج رسالة لولي الأمر`,
+    L.push({key:'pm:'+a.key+':'+a.count,lv:a.tone==='positive'?'info':'warn',ic:a.tone==='positive'?'💌':'💬',t:`${tdShortName(a.name)}: ${a.reason} — يحتاج رسالة لولي الأمر`,
       acts:[['✍️ اكتب الرسالة',`pmsgOpen('${thEsc(a.studentId)}','${thEsc(a.suggest||'')}','${dis}')`]],doneJs:`pmsgDone('${dis}')`}); });
   tdRemToday().forEach(x=>{ if(x.done) return;
     L.push({key:'rem:'+x.r.id+':'+t0,lv:x.late?'warn':'info',ic:'⏰',t:`${tdRemTitle(x.r)} — ${x.hm}`,acts:[],remId:x.r.id}); });
@@ -30981,7 +30983,7 @@ async function tqClose(full){
 /* ═════════ ⏰ تذكيرات المعلم من البوابة (data.reminders) — نفس حساب المواعيد ═════════ */
 function tdRemTitle(r){
   if(r.kind==='duty'){ const D=CT_DATA||{}, x=(D.roles||[]).find(o=>o&&o.active&&o.cls===r.cls&&o.title==='مسؤول رصد الواجبات'), st=x&&(STUDENTS||[]).find(s=>String(s.id)===String(x.studentId));
-    return st?`ذكّر ${String(st.name).split(' ').slice(0,2).join(' ')} برصد واجبات ${r.cls}`:`ذكّر مسؤول رصد الواجبات · ${r.cls}`; }
+    return st?`ذكّر ${tdShortName(st.name)} برصد واجبات ${r.cls}`:`ذكّر مسؤول رصد الواجبات · ${r.cls}`; }
   return r.title||'تذكير';
 }
 function tdRemToday(){
@@ -31013,7 +31015,7 @@ function tdAbsentLine(){
   const day=tdKsaNow().day, P=(D.participation||{})[day]||{};
   const ab=(STUDENTS||[]).filter(s=>{ const r=P[String(s.id)], st=r&&(typeof r==='string'?r:r.status); return st==='غائب'||st==='غائب بعذر'; });
   if(!ab.length) return '';
-  return `<div class="td-abs"><b>🙋 غائبو اليوم (${ab.length}):</b>${ab.slice(0,12).map(s=>`<a href="#" onclick="event.preventDefault();ctOpenProfile('${thEsc(s.id)}')" title="${thEsc(s.cls||'')}">${thEsc(String(s.name).split(' ').slice(0,2).join(' '))}</a>`).join('')}${ab.length>12?`<span class="muted">+${ab.length-12}</span>`:''}</div>`;
+  return `<div class="td-abs"><b>🙋 غائبو اليوم (${ab.length}):</b>${ab.slice(0,12).map(s=>`<a href="#" onclick="event.preventDefault();ctOpenProfile('${thEsc(s.id)}')" title="${thEsc(s.cls||'')}">${thEsc(tdShortName(s.name))}</a>`).join('')}${ab.length>12?`<span class="muted">+${ab.length-12}</span>`:''}</div>`;
 }
 
 /* ═════════ 🌙 ملخص نهاية اليوم (بعد آخر حصة) — والخميس ملخص الأسبوع ═════════ */
