@@ -325,9 +325,9 @@ const $$=(s,r=document)=>[...r.querySelectorAll(s)];
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 /* الأرقام والوحدات بالعربية حسب منهج المرحلة المتوسطة: م، ث، كجم، جم، مل، نيوتن، م/ث، م/ث²، °س */
 const AR_D='٠١٢٣٤٥٦٧٨٩';
-const UNIT_AR={'m/s²':'م/ث²','m/s':'م/ث','g/mL':'جم/مل','mL':'مل','kg':'كجم','°C':'°س','cm':'سم','N':'نيوتن','g':'جم','m':'م','s':'ث'};
+const UNIT_AR={'m/s²':'م/ث²','m/s':'م/ث','g/mL':'جم/مل','mL':'مل','kg':'كجم','°C':'°س','cm':'سم','N':'نيوتن','J':'جول','g':'جم','m':'م','s':'ث'};
 function arNum(s){
-  s=String(s).replace(/(\d+(?:\.\d+)?)\s?(m\/s²|m\/s|g\/mL|mL|kg|°C|cm|N|g|m|s)(?![A-Za-z\/²])/g,(x,n,u)=>n+' '+UNIT_AR[u]);
+  s=String(s).replace(/(\d+(?:\.\d+)?)\s?(m\/s²|m\/s|g\/mL|mL|kg|°C|cm|N|J|g|m|s)(?![A-Za-z\/²])/g,(x,n,u)=>n+' '+UNIT_AR[u]);
   return s.replace(/(\d)\.(?=\d)/g,'$1٫').replace(/\d/g,d=>AR_D[d]);
 }
 const bidi=s=>arNum(s);
@@ -2645,7 +2645,7 @@ const WORK={
     hints:['القوة اللازمة للرفع تساوي الوزن، والمسافة هي الارتفاع.','الشغل = 40 × 1.5'],
     explain:'لرفع الصندوق تبذل قوة تساوي وزنه (40 N) لمسافة 1.5 m إلى أعلى، في اتجاه القوة: الشغل = 40 × 1.5 = 60 J.'}},
   learned(c,r){return {
-    lead:'الشغل يُنجز عندما تؤثر قوة في جسم فيتحرك في اتجاهها، ويُحسب: الشغل = القوة × المسافة، ووحدته الجول (J).',
+    lead:'الشغل يُنجز عندما تؤثر قوة في جسم فيتحرك في اتجاهها، ويُحسب: الشغل = القوة × المسافة، ووحدته الجول.',
     happened:'سحبت الصندوق بالقوة نفسها لمسافة أطول فتضاعف الشغل، ثم بقوة أكبر للمسافة نفسها فتضاعف الشغل أيضًا. أما الجدار فدفعته بقوة 50 N ولم يتحرك، فكان الشغل صفرًا.',
     why:'الشغل يعتمد على القوة والمسافة معًا. إذا كانت المسافة صفرًا، أو كانت الحركة في غير اتجاه القوة، فلا تنجز القوة شغلًا مهما كانت كبيرة ومهما تعبت.',
     concept:'الشغل = القوة × المسافة (جول = نيوتن × متر)، ولا شغل بلا حركة في اتجاه القوة.'}},
@@ -2771,12 +2771,12 @@ function renderWork(){
     <div class="tablewrap" style="margin-top:12px"><table class="frtab"><thead><tr><th>السحبة</th><th>القوة</th><th>المسافة</th><th>الشغل (احسبه)</th></tr></thead><tbody>
     ${[0,1,2].map(i=>`<tr><td><b>${['أ','ب','ج'][i]}</b><div class="note" style="margin:0;font-size:.78rem">${['اختر أي قوة ومسافة','القوة نفسها ومسافة مختلفة','المسافة نفسها وقوة مختلفة'][i]}</div></td>
       <td id="wF${i}">—</td><td id="wD${i}">—</td>
-      <td><span style="display:inline-flex;gap:6px;align-items:center"><input type="text" inputmode="decimal" autocomplete="off" class="frin" id="wv${i}" disabled placeholder="٠"> J <button class="btn ghost sm-btn" id="wrec${i}" disabled>سجّل</button><span id="wok${i}"></span></span></td></tr>`).join('')}
+      <td><span style="display:inline-flex;gap:6px;align-items:center"><input type="text" inputmode="decimal" autocomplete="off" class="frin" id="wv${i}" disabled placeholder="٠"> جول <button class="btn ghost sm-btn" id="wrec${i}" disabled>سجّل</button><span id="wok${i}"></span></span></td></tr>`).join('')}
     </tbody></table></div>
     <div id="wkPartB" class="hide-b">
       <h3 class="inh" style="margin-top:16px">الجزء الثاني: ادفع الجدار</h3>
       <div class="frbar"><button class="btn amber" id="wkWall" style="touch-action:none;user-select:none">✋ اضغط مطوّلًا لتدفع الجدار بقوة ${WK.wallF} N</button>
-        <span style="display:inline-flex;gap:6px;align-items:center">الشغل: <input type="text" inputmode="decimal" autocomplete="off" class="frin" id="wkWv" disabled placeholder="٠"> J <button class="btn ghost sm-btn" id="wkWrec" disabled>سجّل</button><span id="wkWok"></span></span></div>
+        <span style="display:inline-flex;gap:6px;align-items:center">الشغل: <input type="text" inputmode="decimal" autocomplete="off" class="frin" id="wkWv" disabled placeholder="٠"> جول <button class="btn ghost sm-btn" id="wkWrec" disabled>سجّل</button><span id="wkWok"></span></span></div>
       <div class="beakerzone frzone"><div class="frscroll" dir="ltr"><canvas id="wkB" aria-label="شخص يدفع جدارًا"></canvas></div></div><p class="swipe-hint">↔ اسحب الرسم يمينًا ويسارًا لرؤيته كاملًا</p>
     </div>
   </section>
@@ -3116,7 +3116,7 @@ function renderMach(){
       <div class="beakerzone frzone"><div class="frscroll" dir="ltr"><canvas id="mcB" aria-label="سطح مائل وصندوق وميزان"></canvas></div></div><p class="swipe-hint">↔ اسحب الرسم يمينًا ويسارًا لرؤيته كاملًا</p>
       <div class="tablewrap" style="margin-top:12px"><table class="frtab"><thead><tr><th>طول السطح (المسافة)</th><th>القوة المقيسة</th><th>الشغل = القوة × المسافة (احسبه)</th></tr></thead><tbody>
       ${MC.ramps.map((L,i)=>`<tr><td class="num"><b>${L} m</b>${L===MC.h?' <span class="note" style="font-size:.78rem">(رفع رأسي)</span>':''}</td><td id="rF${i}">—</td>
-        <td><span style="display:inline-flex;gap:6px;align-items:center"><input type="text" inputmode="decimal" autocomplete="off" class="frin" id="rv${i}" disabled placeholder="٠"> J <button class="btn ghost sm-btn" id="rrec${i}" disabled>سجّل</button><span id="rok${i}"></span></span></td></tr>`).join('')}
+        <td><span style="display:inline-flex;gap:6px;align-items:center"><input type="text" inputmode="decimal" autocomplete="off" class="frin" id="rv${i}" disabled placeholder="٠"> جول <button class="btn ghost sm-btn" id="rrec${i}" disabled>سجّل</button><span id="rok${i}"></span></span></td></tr>`).join('')}
       </tbody></table></div>
     </div>
   </section>

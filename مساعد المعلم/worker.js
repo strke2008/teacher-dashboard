@@ -2223,11 +2223,11 @@ function workScore(log) {
   ];
   return labFinish('work', parts, res, {
     names: ['الشغل', 'ثلاث سحبات وجدار'],
-    result: rows.map(w => `${w.F} N × ${w.d} m = ${w.F * w.d} J`).join('، ') + ' · الجدار 0 J',
+    result: rows.map(w => `${w.F} N × ${w.d} m = ${w.F * w.d} جول`).join('، ') + ' · الجدار 0 جول',
     obs: obsIn, sepDone: tries > 0,
-    practical: { label: 'التحدي العملي', done: tries > 0, text: tries ? `أنجز 30 J في المحاولة ${tries}` : 'لم يُنجز' },
-    steps: rows.map(w => `${w.F} N × ${w.d} m: حسب ${w.calc.length ? w.calc[w.calc.length - 1] : '—'} J (الصحيح ${w.F * w.d})`)
-      .concat([`الجدار: كتب ${wall[wall.length - 1]} J (الصحيح 0)`])
+    practical: { label: 'التحدي العملي', done: tries > 0, text: tries ? `أنجز 30 جول في المحاولة ${tries}` : 'لم يُنجز' },
+    steps: rows.map(w => `${w.F} N × ${w.d} m: حسب ${w.calc.length ? w.calc[w.calc.length - 1] : '—'} جول (الصحيح ${w.F * w.d} جول)`)
+      .concat([`الجدار: كتب ${wall[wall.length - 1]} جول (الصحيح 0)`])
   }, { obs: obsScore >= 0.8, fair: unfair === 0, calc: calc === 15 }, log);
 }
 /* 🔧 تجربة الآلات البسيطة — رافعة (حمل 60 N على 0.5 m) + سطح مائل (صندوق 40 N إلى 0.5 m) */
@@ -2267,7 +2267,7 @@ function machinesScore(log) {
     obs: obsIn, sepDone: tries > 0,
     practical: { label: 'التحدي العملي', done: tries > 0, text: tries ? `رفع 90 N بقوة 30 N في المحاولة ${tries}` : 'لم يُنجز' },
     steps: lev.map(w => `الفائدة الآلية عند ${w.d} m: ${w.calc.length ? w.calc[w.calc.length - 1] : '—'} (الصحيح ${60 / eff(w.d)})`)
-      .concat(ramp.map(w => `الشغل على ${w.L} m: ${w.calc.length ? w.calc[w.calc.length - 1] : '—'} J (الصحيح ${rampF(w.L) * w.L})`))
+      .concat(ramp.map(w => `الشغل على ${w.L} m: ${w.calc.length ? w.calc[w.calc.length - 1] : '—'} جول (الصحيح ${rampF(w.L) * w.L})`))
   }, { obs: obsScore >= 0.8, ma: maP === 15, mwork: wP === 15 }, log);
 }
 
