@@ -1,3 +1,18 @@
+/* 🖱️ Chrome يرفض أي فتح/تعديل/إغلاق للتبويبات لحظةَ يمسك المعلم تبويبًا بالفأرة أو يسحبه:
+   «Tabs cannot be edited right now (user may be dragging a tab)». ليس خطأ حقيقيًا — ننتظر لحظة ونعيد (حتى 10 ث)،
+   بدل أن يفشل قراءة الفصل أو تبقى تبويبات خفية مفتوحة لم تُغلق. */
+const TAB_BUSY = /cannot be edited right now|user may be dragging/i;
+async function tabsTry(fn, tries = 40) {
+  for (let i = 0; ; i++) {
+    try { return await fn(); }
+    catch (e) { if (i >= tries || !TAB_BUSY.test(String((e && e.message) || e))) throw e; await new Promise(r => setTimeout(r, 250)); }
+  }
+}
+const tabsApi = {
+  create: o => tabsTry(() => chrome.tabs.create(o)),
+  update: (id, o) => tabsTry(() => chrome.tabs.update(id, o)),
+  remove: id => tabsTry(() => chrome.tabs.remove(id))
+};
 /* الخلفية: تفتح صفحة التقرير، وتقرأ صفحة تصحيح أي فصل في تبويب غير نشط ثم تغلقه.
    مدرستي نفسها تُصدر طلبها بقيمها وترويساتها — الإضافة لا تخمّن أي معامل. */
 chrome.runtime.onInstalled.addListener(() => {});
@@ -5,9 +20,9 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function readGradeInHiddenTab(url) {
   if (!/^https:\/\/schools\.madrasati\.sa\/Teacher\/Assignments\/GradeAssignment\/[0-9A-F]{24,64}/i.test(url)) return { available: false, reason: 'رابط غير صالح' };
   // تبويب فارغ ثم التنقل: يضمن جاهزية التبويب قبل أول طلب (وسلوك متطابق في كل البيئات)
-  const tab = await chrome.tabs.create({ url: 'about:blank', active: false });
+  const tab = await tabsApi.create({ url: 'about:blank', active: false });
   await sleep(400);
-  await chrome.tabs.update(tab.id, { url });
+  await tabsApi.update(tab.id, { url });
   try {
     const t0 = Date.now();
     while (Date.now() - t0 < 45000) {
@@ -17,7 +32,7 @@ async function readGradeInHiddenTab(url) {
       if (r && !/لم تُحمَّل قائمة الطلاب/.test(r.reason || '')) return r;       // خطأ حقيقي غير «لم تكتمل الصفحة»
     }
     return { available: false, reason: 'انتهت المهلة — مدرستي بطيئة، حاول مجددًا' };
-  } finally { chrome.tabs.remove(tab.id).catch(() => {}); }
+  } finally { tabsApi.remove(tab.id).catch(() => {}); }
 }
 async function openMadrasatiAndReport() {
   const school = (await chrome.storage.local.get('mb_school')).mb_school || '1C5CDC78AB7C7D453CC2A57E35FE6B63';
@@ -26,8 +41,8 @@ async function openMadrasatiAndReport() {
   // ضغطة واحدة: افتح صفحة المعلم، ثم افتح التقرير فورًا.
   // التقرير نفسه ينتظر جاهزية جلسة مدرستي ويعيد المحاولة، لذلك لا نعتمد على
   // loggedInHint الذي قد لا يكون جاهزًا في أول ثواني من تحميل الصفحة.
-  const tab = await chrome.tabs.create({ url, active: true });
-  await chrome.tabs.create({
+  const tab = await tabsApi.create({ url, active: true });
+  await tabsApi.create({
     url: chrome.runtime.getURL('report/report.html') + '?tabId=' + tab.id,
     active: true
   });
@@ -104,7 +119,7 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   }
   if (msg && msg.type === 'mb:openReport') {
     const src = sender.tab ? sender.tab.id : msg.tabId;
-    chrome.tabs.create({ url: chrome.runtime.getURL('report/report.html') + '?tabId=' + src });
+    tabsApi.create({ url: chrome.runtime.getURL('report/report.html') + '?tabId=' + src });
     return;
   }
   if (msg && msg.type === 'mb:readGrade') { readGradeInHiddenTab(msg.url).then(reply, e => reply({ available: false, reason: String(e && e.message || e) })); return true; }
@@ -228,7 +243,7 @@ chrome.notifications.onClicked.addListener(id => {
   if (!String(id).startsWith('mb-login-')) return;
   chrome.storage.local.get('mb_school').then(x => {
     const s = x.mb_school;
-    chrome.tabs.create({ url: s ? `https://schools.madrasati.sa/SchoolManagment/Actions/Teacher/${encodeURIComponent(s)}` : 'https://schools.madrasati.sa/', active: true });
+    tabsApi.create({ url: s ? `https://schools.madrasati.sa/SchoolManagment/Actions/Teacher/${encodeURIComponent(s)}` : 'https://schools.madrasati.sa/', active: true });
     chrome.notifications.clear(id);
   });
 });
@@ -236,9 +251,9 @@ const tabMsg = (tabId, msg) => new Promise(res => chrome.tabs.sendMessage(tabId,
 
 async function openMadrasatiHome(school) {
   const url = school ? `https://schools.madrasati.sa/SchoolManagment/Actions/Teacher/${encodeURIComponent(school)}` : 'https://schools.madrasati.sa/';
-  const tab = await chrome.tabs.create({ url: 'about:blank', active: false });
+  const tab = await tabsApi.create({ url: 'about:blank', active: false });
   await sleep(400);
-  await chrome.tabs.update(tab.id, { url });
+  await tabsApi.update(tab.id, { url });
   const t0 = Date.now();
   while (Date.now() - t0 < 40000) {
     await sleep(1500);
@@ -391,7 +406,7 @@ async function runAuto(trigger, options = {}) {
     notify('مزامنة مدرستي لم تكتمل', summary.error);
     return summary;
   } finally {
-    if (home && home.tab) chrome.tabs.remove(home.tab.id).catch(() => {});
+    if (home && home.tab) tabsApi.remove(home.tab.id).catch(() => {});
     clearInterval(beat);
     const patch = { running: 0, cancel: false, progress: null, lastResult: summary };
     if (summary.error !== 'login_needed') patch.lastRunAt = Date.now();
@@ -402,7 +417,7 @@ async function runAuto(trigger, options = {}) {
 chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   if (msg && msg.type === 'mb:openReport') {
     const src = sender.tab ? sender.tab.id : msg.tabId;
-    chrome.tabs.create({ url: chrome.runtime.getURL('report/report.html') + '?tabId=' + src });
+    tabsApi.create({ url: chrome.runtime.getURL('report/report.html') + '?tabId=' + src });
     return;
   }
   if (msg && msg.type === 'mb:sessionAlive') {
