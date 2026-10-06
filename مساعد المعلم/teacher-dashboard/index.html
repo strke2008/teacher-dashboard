@@ -9124,6 +9124,7 @@ async function ctSave(mutate){
   const r=await fetch(ctApi()+'/classroom',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:getTok(),data:fresh,clientAt:Date.now()})});
   if(!r.ok) throw new Error('save '+r.status);
   CT_DATA=fresh; window._classroomData=fresh; try{ COMP_GRADES=null; }catch(e){}
+  try{ if(typeof tdCacheSave==='function') tdCacheSave(); }catch(e){}
   return fresh;
 }
 function ctSem(){ const a=(typeof DASH_ACADEMIC!=='undefined'&&DASH_ACADEMIC)||{}; const s=Number(a.currentSemester)===2?2:1; return { sem:s, per:Number(a.semesters?.[s]?.activePeriod)===2?2:1, closed:(a.semesters?.[s]?.status)==='closed' }; }
@@ -30181,7 +30182,24 @@ function tdTasks(){
   });
   return L;
 }
+/* ⚡ نسخة مختصرة من بيانات اليوم تُحفظ على الجهاز فتُرسم الصفحة فور فتحها، ثم تُحدَّث من الخادم */
+const TD_CACHE_KEY='dash_today_cache_v1';
+let TD_CACHE=(()=>{ try{ const c=JSON.parse(localStorage.getItem(TD_CACHE_KEY)||'null'); return c&&Date.now()-c.at<7*864e5?c:null; }catch(e){ return null; } })();
+function tdCacheSave(){
+  try{ const D=CT_DATA; if(!D) return; const from=remKsaDay(-7), recent=m=>Object.fromEntries(Object.entries(D[m]||{}).filter(([d])=>d>=from));
+    const G=(typeof CT_GRADES!=='undefined'&&CT_GRADES)||null;
+    const c={at:Date.now(),data:{schedule:D.schedule,reminders:D.reminders,roles:D.roles,msgFlags:D.msgFlags,examBooks:D.examBooks,academic:D.academic,
+      participation:recent('participation'),homework:recent('homework'),behavior:(D.behavior||[]).filter(x=>x&&String(x.date||'')>=from).slice(0,300)},
+      grades:G?{alerts:G.alerts||[],plans:(G.plans||[]).map(p=>({status:p.status,timing:p.timing}))}:(TD_CACHE&&TD_CACHE.grades)||null};
+    localStorage.setItem(TD_CACHE_KEY,JSON.stringify(c)); TD_CACHE=c; }catch(e){}
+}
 function thDraw(){
+  // قبل وصول بيانات الخادم: ارسم من النسخة المحفوظة (مؤقتًا وبشكل متزامن فقط — لا تبقى في CT_DATA)
+  if(!CT_DATA&&TD_CACHE&&TD_CACHE.data){ const g0=CT_GRADES; CT_DATA=TD_CACHE.data; if(!CT_GRADES&&TD_CACHE.grades) CT_GRADES=TD_CACHE.grades;
+    try{ thDrawNow(); }finally{ CT_DATA=null; CT_GRADES=g0; } return; }
+  thDrawNow();
+}
+function thDrawNow(){
   const box=document.getElementById('today-hub'); if(!box) return;
   const dl=document.getElementById('td-date'); if(dl&&!dl.textContent) dl.textContent=tdDateLabel();
   const done=tdDone(), all=tdTasks(), open=all.filter(x=>!done[x.key]), hid=all.length-open.length;
@@ -30208,13 +30226,16 @@ async function renderTodayHub(fetchNow){
   if(Date.now()-TH_AT<20000&&CT_DATA) return;
   TH_BUSY=true; thDraw();
   try{
-    try{ await loadDashboardAcademic(); }catch(e){}
-    CT_DATA=await ctLoad(); TH_AT=Date.now(); thDraw();
-    if(!CT_GRADES){ try{ await ctEnsureGrades(false); }catch(e){} }
+    // الإعدادات الأكاديمية والفصل معًا لا بالتتابع
+    const [,cd]=await Promise.all([loadDashboardAcademic().catch(()=>null), ctLoad()]);
+    CT_DATA=cd; TH_AT=Date.now(); thDraw(); tdCacheSave();
+    if(!CT_GRADES){ try{ await ctEnsureGrades(false); tdCacheSave(); }catch(e){} }
   }catch(e){}
   TH_BUSY=false; thDraw();
 }
-setTimeout(()=>{ try{ if(document.getElementById('p-dashboard')?.classList.contains('on')) renderTodayHub(true); else thDraw(); }catch(e){ console.warn('todayHub',e); } }, 1200);
+(function(){ const go=()=>{ try{ if(document.getElementById('p-dashboard')?.classList.contains('on')) renderTodayHub(true); else thDraw(); }catch(e){ console.warn('todayHub',e); } };
+  // كانت تنتظر 1.2 ثانية ثابتة؛ الآن فور اكتمال تحميل الصفحة (كل السكربتات معرّفة)، والنسخة المحفوظة تُرسم فورًا
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>setTimeout(go,0)); else setTimeout(go,0); })();
 </script>
 <style id="dash-v2-css">
 .cf-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:.7rem;margin-top:.7rem}
