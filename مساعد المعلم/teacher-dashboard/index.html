@@ -31491,7 +31491,7 @@ function nsOpen(){
 /* 🧩 ترتيب صفحة اليوم — لكل جهاز ترتيبه (الكمبيوتر غير الجوال) */
 const TL_KEY='dash_today_layout_v1';
 const TL_NAMES={tasks:'✅ مهام اليوم',week:'📅 هذا الأسبوع',alerts:'🔔 التنبيهات والطلبات',follow:'👥 يحتاجون متابعتك',recent:'🕐 آخر التسليمات',hw:'📚 حالة الأنشطة',stats:'📊 أرقام عامة'};
-const TL_DEF={order:['tasks','week','alerts','follow','recent','hw','stats'],w:{tasks:4,week:2,alerts:4,follow:2,recent:2,hw:2,stats:2},hide:{}};
+const TL_DEF={order:['stats','tasks','week','follow','alerts','recent','hw'],w:{stats:6,tasks:2,week:2,follow:2,alerts:3,recent:3,hw:2},hide:{}};   // الافتراضي: ترتيب المعلم المختار
 const TL_W=[[2,'⅓'],[3,'½'],[4,'⅔'],[6,'كامل']];
 /* الطول: لبطاقات القوائم (التنبيهات، المتابعة، التسليمات، الأنشطة، الأرقام) — [المفتاح، الاسم، أقصى ارتفاع، عدد آخر التسليمات] */
 const TL_H=[['s','قصير','200px',5],['m','متوسط','320px',7],['l','طويل','560px',15],['x','طويل جدًا','none',40]];
