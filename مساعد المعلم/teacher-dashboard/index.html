@@ -22265,7 +22265,7 @@ function renderDashboard(){
   });
   const rb=document.getElementById('dash-recent');
   if(rb){
-    rb.innerHTML=recent.slice(0,7).map(x=>{
+    rb.innerHTML=recent.slice(0,(typeof tlRows==='function'?tlRows('recent'):7)).map(x=>{   // العدد يتبع طول البطاقة (🧩 ترتيب)
       const isProject=x.h?.kind==='files';
       const ps=String(x.v?.reviewStatus||'pending').toLowerCase();
       const pendingProject=isProject && ps==='pending';
@@ -31464,7 +31464,7 @@ function nsOpen(){
 .tl-bar button{border:0;background:rgba(255,255,255,.14);color:#fff;border-radius:7px;padding:.2rem .45rem;font:inherit;font-size:.74rem;cursor:pointer}
 .tl-bar button.on{background:#2563eb}
 .tl-bar .tl-w{display:inline-flex;gap:.15rem}
-@media (max-width:999px){ .tl-bar .tl-w{display:none} }
+@media (max-width:999px){ .tl-bar .tl-w:not(.tl-hh){display:none} #td-board>details.td-blk>:not(summary){max-height:var(--h,none);overflow:auto} #td-board>details.td-blk[data-h="m"]>:not(summary){max-height:none} }
 </style>
 <script id="today-board-js">
 /* 🧩 ترتيب صفحة اليوم — لكل جهاز ترتيبه (الكمبيوتر غير الجوال) */
@@ -31472,11 +31472,14 @@ const TL_KEY='dash_today_layout_v1';
 const TL_NAMES={tasks:'✅ مهام اليوم',week:'📅 هذا الأسبوع',alerts:'🔔 التنبيهات والطلبات',follow:'👥 يحتاجون متابعتك',recent:'🕐 آخر التسليمات',hw:'📚 حالة الأنشطة',stats:'📊 أرقام عامة'};
 const TL_DEF={order:['tasks','week','alerts','follow','recent','hw','stats'],w:{tasks:4,week:2,alerts:4,follow:2,recent:2,hw:2,stats:2},hide:{}};
 const TL_W=[[2,'⅓'],[3,'½'],[4,'⅔'],[6,'كامل']];
+/* الطول: لبطاقات القوائم (التنبيهات، المتابعة، التسليمات، الأنشطة، الأرقام) — [المفتاح، الاسم، أقصى ارتفاع، عدد آخر التسليمات] */
+const TL_H=[['s','قصير','200px',5],['m','متوسط','320px',7],['l','طويل','560px',15],['x','طويل جدًا','none',40]];
+function tlRows(k){ const h=tlGet().h[k]||'m'; return (TL_H.find(x=>x[0]===h)||TL_H[1])[3]; }
 let TL_ON=false;
 function tlGet(){ let c=null; try{ c=JSON.parse(localStorage.getItem(TL_KEY)||'null'); }catch(e){}
   c=c&&typeof c==='object'?c:{}; const o=(Array.isArray(c.order)?c.order:[]).filter(k=>TL_DEF.order.includes(k));
   TL_DEF.order.forEach(k=>{ if(!o.includes(k)) o.push(k); });
-  return {order:o,w:{...TL_DEF.w,...(c.w||{})},hide:{...(c.hide||{})}}; }
+  return {order:o,w:{...TL_DEF.w,...(c.w||{})},h:{...(c.h||{})},hide:{...(c.hide||{})}}; }
 function tlSet(c){ try{ localStorage.setItem(TL_KEY,JSON.stringify(c)); }catch(e){} tlApply(); }
 function tlApply(){
   const B=document.getElementById('td-board'); if(!B) return; const c=tlGet();
@@ -31484,7 +31487,7 @@ function tlApply(){
   top.innerHTML=`<span>🧩 <b>وضع الترتيب</b> — اسحب البطاقة إلى مكانها (أو استخدم ⬆️⬇️)، واختر عرضها، أو أخفِ ما لا تحتاجه. الأول يظهر يمينًا ثم يسارًا ثم الصف التالي.</span>
     <button class="btn ghost sm" onclick="tlReset()">↩️ الترتيب الافتراضي</button><button class="btn tick sm" onclick="tlEdit(false)">✓ تم</button>`;
   c.order.forEach(k=>{ const el=B.querySelector(`:scope>[data-blk="${k}"]`); if(!el) return; B.appendChild(el);
-    el.style.setProperty('--w',c.w[k]||2); el.dataset.w=c.w[k]||2; el.classList.toggle('tl-hidden',!!c.hide[k]); });
+    el.style.setProperty('--w',c.w[k]||2); el.dataset.w=c.w[k]||2; const hh=TL_H.find(x=>x[0]===(c.h[k]||'m'))||TL_H[1]; el.style.setProperty('--h',hh[2]); el.dataset.h=hh[0]; el.classList.toggle('tl-hidden',!!c.hide[k]); });
   tlDecorate();
 }
 function tlDecorate(){
@@ -31496,6 +31499,7 @@ function tlDecorate(){
     if(!bar){ bar=document.createElement('div'); bar.className='tl-bar'; host.prepend(bar); }
     const html=`<b class="tl-h" title="اسحب من هنا لنقل البطاقة">⠿ ${TL_NAMES[k]||k}</b><button title="قبل (يمين/أعلى)" onclick="event.preventDefault();event.stopPropagation();tlMove('${k}',-1)">⬆️</button><button title="بعد (يسار/أسفل)" onclick="event.preventDefault();event.stopPropagation();tlMove('${k}',1)">⬇️</button>
       <span class="tl-w">${TL_W.map(([v,l])=>`<button class="${Number(c.w[k])===v?'on':''}" title="العرض" onclick="event.preventDefault();event.stopPropagation();tlWidth('${k}',${v})">${l}</button>`).join('')}</span>
+      ${el.tagName==='DETAILS'?`<span class="tl-w tl-hh">${TL_H.map(([v,l])=>`<button class="${(c.h[k]||'m')===v?'on':''}" title="الطول" onclick="event.preventDefault();event.stopPropagation();tlHeight('${k}','${v}')">↕ ${l}</button>`).join('')}</span>`:''}
       <button title="${c.hide[k]?'إظهار':'إخفاء'}" onclick="event.preventDefault();event.stopPropagation();tlHide('${k}')">${c.hide[k]?'👁 إظهار':'🙈 إخفاء'}</button>`;
     if(bar._h!==html){ bar.innerHTML=html; bar._h=html; }   // لا نعيد بناء المقبض أثناء السحب (يُلغي السحب)
   });
@@ -31504,6 +31508,7 @@ function tlEdit(on){ TL_ON=on===undefined?!TL_ON:!!on; const b=document.getEleme
   tlApply(); if(TL_ON) document.getElementById('td-board')?.scrollIntoView({block:'start',behavior:'smooth'}); }
 function tlMove(k,d){ const c=tlGet(), i=c.order.indexOf(k), j=i+d; if(i<0||j<0||j>=c.order.length) return; [c.order[i],c.order[j]]=[c.order[j],c.order[i]]; tlSet(c); }
 function tlWidth(k,v){ const c=tlGet(); c.w[k]=v; tlSet(c); }
+function tlHeight(k,v){ const c=tlGet(); c.h[k]=v; tlSet(c); if(k==='recent'){ try{ renderDashboard(); }catch(e){} } }
 function tlHide(k){ const c=tlGet(); if(c.hide[k]) delete c.hide[k]; else c.hide[k]=true; tlSet(c); }
 async function tlReset(){ try{ localStorage.removeItem(TL_KEY); }catch(e){} tlApply(); toast('↩️ عاد الترتيب الافتراضي','good'); }
 (function(){
