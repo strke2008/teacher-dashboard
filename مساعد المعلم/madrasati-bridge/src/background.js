@@ -45,11 +45,11 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
       return true;
     }
     if (action === 'getAuto') { getAuto().then(reply).catch(e => reply({ok:false,error:String(e&&e.message||e)})); return true; }
-    if (action === 'setAuto') { setAuto(p || {}).then(() => reschedule()).then(() => getAuto()).then(reply).catch(e => reply({ok:false,error:String(e&&e.message||e)})); return true; }
+    if (action === 'setAuto') { const RM = {'7d':'last7',week:'current','2w':'last2','4w':'last4',term:'all'}; setAuto(Object.assign({}, p || {}, p && RM[p.scope] ? { rangeMode: RM[p.scope] } : {})).then(() => reschedule()).then(() => getAuto()).then(reply).catch(e => reply({ok:false,error:String(e&&e.message||e)})); return true; }
     if (action === 'sync') {
-      const scopeMap = {week:'current','2w':'last2','4w':'last4',term:'all'};
+      const scopeMap = {'7d':'last7',week:'current','2w':'last2','4w':'last4',term:'all'};
       const skip = String(p.skipMode || 'completed');
-      const patch = { rangeMode: scopeMap[String(p.scope || '2w')] || 'last2', skipExisting: skip !== 'none' };
+      const patch = { rangeMode: scopeMap[String(p.scope || '7d')] || 'last7', skipExisting: skip !== 'none' };
 
       // مهم: لا نُرجع الرد قبل بدء/انتظار runAuto. في Manifest V3 يمكن لـ
       // Service Worker أن يتوقف مباشرة بعد reply، وبالتالي كان زر المزامنة
@@ -157,9 +157,15 @@ async function migrateDaily() {
   if (Array.isArray(raw.days) && raw.days.length === 1 && raw.days[0] === 4) patch.days = [0, 1, 2, 3, 4];
   await setAuto(patch);
 }
+/* v0.16.1: النطاق الافتراضي «آخر أسبوع» — الأقدم أُغلق في مدرستي فلا داعي لإعادة قراءته */
+async function migrateRange() {
+  const raw = (await chrome.storage.local.get(AUTO_KEY))[AUTO_KEY] || {};
+  if (raw.v161) return;
+  await setAuto({ v161: true, ...(!raw.rangeMode || raw.rangeMode === 'last2' ? { rangeMode: 'last7' } : {}) });
+}
 const ensureKeepAlive = () => chrome.alarms.get('mb-keepalive', a => { if (!a) chrome.alarms.create('mb-keepalive', { delayInMinutes: 1, periodInMinutes: 15 }); });
-chrome.runtime.onInstalled.addListener(() => { migrateDaily().then(reschedule); ensureKeepAlive(); });
-chrome.runtime.onStartup.addListener(() => { migrateDaily().then(reschedule); ensureKeepAlive(); });
+chrome.runtime.onInstalled.addListener(() => { migrateDaily().then(migrateRange).then(reschedule); ensureKeepAlive(); });
+chrome.runtime.onStartup.addListener(() => { migrateDaily().then(migrateRange).then(reschedule); ensureKeepAlive(); });
 chrome.alarms.onAlarm.addListener(a => {
   if (a.name === 'mb-auto' || a.name === 'mb-auto-catchup') runAuto('schedule');
   if (a.name === 'mb-keepalive') keepAlive();
@@ -293,7 +299,7 @@ async function runAuto(trigger, options = {}) {
 
     // النطاق يعتمد على الأسبوع الدراسي: الأحد → السبت. وإذا لم يتوفر تاريخ انتهاء
     // للواجب نُبقيه بدل إسقاطه، حتى لا تختفي بيانات صحيحة بسبب نقص التاريخ.
-    const mode = String(cfg.rangeMode || 'last2');
+    const mode = String(cfg.rangeMode || 'last7');
     const nowDate = new Date();
     const day = nowDate.getDay(); // الأحد = 0
     const weekStart = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate() - day);
@@ -307,6 +313,9 @@ async function runAuto(trigger, options = {}) {
       const weeks = Number(mode.slice(4));
       to = weekStart.getTime() + 7 * 864e5;
       from = weekStart.getTime() - (weeks - 1) * 7 * 864e5;
+    } else if (mode === 'last7') {
+      // آخر أسبوع: المفتوحة الآن (مهما كان موعدها) + ما أُغلق خلال 7 أيام فقط — الأقدم أُغلق ولا يتغير
+      from = Date.now() - 7 * 864e5; to = 0;
     } else if (mode === 'last30') {
       from = Date.now() - 30 * 864e5; to = Date.now() + 864e5;
     } else if (mode === 'all') {

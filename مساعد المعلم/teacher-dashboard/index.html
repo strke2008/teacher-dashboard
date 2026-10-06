@@ -7358,7 +7358,7 @@ body{
       <button class="btn ghost sm" type="button" onclick="madClearOpen()">🗑️ مسح</button>
     </div></div>
   <div class="madb-row"><span>نطاق السحب:</span>
-    <select class="inp" id="madb-scope"><option value="week">الأسبوع الحالي</option><option value="2w" selected>آخر أسبوعين</option><option value="4w">آخر 4 أسابيع</option><option value="term">الفصل الدراسي كله</option></select>
+    <select class="inp" id="madb-scope"><option value="7d" selected>آخر أسبوع (المفتوحة + المنتهية خلال 7 أيام)</option><option value="week">الأسبوع الحالي</option><option value="2w">آخر أسبوعين</option><option value="4w">آخر 4 أسابيع</option><option value="term">الفصل الدراسي كله</option></select>
     <span>ما سُحب سابقًا:</span>
     <select class="inp" id="madb-skip"><option value="completed" selected>تخطَّ المكتمل</option><option value="any">تخطَّ كل ما سُحب</option><option value="none">أعد سحب كل شيء</option></select></div>
   <div id="madb-progress" hidden><div class="progress-track"><i id="madb-bar" style="width:0%"></i></div><small id="madb-label"></small></div>
@@ -29384,6 +29384,8 @@ async function madBridgeInit(force){
   if(!on){ madbPill('bad','🔴 جسر مدرستي غير متصل'); return; }
   madbPill('good',`🟢 جسر مدرستي متصل · v${r.version||MADB.version}`);
   if(getTok()) await madbCall('setConfig',{token:getTok(), api:(getApi()||'').replace(/\/+$/,'')});
+  // مرة واحدة: «آخر أسبوعين» القديم كان الافتراضي — صار «آخر أسبوع» (الأقدم مغلق في مدرستي)
+  try{ if(!localStorage.getItem('madb_scope_v2')){ if(localStorage.getItem('madb_scope')==='2w') localStorage.setItem('madb_scope','7d'); localStorage.setItem('madb_scope_v2','1'); } }catch(e){}
   const sc=localStorage.getItem('madb_scope'), sk=localStorage.getItem('madb_skip');
   if(sc) madbEl('madb-scope').value=sc; if(sk) madbEl('madb-skip').value=sk;
   await madbRefresh();

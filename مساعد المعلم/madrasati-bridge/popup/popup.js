@@ -152,7 +152,7 @@ async function autoRender(cfg) {
   $('auto-on').checked = !!cfg.enabled;
   $('auto-days').innerHTML = DAY_NAMES.map((n, i) => `<label class="${cfg.days.includes(i) ? 'on' : ''}"><input type="checkbox" data-d="${i}" ${cfg.days.includes(i) ? 'checked' : ''}>${n}</label>`).join('');
   $('auto-time').value = String(cfg.hour).padStart(2, '0') + ':' + String(cfg.minute).padStart(2, '0');
-  $('auto-range').value = cfg.rangeMode || 'last2';
+  $('auto-range').value = cfg.rangeMode || 'last7';
   $('auto-skip').checked = cfg.skipExisting !== false;
   const f = t => new Date(t).toLocaleString('ar-SA-u-nu-latn', { weekday: 'long', hour: 'numeric', minute: '2-digit' });
   const lr = cfg.lastResult;
@@ -167,7 +167,7 @@ async function autoSave() {
   const [h, m] = ($('auto-time').value || '20:00').split(':').map(Number);
   autoRender(await bg({ type: 'mb:autoSet', patch: {
   enabled: $('auto-on').checked && days.length > 0, days: days.length ? days : [4],
-  hour: h, minute: m, rangeMode: $('auto-range').value || 'last2',
+  hour: h, minute: m, rangeMode: $('auto-range').value || 'last7',
   skipExisting: $('auto-skip').checked
 } }));
 }
