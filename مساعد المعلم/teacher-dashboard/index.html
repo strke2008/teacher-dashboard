@@ -30168,6 +30168,7 @@ function tdTasks(){
     if(new Date(h.due+'T23:59:59')<now) L.push({key:`od:${h.id}:${miss}`,lv:'bad',ic:'⏰',t:`«${h.title}» انتهى موعده · ${miss} لم ${miss===1?'يسلّم':'يسلّموا'}`,acts});
     else if(h.due===t0||h.due===t1) L.push({key:`soon:${h.id}:${miss}:${h.due}`,lv:'warn',ic:'⏳',t:`«${h.title}» ينتهي ${h.due===t0?'اليوم':'غدًا'} · ${miss} لم ${miss===1?'يسلّم':'يسلّموا'} بعد`,acts});
   });
+  { const ns=typeof nsList==='function'?nsList():[]; if(ns.length) L.push({key:'ns:'+ns.map(x=>x.s.id).join(','),lv:'warn',ic:'🚶',t:`${ns.length===1?'طالب واحد لم يبدأ':ns.length===2?'طالبان لم يبدآ':ns.length+' طلاب لم يبدؤوا'} بعد — لم ${ns.length===1?'يسلّم':ns.length===2?'يسلّما':'يسلّموا'} أي نشاط في البوابة`,acts:[['عرض','nsOpen()']]}); }
   thActions().forEach(([lv,ic,t,n,go])=>{
     if(/انتهت مواعيدها|ينتهي خلال يومين|متأخر(ون)? لم تذكّر/.test(t)) return;   // مغطّاة بأسطر الأنشطة أعلاه
     const isDash=/thGoTo\('dash-alerts'\)/.test(go);
@@ -31290,13 +31291,14 @@ async function rmgDel(id){ const r=((CT_DATA&&CT_DATA.reminders)||[]).find(x=>x.
 
 /* ═════════ 💬 رسائل أولياء الأمور الجاهزة + «يحتاجون رسالة» (تنبيهات الخادم وmsgFlags) ═════════ */
 const PM_POS=[['🌟 مشاركة إيجابية','participation'],['📚 إنجاز الواجب','homework'],['🏆 إنجاز متميز','achievement'],['🌱 تحسن ملحوظ','improvement'],['🤝 تعاون والتزام','cooperation'],['🧪 تميز في المادة','science']];
-const PM_NEG=[['⚠️ ملاحظة سلوكية','behavior'],['📚 عدم إنجاز الواجب','homework_neg'],['⏰ تأخر','late'],['📝 يحتاج متابعة دراسية','support'],['🎯 يحتاج تعزيز مهارة','skill']];
+const PM_NEG=[['🚶 لم يبدأ في البوابة','start'],['⚠️ ملاحظة سلوكية','behavior'],['📚 عدم إنجاز الواجب','homework_neg'],['⏰ تأخر','late'],['📝 يحتاج متابعة دراسية','support'],['🎯 يحتاج تعزيز مهارة','skill']];
 function pmFirst(full){ const t=String(full||'').trim().split(/\s+/).filter(Boolean); if(!t.length) return ''; return ['عبد','عبدال','أبو','ابو','أم','ام','بن','ابن'].includes(t[0])&&t[1]?t[0]+' '+t[1]:t[0]; }
 function pmText(k,s){ const n=pmFirst(s.name), sub='مادة '+(String(rcGet('subject')||'العلوم').trim());
   const M={participation:`أشكر ابنكم ${n} على مشاركته الفاعلة في ${sub}.`,homework:`أشكر ابنكم ${n} على التزامه بإنجاز واجب ${sub}.`,achievement:`أشكر ابنكم ${n} على أدائه المتميز في ${sub}.`,
     improvement:`ألاحظ تحسنًا واضحًا في مستوى ابنكم ${n} في ${sub}.`,cooperation:`أشكر ابنكم ${n} على تعاونه والتزامه داخل الحصة.`,science:`أشكر ابنكم ${n} على اهتمامه وحرصه في ${sub}.`,
     behavior:`أرجو متابعة ابنكم ${n}، فقد صدرت منه ملاحظة سلوكية في حصة ${sub.replace('مادة ','')}.`,homework_neg:`لم ينجز ابنكم ${n} واجب ${sub}، وأرجو متابعته.`,
-    late:`تأخر ابنكم ${n} عن حصة ${sub.replace('مادة ','')}، وأرجو تنبيهه على الالتزام بالوقت.`,support:`يحتاج ابنكم ${n} إلى متابعة إضافية في ${sub}.`,skill:`يحتاج ابنكم ${n} إلى مزيد من التدريب على مهارات ${sub}.`};
+    late:`تأخر ابنكم ${n} عن حصة ${sub.replace('مادة ','')}، وأرجو تنبيهه على الالتزام بالوقت.`,support:`يحتاج ابنكم ${n} إلى متابعة إضافية في ${sub}.`,skill:`يحتاج ابنكم ${n} إلى مزيد من التدريب على مهارات ${sub}.`,
+    start:`لم يبدأ ابنكم ${n} حل أنشطة ${sub} في بوابة الطالب حتى الآن. أرجو مساعدته في الدخول والبدء باختباري البداية ثم الأنشطة: ${typeof getSite==='function'?getSite():''}`};
   return M[k]||M.behavior; }
 let PM={sid:'',dis:''};
 function pmsgOpen(sid,suggest,dis){
@@ -31389,4 +31391,26 @@ async function termsSave(sem,per,reset){
 }
 (function(){ const _r=window.renderDashboardAcademicControl; if(typeof _r==='function') window.renderDashboardAcademicControl=function(){ const x=_r.apply(this,arguments); try{ termsRender(); }catch(e){} return x; }; })();
 setTimeout(()=>{ try{ termsRender(); }catch(e){} },1500);
+</script>
+<script id="not-started-js">
+/* ═════════ 🚶 لم يبدؤوا بعد: طلاب لهم أنشطة منشورة ولم يسلّموا أيًّا منها ═════════ */
+function nsList(){
+  if(!Array.isArray(STUDENTS)||!Array.isArray(HW)) return [];
+  const pub=HW.filter(h=>remPublished(h));
+  return STUDENTS.map(s=>{ const mine=pub.filter(h=>hwFor(h,s.cls)); return {s,n:mine.length,any:mine.some(h=>h.subs&&h.subs[s.id])}; })
+    .filter(x=>x.n>0&&!x.any).sort((a,b)=>String(a.s.cls).localeCompare(String(b.s.cls),'ar')||String(a.s.name).localeCompare(String(b.s.name),'ar'));
+}
+function nsMsg(s){ return `مرحبًا ${tdShortName(s.name)} 👋 لديك أنشطة في بوابة الطالب لم تبدأها بعد. ادخل البوابة: ${getSite()} وابدأ باختبار «اكتشف طريقة تعلمك» ثم «اعرف مستواك»، وبعدها تُفتح لك الأنشطة والألعاب. بالتوفيق 🌟`; }
+async function nsCopy(sid){ const s=(STUDENTS||[]).find(x=>String(x.id)===String(sid)); if(!s) return; const t=nsMsg(s);
+  try{ await navigator.clipboard.writeText(t); toast('📋 نُسخت رسالة للطالب','good'); }catch(e){ prompt('انسخ الرسالة:',t); } }
+function nsOpen(){
+  const L=nsList(), by={}; L.forEach(x=>{ (by[x.s.cls||'—']=by[x.s.cls||'—']||[]).push(x); });
+  openModal(`<h2>🚶 لم يبدؤوا بعد (${L.length})</h2>
+    <p class="muted" style="font-size:.8rem;margin:.1rem 0 .5rem">طلاب لهم أنشطة منشورة ولم يسلّموا أيًّا منها. ابدأ بسؤال الطالب عن السبب: جهاز؟ لا يعرف الدخول؟ طلب انضمام معلّق؟ — ثم ساعده يحل أول نشاط أمامك.</p>
+    ${Object.keys(by).map(c=>`<b style="font-size:.85rem;display:block;margin-top:.5rem">${esc(c)} (${by[c].length})</b>${by[c].map(x=>`<div class="du-li"><span>${esc(x.s.name)}<small>${x.n===1?'نشاط واحد منشور':x.n===2?'نشاطان منشوران':x.n+' أنشطة منشورة'} له · لم يسلّم شيئًا</small></span>
+      <button class="btn ghost sm" title="رسالة للطالب فيها رابط البوابة وخطوة البداية" onclick="nsCopy('${esc(x.s.id)}')">📋 للطالب</button>
+      <button class="btn ghost sm" onclick="pmsgOpen('${esc(x.s.id)}','start')">💬 ولي الأمر</button>
+      <button class="btn ghost sm" onclick="ctOpenProfile('${esc(x.s.id)}')">📁</button></div>`).join('')}`).join('')||'<div class="feature-empty">🎉 كل الطلاب بدؤوا.</div>'}
+    <div class="modal-foot"><button class="btn ghost" onclick="closeModal()">إغلاق</button></div>`);
+}
 </script>
