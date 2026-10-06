@@ -16,7 +16,7 @@
     }
     if(busy && ev.data.action==='sync') return;
     const action=String(ev.data.action||'');
-    if(!['setConfig','getAuto','setAuto','sync','progress','openReport'].includes(action)) return;
+    if(!['setConfig','getAuto','setAuto','sync','progress','openReport','cancel'].includes(action)) return;
     const requestId=String(ev.data.requestId||'');
     if(action==='sync') busy=true;
     try{

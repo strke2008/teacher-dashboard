@@ -44,6 +44,7 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
       }).then(() => reply({ok:true})).catch(e => reply({ok:false,error:String(e&&e.message||e)}));
       return true;
     }
+    if (action === 'cancel') { setAuto({ cancel: true }).then(() => reply({ ok: true })); return true; }
     if (action === 'getAuto') { getAuto().then(reply).catch(e => reply({ok:false,error:String(e&&e.message||e)})); return true; }
     if (action === 'setAuto') { const RM = {'7d':'last7',week:'current','2w':'last2','4w':'last4',term:'all'}; setAuto(Object.assign({}, p || {}, p && RM[p.scope] ? { rangeMode: RM[p.scope] } : {})).then(() => reschedule()).then(() => getAuto()).then(reply).catch(e => reply({ok:false,error:String(e&&e.message||e)})); return true; }
     if (action === 'sync') {
@@ -60,7 +61,7 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
         try {
           await setAuto(patch);
           const cfg = await getAuto();
-          if (cfg.running && Date.now() - cfg.running < 30 * 60000) {
+          if (isRunning(cfg)) {
             reply({ok:true, started:false, running:true});
             return;
           }
@@ -76,7 +77,7 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
       return true;
     }
     if (action === 'progress') {
-      getAuto().then(cfg => reply({running:!!cfg.running, stage:cfg.running?'running':'done', summary:cfg.lastResult||null, auto:cfg})).catch(e => reply({ok:false,error:String(e&&e.message||e)}));
+      getAuto().then(cfg => { const on = isRunning(cfg), p = cfg.progress || {}; reply({running:on, stage:on?'running':'done', label:p.label||'', done:p.done||0, total:p.total||0, startedAt:p.startedAt||0, summary:cfg.lastResult||null, auto:cfg}); }).catch(e => reply({ok:false,error:String(e&&e.message||e)}));
       return true;
     }
     if (action === 'openReport') {
@@ -144,7 +145,7 @@ async function reschedule() {
   await setAuto({ nextAt: when });
   // تعويض: موعد مضى خلال 24 ساعة ولم يُنفّذ
   const last = lastScheduledBefore(cfg);
-  if (cfg.enabled && last && Date.now() - last < 864e5 && (cfg.lastRunAt || 0) < last && !cfg.running) {
+  if (cfg.enabled && last && Date.now() - last < 864e5 && (cfg.lastRunAt || 0) < last && !isRunning(cfg)) {
     chrome.alarms.create('mb-auto-catchup', { when: Date.now() + 60000 });
   }
   return when;
@@ -175,6 +176,10 @@ chrome.alarms.onAlarm.addListener(a => {
    لا تسجيل دخول نيابة عن المعلم: فقط طلب صفحة عادية كل 15 دقيقة ما دام المتصفح مفتوحًا،
    كأن المعلم يتصفح — فلا تنتهي الجلسة بسبب الخمول. */
 const STALE_MS = 6 * 3600e3;
+/* المزامنة «تعمل» فقط ما دام نبضها حديثًا (كل 20 ث). إن أوقف Chrome الخدمة في منتصفها لا يبقى القفل 30 دقيقة */
+const RUN_STALE_MS = 3 * 60000;
+function isRunning(cfg) { return !!(cfg && cfg.running && Date.now() - cfg.running < RUN_STALE_MS); }
+async function setProgress(p) { await setAuto({ running: Date.now(), progress: Object.assign({ at: Date.now() }, p) }); }
 async function sessMark(alive) {
   const cfg = await getAuto(), now = Date.now(), s = Object.assign({ since: 0, lastAlive: 0, dead: 0, lastDurMin: 0, durs: [] }, cfg.sess || {});
   if (alive) { if (!s.since || s.dead) { s.since = now; s.dead = 0; } s.lastAlive = now; }
@@ -185,7 +190,7 @@ async function sessMark(alive) {
 /* مزامنة «انتهازية»: إن كانت الجلسة حيّة ومضت 6 ساعات على آخر مزامنة — لا تنتظر الموعد */
 async function maybeSyncNow(trigger) {
   const cfg = await getAuto();
-  if (cfg.running && Date.now() - cfg.running < 30 * 60000) return;
+  if (isRunning(cfg)) return;
   if (cfg.pendingLogin && Date.now() - cfg.pendingLogin < 3 * 864e5) return runAuto('resume-after-login');
   const last = lastScheduledBefore(cfg);
   if (cfg.enabled && last && (cfg.lastRunAt || 0) < last) return runAuto('catchup-' + trigger);       // موعد فات وهو مغلق/منتهي الجلسة
@@ -269,11 +274,13 @@ async function getMadrasatiSavedKeys(api, token) {
 async function runAuto(trigger, options = {}) {
   const cfg = await getAuto();
   const skipMode = String(cfg.skipMode || 'completed');
-  if (cfg.running && Date.now() - cfg.running < 30 * 60000) return { skipped: 'running' };
+  if (isRunning(cfg)) return { skipped: 'running' };
   const token = (((await chrome.storage.local.get('mb_cfg'))['mb_cfg']) || {}).token;
   const api = (((await chrome.storage.local.get('mb_cfg'))['mb_cfg']) || {}).api || API_DEFAULT_BG;
   if (!token) { notify('مزامنة مدرستي لم تبدأ', 'احفظ كلمة سر المعلم الذكي في الإضافة مرة واحدة أولًا.'); await setAuto({ lastResult: { at: Date.now(), error: 'no_token' } }); return { error: 'no_token' }; }
-  await setAuto({ running: Date.now(), pendingLogin: 0 });
+  await setAuto({ running: Date.now(), pendingLogin: 0, cancel: false, progress: { stage: 'open', label: 'فتح مدرستي…', done: 0, total: 0, startedAt: Date.now() } });
+  const beat = setInterval(() => { getAuto().then(c => { if (c.running) setAuto({ running: Date.now() }); }); }, 20000);
+  const startedAt = Date.now();
   const school = (await chrome.storage.local.get('mb_school')).mb_school || '';
   let home = null;
   const summary = { at: Date.now(), trigger, classes: 0, saved: 0, errors: 0, readErrors: 0, saveErrors: 0, assignments: 0, skippedExisting: 0, savedHistory: 0 };
@@ -294,6 +301,7 @@ async function runAuto(trigger, options = {}) {
         : []
     );
     const hasSelection = selectedKeys.size > 0;
+    await setProgress({ stage: 'list', label: 'جلب قائمة الواجبات من مدرستي…', done: 0, total: 0, startedAt });
     const list = await tabMsg(home.tab.id, { type: 'mb:listAll' });
     if (!list || !list.ok) throw new Error((list && list.error) || 'تعذّر جلب قائمة الواجبات');
 
@@ -346,7 +354,10 @@ async function runAuto(trigger, options = {}) {
     }
     summary.selected = hasSelection ? selectedKeys.size : 0;
     summary.assignments = new Set(jobs.map(j => j.a.id)).size;
+    let n = 0;
     for (const { a, c } of jobs) {
+      if ((await getAuto()).cancel) { summary.error = 'cancelled'; break; }
+      await setProgress({ stage: 'read', label: `${a.title} · ${c.className || ''}`, done: n++, total: jobs.length, startedAt });
       summary.classes++;
       const url = `https://schools.madrasati.sa/Teacher/Assignments/GradeAssignment/${c.key}?SchoolId=${encodeURIComponent(list.school)}&published=false`;
       const r = await readGradeInHiddenTab(url);
@@ -360,6 +371,7 @@ async function runAuto(trigger, options = {}) {
       } catch { summary.errors++; summary.saveErrors++; summary.lastSaveError = 'تعذّر الاتصال بخادم المعلم الذكي'; }
       await sleep(800);
     }
+    if (summary.error === 'cancelled') notify('⏹ أُوقفت مزامنة مدرستي', `حُفظ ${summary.saved} فصلًا قبل الإيقاف.`);
     if (!summary.error) notify(summary.errors ? '⚠️ مزامنة مدرستي اكتملت جزئيًا' : '✅ مزامنة مدرستي اكتملت',
       `${summary.saved} فصلًا حُدّث من ${summary.assignments} واجب${summary.savedHistory ? ` · تم تخطي ${summary.skippedExisting} واجب محفوظًا` : ''}` +
       (summary.readErrors ? ` · تعذّرت قراءة ${summary.readErrors} من مدرستي` : '') +
@@ -371,7 +383,8 @@ async function runAuto(trigger, options = {}) {
     return summary;
   } finally {
     if (home && home.tab) chrome.tabs.remove(home.tab.id).catch(() => {});
-    const patch = { running: 0, lastResult: summary };
+    clearInterval(beat);
+    const patch = { running: 0, cancel: false, progress: null, lastResult: summary };
     if (summary.error !== 'login_needed') patch.lastRunAt = Date.now();
     await setAuto(patch);
     await reschedule();
