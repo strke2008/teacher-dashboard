@@ -1869,7 +1869,7 @@ const LAB_M = {
   salt:{ n:'الملح', dissolves:true }, sugar:{ n:'السكر', dissolves:true },
   sand:{ n:'الرمل' }, gravel:{ n:'الحصى' }, iron:{ n:'برادة الحديد' }
 };
-const LAB_TOPICS = { mixtures: 'المخاليط', friction: 'قوة الاحتكاك', inertia: 'القصور الذاتي' };
+const LAB_TOPICS = { mixtures: 'المخاليط', friction: 'قوة الاحتكاك', inertia: 'القصور الذاتي', work: 'الشغل', machines: 'الآلات البسيطة' };
 const LAB_CONCEPTS = { het:'المخلوط غير المتجانس', hom:'المخلوط المتجانس (المحلول)', sol:'الذوبان',
   dens:'الكثافة والطفو والترسّب', prop:'احتفاظ مكونات المخلوط بخصائصها', sep:'طرق فصل المخاليط',
   obs:'دقة الملاحظة', safe:'الالتزام بالسلامة' };
@@ -1957,6 +1957,8 @@ function labScore(cfg, b) {
   if (!log) return null;
   if (cfg.topic === 'friction') return frictionScore(log);
   if (cfg.topic === 'inertia') return inertiaScore(log);
+  if (cfg.topic === 'work') return workScore(log);
+  if (cfg.topic === 'machines') return machinesScore(log);
   const pair = Array.isArray(log.pair) ? log.pair.map(String) : [];
   if (pair.length !== 2 || !LAB_M[pair[0]] || !LAB_M[pair[1]] || pair[0] === pair[1]) return null;
   if (cfg.pair && [...cfg.pair].sort().join('+') !== [...pair].sort().join('+')) return null;   // الخليط الذي حدده المعلم فقط
@@ -2160,6 +2162,113 @@ function inertiaScore(log) {
       parts: parts.map(p => [p[0], Math.round(p[1] * 10) / 10, p[2]])
     }
   };
+}
+
+/* 🏋️ تجربة الشغل — الشغل = القوة × المسافة؛ ثلاث سحبات (متغير واحد في كل مرة) + جدار لا يتحرك */
+const WK_FORCES = [5, 10, 15, 20], WK_DISTS = [1, 1.5, 2, 3];
+const WK_OBS = { ok: ['w_dist','w_force','w_wall'], neutral: ['w_scale'], all: ['w_dist','w_force','w_wall','w_scale','w_time','w_wall_yes'] };
+Object.assign(LAB_CONCEPTS, { work:'الشغل = القوة × المسافة', wcond:'شرط إنجاز الشغل (حركة في اتجاه القوة)', wcalc:'حساب الشغل ووحدته الجول' });
+const labNums = (a, n) => (Array.isArray(a) ? a : []).slice(0, n).map(Number).filter(Number.isFinite);
+const labObsScore = (log, O) => { const obsIn = (Array.isArray(log.obs) ? log.obs : []).map(String).filter(k => O.all.includes(k));
+  const hits = obsIn.filter(o => O.ok.includes(o)).length, wrong = obsIn.filter(o => !O.ok.includes(o) && !O.neutral.includes(o)).length;
+  return { obsIn, obsScore: Math.max(0, Math.min(1, hits / O.ok.length - 0.34 * wrong)) }; };
+const labCalcPts = (calc, t, tol) => calc.length && Math.abs(calc[0] - t) <= tol ? 5 : calc.some(x => Math.abs(x - t) <= tol) ? 3 : 0;
+function labFinish(cls, parts, res, extra, byExtra, log) {
+  const score = Math.max(0, Math.min(100, Math.round(parts.reduce((s, p) => s + p[1], 0))));
+  const byC = {};
+  res.forEach(r => { const ok = r.correct && r.attempts === 1; byC[r.concept] = byC[r.concept] === undefined ? ok : (byC[r.concept] && ok); });
+  Object.entries(byExtra).forEach(([k, v]) => { byC[k] = byC[k] === undefined ? v : (byC[k] && v); });
+  const clip = (arr, n, len) => (Array.isArray(arr) ? arr : []).slice(0, n).map(x => String(x || '').slice(0, len));
+  return { score, cls, lab: Object.assign({ score, topic: cls, mistakes: clip(log.mistakes, 15, 160),
+    answers: res.map(r => ({ c: r.concept, n: r.attempts, ok: r.correct })),
+    mastered: Object.keys(byC).filter(k => byC[k]).map(k => LAB_CONCEPTS[k]), reinforce: Object.keys(byC).filter(k => !byC[k]).map(k => LAB_CONCEPTS[k]),
+    parts: parts.map(p => [p[0], Math.round(p[1] * 10) / 10, p[2]]) }, extra) };
+}
+function labAnswers(log, keys) {
+  const ans = Array.isArray(log.answers) ? log.answers : [];
+  if (ans.length < keys.length) return null;
+  const res = [];
+  for (let i = 0; i < keys.length; i++) { const r = labAttempts(keys[i], ans[i]); if (!r) return null; res.push({ ...r, concept: keys[i].concept }); }
+  return res;
+}
+function workScore(log) {
+  if (!log || typeof log !== 'object') return null;
+  const fOk = f => WK_FORCES.find(x => x === Number(f)), dOk = d => WK_DISTS.find(x => Math.abs(x - Number(d)) < 1e-9);
+  const rows = (Array.isArray(log.rows) ? log.rows : []).slice(0, 3).map(w => ({ F: fOk(w && w.F), d: dOk(w && w.d), calc: labNums(w && w.calc, 3) }));
+  if (rows.length !== 3 || rows.some(w => !w.F || !w.d)) return null;
+  const [a, b, c] = rows;
+  if (b.F !== a.F || b.d === a.d || c.d !== a.d || c.F === a.F) return null;     // البوابة: متغير واحد في كل سحبة
+  const runs = (Array.isArray(log.runs) ? log.runs : []).slice(0, 30);
+  const unfair = runs.filter(z => z && z.ok === false).length;
+  let calc = 0; rows.forEach(w => { calc += labCalcPts(w.calc, w.F * w.d, 0.5); });
+  const wall = labNums(log.wall, 3);
+  if (!wall.length) return null;
+  const wallPts = Math.abs(wall[0]) < 1e-9 ? 10 : wall.some(v => Math.abs(v) < 1e-9) ? 5 : 0;
+  const res = labAnswers(log, [{ type:'order', concept:'work', order:[0,1,2] }, { type:'mcq', concept:'wcond', ok:[0] },
+                              { type:'mcq', concept:'wcond', ok:[0] }, { type:'mcq', concept:'wcalc', ok:[0] }]);
+  if (!res) return null;
+  const { obsIn, obsScore } = labObsScore(log, WK_OBS);
+  const chal = (Array.isArray(log.chal) ? log.chal : []).slice(0, 10).map(z => Array.isArray(z) ? [Number(z[0]), Number(z[1])] : [0, 0]);
+  const ti = chal.findIndex(z => fOk(z[0]) && dOk(z[1]) && Math.abs(z[0] * z[1] - 30) < 1e-9), tries = ti < 0 ? 0 : ti + 1;
+  const f = r => r && r.correct ? [0, 1, 0.6, 0.3][r.attempts] : 0;
+  const parts = [
+    ['تجربة عادلة (متغير واحد)', Math.max(0, 10 - 5 * unfair), 10],
+    ['دقة حساب الشغل', calc, 15],
+    ['تجربة الجدار', wallPts, 10],
+    ['دقة الملاحظة', 15 * obsScore, 15],
+    ['الإجابات', 10 * f(res[0]) + 10 * f(res[2]), 20],
+    ['تفسير النتيجة', 10 * f(res[1]), 10],
+    ['التحدي العملي', tries ? [0, 10, 7, 4][Math.min(3, tries)] : 0, 10],
+    ['التطبيق في موقف جديد', 10 * f(res[3]), 10]
+  ];
+  return labFinish('work', parts, res, {
+    names: ['الشغل', 'ثلاث سحبات وجدار'],
+    result: rows.map(w => `${w.F} N × ${w.d} m = ${w.F * w.d} J`).join('، ') + ' · الجدار 0 J',
+    obs: obsIn, sepDone: tries > 0,
+    practical: { label: 'التحدي العملي', done: tries > 0, text: tries ? `أنجز 30 J في المحاولة ${tries}` : 'لم يُنجز' },
+    steps: rows.map(w => `${w.F} N × ${w.d} m: حسب ${w.calc.length ? w.calc[w.calc.length - 1] : '—'} J (الصحيح ${w.F * w.d})`)
+      .concat([`الجدار: كتب ${wall[wall.length - 1]} J (الصحيح 0)`])
+  }, { obs: obsScore >= 0.8, fair: unfair === 0, calc: calc === 15 }, log);
+}
+/* 🔧 تجربة الآلات البسيطة — رافعة (حمل 60 N على 0.5 m) + سطح مائل (صندوق 40 N إلى 0.5 m) */
+const MC_ARMS = [0.5, 1, 1.5], MC_RAMPS = [0.5, 1, 2];
+const MC_OBS = { ok: ['m_long_arm','m_long_ramp','m_same_work'], neutral: ['m_dist_more'], all: ['m_long_arm','m_long_ramp','m_same_work','m_dist_more','m_less_work','m_near'] };
+Object.assign(LAB_CONCEPTS, { lever:'الرافعة وذراع القوة', ma:'الفائدة الآلية', mwork:'الآلة توفّر القوة لا الشغل', machine:'الآلات البسيطة في الحياة' });
+function machinesScore(log) {
+  if (!log || typeof log !== 'object') return null;
+  const near = (v, list) => list.find(x => Math.abs(x - Number(v)) < 1e-9);
+  const lev = (Array.isArray(log.lev) ? log.lev : []).slice(0, 3).map(w => ({ d: near(w && w.d, MC_ARMS), calc: labNums(w && w.calc, 3) }));
+  const ramp = (Array.isArray(log.ramp) ? log.ramp : []).slice(0, 3).map(w => ({ L: near(w && w.L, MC_RAMPS), calc: labNums(w && w.calc, 3) }));
+  if (lev.length !== 3 || new Set(lev.map(w => w.d)).size !== 3 || lev.some(w => !w.d)) return null;
+  if (ramp.length !== 3 || new Set(ramp.map(w => w.L)).size !== 3 || ramp.some(w => !w.L)) return null;
+  const eff = d => 60 * 0.5 / d, rampF = L => 40 * 0.5 / L;
+  let maP = 0, wP = 0;
+  lev.forEach(w => { maP += labCalcPts(w.calc, 60 / eff(w.d), 0.05); });
+  ramp.forEach(w => { wP += labCalcPts(w.calc, rampF(w.L) * w.L, 0.5); });
+  const res = labAnswers(log, [{ type:'order', concept:'lever', order:[0,1,2] }, { type:'mcq', concept:'mwork', ok:[0] },
+                              { type:'mcq', concept:'ma', ok:[0] }, { type:'mcq', concept:'machine', ok:[0] }]);
+  if (!res) return null;
+  const { obsIn, obsScore } = labObsScore(log, MC_OBS);
+  const chal = labNums(log.chal, 10);
+  const ti = chal.findIndex(d => Math.abs(d - 1.5) < 1e-9), tries = ti < 0 ? 0 : ti + 1;    // 90 N × 0.5 ÷ 30 N = 1.5 m
+  const f = r => r && r.correct ? [0, 1, 0.6, 0.3][r.attempts] : 0;
+  const parts = [
+    ['حساب الفائدة الآلية', maP, 15],
+    ['حساب الشغل على السطح المائل', wP, 15],
+    ['دقة الملاحظة', 15 * obsScore, 15],
+    ['الإجابات', 10 * f(res[0]) + 10 * f(res[2]), 20],
+    ['تفسير النتيجة', 10 * f(res[1]), 10],
+    ['التحدي العملي', tries ? [0, 15, 10, 5][Math.min(3, tries)] : 0, 15],
+    ['التطبيق في موقف جديد', 10 * f(res[3]), 10]
+  ];
+  return labFinish('machines', parts, res, {
+    names: ['الآلات البسيطة', 'الرافعة والسطح المائل'],
+    result: lev.map(w => `ذراع ${w.d} m ← ${eff(w.d)} N`).join('، ') + ' · ' + ramp.map(w => `سطح ${w.L} m ← ${rampF(w.L)} N`).join('، '),
+    obs: obsIn, sepDone: tries > 0,
+    practical: { label: 'التحدي العملي', done: tries > 0, text: tries ? `رفع 90 N بقوة 30 N في المحاولة ${tries}` : 'لم يُنجز' },
+    steps: lev.map(w => `الفائدة الآلية عند ${w.d} m: ${w.calc.length ? w.calc[w.calc.length - 1] : '—'} (الصحيح ${60 / eff(w.d)})`)
+      .concat(ramp.map(w => `الشغل على ${w.L} m: ${w.calc.length ? w.calc[w.calc.length - 1] : '—'} J (الصحيح ${rampF(w.L) * w.L})`))
+  }, { obs: obsScore >= 0.8, ma: maP === 15, mwork: wP === 15 }, log);
 }
 
 /* ═══════════════════════════════════════════════════════════════════

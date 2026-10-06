@@ -576,6 +576,8 @@ const TOPICS=[
   {id:'mixtures',path:'phys',title:'المخاليط',desc:'اخلط مادتين واكتشف: هل تمتزجان؟ هل تذوب إحداهما؟ وكيف تفصلهما؟',ready:true},
   {id:'friction',path:'phys',title:'قوة الاحتكاك',desc:'ثلاثة أسطح مختلفة الخشونة: أين يتوقف القالب؟ ولماذا؟ (قوانين نيوتن)',ready:true},
   {id:'inertia',path:'phys',title:'القصور الذاتي',desc:'عربة وراكب وحاجز، وعربات مختلفة الكتلة بالدفعة نفسها (القانون الأول لنيوتن)',ready:true},
+  {id:'work',path:'phys',title:'الشغل',desc:'اسحب صندوقًا بميزان نابضي وادفع جدارًا: متى تنجز شغلًا؟ وكيف تحسبه؟ (الشغل = القوة × المسافة)',ready:true},
+  {id:'machines',path:'phys',title:'الآلات البسيطة',desc:'الرافعة والسطح المائل: كيف تقلل الآلة القوة؟ وهل تقلل الشغل؟',ready:true},
   {id:'density',path:'phys',title:'الكثافة والطفو والغوص',desc:'لماذا تطفو بعض الأجسام وتغوص أخرى؟'},
   {id:'massvol',path:'phys',title:'الكتلة والحجم',desc:'قِس بالميزان والمخبار المدرّج.'},
   {id:'separation',path:'phys',title:'الفصل: الترشيح والمغناطيس والتبخير',desc:'نفّذ عمليات الفصل بنفسك.'},
@@ -1233,9 +1235,9 @@ const PORTAL=(()=>{const q=new URLSearchParams(location.search);const hw=(q.get(
   return {hw,sid,name,api:'https://homework.ahmadalmarzooq2009.workers.dev',graded:false,cfg:null,status:null,dev:(()=>{try{return localStorage.getItem('hwdev_id_v1')||''}catch(e){return ''}})()};})();
 const app=$('#app');
 function go(screen){
-  SIM.stop();SEP.stop();if(typeof FRSIM!=='undefined')FRSIM.stop();if(typeof INSIM!=='undefined')INSIM.stop();
+  SIM.stop();SEP.stop();if(typeof FRSIM!=='undefined')FRSIM.stop();if(typeof INSIM!=='undefined')INSIM.stop();if(typeof WMSIM!=='undefined')WMSIM.stop();
   $$('.nav button').forEach(x=>{if(x.dataset.go===screen)x.setAttribute('aria-current','page');else x.removeAttribute('aria-current')});
-  ({home:renderHome,lab:renderLab,fric:renderFric,challenge:renderChal,inert:renderInert,inchal:renderInChal,think:renderThink,separate:renderSeparate,learned:renderLearned,apply:renderApply,result:renderResult,records:renderRecords,teacher:renderTeacher}[screen])();
+  ({home:renderHome,lab:renderLab,fric:renderFric,challenge:renderChal,inert:renderInert,inchal:renderInChal,work:renderWork,wkchal:renderWkChal,mach:renderMach,mchal:renderMcChal,think:renderThink,separate:renderSeparate,learned:renderLearned,apply:renderApply,result:renderResult,records:renderRecords,teacher:renderTeacher}[screen])();
   window.scrollTo({top:0});
 }
 
@@ -1543,6 +1545,8 @@ function renderThink(){
 function renderLearned(){
   if(APP.run.topic==='friction') return renderFrLearned();
   if(APP.run.topic==='inertia') return renderInLearned();
+  if(APP.run.topic==='work') return renderWkLearned();
+  if(APP.run.topic==='machines') return renderMcLearned();
   const r=APP.run,C=CONTENT[r.topic],c=r.ctx,L=C.learned(c,r),rd=r.finalReading||SIM.reading();
   const set=C.obs[c.cls];
   const mine=r.obs.map(o=>`${set.ok.includes(o)||set.neutral.includes(o)?'✓':'✗'} ${OBS_CHIPS[o]}`).join('، ');
@@ -2511,6 +2515,526 @@ function renderInLearned(){
 }
 
 /* =========================================================
+   🏋️ الشغل والآلات البسيطة — محاكٍ مشترك بسيط (Canvas)
+   ========================================================= */
+const WMSIM=(()=>{
+  let cv,c,raf=0,col={},draw=null;
+  function readColors(){const cs=getComputedStyle(document.documentElement);
+    col={ink:cs.getPropertyValue('--ink').trim()||'#13324A',ink2:cs.getPropertyValue('--ink-2').trim()||'#4F6879',paper:cs.getPropertyValue('--paper').trim()||'#fff',
+      line:cs.getPropertyValue('--line').trim()||'#D5E0E8',glass:cs.getPropertyValue('--glass').trim()||'#4FB3C8',amber:cs.getPropertyValue('--amber').trim()||'#D98E1F',
+      ok:cs.getPropertyValue('--ok').trim()||'#1E8A5C',bad:cs.getPropertyValue('--bad').trim()||'#C3473E'}}
+  function mount(canvas,W,H,fn){stop();cv=canvas;c=cv.getContext('2d');readColors();const dpr=Math.min(2,window.devicePixelRatio||1);
+    cv.width=W*dpr;cv.height=H*dpr;cv.style.aspectRatio=`${W}/${H}`;c.setTransform(dpr,0,0,dpr,0,0);draw=fn;frame(0)}
+  function frame(){if(!c||!draw)return;c.clearRect(0,0,cv.width,cv.height);draw(c,col)}
+  /* حركة من 0 إلى 1 خلال ms ثم onEnd */
+  function animate(ms,onStep,onEnd){cancelAnimationFrame(raf);const t0=performance.now();
+    const tick=t=>{const k=Math.min(1,(t-t0)/ms);onStep(k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2);frame();if(k<1)raf=requestAnimationFrame(tick);else{raf=0;onEnd&&onEnd()}};raf=requestAnimationFrame(tick)}
+  function stop(){cancelAnimationFrame(raf);raf=0}
+  const busy=()=>!!raf;
+  /* أدوات رسم */
+  function scale(c,x,y,F,maxF,col,vertical){   // ميزان نابضي
+    c.save();c.translate(x,y);if(vertical)c.rotate(Math.PI/2);
+    c.fillStyle=col.paper;c.strokeStyle=col.ink;c.lineWidth=2;c.beginPath();c.roundRect?c.roundRect(-34,-11,68,22,6):c.rect(-34,-11,68,22);c.fill();c.stroke();
+    const k=Math.max(0,Math.min(1,F/maxF));c.fillStyle=col.amber;c.fillRect(-28,-5,56*k,10);c.restore();
+    c.fillStyle=col.ink;c.font='bold 15px system-ui,sans-serif';c.textAlign=vertical?'left':'center';c.fillText(`${Math.round(F)} N`,vertical?x+20:x,vertical?y+5:y-18);
+  }
+  function box(c,x,y,w,h,label,col,fill){c.fillStyle=fill||'#C8955A';c.strokeStyle=col.ink;c.lineWidth=2;c.fillRect(x,y,w,h);c.strokeRect(x,y,w,h);
+    c.strokeStyle='rgba(0,0,0,.25)';c.beginPath();c.moveTo(x,y);c.lineTo(x+w,y+h);c.moveTo(x+w,y);c.lineTo(x,y+h);c.stroke();
+    if(label){c.fillStyle='#fff';c.font='bold 14px system-ui,sans-serif';c.textAlign='center';c.fillStyle=col.ink;c.fillText(label,x+w/2,y-8)}}
+  return {mount,animate,stop,busy,frame,scale,box,col:()=>col};
+})();
+const fx1=v=>(Math.round(v*10)/10).toFixed(1);
+
+/* ===================== 🏋️ تجربة الشغل ===================== */
+const WK={forces:[5,10,15,20],dists:[1,1.5,2,3],wallF:50,PX:190,X0:70,target:30};
+const WK_OBS={
+  w_dist:'عند مضاعفة المسافة مع القوة نفسها تضاعف الشغل',
+  w_force:'عند مضاعفة القوة مع المسافة نفسها تضاعف الشغل',
+  w_wall:'دفع الجدار لم يُنجز شغلًا لأن الجدار لم يتحرك',
+  w_scale:'بقيت قراءة الميزان النابضي ثابتة أثناء السحب',
+  w_time:'كلما سحبت الصندوق أسرع زاد الشغل',
+  w_wall_yes:'دفع الجدار أنجز شغلًا لأنني بذلت قوة كبيرة'
+};
+const WK_OBS_SET={ok:['w_dist','w_force','w_wall'],neutral:['w_scale']};
+Object.assign(CONCEPTS,{work:'الشغل = القوة × المسافة',wcond:'شرط إنجاز الشغل (حركة في اتجاه القوة)',wcalc:'حساب الشغل ووحدته الجول'});
+const WORK={
+  id:'work',title:'الشغل',screen:'work',practical:'wkchal',
+  cycle:['التوقع','التجربة','الملاحظة','التفكير','التحدي العملي','الاستنتاج','التطبيق','التقييم'],
+  safety:['اسحب الحمل بثبات وبخط مستقيم، لا بحركة مفاجئة.','لا تتجاوز أقصى قراءة للميزان النابضي.','عند رفع الأثقال الحقيقية: اثنِ ركبتيك وأبقِ ظهرك مستقيمًا.'],
+  questions(){return [
+    {type:'order',concept:'work',prompt:'رتّب السحبات حسب الشغل المبذول، من الأكبر إلى الأصغر.',
+     items:['قوة 20 N لمسافة 3 m','قوة 15 N لمسافة 2 m','قوة 10 N لمسافة 1 m'],
+     hints:['احسب الشغل لكل سحبة: القوة × المسافة.','20 × 3 = 60 J ، 15 × 2 = 30 J ، 10 × 1 = 10 J'],
+     explain:'الشغل = القوة × المسافة: 20 × 3 = 60 J، ثم 15 × 2 = 30 J، ثم 10 × 1 = 10 J. لاحظ أن القوة وحدها أو المسافة وحدها لا تكفي للحكم.'},
+    {type:'mcq',concept:'wcond',prompt:'دفعت الجدار بقوة 50 N حتى تعبت، فلماذا كان الشغل الذي أنجزته صفرًا؟',
+     options:[{t:'لأن الجدار لم يتحرك، فالمسافة صفر، والشغل = 50 × 0 = 0',ok:1},{t:'لأن القوة 50 N صغيرة جدًا'},{t:'لأن الجدار أثقل مني'},{t:'لأن الشغل يُحسب للأجسام الصغيرة فقط'}],
+     hints:['ارجع إلى قراءة المسطرة عند الجدار.','الشغل = القوة × المسافة. كم كانت المسافة؟'],
+     explain:'التعب وحده لا يعني شغلًا. الشغل يُنجز فقط إذا تحرك الجسم في اتجاه القوة. الجدار لم يتحرك، فالمسافة صفر، فالشغل صفر مهما كانت القوة.'},
+    {type:'mcq',concept:'wcond',prompt:'طالب يحمل حقيبته بيده ويمشي على أرض مستوية مسافة 10 m. هل أنجزت قوة رفعه للحقيبة شغلًا؟',
+     options:[{t:'لا؛ قوة الرفع إلى أعلى والحركة أفقية، فلا حركة في اتجاه القوة',ok:1},{t:'نعم؛ لأنه حمل الحقيبة مسافة 10 m'},{t:'نعم؛ لأن الحقيبة ثقيلة'},{t:'لا؛ لأن الحقيبة لم تتحرك أبدًا'}],
+     hints:['ما اتجاه قوة الرفع؟ وما اتجاه حركة الحقيبة؟','الشغل يحتاج حركة في اتجاه القوة نفسه.'],
+     explain:'قوة يده تتجه إلى أعلى، والحقيبة تتحرك أفقيًا. لا حركة في اتجاه القوة، فلا تنجز قوة الرفع شغلًا (مع أنه يتعب).'}
+  ]},
+  apply(){return {type:'mcq',concept:'wcalc',prompt:'موقف جديد: رفعت صندوقًا وزنه 40 N إلى رف ارتفاعه 1.5 m. كم الشغل الذي أنجزته؟',
+    options:[{t:'60 J',ok:1},{t:'26.7 J'},{t:'41.5 J'},{t:'0 J'}],
+    hints:['القوة اللازمة للرفع تساوي الوزن، والمسافة هي الارتفاع.','الشغل = 40 × 1.5'],
+    explain:'لرفع الصندوق تبذل قوة تساوي وزنه (40 N) لمسافة 1.5 m إلى أعلى، في اتجاه القوة: الشغل = 40 × 1.5 = 60 J.'}},
+  learned(c,r){return {
+    lead:'الشغل يُنجز عندما تؤثر قوة في جسم فيتحرك في اتجاهها، ويُحسب: الشغل = القوة × المسافة، ووحدته الجول (J).',
+    happened:'سحبت الصندوق بالقوة نفسها لمسافة أطول فتضاعف الشغل، ثم بقوة أكبر للمسافة نفسها فتضاعف الشغل أيضًا. أما الجدار فدفعته بقوة 50 N ولم يتحرك، فكان الشغل صفرًا.',
+    why:'الشغل يعتمد على القوة والمسافة معًا. إذا كانت المسافة صفرًا، أو كانت الحركة في غير اتجاه القوة، فلا تنجز القوة شغلًا مهما كانت كبيرة ومهما تعبت.',
+    concept:'الشغل = القوة × المسافة (جول = نيوتن × متر)، ولا شغل بلا حركة في اتجاه القوة.'}},
+  score(r){
+    const f=a=>a&&a.correct?[0,1,.6,.3][a.attempts]:0,q=r.answers,x=r.wk;
+    const unfair=x.runs.filter(z=>!z.ok).length;
+    const calc=x.rows.reduce((s,w)=>{const t=w.F*w.d,m=w.calc||[];return s+(m.length&&Math.abs(m[0]-t)<=.5?5:m.some(y=>Math.abs(y-t)<=.5)?3:0)},0);
+    const wall=x.wall.length&&Math.abs(x.wall[0])<1e-9?10:x.wall.some(v=>Math.abs(v)<1e-9)?5:0;
+    const tries=(()=>{const i=(r.chal||[]).findIndex(z=>Math.abs(z[0]*z[1]-WK.target)<1e-9);return i<0?0:i+1})();
+    const parts=[['تجربة عادلة (متغير واحد)',Math.max(0,10-5*unfair),10],['دقة حساب الشغل',calc,15],['تجربة الجدار',wall,10],['دقة الملاحظة',15*r.obsScore,15],
+      ['الإجابات',10*f(q[0])+10*f(q[2]),20],['تفسير النتيجة',10*f(q[1]),10],['التحدي العملي',tries?[0,10,7,4][Math.min(3,tries)]:0,10],['التطبيق في موقف جديد',10*f(q[3]),10]];
+    const total=Math.round(parts.reduce((a,p)=>a+p[1],0)),byC={};
+    q.forEach(a=>{if(!a)return;const ok=a.correct&&a.attempts===1;byC[a.concept]=byC[a.concept]===undefined?ok:byC[a.concept]&&ok});
+    byC.obs=r.obsScore>=.8;byC.fair=unfair===0;byC.calc=calc===15;
+    return {parts,total,mastered:Object.keys(byC).filter(k=>byC[k]),reinforce:Object.keys(byC).filter(k=>!byC[k])};
+  },
+  log(r){const x=r.wk;return {topic:'work',runs:x.runs.slice(0,30),rows:x.rows.map(w=>({F:w.F,d:w.d,calc:(w.calc||[]).slice(0,3)})),wall:x.wall.slice(0,3),
+    answers:r.answers.map(a=>({a:a&&a.log||[]})),obs:r.obs,chal:(r.chal||[]).slice(0,10),mistakes:r.log.slice(0,15)}},
+  next(){return 'جرّب في التدريب الحر: كم طريقة مختلفة تنجز بها 60 J بالقوى والمسافات المتاحة؟'},
+  record(r){const x=r.wk;return {title:`${this.title}: ثلاث سحبات وجدار`,materials:['صندوق','ميزان نابضي','مسطرة مترية','جدار'],
+    result:x.rows.map(w=>`${w.F} N × ${fx1(w.d)} m = ${fx1(w.F*w.d)} J`).join('، ')+' · الجدار 0 J',
+    separation:x.rows.map(w=>`${w.F} N × ${fx1(w.d)} m: حسب ${w.calc&&w.calc.length?w.calc[w.calc.length-1]:'—'} J`)}}
+};
+CONTENT.work=WORK;
+
+/* ---- رسم تجربة الشغل ---- */
+const wkView={mode:'pull',x:0,F:0,d:0,label:''};
+function wkDraw(c,col){
+  const W=800,G=150,X0=WK.X0,PX=WK.PX;
+  c.fillStyle=col.line;c.fillRect(0,G,W,4);
+  // مسطرة
+  c.strokeStyle=col.ink2;c.fillStyle=col.ink2;c.lineWidth=1.5;c.font='12px system-ui,sans-serif';c.textAlign='center';
+  for(let m=0;m<=3;m+=.5){const x=X0+m*PX;c.beginPath();c.moveTo(x,G+6);c.lineTo(x,G+(m%1?14:20));c.stroke();if(m%1===0)c.fillText(`${m} m`,x,G+34)}
+  if(wkView.mode==='wall'){
+    c.fillStyle='#9AA7B3';c.fillRect(470,40,40,G-40);c.strokeStyle=col.ink;c.strokeRect(470,40,40,G-40);
+    c.strokeStyle='rgba(0,0,0,.18)';for(let y=55;y<G;y+=20){c.beginPath();c.moveTo(470,y);c.lineTo(510,y);c.stroke()}
+    // شخص يدفع
+    const px=360;c.strokeStyle=col.ink;c.lineWidth=4;c.beginPath();c.arc(px-30,68,12,0,7);c.stroke();
+    c.beginPath();c.moveTo(px-30,80);c.lineTo(px-40,118);c.lineTo(px-55,G);c.moveTo(px-40,118);c.lineTo(px-25,G);c.moveTo(px-32,90);c.lineTo(px+8,92);c.stroke();
+    WMSIM.scale(c,px+30,92,wkView.F,60,col);
+    c.fillStyle=col.ink;c.font='bold 15px system-ui,sans-serif';c.textAlign='center';c.fillText(`القوة ${Math.round(wkView.F)} N · المسافة = ${fx2(wkView.d)} m`,400,22);
+    return;
+  }
+  const bx=X0+wkView.x*PX;
+  WMSIM.box(c,bx-26,G-52,52,52,'',col);
+  // حبل + ميزان + يد
+  c.strokeStyle=col.ink;c.lineWidth=2;c.beginPath();c.moveTo(bx+26,G-26);c.lineTo(bx+70,G-26);c.stroke();
+  WMSIM.scale(c,bx+106,G-26,wkView.F,25,col);
+  c.beginPath();c.moveTo(bx+140,G-26);c.lineTo(bx+160,G-26);c.stroke();
+  c.fillStyle=col.amber;c.beginPath();c.arc(bx+166,G-26,7,0,7);c.fill();
+  if(wkView.d){const fx=X0+wkView.d*PX;c.strokeStyle=col.bad;c.lineWidth=2;c.beginPath();c.moveTo(fx,G-70);c.lineTo(fx,G);c.stroke();c.fillStyle=col.bad;c.fillRect(fx,G-70,22,13)}
+  c.fillStyle=col.ink;c.font='bold 15px system-ui,sans-serif';c.textAlign='center';
+  if(wkView.label)c.fillText(wkView.label,400,22);
+}
+let WK_CV='#wkA';
+function wkMount(id,mode){WK_CV=id;wkView.mode=mode||'pull';wkView.x=0;wkView.F=0;wkView.d=0;wkView.label='';WMSIM.mount($(id),800,200,wkDraw);setTimeout(()=>frFollowEl(id,mode==='wall'?420:WK.X0+120),0)}
+function wkPull(F,d,onEnd){
+  wkView.mode='pull';wkView.x=0;wkView.F=0;wkView.d=d;wkView.label='';
+  WMSIM.animate(900+700*d,k=>{wkView.F=k<.08?F*k/.08:F;wkView.x=d*k;frFollowEl(WK_CV,WK.X0+d*k*WK.PX+80);wkView.label=`القوة ${F} N · المسافة ${fx2(d*k)} m`},()=>{wkView.F=F;onEnd&&onEnd()});
+}
+function wkChips(attr,list,cur,unit){return list.map(v=>`<button class="chip" data-${attr}="${v}" aria-pressed="${v===cur?'true':'false'}"><span class="num">${v} ${unit}</span></button>`).join('')}
+
+/* ---- شاشة تجربة الشغل ---- */
+function renderWork(){
+  const r=APP.run;
+  if(!r.wk) r.wk={pred:null,runs:[],rows:[0,1,2].map(()=>({F:null,d:null,calc:[],rec:false,done:false})),wall:[],wallDone:false,wallRec:false};
+  r.wkF=r.wkF||10;r.wkD=r.wkD||1;
+  if(r.step==='safety') r.step='predict';
+  app.innerHTML=`<div id="cyc"></div>
+  <section class="bench">${inGuideBox()}
+    <h3 class="inh">الجزء الأول: اسحب الصندوق بالميزان النابضي</h3>
+    <div class="frbar"><div class="seg" role="group" aria-label="القوة"><span>القوة:</span>${wkChips('wf',WK.forces,r.wkF,'N')}</div>
+      <div class="seg" role="group" aria-label="المسافة"><span>المسافة:</span>${wkChips('wd',WK.dists,r.wkD,'m')}</div>
+      <button class="btn amber" id="wkGo">اسحب الصندوق</button></div>
+    <div class="beakerzone frzone"><div class="frscroll" dir="ltr"><canvas id="wkA" aria-label="صندوق يُسحب بميزان نابضي على مسطرة"></canvas></div></div><p class="swipe-hint">↔ اسحب الرسم يمينًا ويسارًا لرؤيته كاملًا</p>
+    <div class="tablewrap" style="margin-top:12px"><table class="frtab"><thead><tr><th>السحبة</th><th>القوة</th><th>المسافة</th><th>الشغل (احسبه)</th></tr></thead><tbody>
+    ${[0,1,2].map(i=>`<tr><td><b>${['أ','ب','ج'][i]}</b><div class="note" style="margin:0;font-size:.78rem">${['اختر أي قوة ومسافة','القوة نفسها ومسافة مختلفة','المسافة نفسها وقوة مختلفة'][i]}</div></td>
+      <td id="wF${i}">—</td><td id="wD${i}">—</td>
+      <td><span style="display:inline-flex;gap:6px;align-items:center"><input type="text" inputmode="decimal" autocomplete="off" class="frin" id="wv${i}" disabled placeholder="٠"> J <button class="btn ghost sm-btn" id="wrec${i}" disabled>سجّل</button><span id="wok${i}"></span></span></td></tr>`).join('')}
+    </tbody></table></div>
+    <div id="wkPartB" class="hide-b">
+      <h3 class="inh" style="margin-top:16px">الجزء الثاني: ادفع الجدار</h3>
+      <div class="frbar"><button class="btn amber" id="wkWall">ادفع الجدار بقوة ${WK.wallF} N</button>
+        <span style="display:inline-flex;gap:6px;align-items:center">الشغل: <input type="text" inputmode="decimal" autocomplete="off" class="frin" id="wkWv" disabled placeholder="٠"> J <button class="btn ghost sm-btn" id="wkWrec" disabled>سجّل</button><span id="wkWok"></span></span></div>
+      <div class="beakerzone frzone"><div class="frscroll" dir="ltr"><canvas id="wkB" aria-label="شخص يدفع جدارًا"></canvas></div></div><p class="swipe-hint">↔ اسحب الرسم يمينًا ويسارًا لرؤيته كاملًا</p>
+    </div>
+  </section>
+  <div id="obsPanel" class="frobs"></div>
+  <div class="panel safety" style="margin-top:12px"><h3>قواعد السلامة</h3><ul>${WORK.safety.map(x=>`<li>${x}</li>`).join('')}</ul></div>`;
+  wkMount('#wkA','pull');
+  $$('[data-wf]').forEach(b=>b.onclick=()=>{r.wkF=+b.dataset.wf;$$('[data-wf]').forEach(x=>x.setAttribute('aria-pressed',x===b?'true':'false'))});
+  $$('[data-wd]').forEach(b=>b.onclick=()=>{r.wkD=+b.dataset.wd;$$('[data-wd]').forEach(x=>x.setAttribute('aria-pressed',x===b?'true':'false'))});
+  $$('.frin').forEach(x=>x.addEventListener('input',()=>{const v=arNum(x.value.replace(/[,،]/g,'.'));if(v!==x.value)x.value=v}));
+  $('#wkGo').onclick=wkGo;
+  [0,1,2].forEach(i=>{$('#wrec'+i).onclick=()=>wkRecord(i);$('#wv'+i).addEventListener('keydown',e=>{if(e.key==='Enter')wkRecord(i)})});
+  $('#wkWall').onclick=wkWall;$('#wkWrec').onclick=wkWallRec;$('#wkWv').addEventListener('keydown',e=>{if(e.key==='Enter')wkWallRec()});
+  wkGuide();
+}
+function wkGo(){
+  const r=APP.run,x=r.wk;if(r.step==='predict')return note('اختر توقعك أولًا.');if(r.step!=='pull')return;if(WMSIM.busy())return;
+  const i=x.rows.findIndex(w=>!w.rec);if(i<0)return;
+  const F=r.wkF,d=r.wkD,a=x.rows[0];let ok=true,why='';
+  if(i===1&&a.rec&&(F!==a.F||d===a.d)){ok=false;why=`في السحبة (ب) غيّر المسافة فقط: اجعل القوة ${a.F} N كما في (أ)، واختر مسافة غير ${fx1(a.d)} m.`}
+  if(i===2&&a.rec&&(d!==a.d||F===a.F)){ok=false;why=`في السحبة (ج) غيّر القوة فقط: اجعل المسافة ${fx1(a.d)} m كما في (أ)، واختر قوة غير ${a.F} N.`}
+  x.runs.push({row:i,F,d,ok});
+  if(!ok){r.mist.exec++;r.log.push(`سحبة لا تغيّر متغيرًا واحدًا فقط (${F} N، ${fx1(d)} m)`);return note(why+' هكذا نعرف سبب تغيّر الشغل.',true)}
+  const w=x.rows[i];Object.assign(w,{F,d,calc:[],done:false});
+  $('#wkGo').disabled=true;$('#wF'+i).textContent=`${F} N`;$('#wD'+i).textContent='…';
+  wkPull(F,d,()=>{$('#wkGo').disabled=false;w.done=true;$('#wD'+i).textContent=`${fx2(d)} m`;$('#wv'+i).disabled=false;$('#wrec'+i).disabled=false;$('#wv'+i).focus();wkGuide()});
+}
+function wkRecord(i){
+  const r=APP.run,w=r.wk.rows[i];if(!w.done||w.rec)return;
+  const v=parseNum($('#wv'+i).value);if(!isFinite(v)||v<0)return note('اكتب الشغل بالجول، مثل ٢٠');
+  w.calc.push(Math.round(v*10)/10);const t=w.F*w.d;
+  if(Math.abs(v-t)<=.5){w.rec=true;$('#wok'+i).textContent='✓';$('#wv'+i).disabled=true;$('#wrec'+i).disabled=true}
+  else if(w.calc.length<3){r.log.push(`حساب شغل غير دقيق: ${w.F} N × ${fx1(w.d)} m = ${v}`);note(`راجع الحساب: الشغل = القوة × المسافة = ${w.F} × ${fx1(w.d)}.`,true)}
+  else{w.rec=true;$('#wv'+i).value=arNum(fx1(t));$('#wok'+i).textContent=`الصحيح ${fx1(t)}`;$('#wv'+i).disabled=true;$('#wrec'+i).disabled=true}
+  wkGuide();
+}
+function wkShowB(){const box=$('#wkPartB');if(!box||box.dataset.on)return;box.dataset.on='1';box.classList.remove('hide-b');$('#wkGo').disabled=true;$$('[data-wf],[data-wd]').forEach(b=>b.disabled=true);wkMount('#wkB','wall');box.scrollIntoView({behavior:'smooth',block:'nearest'})}
+function wkWall(){
+  const r=APP.run;if(r.step!=='wall'||WMSIM.busy())return;$('#wkWall').disabled=true;
+  WMSIM.animate(1600,k=>{wkView.F=Math.min(1,k*1.4)*WK.wallF;wkView.d=0},()=>{r.wk.wallDone=true;$('#wkWall').disabled=false;$('#wkWv').disabled=false;$('#wkWrec').disabled=false;$('#wkWv').focus();note('دفعت بقوة 50 N… انظر إلى المسطرة: كم تحرك الجدار؟');wkGuide()});
+}
+function wkWallRec(){
+  const r=APP.run,x=r.wk;if(!x.wallDone||x.wallRec)return;
+  const v=parseNum($('#wkWv').value);if(!isFinite(v)||v<0)return note('اكتب الشغل بالجول.');
+  x.wall.push(Math.round(v*10)/10);
+  if(Math.abs(v)<1e-9){x.wallRec=true;$('#wkWok').textContent='✓';$('#wkWv').disabled=true;$('#wkWrec').disabled=true}
+  else if(x.wall.length<3){r.log.push(`حساب شغل الجدار: ${v} J`);note('بذلت قوة 50 N، لكن كم كانت المسافة؟ الشغل = القوة × المسافة.',true)}
+  else{x.wallRec=true;$('#wkWv').value=arNum('0');$('#wkWok').textContent='الصحيح 0';$('#wkWv').disabled=true;$('#wkWrec').disabled=true}
+  wkGuide();
+}
+function wkGuide(){
+  const r=APP.run,x=r.wk,t=$('#gtext'),act=$('#gact');if(!t)return;act.innerHTML='';
+  const cyc=$('#cyc');if(cyc)cyc.innerHTML=cycleHTML(r.step==='predict'?0:r.step==='observe'?2:1);
+  if(r.step==='predict'){
+    t.textContent='قبل أن تجرّب: إذا سحبت الصندوق بالقوة نفسها لمسافة مضاعفة، فإن الشغل الذي تنجزه…';
+    act.innerHTML=[['double','يتضاعف'],['same','يبقى كما هو'],['half','يقل إلى النصف']].map(([k,l])=>`<button class="btn amber" data-pred="${k}" style="padding:7px 14px">${l}</button>`).join('');
+    $$('[data-pred]',act).forEach(b=>b.onclick=()=>{x.pred=b.dataset.pred;r.step='pull';note('سجّلنا توقعك. جرّب الآن وتحقق منه.');wkGuide()});return;
+  }
+  if(r.step==='pull'){
+    const i=x.rows.findIndex(w=>!w.rec);
+    if(i<0){r.step='wall';wkShowB();return wkGuide()}
+    const w=x.rows[i];
+    if(w.done){t.textContent=bidi(`احسب الشغل في السحبة (${['أ','ب','ج'][i]}) واكتبه في الجدول: الشغل = القوة × المسافة.`);return}
+    t.textContent=bidi(['اختر قوة ومسافة، ثم اسحب الصندوق واقرأ الميزان والمسطرة.',`السحبة (ب): اسحب بالقوة نفسها (${x.rows[0].F} N) لكن لمسافة مختلفة.`,`السحبة (ج): اسحب للمسافة نفسها (${fx1(x.rows[0].d)} m) لكن بقوة مختلفة.`][i]);return;
+  }
+  if(r.step==='wall'){
+    if(!x.wallDone){t.textContent='الآن ادفع الجدار بقوة 50 N وراقب المسطرة.';return}
+    if(!x.wallRec){t.textContent='احسب الشغل الذي أنجزته على الجدار واكتبه.';return}
+    t.textContent='أكملت الجزأين. قارن الجدول، ثم سجّل ملاحظاتك.';
+    act.innerHTML='<button class="btn amber" id="wkObsGo">سجّل ملاحظاتي</button>';$('#wkObsGo').onclick=()=>{r.step='observe';wkGuide();wmObs(WK_OBS,WK_OBS_SET,'work')};return;
+  }
+  if(r.step==='observe')t.textContent='ماذا لاحظت؟ اختر ملاحظاتك تحت الجدول.';
+}
+/* ملاحظات مشتركة للتجربتين */
+function wmObs(OBS,SET,cls){
+  const r=APP.run,box=$('#obsPanel');
+  box.innerHTML=`<div class="obs"><h3>🔎 سجّل ملاحظاتك</h3><p>اختر كل ما شاهدته فعلًا في التجربة.</p>
+    <div class="chips">${shuffle(Object.keys(OBS)).map(k=>`<button class="chip" aria-pressed="false" data-obs="${k}">${OBS[k]}</button>`).join('')}</div>
+    <button class="btn" id="obsDone" disabled>سجّلت ملاحظاتي</button></div>`;
+  $$('[data-obs]',box).forEach(ch=>ch.addEventListener('click',()=>{ch.setAttribute('aria-pressed',ch.getAttribute('aria-pressed')==='true'?'false':'true');$('#obsDone').disabled=!$$('[data-obs][aria-pressed="true"]',box).length}));
+  $('#obsDone').onclick=()=>{
+    r.obs=$$('[data-obs][aria-pressed="true"]',box).map(x=>x.dataset.obs);
+    const hits=r.obs.filter(o=>SET.ok.includes(o)).length,wrong=r.obs.filter(o=>!SET.ok.includes(o)&&!SET.neutral.includes(o));
+    r.obsScore=Math.max(0,Math.min(1,hits/SET.ok.length-.34*wrong.length));
+    if(wrong.length)r.log.push('ملاحظة غير دقيقة: '+wrong.map(o=>OBS[o]).join('، '));
+    r.ctx={cls};r.qi=0;go('think');
+  };
+  box.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+/* ---- تحدي الشغل ---- */
+function renderWkChal(){
+  const r=APP.run;r.chal=r.chal||[];r.chalDone=false;r.wkF=r.wkF||10;r.wkD=r.wkD||1;
+  app.innerHTML=`${cycleHTML(4)}<section class="bench">
+    <div class="guide" role="status" aria-live="polite"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 29V4M8 5h16l-5 5 5 5H8"/></svg>
+      <div class="gt"><span class="who">التحدي العملي</span><p id="gtext">أنجز شغلًا مقداره ${WK.target} J بالضبط بسحبة واحدة. اختر القوة والمسافة المناسبتين ثم اسحب.</p><div class="gact" id="gact"></div></div></div>
+    <div class="gnote" id="gnote" role="alert"></div>
+    <div class="frbar"><div class="seg"><span>القوة:</span>${wkChips('wf',WK.forces,r.wkF,'N')}</div><div class="seg"><span>المسافة:</span>${wkChips('wd',WK.dists,r.wkD,'m')}</div><button class="btn amber" id="chGo">اسحب</button></div>
+    <div class="beakerzone frzone"><div class="frscroll" dir="ltr"><canvas id="wkC"></canvas></div></div><p class="swipe-hint">↔ اسحب الرسم يمينًا ويسارًا لرؤيته كاملًا</p>
+  </section>`;
+  wkMount('#wkC','pull');
+  $$('[data-wf]').forEach(b=>b.onclick=()=>{r.wkF=+b.dataset.wf;$$('[data-wf]').forEach(x=>x.setAttribute('aria-pressed',x===b?'true':'false'))});
+  $$('[data-wd]').forEach(b=>b.onclick=()=>{r.wkD=+b.dataset.wd;$$('[data-wd]').forEach(x=>x.setAttribute('aria-pressed',x===b?'true':'false'))});
+  $('#chGo').onclick=()=>{if(r.chalDone||WMSIM.busy())return;const F=r.wkF,d=r.wkD;r.chal.push([F,d]);$('#chGo').disabled=true;
+    wkPull(F,d,()=>{$('#chGo').disabled=false;const W=F*d,t=$('#gtext'),act=$('#gact');
+      if(Math.abs(W-WK.target)<1e-9){r.chalDone=true;t.textContent=bidi(`أحسنت! ${F} N × ${fx1(d)} m = ${fx1(W)} J. يمكن الوصول إلى الشغل نفسه بقوة أصغر ومسافة أطول، أو العكس.`);
+        act.innerHTML='<button class="btn amber" id="toLearn">إلى الخلاصة</button>';$('#toLearn').onclick=()=>go('learned');return}
+      t.textContent=bidi(`الشغل في هذه السحبة = ${F} × ${fx1(d)} = ${fx1(W)} J، ${W>WK.target?'أكبر':'أقل'} من ${WK.target} J.${r.chal.length>=3?' تلميح: ما العددان من القوائم اللذان حاصل ضربهما 30؟':''}`);
+      if(r.chal.length>=4){act.innerHTML='<button class="btn" id="skipCh" style="background:transparent;border:1px solid currentColor;color:inherit;padding:6px 12px">تخطَّ التحدي</button>';
+        $('#skipCh').onclick=()=>{r.log.push('تخطى التحدي العملي');go('learned')}}})};
+}
+function renderWkLearned(){
+  const r=APP.run,L=WORK.learned(null,r),x=r.wk;
+  const predName={double:'يتضاعف',same:'يبقى كما هو',half:'يقل إلى النصف'}[x.pred]||'—';
+  const mine=r.obs.map(o=>`${WK_OBS_SET.ok.includes(o)||WK_OBS_SET.neutral.includes(o)?'✓':'✗'} ${WK_OBS[o]}`).join('، ');
+  app.innerHTML=`${cycleHTML(5)}<article class="learn">
+    <div class="lead"><h2>🎓 ماذا تعلمت من التجربة؟</h2><p>تعلمت أن ${L.lead}</p></div>
+    <section><h3>🔎 ماذا لاحظت؟</h3>
+      <p>توقعت أن الشغل «${predName}» عند مضاعفة المسافة. ${x.pred==='double'?'وتحقق توقعك.':'والنتيجة أنه تضاعف. التجربة هي التي تحسم.'}</p>
+      <div class="tablewrap"><table><thead><tr><th>السحبة</th><th>القوة</th><th>المسافة</th><th>الشغل</th></tr></thead><tbody>
+      ${x.rows.map((w,i)=>`<tr><td>${['أ','ب','ج'][i]}</td><td class="num">${w.F} N</td><td class="num">${fx1(w.d)} m</td><td class="num">${fx1(w.F*w.d)} J</td></tr>`).join('')}
+      <tr><td>الجدار</td><td class="num">${WK.wallF} N</td><td class="num">0 m</td><td class="num">0 J</td></tr></tbody></table></div>
+      ${mine?`<p class="note" style="margin-top:8px">ملاحظاتك: ${mine}.</p>`:''}</section>
+    <section><h3>🧠 ماذا حدث؟</h3><p>${bidi(L.happened)}</p></section>
+    <section><h3>💡 لماذا حدث ذلك؟</h3><p>${bidi(L.why)}</p></section>
+    <section><h3>🏠 وفي الحياة</h3><p>عندما تصعد الدرج تنجز شغلًا لأنك ترفع جسمك إلى أعلى. أما حمل حقيبة والوقوف بها فيُتعبك دون أن تنجز قوة الرفع شغلًا.</p></section>
+    <div class="concept"><h3>🎯 المفهوم الذي تعلمته</h3><p>${L.concept}</p></div>
+    <div class="actions"><button class="btn" id="toApply">اختبر فهمك في موقف جديد</button></div>
+  </article>`;
+  $('#toApply').onclick=()=>go('apply');
+}
+
+/* ===================== 🔧 تجربة الآلات البسيطة ===================== */
+const MC={load:60,la:.5,arms:[.5,1,1.5],boxW:40,h:.5,ramps:[.5,1,2],chLoad:90,chF:30,PX:180};
+const mcEff=d=>MC.load*MC.la/d;           // قوة الرافعة المتزنة
+const mcRampF=L=>MC.boxW*MC.h/L;          // سطح مائل أملس
+const MC_OBS={
+  m_long_arm:'كلما ابتعدت القوة عن نقطة الارتكاز قلّت القوة اللازمة لرفع الحمل',
+  m_long_ramp:'كلما طال السطح المائل قلّت القوة اللازمة لرفع الصندوق',
+  m_same_work:'بقي الشغل المبذول على السطوح المائلة الثلاثة متساويًا',
+  m_dist_more:'احتجت إلى سحب الصندوق مسافة أطول على السطح الأطول',
+  m_less_work:'السطح المائل الأطول قلّل الشغل المبذول',
+  m_near:'تقريب القوة من نقطة الارتكاز يسهّل رفع الحمل'
+};
+const MC_OBS_SET={ok:['m_long_arm','m_long_ramp','m_same_work'],neutral:['m_dist_more']};
+Object.assign(CONCEPTS,{lever:'الرافعة وذراع القوة',ma:'الفائدة الآلية',mwork:'الآلة توفّر القوة لا الشغل',machine:'الآلات البسيطة في الحياة'});
+const MACHINES={
+  id:'machines',title:'الآلات البسيطة',screen:'mach',practical:'mchal',
+  cycle:['التوقع','التجربة','الملاحظة','التفكير','التحدي العملي','الاستنتاج','التطبيق','التقييم'],
+  safety:['ثبّت نقطة الارتكاز جيدًا قبل وضع الحمل.','أبعد قدميك عن مكان سقوط الحمل.','اسحب على السطح المائل بثبات وفي اتجاه السطح.'],
+  questions(){return [
+    {type:'order',concept:'lever',prompt:'رتّب مواضع القوة على الرافعة حسب القوة اللازمة لرفع الحمل، من الأقل إلى الأكبر.',
+     items:['على بعد 1.5 m من نقطة الارتكاز','على بعد 1.0 m','على بعد 0.5 m'],
+     hints:['ارجع إلى عمود «القوة المقيسة» في جدول الرافعة.','كلما طال ذراع القوة قلّت القوة اللازمة.'],
+     explain:'كلما ابتعدت القوة عن نقطة الارتكاز (ذراع قوة أطول) قلّت القوة اللازمة: 20 N عند 1.5 m، ثم 30 N عند 1.0 m، ثم 60 N عند 0.5 m.'},
+    {type:'mcq',concept:'mwork',prompt:'على السطح المائل الأطول قلّت القوة اللازمة. فلماذا لم يقلّ الشغل؟',
+     options:[{t:'لأن المسافة زادت بالنسبة نفسها التي قلّت بها القوة، فبقي حاصل ضربهما (الشغل) ثابتًا',ok:1},{t:'لأن الصندوق صار أثقل على السطح الأطول'},{t:'لأن الشغل لا يعتمد على المسافة'},{t:'لأن الاحتكاك اختفى تمامًا'}],
+     hints:['قارن عمودي القوة والمسافة في جدول السطح المائل.','عندما تقل القوة إلى النصف، ماذا يحدث للمسافة؟'],
+     explain:'الآلة البسيطة لا تعطيك شغلًا مجانيًا: تقلل القوة لكنها تزيد المسافة بالنسبة نفسها. 40 × 0.5 = 20 × 1 = 10 × 2 = 20 J. لذلك نقول: الآلة توفّر القوة لا الشغل.'},
+    {type:'mcq',concept:'ma',prompt:'رافعة رفعت حملًا مقداره 60 N بقوة مقدارها 20 N. ما فائدتها الآلية؟',
+     options:[{t:'3',ok:1},{t:'40'},{t:'1200'},{t:'0.33'}],
+     hints:['الفائدة الآلية = المقاومة (الحمل) ÷ القوة.','60 ÷ 20 = ؟'],
+     explain:'الفائدة الآلية = المقاومة ÷ القوة = 60 ÷ 20 = 3، أي أن الرافعة ضاعفت قوتك ثلاث مرات.'}
+  ]},
+  apply(){return {type:'mcq',concept:'machine',prompt:'موقف جديد: لماذا تُبنى الطرق الجبلية متعرّجة بدل أن تصعد الجبل مباشرة؟',
+    options:[{t:'لأن الطريق المتعرّج سطح مائل أطول يقلل القوة اللازمة للصعود، مع أن المسافة أطول',ok:1},{t:'لأن الطريق المتعرّج يقلل الشغل اللازم للوصول إلى القمة'},{t:'لأنه أقصر من الطريق المستقيم'},{t:'لأن الجاذبية أقل على المنعطفات'}],
+    hints:['الطريق الصاعد يشبه أي جزء من تجربتك؟','هل قلّ الشغل في تجربتك على السطح الأطول؟'],
+    explain:'الطريق المتعرّج سطح مائل طويل: تحتاج السيارة قوة أقل لتصعد، لكنها تقطع مسافة أطول. الشغل اللازم للوصول إلى الارتفاع نفسه لا يقل.'}},
+  learned(c,r){return {
+    lead:'الآلات البسيطة مثل الرافعة والسطح المائل تسهّل العمل بتقليل القوة اللازمة، لكنها لا تقلل الشغل؛ فما توفّره من قوة تدفعه مسافةً أطول.',
+    happened:'في الرافعة: كلما أبعدت الميزان عن نقطة الارتكاز قلّت القوة اللازمة لرفع الحمل 60 N (60 ثم 30 ثم 20 N). وفي السطح المائل: كلما طال السطح قلّت القوة (40 ثم 20 ثم 10 N)، لكن الشغل بقي 20 J في كل مرة.',
+    why:'الفائدة الآلية = المقاومة ÷ القوة، وتزيد بزيادة ذراع القوة أو طول السطح المائل. لكن الشغل = القوة × المسافة، فعندما تقل القوة تزيد المسافة بالنسبة نفسها، ويبقى الشغل كما هو.',
+    concept:'الآلة البسيطة توفّر القوة لا الشغل · الفائدة الآلية = المقاومة ÷ القوة.'}},
+  score(r){
+    const f=a=>a&&a.correct?[0,1,.6,.3][a.attempts]:0,q=r.answers,x=r.mc;
+    const pts=(rows,fn,tol)=>rows.reduce((s,w)=>{const t=fn(w),m=w.calc||[];return s+(m.length&&Math.abs(m[0]-t)<=tol?5:m.some(y=>Math.abs(y-t)<=tol)?3:0)},0);
+    const maP=pts(x.lev,w=>MC.load/mcEff(w.d),.05),wP=pts(x.ramp,w=>mcRampF(w.L)*w.L,.5);
+    const ci=(r.chal||[]).indexOf(1.5),tries=ci<0?0:ci+1;
+    const parts=[['حساب الفائدة الآلية',maP,15],['حساب الشغل على السطح المائل',wP,15],['دقة الملاحظة',15*r.obsScore,15],
+      ['الإجابات',10*f(q[0])+10*f(q[2]),20],['تفسير النتيجة',10*f(q[1]),10],['التحدي العملي',tries?[0,15,10,5][Math.min(3,tries)]:0,15],['التطبيق في موقف جديد',10*f(q[3]),10]];
+    const total=Math.round(parts.reduce((a,p)=>a+p[1],0)),byC={};
+    q.forEach(a=>{if(!a)return;const ok=a.correct&&a.attempts===1;byC[a.concept]=byC[a.concept]===undefined?ok:byC[a.concept]&&ok});
+    byC.obs=r.obsScore>=.8;byC.ma=(byC.ma!==false)&&maP===15;byC.mwork=(byC.mwork!==false)&&wP===15;
+    return {parts,total,mastered:Object.keys(byC).filter(k=>byC[k]),reinforce:Object.keys(byC).filter(k=>!byC[k])};
+  },
+  log(r){const x=r.mc;return {topic:'machines',lev:x.lev.map(w=>({d:w.d,calc:(w.calc||[]).slice(0,3)})),ramp:x.ramp.map(w=>({L:w.L,calc:(w.calc||[]).slice(0,3)})),
+    answers:r.answers.map(a=>({a:a&&a.log||[]})),obs:r.obs,chal:(r.chal||[]).slice(0,10),mistakes:r.log.slice(0,15)}},
+  next(){return 'جرّب في التدريب الحر: لو صار السطح المائل 4 m، كم ستكون القوة؟ وكم سيكون الشغل؟'},
+  record(r){const x=r.mc;return {title:`${this.title}: الرافعة والسطح المائل`,materials:['رافعة ونقطة ارتكاز','حمل 60 N','ميزان نابضي','سطح مائل','صندوق 40 N'],
+    result:x.lev.map(w=>`ذراع ${fx1(w.d)} m ← ${fx1(mcEff(w.d))} N`).join('، ')+' · '+x.ramp.map(w=>`سطح ${fx1(w.L)} m ← ${fx1(mcRampF(w.L))} N`).join('، '),
+    separation:x.lev.map(w=>`الفائدة الآلية عند ${fx1(w.d)} m: ${w.calc&&w.calc.length?w.calc[w.calc.length-1]:'—'}`).concat(x.ramp.map(w=>`الشغل على ${fx1(w.L)} m: ${w.calc&&w.calc.length?w.calc[w.calc.length-1]:'—'} J`))}}
+};
+CONTENT.machines=MACHINES;
+
+/* ---- رسم الرافعة ---- */
+const lvView={d:1,F:0,ang:-.12,load:MC.load,label:''};
+function lvDraw(c,col){
+  const W=800,cx=380,cy=120,PX=MC.PX;
+  c.fillStyle=col.line;c.fillRect(0,196,W,4);
+  // نقطة الارتكاز
+  c.fillStyle=col.ink2;c.beginPath();c.moveTo(cx,cy+6);c.lineTo(cx-26,196);c.lineTo(cx+26,196);c.closePath();c.fill();
+  c.save();c.translate(cx,cy);c.rotate(lvView.ang);
+  c.fillStyle='#B7834F';c.strokeStyle=col.ink;c.lineWidth=2;c.fillRect(-MC.la*PX-60,-7,MC.la*PX+60+1.6*PX,14);c.strokeRect(-MC.la*PX-60,-7,MC.la*PX+60+1.6*PX,14);
+  c.fillStyle=col.ink;c.font='11px system-ui,sans-serif';c.textAlign='center';
+  for(const m of [.5,1,1.5]){c.fillRect(m*PX-1,-7,2,14);c.fillText(`${m} m`,m*PX,24)}
+  c.fillText('0.5 m',-MC.la*PX,24);
+  // الحمل
+  WMSIM.box(c,-MC.la*PX-26,-61,52,54,`${lvView.load} N`,col,'#8F9BA8');
+  // الميزان يسحب إلى أسفل
+  {const hx=lvView.d*PX;c.strokeStyle=col.ink;c.lineWidth=2;c.beginPath();c.moveTo(hx,7);c.lineTo(hx,30);c.stroke();}
+  c.restore();
+  const ex=cx+Math.cos(lvView.ang)*lvView.d*PX,ey=cy+Math.sin(lvView.ang)*lvView.d*PX;
+  WMSIM.scale(c,ex,ey+58,lvView.F,70,col,true);
+  c.fillStyle=col.amber;c.beginPath();c.arc(ex,ey+100,7,0,7);c.fill();
+  c.fillStyle=col.ink;c.font='bold 15px system-ui,sans-serif';c.textAlign='center';if(lvView.label)c.fillText(lvView.label,400,22);
+}
+function lvPull(d,maxF,onEnd){
+  const need=MC.load*MC.la/d,F=Math.min(need,maxF||1e9),ok=need<=(maxF||1e9)+1e-9;
+  lvView.d=d;lvView.F=0;lvView.ang=-.12;lvView.label='';
+  WMSIM.animate(1500,k=>{lvView.F=F*Math.min(1,k*1.25);lvView.ang=ok?-.12*(1-Math.max(0,(k-.55)/.45)):-.12;lvView.label=ok&&k>.95?'اتّزنت الرافعة':''},()=>{lvView.F=F;if(!ok)lvView.label=`الميزان وصل ${F} N ولم يرتفع الحمل`;onEnd&&onEnd(ok,need)});
+}
+/* ---- رسم السطح المائل ---- */
+const rpView={L:1,s:0,F:0,label:''};
+function rpDraw(c,col){
+  const W=800,G=196,PX=MC.PX*1.25,h=MC.h*PX,L=rpView.L*PX,run=Math.sqrt(Math.max(0,L*L-h*h)),x1=640,x0=run>1?x1-run:x1-30;
+  c.fillStyle=col.line;c.fillRect(0,G,W,4);
+  c.fillStyle='#C9D3DC';c.fillRect(x1,G-h,130,h);c.strokeStyle=col.ink;c.strokeRect(x1,G-h,130,h);
+  c.fillStyle=col.ink2;c.font='12px system-ui,sans-serif';c.textAlign='center';c.fillText(`الارتفاع ${MC.h} m`,x1+65,G-h/2);
+  if(run>1){c.fillStyle='#D8B98F';c.beginPath();c.moveTo(x0,G);c.lineTo(x1,G-h);c.lineTo(x1,G);c.closePath();c.fill();c.strokeStyle=col.ink;c.stroke()}
+  else{c.strokeStyle=col.ink2;c.setLineDash([4,4]);c.beginPath();c.moveTo(x1-2,G);c.lineTo(x1-2,G-h);c.stroke();c.setLineDash([])}
+  const ang=run>1?Math.atan2(h,run):Math.PI/2,px=x0+Math.cos(ang)*rpView.s*L,py=G-Math.sin(ang)*rpView.s*L;
+  c.save();c.translate(px,py);c.rotate(-ang);WMSIM.box(c,-24,-44,48,44,'',col);c.restore();
+  // حبل باتجاه السطح إلى الميزان
+  const tx=x1+20,ty=G-h-24;c.strokeStyle=col.ink;c.lineWidth=2;c.beginPath();c.moveTo(px+Math.cos(ang)*24-Math.sin(ang)*22,py-Math.sin(ang)*24-Math.cos(ang)*22);c.lineTo(tx,ty);c.stroke();
+  WMSIM.scale(c,tx+56,ty,rpView.F,45,col);
+  c.fillStyle=col.ink;c.font='bold 13px system-ui,sans-serif';c.textAlign='center';c.fillText(run>1?`طول السطح ${fx2(rpView.L)} m`:`رفع رأسي ${fx2(rpView.L)} m`,run>1?(x0+x1)/2-30:x1-60,G+20);
+  c.font='bold 15px system-ui,sans-serif';if(rpView.label)c.fillText(rpView.label,400,22);
+}
+function rpPull(L,onEnd){const F=mcRampF(L);rpView.L=L;rpView.s=0;rpView.F=0;rpView.label='';
+  WMSIM.animate(900+700*L,k=>{rpView.F=k<.08?F*k/.08:F;rpView.s=k;rpView.label=`القوة ${fx1(F)} N · قطع ${fx2(L*k)} m`},()=>{rpView.F=F;onEnd&&onEnd(F)})}
+
+/* ---- شاشة التجربة ---- */
+function renderMach(){
+  const r=APP.run;
+  if(!r.mc) r.mc={pred:null,lev:MC.arms.map(d=>({d,F:null,calc:[],rec:false,done:false})),ramp:MC.ramps.map(L=>({L,F:null,calc:[],rec:false,done:false}))};
+  r.mcD=r.mcD||MC.arms[0];r.mcL=r.mcL||MC.ramps[0];
+  if(r.step==='safety') r.step='predict';
+  app.innerHTML=`<div id="cyc"></div>
+  <section class="bench">${inGuideBox()}
+    <h3 class="inh">الجزء الأول: الرافعة (الحمل ${MC.load} N على بعد ${MC.la} m من نقطة الارتكاز)</h3>
+    <div class="frbar"><div class="seg" role="group" aria-label="موضع الميزان"><span>ضع الميزان على بعد:</span>${wkChips('md',MC.arms,r.mcD,'m')}</div>
+      <button class="btn amber" id="mcGoL">اسحب الميزان حتى تتزن الرافعة</button></div>
+    <div class="beakerzone frzone"><div class="frscroll" dir="ltr"><canvas id="mcA" aria-label="رافعة وحمل وميزان نابضي"></canvas></div></div><p class="swipe-hint">↔ اسحب الرسم يمينًا ويسارًا لرؤيته كاملًا</p>
+    <div class="tablewrap" style="margin-top:12px"><table class="frtab"><thead><tr><th>بعد القوة عن نقطة الارتكاز</th><th>القوة المقيسة</th><th>الفائدة الآلية = ${MC.load} ÷ القوة (احسبها)</th></tr></thead><tbody>
+    ${MC.arms.map((d,i)=>`<tr><td class="num"><b>${d} m</b></td><td id="lF${i}">—</td>
+      <td><span style="display:inline-flex;gap:6px;align-items:center"><input type="text" inputmode="decimal" autocomplete="off" class="frin" id="lv${i}" disabled placeholder="٠"> <button class="btn ghost sm-btn" id="lrec${i}" disabled>سجّل</button><span id="lok${i}"></span></span></td></tr>`).join('')}
+    </tbody></table></div>
+    <div id="mcPartB" class="hide-b">
+      <h3 class="inh" style="margin-top:16px">الجزء الثاني: السطح المائل (صندوق ${MC.boxW} N إلى ارتفاع ${MC.h} m)</h3>
+      <div class="frbar"><div class="seg" role="group" aria-label="طول السطح"><span>طول السطح:</span>${wkChips('ml',MC.ramps,r.mcL,'m')}</div>
+        <button class="btn amber" id="mcGoR">اسحب الصندوق إلى أعلى</button></div>
+      <div class="beakerzone frzone"><div class="frscroll" dir="ltr"><canvas id="mcB" aria-label="سطح مائل وصندوق وميزان"></canvas></div></div><p class="swipe-hint">↔ اسحب الرسم يمينًا ويسارًا لرؤيته كاملًا</p>
+      <div class="tablewrap" style="margin-top:12px"><table class="frtab"><thead><tr><th>طول السطح (المسافة)</th><th>القوة المقيسة</th><th>الشغل = القوة × المسافة (احسبه)</th></tr></thead><tbody>
+      ${MC.ramps.map((L,i)=>`<tr><td class="num"><b>${L} m</b>${L===MC.h?' <span class="note" style="font-size:.78rem">(رفع رأسي)</span>':''}</td><td id="rF${i}">—</td>
+        <td><span style="display:inline-flex;gap:6px;align-items:center"><input type="text" inputmode="decimal" autocomplete="off" class="frin" id="rv${i}" disabled placeholder="٠"> J <button class="btn ghost sm-btn" id="rrec${i}" disabled>سجّل</button><span id="rok${i}"></span></span></td></tr>`).join('')}
+      </tbody></table></div>
+    </div>
+  </section>
+  <div id="obsPanel" class="frobs"></div>
+  <div class="panel safety" style="margin-top:12px"><h3>قواعد السلامة</h3><ul>${MACHINES.safety.map(x=>`<li>${x}</li>`).join('')}</ul></div>`;
+  lvView.d=r.mcD;lvView.F=0;lvView.ang=-.12;lvView.load=MC.load;lvView.label='';WMSIM.mount($('#mcA'),800,215,lvDraw);setTimeout(()=>frFollowEl('#mcA',450),0);
+  $$('[data-md]').forEach(b=>b.onclick=()=>{if(WMSIM.busy())return;r.mcD=+b.dataset.md;$$('[data-md]').forEach(x=>x.setAttribute('aria-pressed',x===b?'true':'false'));lvView.d=r.mcD;lvView.F=0;lvView.ang=-.12;lvView.label='';WMSIM.frame()});
+  $$('.frin').forEach(x=>x.addEventListener('input',()=>{const v=arNum(x.value.replace(/[,،]/g,'.'));if(v!==x.value)x.value=v}));
+  $('#mcGoL').onclick=mcGoLever;
+  MC.arms.forEach((_,i)=>{$('#lrec'+i).onclick=()=>mcRec('lev',i);$('#lv'+i).addEventListener('keydown',e=>{if(e.key==='Enter')mcRec('lev',i)})});
+  MC.ramps.forEach((_,i)=>{$('#rrec'+i).onclick=()=>mcRec('ramp',i);$('#rv'+i).addEventListener('keydown',e=>{if(e.key==='Enter')mcRec('ramp',i)})});
+  mcGuide();
+}
+function mcGoLever(){
+  const r=APP.run;if(r.step==='predict')return note('اختر توقعك أولًا.');if(r.step!=='lever'||WMSIM.busy())return;
+  const i=MC.arms.indexOf(r.mcD),w=r.mc.lev[i];if(w.rec)return note('سجّلت هذا الموضع. انقل الميزان إلى موضع آخر.');
+  $('#mcGoL').disabled=true;$('#lF'+i).textContent='…';
+  lvPull(r.mcD,0,(ok,need)=>{$('#mcGoL').disabled=false;w.F=need;w.done=true;$('#lF'+i).textContent=`${fx1(need)} N`;$('#lv'+i).disabled=false;$('#lrec'+i).disabled=false;$('#lv'+i).focus();mcGuide()});
+}
+function mcGoRamp(){
+  const r=APP.run;if(r.step!=='ramp'||WMSIM.busy())return;
+  const i=MC.ramps.indexOf(r.mcL),w=r.mc.ramp[i];if(w.rec)return note('سجّلت هذا السطح. اختر سطحًا بطول آخر.');
+  $('#mcGoR').disabled=true;$('#rF'+i).textContent='…';
+  rpPull(r.mcL,F=>{$('#mcGoR').disabled=false;w.F=F;w.done=true;$('#rF'+i).textContent=`${fx1(F)} N`;$('#rv'+i).disabled=false;$('#rrec'+i).disabled=false;$('#rv'+i).focus();mcGuide()});
+}
+function mcRec(kind,i){
+  const r=APP.run,w=r.mc[kind][i],p=kind==='lev'?'l':'r';if(!w.done||w.rec)return;
+  const v=parseNum($('#'+p+'v'+i).value);if(!isFinite(v)||v<0)return note(kind==='lev'?'اكتب الفائدة الآلية رقمًا، مثل ٢':'اكتب الشغل بالجول، مثل ٢٠');
+  w.calc.push(Math.round(v*100)/100);
+  const t=kind==='lev'?MC.load/w.F:w.F*w.L,tol=kind==='lev'?.05:.5;
+  if(Math.abs(v-t)<=tol){w.rec=true;$('#'+p+'ok'+i).textContent='✓';$('#'+p+'v'+i).disabled=true;$('#'+p+'rec'+i).disabled=true}
+  else if(w.calc.length<3){r.log.push(kind==='lev'?`حساب فائدة آلية غير دقيق عند ${w.d} m: ${v}`:`حساب شغل غير دقيق على سطح ${w.L} m: ${v}`);
+    note(kind==='lev'?`راجع الحساب: الفائدة الآلية = ${MC.load} ÷ ${fx1(w.F)}.`:`راجع الحساب: الشغل = ${fx1(w.F)} × ${w.L}.`,true)}
+  else{w.rec=true;$('#'+p+'v'+i).value=arNum(kind==='lev'?fx1(t):fx1(t));$('#'+p+'ok'+i).textContent=`الصحيح ${fx1(t)}`;$('#'+p+'v'+i).disabled=true;$('#'+p+'rec'+i).disabled=true}
+  mcGuide();
+}
+function mcShowB(){const r=APP.run,box=$('#mcPartB');if(!box||box.dataset.on)return;box.dataset.on='1';box.classList.remove('hide-b');
+  $('#mcGoL').disabled=true;$$('[data-md]').forEach(b=>b.disabled=true);
+  rpView.L=r.mcL;rpView.s=0;rpView.F=0;rpView.label='';WMSIM.mount($('#mcB'),800,240,rpDraw);setTimeout(()=>frFollowEl('#mcB',560),0);
+  $$('[data-ml]').forEach(b=>b.onclick=()=>{if(WMSIM.busy())return;r.mcL=+b.dataset.ml;$$('[data-ml]').forEach(x=>x.setAttribute('aria-pressed',x===b?'true':'false'));rpView.L=r.mcL;rpView.s=0;rpView.F=0;rpView.label='';WMSIM.frame()});
+  $('#mcGoR').onclick=mcGoRamp;box.scrollIntoView({behavior:'smooth',block:'nearest'})}
+function mcGuide(){
+  const r=APP.run,x=r.mc,t=$('#gtext'),act=$('#gact');if(!t)return;act.innerHTML='';
+  const cyc=$('#cyc');if(cyc)cyc.innerHTML=cycleHTML(r.step==='predict'?0:r.step==='observe'?2:1);
+  if(r.step==='predict'){
+    t.textContent='قبل أن تجرّب: لرفع صندوق إلى المنصة نفسها، هل يقلّ الشغل إذا استخدمت سطحًا مائلًا أطول؟';
+    act.innerHTML=[['less','نعم، يقل الشغل'],['same','لا، يبقى الشغل نفسه'],['more','بل يزيد الشغل']].map(([k,l])=>`<button class="btn amber" data-pred="${k}" style="padding:7px 14px">${l}</button>`).join('');
+    $$('[data-pred]',act).forEach(b=>b.onclick=()=>{x.pred=b.dataset.pred;r.step='lever';note('سجّلنا توقعك. سنتحقق منه في الجزء الثاني.');mcGuide()});return;
+  }
+  if(r.step==='lever'){
+    const open=x.lev.find(w=>w.done&&!w.rec);if(open){t.textContent=bidi(`احسب الفائدة الآلية عند ${open.d} m: الحمل ÷ القوة المقيسة.`);return}
+    if(x.lev.every(w=>w.rec)){r.step='ramp';mcShowB();return mcGuide()}
+    t.textContent='ضع الميزان في موضع، واسحبه حتى تتزن الرافعة، واقرأ القوة. جرّب المواضع الثلاثة.';return;
+  }
+  if(r.step==='ramp'){
+    const open=x.ramp.find(w=>w.done&&!w.rec);if(open){t.textContent=bidi(`احسب الشغل على السطح ${open.L} m: القوة المقيسة × طول السطح.`);return}
+    if(!x.ramp.every(w=>w.rec)){t.textContent='اختر طول السطح، واسحب الصندوق إلى المنصة، واقرأ القوة. جرّب الأطوال الثلاثة.';return}
+    t.textContent='أكملت الجزأين. قارن الجدولين، ثم سجّل ملاحظاتك.';
+    act.innerHTML='<button class="btn amber" id="mcObsGo">سجّل ملاحظاتي</button>';$('#mcObsGo').onclick=()=>{r.step='observe';mcGuide();wmObs(MC_OBS,MC_OBS_SET,'machines')};return;
+  }
+  if(r.step==='observe')t.textContent='ماذا لاحظت؟ اختر ملاحظاتك تحت الجدولين.';
+}
+/* ---- التحدي: حمل 90 N بقوة 30 N ---- */
+function renderMcChal(){
+  const r=APP.run;r.chal=r.chal||[];r.chalDone=false;r.mcD=MC.arms[0];
+  app.innerHTML=`${cycleHTML(4)}<section class="bench">
+    <div class="guide" role="status" aria-live="polite"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 29V4M8 5h16l-5 5 5 5H8"/></svg>
+      <div class="gt"><span class="who">التحدي العملي</span><p id="gtext">حمل جديد مقداره ${MC.chLoad} N على بعد ${MC.la} m من نقطة الارتكاز، وميزانك يتحمل ${MC.chF} N فقط. أين تضع الميزان لترفع الحمل؟</p><div class="gact" id="gact"></div></div></div>
+    <div class="gnote" id="gnote" role="alert"></div>
+    <div class="frbar"><div class="seg"><span>ضع الميزان على بعد:</span>${wkChips('md',MC.arms,r.mcD,'m')}</div><button class="btn amber" id="chGo">اسحب</button></div>
+    <div class="beakerzone frzone"><div class="frscroll" dir="ltr"><canvas id="mcC"></canvas></div></div><p class="swipe-hint">↔ اسحب الرسم يمينًا ويسارًا لرؤيته كاملًا</p>
+  </section>`;
+  lvView.d=r.mcD;lvView.F=0;lvView.ang=-.12;lvView.load=MC.chLoad;lvView.label='';WMSIM.mount($('#mcC'),800,215,lvDraw);setTimeout(()=>frFollowEl('#mcC',450),0);
+  $$('[data-md]').forEach(b=>b.onclick=()=>{if(WMSIM.busy())return;r.mcD=+b.dataset.md;$$('[data-md]').forEach(x=>x.setAttribute('aria-pressed',x===b?'true':'false'));lvView.d=r.mcD;lvView.F=0;lvView.ang=-.12;lvView.label='';WMSIM.frame()});
+  $('#chGo').onclick=()=>{if(r.chalDone||WMSIM.busy())return;const d=r.mcD;r.chal.push(d);$('#chGo').disabled=true;
+    const need=MC.chLoad*MC.la/d;
+    WMSIM.animate(1500,k=>{const F=Math.min(need,MC.chF);lvView.F=F*Math.min(1,k*1.25);lvView.ang=need<=MC.chF+1e-9?-.12*(1-Math.max(0,(k-.55)/.45)):-.12},()=>{$('#chGo').disabled=false;const t=$('#gtext'),act=$('#gact');
+      if(need<=MC.chF+1e-9){r.chalDone=true;lvView.label='اتّزنت الرافعة';WMSIM.frame();t.textContent=bidi(`أحسنت! على بعد ${d} m تكفي ${fx1(need)} N لرفع ${MC.chLoad} N: الفائدة الآلية = ${MC.chLoad} ÷ ${fx1(need)} = ${fx1(MC.chLoad/need)}.`);
+        act.innerHTML='<button class="btn amber" id="toLearn">إلى الخلاصة</button>';$('#toLearn').onclick=()=>go('learned');return}
+      lvView.label=`الميزان وصل ${MC.chF} N ولم يرتفع الحمل`;WMSIM.frame();
+      t.textContent=bidi(`على بعد ${d} m يحتاج الحمل ${fx1(need)} N، وهذا أكبر من ${MC.chF} N.${r.chal.length>=2?' تلميح: أبعد الميزان عن نقطة الارتكاز.':''}`);
+      if(r.chal.length>=4){act.innerHTML='<button class="btn" id="skipCh" style="background:transparent;border:1px solid currentColor;color:inherit;padding:6px 12px">تخطَّ التحدي</button>';
+        $('#skipCh').onclick=()=>{r.log.push('تخطى التحدي العملي');go('learned')}}})};
+}
+function renderMcLearned(){
+  const r=APP.run,L=MACHINES.learned(null,r),x=r.mc;
+  const predName={less:'يقل الشغل',same:'يبقى الشغل نفسه',more:'يزيد الشغل'}[x.pred]||'—';
+  const mine=r.obs.map(o=>`${MC_OBS_SET.ok.includes(o)||MC_OBS_SET.neutral.includes(o)?'✓':'✗'} ${MC_OBS[o]}`).join('، ');
+  app.innerHTML=`${cycleHTML(5)}<article class="learn">
+    <div class="lead"><h2>🎓 ماذا تعلمت من التجربة؟</h2><p>تعلمت أن ${L.lead}</p></div>
+    <section><h3>🔎 ماذا لاحظت؟</h3>
+      <p>توقعت أن السطح المائل الأطول «${predName}». ${x.pred==='same'?'وتحقق توقعك.':'والنتيجة أن الشغل بقي نفسه، والذي قلّ هو القوة. التجربة هي التي تحسم.'}</p>
+      <div class="tablewrap"><table><thead><tr><th>الرافعة: بعد القوة</th><th>القوة</th><th>الفائدة الآلية</th></tr></thead><tbody>
+      ${x.lev.map(w=>`<tr><td class="num">${w.d} m</td><td class="num">${fx1(mcEff(w.d))} N</td><td class="num">${fx1(MC.load/mcEff(w.d))}</td></tr>`).join('')}</tbody></table></div>
+      <div class="tablewrap" style="margin-top:8px"><table><thead><tr><th>السطح المائل: الطول</th><th>القوة</th><th>الشغل</th></tr></thead><tbody>
+      ${x.ramp.map(w=>`<tr><td class="num">${w.L} m</td><td class="num">${fx1(mcRampF(w.L))} N</td><td class="num">${fx1(mcRampF(w.L)*w.L)} J</td></tr>`).join('')}</tbody></table></div>
+      ${mine?`<p class="note" style="margin-top:8px">ملاحظاتك: ${mine}.</p>`:''}</section>
+    <section><h3>🧠 ماذا حدث؟</h3><p>${bidi(L.happened)}</p></section>
+    <section><h3>💡 لماذا حدث ذلك؟</h3><p>${bidi(L.why)}</p></section>
+    <section><h3>🔨 وفي الحياة</h3><p>المقص والعتلة وفتّاحة العلب روافع، والمنحدرات لذوي الإعاقة والطرق الجبلية سطوح مائلة: كلها تقلل القوة اللازمة، ولا تقلل الشغل.</p></section>
+    <div class="concept"><h3>🎯 المفهوم الذي تعلمته</h3><p>${L.concept}</p></div>
+    <div class="actions"><button class="btn" id="toApply">اختبر فهمك في موقف جديد</button></div>
+  </article>`;
+  $('#toApply').onclick=()=>go('apply');
+}
+
+/* =========================================================
    🔗 الربط مع مساعد المعلم (بوابة الطالب + الـ Worker)
    ========================================================= */
 async function portalApi(path,opts){
@@ -2542,7 +3066,7 @@ async function portalBoot(){
   const closed=PORTAL.graded&&s.due&&s.due<today&&!(s.extra>0);
   if(closed)PORTAL.graded=false;
   const head=PORTAL.graded
-    ?`<div class="lead"><h2>🔬 ${esc(s.title||'تجربة المختبر')}</h2><p>${PORTAL.cfg.topic==='friction'?'تجربة اليوم: أثر خشونة السطح في حركة الأجسام.':PORTAL.cfg.topic==='inertia'?'تجربة اليوم: القصور الذاتي، من حزام الأمان إلى أثر الكتلة.':pr?`تجربة اليوم: ${n(pr[0])} و${n(pr[1])}.`:'اختر بنفسك مادتين واكتشف ما يحدث.'} هذه محاولة مقيَّمة ${s.extra>0?'(سمح لك معلمك بمحاولة إضافية)':'واحدة'}، ودرجتك من ${s.mx}.</p></div>
+    ?`<div class="lead"><h2>🔬 ${esc(s.title||'تجربة المختبر')}</h2><p>${PORTAL.cfg.topic==='friction'?'تجربة اليوم: أثر خشونة السطح في حركة الأجسام.':PORTAL.cfg.topic==='work'?'تجربة اليوم: الشغل، متى تنجزه وكيف تحسبه.':PORTAL.cfg.topic==='machines'?'تجربة اليوم: الآلات البسيطة، الرافعة والسطح المائل.':PORTAL.cfg.topic==='inertia'?'تجربة اليوم: القصور الذاتي، من حزام الأمان إلى أثر الكتلة.':pr?`تجربة اليوم: ${n(pr[0])} و${n(pr[1])}.`:'اختر بنفسك مادتين واكتشف ما يحدث.'} هذه محاولة مقيَّمة ${s.extra>0?'(سمح لك معلمك بمحاولة إضافية)':'واحدة'}، ودرجتك من ${s.mx}.</p></div>
       <section><h3>قبل أن تبدأ</h3><p>تُحسب درجتك من: السلامة، وتنفيذ الخطوات، ودقة ملاحظتك، وإجاباتك، والفصل العملي، والتطبيق. الخطأ لا يُنهي التجربة؛ ستحصل على تلميحات.</p></section>`
     :`<div class="lead"><h2>🔬 ${esc(s.title||'تجربة المختبر')}</h2><p>${closed?'انتهى موعد هذه التجربة.':`سلّمت هذه التجربة${s.score!=null?` ونتيجتك ${s.score} من 100`:''}.`} يمكنك التدريب بحرية${PORTAL.cfg.topic!=='mixtures'?'':' على أي مادتين'}، ولن تُحتسب درجة.</p></div>`;
   portalScreen(`${head}<div class="actions"><button class="btn amber" id="pgo">${PORTAL.graded?'ابدأ التجربة':'ابدأ التدريب الحر'}</button><a class="btn ghost" href="../">العودة لبوابة الطالب</a></div>`);
