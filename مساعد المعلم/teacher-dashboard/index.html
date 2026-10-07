@@ -17232,7 +17232,7 @@ function buildPublishPayload(h){
   const pool = hwPool(h);
   h.roster = pool.map(s=>s.id);
   return {
-    id:h.sid, k:h.key, t:h.title, p:h.pts, d:h.due||'',
+    id:h.sid, k:h.key, t:h.title, p:h.pts, d:h.due||'', at:Number(h.at)||0,
     api:getApi(), cls:(hwClasses(h).length>1 ? hwClasses(h).join('، ') : (h.cls||'')), mx:h.max||20, kind:h.kind||'normal',
     /* 📋 وصف المهمة يصل الطالب مع النشاط — القديمة بلا وصف تبقى كما هي */
     br:h.brief||'', dv:h.deliver||'', ac:h.accept||'',

@@ -4436,7 +4436,11 @@ export default {
       if (!env.TEACHER_TOKEN || b.t !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
       const id = String(b.id || '').slice(0, 24);
       if (!id || !b.payload) return json({ error: 'missing id or payload' }, 400);
-      const firstPublish = (await env.HW.get(`hw:${id}`)) === null;      // التعديل وإعادة النشر لا يُشعران
+      const prevRaw = await env.HW.get(`hw:${id}`);
+      const firstPublish = prevRaw === null;      // التعديل وإعادة النشر لا يُشعران
+      // 🕒 وقت النشر الأول يبقى ثابتًا مع التعديل — به يرتّب الطالب أنشطته من الأحدث
+      let pubAt = Date.now(); if (!firstPublish) { try { pubAt = Number(JSON.parse(prevRaw).pubAt) || Number(b.payload.at) || 0; } catch { pubAt = Number(b.payload.at) || 0; } }
+      if (b.payload && typeof b.payload === 'object' && pubAt) b.payload.pubAt = pubAt;
       await env.HW.put(`hw:${id}`, JSON.stringify(b.payload), { expirationTtl: 60 * 60 * 24 * 365 });
       await rebuildNameIndex(env);          // 🗂️ حدّث فهرس الأسماء
       if (firstPublish && !b.silent) notifyStudentsOfActivity(env, ctx, id, { ...b.payload, id });   // 🔔 بعد الرد، لا يؤخر المعلم
@@ -4585,6 +4589,7 @@ export default {
         if (gpRaw) { try { gp = JSON.parse(gpRaw); } catch { gp = {}; } }
         rows.push({
           id: p.id, t: p.t, pts: p.p, due: p.d || '',
+          at: Number(p.pubAt || p.at) || 0, subAt: sub ? Number(sub.at) || 0 : 0,
           // 🎮 النشاط يُعتبر «لعبة» فقط إذا كان نوعه ألعابًا أو لا يحمل أسئلة.
           // النشاط العادي المرفق به لعبة يبقى نشاطًا، وإلا اختفت أسئلته عن الطالب.
           kind: (String(p.kind || '') === 'games' || String(p.kind || '') === 'game')

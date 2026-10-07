@@ -1201,6 +1201,13 @@ html[data-pt] body,html[data-pt] .sheet,html[data-pt] .btn,html[data-pt] .studen
 .mp-h b{display:block;font-size:.95rem}.mp-h small{color:var(--ink-soft);font-size:.76rem}
 .mp-goal{display:flex;flex-wrap:wrap;gap:.35rem;align-items:center;font-size:.86rem;font-weight:700}
 .mp-sks{display:grid;gap:.55rem;margin-top:.55rem}
+.gl-sec{margin:0 0 1rem}.gl-sec>summary{cursor:pointer;list-style:none}.gl-sec>summary::-webkit-details-marker{display:none}
+.gl-head,.gl-sec>summary{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;padding:.15rem .1rem .55rem;border-bottom:1px solid rgba(0,0,0,.08);margin-bottom:.6rem}
+.gl-sec>summary::after{content:'▾';margin-inline-start:auto;color:var(--ink-soft);transition:transform .2s}.gl-sec:not([open])>summary::after{transform:rotate(90deg)}
+.gl-t{font-weight:800;font-size:1rem}.gl-n{min-width:1.6rem;padding:.05rem .45rem;border-radius:999px;background:rgba(0,0,0,.07);font-size:.78rem;font-weight:700;text-align:center}
+.gl-h{color:var(--ink-soft);font-size:.76rem}.gl-todo .gl-n{background:rgba(200,138,46,.18);color:#9A6412}.gl-done .gl-n{background:rgba(27,156,107,.15);color:var(--tick)}.gl-late .gl-n{background:rgba(214,69,91,.12);color:var(--pen)}
+.gl-list{display:grid;gap:.6rem}.gl-empty{padding:.7rem;margin-bottom:1rem;border-radius:12px;background:rgba(27,156,107,.08);text-align:center;font-weight:700;color:var(--tick)}
+.hw-new{display:inline-block;margin-inline-start:.3rem;padding:.05rem .45rem;border-radius:999px;background:#E53950;color:#fff;font-size:.7rem;font-weight:800;vertical-align:middle}
 .mp-hide{flex:none;width:30px;height:30px;border-radius:50%;border:1px solid rgba(0,0,0,.12);background:rgba(255,255,255,.7);color:var(--ink-soft);cursor:pointer;font-size:.85rem;line-height:1;display:inline-flex;align-items:center;justify-content:center}
 .mp-hide:hover{background:#fff;color:var(--pen)}
 .mp-card.mp-done{display:flex;align-items:center;gap:.6rem;background:rgba(76,208,138,.12)}.mp-done b{display:block;font-size:.92rem}.mp-done small{color:var(--ink-soft);font-size:.76rem;line-height:1.6}
@@ -3985,6 +3992,7 @@ async function loadStudentSpace(nm, rows){
     const openNoticeActivity = async (id)=>{
       const b=document.querySelector(`#gate-list .hw-item[data-id="${CSS.escape(String(id))}"]`);
       if(b){
+        b.closest('details')?.setAttribute('open','');   // قد يكون داخل مجموعة مطوية
         b.scrollIntoView({block:'center',behavior:'smooth'});
         b.click();
         return;
@@ -4330,6 +4338,37 @@ function lockGameDataOf(h){ const e=playableGames(h).find(x=>isMcqGame(x.type));
 function isGameRow(h){ return playableGames(h).length>0; }
 /* «نشاط ألعاب خالص»: لا أسئلة فيه. النشاط العادي المرفق به لعبة يبقى في قائمة الأنشطة
    وتظهر لعبته في قسم الألعاب أيضًا — كان يختفي بأسئلته كلها. */
+/* 🗂️ ترتيب «جميع أنشطتي»: ثلاث مجموعات واضحة بدل قائمة مختلطة
+   ① مطلوبة الآن (الأقرب إغلاقًا أولًا) ② سلّمتها ③ فات موعدها — والأحدث نشرًا أولًا داخل كل مجموعة */
+const GATE_DAY=864e5;
+function gateTs(h){ return Number(h.at)||(h.due?Date.parse(h.due+'T00:00:00')-7*GATE_DAY:0); }
+function gateIsNew(h){ const a=Number(h.at)||0; return !h.done && a>0 && Date.now()-a<3*GATE_DAY; }
+function gatePubLabel(h){
+  const a=Number(h.at)||0; if(!a) return '';
+  const d0=new Date(); d0.setHours(0,0,0,0); const d=new Date(a); d.setHours(0,0,0,0);
+  const n=Math.round((d0-d)/GATE_DAY);
+  const txt=n<=0?'اليوم':n===1?'أمس':n===2?'قبل يومين':n<=10?`قبل ${n} أيام`:new Date(a).toLocaleDateString('ar-SA-u-ca-gregory',{day:'numeric',month:'long'});
+  return `🕒 نُشر ${txt} · `;
+}
+function gateActionable(h, t){
+  if(Number(h.extra||h.extraAttempts||0)>0) return true;
+  if(h.kind==='files'&&String(h.reviewStatus||'').toLowerCase()==='rejected'&&Number(h.resubmitUntil||0)>Date.now()) return true;
+  return !h.done && !(h.due && h.due < t);
+}
+function gateGroups(rows, card){
+  const t=todayISO(), newest=(a,b)=>gateTs(b)-gateTs(a);
+  const todo=rows.filter(h=>gateActionable(h,t)).sort((a,b)=>(a.due||'9999').localeCompare(b.due||'9999')||newest(a,b));
+  const done=rows.filter(h=>!gateActionable(h,t)&&h.done).sort(newest);
+  const late=rows.filter(h=>!gateActionable(h,t)&&!h.done).sort(newest);
+  const sec=(cls,icon,title,list,hint,fold)=>{ if(!list.length) return '';
+    const head=`<span class="gl-t">${icon} ${title}</span><span class="gl-n">${list.length}</span>${hint?`<small class="gl-h">${hint}</small>`:''}`;
+    const body=`<div class="gl-list">${list.map(card).join('')}</div>`;
+    return fold?`<details class="gl-sec ${cls}" ${list.length<=4?'open':''}><summary>${head}</summary>${body}</details>`:`<section class="gl-sec ${cls}"><div class="gl-head">${head}</div>${body}</section>`; };
+  return sec('gl-todo','📌','مطلوبة منك الآن',todo,'الأقرب إغلاقًا أولًا',false)
+    + (todo.length?'':'<div class="gl-empty">🎉 لا يوجد نشاط مطلوب منك الآن</div>')
+    + sec('gl-done','✅','سلّمتها',done,'الأحدث أولًا',true)
+    + sec('gl-late','⏰','فات موعدها',late,'',true);
+}
 function isPureGameRow(h){
   if(!isGameRow(h)) return false;
   if(String(h.kind||'')==='game' || String(h.kind||'')==='games') return true;
@@ -6131,7 +6170,7 @@ async function gateLoad(nm, opts){
 
     // 🔎 المراجعة المطلوبة من المعلم تظهر في الصفحة الرئيسية (مساحة الطالب) لا داخل «جميع أنشطتي»
     { const sr = $('space-review'); if(sr) sr.innerHTML = reviewBox.replace('margin-bottom:1rem','margin:0 0 .9rem'); }
-    $('gate-list').innerHTML = (document.getElementById('space-review') ? '' : reviewBox) + activityRows.map(h=>{
+    $('gate-list').innerHTML = (document.getElementById('space-review') ? '' : reviewBox) + gateGroups(activityRows, h=>{
     if(window.__startGate === false && startGated(h) && !h.done){
       return `
       <button type="button" class="hw-item hw-locked" data-id="${esc(h.id)}" data-start-locked="1">
@@ -6250,8 +6289,8 @@ async function gateLoad(nm, opts){
           data-project-resubmit="${canProjectResubmit?'1':''}"
           ${late && !canTeacherRetry && !canRetry ? 'disabled' : ''}>
           ${tag}
-          <b>${kicon ? kicon + ' ' : ''}${esc(h.t)}</b>
-          <span class="hw-meta">
+          <b>${kicon ? kicon + ' ' : ''}${esc(h.t)}${gateIsNew(h) ? ' <span class="hw-new">🆕 جديد</span>' : ''}</b>
+          <span class="hw-meta">${gatePubLabel(h)}
             ${h.kind==='files' ? '📎 تسليم صور أو PDF أو فيديو' : `${h.n} مهمة${h.kind === 'style' ? ' · اختبار أنماط تعلّم'
                        : h.kind === 'diag' ? ' · اختبار تشخيصي'
                        : ` · ${h.pts} نقطة`}`}
@@ -6259,7 +6298,7 @@ async function gateLoad(nm, opts){
           </span>
           ${action}
         </button>`;
-    }).join('');
+    });
 
     $('gate-list').querySelectorAll('.hw-item').forEach(b=>{
       b.onclick = async ()=>{
