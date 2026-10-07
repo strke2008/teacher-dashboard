@@ -28272,9 +28272,15 @@ html body .ct-cert .rep-head.rh2,html body .ct-cert .rep-title{display:none!impo
   html body #comp-table .rep-head.rh2 .t span,html body #comp-table .rep-head.rh2 .yr span{font-size:7.4pt!important;line-height:1.45!important}
   html body #comp-table .rep-title{margin-top:-1rem;padding:.32rem .8rem}
   html body #comp-table .rep-title b{font-size:11pt}
-  /* 📱 الطباعة من الجوال: بعض المتصفحات تُخطّط الطباعة بعرض الشاشة (390px) فتنضغط الأعمدة.
-     عرض أدنى بمقاس ورقة A4 يجعل التخطيط مطابقًا للكمبيوتر، والمتصفح يصغّر الصفحة كلها لتلائم الورقة */
-  html body .rep-page{min-width:180mm}
+  /* 📱 الطباعة من الجوال (سفاري آيفون يخطّط الطباعة بعرض أضيق من A4 ولا يصغّر ما يفيض بل يقصّه):
+     التقرير يتمدّد بعرض الورقة المتاح مهما كان، والجداول تلتف نصوصها بدل أن تخرج عن الحافة */
+  html body .rep-page,html body .rep-page .rep-in,html body .rep-page .rep-box{width:auto!important;max-width:100%!important;min-width:0!important;box-sizing:border-box}
+  html body .rep-page table{width:100%!important;max-width:100%!important;min-width:0!important}
+  /* الأسماء والنصوص تلتف داخل خلاياها بدل أن تدفع الجدول خارج الورقة (كان جدول «نمط كل طالب» يُقصّ) */
+  html body .rep-page th,html body .rep-page td{overflow-wrap:break-word;word-break:normal;white-space:normal!important}
+  html body .rep-page [style*="overflow-x"]{overflow:visible!important}
+  html body #sty-table th:nth-child(2){width:34%!important}   /* اسم الطالب لا ينضغط إلى ثلاثة أسطر */
+  html body #sty-table td:nth-child(4){white-space:nowrap!important}
   /* كل «صفحة تقرير» تبدأ على ورقة جديدة (كانت قاعدة break-after:auto!important تلغي الفصل فتظهر ترويسة الصفحة التالية أسفل الأولى) */
   html body .rep-page+.rep-page{break-before:page!important;page-break-before:always!important}
   /* القسم الطويل يكمل في الصفحة التالية بدل أن يقفز كله ويترك نصف صفحة فارغًا؛ الصفوف لا تنقسم */
@@ -28283,6 +28289,11 @@ html body .ct-cert .rep-head.rh2,html body .ct-cert .rep-title{display:none!impo
   html body .rep-page .rt thead{display:table-header-group}
   html body .rep-page .rep-sec{break-after:avoid!important;page-break-after:avoid!important}
 }
+/* ورقة أضيق من A4 الكمبيوتر (سفاري الآيفون): الأعمدة تتنازل عن عرضها الثابت — لا يتأثر الكمبيوتر (≈733px) */
+@media print and (max-width:720px){
+  html body .rep-page th[style*="width"],html body .rep-page td[style*="width"]{width:auto!important}
+}
+@media print and (max-width:560px){ html body .rep-page th,html body .rep-page td{overflow-wrap:anywhere} }
 .g-print-head{display:none}
 @media print{body.printing-grades .g-print-head{display:block!important;margin-bottom:.4rem}}
 @media screen and (max-width:700px){html body .rep-head.rh2{grid-template-columns:1fr!important;text-align:center}html body .rep-head.rh2 .t,html body .rep-head.rh2 .yr{text-align:center!important}html body .rep-head.rh2 .logo{margin:0 auto!important}}
