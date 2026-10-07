@@ -10929,7 +10929,7 @@ async function renderCompAnalysis(force=false){
                 <span style="flex:1">${esc(d.l)}</span><b>${Math.round(d.c/n*100)}%</b></div>`).join('')}
             </div>
             <div class="donut" style="background:conic-gradient(${caStops})">
-              <b>${Math.round((dist[0].c)/n*100)}%</b>
+              ${(()=>{const top=dist.reduce((m,d)=>d.c>m.c?d:m,dist[0]);return `<b><span>${Math.round(top.c/n*100)}%</span><small>${esc(top.l)}</small></b>`})()}
             </div>
           </div>
         </div>
@@ -20767,7 +20767,7 @@ function renderAnalysis(){
                   <b>${n?Math.round(counts[b.key]/n*100):0}%</b></div>`).join('')}
               </div>
               <div class="donut" style="background:conic-gradient(${stops})">
-                <b>${n?Math.round(counts[BANDS[0].key]/n*100):0}%</b>
+                ${(()=>{const top=BANDS.reduce((m,b)=>(counts[b.key]||0)>(counts[m.key]||0)?b:m,BANDS[0]);return `<b><span>${n?Math.round((counts[top.key]||0)/n*100):0}%</span><small>${top.name.replace(/ـ/g,'')}</small></b>`})()}
               </div>
             </div>
           </div>
@@ -28221,6 +28221,10 @@ async function experimentAIGenerate(){
 <img alt="الصورة المكبرة" id="projectImageZoomImg" onclick="closeProjectImageZoom()" src=""/>
 </div>
 <style id="rep-theme-2026">
+html body .donut{position:relative}
+html body .donut b{background:#fff!important;width:60%!important;height:60%!important;flex-direction:column;gap:1px;color:#13324A;box-shadow:0 0 0 2px rgba(255,255,255,.9),0 1px 4px rgba(0,0,0,.12);-webkit-print-color-adjust:exact;print-color-adjust:exact}
+html body .donut b span{font-size:1.15em;font-weight:800;line-height:1.1}
+html body .donut b small{font-size:.5em;font-weight:700;color:#5A6B84;line-height:1.25;max-width:90%;text-align:center}
 /* ═══ 🎨 هوية التقارير والكشوف (شاشة وطباعة) — طبقة أخيرة تتقدّم على القواعد القديمة ═══ */
 :root{--rp-g:#4DB87A;--rp-t:#1E9E8A;--rp-b:#2275B5;--rp-navy:#14395A;--rp-teal:#14907E;--rp-line:#A9D9CD;--rp-soft:#F2F9F7}
 html body .rep-page{background:#fff}
