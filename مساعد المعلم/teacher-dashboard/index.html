@@ -13220,6 +13220,10 @@ function printAllExamModels(){
 }
 
 function printGrades(){
+  // 🏷️ الكشف كان يُطبع بلا ترويسة رسمية: نضيف الترويسة الموحّدة (تظهر في الطباعة فقط)
+  const gt=document.getElementById('g-table');
+  if(gt){ gt.querySelector('.g-print-head')?.remove(); const cls=document.getElementById('g-class')?.value||'';
+    const d=document.createElement('div'); d.className='g-print-head'; d.innerHTML=repHead(cls&&cls!=='__all__'?'الفصل '+cls:'جميع الفصول','كشف درجات الأنشطة'); gt.prepend(d); }
   unifiedA4Print({
     bodyClass:'printing-grades',
     title:'كشف درجات الأنشطة',
@@ -15521,19 +15525,33 @@ function ensureLogo(){
   try{ if(typeof renderAnalysis === 'function') renderAnalysis(); }catch(e){}
 }
 
+/* 🎨 هوية التقارير الموحّدة: ترويسة متدرّجة (أخضر←أزرق) بشعار الوزارة في الوسط، العام والفصل الدراسي
+   يسارًا، ثم شريط عنوان كحلي، وأقسام بإطار وعنوانها على الإطار، وتذييل بالمدرسة والمعلم */
+function repYearLines(){
+  let y=''; try{ y=new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura',{year:'numeric'}).format(new Date()).replace(/\s*هـ\s*$/,''); }catch(e){}
+  const a=(typeof DASH_ACADEMIC!=='undefined'&&DASH_ACADEMIC)||{}; const sem=Number(a.currentSemester)||0;
+  const dt=new Date(), d=`${dt.getFullYear()}/${String(dt.getMonth()+1).padStart(2,'0')}/${String(dt.getDate()).padStart(2,'0')}`;
+  return [y?`العام الدراسي ${y}هـ`:'', sem===1?'الفصل الدراسي الأول':sem===2?'الفصل الدراسي الثاني':sem===3?'الفصل الدراسي الثالث':'', `التاريخ: ${d}`].filter(Boolean);
+}
 function repHead(sub, title){
   ensureLogo();
+  const school=rcGet('school')||'', teacher=rcGet('teacher')||'';
+  try{ document.documentElement.style.setProperty('--rp-foot', JSON.stringify([school, teacher?`معلم المادة: ${teacher}`:'', rcGet('subject')?`مادة ${rcGet('subject')}`:''].filter(Boolean).join('   ·   ')||' ')); }catch(e){}
+  // «تقرير» وحدها عنوان عام: يصبح الوصف هو العنوان (ملف الفصل 2/1 بدل «تقرير — ملف الفصل»)
+  let t=String(title==null?'تحليل النتائج':title).trim(), st=String(sub||'').trim().replace(/^\((.*)\)$/,'$1');
+  if(!t||t==='تقرير'){ t=st; st=''; }
   return `
-    <div class="rep-head">
+    <div class="rep-head rh2">
       <div class="t">
         <b>المملكة العربية السعودية</b>
         <span>وزارة التعليم</span>
         <span>${esc(rcGet('dept') || 'الإدارة العامة للتعليم')}</span>
-        <span>${esc(rcGet('school') || 'المدرسة')}</span>
+        <span>${esc(school || 'المدرسة')}</span>
       </div>
-      <div class="logo">${window.__MOE_LOGO || ''}</div>
-      <div class="mid">${esc(title || 'تحليل النتائج')}${sub ? `<div style="font-size:.82rem;font-weight:400;margin-top:.2rem">${esc(sub)}</div>` : ''}</div>
-    </div>`;
+      <div class="logo">${(window.__MOE_LOGO || '').replace(/viewBox="0 0 1000 1000"/,'viewBox="85 286 825 428"')}</div>
+      <div class="yr">${repYearLines().map(x=>`<span>${esc(x)}</span>`).join('')}</div>
+    </div>
+    <div class="rep-title"><b>${esc(t||st)}</b>${t&&st?`<span>${esc(st)}</span>`:''}</div>`;
 }
 
 function repFoot(){
@@ -19625,7 +19643,6 @@ function printStudentReport(sid){
           <div>التاريخ<b>${today}</b></div>
         </div>
 
-        <div class="rep-band">📄 تقرير أداء الطالب</div>
 
         <div class="rep-sec">ملخّص الأداء</div>
         <div class="rep-box">
@@ -20671,17 +20688,7 @@ function renderAnalysis(){
 	c0-0.4,0.4-0.8,0.8-0.8h23.5c9,0,12.2,5.5,12.2,10.1V590.9z"/>
 </svg>`;
   window.__MOE_LOGO = MOE_LOGO;      // متاح للتقارير الأخرى
-  const head = (sub) => `
-    <div class="rep-head">
-      <div class="t">
-        <b>المملكة العربية السعودية</b>
-        <span>وزارة التعليم</span>
-        <span>${esc(rcGet('dept') || 'الإدارة العامة للتعليم')}</span>
-        <span>${esc(rcGet('school') || 'المدرسة')}</span>
-      </div>
-      <div class="logo">${MOE_LOGO}</div>
-      <div class="mid">تحليل النتائج${sub ? `<div style="font-size:.82rem;font-weight:400;margin-top:.2rem">${sub}</div>` : ''}</div>
-    </div>`;
+  const head = (sub) => repHead(sub, 'تحليل النتائج');   // الترويسة الموحّدة لكل التقارير
 
   // شرائح الدونات
   let acc = 0;
@@ -20700,8 +20707,8 @@ function renderAnalysis(){
           <div>الفصل: <b>${esc(clsName)}</b></div>
           <div>النشاط: <b>${A.oneHw ? esc(A.oneHw.title) : 'كل الأنشطة ('+A.hws.length+')'}</b></div>
           <div>المادة: <b>${esc(rcGet('subject') || '—')}</b></div>
-          <div>الفصل الدراسي: <b>${esc(rcGet('term') || '—')}</b></div>
-          <div>السنة الدراسية: <b>${esc(rcGet('year') || '—')}</b></div>
+          <div>الفصل الدراسي: <b>${esc(rcGet('term') || (repYearLines().find(x=>x.startsWith('الفصل الدراسي'))||'').replace('الفصل الدراسي ','') || '—')}</b></div>
+          <div>السنة الدراسية: <b>${esc(rcGet('year') || (repYearLines().find(x=>x.startsWith('العام الدراسي'))||'').replace('العام الدراسي ','') || '—')}</b></div>
           <div>التاريخ: <b>${dateStr}</b></div>
           <div>الدرجة الكاملة: <b>${A.full}</b></div>
         </div>
@@ -28206,6 +28213,70 @@ async function experimentAIGenerate(){
 <button aria-label="إغلاق الصورة" class="project-image-zoom-close" onclick="closeProjectImageZoom()" type="button">×</button>
 <img alt="الصورة المكبرة" id="projectImageZoomImg" onclick="closeProjectImageZoom()" src=""/>
 </div>
+<style id="rep-theme-2026">
+/* ═══ 🎨 هوية التقارير والكشوف (شاشة وطباعة) — طبقة أخيرة تتقدّم على القواعد القديمة ═══ */
+:root{--rp-g:#4DB87A;--rp-t:#1E9E8A;--rp-b:#2275B5;--rp-navy:#14395A;--rp-teal:#14907E;--rp-line:#A9D9CD;--rp-soft:#F2F9F7}
+html body .rep-page{background:#fff}
+html body .rep-head.rh2{display:grid!important;grid-template-columns:1fr auto 1fr!important;align-items:center!important;gap:1rem!important;
+  background:linear-gradient(to left,var(--rp-g) 0%,var(--rp-t) 48%,var(--rp-b) 100%)!important;color:#fff!important;
+  padding:1rem 1.5rem 2.1rem!important;border-radius:0 0 26px 26px!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+html body .rep-head.rh2 .t{text-align:right!important;line-height:1.65!important;padding:0!important}
+html body .rep-head.rh2 .t b{font-size:1rem!important;font-weight:800}
+html body .rep-head.rh2 .t span,html body .rep-head.rh2 .yr span{display:block;font-size:.8rem!important;opacity:.95}
+html body .rep-head.rh2 .logo{position:static!important;transform:none!important;width:150px!important;height:78px!important;margin:0!important}
+html body .rep-head.rh2 .logo svg{width:100%!important;height:100%!important}
+html body .rep-head.rh2 .logo svg [class^="moe-st"]{fill:#fff!important}
+html body .rep-head.rh2 .yr{text-align:left!important;line-height:1.8;font-weight:600}
+html body .rep-head.rh2 .yr span:first-child{font-size:.88rem!important;font-weight:800}
+html body .rep-title{position:relative;z-index:2;margin:-1.3rem auto .85rem;width:calc(100% - 4rem);background:var(--rp-navy);color:#fff;border-radius:12px;
+  padding:.55rem 1rem;text-align:center;box-shadow:0 6px 14px rgba(20,57,90,.22);-webkit-print-color-adjust:exact;print-color-adjust:exact}
+html body .rep-title b{font-size:1.08rem;font-weight:800}
+html body .rep-title span{font-size:.86rem;opacity:.85;margin-inline-start:.5rem}
+html body .rep-title span::before{content:'— ';opacity:.7}
+/* أقسام بإطار وعنوانها على الإطار */
+html body .rep-page .rep-sec{display:block!important;width:fit-content!important;max-width:calc(100% - 2.4rem)!important;margin:.15rem 1.1rem -.8rem auto!important;margin-inline:1.1rem auto!important;
+  position:relative;z-index:1;background:#fff!important;color:var(--rp-teal)!important;border:0!important;border-radius:0!important;
+  padding:0 .55rem!important;text-align:start!important;font-weight:800!important;font-size:.98rem!important;line-height:1.6!important}
+html body .rep-page .rep-sec::before,html body .rep-page .rep-sec::after{content:'';display:inline-block;width:12px;height:2px;background:currentColor;vertical-align:middle;margin:0 .4rem;opacity:.75}
+html body .rep-page .rep-box{border:1.5px solid var(--rp-line)!important;border-radius:14px!important;padding:1.2rem .9rem .8rem!important;margin-bottom:1rem!important;background:#fff}
+html body .rep-page .rep-info>div{background:var(--rp-soft)!important;border:1px solid #CDE7E0!important;border-radius:10px!important;color:#56697A}
+html body .rep-page .rep-info b{color:#12324A;font-size:1.02em}
+html body .rep-page .rep-band{background:linear-gradient(to left,#E6F5F0,#E9F1FB)!important;color:var(--rp-navy)!important;border:1px solid #CDE7E0;border-radius:10px!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+html body .rep-page .rt th{background:var(--rp-teal)!important;color:#fff!important;border:1px solid #11806F!important;font-weight:700;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+html body .rep-page .rt td{border-color:#DCE8E5!important}
+html body .rep-page .rt tbody tr:nth-child(even) td:not(.lv):not([style*="background"]){background-color:#F6FAF9;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+html body .rep-page .rep-foot>div{background:var(--rp-soft);border:1px solid #CDE7E0!important;border-radius:10px!important}
+/* تذييل الصفحة: المدرسة والمعلم */
+html body .rep-page:not(.ct-cert)::after{content:var(--rp-foot,'');display:block;margin-top:.6rem;padding:.42rem 1.3rem;font-size:.74rem;font-weight:600;color:#fff;text-align:right;
+  background:linear-gradient(to left,var(--rp-g) 0%,var(--rp-t) 48%,var(--rp-b) 100%);-webkit-print-color-adjust:exact;print-color-adjust:exact}
+html body .ct-cert .rep-head.rh2,html body .ct-cert .rep-title{display:none!important}
+@media print{
+  html body .rep-head.rh2{padding:.7rem 1.1rem 1.75rem!important;border-radius:0 0 20px 20px!important}
+  html body .rep-head.rh2 .logo{width:136px!important;height:70px!important}
+  html body .rep-title{margin-top:-1.15rem;padding:.42rem .8rem;box-shadow:none;width:calc(100% - 3rem)}
+  html body .rep-title b{font-size:12.5pt}
+  html body .rep-page .rep-sec{font-size:10pt!important;margin-bottom:-.7rem!important}
+  html body .rep-page .rep-box{padding:.95rem .6rem .5rem!important;margin-bottom:.6rem!important}
+  html body .rep-page .rt th{font-size:8.8pt!important}
+  /* الكشف الشامل: ترويسة مختصرة (مساحة الطلاب أولًا) دون أن يغطي شريط العنوان سطر التاريخ */
+  html body #comp-table .rep-head.rh2,html body #wk-table .rep-head.rh2{padding:.45rem .9rem 1.4rem!important;border-radius:0 0 16px 16px!important}
+  html body #comp-table .rep-head.rh2 .logo,html body #wk-table .rep-head.rh2 .logo{width:118px!important;height:58px!important}
+  html body #comp-table .rep-head.rh2 .t b{font-size:9.8pt!important}
+  html body #comp-table .rep-head.rh2 .t span,html body #comp-table .rep-head.rh2 .yr span{font-size:7.4pt!important;line-height:1.45!important}
+  html body #comp-table .rep-title{margin-top:-1rem;padding:.32rem .8rem}
+  html body #comp-table .rep-title b{font-size:11pt}
+  /* كل «صفحة تقرير» تبدأ على ورقة جديدة (كانت قاعدة break-after:auto!important تلغي الفصل فتظهر ترويسة الصفحة التالية أسفل الأولى) */
+  html body .rep-page+.rep-page{break-before:page!important;page-break-before:always!important}
+  /* القسم الطويل يكمل في الصفحة التالية بدل أن يقفز كله ويترك نصف صفحة فارغًا؛ الصفوف لا تنقسم */
+  html body .rep-page .rep-box{break-inside:auto!important;page-break-inside:auto!important}
+  html body .rep-page .rt tr,html body .rep-page .rep-info,html body .rep-page .rep-foot,html body .rep-page .plan-sign,html body .rep-page .hb{break-inside:avoid!important;page-break-inside:avoid!important}
+  html body .rep-page .rt thead{display:table-header-group}
+  html body .rep-page .rep-sec{break-after:avoid!important;page-break-after:avoid!important}
+}
+.g-print-head{display:none}
+@media print{body.printing-grades .g-print-head{display:block!important;margin-bottom:.4rem}}
+@media(max-width:700px){html body .rep-head.rh2{grid-template-columns:1fr!important;text-align:center}html body .rep-head.rh2 .t,html body .rep-head.rh2 .yr{text-align:center!important}html body .rep-head.rh2 .logo{margin:0 auto!important}}
+</style>
 </body>
 </html>
 <!-- Final A4 print alignment fix: center the paper and keep the footer inside the same sheet. -->
