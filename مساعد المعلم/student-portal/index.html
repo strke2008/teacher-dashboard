@@ -1201,6 +1201,8 @@ html[data-pt] body,html[data-pt] .sheet,html[data-pt] .btn,html[data-pt] .studen
 .mp-h b{display:block;font-size:.95rem}.mp-h small{color:var(--ink-soft);font-size:.76rem}
 .mp-goal{display:flex;flex-wrap:wrap;gap:.35rem;align-items:center;font-size:.86rem;font-weight:700}
 .mp-sks{display:grid;gap:.55rem;margin-top:.55rem}
+.mp-hide{flex:none;width:30px;height:30px;border-radius:50%;border:1px solid rgba(0,0,0,.12);background:rgba(255,255,255,.7);color:var(--ink-soft);cursor:pointer;font-size:.85rem;line-height:1;display:inline-flex;align-items:center;justify-content:center}
+.mp-hide:hover{background:#fff;color:var(--pen)}
 .mp-card.mp-done{display:flex;align-items:center;gap:.6rem;background:rgba(76,208,138,.12)}.mp-done b{display:block;font-size:.92rem}.mp-done small{color:var(--ink-soft);font-size:.76rem;line-height:1.6}
 .mp-sk{padding:.45rem .6rem;border-radius:12px;background:rgba(25,118,210,.06)}.mp-sk.ok{background:rgba(76,208,138,.14)}.mp-sk.prov{background:rgba(76,208,138,.08)}
 .mp-bar.prov i{background:repeating-linear-gradient(135deg,#4CD08A 0 8px,#7FDFAA 8px 16px)}
@@ -8692,6 +8694,14 @@ async function myCertSave(id){
 }
 
 /* ═══ 🎯 خطتي: الطالب يعرف هدفه وأين وصل ═══ */
+const MP_HIDE_KEY='my_plan_hidden_v1';
+const mpKey=p=>`${p.id}:${(p.tasks||[]).length}`;
+function myPlanHide(key){
+  if(!confirm('إخفاء هذه البطاقة من صفحتك؟ تعود وحدها إذا أرسل لك معلمك مهمة جديدة.')) return;
+  let hid=[];try{hid=JSON.parse(localStorage.getItem(MP_HIDE_KEY)||'[]')}catch(e){}
+  try{localStorage.setItem(MP_HIDE_KEY,JSON.stringify([...new Set([...hid,key])].slice(-50)))}catch(e){}
+  myPlanLoad();
+}
 async function myPlanLoad(){
   const box=document.getElementById('space-plan');if(!box)return;
   const sid=String(mySid||''),name=String(myName||lockedName()||'').trim();if(!sid&&!name){box.innerHTML='';return}
@@ -8699,6 +8709,9 @@ async function myPlanLoad(){
   try{const api=((typeof HW!=='undefined'&&HW&&HW.api)||API||'').replace(/\/+$/,'');
     const r=await fetch(api+'/my-plan?'+new URLSearchParams({sid,name}).toString(),{cache:'no-store'});const j=await r.json();rows=(j&&j.rows)||[]}catch(e){}
   if(String(mySid||'')!==sid)return;
+  // 🙈 ما أخفاه الطالب (مثل الشهادات): المفتاح يتغيّر متى وصلته مهمة جديدة فتعود البطاقة وحدها
+  let hid=[];try{hid=JSON.parse(localStorage.getItem(MP_HIDE_KEY)||'[]')}catch(e){}
+  rows=rows.filter(p=>!hid.includes(mpKey(p)));
   if(!rows.length){box.innerHTML='';return}
   const ST={open:['🟡','بانتظارك'],retry:['🟠','محاولة ثانية'],mastered:['🟢','أتقنت'],escalated:['🤝','معلمك سيساعدك']};
   box.innerHTML=rows.map(p=>{
@@ -8706,10 +8719,12 @@ async function myPlanLoad(){
     const reached=now!=null&&now>=tgt;
     const left=p.left==null?'':p.left<0?'⏳ معلمك يراجع نتيجتك':p.left===0?'تنتهي اليوم':`باقي ${p.left} ${p.left===1?'يوم':p.left===2?'يومان':'أيام'}`;
     // 🌟 أتقن كل شيء: سطر واحد بدل الأشرطة، ويختفي وحده بعد 3 أيام
-    if(p.doneAll) return `<section class="mp-card mp-done"><span class="mp-ic">🌟</span><div><b>أتقنت كل مهارات خطتك العلاجية — أحسنت!</b>
-      <small>${p.skills&&p.skills.length?p.skills.map(k=>esc(k.skill)).join(' · '):esc(p.reason||'')}</small></div></section>`;
+    const canHide=!(p.tasks||[]).some(t=>t.status==='open'||t.status==='retry');   // لا يُخفى ما عليه عمل فيه
+    const hideBtn=canHide?`<button type="button" class="mp-hide" onclick="myPlanHide('${esc(mpKey(p))}')" title="إخفاء من صفحتي" aria-label="إخفاء من صفحتي">✕</button>`:'';
+    if(p.doneAll) return `<section class="mp-card mp-done"><span class="mp-ic">🌟</span><div style="flex:1"><b>أتقنت كل مهارات خطتك العلاجية — أحسنت!</b>
+      <small>${p.skills&&p.skills.length?p.skills.map(k=>esc(k.skill)).join(' · '):esc(p.reason||'')}</small></div>${hideBtn}</section>`;
     return `<section class="mp-card">
-      <div class="mp-h"><span class="mp-ic">🎯</span><div><b>خطتي العلاجية</b><small>${left}</small></div></div>
+      <div class="mp-h"><span class="mp-ic">🎯</span><div style="flex:1"><b>خطتي العلاجية</b><small>${left}</small></div>${hideBtn}</div>
       ${p.skills&&p.skills.length?`<div class="mp-goal"><span>هدفي: أن أتقن كل مهارة بنسبة ${p.skillTarget||80}%</span></div>
       <div class="mp-sks">${p.skills.map(k=>{const T=p.skillTarget||80,pend=(p.tasks||[]).some(t=>t.status==='open'||t.status==='retry');
         // المقياس الرسمي: النشاط العادي بعد بدء الخطة؛ وحتى يأتي تظهر نتيجة المهمة العلاجية مؤقتًا
