@@ -1201,6 +1201,7 @@ html[data-pt] body,html[data-pt] .sheet,html[data-pt] .btn,html[data-pt] .studen
 .mp-h b{display:block;font-size:.95rem}.mp-h small{color:var(--ink-soft);font-size:.76rem}
 .mp-goal{display:flex;flex-wrap:wrap;gap:.35rem;align-items:center;font-size:.86rem;font-weight:700}
 .mp-sks{display:grid;gap:.55rem;margin-top:.55rem}
+.mp-card.mp-done{display:flex;align-items:center;gap:.6rem;background:rgba(76,208,138,.12)}.mp-done b{display:block;font-size:.92rem}.mp-done small{color:var(--ink-soft);font-size:.76rem;line-height:1.6}
 .mp-sk{padding:.45rem .6rem;border-radius:12px;background:rgba(25,118,210,.06)}.mp-sk.ok{background:rgba(76,208,138,.14)}.mp-sk.prov{background:rgba(76,208,138,.08)}
 .mp-bar.prov i{background:repeating-linear-gradient(135deg,#4CD08A 0 8px,#7FDFAA 8px 16px)}
 .mp-skh{display:flex;justify-content:space-between;align-items:baseline;gap:.5rem;flex-wrap:wrap;margin-bottom:.3rem;font-size:.86rem}
@@ -8704,6 +8705,9 @@ async function myPlanLoad(){
     const now=p.now, tgt=p.target||75, pct=now==null?0:Math.max(4,Math.min(100,Math.round(now/tgt*100)));
     const reached=now!=null&&now>=tgt;
     const left=p.left==null?'':p.left<0?'⏳ معلمك يراجع نتيجتك':p.left===0?'تنتهي اليوم':`باقي ${p.left} ${p.left===1?'يوم':p.left===2?'يومان':'أيام'}`;
+    // 🌟 أتقن كل شيء: سطر واحد بدل الأشرطة، ويختفي وحده بعد 3 أيام
+    if(p.doneAll) return `<section class="mp-card mp-done"><span class="mp-ic">🌟</span><div><b>أتقنت كل مهارات خطتك العلاجية — أحسنت!</b>
+      <small>${p.skills&&p.skills.length?p.skills.map(k=>esc(k.skill)).join(' · '):esc(p.reason||'')}</small></div></section>`;
     return `<section class="mp-card">
       <div class="mp-h"><span class="mp-ic">🎯</span><div><b>خطتي العلاجية</b><small>${left}</small></div></div>
       ${p.skills&&p.skills.length?`<div class="mp-goal"><span>هدفي: أن أتقن كل مهارة بنسبة ${p.skillTarget||80}%</span></div>

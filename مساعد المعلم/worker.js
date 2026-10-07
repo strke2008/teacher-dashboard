@@ -5720,20 +5720,26 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
           now: x.after && x.after.total >= 2 ? x.after.rate : null })) : [];
         const allMet = skItems.length ? skItems.every(x => x.now != null && x.now >= SKILL_TARGET) : (m.after && m.after.measured && m.after.rate != null && m.after.rate >= PLAN.target);
         if (allMet) continue;
-        const tasks = [], remBy = {};
+        const tasks = [], remBy = {}; let masteredAt = 0;
         for (const x of idx.filter(x => x && String(x.src || '').startsWith(`plan:${p.id}`))) { try { const r = JSON.parse(await env.HW.get(`rem:${x.id}`)); if (!r) continue;
           tasks.push({ title: r.srcTitle, status: r.status });
           // 🩹 نتيجة المهمة العلاجية لكل مهارة (آخر محاولة محلولة) — تظهر للطالب حتى يقيسها نشاط عادي
           const done = (r.attempts || []).filter(a => a && a.rate != null).sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0))[0];
           if (!done) continue;
+          if (r.status === 'mastered') masteredAt = Math.max(masteredAt, Number(done.doneAt) || Number(r.updatedAt) || 0);
           if (done.skills) for (const [k, v] of Object.entries(done.skills)) { if (v.t) remBy[k] = Math.round(v.c / v.t * 100); }
           else for (const it of skItems) if (String(r.srcTitle || '').includes(it.skill) && remBy[it.skill] == null) remBy[it.skill] = done.rate;   // مهام قديمة بلا مهارة لكل سؤال
         } catch {} }
         skItems.forEach(x => { if (remBy[x.skill] != null) x.rem = remBy[x.skill]; });
+        // 🌟 أتقن كل مهارات الخطة في مهمته ولا مهمة مفتوحة ← سطر تهنئة واحد، ثم تختفي من صفحته بعد 3 أيام
+        // (تبقى الخطة عند المعلم مفتوحة حتى يقرر) — حتى لا تزدحم صفحة الطالب
+        const open = tasks.some(x => x.status === 'open' || x.status === 'retry');
+        const remAll = !open && masteredAt > 0 && (skItems.length ? skItems.every(x => (x.now != null ? x.now : x.rem) >= SKILL_TARGET) : true);
+        if (remAll && Date.now() - masteredAt > 3 * 86400000) continue;
         rows.push({ id: p.id, goal: (Array.isArray(p.skills) && p.skills.length) ? p.skills.slice(0, 4) : [], reason: String(p.reason || '').split(' — ')[0].slice(0, 80),
           start: p.startDate || '', due: t.due, left: t.left, target: PLAN.target,
           before: m.before && m.before.measured ? m.before.rate : null, now: m.after && m.after.measured ? m.after.rate : null, basis: m.basis, tasks,
-          skills: skItems, skillTarget: SKILL_TARGET });
+          skills: skItems, skillTarget: SKILL_TARGET, doneAll: remAll });
       }
       return json({ ok: true, rows });
     }
