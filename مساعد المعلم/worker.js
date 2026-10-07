@@ -4523,6 +4523,12 @@ export default {
       try { if (st.known) await remFromExams(env, st); } catch {}
 
       const rows = [];
+      // 🕒 الأنشطة المنشورة قبل ختم وقت النشر: تاريخها من نسخة لوحة المعلم (h.at حين أنشأه)
+      const pubMap = {};
+      try { const ts = JSON.parse(await env.HW.get('tstate:main')) || {};
+        // احتياط: معرّف النشاط في اللوحة يبدأ بوقت إنشائه (s + Date.now بالأساس 36)
+        const idTs = id => { const m = /^s([0-9a-z]{8})/.exec(String(id || '')); const v = m ? parseInt(m[1], 36) : 0; return v > 1.5e12 && v < Date.now() + 864e5 ? v : 0; };
+        for (const h of (Array.isArray(ts.assignments) ? ts.assignments : [])) if (h && h.sid) pubMap[String(h.sid)] = Number(h.publishedAt || h.at) || idTs(h.id); } catch {}
       const hwKeysMine = await listAllKeys(env, 'hw:');
       // ⚡ كانت 4 قراءات متتابعة لكل نشاط، والطالب ينتظرها كلها قبل ظهور قائمته.
       // الآن: صفحات الأنشطة على دفعات، ثم سجلات الطالب الثلاثة معًا لكل نشاط.
@@ -4589,7 +4595,7 @@ export default {
         if (gpRaw) { try { gp = JSON.parse(gpRaw); } catch { gp = {}; } }
         rows.push({
           id: p.id, t: p.t, pts: p.p, due: p.d || '',
-          at: Number(p.pubAt || p.at) || 0, subAt: sub ? Number(sub.at) || 0 : 0,
+          at: Number(p.pubAt || p.at || pubMap[String(p.id)]) || 0, subAt: sub ? Number(sub.at) || 0 : 0,
           // 🎮 النشاط يُعتبر «لعبة» فقط إذا كان نوعه ألعابًا أو لا يحمل أسئلة.
           // النشاط العادي المرفق به لعبة يبقى نشاطًا، وإلا اختفت أسئلته عن الطالب.
           kind: (String(p.kind || '') === 'games' || String(p.kind || '') === 'game')

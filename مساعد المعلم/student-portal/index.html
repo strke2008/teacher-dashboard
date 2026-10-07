@@ -4132,6 +4132,9 @@ function openJourneyLearning(nm, rows, filterKinds){
   });
   const order=['remedial','reading','normal','lab','files','game'];
   const sorted=[];
+  // 🗓️ المسار زمني داخل كل قسم: الأقدم أولًا والأحدث في آخره (كالخطوات)
+  const chrono=(a,b)=>(gateTs(a)||Number(a.subAt)||0)-(gateTs(b)||Number(b.subAt)||0);
+  Object.values(groups).forEach(g=>g.sort(chrono));
   order.forEach(k=>{ if(groups[k]) sorted.push([k,groups[k]]); });
   Object.keys(groups).forEach(k=>{ if(!order.includes(k)) sorted.push([k,groups[k]]); });
 
@@ -4147,7 +4150,7 @@ function openJourneyLearning(nm, rows, filterKinds){
   };
 
   // النشاطات غير المنجزة + المكتملة التي ما زالت لها صلاحية إجراء فعلي.
-  const pending=list.filter(canOpenPending);
+  const pending=list.filter(canOpenPending).sort(chrono);   // الخطوة التالية: أقدم ما لم يُنجز
   const locked=list.filter(h=>!h.done && !canOpenPending(h));
   const next=pending[0]||null;
   const done=list.filter(h=>!!h.done).length;
@@ -4356,7 +4359,7 @@ function gateActionable(h, t){
   return !h.done && !(h.due && h.due < t);
 }
 function gateGroups(rows, card){
-  const t=todayISO(), newest=(a,b)=>gateTs(b)-gateTs(a);
+  const t=todayISO(), tsOf=h=>gateTs(h)||Number(h.subAt)||0, newest=(a,b)=>tsOf(b)-tsOf(a);
   const todo=rows.filter(h=>gateActionable(h,t)).sort((a,b)=>(a.due||'9999').localeCompare(b.due||'9999')||newest(a,b));
   const done=rows.filter(h=>!gateActionable(h,t)&&h.done).sort(newest);
   const late=rows.filter(h=>!gateActionable(h,t)&&!h.done).sort(newest);
