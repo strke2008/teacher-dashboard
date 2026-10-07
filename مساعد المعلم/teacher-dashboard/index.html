@@ -28247,7 +28247,18 @@ async function experimentAIGenerate(){
 </div>
 <style id="fu-style">.th-al.fu-row{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}.th-al.fu-row>span:first-child{flex:1;min-width:150px}
 .fu-acts{display:flex!important;flex-direction:row!important;gap:.3rem;flex-wrap:nowrap;align-items:center;flex:none}
-.fu-acts .btn{width:auto!important;min-height:32px;padding:.3rem .6rem!important;white-space:nowrap}</style>
+.fu-acts .btn{width:auto!important;min-height:32px;padding:.3rem .6rem!important;white-space:nowrap}
+.du-li{flex-wrap:wrap}.du-li>span:first-child{flex:1 1 170px}
+.du-acts{display:flex;gap:.3rem;flex-wrap:wrap;align-items:center;justify-content:flex-end}
+.du-acts .btn{width:auto!important;white-space:nowrap;min-height:32px;padding:.3rem .55rem!important}
+/* 📱 الجوال: الاسم كاملًا في سطره، والأزرار صفًّا تحته (كانت تعصر الاسم كلمةً في كل سطر) */
+@media screen and (max-width:600px){
+  .th-al.fu-row{align-items:stretch}
+  .th-al.fu-row>span:first-child,.du-li>span:first-child{flex-basis:100%}
+  .fu-acts,.du-acts{width:100%;justify-content:flex-start;flex-wrap:wrap}
+  .fu-acts .btn,.du-acts .btn{flex:1 1 auto;justify-content:center}
+  .th-al-h{flex-wrap:wrap}
+}</style>
 <style id="rep-theme-2026">
 html body .donut{position:relative}
 html body .donut b{background:#fff!important;width:60%!important;height:60%!important;flex-direction:column;gap:1px;color:#13324A;box-shadow:0 0 0 2px rgba(255,255,255,.9),0 1px 4px rgba(0,0,0,.12);-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -31781,11 +31792,11 @@ function nsOpen(){
   openModal(`<h2>🚶 لم يبدؤوا بعد (${L.length})</h2>
     <p class="muted" style="font-size:.8rem;margin:.1rem 0 .5rem">طلاب لهم أنشطة منشورة ولم يسلّموا أيًّا منها. ابدأ بسؤال الطالب عن السبب: جهاز؟ لا يعرف الدخول؟ طلب انضمام معلّق؟ — ثم ساعده يحل أول نشاط أمامك.</p>
     ${Object.keys(by).map(c=>`<b style="font-size:.85rem;display:block;margin-top:.5rem">${esc(c)} (${by[c].length})</b>${by[c].map(x=>`<div class="du-li"><span>${esc(x.s.name)}<small>${x.n===1?'نشاط واحد منشور':x.n===2?'نشاطان منشوران':x.n+' أنشطة منشورة'} له · لم يسلّم شيئًا</small></span>
-      <button class="btn ghost sm" title="رسالة للطالب فيها رابط البوابة وخطوة البداية" onclick="nsCopy('${esc(x.s.id)}')">📋 للطالب</button>
+      <span class="du-acts"><button class="btn ghost sm" title="رسالة للطالب فيها رابط البوابة وخطوة البداية" onclick="nsCopy('${esc(x.s.id)}')">📋 للطالب</button>
       <button class="btn ghost sm" onclick="pmsgOpen('${esc(x.s.id)}','start')">💬 ولي الأمر</button>
       <button class="btn tick sm" title="سجّل أنك تواصلت مع ولي أمره" onclick="fuMark([{sid:'${esc(x.s.id)}',type:'ns'}],'اتصال').then(nsOpen)">📞 تواصلت</button>
       <button class="btn ghost sm" title="تابعته — يختفي حتى يُنشر له نشاط جديد" onclick="fuMark([{sid:'${esc(x.s.id)}',type:'ns'}]).then(nsOpen)">✓ تابعته</button>
-      <button class="btn ghost sm" onclick="ctOpenProfile('${esc(x.s.id)}')">📁</button></div>`).join('')}`).join('')||(all.length?'<div class="feature-empty">✓ تابعت كل من لم يبدأ — يعودون إذا نُشر لهم نشاط جديد ولم يبدؤوا.</div>':'<div class="feature-empty">🎉 كل الطلاب بدؤوا.</div>')}
+      <button class="btn ghost sm" onclick="ctOpenProfile('${esc(x.s.id)}')" title="الملف الشامل">📁</button></span></div>`).join('')}`).join('')||(all.length?'<div class="feature-empty">✓ تابعت كل من لم يبدأ — يعودون إذا نُشر لهم نشاط جديد ولم يبدؤوا.</div>':'<div class="feature-empty">🎉 كل الطلاب بدؤوا.</div>')}
     ${L.length>1?`<div style="margin-top:.6rem"><button class="btn ghost sm" onclick="fuMark(nsOpenList().map(x=>({sid:String(x.s.id),type:'ns'}))).then(nsOpen)">✓ تابعتهم جميعًا (${L.length})</button></div>`:''}
     ${done.length?`<details style="margin-top:.6rem"><summary class="muted" style="cursor:pointer">✓ تمت متابعتهم (${done.length})</summary>${done.map(x=>`<div class="du-li"><span>${esc(x.s.name)}<small>${esc(x.s.cls||'')} · تابعته ${fuDay(fuAt(x.s.id,'ns'))}</small></span>
       <button class="btn ghost sm" onclick="fuUndo('${esc(x.s.id)}','ns').then(nsOpen)">↩️ إلغاء</button></div>`).join('')}</details>`:''}
