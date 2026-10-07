@@ -39,7 +39,7 @@
 
 .msg-exam-grid{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin:.35rem 0}
 .msg-exam-grid label{margin:0;display:grid;gap:.2rem}
-@media(max-width:560px){.msg-exam-grid{grid-template-columns:1fr}}
+@media screen and (max-width:560px){.msg-exam-grid{grid-template-columns:1fr}}
 </style>
 <style>
 :root{
@@ -144,7 +144,7 @@ input,select,textarea{font-family:inherit;font-size:1rem}
 }
 .inp:focus{outline:none;border-color:var(--ink);background:#fff}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:.7rem}
-@media(max-width:560px){.grid2{grid-template-columns:1fr}}
+@media screen and (max-width:560px){.grid2{grid-template-columns:1fr}}
 
 /* ── وسوم ── */
 .pill{
@@ -188,7 +188,7 @@ input,select,textarea{font-family:inherit;font-size:1rem}
 .store-purchase-more{margin-top:.45rem;font-size:.74rem;color:var(--ink-soft);text-align:center}
 .store-purchase-row.is-new{border-color:#9ED8BD;background:#F3FBF7}
 .store-purchase-empty{padding:.9rem;text-align:center;color:var(--ink-soft);font-size:.82rem;border:1px dashed var(--rule);border-radius:10px}
-@media(max-width:560px){.store-purchase-stats{grid-template-columns:1fr 1fr}.store-purchase-row{align-items:flex-start}.store-purchase-badge{margin-inline-start:auto}}
+@media screen and (max-width:560px){.store-purchase-stats{grid-template-columns:1fr 1fr}.store-purchase-row{align-items:flex-start}.store-purchase-badge{margin-inline-start:auto}}
 
 
 /* 🖨️ الخطة العلاجية: مستند رسمي بنفس ترويسة التقارير */
@@ -286,7 +286,7 @@ input,select,textarea{font-family:inherit;font-size:1rem}
 .ar-rec-t span{display:block;font-size:.76rem;color:var(--ui-muted,#5A6B84);margin-top:.1rem}
 .ar-rec-m{display:flex;flex-direction:column;align-items:flex-end;font-size:.76rem;color:var(--ui-muted,#5A6B84);white-space:nowrap}
 .ar-empty{font-size:.84rem;color:var(--ui-muted,#5A6B84);padding:.2rem 0}
-@media(max-width:640px){
+@media screen and (max-width:640px){
   .ar-head{flex-direction:column}
   .ar-master{align-self:stretch;justify-content:space-between}
   .ar-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -332,7 +332,7 @@ input,select,textarea{font-family:inherit;font-size:1rem}
 .mem-tools{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:.45rem;margin-bottom:.45rem}
 .mem-tools .inp{min-width:0;width:100%;max-width:none}
 .mem-btns{display:flex;flex-wrap:wrap;gap:.35rem}
-@media(max-width:600px){.mem-tools{grid-template-columns:1fr}}
+@media screen and (max-width:600px){.mem-tools{grid-template-columns:1fr}}
 /* iOS يكبّر الصفحة عند لمس خانة خطها أصغر من 16px، فيظهر الشريط السفلي في منتصف الشاشة */
 @media (hover:none) and (pointer:coarse){input,select,textarea,.inp{font-size:16px!important}}
 .plan-time{margin-top:.5rem;font-size:.84rem;color:var(--ui-muted,#5A6B84)}
@@ -346,7 +346,7 @@ input,select,textarea{font-family:inherit;font-size:1rem}
 .pf-modal>.pf-dialog{width:100%;max-width:780px;margin:0 auto 4vh;box-shadow:0 18px 50px rgba(0,0,0,.3)}
 .pf-head{display:flex;justify-content:space-between;align-items:center;gap:.5rem}.pf-head h3{margin:0}
 body.pf-open{overflow:hidden}
-@media (max-width:640px){.pf-modal{padding:8px}}
+@media screen and (max-width:640px){.pf-modal{padding:8px}}
 .ct-name{color:inherit;text-decoration:none;border-bottom:1px dashed var(--ui-border)}.ct-name:hover{color:#1565C0;border-color:#1565C0}
 .ct-trend{font-weight:800;font-size:.8rem}.ct-trend.up{color:#2E7D32}.ct-trend.down{color:#C62828}.ct-trend.flat{color:var(--ink-soft)}
 .ct-today{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;margin:.1rem 0 .7rem;font-size:.85rem}
@@ -377,7 +377,7 @@ body.pf-open{overflow:hidden}
 .ct-bar i{height:9px;border-radius:5px;background:var(--ui-border);overflow:hidden;display:block}.ct-bar u{display:block;height:100%;text-decoration:none}
 .ct-li{display:flex;justify-content:space-between;gap:.5rem;font-size:.8rem;padding:.25rem 0;border-top:1px dashed var(--ui-border)}
 .ct-li .chip{white-space:nowrap;flex:none;align-self:center}.ct-li>span:first-child{min-width:0}
-@media(max-width:900px){.ct-kpis.ct-kpis6{grid-template-columns:repeat(3,1fr)}.ct-pf-grid{grid-template-columns:1fr}}
+@media screen and (max-width:900px){.ct-kpis.ct-kpis6{grid-template-columns:repeat(3,1fr)}.ct-pf-grid{grid-template-columns:1fr}}
 .ct-pf-print .ct-kpis.ct-kpis6{grid-template-columns:repeat(3,1fr)!important}.ct-pf-print .ct-card{break-inside:avoid}
 .ct-pf-print .ct-pf-grid{grid-template-columns:1fr 1fr!important;gap:.45rem!important}
 .ct-pf-print .ct-kpi{padding:.4rem!important}.ct-pf-print .ct-kpi b{font-size:1.05rem!important}
@@ -425,7 +425,7 @@ body.pf-open{overflow:hidden}
 .ct-warn{padding:1rem;border-radius:12px;background:rgba(233,185,73,.14);color:#8A5A00}
 .ct-cert .ct-cert-in{text-align:center;padding:10mm 8mm;font-size:13pt;line-height:2}
 .ct-cert-t{font-size:24pt;font-weight:800;color:#0E5E4E;margin-bottom:6mm}.ct-cert-n{font-size:22pt;font-weight:800;margin:3mm 0;border-bottom:2px solid #0E5E4E;display:inline-block;padding:0 10mm}
-@media(max-width:700px){.ct-kpis{grid-template-columns:repeat(2,1fr)}}
+@media screen and (max-width:700px){.ct-kpis{grid-template-columns:repeat(2,1fr)}}
 .pc{margin-bottom:.6rem;padding:.8rem .9rem;overflow:visible;position:relative}
 .pc-need{border-inline-start:4px solid #E9B949}
 .pc-top{display:flex;justify-content:space-between;gap:.6rem;align-items:flex-start}
@@ -532,7 +532,7 @@ body.pf-open{overflow:hidden}
 .comp-summary-note{font-size:.78rem;color:var(--ink-soft);text-align:center;margin-top:.55rem}
 .comp-toolbar{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center}
 .comp-toolbar .inp{min-width:180px}
-@media (max-width:900px){
+@media screen and (max-width:900px){
   .comprehensive-table{font-size:.78rem;min-width:900px}
   .comprehensive-table th,.comprehensive-table td{padding:.4rem .3rem}
 }
@@ -655,10 +655,10 @@ body.pf-open{overflow:hidden}
 .hb .tr{flex:1;background:#EEF2F0;border-radius:99px;height:16px;overflow:hidden;position:relative}
 .hb .tr i{display:block;height:100%;border-radius:99px}
 .hb .vv{width:52px;text-align:center;font-weight:700}
-@media (max-width:640px){ .hb .nm{width:110px} }
+@media screen and (max-width:640px){ .hb .nm{width:110px} }
 .rep-foot{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-top:1rem}
 .rep-foot div{border:1px solid #D8E3E0;border-radius:8px;padding:.55rem;text-align:center;font-size:.83rem}
-@media (max-width:700px){
+@media screen and (max-width:700px){
   .rep-grid,.rep-charts,.rep-info{grid-template-columns:1fr}
   .rep-head{flex-direction:column;text-align:center}
   .rep-head .t{text-align:center}
@@ -1152,7 +1152,7 @@ body{
   border-radius:var(--ui-radius);
 }
 
-@media(max-width:700px){
+@media screen and (max-width:700px){
   .masthead{padding:.75rem .75rem .6rem}
   .wrap{padding:.85rem .65rem 3rem}
   .sheet{padding:.9rem;border-radius:14px}
@@ -1168,7 +1168,7 @@ body{
   .gt th,.gt td{padding:.55rem .5rem}
   .modal-foot{position:sticky;bottom:-1rem;padding-top:.75rem;background:var(--paper)}
 }
-@media(max-width:460px){
+@media screen and (max-width:460px){
   .brand{font-size:1rem}
   .brand .mark{width:31px;height:36px}
   .masthead .meta{font-size:.68rem}
@@ -1183,7 +1183,7 @@ body{
 }
 
 
-@media(max-width:700px){
+@media screen and (max-width:700px){
   .tabs{
     display:flex;
     margin-top:.55rem;
@@ -1197,7 +1197,7 @@ body{
   }
   .wrap{padding-bottom:2rem}
 }
-@media(max-width:460px){
+@media screen and (max-width:460px){
   .tabs{
     overflow-x:auto;
     justify-content:flex-start;
@@ -1301,11 +1301,11 @@ body{
   text-align:center;padding:1.2rem;color:var(--ink-soft);
   border:1px dashed var(--ui-border-strong);border-radius:13px;background:#FBFCFE;
 }
-@media(max-width:850px){
+@media screen and (max-width:850px){
   .feature-grid{grid-template-columns:repeat(2,1fr)}
   .feature-cols{grid-template-columns:1fr}
 }
-@media(max-width:520px){
+@media screen and (max-width:520px){
   .feature-grid{grid-template-columns:1fr 1fr;gap:.55rem}
   .stat-card{min-height:100px;padding:.75rem}
   .stat-card .stat-value{font-size:1.25rem}
@@ -1328,7 +1328,7 @@ body{
 .report-switch-btn:hover{background:rgba(255,255,255,.7);color:var(--ink)}
 .report-switch-btn.on{background:var(--ink);color:var(--paper);box-shadow:0 2px 7px rgba(22,35,58,.12)}
 .report-view-hidden{display:none!important}
-@media(max-width:560px){
+@media screen and (max-width:560px){
   .report-topbar{justify-content:stretch}
   .report-switch{width:100%}
   .report-switch-btn{flex:1;padding-inline:.45rem}
@@ -1355,7 +1355,7 @@ body{
   border-radius:999px;
   font-size:.78rem;
 }
-@media(max-width:560px){
+@media screen and (max-width:560px){
   .report-mode-toggle .an-mode{
     min-height:32px;
     padding-inline:.6rem;
@@ -1414,7 +1414,7 @@ body{
 }
 .msg-sendbar .who{font-size:.78rem;color:var(--ink-soft);line-height:1.4;min-width:0}
 .msg-sendbar .btn{width:auto;min-width:132px;margin-inline-start:auto;flex:none;min-height:48px}
-@media(max-width:700px){
+@media screen and (max-width:700px){
   .msg-sendbar{flex-direction:column;align-items:stretch;gap:.5rem}
   .msg-sendbar .btn{width:100%;margin:0}
   .msg-sendbar .who{text-align:center}
@@ -1423,7 +1423,7 @@ body{
 
 .exam-print-actions{display:flex;align-items:center;gap:.5rem;margin-inline-start:auto;flex-wrap:wrap}
 .exam-print-actions .btn{white-space:nowrap}
-@media(max-width:700px){
+@media screen and (max-width:700px){
   .exam-print-actions{width:100%;margin-inline-start:0}
   .exam-print-actions .btn{flex:1;min-width:0}
 }
@@ -1434,7 +1434,7 @@ body{
 .mobile-nav{display:none}
 /* 📱 الشريط السفلي كان display:none بلا استثناء — أي أنه لم يظهر قط.
    نُظهره في الجوال بتصميم بوابة المعلم نفسه: أيقونات خطّية ونصّ تحتها. */
-@media(max-width:700px){
+@media screen and (max-width:700px){
   .tabs{display:none}
   .mobile-nav{
     display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px;
@@ -1498,7 +1498,7 @@ body{
 .grades-legend{display:flex;justify-content:center;gap:.9rem;flex-wrap:wrap;padding:.55rem;font-size:.72rem;color:var(--ink-soft)}
 .grades-legend i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-inline-end:.2rem}
 .lg-good{background:rgba(27,156,107,.55)}.lg-warn{background:rgba(200,138,46,.6)}.lg-bad{background:rgba(214,69,91,.55)}
-@media(max-width:800px){
+@media screen and (max-width:800px){
   .grades-kpis{grid-template-columns:repeat(2,1fr)}
   .grades-kpi:last-child{grid-column:span 2}
   .grades-selection{width:100%}
@@ -1516,7 +1516,7 @@ body{
 .quick-actions .btn{text-align:start;justify-content:flex-start}
 .grades-tools{justify-content:flex-start}
 .grades-tools>.inp{max-width:190px}
-@media(max-width:700px){
+@media screen and (max-width:700px){
   .sheet-head{gap:.45rem}
   .sheet-head .spacer{display:none}
   .student-help{display:none}
@@ -1627,7 +1627,7 @@ body{
 @supports not (height: 100dvh){
   .reading-ai-card{max-height:calc(100vh - 24px);}
 }
-@media(max-width:650px){
+@media screen and (max-width:650px){
   .reading-ai-backdrop{
     align-items:flex-start;
     overflow-y:auto;
@@ -1636,12 +1636,12 @@ body{
     margin:auto 0;
   }
 }
-@media(max-width:900px){
+@media screen and (max-width:900px){
   .students-center{grid-template-columns:1fr}
   .students-list{max-height:300px}
   .student-center-grid{grid-template-columns:1fr}
 }
-@media(max-width:560px){
+@media screen and (max-width:560px){
   .students-center{gap:.6rem}
   .student-detail-pane{padding:.7rem}
   .student-kpis{grid-template-columns:repeat(2,1fr)}
@@ -1667,13 +1667,13 @@ body{
 .msg-student-info b{display:block;font-size:.8rem;line-height:1.35;word-break:break-word}
 .msg-student-info small{display:block;color:var(--ink-soft);font-size:.66rem;margin-top:.08rem}
 .msg-student-empty{padding:1rem;text-align:center;color:var(--ink-soft);font-size:.78rem}
-@media(max-width:560px){.msg-student-search-row{flex-direction:column;align-items:stretch}.msg-student-search-row .btn{width:100%}.msg-student-list{max-height:340px}}
+@media screen and (max-width:560px){.msg-student-search-row{flex-direction:column;align-items:stretch}.msg-student-search-row .btn{width:100%}.msg-student-list{max-height:340px}}
 </style>
 <style id="clean-student-actions">
 .student-hero-actions{display:flex;align-items:center;gap:.45rem;flex-wrap:wrap}
 .student-hero-actions .btn{min-height:36px}
 .student-hero-actions .danger{border-color:#E1AAB2;color:#A33E4D;background:#FFF8F9}
-@media(max-width:560px){
+@media screen and (max-width:560px){
   .student-hero-actions{width:100%}
   .student-hero-actions .btn{flex:1}
 }
@@ -1753,7 +1753,7 @@ body{
 .hw-icon-btn:hover{background:#F4F7FB}
 .hw-icon-btn:active{transform:translateY(1px)}
 .hw-icon-btn.danger-icon{color:var(--pen)}
-@media(max-width:700px){
+@media screen and (max-width:700px){
   .hw-icon-btn{
     width:38px;
     min-width:38px;
@@ -1828,7 +1828,7 @@ body{
   min-height:72px !important;
   border-radius:13px !important;
 }
-@media (max-width: 900px){
+@media screen and (max-width: 900px){
   #studentsPage .students-layout{gap:12px !important;}
   #studentsPage .student-profile{padding:14px !important;}
 }
@@ -2041,13 +2041,13 @@ body{
   font-size:.68rem !important;
 }
 
-@media(max-width:1100px){
+@media screen and (max-width:1100px){
   .students-center{
     grid-template-columns:300px minmax(0,1fr) !important;
   }
 }
 
-@media(max-width:900px){
+@media screen and (max-width:900px){
   .students-center{
     grid-template-columns:1fr !important;
     min-height:0 !important;
@@ -2251,7 +2251,7 @@ body{
   line-height:1.85;
   direction:rtl;
 }
-@media(max-width:700px){
+@media screen and (max-width:700px){
   .thanks-request-item{
     align-items:flex-start;
     flex-direction:column;
@@ -2301,7 +2301,7 @@ body{
   padding:.65rem .75rem;border:1px solid #D9E2EC;border-radius:10px;
   background:#F8FAFC;color:#243447;font-size:.76rem;line-height:1.8;direction:rtl;
 }
-@media(max-width:700px){
+@media screen and (max-width:700px){
   .attention-request{align-items:flex-start;flex-direction:column;}
   .attention-request-actions{width:100%;}
   .attention-request-actions .btn{flex:1;}
@@ -2347,7 +2347,7 @@ body{
 #g-hw{
   min-width:180px;
 }
-@media(max-width:800px){
+@media screen and (max-width:800px){
   #g-hw{min-width:150px;max-width:100%;}
 }
 
@@ -2392,7 +2392,7 @@ body{
   margin-top:2px;
   font-size:.85rem;
 }
-@media(max-width:700px){
+@media screen and (max-width:700px){
   .sa-retry{margin-inline-start:0;margin-top:.35rem;}
 }
 
@@ -3150,7 +3150,7 @@ body{
   padding:1rem;border:1px dashed var(--ui-border-strong);border-radius:14px;
   background:#FBFCFE;color:var(--ink-soft);font-size:.76rem;font-weight:700
 }
-@media(max-width:560px){
+@media screen and (max-width:560px){
   .alert-section-head{align-items:flex-start}
   .alert-section-title h3{font-size:.9rem}
   .alert-summary{font-size:.65rem}
@@ -3266,7 +3266,7 @@ body{
 }
 .alert-modal-head{display:flex;align-items:center;gap:.5rem;margin-bottom:.9rem}
 .alert-modal-head h2{margin:0}
-@media(max-width:560px){
+@media screen and (max-width:560px){
   .alert-title-row{align-items:flex-start}
   .alert .a-body b{white-space:normal}
   .alert-dismiss{display:none}
@@ -3340,7 +3340,7 @@ body{
   color:var(--ink);font:inherit;font-size:.64rem;font-weight:700;cursor:pointer
 }
 .missing-student-chip:hover{background:#EEF3F8}
-@media(max-width:560px){
+@media screen and (max-width:560px){
   .alert-kpis,.missing-kpis{grid-template-columns:1fr 1fr}
   .alert-kpis>div:last-child,.missing-kpis>div:last-child{grid-column:1/-1}
   .missing-class-row{
@@ -3394,7 +3394,7 @@ body{
 }
 .missing-student-data b{font-size:.78rem}
 .missing-student-data small{font-size:.62rem;color:var(--ink-soft);margin-top:.08rem}
-@media(max-width:560px){
+@media screen and (max-width:560px){
   .missing-student-row{
     grid-template-columns:30px minmax(0,1fr);
   }
@@ -3440,7 +3440,7 @@ body{
   color:var(--paper);
   box-shadow:0 2px 7px rgba(22,35,58,.12);
 }
-@media(max-width:560px){
+@media screen and (max-width:560px){
   .report-topbar{justify-content:stretch}
   .report-switch{width:100%}
   .report-switch-btn{
@@ -3510,7 +3510,7 @@ body{
 .diag-student-main b{font-size:.8rem}
 .diag-student-main small{margin-top:.05rem;color:var(--ink-soft);font-size:.63rem}
 .diag-student-pct{text-align:center;font-size:.78rem;font-weight:900}
-@media(max-width:560px){
+@media screen and (max-width:560px){
   .diag-student-item{grid-template-columns:28px minmax(0,1fr) 48px}
   .diag-student-item .btn{grid-column:2 / -1;justify-self:start}
 }
@@ -3910,7 +3910,7 @@ body{
   line-height:1.7;
   max-width:220px;
 }
-@media(max-width:520px){
+@media screen and (max-width:520px){
   .print-choice-grid{grid-template-columns:1fr}
 }
 </style>
@@ -4119,7 +4119,7 @@ body{
   font-weight:500;
   font-size:.72rem;
 }
-@media(max-width:620px){
+@media screen and (max-width:620px){
   .student-actions-grid{grid-template-columns:1fr}
 }
 </style>
@@ -4153,7 +4153,7 @@ body{
 }
 </style>
 <style id="mobile-missing-modal-fix">
-@media (max-width: 560px){
+@media screen and (max-width: 560px){
   .veil{
     align-items:center;
     padding:.65rem;
@@ -4305,7 +4305,7 @@ body{
 .activity-report-modal .modal-foot{
   margin-top:.9rem;padding-top:.85rem;border-top:1px solid var(--ui-border);
 }
-@media(max-width:700px){
+@media screen and (max-width:700px){
   .activity-report-modal{
     width:100%;max-width:none;max-height:91vh;
     padding:.85rem .8rem .7rem;border-radius:18px;
@@ -4337,7 +4337,7 @@ body{
   }
   .activity-report-modal .modal-foot .btn{flex:1;min-height:38px;font-size:.76rem}
 }
-@media(max-width:390px){
+@media screen and (max-width:390px){
   .activity-report-modal .activity-report-close-hint{display:none}
   .activity-report-modal .activity-q-row{grid-template-columns:1.1rem minmax(0,1fr) auto 2.4rem!important}
   .activity-report-modal .activity-q-row>span:nth-child(3){max-width:58px;overflow:hidden;text-overflow:ellipsis}
@@ -4347,7 +4347,7 @@ body{
 /* ضبط المساحة في تقرير النشاط فقط، دون تغيير أي منطق */
 .activity-report-modal .astat{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important}
 .activity-report-modal .astat>div{min-width:0;text-align:center}
-@media(max-width:700px){
+@media screen and (max-width:700px){
   .activity-report-modal .astat{grid-template-columns:repeat(2,minmax(0,1fr))!important}
 }
 </style>
@@ -4357,7 +4357,7 @@ body{
 .project-accept-demo,.project-reject-demo{border-radius:9px}
 .project-accept-demo{border:1px solid rgba(27,156,107,.35);background:rgba(27,156,107,.08);color:var(--tick)}
 .project-reject-demo{border:1px solid rgba(190,65,65,.3);background:rgba(190,65,65,.06);color:#a33}
-@media(max-width:600px){
+@media screen and (max-width:600px){
   .project-review-actions{display:grid;grid-template-columns:1fr 1fr;gap:.45rem}
   .project-review-actions .project-file-count{grid-column:1/-1;margin-inline-start:0;text-align:center}
   .project-review-actions .btn{width:100%;justify-content:center}
@@ -4395,8 +4395,8 @@ body{
 .project-view-item img{display:block;width:100%;max-height:520px;object-fit:contain;background:#fff;cursor:zoom-in}
 .project-view-item iframe{display:block;width:100%;height:560px;border:0;background:#fff}
 .project-view-label{padding:.5rem .65rem;font-size:.78rem;color:var(--ink-soft);display:flex;justify-content:space-between;gap:.5rem}
-@media(max-width:850px){.projects-filter-grid{grid-template-columns:1fr 1fr}.projects-grid{grid-template-columns:1fr}.project-view-grid{grid-template-columns:1fr}}
-@media(max-width:600px){.projects-filter-grid{grid-template-columns:1fr}.project-files{grid-template-columns:repeat(2,minmax(0,1fr))}.project-view-item iframe{height:460px}}
+@media screen and (max-width:850px){.projects-filter-grid{grid-template-columns:1fr 1fr}.projects-grid{grid-template-columns:1fr}.project-view-grid{grid-template-columns:1fr}}
+@media screen and (max-width:600px){.projects-filter-grid{grid-template-columns:1fr}.project-files{grid-template-columns:repeat(2,minmax(0,1fr))}.project-view-item iframe{height:460px}}
 </style>
 <style id="platform-specific-ui">
 /* ==========================================================
@@ -4496,7 +4496,7 @@ body{
 }
 
 /* ---------- MOBILE ---------- */
-@media (max-width:700px){
+@media screen and (max-width:700px){
 
   html,body{
     width:100%;
@@ -4904,7 +4904,7 @@ body{
 }
 
 /* هواتف صغيرة */
-@media(max-width:460px){
+@media screen and (max-width:460px){
 
   .wrap{padding-inline:.5rem}
 
@@ -4961,7 +4961,7 @@ body{
 }
 
 /* ===== الهاتف: الكشف الشامل ===== */
-@media (max-width:700px){
+@media screen and (max-width:700px){
   #p-comprehensive .sheet-head,
   #p-grades .sheet-head,
   #p-analysis .sheet-head,
@@ -5071,7 +5071,7 @@ body{
   #p-styles #sty-body{min-width:0}
 }
 
-@media(max-width:460px){
+@media screen and (max-width:460px){
   #p-comprehensive .sheet-head .btn,
   #p-grades .sheet-head .btn,
   #p-analysis .sheet-head .btn,
@@ -5119,7 +5119,7 @@ body{
 }
 
 /* Mobile: لوحة تشغيل سريعة بدل تصغير نسخة PC */
-@media (max-width:700px){
+@media screen and (max-width:700px){
   #p-dashboard{
     --dash-gap:.65rem;
   }
@@ -5305,7 +5305,7 @@ body{
 }
 
 /* شاشات الآيفون الصغيرة */
-@media (max-width:460px){
+@media screen and (max-width:460px){
   #p-dashboard .feature-grid{
     gap:.5rem;
   }
@@ -5353,7 +5353,7 @@ body{
   white-space:nowrap;
   min-width:110px;
 }
-@media (max-width:700px){
+@media screen and (max-width:700px){
   #p-dashboard > .sheet-head{
     gap:.5rem;
   }
@@ -5363,7 +5363,7 @@ body{
     padding:.55rem .8rem;
   }
 }
-@media (max-width:460px){
+@media screen and (max-width:460px){
   #p-dashboard > .sheet-head{
     gap:.4rem;
   }
@@ -5426,7 +5426,7 @@ body{
   cursor:pointer;
 }
 .student-class-option.active{background:var(--navy,#17243a);color:#fff}
-@media (max-width:640px){
+@media screen and (max-width:640px){
   .student-search-controls{
     grid-template-columns:1fr;
     gap:8px;
@@ -5497,7 +5497,7 @@ body{
   color:var(--ink-soft);
   margin-top:.35rem;
 }
-@media (max-width:700px){
+@media screen and (max-width:700px){
   .student-search-filters{
     display:grid;
     grid-template-columns:repeat(3,minmax(0,1fr));
@@ -5517,7 +5517,7 @@ body{
     min-height:44px;
   }
 }
-@media (max-width:460px){
+@media screen and (max-width:460px){
   .student-search-filters{
     grid-template-columns:1fr 1fr;
   }
@@ -5899,7 +5899,7 @@ body{
 }
 /* لا نعرض الملاحظات التفسيرية داخل الكشف النهائي. */
 #comp-table .comp-summary-note{display:none!important}
-@media(max-width:700px){
+@media screen and (max-width:700px){
   #comp-table .rep-info{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:.5rem}
   #comp-table .rep-info > div{min-height:62px;padding:.55rem .45rem!important}
   #comp-table .rep-info b{font-size:.9rem;line-height:1.5}
@@ -6195,7 +6195,7 @@ body{
     background:var(--ui-surface-2,#F5F8FC);border-radius:8px;padding:.5rem .6rem}
   .wr-tools{display:grid;grid-template-columns:1.6fr 1fr 1.2fr 1.2fr;gap:6px;margin:.4rem 0}
   .wr-tools .inp{min-height:36px;font-size:.8rem}
-  @media (max-width:760px){ .wr-tools{grid-template-columns:1fr 1fr} }
+  @media screen and (max-width:760px){ .wr-tools{grid-template-columns:1fr 1fr} }
   .wr-line{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
   .wr-tag{font-size:.68rem;border-radius:999px;padding:.1rem .45rem;border:1px solid transparent}
   .wr-tag.bad{background:#FDECEC;color:#B3261E;border-color:#F3C9C6}
@@ -6256,7 +6256,7 @@ body{
   cursor:pointer;z-index:2;
 }
 .project-image-zoom-close:hover{background:rgba(255,255,255,.24)}
-@media(max-width:600px){
+@media screen and (max-width:600px){
   .project-image-zoom-overlay{padding:.5rem}
   .project-image-zoom-overlay img{max-width:98vw;max-height:88vh}
   .project-image-zoom-close{top:.6rem;right:.6rem}
@@ -6273,7 +6273,7 @@ body{
 .reports-hub-help{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
 .reports-hub-help>div{border:1px solid var(--rule);border-radius:14px;padding:.8rem;background:var(--paper-2)}
 .reports-hub-help b,.reports-hub-help span{display:block}.reports-hub-help span{font-size:.78rem;color:var(--ink-soft);line-height:1.7;margin-top:.2rem}
-@media(max-width:700px){.reports-hub-grid,.reports-hub-help{grid-template-columns:1fr}.report-hub-card{min-height:92px}.reports-hub-grid{gap:.65rem}}
+@media screen and (max-width:700px){.reports-hub-grid,.reports-hub-help{grid-template-columns:1fr}.report-hub-card{min-height:92px}.reports-hub-grid{gap:.65rem}}
 </style>
 <style id="app-sidebar-navigation-clean-v4">
 /* نظام تنقل واحد معزول عن .tabs القديمة وmobile-nav */
@@ -6305,7 +6305,7 @@ body{
   .app-nav-scrim{display:none!important}
   .wrap,.wrap>*{min-width:0!important}
 }
-@media (max-width:700px){
+@media screen and (max-width:700px){
   html,body{width:100%!important;max-width:100%!important;min-width:0!important;overflow-x:hidden!important}
   body{padding:0!important}
   .masthead{width:100%!important;max-width:none!important;margin:0!important;position:sticky!important;top:0!important;z-index:1100!important;box-sizing:border-box!important}
@@ -6332,7 +6332,7 @@ body{
 </style>
 <style id="mobile-bottom-navigation-final">
 /* الجوال: شريط سفلي مستقل. الـSidebar يبقى للكمبيوتر فقط. */
-@media (max-width:700px){
+@media screen and (max-width:700px){
   #main-nav.app-sidebar{display:none!important;}
   #nav-drawer-toggle{display:none!important;}
   #nav-scrim{display:none!important;}
@@ -6381,7 +6381,7 @@ body{
 </style>
 <style id="mobile-bottom-active-color-fix">
 /* إصلاح لون العنصر النشط في الشريط السفلي للجوال */
-@media (max-width:700px){
+@media screen and (max-width:700px){
   #mobile-nav button.on,
   #mobile-nav button.on:active{
     background:#F1F5F9 !important;
@@ -6407,7 +6407,7 @@ body{
 .modal-mobile-close{
   display:none;
 }
-@media (max-width:700px){
+@media screen and (max-width:700px){
   .veil{
     padding:calc(8px + env(safe-area-inset-top,0px)) 8px calc(8px + env(safe-area-inset-bottom,0px));
     align-items:center!important;
@@ -6470,7 +6470,7 @@ body{
     touch-action:manipulation;
   }
 }
-@media (max-width:390px){
+@media screen and (max-width:390px){
   .veil .modal{
     max-width:calc(100vw - 12px)!important;
     padding:3.15rem .65rem .7rem!important;
@@ -6483,7 +6483,7 @@ body{
 <style id="reports-main-hub-clean">
 #p-reports-main .reports-main-grid{margin-top:1rem;}
 #p-reports-main .report-hub-card{min-height:88px;}
-@media(max-width:700px){#p-reports-main .reports-main-grid{grid-template-columns:1fr;}#p-reports-main .report-hub-card{min-height:76px;}}
+@media screen and (max-width:700px){#p-reports-main .reports-main-grid{grid-template-columns:1fr;}#p-reports-main .report-hub-card{min-height:76px;}}
 </style>
 
 <style id="exam-shop-control-css">
@@ -6496,7 +6496,7 @@ body{
 .exam-shop-student small{display:block;color:var(--ink-soft);font-size:.7rem;margin-top:.12rem}
 .exam-shop-status{padding:.65rem .8rem;border-radius:10px;background:#EFF3F8;font-size:.8rem;line-height:1.6}
 .exam-shop-status.open{background:#E4F4EC;color:#167852}.exam-shop-status.closed{background:#FFF1F2;color:#9F2538}
-@media(max-width:600px){.exam-shop-kpis{grid-template-columns:1fr 1fr}.exam-shop-student{grid-template-columns:1fr 105px}.exam-shop-student small{grid-column:1}.exam-shop-student .exam-shop-used{display:none}}
+@media screen and (max-width:600px){.exam-shop-kpis{grid-template-columns:1fr 1fr}.exam-shop-student{grid-template-columns:1fr 105px}.exam-shop-student small{grid-column:1}.exam-shop-student .exam-shop-used{display:none}}
 </style>
 </head>
 <body>
@@ -10991,7 +10991,7 @@ function printAnalysisReport(){
   document.body.classList.add('printing-analysis');
   const done=()=>{document.body.classList.remove('printing-analysis');document.title=old;window.removeEventListener('afterprint',done)};
   window.addEventListener('afterprint',done);
-  setTimeout(()=>{window.print();setTimeout(done,1500)},150);
+  setTimeout(()=>printThen(done),150);
 }
 
 function printCompAnalysis(){
@@ -11003,7 +11003,7 @@ function printCompAnalysis(){
   document.body.classList.add('printing-compan');
   const done=()=>{document.body.classList.remove('printing-compan');document.title=old;window.removeEventListener('afterprint',done)};
   window.addEventListener('afterprint',done);
-  setTimeout(()=>{window.print();setTimeout(done,1500)},150);
+  setTimeout(()=>printThen(done),150);
 }
 
 /* 🏷️ يُلصق اسم العمود على كل خلية بعد الرسم، فتقرأ البطاقة على الجوال
@@ -11026,6 +11026,13 @@ function labelAllReports(){ setTimeout(()=>labelTableCells(document), 0); }
 
 /* 🖨️ محرك موحّد للكشوف الثلاثة فقط: نفس المسار في الجوال والكمبيوتر.
    يعزل اللوحة المطلوبة، يلغي تصغير الجوال، ويحدد A4 والاتجاه وقت الطباعة. */
+/* 🖨️ على الكمبيوتر يتوقف window.print() حتى يُغلق الحوار، فيكفي مؤقت قصير بعده لإلغاء وضع الطباعة.
+   على الجوال يعود فورًا والمعاينة لم تكتمل؛ إلغاء الوضع بعد 1.5 ث كان يُخرج التقرير بتنسيق الشاشة.
+   هنا نقيس: إن عاد فورًا ننتظر afterprint (والمؤقت الطويل احتياط فقط). */
+function printThen(done){
+  const t0=Date.now(); window.print();
+  setTimeout(done, Date.now()-t0 < 400 ? 120000 : 1500);
+}
 function unifiedA4Print({bodyClass,title,selector,orientation='portrait',margin='7mm'}){
   clearReportZoom();
   const box=document.querySelector(selector);
@@ -11055,7 +11062,7 @@ function unifiedA4Print({bodyClass,title,selector,orientation='portrait',margin=
     window.removeEventListener('afterprint',done);
   };
   window.addEventListener('afterprint',done);
-  setTimeout(()=>{ window.print(); setTimeout(done,1500); },120);
+  setTimeout(()=>printThen(done),120);
 }
 
 
@@ -13238,6 +13245,8 @@ function printGrades(){
    العرض الطبيعي للتقرير مقسومًا على عرض الشاشة. الطباعة تُلغيه تمامًا. */
 const REP_BOXES = '#comp-table .rep-page, #wk-table .rep-page, #ca-body .rep-page, #an-body .rep-page, #p-grades .grades-table-wrap';
 function fitReportsToWidth(){
+  // أثناء الطباعة لا يُعاد التصغير: الجوال يغيّر المقاس وهو يُعدّ المعاينة فيعود zoom ويخرب التنسيق
+  if(/\bprinting-/.test(document.body.className) || window.matchMedia('print').matches){ clearReportZoom(); return; }
   const mobile = window.matchMedia('(max-width:700px)').matches;
   document.querySelectorAll(REP_BOXES).forEach(el=>{
     el.style.zoom = '';                                  // نقيس دائمًا بلا تصغير سابق
@@ -13251,6 +13260,7 @@ function fitReportsToWidth(){
 }
 function clearReportZoom(){ document.querySelectorAll(REP_BOXES).forEach(el=>{ el.style.zoom=''; }); }
 addEventListener('resize', ()=>{ clearTimeout(window.__fitT); window.__fitT=setTimeout(fitReportsToWidth,150); });
+addEventListener('beforeprint', ()=>{ clearTimeout(window.__fitT); clearReportZoom(); });
 addEventListener('orientationchange', ()=>setTimeout(fitReportsToWidth,300));
 /* الرسم غير متزامن (ينتظر الخادم)، فبدل ملاحقة كل دالة رسم نراقب لوحات
    التقارير: أي جدول جديد يُوسَم فور ظهوره. */
@@ -19734,7 +19744,7 @@ function printStudentReport(sid){
     window.removeEventListener('afterprint', done2);
   };
   window.addEventListener('afterprint', done2);
-  setTimeout(()=>{ window.print(); setTimeout(done2, 1500); }, 120);
+  setTimeout(()=>printThen(done2),120);
 }
 
 function copyStudentReport(sid){
@@ -20317,10 +20327,7 @@ function printClassActivityReport(mode='full'){
     window.removeEventListener('afterprint',done);
   };
   window.addEventListener('afterprint',done);
-  setTimeout(()=>{
-    window.print();
-    setTimeout(done,1500);
-  },180);
+  setTimeout(()=>printThen(done),180);
 }
 
 function exportGrades(){
@@ -25346,7 +25353,7 @@ async function wrSendAll(){
 .exam-bank-item .qnum{font-size:.7rem;color:#7A8796}
 .exam-bank-empty{text-align:center;padding:1rem;color:var(--ink-soft);font-size:.8rem}
 .exam-bank-item input{margin-top:.15rem}
-@media(max-width:700px){.exam-bank-list{max-height:420px}.exam-bank-item{grid-template-columns:24px 1fr}.exam-bank-item .qmeta{margin-top:.25rem}}
+@media screen and (max-width:700px){.exam-bank-list{max-height:420px}.exam-bank-item{grid-template-columns:24px 1fr}.exam-bank-item .qmeta{margin-top:.25rem}}
 
 /* ═══ 🖨️ كليشة الاختبار الورقي ═══ */
 #exam-preview{display:flex;flex-direction:column;align-items:center;gap:10px;padding:.2rem 0 1.2rem;overflow:auto}
@@ -25397,7 +25404,7 @@ async function wrSendAll(){
   display:grid;place-items:center;min-width:0;overflow:visible;z-index:2;pointer-events:none}
 .ex-logo svg{width:100%;max-width:none;height:100%;max-height:none;display:block}
 .ex-logo .ex-fallback{font-size:.85em;font-weight:900;color:#0E5B4E;text-align:center;line-height:1.5}
-@media(max-width:700px){
+@media screen and (max-width:700px){
   .ex-head{grid-template-columns:minmax(0,1fr) 36mm minmax(0,1fr);grid-template-areas:"right logo left";gap:2mm;min-height:30mm}
 }
 .ex-title{margin:2.2mm auto 1.8mm;width:64%;padding:1.2mm 5mm;border:1.2px solid #0E5B4E;border-radius:7px;
@@ -25516,7 +25523,7 @@ async function wrSendAll(){
 .lv-refresh{width:38px;height:38px;border-radius:11px;border:1px solid var(--rule);background:var(--card,#fff);color:var(--ink-soft);cursor:pointer;display:grid;place-items:center;margin-inline-end:.4rem}
 .lv-refresh:hover{color:var(--ink);border-color:#94A3B8}
 .lv-sec.past .lv-row{background:transparent}.lv-sec.past .lv-main b{color:var(--ink-soft)}
-@media (max-width:620px){.lv-row{grid-template-columns:40px 1fr 34px;grid-template-areas:"ic main del" "ic side del"}.lv-ic{grid-area:ic;width:40px;height:40px}.lv-main{grid-area:main}
+@media screen and (max-width:620px){.lv-row{grid-template-columns:40px 1fr 34px;grid-template-areas:"ic main del" "ic side del"}.lv-ic{grid-area:ic;width:40px;height:40px}.lv-main{grid-area:main}
   .lv-side{grid-area:side;display:flex;justify-items:start;gap:.5rem;min-width:0}.lv-del,.lv-del-ph{grid-area:del}}
 .lv-chip{display:inline-block;font-size:.76rem;font-weight:800;border-radius:99px;padding:.15rem .55rem;background:#EEF2F7;color:#334155;white-space:nowrap}
 .lv-chip.lv-registration{background:#FEF3C7;color:#92400E}.lv-chip.lv-waiting{background:#E0E7FF;color:#3730A3}.lv-chip.lv-live{background:#DCFCE7;color:#166534}
@@ -25543,7 +25550,7 @@ async function wrSendAll(){
 .lv-nt li{border:1px solid var(--rule);border-radius:10px;padding:.35rem .6rem}.lv-nt li span{color:var(--ink-soft)}.lv-nt em{font-style:normal;color:#B45309}
 .lv-nt-warn{margin:.45rem 0 0;background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;padding:.45rem .6rem;font-size:.84rem;color:#92400E}
 .lv-cancel-note{background:#FEF2F2;border-radius:12px;padding:.55rem .7rem;font-size:.86rem}
-@media (max-width:560px){.lv-kpis{grid-template-columns:repeat(3,1fr)}}
+@media screen and (max-width:560px){.lv-kpis{grid-template-columns:repeat(3,1fr)}}
 
 .bp-progress{margin:.4rem 0 .6rem}.bp-progress small{display:block;color:var(--ink-soft);font-size:.8rem;margin-top:.3rem}
 .bp-bar{height:8px;border-radius:99px;background:var(--rule);overflow:hidden}.bp-bar i{display:block;height:100%;width:0;background:var(--tick);transition:width .25s}
@@ -25623,7 +25630,7 @@ async function wrSendAll(){
 .exf-no{font-weight:800;font-size:.8rem;color:var(--ink-soft);align-self:center}.exf-sub{font-size:.8rem;font-weight:700;align-self:center}
 .exf-f{display:grid;gap:.15rem;font-size:.72rem;color:var(--ink-soft);font-weight:600}.exf-f .inp{padding:.35rem .45rem}
 .exf-tools{display:flex;gap:.2rem;align-self:center}.exf-tools .btn{padding:.25rem .45rem}
-@media(max-width:700px){.exf-row{grid-template-columns:1fr 1fr;}.exf-row select{grid-column:1/-1}.exf-no{grid-column:1/-1}}
+@media screen and (max-width:700px){.exf-row{grid-template-columns:1fr 1fr;}.exf-row select{grid-column:1/-1}.exf-no{grid-column:1/-1}}
 .ex-mhead,.ex-mrow{display:grid;grid-template-columns:minmax(0,1fr) 14mm minmax(0,1fr);gap:0 3mm;align-items:center}
 .ex-mhead{padding:1.1mm 3mm;background:#F4F8F7;border-bottom:1px solid #D7E3E1;font-size:.78em;font-weight:900;color:#0E5B4E;text-align:center}
 .ex-mrow{padding:1.6mm 3mm;border-bottom:1px solid #D7E3E1;font-weight:700;line-height:1.3;min-height:12.5mm}
@@ -25661,7 +25668,7 @@ async function wrSendAll(){
   body.printing-exam #exam-paper .ex-mrow,body.printing-exam #exam-paper .ex-fq,body.printing-exam #exam-paper .ex-oq{break-inside:avoid!important;page-break-inside:avoid!important}
 }
 
-@media(max-width:900px){
+@media screen and (max-width:900px){
   #exam-preview{padding:.2rem .2rem 1rem}
   .exam-page{zoom:.58}
 }
@@ -25812,7 +25819,7 @@ async function wrSendAll(){
 
 /* ── 🎛️ اختيار نوع النشاط: بلاطات مقروءة بدل قائمة منسدلة مخفية المعنى ── */
 .kind-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.45rem;margin:.1rem 0 .85rem}
-@media(max-width:540px){.kind-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media screen and (max-width:540px){.kind-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .kind-tile{display:flex;flex-direction:column;align-items:flex-start;gap:.1rem;
   padding:.55rem .6rem;border:1.5px solid var(--rule);border-radius:12px;
   background:var(--ui-surface-2,#F7F9FC);
@@ -25859,7 +25866,7 @@ async function wrSendAll(){
 
 /* نوع السؤال وعدده في عنصر واحد — كانا شبكتين متكررتين لنفس الأنواع */
 .qty-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.4rem}
-@media(max-width:540px){.qty-list{grid-template-columns:1fr}}
+@media screen and (max-width:540px){.qty-list{grid-template-columns:1fr}}
  .qty{display:flex;align-items:center;gap:.5rem;border:1.5px solid var(--rule);border-radius:11px;
   padding:.3rem .45rem;background:var(--ui-surface-2,#F7F9FC)}
 .qty.on{border-color:rgba(27,156,107,.5);background:rgba(27,156,107,.07)}
@@ -25872,7 +25879,7 @@ async function wrSendAll(){
 .stepper input{width:42px;height:26px;min-height:26px;text-align:center;border:1px solid var(--rule);
   border-radius:8px;background:var(--paper);font-weight:800;padding:0;font-size:.84rem}
 .nai-game{display:grid;grid-template-columns:1fr auto;gap:.5rem;align-items:end}
-@media(max-width:540px){.nai-game{grid-template-columns:1fr}}
+@media screen and (max-width:540px){.nai-game{grid-template-columns:1fr}}
 
 .reading-ai-note{font-size:.72rem;color:var(--ink-soft);line-height:1.5}
 .reading-ai-status{display:none;margin-top:.8rem;padding:.7rem;border-radius:10px;background:rgba(27,156,107,.07);border:1px solid rgba(27,156,107,.2)}
@@ -25881,8 +25888,8 @@ async function wrSendAll(){
 .reading-ai-result.show{display:block}
 .reading-ai-q{padding:.65rem .75rem;border:1px solid var(--rule,#ddd);border-radius:10px;margin-bottom:.45rem}
 .reading-ai-q b{display:block;margin-bottom:.25rem}
-@media(max-width:900px){.reading-ai-counts{grid-template-columns:repeat(3,minmax(0,1fr))}}
-@media(max-width:650px){.reading-ai-grid,.reading-ai-counts{grid-template-columns:1fr 1fr}}
+@media screen and (max-width:900px){.reading-ai-counts{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media screen and (max-width:650px){.reading-ai-grid,.reading-ai-counts{grid-template-columns:1fr 1fr}}
 </style>
 <script>
 /* ═══════════════════════════════════════════════════════════════
@@ -27747,7 +27754,7 @@ function printReadingWorksheet(id, answers){
   document.body.classList.add('rdk-printing');
   const done=()=>{ document.body.classList.remove('rdk-printing'); document.title=oldTitle; st.remove(); window.removeEventListener('afterprint',done); };
   window.addEventListener('afterprint',done);
-  setTimeout(()=>{ window.print(); setTimeout(done,1500); },150);
+  setTimeout(()=>printThen(done),150);
 }
 
 /* يحفظ رقم فقرة الدليل ومهارة السؤال عند تعديل المهام يدويًا */
@@ -28163,7 +28170,7 @@ async function experimentAIGenerate(){
 .reading-ai-card > .modal-foot .btn.tick{
   box-shadow:0 5px 14px rgba(27,156,107,.2);
 }
-@media(max-width:900px){
+@media screen and (max-width:900px){
   .reading-ai-card > .reading-ai-grid,
   .reading-ai-card > .reading-ai-note,
   .reading-ai-card > .reading-ai-types,
@@ -28172,7 +28179,7 @@ async function experimentAIGenerate(){
   .reading-ai-head{padding:.85rem .9rem}
   .reading-ai-card > .modal-foot{padding-inline:.85rem}
 }
-@media(max-width:650px){
+@media screen and (max-width:650px){
   .reading-ai-backdrop{padding:.45rem}
   .reading-ai-card{
     width:calc(100vw - .9rem);
@@ -28204,7 +28211,7 @@ async function experimentAIGenerate(){
   .reading-ai-card > .modal-foot .btn{flex:1 1 30%;min-width:0}
   .reading-ai-card > .modal-foot #rai-finish{flex-basis:100%;}
 }
-@media(max-width:400px){
+@media screen and (max-width:400px){
   .reading-ai-types{grid-template-columns:1fr}
   .reading-ai-head > div:first-child{display:none}
 }
@@ -28265,6 +28272,9 @@ html body .ct-cert .rep-head.rh2,html body .ct-cert .rep-title{display:none!impo
   html body #comp-table .rep-head.rh2 .t span,html body #comp-table .rep-head.rh2 .yr span{font-size:7.4pt!important;line-height:1.45!important}
   html body #comp-table .rep-title{margin-top:-1rem;padding:.32rem .8rem}
   html body #comp-table .rep-title b{font-size:11pt}
+  /* 📱 الطباعة من الجوال: بعض المتصفحات تُخطّط الطباعة بعرض الشاشة (390px) فتنضغط الأعمدة.
+     عرض أدنى بمقاس ورقة A4 يجعل التخطيط مطابقًا للكمبيوتر، والمتصفح يصغّر الصفحة كلها لتلائم الورقة */
+  html body .rep-page{min-width:180mm}
   /* كل «صفحة تقرير» تبدأ على ورقة جديدة (كانت قاعدة break-after:auto!important تلغي الفصل فتظهر ترويسة الصفحة التالية أسفل الأولى) */
   html body .rep-page+.rep-page{break-before:page!important;page-break-before:always!important}
   /* القسم الطويل يكمل في الصفحة التالية بدل أن يقفز كله ويترك نصف صفحة فارغًا؛ الصفوف لا تنقسم */
@@ -28275,7 +28285,7 @@ html body .ct-cert .rep-head.rh2,html body .ct-cert .rep-title{display:none!impo
 }
 .g-print-head{display:none}
 @media print{body.printing-grades .g-print-head{display:block!important;margin-bottom:.4rem}}
-@media(max-width:700px){html body .rep-head.rh2{grid-template-columns:1fr!important;text-align:center}html body .rep-head.rh2 .t,html body .rep-head.rh2 .yr{text-align:center!important}html body .rep-head.rh2 .logo{margin:0 auto!important}}
+@media screen and (max-width:700px){html body .rep-head.rh2{grid-template-columns:1fr!important;text-align:center}html body .rep-head.rh2 .t,html body .rep-head.rh2 .yr{text-align:center!important}html body .rep-head.rh2 .logo{margin:0 auto!important}}
 </style>
 </body>
 </html>
@@ -28859,7 +28869,7 @@ if('serviceWorker' in navigator){
 html,body{overflow-x:clip!important}
 @supports not (overflow:clip){ html{overflow-x:visible!important} body{overflow-x:hidden!important} }
 html{overscroll-behavior-y:none}
-@media (max-width:700px){
+@media screen and (max-width:700px){
   /* في وضع التطبيق المثبت يمتد المحتوى تحت الساعة والبطارية: الترويسة تحجز مساحتها */
   .masthead{padding-top:env(safe-area-inset-top,0px)!important}
   .mobile-nav{-webkit-transform:translateZ(0);transform:translateZ(0)}
@@ -28870,7 +28880,7 @@ html{overscroll-behavior-y:none}
 /* 📱 النوافذ فوق الترويسة والشريط السفلي: كانت طبقتها 800 تحت الترويسة (1100) والشريط (2000)
    فيغطيان زر الإغلاق والحفظ. الآن 3000: فوقهما، وتحت التنبيهات (9999) ونوافذ التأكيد. */
 .veil{z-index:3000!important}
-@media (max-width:700px){
+@media screen and (max-width:700px){
   .veil .modal{padding-top:.6rem!important}
   /* زر ✕ يبقى ظاهرًا أثناء التمرير داخل النافذة */
   .modal-mobile-close{position:sticky!important;top:0!important;inset-inline-start:auto!important;
@@ -28880,7 +28890,7 @@ html{overscroll-behavior-y:none}
   .veil .modal .feature-list[style*="max-height"],
   .veil .modal .store-purchase-list[style*="max-height"]{max-height:none!important;overflow:visible!important}
 }
-@media (max-width:390px){ .veil .modal{padding-top:.55rem!important} }
+@media screen and (max-width:390px){ .veil .modal{padding-top:.55rem!important} }
 </style>
 <style id="madrasati-view-style">
 /* كل تبويب قائمة مستقلة: #mad-list{display:grid} كان يتغلب على [hidden] فتبقى القائمة ظاهرة تحت سجل الرصد */
@@ -28916,7 +28926,7 @@ html{overscroll-behavior-y:none}
 .madv-n.ok{color:var(--tick)}.madv-n.no{color:var(--pen)}.madv-n.zero{color:var(--ink-soft);font-weight:600}
 .madv-foot{padding:.45rem 1.1rem .6rem;font-size:.74rem;color:var(--ink-soft);border-top:1px solid var(--ui-border,#D5E0EC)}
 .madv-sheet.is-ended .madv-head{background:color-mix(in srgb,var(--pen) 4%,transparent)}
-@media (max-width:560px){
+@media screen and (max-width:560px){
   .madv-head{padding:.8rem .85rem .6rem}.madv-rate b{font-size:1.4rem}
   .madv-row{grid-template-columns:1fr auto auto;gap:.35rem .8rem;padding:.6rem .85rem}
   .madv-row .madv-bar{grid-column:1/-1;grid-row:2}
@@ -29954,7 +29964,7 @@ async function healthClear(sid){
 .srp-note{margin:0 1.5rem .8rem;padding:.7rem .85rem;border-inline-start:4px solid var(--srp-gold);background:var(--srp-wash);border-radius:0 10px 10px 0;break-inside:avoid}
 .srp-note p{margin:0;font-size:.9rem;white-space:pre-wrap}
 .srp-foot{display:flex;justify-content:space-between;padding:.6rem 1.5rem .8rem;border-top:1px solid var(--srp-line);font-size:.74rem;color:var(--srp-soft)}
-@media (max-width:640px){
+@media screen and (max-width:640px){
   .srp-head{flex-direction:column;align-items:flex-start;padding:1rem;margin:.7rem .7rem 0}.srp-who{text-align:start}.srp-logo{width:76px;height:76px}
   .srp-tiles,.srp-tiles.n5{grid-template-columns:1fr 1fr;padding:.8rem 1rem .3rem}.srp-tiles .srp-tile:last-child:nth-child(odd){grid-column:1/-1}.srp-grid{grid-template-columns:1fr;padding:.5rem 1rem}
   .srp-beh,.srp-note{margin-left:1rem;margin-right:1rem}.srp-notes li{grid-template-columns:auto 1fr;}.srp-notes li .srp-nx{grid-column:1/-1}
@@ -30051,7 +30061,7 @@ function srpPrint(r){
   document.documentElement.classList.add('srp-printing');
   const done=()=>{ document.documentElement.classList.remove('srp-printing'); host.innerHTML=''; window.removeEventListener('afterprint',done); };
   window.addEventListener('afterprint',done);
-  setTimeout(()=>{ window.print(); setTimeout(done, 1500); }, 60);
+  setTimeout(()=>printThen(done),60);
 }
 
 /* 📤 تقارير الطلاب — من الكشف الشامل: معاينة، إرسال لبوابة الطالب، سحب */
@@ -30176,7 +30186,7 @@ async function srepWithdraw(){
 .td-more{margin:.5rem 0}.td-more>summary{cursor:pointer;font-weight:800;padding:.6rem .8rem;border:1px solid var(--ui-border,#e5e7eb);border-radius:12px;background:var(--ui-surface,#fff);display:flex;align-items:center;gap:.5rem;list-style:none}
 .td-more>summary::-webkit-details-marker{display:none}.td-more>summary::before{content:'▸';color:var(--ink-soft)}.td-more[open]>summary::before{content:'▾'}
 .td-more>summary .btn{margin-inline-start:auto}.td-more[open]>summary{margin-bottom:.5rem}.today-hub .ct-today > b:first-child{display:none}
-@media (max-width:980px){.today-hub{grid-template-columns:1fr}}
+@media screen and (max-width:980px){.today-hub{grid-template-columns:1fr}}
 </style>
 <script id="dash-reorg-js">
 /* ═══ ⚙️ الإعدادات: تبويبات داخلية — كل قسم مستقل بدل صفحة طويلة. لا يُحذف شيء: «الكل» يعرض كل الأقسام كما كانت ═══ */
@@ -31207,7 +31217,7 @@ ctSchPrint=function(){
 .td-ev.ex{background:rgba(214,69,91,.1);color:#a3283c;font-weight:700}.td-ev.act{background:rgba(37,99,235,.08)}.td-ev.rm{background:rgba(224,161,0,.12)}
 .td-sum{background:linear-gradient(135deg,rgba(27,156,107,.08),rgba(37,99,235,.06));border:1px solid var(--ui-border,#e5e7eb);border-radius:14px;padding:.7rem .9rem;margin-bottom:.6rem}
 .td-sum-g{display:flex;flex-wrap:wrap;gap:.4rem .9rem;font-size:.85rem;margin-top:.4rem}
-@media (max-width:700px){.td-week{grid-template-columns:repeat(5,minmax(110px,1fr));overflow-x:auto}}
+@media screen and (max-width:700px){.td-week{grid-template-columns:repeat(5,minmax(110px,1fr));overflow-x:auto}}
 </style>
 <script id="today-v3-js">
 /* ═════════ 🗂️ رصد سريع من صفحة اليوم — تعديلات محلية ثم حفظ واحد ═════════ */
@@ -31741,7 +31751,7 @@ function nsOpen(){
 .tl-bar button{border:0;background:rgba(255,255,255,.14);color:#fff;border-radius:7px;padding:.2rem .45rem;font:inherit;font-size:.74rem;cursor:pointer}
 .tl-bar button.on{background:#2563eb}
 .tl-bar .tl-w{display:inline-flex;gap:.15rem}
-@media (max-width:999px){ .tl-bar .tl-w:not(.tl-hh){display:none} #td-board>details.td-blk>:not(summary){max-height:var(--h,none);overflow:auto} #td-board>details.td-blk[data-h="m"]>:not(summary){max-height:none} }
+@media screen and (max-width:999px){ .tl-bar .tl-w:not(.tl-hh){display:none} #td-board>details.td-blk>:not(summary){max-height:var(--h,none);overflow:auto} #td-board>details.td-blk[data-h="m"]>:not(summary){max-height:none} }
 </style>
 <script id="today-board-js">
 /* 🧩 ترتيب صفحة اليوم — لكل جهاز ترتيبه (الكمبيوتر غير الجوال) */
