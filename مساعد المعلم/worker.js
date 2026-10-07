@@ -945,18 +945,25 @@ async function attachSkills(env, data) {
   Object.defineProperty(data, '__skills', { value: map, enumerable: false, configurable: true });
   return data;
 }
+/* 🔍 أسئلة الاختبار التشخيصي تحمل مهارتها في نصها (q.skill) — فهو المصدر الأول لتحديد الفجوات */
+function diagSkillMap(h) {
+  const qs = h && Array.isArray(h.qs) ? h.qs : [];
+  return qs.some(q => q && q.skill) ? qs.map(q => (q && q.skill ? String(q.skill).trim().slice(0, 40) : '')) : null;
+}
 function skillWindow(data, assignments, sid, from, to, only, cut) {
   const map = (data && data.__skills) || {}, out = {};
   for (const h of (assignments || [])) {
-    if (!h || (h.kind || 'normal') !== 'normal' || h.remedial) continue;
-    const sk = map[String(h.sid || '')]; if (!sk) continue;
+    const kind = h && (h.kind || 'normal');
+    if (!h || (kind !== 'normal' && kind !== 'diag') || h.remedial) continue;
+    const sk = kind === 'diag' ? diagSkillMap(h) : map[String(h.sid || '')]; if (!sk) continue;
     const sub = h.subs && h.subs[String(sid)]; if (!sub || !sub.d) continue;
     const d = planSubDay(sub.at, cut);
     if (from && d < from) continue;
     if (to && d > to) continue;
     String(sub.d).split('').forEach((c, i) => {
       const s = sk[i]; if (!s || (only && !only.includes(s))) return;
-      const o = out[s] || (out[s] = { c: 0, t: 0 }); o.t++; if (c === '1') o.c++;
+      const o = out[s] || (out[s] = { c: 0, t: 0, dt: 0 }); o.t++; if (c === '1') o.c++;
+      if (kind === 'diag') o.dt++;
     });
   }
   return out;
@@ -965,11 +972,36 @@ function skillAgg(win) {
   let c = 0, t = 0; for (const v of Object.values(win)) { c += v.c; t += v.t; }
   return t ? { rate: Math.round((c / t) * 100), correct: c, total: t, measured: t >= 3 } : { rate: null, correct: 0, total: 0, measured: false };
 }
-function weakSkills(data, assignments, sid, range) {
-  const w = skillWindow(data, assignments, sid, range && range.start, range && range.end);
-  return Object.entries(w).filter(([, v]) => v.t >= 2).map(([skill, v]) => ({ skill, rate: Math.round((v.c / v.t) * 100), total: v.t }))
-    .filter(x => x.rate < 60).sort((a, b) => a.rate - b.rate).slice(0, 4);
+/* 🎯 مستويات المهارة (نفس نطاقات التقرير التشخيصي) — الخطة العلاجية تُبنى على ما دون 60% */
+const SKILL_TARGET = 80, SKILL_GAP = 60;
+function skillBand(rate) {
+  return rate >= SKILL_TARGET ? { key: 'mastered', name: 'متمكّن' } : rate >= SKILL_GAP ? { key: 'review', name: 'يحتاج مراجعة' }
+    : rate >= 40 ? { key: 'support', name: 'فجوة تحتاج دعمًا' } : { key: 'found', name: 'يحتاج تأسيسًا' };
 }
+function skillProfile(data, assignments, sid, range) {
+  const w = skillWindow(data, assignments, sid, range && range.start, range && range.end);
+  return Object.entries(w).filter(([, v]) => v.t >= 2).map(([skill, v]) => {
+    const rate = Math.round((v.c / v.t) * 100), b = skillBand(rate);
+    return { skill, rate, total: v.t, diag: v.dt || 0, acts: v.t - (v.dt || 0), band: b.key, bandName: b.name };
+  }).sort((a, b) => a.rate - b.rate);
+}
+function weakSkills(data, assignments, sid, range) {
+  return skillProfile(data, assignments, sid, range).filter(x => x.rate < SKILL_GAP).slice(0, 4);
+}
+/* إجراءات علاجية تسمّي المهارة نفسها وتناسب مستواها */
+function skillActions(sk) {
+  const n = `«${sk.skill}»`;
+  return sk.band === 'found'
+    ? [`تأسيس ${n}: إعادة تدريسها من البداية بمحسوسات وأمثلة مختلفة عن شرح الصف`, `تدريب متدرّج على ${n} من السهل إلى الأصعب مع تحقق بعد كل خطوة`]
+    : [`دعم ${n}: شرح موجّه لأخطائه فيها ثم مثال محلول معه`, `ورقة تدريب قصيرة على ${n} (5 أسئلة) وتصحيحها معه`];
+}
+const SUPPORT_ACTIONS = {
+  absence: 'تعويض ما فاته من دروس هذه المهارات في حصة إضافية قصيرة',
+  unsubmitted: 'التحقق من تسليمه مهام الخطة في نهاية كل حصة',
+  decline: 'مقابلة فردية قصيرة لمعرفة ما تغيّر',
+  exams: 'تدريبه على أسئلة بنمط الاختبار في هذه المهارات',
+  behavior: 'إجلاسه في الصف الأمامي ومتابعته أثناء التدريب',
+};
 const EXAM_WEAK = 60;
 function examWindow(data, sid, from, to) {
   const books = data && data.examBooks && typeof data.examBooks === 'object' ? data.examBooks : {};
@@ -1091,7 +1123,7 @@ const CONDUCT = {
 };
 const PATTERN_MEASURE = { unsubmitted: 'hw', absence: 'att', behavior: 'beh' };
 const PATTERN_BY_LABEL = { 'انقطاع عن التعلّم': 'absence', 'عدم إنجاز المهام': 'unsubmitted', 'سلوك يعيق التعلّم': 'behavior',
-  'تراجع حديث في المستوى': 'decline', 'فجوة في الفهم': 'gap', 'ضعف في الاختبارات': 'exams' };
+  'تراجع حديث في المستوى': 'decline', 'فجوة في الفهم': 'gap', 'فجوة في المهارات': 'gap', 'ضعف في الاختبارات': 'exams' };
 function planMeasureKey(plan) {
   const m = String(plan.measure || 'auto');
   if (['academic', 'hw', 'att', 'beh'].includes(m)) return m;
@@ -1205,6 +1237,20 @@ function memberReport(sid, plan, students, assignments, data_ref) {
            before, after, gain, verdict, exam, context: ctx, caution, basis, skill, limited, actBefore, confidence, window,
            mainBy, conduct, academic: mainBy === 'academic' ? null : { ...academic, confidence: academic.gain != null ? planConfidence(academic.before, academic.after) : null } };
 }
+/* المهارات المستهدفة التي لم تبلغ الهدف بعد البدء (لعضو واحد أو أكثر) */
+function planSkillsLeft(members) {
+  const out = new Map();
+  for (const m of members) {
+    if (!m || m.basis !== 'skills' || !m.skill || !Array.isArray(m.skill.items)) continue;
+    for (const it of m.skill.items) {
+      const a = it.after && it.after.total >= 2 ? it.after.rate : null;
+      if (a != null && a >= SKILL_TARGET) continue;
+      const cur = out.get(it.skill);
+      if (!cur || (a != null && (cur.rate == null || a < cur.rate))) out.set(it.skill, { skill: it.skill, rate: a });
+    }
+  }
+  return [...out.values()];
+}
 function planReport(plan, students, assignments, data_ref) {
   // التوافق مع الخطط الفردية القديمة: studentId مفرد يُقرأ كعضو واحد
   const ids = (Array.isArray(plan.studentIds) && plan.studentIds.length)
@@ -1276,7 +1322,7 @@ function planReport(plan, students, assignments, data_ref) {
         __q: isGroup ? Math.min(...members.map(m => (m.after && m.after.total) || 0)) : ((first.after && first.after.total) || 0) },
       isGroup ? groupGain : first.gain,
       isGroup ? (measured.length ? avg(members.filter(m => m.after.measured).map(m => m.after.rate)) : null) : (first.after && first.after.measured ? first.after.rate : null),
-      isGroup ? measured.length > 0 : !!(first.after && first.after.measured), { confidence, net, by }),
+      isGroup ? measured.length > 0 : !!(first.after && first.after.measured), { confidence, net, by, left: by === 'academic' ? planSkillsLeft(members) : [] }),
   };
 }
 /* ⏰ مدة الخطة والقرار المقترح بعد انتهائها (المعلم يؤكده من اللوحة)
@@ -1310,7 +1356,13 @@ function planTiming(plan, gain, afterRate, measured, ev) {
   else if (gain >= PLAN.minGain) { decision = 'extend'; why = `تحسّن ${gain} نقطة لكنه ${afterRate}% — دون الهدف ${TARGET}%`; }
   else if (changed) { decision = 'refer'; why = 'لم يتحسّن رغم تغيير نوع التدخل سابقًا'; }
   else { decision = 'change'; why = gain <= -PLAN.minGain ? `تراجع ${-gain} نقطة` : 'لم يظهر فرق يُعتد به'; }
-  return { due, days, left, expired, round, changed, decision, why };
+  // 🎯 خطة المهارات لا تُغلق ناجحة حتى تصل كل مهارة مستهدفة إلى الهدف
+  const skLeft = ev && Array.isArray(ev.left) ? ev.left : [];
+  if (decision === 'close_success' && skLeft.length) {
+    decision = 'extend';
+    why = `${why}، لكن لم تصل كل المهارات إلى ${SKILL_TARGET}%: ${skLeft.map(x => `«${x.skill}» ${x.rate == null ? 'لم تُقَس بعد' : x.rate + '%'}`).join('، ')}`;
+  }
+  return { due, skillsLeft: skLeft, days, left, expired, round, changed, decision, why };
 }
 function prevDay(d) {
   const t = Date.parse(d + 'T00:00:00Z');
@@ -1390,9 +1442,23 @@ function diagnose(s, data, assignments, range) {
   const ex = examWindow(data, sid, range && range.start, range && range.end);
   if (ex.measured && ex.rate < EXAM_WEAK) signals.push({ key: 'exams', text: `الاختبارات ${ex.rate}% في ${ex.tests} ${ex.tests === 1 ? 'اختبار' : 'اختبارات'}` });
 
+  const profile = skillProfile(data, assignments, sid, range);
+  // 🎯 حين تُحدَّد مهارات مفقودة فهي أساس الخطة، وبقية المؤشرات عوامل مساندة تضيف إجراءً داعمًا
+  if (skills.length) {
+    const support = signals.filter(x => x.key !== 'gap');
+    const focus = skills.slice(0, 3);
+    const actions = [...new Set([...focus.flatMap(skillActions), ...support.map(x => SUPPORT_ACTIONS[x.key]).filter(Boolean)])];
+    return {
+      pattern: 'gap', label: 'فجوة في المهارات', basis: 'skills',
+      summary: `فجوة في المهارات — ${skills.map(x => `${x.skill} (${x.rate}%)`).join('، ')}${support.length ? ' · عوامل مساندة: ' + support.map(x => x.text).join(' · ') : ''}`,
+      signals: [{ key: 'skill', text: `${skills.length} ${skills.length === 1 ? 'مهارة' : 'مهارات'} دون ${SKILL_GAP}%` }, ...support],
+      weak, skills, profile, support, actions,
+      confident: skills.some(x => x.total >= 3),
+    };
+  }
   if (!signals.length) {
     return { pattern: '', label: lv.measured || at.measured ? 'لا يظهر مؤشر تعثّر' : 'لا توجد بيانات كافية',
-             summary: '', signals: [], weak: [], actions: [], confident: false };
+             summary: '', signals: [], weak: [], actions: [], profile, confident: false };
   }
   // الترتيب: ما يمنع التعلّم أصلًا قبل ما ينتج عنه
   const order = ['absence', 'unsubmitted', 'decline', 'gap', 'exams', 'behavior'];
@@ -1410,7 +1476,9 @@ function diagnose(s, data, assignments, range) {
   return {
     pattern: primary, label: LABEL[primary],
     summary: `${LABEL[primary]} — ${summary}`,
-    signals, weak, skills, actions: PATTERN_ACTIONS[primary] || [],
+    signals, weak, skills, profile, actions: PATTERN_ACTIONS[primary] || [], basis: 'pattern',
+    // لم تُحدَّد مهارة مفقودة: الخطة الأكاديمية بلا فجوة محددة تبقى عامة — نُنبّه المعلم
+    noSkills: ['gap', 'decline', 'exams'].includes(primary),
     // ثقة منخفضة إن كان القياس على نشاط واحد أو أقل
     confident: !(primary === 'gap' && lv.count <= 1),
   };
@@ -1435,9 +1503,34 @@ function planGroups(students, data, assignments, range) {
   for (const cls of Object.keys(byClass)) {
     const roster = byClass[cls];
     const size = roster.length || 1;
-    // 1) تجمّع حول نشاط بعينه
-    const perAct = {};
+    // 0) 🎯 تجمّع حول مهارة مفقودة مشتركة — الأساس الأدق للخطة الجماعية
+    const perSkill = {};
     for (const s of roster) {
+      const sid = String(s.id);
+      for (const k of weakSkills(data, assignments, sid, range)) (perSkill[k.skill] = perSkill[k.skill] || []).push({ id: sid, name: s.name, rate: k.rate });
+    }
+    let skillGroups = 0;
+    for (const skill of Object.keys(perSkill)) {
+      const all = perSkill[skill];
+      const share = Math.round((all.length / size) * 100);
+      const free = all.filter(x => !active.has(x.id));
+      if (free.length < GROUP_MIN) continue;
+      skillGroups++;
+      const avgRate = Math.round(free.reduce((t, x) => t + x.rate, 0) / free.length);
+      out.push({
+        key: 'skill|' + cls + '|' + skill, kind: 'skill', cls, title: skill, skills: [skill],
+        label: `مهارة مفقودة مشتركة: «${skill}»`,
+        members: free, size: free.length, ofClass: all.length, classSize: size, share, avgRate,
+        classWide: share >= CLASS_WIDE_SHARE,
+        note: share >= CLASS_WIDE_SHARE
+          ? `${all.length} من ${size} في الفصل دون ${SKILL_GAP}% في هذه المهارة (${share}%) — الأرجح أن الشرح لم يصل، فأعد تدريسها للفصل كله قبل الخطط الفردية`
+          : `${free.length} طلاب تنقصهم المهارة نفسها (متوسطهم ${avgRate}%) — تدخّل واحد يكفيهم`,
+        actions: [...skillActions({ skill, band: skillBand(avgRate).key }), `مناقشة الأخطاء الشائعة في «${skill}» مع المجموعة`],
+      });
+    }
+    // 1) تجمّع حول نشاط بعينه (احتياطي حين لا تكون الأسئلة مصنّفة بمهاراتها)
+    const perAct = {};
+    for (const s of (skillGroups ? [] : roster)) {
       const sid = String(s.id);
       for (const a of weakActivities(assignments, sid, range)) {
         if (a.rate >= MASTERY.near) continue;
@@ -1469,7 +1562,7 @@ function planGroups(students, data, assignments, range) {
       const sid = String(s.id);
       if (active.has(sid)) continue;
       const dx = diagnose(s, data, assignments, range);
-      if (!dx.pattern) continue;
+      if (!dx.pattern || dx.basis === 'skills') continue;   // فجوات المهارات تُجمَّع بالمهارة نفسها أعلاه
       (perPat[dx.pattern] = perPat[dx.pattern] || []).push({ id: sid, name: s.name, label: dx.label, actions: dx.actions });
     }
     for (const pat of Object.keys(perPat)) {
@@ -1508,6 +1601,9 @@ function planCandidates(students, data, assignments, range) {
     // الدرجة من الظلم، ولا يُخفي إشارة الخطر عن المعلم.
     const unsubmitted = hw.missed + hw.inGrace;
     if (unsubmitted >= 3) reasons.push({ tag: 'واجب', text: `${unsubmitted} واجبات لم تُسلَّم` });
+    // 🎯 المهارة المفقودة سبب كافٍ للخطة ولو كان متوسطه العام مقبولًا
+    const ws = weakSkills(data, assignments, sid, range);
+    if (ws.length) reasons.unshift({ tag: 'مهارة', text: `${ws.length === 1 ? 'مهارة مفقودة' : ws.length + ' مهارات مفقودة'}: ${ws.slice(0, 2).map(x => `${x.skill} ${x.rate}%`).join('، ')}` });
     if (!reasons.length) continue;
     const dx = diagnose(s, data, assignments, range);
     out.push({ studentId: sid, name: s.name, cls: s.cls || '', reasons, diagnosis: dx,
@@ -2509,6 +2605,8 @@ async function planRemedialSend(env, planId, sids, round, state) {
     targets = plan && Array.isArray(plan.skills) ? plan.skills.map(String).filter(Boolean).slice(0, 6) : [];
     skMap = cd.__skills || {};
   } catch {}
+  const skAsg = (Array.isArray(state.assignments) ? state.assignments : []).filter(h => h && h.sid && ['normal', 'diag'].includes(h.kind || 'normal') && !h.remedial);
+  const skFor = h => ((h.kind || 'normal') === 'diag' ? diagSkillMap(h) : skMap[String(h.sid)]);
   const results = [];
   for (const sid of sids) {
     const s = students.find(x => String(x.id) === String(sid));
@@ -2517,30 +2615,40 @@ async function planRemedialSend(env, planId, sids, round, state) {
     const weak = asg.map(h => ({ h, sub: h.subs && h.subs[st.id] }))
       .filter(x => x.sub && Number(x.sub.total) > 0 && String(x.sub.d || '').includes('0'))
       .sort((a, b2) => a.sub.correct / a.sub.total - b2.sub.correct / b2.sub.total).slice(0, 2);
-    // أخطاؤه في المهارات المستهدفة، من الأكثر أخطاءً فيها
-    const onSkill = targets.length ? asg.map(h => {
-      const sub = h.subs && h.subs[st.id], sk = skMap[String(h.sid)];
-      if (!sub || !sk || !sub.d) return null;
-      const wrong = String(sub.d).split('').map((c, i) => c === '0' && targets.includes(sk[i]) ? i : -1).filter(i => i >= 0);
-      return wrong.length ? { h, sub, wrong } : null;
-    }).filter(Boolean).sort((a, b2) => b2.wrong.length - a.wrong.length) : [];
-    if (!weak.length && !onSkill.length) { results.push({ sid, name: st.name, ok: false, reason: 'لا توجد أخطاء مسجّلة في أنشطته' }); continue; }
-    let q1 = [], q2 = [], fallback = false, used = [];
-    if (onSkill.length) {
-      for (const w of onSkill) {
-        if (q1.length >= REM.maxQ) break;
-        const r = await remQuestionsFor(env, String(w.h.sid), Array.isArray(w.h.qs) ? w.h.qs : [], w.wrong.slice(0, REM.maxQ - q1.length));
-        q1 = q1.concat(r.q1); q2 = q2.concat(r.q2); fallback = fallback || r.fallback; used.push(w);
+    // 🎯 خطة مبنية على مهارات: المهمة من أخطائه في هذه المهارات وحدها (الأنشطة والتشخيصي)، موزّعة بينها بالتناوب
+    if (targets.length) {
+      const per = Object.fromEntries(targets.map(k => [k, []])), agg = { c: 0, t: 0 };
+      for (const h of skAsg) {
+        const sub = h.subs && h.subs[st.id], sk = skFor(h);
+        if (!sub || !sk || !sub.d) continue;
+        String(sub.d).split('').forEach((c, i) => { const k = sk[i]; if (!per[k]) return; agg.t++; if (c === '1') agg.c++; else if (c === '0') per[k].push({ h, i }); });
       }
-    } else {
-      for (const w of weak) {
-        const wrong = String(w.sub.d).split('').map((c, i) => c === '0' ? i : -1).filter(i => i >= 0);
-        const r = await remQuestionsFor(env, String(w.h.sid), Array.isArray(w.h.qs) ? w.h.qs : [], wrong.slice(0, REM.maxQ));
-        q1 = q1.concat(r.q1); q2 = q2.concat(r.q2); fallback = fallback || r.fallback; used.push(w);
+      const picks = [];
+      for (let r = 0; picks.length < REM.maxQ && targets.some(k => per[k].length > r); r++)
+        for (const k of targets) if (per[k][r] && picks.length < REM.maxQ) picks.push({ ...per[k][r], k });
+      if (!picks.length) { results.push({ sid, name: st.name, ok: false, reason: `لا أخطاء مسجّلة له في المهارات المستهدفة (${targets.join('، ')}) — تُبنى المهمة بعد أول نشاط يُخطئ فيه عليها` }); continue; }
+      let q1 = [], q2 = [], fallback = false;
+      const byHw = new Map(); picks.forEach(p => { const g = byHw.get(p.h) || []; g.push(p.i); byHw.set(p.h, g); });
+      for (const [h, idx] of byHw) {
+        const r = await remQuestionsFor(env, String(h.sid), Array.isArray(h.qs) ? h.qs : [], idx);
+        q1 = q1.concat(r.q1); q2 = q2.concat(r.q2); fallback = fallback || r.fallback;
       }
+      const titles = targets.filter(k => picks.some(p => p.k === k)).join(' و');
+      const made = await remCreate(env, { st, cls: st.cls, src: round > 1 ? `plan:${planId}:${round}` : `plan:${planId}`, srcTitle: titles, kind: 'plan', planId, force: true,
+        reason: `خطة علاجية للمهارات: ${titles}`, before: agg.t ? Math.round(agg.c / agg.t * 100) : 0, q1: q1.slice(0, REM.maxQ), q2: q2.slice(0, REM.maxQ), fallback,
+        title: `🩹 خطتك العلاجية: ${titles}`.slice(0, 120), api: '' });
+      results.push(made ? { sid, name: st.name, ok: true, title: made.title } : { sid, name: st.name, ok: false, reason: 'أُرسلت له مهمة من هذه الخطة سابقًا' });
+      continue;
     }
-    const titles = onSkill.length ? targets.filter(k => used.some(w => w.wrong.some(i => (skMap[String(w.h.sid)] || {})[i] === k))).join(' و')
-                                  : used.map(w => String(w.h.title || 'نشاط')).join(' و');
+    // خطة بلا مهارات محددة (نمط فقط): من أخطائه في أضعف نشاطين
+    if (!weak.length) { results.push({ sid, name: st.name, ok: false, reason: 'لا توجد أخطاء مسجّلة في أنشطته' }); continue; }
+    let q1 = [], q2 = [], fallback = false, used = [];
+    for (const w of weak) {
+      const wrong = String(w.sub.d).split('').map((c, i) => c === '0' ? i : -1).filter(i => i >= 0);
+      const r = await remQuestionsFor(env, String(w.h.sid), Array.isArray(w.h.qs) ? w.h.qs : [], wrong.slice(0, REM.maxQ));
+      q1 = q1.concat(r.q1); q2 = q2.concat(r.q2); fallback = fallback || r.fallback; used.push(w);
+    }
+    const titles = used.map(w => String(w.h.title || 'نشاط')).join(' و');
     const rate = Math.round(used[0].sub.correct / used[0].sub.total * 100);
     const made = await remCreate(env, { st, cls: st.cls, src: round > 1 ? `plan:${planId}:${round}` : `plan:${planId}`, srcTitle: titles, kind: 'plan', planId, force: true,
       reason: `خطة علاجية: ${titles}`, before: rate, q1: q1.slice(0, REM.maxQ), q2: q2.slice(0, REM.maxQ), fallback,
@@ -5602,12 +5710,17 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         if (rows.length >= 3) break;
         const m = memberReport(st.id, p, students, assignments, data), t = planTiming(p, m.gain, m.after && m.after.rate, !!(m.after && m.after.measured));
         // 🎯 حقق الطالب هدف الخطة ← لا داعي لبقائها في صفحته (تبقى عند المعلم ليتخذ قراره)
-        if (m.after && m.after.measured && m.after.rate != null && m.after.rate >= PLAN.target) continue;
+        // خطة المهارات: تُعدّ محققة حين تبلغ كل مهارة الهدف، لا المتوسط وحده
+        const skItems = m.skill && Array.isArray(m.skill.items) ? m.skill.items.map(x => ({ skill: x.skill, before: x.before ? x.before.rate : null,
+          now: x.after && x.after.total >= 2 ? x.after.rate : null })) : [];
+        const allMet = skItems.length ? skItems.every(x => x.now != null && x.now >= SKILL_TARGET) : (m.after && m.after.measured && m.after.rate != null && m.after.rate >= PLAN.target);
+        if (allMet) continue;
         const tasks = [];
         for (const x of idx.filter(x => x && String(x.src || '').startsWith(`plan:${p.id}`))) { try { const r = JSON.parse(await env.HW.get(`rem:${x.id}`)); if (r) tasks.push({ title: r.srcTitle, status: r.status }); } catch {} }
         rows.push({ id: p.id, goal: (Array.isArray(p.skills) && p.skills.length) ? p.skills.slice(0, 4) : [], reason: String(p.reason || '').split(' — ')[0].slice(0, 80),
           start: p.startDate || '', due: t.due, left: t.left, target: PLAN.target,
-          before: m.before && m.before.measured ? m.before.rate : null, now: m.after && m.after.measured ? m.after.rate : null, basis: m.basis, tasks });
+          before: m.before && m.before.measured ? m.before.rate : null, now: m.after && m.after.measured ? m.after.rate : null, basis: m.basis, tasks,
+          skills: skItems, skillTarget: SKILL_TARGET });
       }
       return json({ ok: true, rows });
     }

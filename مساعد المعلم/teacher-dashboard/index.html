@@ -298,6 +298,21 @@ input,select,textarea{font-family:inherit;font-size:1rem}
 /* ══ تقرير تحليل النتائج — بنمط وزارة التعليم ══ */
 .rep{background:#fff;color:#111;font-family:'Readex Pro','Tajawal',sans-serif}
 /* الخطط العلاجية */
+.pf-gap .sk-wrap{overflow-x:auto;margin-top:.5rem}
+.sk-t{width:100%;border-collapse:collapse;font-size:.84rem}
+.sk-t th{font-weight:600;color:var(--ink-soft);text-align:start;padding:.3rem .35rem;border-bottom:1px solid var(--ui-border);white-space:nowrap}
+.sk-t td{padding:.32rem .35rem;border-bottom:1px solid var(--ui-border);vertical-align:middle}
+.sk-t tr.on td{background:rgba(30,138,92,.09)}
+.sk-t .sk-n{font-weight:600}.sk-t .sk-src{font-size:.74rem;white-space:nowrap}
+.sk-more{margin-top:.4rem}.sk-more summary{cursor:pointer;font-size:.8rem;color:var(--ink-soft)}
+.sk-none{margin-top:.5rem;padding:.6rem .75rem;border-radius:10px;background:rgba(217,142,31,.12);font-size:.84rem;line-height:1.75}
+.sk-none ul{margin:.3rem 0;padding-inline-start:1.2rem}
+.pf-goals{margin-top:.6rem;padding:.55rem .7rem;border-radius:10px;background:rgba(30,138,92,.08)}
+.pf-goals ol{margin:.35rem 0;padding-inline-start:1.3rem;font-size:.86rem;line-height:1.8}
+.dx-nosk{margin-top:.45rem;font-size:.82rem;color:#B26A00}
+.pc-goals{margin:.35rem 0 0;font-size:.78rem;display:flex;flex-wrap:wrap;gap:.3rem}
+.pc-goal{padding:.12rem .5rem;border-radius:999px;border:1px solid var(--ui-border)}
+.pc-goal.ok{border-color:#1E8A5C;color:#1E8A5C}.pc-goal.no{border-color:#C88A2E}
 .plan-exam{display:flex;flex-wrap:wrap;align-items:center;gap:.45rem .7rem;margin-top:.55rem;padding:.55rem .7rem;border:1px dashed var(--ui-border);border-radius:12px;font-size:.88rem}
 .plan-card{border:1px solid var(--ui-border);border-radius:14px}
 .ann-cls{display:flex;flex-wrap:wrap;gap:.4rem}
@@ -8567,6 +8582,8 @@ async function loadComprehensiveClassroom(force=false){
    2) الخادم يفتح للطالب المخفق مهمة علاجية شخصية ويحسمها بنفسه.
    3) هذه اللوحة تعرض ما حدث، وتُبرز فقط من يحتاج تدخلك.
    ═══════════════════════════════════════════════════════════════ */
+/* أسماء المهارات المعروفة (التشخيصي أولًا) تُعطى للذكاء الاصطناعي ليعيد استخدامها حرفيًا — فتُقاس الخطة على المهارة نفسها */
+function skillNamesHint(){try{const n=knownSkillNames().slice(0,80);return n.length?`\nإن كان السؤال يقيس إحدى هذه المهارات الموجودة فاستخدم اسمها حرفيًا دون تغيير: ${JSON.stringify(n)}`:''}catch(e){return ''}}
 function twinHash(h){let s=0;const str=JSON.stringify((h.qs||[]).map(q=>[q.t||'q',q.q,q.a,q.o]));for(let i=0;i<str.length;i++)s=(s*31+str.charCodeAt(i))|0;return String(s>>>0)}
 function twinEligible(h){return !!(h&&h.published&&h.sid&&!h.noRem&&(h.kind||'normal')==='normal'&&!h.remedial&&Array.isArray(h.qs)&&h.qs.some(q=>['q','tf','f'].includes(q.t||'q')))}
 let REM_ON=true; // مفتاح العلاج التلقائي العام (من الخادم)
@@ -8575,7 +8592,7 @@ function twinReady(h){return h.twinsHash===twinHash(h)||!!(REM_TWINS&&REM_TWINS.
 function twinNeeded(h){return twinEligible(h)&&!twinReady(h)}
 function twinHasKey(){try{return ['groq','gemini','claude','openai','openrouter'].some(p=>!!readingAIGetKey(p))}catch(e){return false}}
 function twinPrompt(items){return `أنت معلم علوم للمرحلة المتوسطة في المملكة العربية السعودية. لكل سؤال أدناه اكتب:
-0) "skill": اسم المهارة أو المفهوم الذي يقيسه السؤال في 2–5 كلمات (مثل «القانون الثاني لنيوتن»، «حساب الكثافة»)، وبالصياغة نفسها للأسئلة المتشابهة.
+0) "skill": اسم المهارة أو المفهوم الذي يقيسه السؤال في 2–5 كلمات (مثل «القانون الثاني لنيوتن»، «حساب الكثافة»)، وبالصياغة نفسها للأسئلة المتشابهة.${skillNamesHint()}
 1) "tip": تذكيرًا قصيرًا (أقل من 30 كلمة) بالمفهوم العلمي الذي يقيسه السؤال، دون أن يكشف إجابة أي سؤال.
 2) "alts": سؤالين بديلين يقيسان نفس المفهوم بنفس الصعوبة ونفس النوع، بصياغة وسياق أو أرقام مختلفة، وبإجابة صحيحة واحدة مؤكدة علميًا. لا تكرر نص السؤال الأصلي.
 الأنواع: "q" اختيار من متعدد بأربعة خيارات في "o" و"a" رقم الخيار الصحيح بدءًا من 0؛ "tf" صح أو خطأ و"a" true أو false؛ "f" إكمال و"a" كلمة أو رقم قصير.
@@ -8808,7 +8825,7 @@ async function renderAutoRem(){
 
 /* ═══ 🩹 ربط الخطة العلاجية بمهمة للطالب ═══
    الخطة سجلٌّ للمعلم؛ هذا الزر يحوّلها إلى تدريب يصل للطالب في بوابته،
-   من أخطائه في أضعف نشاطين، بالأسئلة البديلة — بقرار المعلم وبلا شرط 60%. */
+   من أخطائه في المهارات المستهدفة (الأنشطة والتشخيصي)، وإن لم تُحدَّد مهارة فمن أضعف نشاطين — بقرار المعلم وبلا شرط 60%. */
 let REM_ROWS=[];
 const PLAN_REM_ACTION='حل المهمة العلاجية المرسلة إلى بوابة الطالب';
 function planMemberIds(p){return p.group?(p.members||[]).map(m=>String(m.studentId)):[String(p.studentId||(p.members&&p.members[0]&&p.members[0].studentId)||'')]}
@@ -8824,7 +8841,7 @@ async function planSendRemedial(id){
   const ids=planMemberIds(p).filter(Boolean),sent=new Set(planRemRows(p).map(x=>String(x.sid))),todo=ids.filter(i=>!sent.has(i));
   if(!todo.length){toast('أُرسلت المهمة لكل أعضاء هذه الخطة سابقًا');return}
   openModal(`<h2>🩹 إرسال مهمة علاجية</h2>
-    <p style="font-size:.9rem;line-height:1.9">سيصل ${p.group?`لكل عضو من ${todo.length} طلاب`:'للطالب'} في بوابته «🎯 طوّر مستواك» مهمة شخصية من <b>أخطائه هو</b> في أضعف نشاطين له، بأسئلة بديلة وتذكير بالمفهوم.</p>
+    <p style="font-size:.9rem;line-height:1.9">سيصل ${p.group?`لكل عضو من ${todo.length} طلاب`:'للطالب'} في بوابته «🎯 طوّر مستواك» مهمة شخصية من <b>أخطائه هو</b> ${Array.isArray(p.skills)&&p.skills.length?`في المهارات المستهدفة وحدها (${p.skills.map(planEsc).join('، ')})، موزّعة بينها`:'في أضعف نشاطين له (لم تُحدَّد للخطة مهارة مفقودة)'}، بأسئلة بديلة وتذكير بالمفهوم.</p>
     <ul style="font-size:.84rem;color:var(--ink-soft);line-height:1.9;margin:.3rem 0 .6rem;padding-inline-start:1.1rem">
       <li>لا تؤثر في درجته؛ نقاط متجر فقط.</li><li>إتقان 80% يغلقها، وإلا تأتيه محاولة ثانية بأسئلة مختلفة.</li>
       <li>نتيجتها تظهر في هذه الخطة، ويُعلَّم إجراء «${PLAN_REM_ACTION}» منفَّذًا عندما يحلها.</li>
@@ -9007,7 +9024,7 @@ async function skillTagOne(h){
   const map={};
   for(let k=0;k<src.length;k+=15){
     const chunk=src.slice(k,k+15),p=readingAIPickProvider(),model=twinModel(p);
-    const prompt=`صنّف كل سؤال علوم (المرحلة المتوسطة) بالمهارة أو المفهوم الذي يقيسه في 2–5 كلمات، واستخدم الاسم نفسه للأسئلة التي تقيس الشيء نفسه.
+    const prompt=`صنّف كل سؤال علوم (المرحلة المتوسطة) بالمهارة أو المفهوم الذي يقيسه في 2–5 كلمات، واستخدم الاسم نفسه للأسئلة التي تقيس الشيء نفسه.${skillNamesHint()}
 أخرج JSON فقط: {"skills":{"0":"اسم المهارة","1":"..."}}
 الأسئلة:
 ${JSON.stringify(chunk)}`;
@@ -9887,15 +9904,15 @@ function openPlanForm(id){
       <label style="min-width:150px">مدة الخطة<select id="pf-dur" class="inp">${[7,14,21,28].map(d=>`<option value="${d}" ${((p&&p.durationDays)||14)==d?'selected':''}>${d===7?'أسبوع':d===14?'أسبوعان (موصى به)':d===21?'ثلاثة أسابيع':'أربعة أسابيع'}</option>`).join('')}</select></label>
       <label style="min-width:190px">أساس الحكم على الخطة<select id="pf-measure" class="inp" title="بماذا يُقاس نجاح الخطة">${[['auto','تلقائي حسب نمط الطالب'],['academic','📘 التحصيل (الأنشطة والمهارات)'],['hw','📚 تسليم الواجبات'],['att','🗓️ الحضور'],['beh','🙂 السلوك']].map(([v,t])=>`<option value="${v}" ${((p&&p.measure)||'auto')===v?'selected':''}>${t}</option>`).join('')}</select></label>
       <input id="pf-end" type="hidden" value="${planEsc(p?p.endDate:'')}">
-      ${p?'':`<label style="flex-basis:100%;display:flex;gap:.45rem;align-items:center;font-weight:600;font-size:.88rem;margin-top:.2rem"><input type="checkbox" id="pf-send" checked> 🩹 أرسل مهمة علاجية للبوابة فور إنشاء الخطة <span class="muted" style="font-weight:400;font-size:.78rem">(من أخطائه في أضعف نشاطين — تُعلَّم إجراءاتها تلقائيًا عند الحل)</span></label>`}
+      ${p?'':`<label style="flex-basis:100%;display:flex;gap:.45rem;align-items:center;font-weight:600;font-size:.88rem;margin-top:.2rem"><input type="checkbox" id="pf-send" checked> 🩹 أرسل مهمة علاجية للبوابة فور إنشاء الخطة <span class="muted" style="font-weight:400;font-size:.78rem">(من أخطائه في المهارات المستهدفة وحدها — تُعلَّم إجراءاتها تلقائيًا عند الحل)</span></label>`}
     </div>
     <div id="pf-members" style="display:none;margin-top:.5rem"></div>
-    <div id="pf-dx" style="margin-top:.6rem"></div>
-    <label style="display:block;margin-top:.5rem">النمط الظاهر (سبب الخطة)
-      <input id="pf-reason" class="inp" placeholder="سيُملأ تلقائيًا عند اختيار الطالب — عدّله بما تعرفه عنه" value="${planEsc(p?p.reason:'')}"></label>
     <div id="pf-skills-box" style="margin-top:.6rem"></div>
-    <div style="margin-top:.6rem"><b>الإجراءات العلاجية</b>
-      <div class="muted" style="font-size:.8rem">اختر من المقترحات أو أضف إجراءً خاصًا. الخطة بلا إجراءات محددة لا تُنفَّذ.</div>
+    <div id="pf-dx" style="margin-top:.6rem"></div>
+    <label style="display:block;margin-top:.5rem">سبب الخطة (الفجوة المحددة)
+      <input id="pf-reason" class="inp" placeholder="يُملأ تلقائيًا من المهارات المفقودة — عدّله بما تعرفه عنه" value="${planEsc(p?p.reason:'')}"></label>
+    <div style="margin-top:.6rem"><b>③ الإجراءات العلاجية</b>
+      <div class="muted" style="font-size:.8rem">لكل مهارة مستهدفة إجراءان يناسبان مستواها (تأسيس أو دعم) — تُضاف وتُحذف مع تحديدها. أضف ما تراه من المقترحات العامة.</div>
       <div id="pf-bank" style="display:flex;flex-wrap:wrap;gap:.4rem;margin:.5rem 0">
         ${PLAN_ACTION_BANK.map(a=>`<button type="button" class="btn ghost sm" onclick="addPlanAction(this.textContent)">${planEsc(a)}</button>`).join('')}
       </div>
@@ -9925,14 +9942,16 @@ function showDiagnosis(sid,autofill){
     box.innerHTML=`<div class="dx-box muted">${planEsc(dx?dx.label:'اختر الطالب ليُحلَّل نمطه')}</div>`;
     return;
   }
-  box.innerHTML=`<div class="dx-box">
+  const sk=dx.basis==='skills', sup=sk?(dx.support||[]):dx.signals;
+  box.innerHTML=`<div class="dx-box ${sk?'':'dx-warn'}">
     <div class="row" style="justify-content:space-between;align-items:center;gap:.5rem">
-      <b>🔍 النمط الظاهر من البيانات: ${planEsc(dx.label)}</b>
+      <b>${sk?'🎯 أساس الخطة: المهارات المفقودة أعلاه':`🔍 النمط الظاهر من البيانات: ${planEsc(dx.label)}`}</b>
       ${dx.confident?'':'<span class="chip warn">قياس محدود — تحقّق بنفسك</span>'}
     </div>
-    <div style="margin-top:.4rem">${dx.signals.map(x=>`<span class="chip ghost">${planEsc(x.text)}</span>`).join(' ')}</div>
-    ${dx.weak&&dx.weak.length?`<div class="muted" style="font-size:.82rem;margin-top:.4rem">أضعف الأنشطة: ${dx.weak.map(a=>`${planEsc(a.title)} <b>${a.rate}%</b>`).join(' · ')}</div>`:''}
-    <div class="muted" style="font-size:.78rem;margin-top:.45rem">هذا تصنيفٌ لما تُظهره البيانات لا تشخيصٌ للسبب — البيانات لا تعرف إن كانت المشكلة قرائية أو منزلية أو فجوة سابقة. عدّل النص بما تعرفه عن الطالب.</div>
+    ${sup.length?`<div style="margin-top:.4rem"><span class="muted" style="font-size:.8rem">${sk?'عوامل مساندة (تضيف إجراءً داعمًا ولا تغيّر أساس الخطة):':'المؤشرات:'}</span> ${sup.map(x=>`<span class="chip ghost">${planEsc(x.text)}</span>`).join(' ')}</div>`:''}
+    ${!sk&&dx.noSkills?`<div class="dx-nosk">⚠️ لم تُحدَّد مهارة مفقودة — الخطة الآن عامة على النمط. حدّد المهارة من الجدول أعلاه (أو أرسل اختبارًا تشخيصيًا) حتى تُبنى الخطة عليها وتُقاس.</div>`:''}
+    ${!sk&&dx.weak&&dx.weak.length?`<div class="muted" style="font-size:.82rem;margin-top:.4rem">أضعف الأنشطة: ${dx.weak.map(a=>`${planEsc(a.title)} <b>${a.rate}%</b>`).join(' · ')}</div>`:''}
+    <div class="muted" style="font-size:.78rem;margin-top:.45rem">${sk?'المهارة المفقودة تُظهر <b>ماذا</b> ينقصه، لا <b>لماذا</b> — السبب (قرائي، منزلي، فجوة سابقة) يبقى لملاحظتك.':'هذا تصنيفٌ لما تُظهره البيانات لا تشخيصٌ للسبب — عدّل النص بما تعرفه عن الطالب.'}</div>
     <div class="row" style="gap:.4rem;margin-top:.5rem;flex-wrap:wrap">
       <button type="button" class="btn ghost sm" onclick="applyDiagnosis('${planEsc(sid)}')">↺ إعادة تطبيق المقترح</button>
     </div></div>`;
@@ -9954,47 +9973,91 @@ function applyDiagnosis(sid){
    (تلقائيًا عند النشر، أو من زر «صنّف الآن» في لوحة العلاج التلقائي أعلى هذا القسم) ويُحفظ في الخادم.
    الخادم يحسب نسبة الطالب في كل مهارة، فيقترح هنا ما دون 60%. المحدَّد يُحفظ في الخطة (حتى 6)
    ويُقاس الأثر عليه متى توفّرت 3 أسئلة منه قبل البدء وبعده. */
-const PLAN_SKILL_MAX=6;
+const PLAN_SKILL_MAX=6, SKILL_TARGET_UI=80, SKILL_GAP_UI=60;
+/* مستوى المهارة: نفس نطاقات التقرير التشخيصي */
+function skBand(r){return r>=SKILL_TARGET_UI?{k:'mastered',n:'متمكّن',c:'tick'}:r>=SKILL_GAP_UI?{k:'review',n:'يحتاج مراجعة',c:'ghost'}:r>=40?{k:'support',n:'فجوة تحتاج دعمًا',c:'warn'}:{k:'found',n:'يحتاج تأسيسًا',c:'bad'}}
+/* إجراءات تسمّي المهارة وتناسب مستواها (نفس منطق الخادم) */
+function skActions(skill,rate){const n=`«${skill}»`;return (rate!=null&&rate<40)
+  ?[`تأسيس ${n}: إعادة تدريسها من البداية بمحسوسات وأمثلة مختلفة عن شرح الصف`,`تدريب متدرّج على ${n} من السهل إلى الأصعب مع تحقق بعد كل خطوة`]
+  :[`دعم ${n}: شرح موجّه لأخطائه فيها ثم مثال محلول معه`,`ورقة تدريب قصيرة على ${n} (5 أسئلة) وتصحيحها معه`]}
+/* كل أسماء المهارات المعروفة: المصنّفة في الأنشطة + مهارات أسئلة الاختبارات التشخيصية */
+function knownSkillNames(){const d=(typeof HW!=='undefined'?HW:[]).filter(h=>h&&h.kind==='diag').flatMap(h=>(h.qs||[]).map(q=>String(q&&q.skill||'').trim())).filter(Boolean);
+  return [...new Set([...(SKILL_NAMES||[]),...d])]}
+/* ملف المهارات للطالب أو للمجموعة (متوسط الأعضاء، وعدد من تنقصه المهارة) */
+function planGapProfile(){
+  const D=(PLAN_DATA&&PLAN_DATA.diagnoses)||{}, grp=!!document.getElementById('pf-group')?.checked;
+  const ids=grp?(window._pfMembers||[]).map(String):[String(window._pfSid||'')];
+  const by=new Map();
+  ids.forEach(id=>{const dx=D[id];const prof=dx&&Array.isArray(dx.profile)?dx.profile:(dx&&Array.isArray(dx.skills)?dx.skills:[]);
+    prof.forEach(x=>{const o=by.get(x.skill)||{skill:x.skill,rates:[],total:0,diag:0,acts:0,miss:0};o.rates.push(x.rate);o.total+=x.total||0;o.diag+=x.diag||0;o.acts+=x.acts!=null?x.acts:(x.total||0);if(x.rate<SKILL_GAP_UI)o.miss++;by.set(x.skill,o)})});
+  return {grp,n:ids.filter(Boolean).length,rows:[...by.values()].map(o=>({...o,rate:Math.round(o.rates.reduce((t,v)=>t+v,0)/o.rates.length)})).sort((a,b)=>a.rate-b.rate)};
+}
 function renderPlanSkills(){
   const box=document.getElementById('pf-skills-box'); if(!box) return;
-  const dx=((PLAN_DATA&&PLAN_DATA.diagnoses)||{})[String(window._pfSid||'')];
-  const sug=(dx&&Array.isArray(dx.skills))?dx.skills:[];
+  const G=planGapProfile(), rows=G.rows;
   const chosen=window._pfSkills=(window._pfSkills||[]).slice(0,PLAN_SKILL_MAX);
-  const rate=new Map(sug.map(s=>[s.skill,s.rate]));
-  const list=[...new Set([...sug.map(s=>s.skill),...chosen])];
+  const rate=new Map(rows.map(r=>[r.skill,r.rate]));
   const elig=(typeof HW!=='undefined'?HW:[]).filter(skillEligible), need=elig.filter(skillNeeded).length;
-  const known=[...new Set(SKILL_NAMES)].filter(n=>!list.includes(n)).sort((a,b)=>a.localeCompare(b,'ar'));
-  box.innerHTML=`<div class="dx-box">
+  const diagN=(typeof HW!=='undefined'?HW:[]).filter(h=>h&&h.kind==='diag'&&(h.qs||[]).some(q=>q&&q.skill)).length;
+  const known=knownSkillNames().filter(n=>!rate.has(n)&&!chosen.includes(n)).sort((a,b)=>a.localeCompare(b,'ar'));
+  const gaps=rows.filter(r=>r.rate<SKILL_GAP_UI), rest=rows.filter(r=>r.rate>=SKILL_GAP_UI);
+  const manual=chosen.filter(k=>!rate.has(k));
+  const src=r=>[r.diag?`🔍 تشخيصي ${r.diag}`:'',r.acts?`✏️ أنشطة ${r.acts}`:''].filter(Boolean).join(' · ');
+  const row=r=>{const b=skBand(r.rate);return `<tr class="${chosen.includes(r.skill)?'on':''}"><td><input type="checkbox" class="pf-skill" value="${planEsc(r.skill)}" ${chosen.includes(r.skill)?'checked':''} onchange="planSkillToggle(this)" aria-label="${planEsc(r.skill)}"></td>
+    <td class="sk-n">${planEsc(r.skill)}</td><td><b>${r.rate}%</b></td><td><span class="chip ${b.c}">${b.n}</span>${G.grp&&r.miss?` <small class="muted">${r.miss} من ${G.n}</small>`:''}</td><td class="muted sk-src">${src(r)} سؤالًا</td></tr>`};
+  box.innerHTML=`<div class="dx-box pf-gap">
     <div class="row" style="justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap">
-      <b>🏷️ المهارات المستهدفة <span class="muted" style="font-weight:400;font-size:.78rem">(${chosen.length}/${PLAN_SKILL_MAX} محددة — يُقاس أثر الخطة عليها)</span></b>
-      ${elig.length?`<span class="chip ${need?'warn':'tick'}">${elig.length-need} من ${elig.length} نشاط مصنّف</span>`:''}
+      <b>① تحديد الفجوات في المهارات ${G.grp?`<span class="muted" style="font-weight:400;font-size:.78rem">(متوسط ${G.n} طلاب)</span>`:''}</b>
+      <span class="chip ${chosen.length?'tick':'warn'}">${chosen.length}/${PLAN_SKILL_MAX} مهارة مستهدفة</span>
     </div>
-    <div class="muted" style="font-size:.78rem;margin-top:.3rem;line-height:1.7">
-      <b>من أين تأتي؟</b> كل سؤال في الأنشطة المنشورة يُعطى اسم مهارته تلقائيًا بالذكاء الاصطناعي عند النشر (أو من زر «🏷️ صنّف الآن» في لوحة 🩹 العلاج التلقائي أعلى هذه الصفحة).
-      من إجابات الطالب تُحسب نسبته في كل مهارة، ويُقترح هنا ما كان دون 60%.
-      <b>كيف تُضاف للخطة؟</b> علّم ☑️ المهارة المقترحة، أو اكتب اسم مهارة واضغط «إضافة» — يُفضَّل اختيارها من القائمة حتى تُطابق أسماء الأسئلة المصنّفة فتُقاس.
-    </div>
-    ${need&&twinHasKey()?`<div class="row" style="gap:.4rem;margin-top:.4rem;align-items:center;flex-wrap:wrap"><span class="muted" style="font-size:.78rem">⚠️ ${need} نشاط بلا تصنيف — مهاراتها لن تظهر ولن تُقاس.</span><button type="button" class="btn ghost sm" onclick="skillTagMissing()">🏷️ صنّف الآن</button></div>`
+    <div class="muted" style="font-size:.78rem;margin-top:.3rem;line-height:1.7">من إجاباته في <b>الاختبار التشخيصي</b> (لكل سؤال مهارته) و<b>الأنشطة</b> (تصنَّف أسئلتها بالذكاء الاصطناعي). ما دون ${SKILL_GAP_UI}% <b>مهارة مفقودة</b> تُحدَّد تلقائيًا، والخطة تُبنى عليها: هدف وإجراءات ومهمة علاجية وقياس لكل مهارة.</div>
+    ${rows.length?`<div class="sk-wrap"><table class="sk-t"><thead><tr><th></th><th>المهارة</th><th>الإتقان</th><th>المستوى</th><th>المصدر</th></tr></thead><tbody>
+      ${gaps.map(row).join('')||`<tr><td colspan="5" class="muted" style="text-align:center">لا مهارة دون ${SKILL_GAP_UI}% — لا توجد فجوة مهارية ظاهرة.</td></tr>`}
+      ${manual.map(k=>`<tr class="on"><td><input type="checkbox" class="pf-skill" value="${planEsc(k)}" checked onchange="planSkillToggle(this)"></td><td class="sk-n">${planEsc(k)}</td><td>—</td><td><span class="chip ghost">أضفتها يدويًا</span></td><td class="muted sk-src">${knownSkillNames().includes(k)?'تُقاس من الأسئلة القادمة':'✍️ لا تطابق اسم مهارة مصنّفة — لن تُقاس'}</td></tr>`).join('')}
+    </tbody></table></div>
+    ${rest.length?`<details class="sk-more"><summary>مهارات أخرى أعلى من ${SKILL_GAP_UI}% <span class="chip ghost">${rest.length}</span></summary><table class="sk-t"><tbody>${rest.map(row).join('')}</tbody></table></details>`:''}`
+    :`<div class="sk-none">⚠️ <b>لم تُحدَّد فجوات مهارية لهذا ${G.grp?'المجموعة':'الطالب'} بعد.</b> لتحديدها:
+        <ul><li>أرسل <b>🔍 اختبارًا تشخيصيًا</b> للفصل — كل سؤال فيه مرتبط بمهارة${diagN?` (لديك ${diagN} اختبار)`:''}.</li>
+        <li>أو صنّف أسئلة الأنشطة بمهاراتها${need?` — ${need} نشاط بلا تصنيف`:''}.</li></ul>
+        بدونها ستكون الخطة عامة على النمط، لا على مهارة محددة.</div>`}
+    ${need&&twinHasKey()?`<div class="row" style="gap:.4rem;margin-top:.4rem;align-items:center;flex-wrap:wrap"><span class="muted" style="font-size:.78rem">⚠️ ${need} نشاط بلا تصنيف — مهاراتها لا تظهر ولا تُقاس.</span><button type="button" class="btn ghost sm" onclick="skillTagMissing()">🏷️ صنّف الآن</button></div>`
       :need?`<div class="muted" style="font-size:.78rem;margin-top:.4rem">⚠️ ${need} نشاط بلا تصنيف — أضف مفتاح ذكاء اصطناعي من ⚙️ الإعدادات ليُصنَّف.</div>`:''}
-    <div class="pf-skills">${list.map(k=>`<label class="ann-chip"><input type="checkbox" class="pf-skill" value="${planEsc(k)}" ${chosen.includes(k)?'checked':''} onchange="planSkillToggle(this)"> ${planEsc(k)}${rate.has(k)?` <b>${rate.get(k)}%</b>`:(SKILL_NAMES.includes(k)?'':' <span class="muted" title="لا يطابق اسم مهارة مصنّفة — لن يُقاس حتى يطابق">✍️</span>')}</label>`).join('')
-      ||'<span class="muted" style="font-size:.82rem">لا توجد مهارات ضعيفة مقترحة لهذا الطالب — أضف ما تراه يدويًا.</span>'}</div>
     <div class="row" style="gap:.4rem;margin-top:.5rem">
-      <input id="pf-skill-new" class="inp" list="pf-skill-list" placeholder="اكتب أو اختر مهارة… (مثل: حساب الكثافة)" style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();planSkillAdd()}">
+      <input id="pf-skill-new" class="inp" list="pf-skill-list" placeholder="أضف مهارة لاحظتها… (مثل: حساب الكثافة)" style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();planSkillAdd()}">
       <datalist id="pf-skill-list">${known.map(n=>`<option value="${planEsc(n)}"></option>`).join('')}</datalist>
       <button type="button" class="btn sm" onclick="planSkillAdd()">إضافة</button>
-    </div></div>`;
+    </div>
+    ${chosen.length?`<div class="pf-goals"><b>② أهداف الخطة</b><ol>${chosen.map(k=>`<li>أن ${G.grp?'يتقن الطلاب':'يتقن الطالب'} مهارة <b>«${planEsc(k)}»</b> بنسبة ${SKILL_TARGET_UI}% فأكثر <span class="muted">— ${rate.has(k)?`مستواه الآن ${rate.get(k)}%`:'لا قياس قبلي بعد'}</span></li>`).join('')}</ol>
+      <div class="muted" style="font-size:.76rem">تُغلق الخطة ناجحة عندما تبلغ كل مهارة ${SKILL_TARGET_UI}%، والمهمة العلاجية تُبنى من أخطائه في هذه المهارات وحدها.</div></div>`:''}
+  </div>`;
+}
+/* تحديد مهارة يضيف إجراءاتها، وإلغاؤها يحذفها */
+function planSkillActsSync(skill,on){
+  const acts=window._pfActions=window._pfActions||[], tag=`«${skill}»`;
+  if(on){const r=planGapProfile().rows.find(x=>x.skill===skill);skActions(skill,r?r.rate:null).forEach(t=>{if(!acts.includes(t))acts.push(t)})}
+  else window._pfActions=acts.filter(t=>!String(t).includes(tag));
+  renderPlanActions();
 }
 function planSkillToggle(el){
   const set=new Set(window._pfSkills||[]);
   if(el.checked){ if(set.size>=PLAN_SKILL_MAX){ el.checked=false; toast(`الحد ${PLAN_SKILL_MAX} مهارات للخطة — ركّز على الأهم`,'bad'); return } set.add(el.value) }
   else set.delete(el.value);
-  window._pfSkills=[...set]; renderPlanSkills();
+  window._pfSkills=[...set]; planSkillActsSync(el.value,el.checked); renderPlanSkills(); planReasonSync();
 }
 function planSkillAdd(){
   const inp=document.getElementById('pf-skill-new'); const v=String(inp&&inp.value||'').trim().slice(0,40); if(!v) return;
   const cur=window._pfSkills||[];
-  if(!cur.includes(v)){ if(cur.length>=PLAN_SKILL_MAX){ toast(`الحد ${PLAN_SKILL_MAX} مهارات للخطة — ألغِ واحدة أولًا`,'bad'); return } cur.push(v) }
-  window._pfSkills=cur; renderPlanSkills();
+  if(!cur.includes(v)){ if(cur.length>=PLAN_SKILL_MAX){ toast(`الحد ${PLAN_SKILL_MAX} مهارات للخطة — ألغِ واحدة أولًا`,'bad'); return } cur.push(v); planSkillActsSync(v,true) }
+  window._pfSkills=cur; renderPlanSkills(); planReasonSync();
+}
+/* سبب الخطة يتبع المهارات المحددة ما لم يكتبه المعلم بنفسه */
+function planReasonSync(){
+  const rs=document.getElementById('pf-reason'); if(!rs) return;
+  const ks=window._pfSkills||[]; if(!ks.length) return;
+  if(rs.value&&!rs.value.startsWith('فجوة في المهارات')) return;
+  const rate=new Map(planGapProfile().rows.map(r=>[r.skill,r.rate]));
+  const keep=rs.value.includes(' · عوامل مساندة: ')?' · عوامل مساندة: '+rs.value.split(' · عوامل مساندة: ')[1]:'';
+  rs.value=`فجوة في المهارات — ${ks.map(k=>rate.has(k)?`${k} (${rate.get(k)}%)`:k).join('، ')}${keep}`;
 }
 function togglePlanGroup(){
   const on=document.getElementById('pf-group')?.checked;
@@ -10009,6 +10072,7 @@ function renderPlanMembers(){
   const on=document.getElementById('pf-group')?.checked;
   const sel=document.getElementById('pf-student');
   if(sel) sel.disabled=!!on;
+  try{renderPlanSkills()}catch(e){}   // جدول الفجوات يتبع أعضاء المجموعة
   if(!on){ box.style.display='none'; return }
   box.style.display='';
   const chosen=new Set((window._pfMembers||[]).map(String));
@@ -10060,8 +10124,9 @@ function planFromGroup(key){
   const cb=document.getElementById('pf-group'); if(cb) cb.checked=true;
   window._pfMembers=(g.members||[]).map(m=>String(m.id));
   renderPlanMembers();
-  const rs=document.getElementById('pf-reason'); if(rs) rs.value=g.label||'';
-  window._pfActions=(g.actions||[]).slice(); renderPlanActions();
+  const rs=document.getElementById('pf-reason'); if(rs) rs.value=g.kind==='skill'?`فجوة في المهارات — ${(g.skills||[]).join('، ')} (متوسط المجموعة ${g.avgRate}%)`:(g.label||'');
+  window._pfSkills=Array.isArray(g.skills)?g.skills.slice():[]; window._pfPattern=g.kind==='skill'?'gap':'';
+  window._pfActions=(g.actions||[]).slice(); renderPlanActions(); renderPlanSkills();
 }
 function renderPlanGroups(){
   const box=document.getElementById('plan-groups'); if(!box) return;
@@ -10096,6 +10161,11 @@ async function submitPlan(){
   if(!isGroup&&!sid){ toast('اختر الطالب','bad'); return }
   if(!start){ toast('حدد تاريخ البدء','bad'); return }
   if(!acts.length){ toast('أضف إجراءً علاجيًا واحدًا على الأقل','bad'); return }
+  // 🎯 الخطة العلاجية تُبنى على مهارة مفقودة؛ خطط الغياب والتسليم والسلوك مستثناة لأن أساسها مؤشر آخر
+  const ms=(document.getElementById('pf-measure')||{}).value||'auto', pat=window._pfPattern||'';
+  if(!(window._pfSkills||[]).length&&(ms==='academic'||(ms==='auto'&&!['absence','unsubmitted','behavior'].includes(pat)))){
+    if(!(await askConfirm('الخطة العلاجية تُبنى على مهارة مفقودة محددة، فيُقاس أثرها عليها وتُبنى المهمة العلاجية منها. بدونها تكون الخطة عامة ويُقاس أثرها على كل الأنشطة.',{title:'لم تحدد مهارة مفقودة',yes:'احفظها عامة',no:'سأحدد المهارة'}))) return;
+  }
   const all=(PLAN_DATA&&PLAN_DATA.plans||[]).map(planRaw);
   const prev=all.find(p=>p.id===planEditId);
   const dur=parseInt((document.getElementById('pf-dur')||{}).value,10)||14;
@@ -10183,13 +10253,13 @@ function planConductHTML(p){
   </tbody></table><div class="muted" style="font-size:.74rem">من سجلات المعلم الفعلية: آخر 30 يومًا قبل البدء مقابل مدة الخطة. الغياب بعذر والواجب «معذور» لا يُحسبان على الطالب. كل عنصر مستقل ولا يُدمج في رقم واحد.</div></div>`;
 }
 function planSkillRows(p){const it=p.skill&&Array.isArray(p.skill.items)?p.skill.items:[];return it}
-function planSkillTableHTML(p){
-  const it=planSkillRows(p); if(!it.length) return '';
-  const r=m=>m?`${m.rate}% <small class="muted">(${m.correct}/${m.total})</small>`:'—';
-  return `<div class="plan-skt"><b>🏷️ نتيجة كل مهارة</b><table><thead><tr><th>المهارة</th><th>قبل</th><th>بعد</th><th>الفرق</th></tr></thead><tbody>
-    ${it.map(x=>`<tr><td>${planEsc(x.skill)}</td><td>${r(x.before)}</td><td>${r(x.after)}</td><td>${x.gain==null?'<span class="muted">لا يكفي</span>':`<b class="${x.gain>=5?'up':x.gain<=-5?'down':''}">${planSigned(x.gain)}</b>`}</td></tr>`).join('')}</tbody></table>
-    <div class="muted" style="font-size:.74rem">الفرق يُحسب للمهارة متى أُجيب عنها بسؤالين على الأقل قبل البدء وبعده.</div></div>`;
+/* 🎯 هدف كل مهارة مستهدفة: مستواه قبل ← بعد، وعلامة ✓ متى بلغ الهدف */
+function planGoalRows(p){
+  const ks=Array.isArray(p.skills)?p.skills:[], it=planSkillRows(p);
+  return ks.map(k=>{const x=it.find(y=>y.skill===k)||{};const b=x.before?x.before.rate:null,a=x.after&&x.after.total>=2?x.after.rate:null;
+    return {skill:k,before:b,after:a,beforeX:x.before,afterX:x.after,gain:x.gain,met:a!=null&&a>=SKILL_TARGET_UI}});
 }
+function planGoalChips(p){const n=m=>m?` (${m.correct} من ${m.total})`:'';return planGoalRows(p).map(g=>`<span class="pc-goal ${g.met?'ok':g.after!=null?'no':''}" title="الهدف ${SKILL_TARGET_UI}% · قبل ${g.before!=null?g.before+'%'+n(g.beforeX):'لا قياس'} · بعد ${g.after!=null?g.after+'%'+n(g.afterX):'لم يُقَس بعد'}${g.gain!=null?` · الفرق ${planSigned(g.gain)}`:''}">${g.met?'✓ ':'🎯 '}${planEsc(g.skill)} <b>${g.before!=null?g.before+'%':'—'} ← ${g.after!=null?g.after+'%':'…'}</b></span>`).join('')}
 /* 🗂️ البطاقة المختصرة: ما يحتاجه المعلم في نظرة (النتيجة، الثقة، التقدم، المطلوب منه)،
    والتفاصيل والأدلة في قسم قابل للطي يُحفظ فتحه بين التحديثات. */
 window._planOpen=window._planOpen||new Set();
@@ -10206,7 +10276,8 @@ function planCard(p){
   return `<div class="card plan-card pc ${t.expired&&!done?'pc-need':''}">
     <div class="pc-top">
       <div class="pc-who"><b>${planEsc(p.name)}</b> <span class="muted">${planEsc(p.cls)}</span>
-        <div class="pc-why">${planEsc(String(p.reason||'بلا سبب محدد').split(' — ')[0])}${skills.length?` · 🏷️ ${skills.slice(0,3).map(planEsc).join('، ')}${skills.length>3?` +${skills.length-3}`:''}`:''}</div></div>
+        <div class="pc-why">${planEsc(String(p.reason||'بلا سبب محدد').split(' — ')[0])}${skills.length?'':(p.mainBy&&p.mainBy!=='academic'?'':' · <span style="color:#B26A00">⚠️ بلا مهارة محددة</span>')}</div>
+        ${skills.length?`<div class="pc-goals" title="هدف كل مهارة: ${SKILL_TARGET_UI}% فأكثر">${planGoalChips(p)}</div>`:''}</div>
       <div class="pc-badges">${planBadge(p.verdict)}${conf}</div>
     </div>
     <div class="pc-mid">
@@ -10228,7 +10299,6 @@ function planCard(p){
         ${planExamRow(p)}
         ${p.group?`<div class="mem-table">${(p.members||[]).map(m=>`<div class="mem-row"><span>${planEsc(m.name)}</span><span class="muted">قبل ${m.before.measured?m.before.rate+'%':'—'} · بعد ${m.after.measured?m.after.rate+'%':'—'}${m.exam?` · 📝 ${m.exam.before.measured?m.exam.before.rate+'%':'—'} ← ${m.exam.after.measured?m.exam.after.rate+'%':'—'}`:''}</span><span class="chip ${m.verdict==='تحسّن'?'tick':m.verdict==='تراجع'?'bad':'ghost'}">${m.gain==null?planEsc(m.verdict):(m.gain>0?'+':'')+m.gain}</span></div>`).join('')}</div>`:''}
         ${planConductHTML(p)}
-        ${planSkillTableHTML(p)}
         <div class="pc-sub">الإجراءات</div>
         <ul class="pc-acts">${(p.actions||[]).map((a,i)=>`<li><label><input type="checkbox" ${a.done?'checked':''} onchange="togglePlanAction('${id}',${i})"> ${planEsc(a.text)}</label></li>`).join('')||'<li class="muted">بلا إجراءات</li>'}</ul>
         <div class="muted" style="font-size:.8rem">خلال الخطة: الحضور ${p.context&&p.context.attendanceRate!=null?p.context.attendanceRate+'%':'—'} (${p.context?p.context.missedDays:0} غياب) · الواجب ${p.context?p.context.hwDone:0} مسلَّم و${p.context?p.context.hwMissed:0} غير مسلَّم · ${(p.academic?p.academic.after.acts:p.after.acts)||0} نشاط بعد البدء · من ${planEsc(p.startDate||'')}</div>
@@ -10329,8 +10399,16 @@ function printPlans(id){
         <div>حالة الخطة<b>${p.status==='done'?planEsc(p.outcome||'منتهية'):(p.timing&&p.timing.expired?'انتهت المدة — بانتظار القرار':'جارية'+(p.timing&&p.timing.round>1?` (الجولة ${p.timing.round})`:''))}</b></div>
         <div>الحكم على الأثر<b>${planEsc(p.verdict||'—')}</b></div>
       </div>
-      <div class="rep-sec">أولًا: التشخيص</div>
-      <div class="rep-box plan-txt"><b>النمط الظاهر:</b> ${planEsc(p.reason||'—')}${Array.isArray(p.skills)&&p.skills.length?`<br><b>المهارات المستهدفة:</b> ${p.skills.map(planEsc).join('، ')}`:''}</div>
+      <div class="rep-sec">أولًا: تحديد الفجوات في المهارات والأهداف</div>
+      ${Array.isArray(p.skills)&&p.skills.length?`<div class="rep-box"><table class="rt"><thead><tr><th style="width:30px">م</th><th>المهارة المفقودة</th><th>مستواه قبل</th><th>الهدف</th><th>الإجراءات</th><th>أداة القياس</th><th>مستواه بعد</th></tr></thead><tbody>
+        ${planGoalRows(p).map((g,i)=>{const ax=acts.filter(a=>String(a.text).includes(`«${g.skill}»`));return `<tr><td>${i+1}</td><td style="text-align:start"><b>${planEsc(g.skill)}</b></td>
+          <td>${g.before!=null?g.before+'%'+(g.beforeX?`<small>${g.beforeX.correct} من ${g.beforeX.total}</small>`:''):'—'}</td><td>${SKILL_TARGET_UI}% فأكثر</td>
+          <td style="text-align:start;font-size:.78em">${ax.length?ax.map(a=>planEsc(String(a.text).replace(/^[^:]+:\s*/,''))).join('<br>'):'—'}</td>
+          <td style="font-size:.8em">أسئلة المهارة في الأنشطة والمهمة العلاجية</td>
+          <td>${g.after!=null?`${g.after}%${g.afterX?`<small>${g.afterX.correct} من ${g.afterX.total}</small>`:''}${g.met?'<small>✔ بلغ الهدف</small>':''}`:'لم يُقَس بعد'}</td></tr>`}).join('')}
+      </tbody></table>
+      <div class="plan-note"><b>سبب الخطة:</b> ${planEsc(p.reason||'—')}</div></div>`
+      :`<div class="rep-box plan-txt"><b>سبب الخطة:</b> ${planEsc(p.reason||'—')}<br><span style="color:#8a5a00">لم تُحدَّد مهارة مفقودة لهذه الخطة.</span></div>`}
       <div class="rep-sec">ثانيًا: الإجراءات العلاجية</div>
       <div class="rep-box"><table class="rt"><thead><tr><th style="width:36px">م</th><th>الإجراء</th><th style="width:110px">التنفيذ</th></tr></thead><tbody>
         ${acts.length?acts.map((a,i)=>`<tr><td>${i+1}</td><td style="text-align:start">${planEsc(a.text)}</td><td>${a.done?'✔ نُفِّذ':'لم يُنفَّذ'}</td></tr>`).join(''):'<tr><td colspan="3">لا توجد إجراءات مسجّلة</td></tr>'}
@@ -10351,8 +10429,6 @@ function printPlans(id){
         ${p.peers?`<tr><td><b>المقارنة بالفصل</b></td><td style="text-align:start">${planEsc(planPeerText(p))}</td></tr>`:''}
         ${planBaseText(p)?`<tr><td><b>فترة خط الأساس</b></td><td style="text-align:start">${planEsc(planBaseText(p))}</td></tr>`:''}
       </tbody></table>`:''}
-      ${planSkillRows(p).length?`<table class="rt" style="margin-top:.6rem"><thead><tr><th>المهارة المستهدفة</th><th>قبل الخطة</th><th>بعد الخطة</th><th>الفرق</th></tr></thead><tbody>
-        ${planSkillRows(p).map(x=>`<tr><td style="text-align:start">${planEsc(x.skill)}</td><td>${x.before?x.before.rate+'%<small>'+x.before.correct+' من '+x.before.total+'</small>':'—'}</td><td>${x.after?x.after.rate+'%<small>'+x.after.correct+' من '+x.after.total+'</small>':'—'}</td><td>${x.gain==null?'لا يكفي للحكم':planSigned(x.gain)+' نقطة'}</td></tr>`).join('')}</tbody></table>`:''}
       ${p.caution?`<div class="plan-warn">⚠️ ${planEsc(p.caution)}</div>`:''}
       ${ex&&ex.undated?`<div class="plan-note">بعض درجات الاختبارات بلا تاريخ اختبار، فحُسبت بتاريخ رصدها.</div>`:''}
       <div class="plan-note"><b>منهجية القياس:</b> النسب من إجابات الطالب الفعلية المسجّلة آليًا لا من التقدير. خط الأساس آخر 30 يومًا قبل الخطة (أو كل ما قبلها إن قلّ عن 10 أسئلة).
@@ -15525,7 +15601,34 @@ function diagBuild(hid, cls){
   const counts = {};
   rows.forEach(r=>{ counts[r.band.name] = (counts[r.band.name]||0)+1; });
 
-  return { h, pool, rows, gaps, done, avg, counts, qn };
+  // 🎯 خريطة المهارات: لكل مهارة نسبة الفصل ومن تنقصه (دون 60%) — أساس الخطط العلاجية
+  const skMap = new Map();
+  (h.qs||[]).forEach((q,i)=>{ const k=String(q&&q.skill||'').trim(); if(!k) return;
+    const o=skMap.get(k)||{skill:k,domain:String(q.domain||''),idx:[]}; o.idx.push(i); skMap.set(k,o); });
+  rows.forEach(r=>{ r.skills={}; skMap.forEach(o=>{ let c=0,t=0; o.idx.forEach(i=>{ if(r.d[i]!==undefined){ t++; if(r.d[i]==='1') c++; } });
+    if(t) r.skills[o.skill]={c,t,rate:Math.round(c/t*100)}; }); });
+  const skills = [...skMap.values()].map(o=>{
+    const got=rows.filter(r=>r.skills[o.skill]);
+    const rate=got.length?Math.round(got.reduce((n,r)=>n+r.skills[o.skill].rate,0)/got.length):0;
+    const miss=got.filter(r=>r.skills[o.skill].rate<SKILL_GAP_UI).sort((a,b)=>a.skills[o.skill].rate-b.skills[o.skill].rate);
+    return {...o, q:o.idx.length, rate, seen:got.length, miss};
+  }).sort((a,b)=>a.rate-b.rate);
+  return { h, pool, rows, gaps, done, avg, counts, qn, skills };
+}
+/* ＋ خطة من التقرير التشخيصي: الطلاب الذين تنقصهم المهارة، والمهارة هدف الخطة */
+async function planFromDiag(hid,skill){
+  const cls=(document.getElementById('dg-class')||{}).value||'__all__';
+  const D=diagBuild(hid,cls); const sk=D&&D.skills.find(x=>x.skill===skill); if(!sk||!sk.miss.length) return;
+  try{ if(!PLAN_DATA) PLAN_DATA=await loadServerGrades(false); }catch(e){}
+  const ids=sk.miss.map(r=>String(r.s.id));
+  openPlanForm();
+  if(ids.length>1){ const cb=document.getElementById('pf-group'); if(cb) cb.checked=true; window._pfMembers=ids; }
+  else { const sel=document.getElementById('pf-student'); if(sel){ sel.value=ids[0]; window._pfSid=ids[0]; } }
+  window._pfSkills=[skill]; window._pfPattern='gap';
+  const rate=Math.round(sk.miss.reduce((n,r)=>n+r.skills[skill].rate,0)/sk.miss.length);
+  window._pfActions=[...skActions(skill,rate),...(ids.length>1?[`مناقشة الأخطاء الشائعة في «${skill}» مع المجموعة`]:[])];
+  const rs=document.getElementById('pf-reason'); if(rs) rs.value=`فجوة في المهارات — ${skill} (${ids.length>1?'متوسط المجموعة ':''}${rate}% في «${D.h.title}»)`;
+  renderPlanMembers(); renderPlanActions(); renderPlanSkills();
 }
 
 function dgFill(){
@@ -15598,8 +15701,20 @@ function renderDiagPanel(){
           </tbody></table>
         </div>
 
+        ${D.skills.length?`<!-- ②أ خريطة المهارات -->
+        <div class="rep-sec">خريطة الفجوات في المهارات — أساس الخطط العلاجية</div>
+        <div class="rep-box">
+          <table class="rt"><thead><tr><th>المهارة</th><th>المجال</th><th>الأسئلة</th><th>إتقان الفصل</th><th>تنقصه المهارة (دون ${SKILL_GAP_UI}%)</th><th class="no-print"></th></tr></thead><tbody>
+            ${D.skills.map(k=>{const b=skBand(k.rate),col=k.rate>=80?'#1B9C6B':k.rate>=60?'#2E6BB8':k.rate>=40?'#C88A2E':'#B4232F';return `<tr>
+              <td style="text-align:start"><b>${esc(k.skill)}</b></td><td style="font-size:.85em">${esc(k.domain||'—')}</td><td>${k.q}</td>
+              <td><b style="color:${col}">${k.rate}%</b><small style="display:block;font-size:.78em">${b.n}</small></td>
+              <td style="text-align:start;font-size:.85em">${k.miss.length?`<b>${k.miss.length}</b> من ${k.seen}: ${k.miss.slice(0,6).map(r=>esc(r.s.name.split(' ').slice(0,2).join(' '))).join('، ')}${k.miss.length>6?` +${k.miss.length-6}`:''}`:'<span style="color:#1B9C6B">لا أحد ✓</span>'}</td>
+              <td class="no-print">${k.miss.length?`<button type="button" class="btn ${k.miss.length/Math.max(1,k.seen)>=.3?'ghost':'tick'} sm" onclick="planFromDiag('${esc(D.h.id)}',${JSON.stringify(k.skill).replace(/"/g,'&quot;')})">＋ خطة${k.miss.length>1?' جماعية':''}</button>`:''}</td></tr>`}).join('')}
+          </tbody></table>
+          ${D.skills.some(k=>k.miss.length/Math.max(1,k.seen)>=.3)?`<div style="margin-top:.5rem;font-size:.84em;color:#8a5a00">⚠️ المهارة التي تنقص 30% من الفصل فأكثر: الأرجح أن الشرح لم يصل — أعد تدريسها للفصل كله قبل الخطط العلاجية.</div>`:''}
+        </div>`:''}
         <!-- ② خريطة الفجوات -->
-        <div class="rep-sec">خريطة الفجوات — ما يحتاجه الفصل</div>
+        <div class="rep-sec">${D.skills.length?'تفصيل الأسئلة — ما أخفق فيه الفصل':'خريطة الفجوات — ما يحتاجه الفصل'}</div>
         <div class="rep-box">
           <div class="rep-info" style="margin-bottom:.55rem">
             <div>فجوة حادّة<b style="color:#B4232F">${weak.length} مهمة</b></div>
@@ -15653,7 +15768,7 @@ function renderDiagPanel(){
                 <span class="diag-student-num">${i+1}</span>
                 <div class="diag-student-main">
                   <b>${esc(r.s.name)}</b>
-                  <small>${esc(r.s.cls || 'بدون فصل')}</small>
+                  <small>${esc(r.s.cls || 'بدون فصل')}${(()=>{const m=Object.entries(r.skills||{}).filter(([,v])=>v.rate<SKILL_GAP_UI).sort((a,b2)=>a[1].rate-b2[1].rate);return m.length?` · تنقصه: ${m.slice(0,3).map(([k,v])=>`${esc(k)} ${v.rate}%`).join('، ')}${m.length>3?` +${m.length-3}`:''}`:''})()}</small>
                 </div>
                 <span class="diag-student-pct" style="color:${b.color}">${r.pct}%</span>
                 <button type="button" class="btn ghost sm no-print"
