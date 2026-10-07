@@ -2439,7 +2439,11 @@ async function remCreate(env, o) {
   if (idx.some(x => x && x.src === o.src)) return null;            // علاج واحد لكل مصدر
   let { q1, q2 } = o;
   if (q1.length < REM.minQ) { q1 = q1.concat(q2).slice(0, REM.maxQ); q2 = q2.concat(o.q1).slice(0, REM.maxQ); }
-  q1 = q1.slice(0, REM.maxQ).map(remCleanQ).filter(Boolean); q2 = q2.slice(0, REM.maxQ).map(remCleanQ).filter(Boolean);
+  // 🏷️ مهارة كل سؤال (_sk) تُحفظ بجانبه، فتُحسب نتيجة المهمة لكل مهارة عند التسليم
+  const clean = arr => arr.slice(0, REM.maxQ).map(x => ({ q: remCleanQ(x), sk: String((x && x._sk) || '') })).filter(x => x.q);
+  const c1 = clean(q1), c2 = clean(q2);
+  q1 = c1.map(x => x.q); q2 = c2.map(x => x.q);
+  const sk1 = c1.some(x => x.sk) ? c1.map(x => x.sk) : null, sk2 = c2.some(x => x.sk) ? c2.map(x => x.sk) : null;
   if (!q1.length) return null;
   const remId = 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   const hwId = `R${remId}_1`;
@@ -2451,7 +2455,7 @@ async function remCreate(env, o) {
   await env.HW.put(`hw:${hwId}`, JSON.stringify(payload), { expirationTtl: REM.ttl });
   const rec = { id: remId, sid: o.st.id, name: o.st.name, cls: o.cls || '', src: o.src, srcTitle: o.srcTitle, kind: o.kind, planId: o.planId || '',
     reason: o.reason, before: o.before, status: 'open', fallback: !!o.fallback, createdAt: now, updatedAt: now,
-    attempts: [{ hw: hwId, at: now, n: q1.length }], q2 };
+    attempts: [{ hw: hwId, at: now, n: q1.length, ...(sk1 ? { sk: sk1 } : {}) }], q2, ...(sk2 ? { q2sk: sk2 } : {}) };
   await env.HW.put(`rem:${remId}`, JSON.stringify(rec), { expirationTtl: REM.ttl * 2 });
   idx.push({ id: remId, src: o.src, status: 'open', at: now });
   await remSaveIndex(env, o.st.id, idx);
@@ -2465,7 +2469,8 @@ async function remedialAfterSubmit(env, hw, activity, st, d, correct, total, que
   if (activity.personalRemedial) {
     let rec = null; try { rec = JSON.parse(await env.HW.get(`rem:${activity.remId}`)); } catch {}
     if (!rec) return null;
-    const a = (rec.attempts || []).find(x => x.hw === hw); if (a) { a.rate = rate; a.doneAt = Date.now(); }
+    const a = (rec.attempts || []).find(x => x.hw === hw); if (a) { a.rate = rate; a.doneAt = Date.now();
+      if (Array.isArray(a.sk)) { const by = {}; String(d || '').split('').forEach((c, i) => { const k = a.sk[i]; if (!k) return; const o = by[k] || (by[k] = { c: 0, t: 0 }); o.t++; if (c === '1') o.c++; }); a.skills = by; } }
     rec.after = rate; rec.updatedAt = Date.now();
     if (rate >= REM.master) rec.status = 'mastered';
     else if ((Number(activity.attempt) || 1) < 2 && Array.isArray(rec.q2) && rec.q2.length) {
@@ -2473,7 +2478,7 @@ async function remedialAfterSubmit(env, hw, activity, st, d, correct, total, que
       const p2 = { ...activity, id: hw2, q: rec.q2, attempt: 2, at: now, t: activity.t + ' (محاولة ثانية)',
         d: new Date(now + 3 * 3600000 + REM.days * 86400000).toISOString().slice(0, 10) };
       await env.HW.put(`hw:${hw2}`, JSON.stringify(p2), { expirationTtl: REM.ttl });
-      rec.attempts.push({ hw: hw2, at: now, n: rec.q2.length }); rec.status = 'retry';
+      rec.attempts.push({ hw: hw2, at: now, n: rec.q2.length, ...(Array.isArray(rec.q2sk) ? { sk: rec.q2sk } : {}) }); rec.status = 'retry';
     } else rec.status = 'escalated';
     await env.HW.put(`rem:${rec.id}`, JSON.stringify(rec), { expirationTtl: REM.ttl * 2 });
     // ✔ مهمة خطة علاجية حُلّت ← يُعلَّم إجراءا «حل المهمة» و«إعادة حل الأنشطة» تلقائيًا
@@ -2628,9 +2633,9 @@ async function planRemedialSend(env, planId, sids, round, state) {
         for (const k of targets) if (per[k][r] && picks.length < REM.maxQ) picks.push({ ...per[k][r], k });
       if (!picks.length) { results.push({ sid, name: st.name, ok: false, reason: `لا أخطاء مسجّلة له في المهارات المستهدفة (${targets.join('، ')}) — تُبنى المهمة بعد أول نشاط يُخطئ فيه عليها` }); continue; }
       let q1 = [], q2 = [], fallback = false;
-      const byHw = new Map(); picks.forEach(p => { const g = byHw.get(p.h) || []; g.push(p.i); byHw.set(p.h, g); });
-      for (const [h, idx] of byHw) {
-        const r = await remQuestionsFor(env, String(h.sid), Array.isArray(h.qs) ? h.qs : [], idx);
+      for (const p of picks) {
+        const r = await remQuestionsFor(env, String(p.h.sid), Array.isArray(p.h.qs) ? p.h.qs : [], [p.i]);
+        r.q1.forEach(q => { q._sk = p.k; }); r.q2.forEach(q => { q._sk = p.k; });
         q1 = q1.concat(r.q1); q2 = q2.concat(r.q2); fallback = fallback || r.fallback;
       }
       const titles = targets.filter(k => picks.some(p => p.k === k)).join(' و');
@@ -5715,8 +5720,16 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
           now: x.after && x.after.total >= 2 ? x.after.rate : null })) : [];
         const allMet = skItems.length ? skItems.every(x => x.now != null && x.now >= SKILL_TARGET) : (m.after && m.after.measured && m.after.rate != null && m.after.rate >= PLAN.target);
         if (allMet) continue;
-        const tasks = [];
-        for (const x of idx.filter(x => x && String(x.src || '').startsWith(`plan:${p.id}`))) { try { const r = JSON.parse(await env.HW.get(`rem:${x.id}`)); if (r) tasks.push({ title: r.srcTitle, status: r.status }); } catch {} }
+        const tasks = [], remBy = {};
+        for (const x of idx.filter(x => x && String(x.src || '').startsWith(`plan:${p.id}`))) { try { const r = JSON.parse(await env.HW.get(`rem:${x.id}`)); if (!r) continue;
+          tasks.push({ title: r.srcTitle, status: r.status });
+          // 🩹 نتيجة المهمة العلاجية لكل مهارة (آخر محاولة محلولة) — تظهر للطالب حتى يقيسها نشاط عادي
+          const done = (r.attempts || []).filter(a => a && a.rate != null).sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0))[0];
+          if (!done) continue;
+          if (done.skills) for (const [k, v] of Object.entries(done.skills)) { if (v.t) remBy[k] = Math.round(v.c / v.t * 100); }
+          else for (const it of skItems) if (String(r.srcTitle || '').includes(it.skill) && remBy[it.skill] == null) remBy[it.skill] = done.rate;   // مهام قديمة بلا مهارة لكل سؤال
+        } catch {} }
+        skItems.forEach(x => { if (remBy[x.skill] != null) x.rem = remBy[x.skill]; });
         rows.push({ id: p.id, goal: (Array.isArray(p.skills) && p.skills.length) ? p.skills.slice(0, 4) : [], reason: String(p.reason || '').split(' — ')[0].slice(0, 80),
           start: p.startDate || '', due: t.due, left: t.left, target: PLAN.target,
           before: m.before && m.before.measured ? m.before.rate : null, now: m.after && m.after.measured ? m.after.rate : null, basis: m.basis, tasks,

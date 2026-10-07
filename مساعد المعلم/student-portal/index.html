@@ -1201,7 +1201,8 @@ html[data-pt] body,html[data-pt] .sheet,html[data-pt] .btn,html[data-pt] .studen
 .mp-h b{display:block;font-size:.95rem}.mp-h small{color:var(--ink-soft);font-size:.76rem}
 .mp-goal{display:flex;flex-wrap:wrap;gap:.35rem;align-items:center;font-size:.86rem;font-weight:700}
 .mp-sks{display:grid;gap:.55rem;margin-top:.55rem}
-.mp-sk{padding:.45rem .6rem;border-radius:12px;background:rgba(25,118,210,.06)}.mp-sk.ok{background:rgba(76,208,138,.14)}
+.mp-sk{padding:.45rem .6rem;border-radius:12px;background:rgba(25,118,210,.06)}.mp-sk.ok{background:rgba(76,208,138,.14)}.mp-sk.prov{background:rgba(76,208,138,.08)}
+.mp-bar.prov i{background:repeating-linear-gradient(135deg,#4CD08A 0 8px,#7FDFAA 8px 16px)}
 .mp-skh{display:flex;justify-content:space-between;align-items:baseline;gap:.5rem;flex-wrap:wrap;margin-bottom:.3rem;font-size:.86rem}
 .mp-skh small{color:var(--ink-soft);font-size:.76rem}
 .mp-chip{background:#fff;border:1px solid #CFE0F5;border-radius:999px;padding:.15rem .6rem;font-size:.8rem}
@@ -8706,9 +8707,15 @@ async function myPlanLoad(){
     return `<section class="mp-card">
       <div class="mp-h"><span class="mp-ic">🎯</span><div><b>خطتي العلاجية</b><small>${left}</small></div></div>
       ${p.skills&&p.skills.length?`<div class="mp-goal"><span>هدفي: أن أتقن كل مهارة بنسبة ${p.skillTarget||80}%</span></div>
-      <div class="mp-sks">${p.skills.map(k=>{const T=p.skillTarget||80,ok=k.now!=null&&k.now>=T,w=k.now==null?0:Math.max(4,Math.min(100,Math.round(k.now/T*100)));
-        return `<div class="mp-sk ${ok?'ok':''}"><div class="mp-skh"><b>${ok?'✅':'🎯'} ${esc(k.skill)}</b><small>${k.now==null?(k.before!=null?`كنت ${k.before}% · حلّ مهمتك ليظهر تقدّمك`:'حلّ مهمتك ليظهر تقدّمك'):ok?`أتقنتها ${k.now}%`:`${k.before!=null?`كنت ${k.before}% ← `:''}الآن ${k.now}%`}</small></div>
-          <div class="mp-bar"><i style="width:${w}%"></i><em style="inset-inline-start:100%"></em></div></div>`}).join('')}</div>`
+      <div class="mp-sks">${p.skills.map(k=>{const T=p.skillTarget||80,pend=(p.tasks||[]).some(t=>t.status==='open'||t.status==='retry');
+        // المقياس الرسمي: النشاط العادي بعد بدء الخطة؛ وحتى يأتي تظهر نتيجة المهمة العلاجية مؤقتًا
+        const v=k.now!=null?k.now:k.rem!=null?k.rem:null, ok=v!=null&&v>=T, prov=k.now==null&&k.rem!=null, w=v==null?0:Math.max(4,Math.min(100,Math.round(v/T*100)));
+        const was=k.before!=null?`كنت ${k.before}% ← `:'';
+        const txt=k.now!=null?(ok?`أتقنتها ${k.now}%`:`${was}الآن ${k.now}%`)
+          :prov?(ok?`${was}${k.rem}% في مهمتك العلاجية · يتأكد إتقانك في نشاطك القادم`:`${was}${k.rem}% في مهمتك العلاجية`)
+          :(k.before!=null?`كنت ${k.before}% · `:'')+(pend?'حلّ مهمتك ليظهر تقدّمك':'حلّ نشاطك القادم ليظهر تقدّمك');
+        return `<div class="mp-sk ${ok?(prov?'prov':'ok'):''}"><div class="mp-skh"><b>${ok?(prov?'🌟':'✅'):'🎯'} ${esc(k.skill)}</b><small>${txt}</small></div>
+          <div class="mp-bar ${prov?'prov':''}"><i style="width:${w}%"></i><em style="inset-inline-start:100%"></em></div></div>`}).join('')}</div>`
       :`<div class="mp-goal">${p.goal&&p.goal.length?`<span>هدفي: إتقان</span>${p.goal.map(g=>`<span class="mp-chip">${esc(g)}</span>`).join('')}`:`<span>${esc(p.reason||'تحسين مستواي')}</span>`}</div>
       <div class="mp-prog"><div class="mp-bar"><i style="width:${pct}%"></i><em style="inset-inline-start:100%"></em></div>
         <div class="mp-nums"><span>${p.before!=null?`كنت ${p.before}%`:''}</span><b>${now==null?'حلّ نشاطك القادم ليظهر تقدّمك':reached?`🌟 وصلت ${now}% — حققت الهدف!`:`الآن ${now}% · الهدف ${tgt}%`}</b></div></div>`}
