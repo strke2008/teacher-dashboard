@@ -2,6 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="utf-8">
+<meta name="color-scheme" content="light only">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>مختبر العلوم الافتراضي</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14,20 +15,9 @@
   --bad:#C3473E; --bad-soft:#F8E1DE; --tile:rgba(19,50,74,.05);
   --display:'Reem Kufi','IBM Plex Sans Arabic',Tahoma,sans-serif;
   --body:'IBM Plex Sans Arabic',Tahoma,'Segoe UI',sans-serif;
+  color-scheme:light; /* المختبر فاتح دائمًا: لا وضع ليلي */
   box-sizing:border-box;
   padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
-}
-@media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){
-    --bench:#0D1D29; --paper:#14293A; --ink:#E3EDF3; --ink-2:#9AB1C1; --line:#284459;
-    --glass:#6CCDE0; --amber:#F0AA45; --amber-soft:#3A2D17; --ok:#4CC28E; --ok-soft:#163528;
-    --bad:#EE6B61; --bad-soft:#3D1D1B; --tile:rgba(227,237,243,.04);
-  }
-}
-:root[data-theme="dark"]{
-  --bench:#0D1D29; --paper:#14293A; --ink:#E3EDF3; --ink-2:#9AB1C1; --line:#284459;
-  --glass:#6CCDE0; --amber:#F0AA45; --amber-soft:#3A2D17; --ok:#4CC28E; --ok-soft:#163528;
-  --bad:#EE6B61; --bad-soft:#3D1D1B; --tile:rgba(227,237,243,.04);
 }
 *,*::before,*::after{box-sizing:inherit}
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
@@ -806,7 +796,6 @@ const SIM=(()=>{
   function stop(){cancelAnimationFrame(raf);onTick=null}
   return {mount,stop,addLiquid,addSolid,stir,reading,readColors};
 })();
-matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',()=>{SIM.readColors();SEP.readColors()});
 
 /* =========================================================
    محاكي الفصل العملي (Canvas)
@@ -1781,7 +1770,7 @@ const FRSIM=(()=>{
     if(glow){c.strokeStyle='rgba(217,142,31,.9)';c.lineWidth=2;c.setLineDash([3,3]);c.strokeRect(-BW/2-4,-BH-d-4,BW+d+8,BH+d+8);c.setLineDash([])}
     c.restore()}
   function draw(){
-    const H=TOP+L.length*LH+4,dark=document.documentElement.matches('[data-theme="dark"]')||(matchMedia('(prefers-color-scheme: dark)').matches&&!document.documentElement.matches('[data-theme="light"]'));
+    const H=TOP+L.length*LH+4,dark=false;
     if(!TX)buildTextures();
     c.clearRect(0,0,W,H);
     const bg=c.createLinearGradient(0,0,0,H);bg.addColorStop(0,dark?'#17293A':'#EEF5FA');bg.addColorStop(1,dark?'#1D3448':'#DDE9F2');c.fillStyle=bg;c.fillRect(0,0,W,H);
@@ -2166,7 +2155,7 @@ const INSIM=(()=>{
   /* ===== رسم واقعي: طاولة مختبر، مسار ألومنيوم، عربة بتعليق نابضي وعجلات تدور، دمية تصادم، اهتزاز ووميض عند الاصطدام، بوابات ضوئية متوهجة ===== */
   let PT=[],TT=0,dark=false;
   const VS=l=>l._v||(l._v={pv:0,th:0,thv:0,bz:0,bzv:0,sh:0,ps:'on',flash:0,bw:0,ht:0});
-  const isDark=()=>document.documentElement.matches('[data-theme="dark"]')||(matchMedia('(prefers-color-scheme: dark)').matches&&!document.documentElement.matches('[data-theme="light"]'));
+  const isDark=()=>false;
   function puff(x,y,n,cl,vx,up,g){for(let k=0;k<n;k++){const life=.35+Math.random()*.55;PT.push({x,y:y-1,vx:(vx||0)*(.3+Math.random()*.7)+(Math.random()-.5)*40,vy:-(up||25)*(.3+Math.random()),life,max:life,r:1+Math.random()*2.6,cl,g:g==null?40:g})}}
   function sparks(x,y,n){for(let k=0;k<n;k++){const a=-Math.PI/2+(Math.random()-.3)*1.9,sp=60+Math.random()*160,life=.25+Math.random()*.35;
     PT.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life,max:life,r:1+Math.random()*1.6,cl:Math.random()<.5?'#FFD45C':'#FF8A3D',g:420,spark:1})}}
@@ -2634,7 +2623,7 @@ const WMSIM=(()=>{
   let cv=null,c=null,raf=0,col={},draw=null,W=800,H=260,tw=null,H_=null,ptr=null,last=0,parts=[];
   function readColors(){const cs=getComputedStyle(document.documentElement),g=(k,d)=>cs.getPropertyValue(k).trim()||d;
     col={ink:g('--ink','#13324A'),ink2:g('--ink-2','#4F6879'),paper:g('--paper','#fff'),line:g('--line','#D5E0E8'),glass:g('--glass','#4FB3C8'),
-      amber:g('--amber','#D98E1F'),ok:g('--ok','#1E8A5C'),bad:g('--bad','#C3473E'),dark:document.documentElement.matches('[data-theme="dark"]')||matchMedia('(prefers-color-scheme: dark)').matches&&!document.documentElement.matches('[data-theme="light"]')}}
+      amber:g('--amber','#D98E1F'),ok:g('--ok','#1E8A5C'),bad:g('--bad','#C3473E'),dark:false}}
   function toC(e){const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)*W/r.width,y:(e.clientY-r.top)*H/r.height}}
   function scroller(){return cv&&cv.closest('.frscroll')}
   function bind(){
