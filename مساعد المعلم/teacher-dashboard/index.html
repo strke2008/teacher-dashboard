@@ -9667,15 +9667,40 @@ function ctAlerts(cls){
     // غياب متتالٍ حتى آخر يوم مرصود له
     const rec=Object.keys(D.participation||{}).filter(d=>ctStatus(D,'participation',d,s.id)).sort().reverse();
     let streak=0; for(const d of rec){ if(ctStatus(D,'participation',d,s.id)==='غائب') streak++; else break; }
-    const abs=days30.filter(d=>ctStatus(D,'participation',d,s.id)==='غائب').length;
-    const miss=days14.filter(d=>ctStatus(D,'homework',d,s.id)==='لم ينجز').length;
-    const nopart=days14.filter(d=>ctStatus(D,'participation',d,s.id)==='لم يشارك').length;
-    if(streak>=3) out.push({s,lvl:'bad',t:`غائب ${streak} أيام متتالية حتى آخر رصد`});
-    else if(abs>=3) out.push({s,lvl:'warn',t:`${abs} أيام غياب بلا عذر في آخر 30 يومًا`});
-    if(miss>=3) out.push({s,lvl:'warn',t:`لم ينجز الواجب ${miss} مرات في آخر أسبوعين`});
-    if(nopart>=4) out.push({s,lvl:'warn',t:`«لم يشارك» ${nopart} مرات في آخر أسبوعين`});
+    const absD=days30.filter(d=>ctStatus(D,'participation',d,s.id)==='غائب'), abs=absD.length;
+    const missD=days14.filter(d=>ctStatus(D,'homework',d,s.id)==='لم ينجز'), miss=missD.length;
+    const npD=days14.filter(d=>ctStatus(D,'participation',d,s.id)==='لم يشارك'), nopart=npD.length;
+    const lastOf=a=>a.slice().sort().pop()||'';   // آخر حدث: المتابعة تُخفي التنبيه حتى يتكرر بعدها
+    if(streak>=3) out.push({s,lvl:'bad',type:'abs',last:lastOf(absD)||rec[0]||'',t:`غائب ${streak} أيام متتالية حتى آخر رصد`});
+    else if(abs>=3) out.push({s,lvl:'warn',type:'abs',last:lastOf(absD),t:`${abs} أيام غياب بلا عذر في آخر 30 يومًا`});
+    if(miss>=3) out.push({s,lvl:'warn',type:'hw',last:lastOf(missD),t:`لم ينجز الواجب ${miss} مرات في آخر أسبوعين`});
+    if(nopart>=4) out.push({s,lvl:'warn',type:'part',last:lastOf(npD),t:`«لم يشارك» ${nopart} مرات في آخر أسبوعين`});
   });
   return out;
+}
+/* ✅ المتابعة: تُحفظ في بيانات الفصل على الخادم (تظهر على كل الأجهزة). التنبيه يختفي بعدها
+   ولا يعود إلا إذا تكرر منه حدث جديد بعد تاريخ المتابعة (غياب جديد، واجب جديد لم يُنجز…) */
+const FU_LABEL={abs:'متابعة الغياب',hw:'متابعة الواجبات',part:'متابعة المشاركة',ns:'لم يبدأ في البوابة'};
+function fuDay(ms){ return ms?new Date(Number(ms)+3*3600000).toISOString().slice(0,10):''; }
+function fuAt(sid,type){ const F=(typeof CT_DATA!=='undefined'&&CT_DATA&&CT_DATA.followups)||{}; return Number((F[String(sid)]||{})[type])||0; }
+function fuOpen(a){ const at=fuAt(a.s.id,a.type); return !(at && a.last && fuDay(at)>=a.last); }
+function ctAlertsOpen(cls){ return ctAlerts(cls).filter(fuOpen); }
+async function fuMark(items,how){
+  if(!items.length) return;
+  try{
+    await ctSave(D=>{ D.followups=D.followups&&typeof D.followups==='object'?D.followups:{}; const now=Date.now();
+      items.forEach(it=>{ const o=D.followups[String(it.sid)]=D.followups[String(it.sid)]||{}; o[it.type]=now; });
+      if(how){ D.contacts=Array.isArray(D.contacts)?D.contacts:[]; const by={};
+        items.forEach(it=>{ (by[it.sid]=by[it.sid]||[]).push(FU_LABEL[it.type]||it.type); });
+        Object.entries(by).forEach(([sid,rs])=>D.contacts.push({id:v2Id(),studentId:String(sid),date:ctToday(),channel:how,reason:[...new Set(rs)].join('، '),result:'',at:Date.now()})); }
+    });
+    toast(how?`📞 سُجّل التواصل في ملف ${items.length===1?'الطالب':'الطلاب'}`:'✓ سُجّلت المتابعة — يعود التنبيه فقط إذا تكرر بعد اليوم','good');
+  }catch(e){ toast('تعذّر الحفظ — تحقق من الاتصال','bad'); }
+  try{ thDraw(); }catch(e){}
+}
+async function fuUndo(sid,type){
+  try{ await ctSave(D=>{ const o=D.followups&&D.followups[String(sid)]; if(o) delete o[type]; }); }catch(e){ toast('تعذّر الحفظ','bad'); }
+  try{ thDraw(); }catch(e){}
 }
 function ctRecordsMonth(box){
   const cls=window._ctRcCls??(ctClasses()[0]||''), D=CT_DATA||{}, m=window._ctRcM||ctToday().slice(0,7);
@@ -28220,6 +28245,9 @@ async function experimentAIGenerate(){
 <button aria-label="إغلاق الصورة" class="project-image-zoom-close" onclick="closeProjectImageZoom()" type="button">×</button>
 <img alt="الصورة المكبرة" id="projectImageZoomImg" onclick="closeProjectImageZoom()" src=""/>
 </div>
+<style id="fu-style">.th-al.fu-row{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}.th-al.fu-row>span:first-child{flex:1;min-width:150px}
+.fu-acts{display:flex!important;flex-direction:row!important;gap:.3rem;flex-wrap:nowrap;align-items:center;flex:none}
+.fu-acts .btn{width:auto!important;min-height:32px;padding:.3rem .6rem!important;white-space:nowrap}</style>
 <style id="rep-theme-2026">
 html body .donut{position:relative}
 html body .donut b{background:#fff!important;width:60%!important;height:60%!important;flex-direction:column;gap:1px;color:#13324A;box-shadow:0 0 0 2px rgba(255,255,255,.9),0 1px 4px rgba(0,0,0,.12);-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -30264,7 +30292,7 @@ function thActions(){
   if(need) out.push(['bad','🩺',`${need} ${need===1?'خطة علاجية انتهت مدتها وتنتظر قرارك':'خطط علاجية انتهت مدتها وتنتظر قرارك'}`,need,"goTab('plans')"]);
   if(soon) out.push(['warn','⏳',`${soon} ${soon===1?'خطة تنتهي':'خطط تنتهي'} خلال 3 أيام`,soon,"goTab('plans')"]);
   if(typeof CT_DATA!=='undefined'&&CT_DATA){
-    let al=[]; try{ al=ctAlerts(''); }catch(e){}
+    let al=[]; try{ al=ctAlertsOpen(''); }catch(e){}
     const bad=al.filter(a=>a.lvl==='bad').length, warn=al.length-bad;
     if(bad) out.push(['bad','🚫',`${bad===1?'طالب غائب':bad+' طلاب غائبون'} 3 أيام متتالية أو أكثر — اضغط لعرض الأسماء`,bad,"thShowAlerts('bad')"]);
     if(warn){ const k=t=>al.filter(a=>a.lvl==='warn'&&a.t.includes(t)).length, parts=[[k('غياب'),'غياب'],[k('الواجب'),'واجبات'],[k('لم يشارك'),'مشاركة']].filter(x=>x[0]).map(x=>`${x[1]} ${x[0]}`);
@@ -30289,29 +30317,47 @@ function thActions(){
 }
 /* تنبيهات الانضباط من كل الفصول في نافذة واحدة: الاسم والفصل والسبب، ومنها مباشرة إلى الملف أو سجل الفصل */
 function thShowAlerts(lvl){
-  let al=[]; try{ al=ctAlerts(''); }catch(e){}
-  if(lvl) al=al.filter(a=>a.lvl===lvl);
-  const byCls={}; al.forEach(a=>{ const c=String(a.s.cls||'بدون فصل'); (byCls[c]=byCls[c]||[]).push(a); });
+  let all=[]; try{ all=ctAlerts(''); }catch(e){}
+  if(lvl) all=all.filter(a=>a.lvl===lvl);
+  const al=all.filter(fuOpen), done=all.filter(a=>!fuOpen(a));
+  window._fuCur=al.map(a=>({sid:String(a.s.id),type:a.type}));
+  // صف واحد لكل طالب يجمع أسبابه (غياب · واجب · مشاركة) بدل تكراره
+  const per=new Map(); al.forEach(a=>{ const k=String(a.s.id); const g=per.get(k)||{s:a.s,items:[],lvl:'warn'}; g.items.push(a); if(a.lvl==='bad') g.lvl='bad'; per.set(k,g); });
+  const byCls={}; [...per.values()].forEach(g=>{ const c=String(g.s.cls||'بدون فصل'); (byCls[c]=byCls[c]||[]).push(g); });
   const clsList=Object.keys(byCls).sort((a,b)=>a.localeCompare(b,'ar',{numeric:true}));
+  const it=g=>JSON.stringify(g.items.map(a=>({sid:String(a.s.id),type:a.type}))).replace(/"/g,'&quot;');
+  const grp=c=>JSON.stringify(byCls[c].flatMap(g=>g.items.map(a=>({sid:String(a.s.id),type:a.type})))).replace(/"/g,'&quot;');
+  const again=`thShowAlerts('${lvl||''}')`;
   openModal(`<h2>${lvl==='bad'?'🚫 غياب متتالٍ':'⚠️ طلاب يحتاجون متابعة'}</h2>
-    <p class="muted" style="font-size:.84rem;margin:.2rem 0 .8rem">محسوبة من رصد الحضور والواجب والمشاركة: الغياب في آخر 30 يومًا، والواجب والمشاركة في آخر أسبوعين.
-    الإجراء المقترح: تواصل مع الطالب أو ولي أمره، أو افتح سجل الفصل للتحقق من الرصد.</p>
-    ${clsList.length?clsList.map(c=>`<div class="th-al-cls"><div class="th-al-h"><b>🎓 ${thEsc(c)}</b><span class="muted">${byCls[c].length} تنبيه</span>
-        <button type="button" class="btn ghost sm" onclick="closeModal();thOpenRecords('${thEsc(c)}')">🗂️ سجل الفصل الشهري</button></div>
-      ${byCls[c].map(a=>`<div class="th-al ${a.lvl}"><span><b>${thEsc(a.s.name)}</b><small>${thEsc(a.t)}</small></span>
-        <button type="button" class="btn ghost sm" onclick="ctOpenProfile('${thEsc(a.s.id)}')">👤 الملف الشامل</button></div>`).join('')}</div>`).join('')
-      :'<div class="feature-empty">لا توجد تنبيهات الآن 🌿</div>'}
+    <p class="muted" style="font-size:.84rem;margin:.2rem 0 .8rem">محسوبة من رصد الحضور والواجب والمشاركة. بعد أن تتابع الطالب اضغط
+    <b>«📞 تواصلت»</b> (يُسجَّل في ملفه ضمن التواصل مع ولي الأمر) أو <b>«✓ تابعته»</b> — فيختفي على كل أجهزتك ولا يعود إلا إذا <b>تكرر منه</b> بعد اليوم.</p>
+    ${clsList.length?clsList.map(c=>`<div class="th-al-cls"><div class="th-al-h"><b>🎓 ${thEsc(c)}</b><span class="muted">${byCls[c].length} ${byCls[c].length===1?'طالب':'طلاب'}</span>
+        <button type="button" class="btn ghost sm" onclick="fuMark(JSON.parse(this.dataset.it)).then(()=>${again})" data-it="${grp(c)}">✓ تابعتهم جميعًا</button>
+        <button type="button" class="btn ghost sm" onclick="closeModal();thOpenRecords('${thEsc(c)}')">🗂️ السجل</button></div>
+      ${byCls[c].map(g=>`<div class="th-al fu-row ${g.lvl}"><span><b>${thEsc(g.s.name)}</b><small>${g.items.map(a=>thEsc(a.t)).join(' · ')}</small></span>
+        <span class="fu-acts"><button type="button" class="btn tick sm" title="سجّل أنك تواصلت مع ولي أمره" onclick="fuMark(JSON.parse(this.dataset.it),'اتصال').then(()=>${again})" data-it="${it(g)}">📞 تواصلت</button>
+        <button type="button" class="btn ghost sm" title="تابعته دون تواصل مع ولي الأمر" onclick="fuMark(JSON.parse(this.dataset.it)).then(()=>${again})" data-it="${it(g)}">✓ تابعته</button>
+        <button type="button" class="btn ghost sm" onclick="ctOpenProfile('${thEsc(g.s.id)}')" title="الملف الشامل">👤</button></span></div>`).join('')}</div>`).join('')
+      :'<div class="feature-empty">لا تنبيهات تحتاج متابعتك الآن 🌿</div>'}
+    ${done.length?`<details style="margin-top:.6rem"><summary class="muted" style="cursor:pointer">✓ تمت متابعتهم (${done.length}) — يعودون فقط إذا تكرر منهم</summary>
+      ${done.map(a=>`<div class="th-al"><span><b>${thEsc(a.s.name)}</b><small>${thEsc(a.t)} · تابعته ${fuDay(fuAt(a.s.id,a.type))}</small></span>
+        <button type="button" class="btn ghost sm" onclick="fuUndo('${thEsc(a.s.id)}','${a.type}').then(()=>${again})">↩️ إلغاء</button></div>`).join('')}</details>`:''}
     <div class="modal-foot"><button class="btn ghost" onclick="closeModal()">إغلاق</button></div>`);
 }
 function thOpenRecords(cls){ window._ctRcCls=cls; window._ctRcView='month'; window._ctAlOpen=true; ctGo('records'); }
 /* 🚩 الأجهزة المشتركة: نافذة تعرض كل جهاز وطلابه وأنشطتهم، ويُعلَّم الجهاز «تحققت» فلا يعود التنبيه
    إلا إذا دخل منه طالب جديد (المفتاح = الجهاز + أسماء طلابه) */
 const DEV_OK_KEY='dash_dev_ok_v1';
-function devOkList(){ try{ return JSON.parse(localStorage.getItem(DEV_OK_KEY)||'[]'); }catch(e){ return []; } }
+function devOkList(){ let L=[]; try{ L=JSON.parse(localStorage.getItem(DEV_OK_KEY)||'[]'); }catch(e){}
+  const srv=(typeof CT_DATA!=='undefined'&&CT_DATA&&Array.isArray(CT_DATA.devOk))?CT_DATA.devOk:[]; return [...new Set([...L,...srv])]; }
 function devSig(x){ return x.dv+'|'+x.names.map(n=>n[0]).sort().join('،'); }
 function devPending(){ const ok=new Set(devOkList()); return deviceAudit().filter(x=>!ok.has(devSig(x))); }
-function devMarkOk(sig){ const L=devOkList(); if(!L.includes(sig)) L.push(sig); try{ localStorage.setItem(DEV_OK_KEY,JSON.stringify(L.slice(-300))); }catch(e){} thShowDevices(); try{ thDraw(); }catch(e){} }
-function devUnmark(sig){ try{ localStorage.setItem(DEV_OK_KEY,JSON.stringify(devOkList().filter(x=>x!==sig))); }catch(e){} thShowDevices(true); try{ thDraw(); }catch(e){} }
+async function devMarkOk(sig,quiet){ const L=devOkList(); if(!L.includes(sig)) L.push(sig); try{ localStorage.setItem(DEV_OK_KEY,JSON.stringify(L.slice(-300))); }catch(e){}
+  try{ await ctSave(D=>{ D.devOk=Array.isArray(D.devOk)?D.devOk:[]; if(!D.devOk.includes(sig)) D.devOk.push(sig); D.devOk=D.devOk.slice(-300); }); }catch(e){}
+  if(!quiet){ thShowDevices(); try{ thDraw(); }catch(e){} } }
+async function devUnmark(sig){ try{ localStorage.setItem(DEV_OK_KEY,JSON.stringify(devOkList().filter(x=>x!==sig))); }catch(e){}
+  try{ await ctSave(D=>{ D.devOk=(Array.isArray(D.devOk)?D.devOk:[]).filter(x=>x!==sig); }); }catch(e){}
+  thShowDevices(true); try{ thDraw(); }catch(e){} }
 function thShowDevices(showOk){
   const ok=new Set(devOkList()), all=deviceAudit(), pend=all.filter(x=>!ok.has(devSig(x))), done=all.filter(x=>ok.has(devSig(x)));
   const stu=nm=>(STUDENTS||[]).find(s=>s.name===nm)||(STUDENTS||[]).find(s=>normAr(s.name)===normAr(nm));
@@ -30323,7 +30369,7 @@ function thShowDevices(showOk){
           ${s?`<button type="button" class="btn ghost sm" onclick="ctOpenProfile('${thEsc(s.id)}','report')">📄 إجاباته</button>`:''}</div>`; }).join('')}</div>`; };
   openModal(`<h2>🚩 جهاز واحد لأكثر من طالب</h2>
     <p class="muted" style="font-size:.84rem;margin:.2rem 0 .8rem">كل جهاز يُعرف ببصمته عند التسليم. إن سلّم منه أكثر من طالب فقد يكونون <b>إخوة على جوال واحد</b> — وهذا طبيعي —
-    وقد يكون <b>حلًّا نيابة عن زميل</b>. قارن إجاباتهم من «📄 إجاباته»، ثم اضغط «تحققت» ليختفي التنبيه (يعود تلقائيًا إن سلّم من الجهاز طالب جديد).</p>
+    وقد يكون <b>حلًّا نيابة عن زميل</b>. قارن إجاباتهم من «📄 إجاباته»، ثم اضغط «تحققت» ليختفي التنبيه <b>على كل أجهزتك</b> (يعود فقط إن سلّم من الجهاز طالب جديد).</p>
     ${pend.length?pend.map((x,i)=>card(x,i,false)).join(''):'<div class="feature-empty">لا أجهزة تحتاج تحققًا 🌿</div>'}
     ${done.length?`<details style="margin-top:.6rem" ${showOk?'open':''}><summary class="muted" style="cursor:pointer">✓ أجهزة تحققت منها (${done.length})</summary>${done.map((x,i)=>card(x,i,true)).join('')}</details>`:''}
     <div class="modal-foot"><button class="btn ghost" onclick="closeModal()">إغلاق</button></div>`);
@@ -30346,6 +30392,16 @@ const TD_DONE_KEY='dash_task_done_v1';
 function tdDone(){ try{ return JSON.parse(localStorage.getItem(TD_DONE_KEY)||'{}')||{}; }catch(e){ return {}; } }
 function tdMarkDone(k){ const d=tdDone(), now=Date.now(); d[k]=now; Object.keys(d).forEach(x=>{ if(now-d[x]>21*864e5) delete d[x]; });
   try{ localStorage.setItem(TD_DONE_KEY,JSON.stringify(d)); }catch(e){} thDraw(); }
+async function tdAckAll(kind){
+  const msg=kind==='dev'?'تُعلَّم كل الأجهزة المشتركة الحالية «تحققت». يعود التنبيه فقط إذا سلّم من أحدها طالب جديد.'
+    :kind==='ns'?'تُسجَّل متابعة كل من لم يبدأ. يعود الطالب فقط إذا نُشر له نشاط جديد ولم يبدأ.'
+    :'تُسجَّل متابعة كل الطلاب في هذا التنبيه. يعود الطالب فقط إذا تكرر منه بعد اليوم (غياب أو واجب أو مشاركة جديدة).';
+  if(!(await askConfirm(msg,{title:'تمت متابعتهم جميعًا؟',yes:'نعم، تابعتهم',no:'إلغاء'}))) return;
+  if(kind==='dev'){ for(const x of devPending()) await devMarkOk(devSig(x),true); try{ thDraw(); }catch(e){} return; }
+  if(kind==='ns') return fuMark(nsOpenList().map(x=>({sid:String(x.s.id),type:'ns'})));
+  let al=[]; try{ al=ctAlertsOpen('').filter(a=>a.lvl===kind); }catch(e){}
+  return fuMark(al.map(a=>({sid:String(a.s.id),type:a.type})));
+}
 function tdUndoAll(){ try{ localStorage.removeItem(TD_DONE_KEY); }catch(e){} thDraw(); }
 /* أوقات الحصص بنفس حساب بوابة المعلم: بداية الأولى + المدة + الفسح، والحصة المعدّلة يدويًا تتجاوز الحساب */
 function tdTimes(sc){
@@ -30422,11 +30478,13 @@ function tdTasks(){
   { const M=typeof TD_MAD!=='undefined'?TD_MAD:null;
     if(M&&M.pendingLogin) L.push({key:'madlogin:'+M.pendingLogin,lv:'warn',ic:'🔑',t:'مزامنة مدرستي تنتظر تسجيل دخولك — بعد الدخول تكتمل وحدها',acts:[['فتح مدرستي',"window.open('https://schools.madrasati.sa/','_blank','noopener')"]]});
     else if(M&&M.n&&M.last&&Date.now()-M.last>72*3600e3) L.push({key:'madstale:'+M.last,lv:'warn',ic:'📱',t:`آخر مزامنة لمدرستي ${remAgo(M.last)} — «من حل ومن لم يحل» قد لا يكون دقيقًا`,acts:[['🔄 زامن الآن','tdMadSync()']]}); }
-  { const ns=typeof nsList==='function'?nsList():[]; if(ns.length) L.push({key:'ns:'+ns.map(x=>x.s.id).join(','),lv:'warn',ic:'🚶',t:`${ns.length===1?'طالب واحد لم يبدأ':ns.length===2?'طالبان لم يبدآ':ns.length+' طلاب لم يبدؤوا'} بعد — لم ${ns.length===1?'يسلّم':ns.length===2?'يسلّما':'يسلّموا'} أي نشاط في البوابة`,acts:[['عرض','nsOpen()']]}); }
+  { const ns=typeof nsOpenList==='function'?nsOpenList():[]; if(ns.length) L.push({doneJs:'tdAckAll(\'ns\')',key:'ns:'+ns.map(x=>x.s.id).join(','),lv:'warn',ic:'🚶',t:`${ns.length===1?'طالب واحد لم يبدأ':ns.length===2?'طالبان لم يبدآ':ns.length+' طلاب لم يبدؤوا'} بعد — لم ${ns.length===1?'يسلّم':ns.length===2?'يسلّما':'يسلّموا'} أي نشاط في البوابة`,acts:[['عرض','nsOpen()']]}); }
   thActions().forEach(([lv,ic,t,n,go])=>{
     if(/انتهت مواعيدها|ينتهي خلال يومين|متأخر(ون)? لم تذكّر/.test(t)) return;   // مغطّاة بأسطر الأنشطة أعلاه
     const isDash=/thGoTo\('dash-alerts'\)/.test(go);
-    L.push({key:`a:${ic}:${t}:${n}`,lv:isDash?'info':lv,ic,t:t.replace(/ — (اضغط للتحقق|اضغط لعرض الأسماء)$/,''),acts:[[/thGoReqs|attention/.test(go)?'عرض':/plans/.test(go)?'قرّر':'عرض',go]],n});
+    // التنبيهات القائمة على أشخاص: «✓ تم» يسجّل متابعتهم (على الخادم) بدل إخفاء النص مؤقتًا على هذا الجهاز
+    const ack=ic==='🚫'?"tdAckAll('bad')":ic==='⚠️'&&/يحتاجون متابعة/.test(t)?"tdAckAll('warn')":ic==='🚩'?"tdAckAll('dev')":'';
+    L.push({key:`a:${ic}:${t}:${n}`,lv:isDash?'info':lv,ic,t:t.replace(/ — (اضغط للتحقق|اضغط لعرض الأسماء)$/,''),acts:[[/thGoReqs|attention/.test(go)?'عرض':/plans/.test(go)?'قرّر':'عرض',go]],n,...(ack?{doneJs:ack}:{})});
   });
   return L;
 }
@@ -31713,17 +31771,24 @@ function nsList(){
   return STUDENTS.map(s=>{ const mine=pub.filter(h=>hwFor(h,s.cls)); return {s,n:mine.length,any:mine.some(h=>h.subs&&h.subs[s.id])}; })
     .filter(x=>x.n>0&&!x.any).sort((a,b)=>String(a.s.cls).localeCompare(String(b.s.cls),'ar')||String(a.s.name).localeCompare(String(b.s.name),'ar'));
 }
+function nsLastPub(s){ return Math.max(0,...HW.filter(h=>remPublished(h)&&hwFor(h,s.cls)).map(h=>Number(h.publishedAt||h.at)||0)); }
+function nsOpenList(){ return nsList().filter(x=>{ const at=fuAt(x.s.id,'ns'); return !(at && at>=nsLastPub(x.s)); }); }
 function nsMsg(s){ return `مرحبًا ${tdShortName(s.name)} 👋 لديك أنشطة في بوابة الطالب لم تبدأها بعد. ادخل البوابة: ${getSite()} وابدأ باختبار «اكتشف طريقة تعلمك» ثم «اعرف مستواك»، وبعدها تُفتح لك الأنشطة والألعاب. بالتوفيق 🌟`; }
 async function nsCopy(sid){ const s=(STUDENTS||[]).find(x=>String(x.id)===String(sid)); if(!s) return; const t=nsMsg(s);
   try{ await navigator.clipboard.writeText(t); toast('📋 نُسخت رسالة للطالب','good'); }catch(e){ prompt('انسخ الرسالة:',t); } }
 function nsOpen(){
-  const L=nsList(), by={}; L.forEach(x=>{ (by[x.s.cls||'—']=by[x.s.cls||'—']||[]).push(x); });
+  const all=nsList(), L=nsOpenList(), done=all.filter(x=>!L.includes(x)), by={}; L.forEach(x=>{ (by[x.s.cls||'—']=by[x.s.cls||'—']||[]).push(x); });
   openModal(`<h2>🚶 لم يبدؤوا بعد (${L.length})</h2>
     <p class="muted" style="font-size:.8rem;margin:.1rem 0 .5rem">طلاب لهم أنشطة منشورة ولم يسلّموا أيًّا منها. ابدأ بسؤال الطالب عن السبب: جهاز؟ لا يعرف الدخول؟ طلب انضمام معلّق؟ — ثم ساعده يحل أول نشاط أمامك.</p>
     ${Object.keys(by).map(c=>`<b style="font-size:.85rem;display:block;margin-top:.5rem">${esc(c)} (${by[c].length})</b>${by[c].map(x=>`<div class="du-li"><span>${esc(x.s.name)}<small>${x.n===1?'نشاط واحد منشور':x.n===2?'نشاطان منشوران':x.n+' أنشطة منشورة'} له · لم يسلّم شيئًا</small></span>
       <button class="btn ghost sm" title="رسالة للطالب فيها رابط البوابة وخطوة البداية" onclick="nsCopy('${esc(x.s.id)}')">📋 للطالب</button>
       <button class="btn ghost sm" onclick="pmsgOpen('${esc(x.s.id)}','start')">💬 ولي الأمر</button>
-      <button class="btn ghost sm" onclick="ctOpenProfile('${esc(x.s.id)}')">📁</button></div>`).join('')}`).join('')||'<div class="feature-empty">🎉 كل الطلاب بدؤوا.</div>'}
+      <button class="btn tick sm" title="سجّل أنك تواصلت مع ولي أمره" onclick="fuMark([{sid:'${esc(x.s.id)}',type:'ns'}],'اتصال').then(nsOpen)">📞 تواصلت</button>
+      <button class="btn ghost sm" title="تابعته — يختفي حتى يُنشر له نشاط جديد" onclick="fuMark([{sid:'${esc(x.s.id)}',type:'ns'}]).then(nsOpen)">✓ تابعته</button>
+      <button class="btn ghost sm" onclick="ctOpenProfile('${esc(x.s.id)}')">📁</button></div>`).join('')}`).join('')||(all.length?'<div class="feature-empty">✓ تابعت كل من لم يبدأ — يعودون إذا نُشر لهم نشاط جديد ولم يبدؤوا.</div>':'<div class="feature-empty">🎉 كل الطلاب بدؤوا.</div>')}
+    ${L.length>1?`<div style="margin-top:.6rem"><button class="btn ghost sm" onclick="fuMark(nsOpenList().map(x=>({sid:String(x.s.id),type:'ns'}))).then(nsOpen)">✓ تابعتهم جميعًا (${L.length})</button></div>`:''}
+    ${done.length?`<details style="margin-top:.6rem"><summary class="muted" style="cursor:pointer">✓ تمت متابعتهم (${done.length})</summary>${done.map(x=>`<div class="du-li"><span>${esc(x.s.name)}<small>${esc(x.s.cls||'')} · تابعته ${fuDay(fuAt(x.s.id,'ns'))}</small></span>
+      <button class="btn ghost sm" onclick="fuUndo('${esc(x.s.id)}','ns').then(nsOpen)">↩️ إلغاء</button></div>`).join('')}</details>`:''}
     <div class="modal-foot"><button class="btn ghost" onclick="closeModal()">إغلاق</button></div>`);
 }
 </script><style id="today-board-css">

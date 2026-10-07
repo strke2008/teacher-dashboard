@@ -6629,6 +6629,10 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         behaviorTemplates:incomingTemplates,
         // فترة التقييم: تُمرَّر كما هي ليراها المعلم من الجوال والكمبيوتر معًا.
         msgFlags:(x.msgFlags&&typeof x.msgFlags==='object')?x.msgFlags:(old.msgFlags||{}),
+        // ✅ متابعات التنبيهات (غياب/واجب/مشاركة/لم يبدأ) و🚩 الأجهزة المتحقَّق منها: تُرى من كل أجهزة المعلم.
+        // البوابة لا ترسلها فيبقى المحفوظ كما هو.
+        followups:(x.followups&&typeof x.followups==='object')?x.followups:(old.followups||{}),
+        devOk:Array.isArray(x.devOk)?x.devOk.map(String).slice(-300):(old.devOk||[]),
         roles:Array.isArray(x.roles)?x.roles.slice(0,2000):(old.roles||[]),
         plans:Array.isArray(x.plans)?x.plans.slice(0,1000):(old.plans||[]),
         // ⏰ تذكيرات المعلم: تُحفظ كاملة من آخر نسخة (الحذف يبقى حذفًا)
