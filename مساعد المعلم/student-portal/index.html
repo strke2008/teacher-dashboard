@@ -921,6 +921,8 @@ body.gm-playing{position:fixed;left:0;right:0;width:100%;overflow:hidden}
   display:flex;justify-content:space-between;align-items:flex-end;font-size:8.4pt;color:#6B7C79}
 .ws-foot b{color:#12362F}
 .print-head{display:none}
+body.rev-mode #s-gate > :not(#rev-view){display:none!important}
+#rev-view{display:grid;gap:.75rem}
 #toast{position:fixed;inset-inline:0;bottom:1.1rem;margin:auto;width:max-content;max-width:88vw;
   background:var(--ink);color:var(--paper);padding:.65rem 1.1rem;border-radius:999px;
   font-size:.9rem;font-weight:700;box-shadow:0 8px 28px rgba(22,35,58,.3);text-align:center;
@@ -6475,7 +6477,12 @@ async function openReview(hwId, nm, hwTitle){
     cls: j.cls || (HW && HW.cls) || '',
     mx: j.mx  || (HW && HW.mx) || 0 } };
 
-  $('gate-list').innerHTML = `
+  /* 🎯 المراجعة تُعرض أعلى الصفحة وحدها (بلا تمرير لأسفل)، و«رجوع» يعيدك لمكانك في القائمة دون إعادة تحميل */
+  REV_BACK_Y = document.getElementById('rev-view') ? REV_BACK_Y : window.scrollY;
+  let rv = document.getElementById('rev-view');
+  if(!rv){ rv = document.createElement('div'); rv.id = 'rev-view'; $('s-gate').prepend(rv); }
+  document.body.classList.add('rev-mode');
+  rv.innerHTML = `
     <div class="print-head">
       <div style="font-weight:700;font-size:1.1rem">${esc(nm)}</div>
       <div style="font-size:.9rem">النتيجة: ${j.correct} من ${j.total} · ${j.pts} نقطة</div>
@@ -6485,11 +6492,19 @@ async function openReview(hwId, nm, hwTitle){
       <div class="score" style="font-size:2rem">${j.correct}/${j.total}</div>
       <p class="muted" style="margin:0">درجتك ${j.correct} من ${j.total} · ${j.pts} نقطة للمتجر</p>
       <div class="nav" style="margin-top:.7rem">
-        <button class="btn ghost" onclick="location.reload()">← رجوع</button>
+        <button class="btn ghost" onclick="closeReview()">← رجوع</button>
         <button class="btn tick" onclick="printWorksheet()">🖨️ طباعة ورقة العمل</button>
       </div>
-    </div>${body}`;
+    </div>${body}
+    <div class="nav" style="margin-top:.4rem"><button class="btn ghost" onclick="closeReview()">← رجوع إلى أنشطتي</button></div>`;
   window.scrollTo(0,0);
+}
+let REV_BACK_Y = 0;
+function closeReview(){
+  const rv = document.getElementById('rev-view'); if(rv) rv.remove();
+  document.body.classList.remove('rev-mode');
+  WS_DATA = null;
+  requestAnimationFrame(()=>window.scrollTo(0, REV_BACK_Y||0));
 }
 
 /* 🖨️ ورقة عمل للطباعة — مرتّبة ومضغوطة */
