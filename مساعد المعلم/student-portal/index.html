@@ -1562,6 +1562,15 @@ html[data-pt] body,html[data-pt] .sheet,html[data-pt] .btn,html[data-pt] .studen
       <div id="sp-push" class="sp-push hide"></div>
     </div>
 
+    <section id="my-report-panel" class="all-activities-panel sheet my-report-top" aria-label="تقريري">
+      <button type="button" id="my-report-toggle" class="all-activities-toggle" onclick="myRepToggle()">
+        <span class="aat-icon">📄</span>
+        <span class="aat-body"><b>تقريري <span id="my-report-new" class="priority-badge hide">📊 أسبوع جديد</span> <span id="my-report-new-p" class="priority-badge hide">📄 تقرير فترة جديد</span></b><small>📊 تقرير الأسبوع · 📄 تقرير الفترة — كلٌّ في تبويبه</small></span>
+        <span id="my-report-chev" class="aat-chevron">⌄</span>
+      </button>
+      <div id="my-report-box" class="hide"></div>
+    </section>
+
     <!-- 🗺️ الرحلة التعليمية: طبقة مستقلة فوق الأنظمة الحالية، لا تغيّر آلية الأنشطة -->
     <section id="student-journey" class="sheet journey-card hide" aria-label="رحلتي التعليمية">
       <div class="journey-head">
@@ -1597,14 +1606,6 @@ html[data-pt] body,html[data-pt] .sheet,html[data-pt] .btn,html[data-pt] .studen
       <div id="gate-store-box" class="hide" style="margin-top:.7rem"></div>
     </div>
 
-    <section id="my-report-panel" class="all-activities-panel sheet" aria-label="تقريري">
-      <button type="button" id="my-report-toggle" class="all-activities-toggle" onclick="myRepToggle()">
-        <span class="aat-icon">📄</span>
-        <span class="aat-body"><b>تقريري <span id="my-report-new" class="priority-badge hide">تقرير أسبوع جديد</span></b><small>تقرير الأسبوع وتقرير الفترة من معلمك</small></span>
-        <span id="my-report-chev" class="aat-chevron">⌄</span>
-      </button>
-      <div id="my-report-box" class="hide"></div>
-    </section>
 
     <div id="gate-board"></div>
 
@@ -3519,7 +3520,7 @@ function msgActive(m){
 const msgTime = m => Date.parse(m.createdAt||'')||0;
 /* الأحدث في الأعلى؛ والعاجل الجديد وحده يتقدّم */
 const msgOrder = (a,b) => ((b.priority==='urgent'&&b.isNew)?1:0)-((a.priority==='urgent'&&a.isNew)?1:0) || (b.at||0)-(a.at||0);
-let WEEKLY_MSGS = [];
+let WEEKLY_MSGS = [], SREP_MSGS = [];
 
 /* يعيد مصفوفة الرسائل جاهزة، أو null إن تعذّر الوصول (فرق مهم:
    «لا رسائل» غير «لم أستطع الجلب» — والثانية يجب أن تُعرض لا تُبتلع). */
@@ -3946,8 +3947,13 @@ async function loadStudentSpace(nm, rows){
     WEEKLY_MSGS = msgs.filter(m=>m.type==='weekly').sort((a,b)=>msgTime(b)-msgTime(a));
     try{ myRepWeeklyBadge(WEEKLY_MSGS.some(m=>!seen.has(m.id))); }catch(e){}
     const newWk = WEEKLY_MSGS.find(m=>!seen.has(m.id));
-    if(newWk) notices.push({ i:'📊', t:'وصل تقرير أسبوعك', p:'افتحه من «📄 تقريري» لترى أرقام أسبوعك وخطوتك القادمة.', id:newWk.id, isNew:true, at:msgTime(newWk), priority:'normal', openReport:true });
-    msgs.filter(m=>m.type!=='weekly' && msgActive(m)).forEach(m=>{
+    if(newWk) notices.push({ i:'📊', t:'وصل تقرير أسبوعك', p:'ملخص أسبوعك: مشاركتك وواجباتك وأنشطتك وخطوتك القادمة — افتحه من «📄 تقريري ← 📊 تقرير الأسبوع».', id:newWk.id, isNew:true, at:msgTime(newWk), priority:'normal', openReport:'week' });
+    // 📄 تقرير الفترة: تقرير رسمي بالدرجات (منفصل عن الأسبوعي) — تنبيه واحد لكل فترة
+    SREP_MSGS = msgs.filter(m=>m.type==='srep').sort((a,b)=>msgTime(b)-msgTime(a));
+    try{ myRepPeriodBadge(SREP_MSGS.some(m=>!seen.has(m.id))); }catch(e){}
+    const newSr = SREP_MSGS.find(m=>!seen.has(m.id));
+    if(newSr) notices.push({ i:'📄', t:newSr.title||'وصلك تقرير الفترة', p:`${newSr.body||''} — تقريرك الرسمي بالدرجات، افتحه من «📄 تقريري ← 📄 تقرير الفترة» ويمكنك طباعته.`, id:newSr.id, isNew:true, at:msgTime(newSr), priority:'important', openReport:'period' });
+    msgs.filter(m=>m.type!=='weekly' && m.type!=='srep' && msgActive(m)).forEach(m=>{
       notices.push({
         i: MSG_ICON[m.type] || '💬',
         t: m.title||'رسالة من المعلم', p: m.body||'',
@@ -4014,7 +4020,7 @@ async function loadStudentSpace(nm, rows){
       const badge=n.priority==='urgent'?'عاجل':n.priority==='important'?'مهم':n.isNew?'جديد':'';
       const actionable = !!(n.activityId || n.reviewTask || n.openReport);
       const key=noticeKey(n);
-      return `<div class="space-notice ${n.priority||'normal'}${actionable?' notice-actionable':''}" ${n.reviewTask?`data-review-task="${esc(n.reviewTask)}"`:n.openReport?'data-open-report="1"':actionable?`data-activity-id="${esc(n.activityId)}"`:''}>
+      return `<div class="space-notice ${n.priority||'normal'}${actionable?' notice-actionable':''}" ${n.reviewTask?`data-review-task="${esc(n.reviewTask)}"`:n.openReport?`data-open-report="${esc(n.openReport===true?'week':n.openReport)}"`:actionable?`data-activity-id="${esc(n.activityId)}"`:''}>
         <div class="ni">${n.i}</div>
         <div style="min-width:0;flex:1">
           <b>${esc(n.t)}${badge?`<span class="priority-badge">${badge}</span>`:''}</b>
@@ -4109,7 +4115,7 @@ async function loadStudentSpace(nm, rows){
       const rt=e.target.closest('[data-review-task]');
       if(rt){ openReviewTask(rt.dataset.reviewTask, nm); return; }
       const orp=e.target.closest('[data-open-report]');
-      if(orp){ myRepOpen(); return; }
+      if(orp){ myRepOpen(orp.dataset.openReport); return; }
       const card=e.target.closest('[data-activity-id]');
       if(card) openNoticeActivity(card.dataset.activityId);
     });
@@ -8073,7 +8079,7 @@ async function spVerify(){
 }
 /* فتح تنبيه رسالة: ./?open=notices → اذهب للتنبيهات بعد تحميل المساحة */
 let spOpenNotices = false, spOpenReport = false;
-try{ const o = new URLSearchParams(location.search).get('open'); spOpenNotices = o === 'notices'; spOpenReport = o === 'report'; }catch(e){}
+try{ const q = new URLSearchParams(location.search), o = q.get('open'); spOpenNotices = o === 'notices'; spOpenReport = o === 'report' ? (q.get('tab') === 'period' ? 'period' : q.get('tab') === 'week' ? 'week' : true) : false; }catch(e){}
 /* ═══════════ 🎮 المسابقة الجماعية المباشرة — واجهة الطالب ═══════════
    الخادم وحده يقرر: الدخول والخصم، السؤال الحالي، صحة الإجابة، النقاط، الترتيب.
    الواجهة تعرض ما يعيده فقط، وتحسب العدّادات بساعة الخادم (فرق الساعة من كل رد) لا بساعة الجوال.
@@ -8495,13 +8501,10 @@ function spAfterGateLoad(){
   spRender(); spVerify().catch(() => {});
   /* فتح إشعار التقرير: ./?open=report → افتح «تقريري» مباشرة (يُطلب الرمز السري إن لزم كالعادة) */
   if(spOpenReport){
-    spOpenReport = false;
-    try{ const u = new URL(location.href); u.searchParams.delete('open'); history.replaceState(null, '', u.pathname + u.search + u.hash); }catch(e){}
-    setTimeout(() => {
-      const panel = document.getElementById('my-report-panel');
-      if(panel) panel.scrollIntoView({ behavior:'smooth', block:'start' });
-      if(typeof MYREP !== 'undefined' && !MYREP.open) myRepToggle();
-    }, 900);
+    const _t = spOpenReport; spOpenReport = false;
+    const tab = _t === true ? '' : _t;
+    try{ const u = new URL(location.href); u.searchParams.delete('open'); u.searchParams.delete('tab'); history.replaceState(null, '', u.pathname + u.search + u.hash); }catch(e){}
+    setTimeout(() => { if(typeof myRepOpen === 'function') myRepOpen(tab); }, 900);
   }
   if(spOpenNotices){
     spOpenNotices = false;
@@ -9054,6 +9057,12 @@ async function myPlanLoad(){
 #my-report-box .srp-foot{border-top:0;background:#EEF2F8}
 }
 .myrep-bar{display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap;margin:.5rem 0 .6rem}
+.myrep-switch{display:grid;grid-template-columns:1fr 1fr;gap:.35rem;background:#EEF2F8;border-radius:14px;padding:.3rem;margin:.6rem 0 .5rem}
+.myrep-switch button{border:0;background:transparent;border-radius:11px;padding:.6rem .4rem;font:inherit;font-weight:800;font-size:.9rem;color:#5A6B84;cursor:pointer;position:relative}
+.myrep-switch button.on{background:#fff;color:#16233A;box-shadow:0 2px 8px rgba(22,35,58,.12)}
+.myrep-dot{position:absolute;top:.4rem;inset-inline-end:.5rem;width:.55rem;height:.55rem;border-radius:50%;background:#D6455B}
+.myrep-hint{font-size:.8rem;color:#5A6B84;background:#F6F8FC;border-radius:10px;padding:.45rem .6rem;margin:.2rem 0 .6rem;line-height:1.6}
+.my-report-top{margin-top:.8rem}
 .myrep-tabs{display:flex;gap:.3rem;flex-wrap:wrap}
 .myrep-tab{border:1px solid #D8E1EC;background:#fff;border-radius:999px;padding:.3rem .7rem;font:inherit;font-size:.8rem;font-weight:700;color:#16233A}
 .myrep-tab.on{background:#16233A;color:#fff;border-color:#16233A}
@@ -9363,8 +9372,10 @@ async function srpPdfFlow(r){
 }
 
 /* 📄 تقريري — يُجلب بجلسة الطالب (رمزه) فقط؛ لا يُرسل الاسم أو المعرف */
-const MYREP={ open:false, reports:[], idx:0, wk:0 };
-function myRepWeeklyBadge(on){ const b=document.getElementById('my-report-new'); if(b) b.classList.toggle('hide',!on); }
+const MYREP={ open:false, reports:[], idx:0, wk:0, tab:'', loaded:false };
+function myRepWeeklyBadge(on){ const b=document.getElementById('my-report-new'); if(b) b.classList.toggle('hide',!on); myRepTabsSync(); }
+function myRepPeriodBadge(on){ const b=document.getElementById('my-report-new-p'); if(b) b.classList.toggle('hide',!on); myRepTabsSync(); }
+function myRepNew(k){ const seen=new Set(seenMsgIds()); return (k==='week'?WEEKLY_MSGS:SREP_MSGS||[]).some(m=>!seen.has(m.id)); }
 /* 📊 تقارير الأسبوع: مكانها هنا (تبقى متاحة بلا ازدحام التنبيهات)، آخر 6 أسابيع */
 function myRepWeeklyHTML(){
   const list=(WEEKLY_MSGS||[]).slice(0,6);
@@ -9376,38 +9387,58 @@ function myRepWeeklyHTML(){
 }
 function myRepWeekly(){
   const box=document.getElementById('myrep-weekly'); if(!box) return;
-  box.innerHTML=`<div class="myrep-sec">📊 تقرير الأسبوع</div>${myRepWeeklyHTML()}`;
+  box.innerHTML=`<p class="myrep-hint">📊 <b>تقرير الأسبوع</b>: ملخص سريع لأسبوع واحد (مشاركتك وواجباتك وأنشطتك) يصلك تلقائيًا كل أسبوع.</p>${myRepWeeklyHTML()}`;
   const list=(WEEKLY_MSGS||[]).slice(0,6); if(list.length){ markMsgsSeen(list.map(m=>m.id)); myRepWeeklyBadge(false); }
 }
-function myRepOpen(){
+function myRepTabsSync(){
+  const bar=document.getElementById('myrep-switch'); if(!bar) return;
+  bar.querySelectorAll('[data-rt]').forEach(b=>{ const k=b.dataset.rt; b.classList.toggle('on',k===MYREP.tab); const d=b.querySelector('.myrep-dot'); if(d) d.classList.toggle('hide',k===MYREP.tab||!myRepNew(k)); });
+}
+function myRepTab(k){
+  MYREP.tab=k==='period'?'period':'week';
+  const w=document.getElementById('myrep-weekly'), p=document.getElementById('myrep-period'); if(!w||!p) return;
+  w.classList.toggle('hide',MYREP.tab!=='week'); p.classList.toggle('hide',MYREP.tab!=='period');
+  if(MYREP.tab==='week') myRepWeekly();
+  else{ if(!MYREP.loaded) myRepLoadPeriod(); if((SREP_MSGS||[]).length){ markMsgsSeen(SREP_MSGS.map(m=>m.id)); myRepPeriodBadge(false); } }
+  myRepTabsSync();
+}
+function myRepOpen(tab){
   const panel=document.getElementById('my-report-panel');
-  if(!MYREP.open) myRepToggle(); else myRepWeekly();
+  const t=tab==='period'||tab==='week'?tab:(myRepNew('period')&&!myRepNew('week')?'period':MYREP.tab||'week');
+  if(!MYREP.open) myRepToggle(t); else myRepTab(t);
   if(panel) panel.scrollIntoView({behavior:'smooth',block:'start'});
 }
 function myRepRender(){
   const box=document.getElementById('myrep-period'); if(!box) return;
-  if(!MYREP.reports.length){ box.innerHTML='<div class="myrep-sec">📄 تقرير الفترة</div><p class="muted" style="margin:.4rem 0">لم يُرسل معلمك تقرير فترة بعد.</p>'; return; }
+  const hint='<p class="myrep-hint">📄 <b>تقرير الفترة</b>: تقريرك الرسمي بدرجاتك في الفترة كاملة، يرسله معلمك نهاية كل فترة ويمكنك طباعته.</p>';
+  if(!MYREP.reports.length){ box.innerHTML=hint+'<p class="muted" style="margin:.4rem 0">لم يُرسل معلمك تقرير فترة بعد.</p>'; return; }
   const r=MYREP.reports[MYREP.idx]||MYREP.reports[0];
-  box.innerHTML=`<div class="myrep-bar">
+  box.innerHTML=`${hint}<div class="myrep-bar">
       ${MYREP.reports.length>1?`<div class="myrep-tabs">${MYREP.reports.map((x,i)=>`<button type="button" class="myrep-tab ${i===MYREP.idx?'on':''}" onclick="MYREP.idx=${i};myRepRender()">${srpEsc(x.label)}</button>`).join('')}</div>`:'<span></span>'}
       <button type="button" class="btn tick" onclick="srpPrint(MYREP.reports[MYREP.idx])">🖨️ طباعة التقرير</button>
     </div>${srxHTML(r)}`;
-  box.insertAdjacentHTML('afterbegin','<div class="myrep-sec">📄 تقرير الفترة</div>');
 }
-async function myRepToggle(){
-  const box=document.getElementById('my-report-box'), chev=document.getElementById('my-report-chev');
-  MYREP.open=!MYREP.open; box.classList.toggle('hide',!MYREP.open); if(chev) chev.textContent=MYREP.open?'⌃':'⌄';
-  if(!MYREP.open) return;
-  box.innerHTML='<div id="myrep-weekly"></div><div id="myrep-period"><p class="muted center" style="margin:.6rem 0">جارٍ فتح تقرير الفترة…</p></div>';
-  myRepWeekly();
-  const pbox=document.getElementById('myrep-period');
+async function myRepLoadPeriod(){
+  const pbox=document.getElementById('myrep-period'); if(!pbox) return;
+  pbox.innerHTML='<p class="muted center" style="margin:.6rem 0">جارٍ فتح تقرير الفترة…</p>';
   const api=((typeof HW!=='undefined'&&HW&&HW.api)||API||'').replace(/\/+$/,'');
   try{
     const res=await storeFetch(api+'/student-report/mine',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
     const j=await res.json().catch(()=>({}));
-    if(!res.ok||!j.ok){ pbox.innerHTML=`<div class="myrep-sec">📄 تقرير الفترة</div><p class="muted" style="margin:.4rem 0">${j.error==='auth_cancel'?'يلزم رمزك لعرض تقرير الفترة.':'تعذّر فتح تقرير الفترة — حاول لاحقًا.'}</p>`; return; }
-    MYREP.reports=j.reports||[]; MYREP.idx=0; myRepRender();
-  }catch(_){ pbox.innerHTML='<div class="myrep-sec">📄 تقرير الفترة</div><p class="muted" style="margin:.4rem 0">تعذّر الاتصال — تحقق من الإنترنت.</p>'; }
+    if(!res.ok||!j.ok){ pbox.innerHTML=`<p class="muted" style="margin:.4rem 0">${j.error==='auth_cancel'?'يلزم رمزك لعرض تقرير الفترة.':'تعذّر فتح تقرير الفترة — حاول لاحقًا.'}</p>`; return; }
+    MYREP.reports=j.reports||[]; MYREP.idx=0; MYREP.loaded=true; myRepRender();
+  }catch(_){ pbox.innerHTML='<p class="muted" style="margin:.4rem 0">تعذّر الاتصال — تحقق من الإنترنت.</p>'; }
+}
+async function myRepToggle(tab){
+  const box=document.getElementById('my-report-box'), chev=document.getElementById('my-report-chev');
+  MYREP.open=!MYREP.open; box.classList.toggle('hide',!MYREP.open); if(chev) chev.textContent=MYREP.open?'⌃':'⌄';
+  if(!MYREP.open) return;
+  MYREP.loaded=false;
+  box.innerHTML=`<div class="myrep-switch" id="myrep-switch" role="tablist">
+      <button type="button" role="tab" data-rt="week" onclick="myRepTab('week')">📊 تقرير الأسبوع<i class="myrep-dot hide"></i></button>
+      <button type="button" role="tab" data-rt="period" onclick="myRepTab('period')">📄 تقرير الفترة<i class="myrep-dot hide"></i></button>
+    </div><div id="myrep-weekly"></div><div id="myrep-period" class="hide"></div>`;
+  myRepTab(typeof tab==='string'&&tab?tab:(myRepNew('period')&&!myRepNew('week')?'period':'week'));
 }
 
 </script>

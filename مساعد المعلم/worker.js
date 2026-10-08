@@ -3532,7 +3532,7 @@ async function weeklyTick(env, ctx, opts = {}) {
   if (delivered.size) {
     try { const rev = parseInt(await env.HW.get('meta:rev'), 10) || 0; await env.HW.put('meta:rev', String(rev + 1)); } catch {}
     notifyStudents(env, ctx, delivered, { title: '📊 تقرير أسبوعك جاهز', body: 'اضغط لعرض تقرير الأسبوع الماضي',
-      tag: `wk-${from}`, data: { type: 'message', url: './?open=notices' } }, (await sha256Hex(`wkauto|${from}|${cls}`)).slice(0, 32));
+      tag: `wk-${from}`, data: { type: 'message', url: './?open=report&tab=week' } }, (await sha256Hex(`wkauto|${from}|${cls}`)).slice(0, 32));
   }
   run.done.push(cls); run.sent += delivered.size; run.at = Date.now();
   await env.HW.put(runKey, JSON.stringify(run), { expirationTtl: 60 * 60 * 24 * 14 });
@@ -4262,9 +4262,23 @@ export default {
         await env.HW.put(statusKey, JSON.stringify(status));
         // 🔔 إشعار «وصلك تقريرك» لمن فعّل التنبيهات. لا درجات في نص الإشعار (يظهر على شاشة القفل)
         const lbl = `${SREP_LABELS.sem[semester]} — ${SREP_LABELS.per[period]}`;
+        // 📄 وفي تنبيهات البوابة أيضًا (يصل كل الطلاب، لا من فعّل الإشعارات فقط) — رسالة واحدة لكل فترة تُستبدل عند التحديث
+        const srepKey = `${semester}:${period}`;
+        for (const g of targets) {
+          try {
+            const st = { id: String(g.id), name: String(g.name || '') };
+            const upd = updated.has(String(g.id));
+            let arr = (await readMessages(env, st)).filter(m => !(m && m.type === 'srep' && m.srep === srepKey));
+            arr.unshift({ id: `${now.toString(36)}${Math.random().toString(36).slice(2, 8)}`, title: upd ? 'حدّث معلمك تقرير الفترة' : `وصلك تقرير ${SREP_LABELS.per[period]}`,
+              body: lbl, type: 'srep', srep: srepKey, priority: 'normal', examDate: '', visibleFrom: '', expiresAt: '', createdAt: new Date(now).toISOString() });
+            await env.HW.put(identityKey('msg:', st), JSON.stringify(arr.slice(0, 40)), { expirationTtl: 60 * 60 * 24 * 180 });
+            await dropLegacy(env, 'msg:', st);
+          } catch {}
+        }
+        try { const rev = parseInt(await env.HW.get('meta:rev'), 10) || 0; await env.HW.put('meta:rev', String(rev + 1)); } catch {}
         const msg = (upd) => ({ title: upd ? '📄 حدّث معلمك تقريرك' : '📄 وصلك تقرير ' + SREP_LABELS.per[period],
           body: `${lbl}\nاضغط لعرض تقريرك`, tag: `srep-${semester}-${period}`,
-          data: { type: 'report', semester, period, url: './?open=report' } });
+          data: { type: 'report', semester, period, url: './?open=report&tab=period' } });
         if (fresh.size) notifyStudents(env, ctx, fresh, msg(false), (await sha256Hex(`srep|${semester}|${period}|${now}|new`)).slice(0, 32));
         if (updated.size) notifyStudents(env, ctx, updated, msg(true), (await sha256Hex(`srep|${semester}|${period}|${now}|upd`)).slice(0, 32));
         return json({ ok: true, published: targets.length });
@@ -4913,7 +4927,9 @@ export default {
       if (!(visibleFrom && new Date(visibleFrom).getTime() > Date.now())) {
         const sids = new Set(delivered.map(x => String(x.sid || '')).filter(Boolean));
         const lead = priority === 'urgent' ? '⚠️ ' : type === 'exam' ? '📝 ' : '💬 ';
-        notifyStudents(env, ctx, sids, {
+        if (type === 'weekly') notifyStudents(env, ctx, sids, { title: '📊 تقرير أسبوعك جاهز', body: 'اضغط لعرض تقرير أسبوعك', tag: `msg-${id}`,
+          data: { type: 'message', id, url: './?open=report&tab=week' } }, (await sha256Hex(`msg|${id}`)).slice(0, 32));
+        else notifyStudents(env, ctx, sids, {
           title: lead + (type === 'exam' ? 'تذكير اختبار: ' : 'رسالة من معلمك: ') + title.slice(0, 70),
           body: (type === 'exam' && examDate && !body.includes('⟨EX⟩') ? `📅 ${examDate}\n` : '') + body.replace(/⟨(WK|EX)⟩[\s\S]*$/, '').trim().slice(0, 140),
           tag: `msg-${id}`,
