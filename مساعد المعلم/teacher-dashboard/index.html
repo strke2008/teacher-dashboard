@@ -40,6 +40,16 @@
 .msg-exam-grid{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin:.35rem 0}
 .msg-exam-grid label{margin:0;display:grid;gap:.2rem}
 @media screen and (max-width:560px){.msg-exam-grid{grid-template-columns:1fr}}
+
+/* 🕘 سجل تعديل درجات الاختبارات */
+.ct-sc[data-log]{background-image:radial-gradient(circle at 5px 5px,#D97706 2.5px,transparent 3px)}
+.exh-list{display:grid;gap:.4rem;max-height:46vh;overflow:auto}
+.exh-row{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;padding:.5rem .6rem;border:1px solid var(--ui-border,#DCE5F0);border-radius:10px;background:var(--ui-surface,#fff)}
+.exh-main{flex:1 1 140px;min-width:0;display:grid}.exh-main small{color:var(--ink-soft);font-size:.74rem}
+.exh-ch{display:flex;align-items:center;gap:.35rem;font-weight:900}.exh-ch i{font-style:normal;color:var(--ink-soft)}
+.exh-old{background:#EEF1F5;border-radius:7px;padding:.1rem .5rem;color:#5A6B84}.exh-new{background:#E6F4EC;border-radius:7px;padding:.1rem .5rem;color:#14724A}
+.exh-bk{margin-top:.9rem;padding-top:.7rem;border-top:1px dashed var(--ui-border,#DCE5F0)}
+.exh-g{margin-top:.6rem;display:grid;gap:.35rem}.exh-gh{font-weight:800;font-size:.86rem}.exh-gh small{color:var(--ink-soft);font-weight:600}
 </style>
 <style>
 :root{
@@ -9249,10 +9259,11 @@ function ctExams(box){
         <button class="btn ghost sm" ${dis} title="حذف الاختبار ودرجاته" aria-label="حذف" onclick="ctExamDel('${esc(t.id)}')">🗑️</button></div>`).join('')||'<div class="muted">لا اختبارات بعد — أضف أول اختبار.</div>'}</div>
     ${b.tests.length?`<div class="row ct-tools" style="margin-top:.8rem">${ctClassSel('ct-ex-cls',cls,"window._ctExCls=this.value;renderClassTools()",false)}<span class="muted" style="font-size:.78rem">الدرجة تُحفظ عند الخروج من الخانة · فارغ = لم يُرصد</span><span class="spacer"></span>
       <label class="row" style="gap:.3rem;font-size:.8rem;cursor:pointer"><input type="checkbox" ${window._ctExMiss?'checked':''} onchange="window._ctExMiss=this.checked;renderClassTools()"> إبراز غير المرصود</label>
-      <button class="btn ghost sm" onclick="ctExamExport()">⬇️ تصدير Excel</button></div>
+      <button class="btn ghost sm" onclick="ctExamExport()">⬇️ تصدير Excel</button>
+      <button class="btn ghost sm" onclick="ctExamHistory()" title="آخر تعديلات الدرجات مع إمكانية الإرجاع">🕘 سجل التعديلات${(b.log||[]).length?` (${(b.log||[]).length})`:''}</button></div>
     ${ctExamStatsHTML(ctExamStats(b,ctRoster(cls)))}
     <div class="ct-table ${window._ctExMiss?'ct-miss-on':''}"><table><thead><tr><th>الطالب</th>${b.tests.map(t=>`<th>${esc(t.title||'اختبار')}<br><small class="muted">من ${Number(t.max)||10}</small>${closed?'':`<br><button class="btn ghost sm" style="margin-top:.2rem" onclick="ctExamPaste('${esc(t.id)}')" title="لصق عمود درجات من Excel">📋 لصق</button>`}</th>`).join('')}<th>المجموع</th><th>من 20</th></tr></thead><tbody>
-    ${ctRoster(cls).map(s=>`<tr><td><b>${ctNameLink(s)}</b></td>${b.tests.map(t=>`<td><input class="inp ct-sc ${sc(s.id,t.id)===''?'empty':''}" type="number" min="0" max="${Number(t.max)||10}" step="0.25" value="${sc(s.id,t.id)}" ${dis} onchange="ctExamScore('${esc(s.id)}','${esc(t.id)}',this)"></td>`).join('')}
+    ${ctRoster(cls).map(s=>`<tr><td><b>${ctNameLink(s)}</b></td>${b.tests.map(t=>`<td><input class="inp ct-sc ${sc(s.id,t.id)===''?'empty':''}" type="number" min="0" max="${Number(t.max)||10}" step="0.25" value="${sc(s.id,t.id)}" ${dis} ${(h=>h?`title="${esc(h)}" data-log="1"`:'')(ctExamCellHint(b,s.id,t.id))} onchange="ctExamScore('${esc(s.id)}','${esc(t.id)}',this)"></td>`).join('')}
       <td class="ct-raw" data-sid="${esc(s.id)}">${has(s.id)?raw(s.id):'—'}</td><td class="ct-20" data-sid="${esc(s.id)}"><b>${has(s.id)&&max>0?+(raw(s.id)/max*20).toFixed(2):'—'}</b></td></tr>`).join('')}
     </tbody></table></div><div class="muted" style="font-size:.74rem;margin-top:.3rem">«من 20» هنا قبل بطاقات رفع الدرجة؛ الدرجة النهائية بعدها تظهر في الكشوف.</div>`:''}`;
 }
@@ -9276,6 +9287,75 @@ async function ctExamDel(id){
   if(!(await askConfirm('تُحذف درجات هذا الاختبار لكل الطلاب أيضًا، ولا يمكن التراجع.',{title:'حذف الاختبار؟',yes:'احذف',no:'إبقاء',danger:true}))) return;
   ctExamMutate(b=>{ b.tests=b.tests.filter(x=>String(x.id)!==String(id)); for(const sid of Object.keys(b.scores||{})) if(b.scores[sid]) delete b.scores[sid][String(id)]; },'حُذف الاختبار');
 }
+/* 🕘 سجل تعديل درجات الاختبارات: كل تغيير يُحفظ (قبل ← بعد) في دفتر الفترة نفسه على الخادم،
+   فيُعرف ما كانت عليه الدرجة ويُرجَع إليها بضغطة. آخر 300 تعديل لكل فترة، وآخر 3 لكل خانة تظهر في تلميحها. */
+const CT_EXLOG_MAX=300;
+function ctExamLogPush(b,e){ b.log=Array.isArray(b.log)?b.log:[]; b.log.unshift(e); if(b.log.length>CT_EXLOG_MAX) b.log.length=CT_EXLOG_MAX; }
+function ctExamFmt(v){ return v===null||v===undefined||v===''?'فارغ':String(+Number(v).toFixed(2)); }
+function ctExamWhen(ms){ try{ return new Date(ms).toLocaleString('ar-SA-u-ca-gregory',{day:'numeric',month:'short',hour:'numeric',minute:'2-digit'}); }catch(e){ return ''; } }
+function ctExamCellHint(b,sid,tid){
+  const L=(b.log||[]).filter(e=>e.sid===String(sid)&&e.tid===String(tid)).slice(0,3);
+  return L.length?'آخر التعديلات:\n'+L.map(e=>`${ctExamFmt(e.from)} ← ${ctExamFmt(e.to)} · ${ctExamWhen(e.at)}`).join('\n'):'';
+}
+function ctExamHistory(){
+  const {sem,per,closed}=ctExamSP(), b=ctBook(JSON.parse(JSON.stringify(CT_DATA)),sem,per);
+  const nm=sid=>{ const s=(STUDENTS||[]).find(x=>String(x.id)===String(sid)); return s?s.name:'طالب'; };
+  const tt=tid=>{ const t=b.tests.find(x=>String(x.id)===String(tid)); return t?(t.title||'اختبار'):'اختبار محذوف'; };
+  const L=(b.log||[]).slice(0,60);
+  openModal(`<h3 style="margin:0 0 .3rem">🕘 سجل تعديل درجات الاختبارات</h3>
+    <div class="muted" style="font-size:.8rem;margin-bottom:.7rem">الفصل ${sem===1?'الأول':'الثاني'} · الفترة ${per===1?'الأولى':'الثانية'} — الأحدث أولًا. «↩️ إرجاع» يعيد الدرجة لما كانت عليه قبل التعديل.</div>
+    <div class="exh-list">${L.length?L.map((e,i)=>`<div class="exh-row"><div class="exh-main"><b>${esc(nm(e.sid))}</b><small>${esc(tt(e.tid))} · ${esc(ctExamWhen(e.at))}</small></div>
+      <div class="exh-ch"><span class="exh-old">${esc(ctExamFmt(e.from))}</span><i>←</i><span class="exh-new">${esc(ctExamFmt(e.to))}</span></div>
+      ${closed||!b.tests.some(t=>String(t.id)===e.tid)?'':`<button class="btn ghost sm" type="button" onclick="ctExamRevert('${esc(e.sid)}','${esc(e.tid)}',${e.from===null?'null':Number(e.from)})">↩️ إرجاع ${esc(ctExamFmt(e.from))}</button>`}</div>`).join('')
+      :'<div class="muted" style="padding:.6rem 0">لا تعديلات مسجّلة بعد — يبدأ التسجيل من الآن مع كل تعديل.</div>'}</div>
+    <div class="exh-bk"><b>🔎 تعديل قبل بدء السجل؟</b><div class="muted" style="font-size:.78rem;margin:.2rem 0 .5rem">نقارن الدرجات الحالية بالنسخ الاحتياطية في الخادم (تلقائية كل جمعة + اليدوية) ونعرض كل خانة اختلفت.</div>
+      <button class="btn sm" type="button" onclick="ctExamFromBackups(this)">🔎 قارن بالنسخ الاحتياطية</button><div id="exh-bk-out"></div></div>
+    <div class="row" style="justify-content:flex-end;margin-top:.8rem"><button class="btn ghost" type="button" onclick="closeModal()">إغلاق</button></div>`);
+}
+async function ctExamRevert(sid,tid,v){
+  const {sem,per,closed}=ctExamSP(); if(closed) return;
+  const label=v===null?'فارغة':v;
+  if(!(await askConfirm(`تُعاد الدرجة إلى ${label}. ويُسجَّل هذا الإرجاع أيضًا في السجل.`,{title:'إرجاع الدرجة؟',yes:'أرجعها',no:'إلغاء'}))) return;
+  try{
+    await ctSave(d=>{ const b=ctBook(d,sem,per), t=b.tests.find(x=>String(x.id)===String(tid)); if(!t) return;
+      const bucket=b.scores[String(sid)]=b.scores[String(sid)]||{}, pv=bucket[String(tid)], cur=pv&&typeof pv==='object'?Number(pv.score):Number(pv);
+      const from=Number.isFinite(cur)?cur:null; if(from===v) return;
+      ctExamLogPush(b,{sid:String(sid),tid:String(tid),from,to:v,at:Date.now(),undo:1});
+      if(v===null){ delete bucket[String(tid)]; if(!Object.keys(bucket).length) delete b.scores[String(sid)]; }
+      else bucket[String(tid)]={score:Math.max(0,Math.min(Number(t.max)||0,v)),at:Date.now()}; });
+    toast('أُرجعت الدرجة ✓','good'); renderClassTools(); ctExamHistory();
+  }catch(e){ toast('تعذّر الحفظ — تحقق من الاتصال','bad'); }
+}
+async function ctExamFromBackups(btn){
+  const out=document.getElementById('exh-bk-out'); if(!out) return;
+  const api=bkApi(), tok=getTok(); if(!api||!tok){ out.innerHTML='<p class="muted">اضبط عنوان الخادم وكلمة السر أولًا.</p>'; return; }
+  if(btn) btn.disabled=true; out.innerHTML='<p class="muted">جارٍ قراءة النسخ…</p>';
+  const {sem,per,closed}=ctExamSP(), cur=ctBook(JSON.parse(JSON.stringify(CT_DATA)),sem,per);
+  const val=(bk,sid,tid)=>{ const v=bk.scores&&bk.scores[sid]&&bk.scores[sid][tid]; const n=v&&typeof v==='object'?Number(v.score):Number(v); return Number.isFinite(n)?n:null; };
+  const nm=sid=>{ const s=(STUDENTS||[]).find(x=>String(x.id)===String(sid)); return s?s.name:'طالب'; };
+  const groups=[];
+  try{
+    const j=await (await fetch(api+'/backup/list?t='+encodeURIComponent(tok),{cache:'no-store'})).json(); if(!j.ok) throw 0;
+    for(const x of (j.list||[]).slice(0,5)){
+      try{
+        const snap=await (await fetch(api+'/backup/get?id='+encodeURIComponent(x.id)+'&t='+encodeURIComponent(tok),{cache:'no-store'})).json();
+        const cr=JSON.parse((snap.keys||{})['teacher:classroom']||'{}'), bk=ctBook(cr,sem,per), diffs=[];
+        for(const t of cur.tests){ const tid=String(t.id);
+          const sids=new Set([...Object.keys(cur.scores||{}),...Object.keys(bk.scores||{})]);
+          for(const sid of sids){ const a=val(bk,sid,tid), c=val(cur,sid,tid); if(a!==c && (STUDENTS||[]).some(s=>String(s.id)===sid)) diffs.push({sid,tid,old:a,now:c,title:t.title||'اختبار'}); } }
+        groups.push({x,diffs});
+      }catch(e){ groups.push({x,err:1}); }
+    }
+  }catch(e){ out.innerHTML='<p class="muted">تعذّر قراءة النسخ الاحتياطية.</p>'; if(btn) btn.disabled=false; return; }
+  if(btn) btn.disabled=false;
+  if(!groups.length){ out.innerHTML='<p class="muted">لا توجد نسخ احتياطية في الخادم بعد.</p>'; return; }
+  out.innerHTML=groups.map(g=>`<div class="exh-g"><div class="exh-gh">📦 ${esc(bkDate(g.x.at))} <small>${esc(BK_KIND[g.x.kind]||g.x.kind)}</small></div>
+    ${g.err?'<div class="muted">تعذّرت قراءتها.</div>':g.diffs.length?g.diffs.slice(0,40).map(d=>`<div class="exh-row"><div class="exh-main"><b>${esc(nm(d.sid))}</b><small>${esc(d.title)}</small></div>
+      <div class="exh-ch"><span class="exh-old" title="في النسخة">${esc(ctExamFmt(d.old))}</span><i>←</i><span class="exh-new" title="الآن">${esc(ctExamFmt(d.now))}</span></div>
+      ${closed?'':`<button class="btn ghost sm" type="button" onclick="ctExamRevert('${esc(d.sid)}','${esc(d.tid)}',${d.old===null?'null':d.old})">↩️ إرجاع ${esc(ctExamFmt(d.old))}</button>`}</div>`).join('')
+      :'<div class="muted">لا اختلاف عن الدرجات الحالية.</div>'}</div>`).join('');
+}
+
 /* الدرجة: تُحفظ مباشرة دون إعادة رسم الجدول حتى لا يفقد المعلم مكانه أثناء الرصد */
 async function ctExamScore(sid,tid,el){
   const {sem,per}=ctExamSP(), n=String(el.value).trim();
@@ -9283,6 +9363,9 @@ async function ctExamScore(sid,tid,el){
   try{
     await ctSave(d=>{ const b=ctBook(d,sem,per), t=b.tests.find(x=>String(x.id)===String(tid)); if(!t) return;
       const bucket=b.scores[String(sid)]=b.scores[String(sid)]||{};
+      const pv=bucket[String(tid)], before=pv&&typeof pv==='object'?Number(pv.score):Number(pv), from=Number.isFinite(before)?before:null;
+      const nv=n===''?null:Math.max(0,Math.min(Number(t.max)||0,Number(examAr2En(n))));
+      if(from!==nv && !(nv!==null&&!Number.isFinite(nv))) ctExamLogPush(b,{sid:String(sid),tid:String(tid),from,to:nv,at:Date.now()});
       if(n===''){ delete bucket[String(tid)]; if(!Object.keys(bucket).length) delete b.scores[String(sid)]; }
       else { const v=Math.max(0,Math.min(Number(t.max)||0,Number(examAr2En(n)))); if(Number.isFinite(v)){ bucket[String(tid)]={score:v,at:Date.now()}; el.value=v; } } });
     el.classList.remove('saving'); el.classList.add('saved'); setTimeout(()=>el.classList.remove('saved'),900);
