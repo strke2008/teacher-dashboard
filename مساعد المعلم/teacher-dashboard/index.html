@@ -30096,7 +30096,7 @@ async function healthClear(sid){
 .srp *{box-sizing:border-box}
 /* 🟩 كليشة خضراء مع شعار الوزارة — بنفس هوية ورقة العمل */
 .srp-head{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:1.1rem 1.5rem;border-bottom:0;background:#0E5B4E;color:#fff;border-radius:12px;margin:.9rem .9rem 0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-.srp-logo{flex:none;width:92px;height:92px;margin:-8px 0}
+.srp-logo{flex:none;width:150px;height:78px}
 .srp-logo svg{width:100%;height:100%;display:block}
 .srp-logo svg [class^="moe-st"]{fill:#fff!important}
 .srp-brand{flex:1;min-width:0}
@@ -30134,7 +30134,7 @@ async function healthClear(sid){
 .srp-note p{margin:0;font-size:.9rem;white-space:pre-wrap}
 .srp-foot{display:flex;justify-content:space-between;padding:.6rem 1.5rem .8rem;border-top:1px solid var(--srp-line);font-size:.74rem;color:var(--srp-soft)}
 @media screen and (max-width:640px){
-  .srp-head{flex-direction:column;align-items:flex-start;padding:1rem;margin:.7rem .7rem 0}.srp-who{text-align:start}.srp-logo{width:76px;height:76px}
+  .srp-head{flex-direction:column;align-items:flex-start;padding:1rem;margin:.7rem .7rem 0}.srp-who{text-align:start}.srp-logo{width:118px;height:61px}
   .srp-tiles,.srp-tiles.n5{grid-template-columns:1fr 1fr;padding:.8rem 1rem .3rem}.srp-tiles .srp-tile:last-child:nth-child(odd){grid-column:1/-1}.srp-grid{grid-template-columns:1fr;padding:.5rem 1rem}
   .srp-beh,.srp-note{margin-left:1rem;margin-right:1rem}.srp-notes li{grid-template-columns:auto 1fr;}.srp-notes li .srp-nx{grid-column:1/-1}
 }
@@ -30147,7 +30147,7 @@ async function healthClear(sid){
 @media screen{
   @container srp (max-width:720px){
     .srp-head{flex-direction:row;flex-wrap:wrap;align-items:center;gap:.5rem .9rem;padding:1rem 1.1rem}
-    .srp-logo{width:72px;height:72px;margin:-6px 0}
+    .srp-logo{width:118px;height:61px}
     .srp-brand{flex:1 1 12rem}
     .srp-brand h1{font-size:1.3rem}
     .srp-who{flex:1 1 100%;max-width:none;text-align:start;display:flex;flex-wrap:wrap;align-items:baseline;gap:.2rem .6rem;padding-top:.55rem;border-top:1px solid rgba(255,255,255,.2)}
@@ -30180,7 +30180,7 @@ async function healthClear(sid){
   html.srp-printing .srp-tiles .srp-tile:last-child:nth-child(odd){grid-column:auto!important}
   html.srp-printing .srp-grid{grid-template-columns:1fr 1fr!important}
   html.srp-printing .srp-head{flex-direction:row!important;align-items:center!important;margin:0 0 3mm!important;border-radius:3mm!important;padding:3.5mm 5mm!important}
-  html.srp-printing .srp-logo{width:28mm!important;height:28mm!important;margin:-2.5mm 0!important}
+  html.srp-printing .srp-logo{width:42mm!important;height:22mm!important;margin:0!important}
 }
 </style>
 <style id="student-report-dash-style">
@@ -30220,7 +30220,7 @@ function srpHTML(r){
   const tests=(e.tests||[]);
   return `<article class="srp" dir="rtl" lang="ar">
     <header class="srp-head">
-      ${(()=>{ const lg=(typeof MOE_LOGO!=='undefined'&&MOE_LOGO)||window.__MOE_LOGO||''; return lg?`<div class="srp-logo">${lg}</div>`:''; })()}
+      ${(()=>{ const lg=(typeof MOE_LOGO!=='undefined'&&MOE_LOGO)||window.__MOE_LOGO||''; return lg?`<div class="srp-logo">${lg.replace(/viewBox="0 0 1000 1000"/,'viewBox="85 286 825 428"')}</div>`:''; })()}
       <div class="srp-brand"><span class="srp-kicker">تقرير الطالب</span><h1>${srpEsc(r.label||'')}</h1>
         <span class="srp-range">${r.range&&r.range.start?`من ${srpEsc(srpDate(r.range.start))} إلى ${srpEsc(srpDate(r.range.end))}`:''}${r.year?` · العام ${srpEsc(r.year)}`:''}</span></div>
       <div class="srp-who"><b>${srpEsc(r.name||'')}</b><span>${srpEsc(r.cls||'')}</span></div>
