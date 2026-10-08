@@ -271,6 +271,7 @@ function cleanStudentPrefs(o) {
     const n = parseInt(av.v, 10);
     out.av = { t: 'e', v: Number.isInteger(n) && n >= 0 && n < 18 ? n : 0 };
   }
+  const fr = String(o.frame || 'none'); out.frame = ['none', 'gold', 'fire', 'rainbow'].includes(fr) ? fr : 'none';
   return out;
 }
 async function requireStudentSession(env, b) {
@@ -3668,7 +3669,8 @@ async function liveFinalize(env, g, now) {
     'FROM live_players p LEFT JOIN live_answers a ON a.game = p.game AND a.sid = p.sid WHERE p.game = ?1 GROUP BY p.sid ORDER BY score DESC, ms ASC, p.joined_at ASC'
   ).bind(g.id).all()).results || [];
   const prizes = (g.cfgObj && g.cfgObj.prizes) || [];
-  const board = rows.map((r, i) => ({ rank: i + 1, sid: r.sid, name: r.name, cls: r.cls, score: r.score, correct: r.correct, answered: r.answered, prize: Number(prizes[i]) || 0 }));
+  const glow = await Promise.all(rows.map(r => readOwn(env, { id: String(r.sid), name: r.name }).then(o => !!(o && o.namecolor > 0)).catch(() => false)));
+  const board = rows.map((r, i) => ({ rank: i + 1, sid: r.sid, name: r.name, cls: r.cls, score: r.score, correct: r.correct, answered: r.answered, prize: Number(prizes[i]) || 0, glow: glow[i] }));
   const res = { at: now, board };
   await env.DB.prepare('UPDATE live_games SET results = ?2 WHERE id = ?1 AND results IS NULL').bind(g.id, JSON.stringify(res)).run();
   const again = await liveGame(env, g.id); try { return JSON.parse(again.results); } catch { return res; }
@@ -4061,7 +4063,7 @@ async function handleLive(url, request, env, ctx) {
     if (ph.status === 'FINISHED') {
       const res = await liveFinalize(env, g, now);
       ctx && ctx.waitUntil && ctx.waitUntil(livePayPrizes(env, g, res).catch(() => {}));
-      out.results = { board: res.board.map(r => ({ rank: r.rank, name: r.name, score: r.score, correct: r.correct, prize: r.prize, me: r.sid === st.id })), n: g.n };
+      out.results = { board: res.board.map(r => ({ rank: r.rank, name: r.name, score: r.score, correct: r.correct, prize: r.prize, me: r.sid === st.id, glow: !!r.glow })), n: g.n };
       if (g.cfgObj.skin === 'boss') out.boss = await liveBossState(env, g);
     }
     return json(out);
@@ -5498,8 +5500,9 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       const ttls = await Promise.all(head.map(r =>
         readByIdentity(env, 'ttl:', mateSt.get(r.nm) || { id: '', name: r.nm }, { migrate: false })
           .then(x => x.value)));
+      const glows = await Promise.all(head.map(r => readOwn(env, mateSt.get(r.nm) || { id: '', name: r.nm }).then(o => !!(o && o.namecolor > 0)).catch(() => false)));
       const top = head.map((r, i) =>
-        ({ rank: i + 1, name: r.nm, pts: r.pts, max: r.max, pct: r.pct, title: ttls[i] || '' }));
+        ({ rank: i + 1, name: r.nm, pts: r.pts, max: r.max, pct: r.pct, title: ttls[i] || '', glow: glows[i] }));
 
       // خزّن الحساب لبقية زملاء الفصل. فشل التخزين لا يضرّ: يعيد التالي الحساب.
       if (myClass) {
@@ -6365,7 +6368,9 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         const p = cleanStudentPrefs(b.prefs);
         if (!p) return json({ ok: false, error: 'bad_prefs' }, 400);
         // ✨ المظاهر الحصرية لمن اشتراها فقط
-        if (['gold','diamond','saudi','spaceweek'].includes(p.theme)) { const own = await readOwn(env, st); if (!(own['theme_' + p.theme] > 0)) return json({ ok: false, error: 'theme_locked' }, 403); }
+        if (['gold','diamond','saudi','spaceweek'].includes(p.theme) || p.frame !== 'none') { const own = await readOwn(env, st);
+          if (['gold','diamond','saudi','spaceweek'].includes(p.theme) && !(own['theme_' + p.theme] > 0)) return json({ ok: false, error: 'theme_locked' }, 403);
+          if (p.frame !== 'none' && !(own.frame > 0)) return json({ ok: false, error: 'frame_locked' }, 403); }
         await env.HW.put(key, JSON.stringify(p));
         return json({ ok: true, prefs: p });
       }
@@ -6378,7 +6383,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
       const card = String(b.card || '').replace(/[^a-z0-9_]/gi, '').slice(0, 24);
       // 💰 السعر يُحسم في الخادم، لا من المتصفح.
-      const STORE_PRICES={exam3:1000,exam2:750,exam1:450,exam05:250,thanks:300,theme_gold:250,theme_diamond:250,theme_saudi:250,theme_spaceweek:250,title:200,dbl:150,retry:80,early:60,ticket:40,hint:30};
+      const STORE_PRICES={exam3:1000,exam2:750,exam1:450,exam05:250,thanks:300,theme_gold:250,theme_diamond:250,theme_saudi:250,theme_spaceweek:250,frame:200,namecolor:300,title:200,dbl:150,retry:80,early:60,ticket:40,hint:30};
       const price=Number(STORE_PRICES[card]||0);
       if(['exam05','exam1','exam2','exam3'].includes(card)) return json({ok:false,error:'exam_direct'},400);
       if (!card || !price) return json({ error: 'missing fields' }, 400);
@@ -6387,7 +6392,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       const st = auth.st;
       return studentLocked(env, st, async () => {
         const bal = await readBal(env, st);
-        if (card.startsWith('theme_') && ((await readOwn(env, st))[card] > 0)) return json({ ok: false, error: 'owned', pts: bal }, 200);
+        if ((card.startsWith('theme_') || card === 'frame' || card === 'namecolor') && ((await readOwn(env, st))[card] > 0)) return json({ ok: false, error: 'owned', pts: bal }, 200);
         if (bal < price) return json({ ok: false, error: 'low', pts: bal }, 200);
         await env.HW.put(identityKey('bal:', st), String(bal - price));
         await dropLegacy(env, 'bal:', st);

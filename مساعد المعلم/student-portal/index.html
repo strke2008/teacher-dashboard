@@ -1050,6 +1050,23 @@ html[data-pt-theme="diamond"] body,.pt-preview[data-pt-theme="diamond"],.pt-th[d
 html[data-pt-theme="gold"] .bar{background:linear-gradient(90deg,#7A5A00,#B8860B)}
 html[data-pt-theme="diamond"] .bar{background:linear-gradient(90deg,#1E3A6E,#3B6FB6)}
 .pt-th.pt-lock{opacity:.75;position:relative}.pt-th.pt-lock small{display:block;font-size:.66rem;color:#8A5A00}
+/* 🖼️ إطارات الصورة (بطاقة متجر) */
+html[data-pt-frame="gold"] .student-space-head .avatar,.pt-fr-demo[data-fr="gold"],.pt-preview[data-pt-frame="gold"] .pt-av{box-shadow:0 0 0 3px #fff,0 0 0 6px #E9B949,0 0 14px 4px rgba(233,185,73,.55);animation:frGlow 2.4s ease-in-out infinite}
+html[data-pt-frame="fire"] .student-space-head .avatar,.pt-fr-demo[data-fr="fire"],.pt-preview[data-pt-frame="fire"] .pt-av{box-shadow:0 0 0 3px #fff,0 0 0 6px #F05A28,0 0 16px 5px rgba(255,120,40,.6);animation:frFire 1.4s ease-in-out infinite}
+html[data-pt-frame="rainbow"] .student-space-head .avatar,.pt-fr-demo[data-fr="rainbow"],.pt-preview[data-pt-frame="rainbow"] .pt-av{box-shadow:0 0 0 3px #fff,0 0 0 7px #FF4D6D,0 0 14px 4px rgba(255,77,109,.45);animation:frRainbow 4s linear infinite}
+@keyframes frRainbow{0%,100%{box-shadow:0 0 0 3px #fff,0 0 0 7px #FF4D6D,0 0 14px 4px rgba(255,77,109,.45)}20%{box-shadow:0 0 0 3px #fff,0 0 0 7px #FFB703,0 0 14px 4px rgba(255,183,3,.45)}40%{box-shadow:0 0 0 3px #fff,0 0 0 7px #52B788,0 0 14px 4px rgba(82,183,136,.45)}60%{box-shadow:0 0 0 3px #fff,0 0 0 7px #4CC9F0,0 0 14px 4px rgba(76,201,240,.45)}80%{box-shadow:0 0 0 3px #fff,0 0 0 7px #7B2CBF,0 0 14px 4px rgba(123,44,191,.45)}}
+@keyframes frGlow{50%{box-shadow:0 0 0 3px #fff,0 0 0 6px #F6D77A,0 0 22px 7px rgba(233,185,73,.75)}}
+@keyframes frFire{50%{box-shadow:0 0 0 3px #fff,0 0 0 6px #FFB703,0 0 24px 8px rgba(255,80,20,.7)}}
+.pt-fr-grid{grid-template-columns:repeat(4,1fr)}
+.pt-fr{border:2px solid transparent;border-radius:14px;padding:.45rem .2rem;background:#F7F9FC;cursor:pointer;font:inherit;font-size:.74rem;font-weight:700;color:var(--ink);display:grid;justify-items:center;gap:.45rem}
+.pt-fr[aria-pressed="true"]{border-color:var(--acc,#16233A);background:#fff}
+.pt-fr .pt-fr-demo{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:#EEF2F7;font-size:1.2rem}
+.pt-fr.pt-lock{opacity:.7}.pt-fr small{font-size:.64rem}
+/* 🌈 الاسم الملوّن (بطاقة متجر) */
+.nm-glow{background:linear-gradient(90deg,#E63957,#E08A00,#119C8F,#6247E8,#E63957);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent!important;-webkit-text-fill-color:transparent;font-weight:900;animation:nmShift 4s linear infinite}
+html[data-nm-glow] #space-greeting{background:linear-gradient(90deg,#FFE066,#FFB3C6,#A0F0FF,#C8FFB0,#FFE066);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent!important;-webkit-text-fill-color:transparent;font-weight:900;animation:nmShift 4s linear infinite}
+@keyframes nmShift{to{background-position:200% 0}}
+@media (prefers-reduced-motion:reduce){.nm-glow,html[data-nm-glow] #space-greeting,html[data-pt-frame] .student-space-head .avatar,.pt-fr-demo{animation:none!important}}
 html[data-pt-theme] body{background-attachment:fixed}
 @media(hover:none){html[data-pt-theme] body{background-attachment:scroll}}
 /* البطاقات والأزرار والترويسة بلون الطالب */
@@ -4907,6 +4924,7 @@ function renderStudentMemoryDone(){
    وكان تحديث موضع واحد يترك الباقي بأرقام قديمة حتى تحديث الصفحة. */
 function syncBalanceUI(){
   const v = MYPTS;
+  try{ document.documentElement.toggleAttribute('data-nm-glow', !!(MYPERKS && MYPERKS.namecolor > 0)); }catch(e){}
   try{ const pb=$('pre-bal'); if(pb) pb.textContent = v + ' 📖'; }catch(e){}
   try{
     const gb=$('gate-bal'); const el=gb && gb.querySelector('.bal');
@@ -6194,6 +6212,7 @@ async function gateLoad(nm, opts){
 
       MYPTS = studentData.pts;
       MYPERKS = studentData.perks;
+      try{ document.documentElement.toggleAttribute('data-nm-glow', !!(MYPERKS && MYPERKS.namecolor > 0)); }catch(e){}
       MYTITLE = m.title || '';
 
       $('gate-bal').innerHTML = `
@@ -6242,7 +6261,7 @@ async function gateLoad(nm, opts){
             <div style="display:flex;gap:.5rem;align-items:center;padding:.28rem 0;
               ${r.name===nm?'font-weight:700;color:var(--tick)':''}">
               <span>${medal[i]||''}</span>
-              <span style="flex:1">${esc(r.name)}${r.title?` <span style="font-size:.88rem" title="لقب">${titleLabel(r.title)}</span>`:''}</span>
+              <span style="flex:1"><span class="${r.glow?'nm-glow':''}">${esc(r.name)}</span>${r.title?` <span style="font-size:.88rem" title="لقب">${titleLabel(r.title)}</span>`:''}</span>
               <span class="muted">${r.pts}${r.max?'<span style="opacity:.7">/'+r.max+'</span>':''}</span>
             </div>
           `).join('')}
@@ -7741,6 +7760,10 @@ const CARDS = [
     d:'خلفية ذهبية لامعة لصفحتك — لك دائمًا من «🎨 مظهري»' },
   { id:'theme_diamond', name:'مظهر ماسي حصري', price:250, ic:'💎', once:true,
     d:'خلفية ماسية متلألئة لصفحتك — لك دائمًا من «🎨 مظهري»' },
+  { id:'frame', name:'إطار الصورة', price:200, ic:'🖼️', once:true,
+    d:'إطار متحرك حول صورتك: ذهبي أو ناري أو قوس قزح — تختاره من «🎨 مظهري»' },
+  { id:'namecolor', name:'اسم ملوّن', price:300, ic:'🌈', once:true,
+    d:'اسمك بألوان لامعة في الصدارة ونتائج المسابقات وترحيب صفحتك' },
   { id:'theme_saudi', name:'مظهر اليوم الوطني ٩٦', price:250, ic:'🇸🇦', once:true,
     d:'أخضر بنقش السدو وشريط «اليوم الوطني السعودي ٩٦» — لك دائمًا من «🎨 مظهري»' },
   { id:'theme_spaceweek', name:'مظهر أسبوع الفضاء', price:250, ic:'🚀', once:true,
@@ -7937,7 +7960,7 @@ async function buyCard(btn, target){
     const r = await storeFetch(api + '/buy', { method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ name: String(myName || lockedName() || '').trim(), sid: mySid||'', card: id }) });
     const j = await r.json();
-    if(!j.ok){ toast(j.error==='low' ? 'رصيدك لا يكفي' : j.error==='owned' ? 'تملك هذا المظهر من قبل' : storeErrText(j, 'تعذّر إتمام الشراء — لم يُخصم شيء'),'bad'); MYPTS = j.pts ?? MYPTS; renderStore(target); return; }
+    if(!j.ok){ toast(j.error==='low' ? 'رصيدك لا يكفي' : j.error==='owned' ? 'تملك هذه البطاقة من قبل' : storeErrText(j, 'تعذّر إتمام الشراء — لم يُخصم شيء'),'bad'); MYPTS = j.pts ?? MYPTS; renderStore(target); return; }
     MYPTS = j.pts; MYPERKS = j.perks || MYPERKS;
     if(target==='pre-store'){
       await loadStore(true);
@@ -7961,6 +7984,8 @@ async function buyCard(btn, target){
       theme_gold: 'افتح «🎨 مظهري» واختر «ذهبي ✨» من الخلفيات.',
       theme_diamond: 'افتح «🎨 مظهري» واختر «ماسي 💎» من الخلفيات.',
       theme_saudi: 'افتح «🎨 مظهري» واختر «اليوم الوطني ٩٦» من الخلفيات.',
+      frame: 'افتح «🎨 مظهري» واختر إطارك من «🖼️ إطار الصورة».',
+      namecolor: 'صار اسمك ملوّنًا في الصدارة ونتائج المسابقات وترحيب صفحتك 🌈',
       theme_spaceweek: 'افتح «🎨 مظهري» واختر «أسبوع الفضاء» من الخلفيات.',
       early:  'افتح النشاط الذي سلّمته واضغط «مراجعة مبكرة».'
     };
@@ -8568,8 +8593,8 @@ function liveRender(extra){
     body = `<div class="live-res-wrap">
       <h2 style="text-align:center">🏁 النتائج النهائية</h2>${bossEnd}
       ${me ? `<div class="live-me">مركزك <b>${me.rank}</b> من ${B.length} · ${me.score} نقطة · ${me.correct} / ${s.results.n} صحيحة${me.prize ? `<br>🎁 <b>+${me.prize}</b> نقطة أُضيفت لرصيدك` : ''}</div>` : ''}
-      <div class="live-podium">${B.slice(0, 3).map((x, i) => `<div class="p${i + 1}${x.me ? ' me' : ''}"><span>${medal[i]}</span><b>${esc(x.name)}</b><small>${x.score} نقطة${x.prize ? ` · 🎁 ${x.prize}` : ''}</small></div>`).join('')}</div>
-      <ol class="live-board" start="4">${B.slice(3).map(x => `<li class="${x.me ? 'me' : ''}"><span>${esc(x.name)}</span><b>${x.score}</b></li>`).join('')}</ol>
+      <div class="live-podium">${B.slice(0, 3).map((x, i) => `<div class="p${i + 1}${x.me ? ' me' : ''}"><span>${medal[i]}</span><b class="${x.glow?'nm-glow':''}">${esc(x.name)}</b><small>${x.score} نقطة${x.prize ? ` · 🎁 ${x.prize}` : ''}</small></div>`).join('')}</div>
+      <ol class="live-board" start="4">${B.slice(3).map(x => `<li class="${x.me ? 'me' : ''}"><span class="${x.glow?'nm-glow':''}">${esc(x.name)}</span><b>${x.score}</b></li>`).join('')}</ol>
       ${liveNextPromo(g.id)}
       <button class="btn" style="width:100%;margin-top:.8rem" onclick="liveCloseRoom()">رجوع</button>
     </div>`;
@@ -8643,6 +8668,7 @@ const PT={
   TH:{classic:'كلاسيكي',aurora:'شفق',ocean:'محيط',meadow:'حديقة',sunset:'غروب',galaxy:'فضاء',lab:'دفتر المختبر',candy:'حلوى',saudi:'اليوم الوطني ٩٦',spaceweek:'أسبوع الفضاء',gold:'ذهبي ✨',diamond:'ماسي 💎'},
   CARDS:{soft:'ناعمة',glass:'زجاجية',outline:'محددة',bold:'بارزة'},
   BTN:{round:'مستديرة',pill:'كبسولة',sharp:'حادة',gradient:'متدرّجة'},
+  FRAME:{none:'بلا إطار',gold:'ذهبي',fire:'ناري',rainbow:'قوس قزح'},
   HEX:{navy:'#16233A',teal:'#0E8C8F',violet:'#6A47E8',rose:'#D63B72',orange:'#DD640C',emerald:'#11935A',sky:'#1976D2',gold:'#A97C08'}
 };
 const PT_LOCKED=['gold','diamond','saudi','spaceweek'];   // ✨ مظاهر حصرية: تُفتح بشرائها من المتجر
@@ -8655,7 +8681,7 @@ function ptClean(o){
   let av={t:'e',v:0};
   if(o.av&&o.av.t==='i'&&/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(String(o.av.v||''))&&String(o.av.v).length<=70000)av={t:'i',v:String(o.av.v)};
   else if(o.av&&o.av.t==='e'){const n=parseInt(o.av.v,10);if(n>=0&&n<PT.AV.length)av={t:'e',v:n}}
-  return {av,accent:pick(o.accent,PT.ACC,'navy'),theme:pick(o.theme,PT.TH,'classic'),cards:pick(o.cards,PT.CARDS,'soft'),btn:pick(o.btn,PT.BTN,'round')};
+  return {av,accent:pick(o.accent,PT.ACC,'navy'),theme:pick(o.theme,PT.TH,'classic'),cards:pick(o.cards,PT.CARDS,'soft'),btn:pick(o.btn,PT.BTN,'round'),frame:pick(o.frame,PT.FRAME,'none')};
 }
 function ptAvatarHTML(av){
   if(av&&av.t==='i'&&av.v)return `<img src="${av.v}" alt="صورتي">`;
@@ -8664,9 +8690,9 @@ function ptAvatarHTML(av){
 function ptApply(p){
   const r=document.documentElement;PT_CUR=p||null;
   const meta=document.querySelector('meta[name="theme-color"]');
-  if(!p){['pt','ptAccent','ptTheme','ptCards','ptBtn'].forEach(k=>delete r.dataset[k]);
+  if(!p){['pt','ptAccent','ptTheme','ptCards','ptBtn','ptFrame'].forEach(k=>delete r.dataset[k]);
     const a=document.querySelector('.student-space-head .avatar');if(a)a.textContent='🎓';if(meta)meta.content='#16233A';return}
-  r.dataset.pt='1';r.dataset.ptAccent=p.accent;r.dataset.ptTheme=p.theme;r.dataset.ptCards=p.cards;r.dataset.ptBtn=p.btn;
+  r.dataset.pt='1';r.dataset.ptAccent=p.accent;r.dataset.ptTheme=p.theme;r.dataset.ptCards=p.cards;r.dataset.ptBtn=p.btn;r.dataset.ptFrame=p.frame||'none';
   const a=document.querySelector('.student-space-head .avatar');if(a)a.innerHTML=ptAvatarHTML(p.av);
   if(meta)meta.content=p.theme==='galaxy'?'#0D1331':p.theme==='spaceweek'?'#0A1638':p.theme==='saudi'?'#00653A':p.theme==='gold'?'#7A5A00':p.theme==='diamond'?'#1E3A6E':(PT.HEX[p.accent]||'#16233A');
 }
@@ -8691,7 +8717,7 @@ function ptReset(){ptApply(null)}
 /* ── لوحة «إعداداتي» ── */
 function ptOpen(){
   if(document.getElementById('pt-ov'))return;
-  let d=JSON.parse(JSON.stringify(PT_CUR||PT_DEF));
+  let d=JSON.parse(JSON.stringify(PT_CUR||PT_DEF)); if(!d.frame) d.frame='none';
   const nm=String(myName||lockedName()||'').trim().split(/\s+/)[0]||'';
   const ov=document.createElement('div');ov.className='pt-overlay';ov.id='pt-ov';
   ov.innerHTML=`<div class="pt-panel" role="dialog" aria-modal="true" aria-labelledby="pt-title" tabindex="-1">
@@ -8707,6 +8733,8 @@ function ptOpen(){
         <section class="pt-sec"><h3>🧑‍🎓 صورتي الرمزية</h3><p class="pt-hint">اختر رمزًا أو ارفع صورة. الصورة تظهر لك فقط.</p>
           <div class="pt-grid pt-av-grid" id="pt-avs">${PT.AV.map((e,i)=>`<button type="button" class="pt-av-opt" data-av="${i}" aria-label="رمز ${i+1}">${e}</button>`).join('')}</div>
           <div class="pt-up"><label>📷 رفع صورة<input type="file" id="pt-file" accept="image/*" hidden></label><span id="pt-upnote" class="muted" style="font-size:.76rem;align-self:center"></span></div></section>
+        <section class="pt-sec"><h3>🖼️ إطار الصورة</h3><p class="pt-hint">${MYPERKS.frame>0?'إطار متحرك حول صورتك الرمزية.':'🔒 يُفتح ببطاقة «إطار الصورة» من المتجر.'}</p>
+          <div class="pt-grid pt-fr-grid">${Object.entries(PT.FRAME).map(([k,t])=>{ const lock=k!=='none'&&!(MYPERKS.frame>0); return `<button type="button" class="pt-fr${lock?' pt-lock':''}" data-v="${k}" ${lock?'data-lockf="1"':'data-g="frame"'}><span class="pt-av pt-fr-demo" data-fr="${k}">🙂</span>${t}${lock?'<small>🔒</small>':''}</button>`; }).join('')}</div></section>
         <section class="pt-sec"><h3>🎨 اللون الأساسي</h3><p class="pt-hint">لون الأزرار والترويسة وشريط التقدم.</p>
           <div class="pt-grid pt-sw-grid">${Object.entries(PT.ACC).map(([k,t])=>`<button type="button" class="pt-sw" data-v="${k}" data-g="accent"><i></i>${t}</button>`).join('')}</div></section>
         <section class="pt-sec"><h3>🖼️ الثيم والخلفية</h3><p class="pt-hint">خلفية بوابتك كلها.</p>
@@ -8724,7 +8752,7 @@ function ptOpen(){
   const panel=ov.querySelector('.pt-panel');
   const sync=()=>{
     const pv=document.getElementById('pt-pv');
-    Object.assign(pv.dataset,{ptAccent:d.accent,ptTheme:d.theme,ptCards:d.cards,ptBtn:d.btn});
+    Object.assign(pv.dataset,{ptAccent:d.accent,ptTheme:d.theme,ptCards:d.cards,ptBtn:d.btn,ptFrame:d.frame||'none'});
     panel.dataset.ptAccent=d.accent;
     document.getElementById('pv-av').innerHTML=ptAvatarHTML(d.av);
     ov.querySelectorAll('[data-g]').forEach(b=>b.setAttribute('aria-pressed',String(d[b.dataset.g]===b.dataset.v)));
@@ -8732,6 +8760,7 @@ function ptOpen(){
   };
   ov.querySelectorAll('[data-g]').forEach(b=>b.onclick=()=>{d[b.dataset.g]=b.dataset.v;sync()});
   ov.querySelectorAll('[data-lock]').forEach(b=>b.onclick=()=>toast('✨ مظهر حصري — اشترِه من «متجر النشاطات» ثم اختره هنا'));
+  ov.querySelectorAll('[data-lockf]').forEach(b=>b.onclick=()=>toast('🖼️ الإطارات تُفتح ببطاقة «إطار الصورة» من «متجر النشاطات»'));
   ov.querySelectorAll('[data-av]').forEach(b=>b.onclick=()=>{d.av={t:'e',v:+b.dataset.av};document.getElementById('pt-upnote').textContent='';sync()});
   document.getElementById('pt-file').onchange=e=>{
     const f=e.target.files&&e.target.files[0];if(!f)return;const note=document.getElementById('pt-upnote');
