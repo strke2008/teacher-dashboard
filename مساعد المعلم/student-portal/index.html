@@ -1315,6 +1315,8 @@ html[data-pt] body,html[data-pt] .sheet,html[data-pt] .btn,html[data-pt] .studen
 .sp-head-btns{display:flex;flex-direction:column;gap:.3rem;flex:none}
 .sp-head-btns .pt-gear{white-space:nowrap}
 #s-gate>.sheet:has(#gate-known:not(.hide)) #gate-title,#s-gate>.sheet:has(#gate-known:not(.hide)) #gate-sub{display:none}
+
+.live-min{background:#FFF6E3;color:#8A5A00;border-radius:10px;padding:.45rem .7rem;font-size:.85rem;font-weight:700}
 </style>
 <style>
 .exam-date-line{display:inline-block;margin-top:.35rem;font-weight:900}
@@ -8496,13 +8498,14 @@ function liveRender(extra){
   const ph = s.phase || {}, g = s.game || {};
   let body = '';
   if(ph.status === 'CANCELLED'){
-    body = `<div class="live-center"><div class="live-big">🚫</div><h2>أُلغيت المسابقة</h2><p class="muted">${g.fee ? `أُعيدت رسوم الدخول (${g.fee} نقطة) إلى رصيدك.` : ''}</p><button class="btn" onclick="liveCloseRoom()">رجوع</button></div>`;
+    body = `<div class="live-center"><div class="live-big">🚫</div><h2>أُلغيت المسابقة</h2>${g.cancelReason === 'min' ? `<p>لم يكتمل العدد المطلوب للبدء (${g.minPlayers} طلاب على الأقل).</p>` : ''}<p class="muted">${g.fee ? `أُعيدت رسوم الدخول (${g.fee} نقطة) إلى رصيدك.` : ''}</p><button class="btn" onclick="liveCloseRoom()">رجوع</button></div>`;
   } else if(ph.status === 'REGISTRATION' || ph.status === 'WAITING' || ph.status === 'SCHEDULED'){
     body = `<div class="live-center">
       ${s.joined ? `<div class="live-ok">✅ تم تسجيلك${g.fee ? ` · 💰 خُصم ${g.fee} نقطة` : ''}</div>` : ''}
       <p class="muted">⏳ تبدأ المسابقة بعد</p>
       <div class="live-count" data-live-to="${g.startAt}"></div>
       <p><b>👥 ${s.players}${g.maxPlayers ? ` / ${g.maxPlayers}` : ''}</b> لاعبًا · ${g.n} ${g.n > 10 ? 'سؤالًا' : 'أسئلة'}</p>
+      ${g.minPlayers && s.players < g.minPlayers && ph.status !== 'SCHEDULED' ? `<p class="live-min">👥 ينقصنا <b>${g.minPlayers - s.players === 1 ? 'لاعب واحد' : g.minPlayers - s.players === 2 ? 'لاعبان' : (g.minPlayers - s.players) + ' لاعبين'}</b> لتبدأ المسابقة — ادعُ زملاءك!${g.extends ? ' (مُدّد التسجيل)' : ''}</p>` : ''}
       <div class="live-roster">${(s.roster || []).map(p => `<span class="${p.online ? 'on' : ''}">${p.online ? '🟢' : '🟡'} ${esc(p.name)}</span>`).join('')}</div>
     </div>`;
   } else if(ph.status === 'LIVE' && !s.joined){

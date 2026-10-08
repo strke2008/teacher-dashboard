@@ -56,6 +56,9 @@
 .proj-badge{position:absolute;top:2px;inset-inline-end:2px;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:#D6455B;color:#fff;font-size:.68rem;font-weight:900;line-height:18px;text-align:center;box-shadow:0 0 0 2px #fff;pointer-events:none}
 .proj-badge-in{margin-inline-start:.5rem;display:inline-block;min-width:22px;height:22px;padding:0 7px;border-radius:999px;background:#D6455B;color:#fff;font-size:.75rem;font-weight:900;line-height:22px;text-align:center}
 .proj-badge-in.hide{display:none}
+
+.lv-min{border-radius:10px;padding:.5rem .7rem;font-size:.84rem;font-weight:700;margin:0 0 .6rem;line-height:1.6}
+.lv-min.warn{background:#FFF6E3;color:#8A5A00}.lv-min.ok{background:#E8F6F0;color:#137A53}.lv-min.bad{background:#FDF0F2;color:#B23346}
 </style>
 <style>
 :root{
@@ -23609,6 +23612,17 @@ async function lvPost(path, body){
 const lvNow = () => Date.now() + LVT.off;
 function lvWhen(ms){ try{ return new Date(ms).toLocaleString('ar-SA-u-ca-gregory-nu-latn', { weekday: 'long', day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit' }); }catch(e){ return new Date(ms).toISOString(); } }
 function lvLeft(ms){ const s = Math.max(0, Math.round(ms / 1000)), h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); return h ? `${h} س ${m} د` : m ? `${m}:${String(s % 60).padStart(2, '0')}` : `${s} ث`; }
+/* 👥 حالة الحد الأدنى في المراقبة: كم ينقص، وماذا سيحدث عند الإغلاق، أو لماذا أُلغيت */
+function lvMinNote(g, ph, n){
+  if(!g.minPlayers) return '';
+  if(ph.status === 'CANCELLED' && g.cancelReason === 'min') return `<div class="lv-min bad">🚫 أُلغيت تلقائيًا لعدم اكتمال العدد (الحد الأدنى ${g.minPlayers})${g.fee ? ' — أُعيدت الرسوم للطلاب' : ''}</div>`;
+  if(!['SCHEDULED','REGISTRATION','WAITING'].includes(ph.status)) return '';
+  const short = g.minPlayers - n, ext = g.extends ? ` · مُدّد التسجيل ${g.extends === 1 ? 'مرة' : g.extends + ' مرات'}` : '';
+  if(short <= 0) return `<div class="lv-min ok">✅ اكتمل الحد الأدنى (${n} من ${g.minPlayers})${ext}</div>`;
+  const left = (g.maxExtends ?? 2) - (g.extends || 0);
+  const what = g.minAction === 'cancel' || left <= 0 ? '🚫 ستُلغى وتُعاد الرسوم' : `⏳ سيُمدّد التسجيل 5 دقائق (متبقٍ ${left} ${left === 1 ? 'تمديد' : 'تمديدات'})`;
+  return `<div class="lv-min warn">👥 ينقص ${short === 1 ? 'طالب واحد' : short === 2 ? 'طالبان' : short + ' طلاب'} للحد الأدنى (${n} من ${g.minPlayers})${ext} — إن لم يكتمل عند إغلاق التسجيل: ${what}</div>`;
+}
 function lvChip(st){ const x = LV_ST[st] || ['•', st]; return `<span class="lv-chip lv-${String(st).toLowerCase()}">${x[0]} ${x[1]}</span>`; }
 const LV_ERR = { no_questions: 'لا أسئلة صالحة', start_in_past: 'وقت البداية يجب أن يكون بعد دقيقة على الأقل', bad_registration_window: 'فترة التسجيل غير صحيحة', already_started: 'بدأت المسابقة — لا يمكن إلغاؤها', unauthorized: 'كلمة السر غير صحيحة', setup_db: 'قاعدة البيانات (D1) غير مربوطة بالخادم' };
 
@@ -23659,7 +23673,7 @@ function lvDefaultStart(){
 }
 /* 💾 آخر إعدادات مسابقة: تُحفظ عند كل إنشاء ناجح وتُعبّأ في التالية (عدا الموعد ومصدر الأسئلة) */
 const LV_PREFS_KEY = 'lv_create_prefs_v1';
-const LV_PREF_FIELDS = ['lv-title','lv-regopen','lv-regclose','lv-n','lv-qsec','lv-fee','lv-max','lv-p1','lv-p2','lv-p3','lv-smax','lv-smin','lv-rsec','lv-skin'];
+const LV_PREF_FIELDS = ['lv-title','lv-regopen','lv-regclose','lv-n','lv-qsec','lv-fee','lv-max','lv-min','lv-minact','lv-p1','lv-p2','lv-p3','lv-smax','lv-smin','lv-rsec','lv-skin'];
 const LV_PREF_CHECKS = ['lv-notify','lv-shuffle'];
 function lvPrefs(){ try{ return JSON.parse(localStorage.getItem(LV_PREFS_KEY) || 'null'); }catch(e){ return null; } }
 function lvSavePrefs(){
@@ -23695,7 +23709,12 @@ function openLiveCreate(){
       <div class="field"><label>ثوانٍ لكل سؤال</label><input class="inp" type="number" id="lv-qsec" value="20" min="5" max="120"></div>
       <div class="field"><label>رسوم الدخول (نقطة)</label><input class="inp" type="number" id="lv-fee" value="50" min="0" max="10000"></div>
       <div class="field"><label>الحد الأقصى للاعبين (0 = بلا حد)</label><input class="inp" type="number" id="lv-max" value="0" min="0" max="500"></div>
+      <div class="field"><label>👥 الحد الأدنى للطلاب (0 = بلا حد)</label><input class="inp" type="number" id="lv-min" value="3" min="0" max="50"></div>
+      <div class="field"><label>إن لم يكتمل العدد عند إغلاق التسجيل</label><select class="inp" id="lv-minact">
+        <option value="extend">⏳ مدّد التسجيل ثم ألغِ</option>
+        <option value="cancel">🚫 ألغِ وأرجع الرسوم</option></select></div>
     </div>
+    <p class="muted" style="font-size:.76rem;margin:-.3rem 0 .7rem">«مدّد التسجيل»: يُمدّد 5 دقائق حتى مرتين ويُنبَّه الطلاب، ثم تُلغى إن لم يكتمل العدد. عند الإلغاء تُعاد رسوم الدخول تلقائيًا.</p>
     <div class="field"><label>🎁 الجوائز من رصيد المتجر</label><div class="lv-prizes">
       <span>🥇 <input class="inp" type="number" id="lv-p1" value="150" min="0" max="10000"></span><span>🥈 <input class="inp" type="number" id="lv-p2" value="100" min="0" max="10000"></span><span>🥉 <input class="inp" type="number" id="lv-p3" value="50" min="0" max="10000"></span></div></div>
     <label class="lv-shuf" style="margin:.1rem 0 .7rem"><input type="checkbox" id="lv-notify" checked> 🔔 إشعار الطلاب تلقائيًا: عند فتح التسجيل، وقبل إغلاقه بـ5 دقائق لمن لم يسجّل، وقبل البداية بدقيقة للمسجّلين</label>
@@ -23738,6 +23757,7 @@ async function lvCreate(){
   const { clsList, cls } = hwClsPickerRead('lv-cls');
   const payload = { title: String(v('lv-title') || 'مسابقة').trim(), classes: clsList.length ? clsList : (cls ? [cls] : []), questions: qs,
     fee: num('lv-fee', 0), prizes: [num('lv-p1', 0), num('lv-p2', 0), num('lv-p3', 0)], maxPlayers: num('lv-max', 0),
+    minPlayers: Math.max(0, num('lv-min', 0)), minAction: v('lv-minact') === 'cancel' ? 'cancel' : 'extend',
     qSec: num('lv-qsec', 20), revealSec: num('lv-rsec', 4), scoring: { max: num('lv-smax', 100), min: num('lv-smin', 70) },
     regOpen, regClose, startAt, skin: v('lv-skin') || 'classic', notify: !!document.getElementById('lv-notify')?.checked, source: ids.map(id => (HW.find(h => String(h.id) === id) || {}).title).filter(Boolean).join('، ').slice(0, 120) };
   const go = document.getElementById('lv-go'); go.disabled = true; go.textContent = 'جارٍ الإنشاء…';
@@ -23859,8 +23879,9 @@ async function lvMonRefresh(){
   const openState = [...box.querySelectorAll('details')].map(d => d.open);        // لا تنطوي القوائم مع كل تحديث
   box.innerHTML = `<div class="lv-mon-h"><h2>🎮 ${esc(g.title)}</h2>${lvChip(ph.status)}</div>
     <p class="muted" style="margin:.1rem 0 .7rem">${lvWhen(g.startAt)} · ${g.n} ${g.n > 10 ? 'سؤالًا' : 'أسئلة'} · ${g.fee ? g.fee + ' نقطة' : 'مجانية'}${next ? ` · ${next[0]} <b>${lvLeft(next[1] - now)}</b>` : ''}</p>
+    ${lvMinNote(g, ph, P.length)}
     <div class="lv-kpis">
-      <div><b>${P.length}${g.maxPlayers ? '/' + g.maxPlayers : ''}</b><small>👥 المشاركون</small></div>
+      <div><b>${P.length}${g.maxPlayers ? '/' + g.maxPlayers : ''}</b><small>👥 المشاركون${g.minPlayers ? ` · الحد الأدنى ${g.minPlayers}` : ''}</small></div>
       <div><b>${j.paid}</b><small>💰 دفعوا</small></div>
       <div><b>${on}</b><small>🟢 متصل</small></div>
       <div><b>${off}</b><small>🟡 منقطع</small></div>

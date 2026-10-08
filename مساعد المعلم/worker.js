@@ -3640,16 +3640,21 @@ function livePhase(g, now) {
   const t = now - g.start_at, q = Math.floor(t / slot), qStart = g.start_at + q * slot;
   return { status: 'LIVE', q, phase: (t % slot) < g.q_ms ? 'question' : 'reveal', qStart, qEnd: qStart + g.q_ms, nextAt: qStart + slot, endAt };
 }
-async function liveGame(env, id) {
+async function liveGameRaw(env, id) {
   const g = await env.DB.prepare('SELECT * FROM live_games WHERE id = ?1').bind(String(id || '').slice(0, 40)).first();
   if (!g) return null;
   try { g.cfgObj = JSON.parse(g.cfg); } catch { g.cfgObj = { questions: [] }; }
   return g;
 }
+async function liveGame(env, id) {
+  const g = await liveGameRaw(env, id);
+  try { return await liveMinCheck(env, g, Date.now()); } catch { return g; }
+}
 function livePublic(g, now) {
   const ph = livePhase(g, now), c = g.cfgObj || {};
   return { id: g.id, title: g.title, fee: g.fee, prizes: c.prizes || [], classes: c.classes || [], regOpen: g.reg_open, regClose: g.reg_close,
-    startAt: g.start_at, qMs: g.q_ms, revealMs: g.reveal_ms, n: g.n, maxPlayers: g.max_players, status: ph.status, endAt: ph.endAt, skin: c.skin || 'classic' };
+    startAt: g.start_at, qMs: g.q_ms, revealMs: g.reveal_ms, n: g.n, maxPlayers: g.max_players, status: ph.status, endAt: ph.endAt, skin: c.skin || 'classic',
+    minPlayers: c.minPlayers || 0, minAction: c.minAction || 'extend', extends: c.extends || 0, maxExtends: c.maxExtends ?? 2, cancelReason: c.cancelReason || '' };
 }
 const liveAllowed = (g, cls) => { const l = (g.cfgObj && g.cfgObj.classes) || []; return !l.length || l.includes(String(cls || '')); };
 async function liveBal(env, st) { const f = await readByIdentity(env, 'bal:', st); return parseInt(f.value, 10) || 0; }
@@ -3731,6 +3736,64 @@ async function liveSend(env, ctx, g, kind, sids, msg, eventId) {
   await env.HW.put(`livenotifylog:${g.id}`, JSON.stringify(log.slice(-20)), { expirationTtl: 60 * 60 * 24 * 30 });
   return { targets: sids.size, devices: subs.length, delivered };
 }
+/* 💸 استرداد الرسوم على دفعات (حد الاستعلامات) — يُستدعى من الإلغاء اليدوي والتلقائي ومن المؤقّت لما تبقى */
+async function liveRefundChunk(env, g) {
+  const due = (await env.DB.prepare("SELECT f.sid, f.amount FROM live_ledger f WHERE f.game = ?1 AND f.kind = 'fee' AND NOT EXISTS (SELECT 1 FROM live_ledger r WHERE r.game = f.game AND r.sid = f.sid AND r.kind = 'refund') LIMIT ?2").bind(g.id, LIVE_REFUND_CHUNK).all()).results || [];
+  let refunded = 0;
+  for (const f of due) {
+    const st = await resolveStudent(env, { id: f.sid }); if (!st.known) continue;
+    const out = await studentLocked(env, st, async () => {
+      const ins = await env.DB.prepare("INSERT INTO live_ledger (tx, game, sid, kind, amount, at, reason) VALUES (?1, ?2, ?3, 'refund', ?4, ?5, ?6) ON CONFLICT DO NOTHING RETURNING tx")
+        .bind(crypto.randomUUID(), g.id, st.id, f.amount, Date.now(), `استرداد رسوم — إلغاء ${g.title}`).first();
+      if (!ins) return { already: true };
+      await liveSetBal(env, st, (await liveBal(env, st)) + f.amount);
+      return { ok: true };
+    });
+    if (out && out.ok) refunded++;
+  }
+  const remaining = ((await env.DB.prepare("SELECT COUNT(*) AS n FROM live_ledger f WHERE f.game = ?1 AND f.kind = 'fee' AND NOT EXISTS (SELECT 1 FROM live_ledger r WHERE r.game = f.game AND r.sid = f.sid AND r.kind = 'refund')").bind(g.id).first()) || {}).n || 0;
+  return { refunded, remaining };
+}
+/* 👥 الحد الأدنى للاعبين: عند إغلاق التسجيل — يكفي العدد؟ تبدأ. لا يكفي؟ تمديد (حتى maxExtends) ثم إلغاء واسترداد.
+   يُستدعى من المؤقّت ومن كل طلب يخص المسابقة (فلا ينتظر الدقيقة التالية). التحديث مشروط بالقيم القديمة فلا يتكرر. */
+let LIVE_CTX = null;
+async function liveMinCheck(env, g, now) {
+  const c = g && g.cfgObj || {};
+  if (!g || g.status !== 'SCHEDULED' || !(c.minPlayers > 0) || c.minOk || now < g.reg_close || now >= g.start_at + 60000) return g;
+  const n = ((await env.DB.prepare('SELECT COUNT(*) AS n FROM live_players WHERE game = ?1').bind(g.id).first()) || {}).n || 0;
+  const ctx = LIVE_CTX || { waitUntil() {} };
+  if (n >= c.minPlayers) {
+    await env.DB.prepare('UPDATE live_games SET cfg = ?2 WHERE id = ?1 AND cfg = ?3').bind(g.id, JSON.stringify({ ...c, minOk: true }), g.cfg).run();
+    return (await liveGameRaw(env, g.id)) || g;
+  }
+  const short = c.minPlayers - n;
+  if (c.minAction !== 'cancel' && (c.extends || 0) < (c.maxExtends ?? 2)) {
+    const newClose = now + (c.extendMin || 5) * 60000, delta = newClose - g.reg_close;
+    const nc = { ...c, extends: (c.extends || 0) + 1 };
+    const r = await env.DB.prepare('UPDATE live_games SET reg_close = ?2, start_at = start_at + ?3, cfg = ?4 WHERE id = ?1 AND reg_close = ?5 AND cfg = ?6')
+      .bind(g.id, newClose, delta, JSON.stringify(nc), g.reg_close, g.cfg).run();
+    const g2 = (await liveGameRaw(env, g.id)) || g;
+    if (r && r.meta && r.meta.changes && c.notify !== false) {
+      try {
+        const elig = await liveEligible(env, g2), joined = await liveJoinedSet(env, g2);
+        ctx.waitUntil(liveSend(env, ctx, g2, `extend${nc.extends}`, new Set(elig.filter(x => !joined.has(x))), liveMsg(g2, `⏳ مُدّد التسجيل: ${g2.title}`, `ينقصنا ${short === 1 ? 'طالب واحد' : short === 2 ? 'طالبان' : short + ' طلاب'} لتبدأ — سجّل الآن · تبدأ ${liveClockKSA(g2.start_at)}`), `live:${g.id}:ext${nc.extends}`).catch(() => {}));
+        ctx.waitUntil(liveSend(env, ctx, g2, `extendj${nc.extends}`, joined, liveMsg(g2, `⏳ تأجّلت البداية: ${g2.title}`, `بانتظار اكتمال العدد · تبدأ ${liveClockKSA(g2.start_at)}`), `live:${g.id}:extj${nc.extends}`).catch(() => {}));
+      } catch {}
+    }
+    return g2;
+  }
+  // إلغاء لعدم اكتمال العدد + استرداد الرسوم
+  const nc = { ...c, cancelReason: 'min', cancelPlayers: n };
+  const r = await env.DB.prepare("UPDATE live_games SET status = 'CANCELLED', cancelled_at = ?2, cfg = ?3 WHERE id = ?1 AND status = 'SCHEDULED' AND cfg = ?4").bind(g.id, now, JSON.stringify(nc), g.cfg).run();
+  const g2 = (await liveGameRaw(env, g.id)) || g;
+  if (r && r.meta && r.meta.changes) {
+    try { await liveRefundChunk(env, g2); } catch {}
+    try { const rev = parseInt(await env.HW.get('meta:rev'), 10) || 0; await env.HW.put('meta:rev', String(rev + 1)); } catch {}
+    if (c.notify !== false) { try { const joined = await liveJoinedSet(env, g2);
+      ctx.waitUntil(liveSend(env, ctx, g2, 'cancelmin', joined, liveMsg(g2, `🚫 أُلغيت: ${g2.title}`, `لم يكتمل العدد (${n} من ${c.minPlayers})${g2.fee ? ' — أُعيدت رسومك إلى رصيدك' : ''}`), `live:${g.id}:cancelmin`).catch(() => {})); } catch {} }
+  }
+  return g2;
+}
 function liveMsg(g, title, body) { return { title, body, tag: `live-${g.id}`, data: { type: 'live', url: `./?live=${encodeURIComponent(g.id)}` } }; }
 async function liveNotifyTick(env, ctx, now) {
   const rows = (await env.DB.prepare("SELECT * FROM live_games WHERE status = 'SCHEDULED' AND reg_open <= ?1 AND start_at > ?1 - 5000 ORDER BY start_at LIMIT 5").bind(now).all()).results || [];
@@ -3758,13 +3821,21 @@ async function liveTick(env, ctx) {
   if (!env.DB) return;
   await liveReady(env);
   const now = Date.now();
+  LIVE_CTX = ctx;
   try { await liveNotifyTick(env, ctx, now); } catch {}
+  try {
+    const chk = (await env.DB.prepare("SELECT id FROM live_games WHERE status = 'SCHEDULED' AND reg_close <= ?1 AND start_at + 60000 > ?1 AND cfg LIKE '%\"minPlayers\":%' AND cfg NOT LIKE '%\"minOk\":true%' LIMIT 5").bind(now).all()).results || [];
+    for (const { id } of chk) await liveGame(env, id);
+    const cxl = (await env.DB.prepare("SELECT DISTINCT f.game AS id FROM live_ledger f JOIN live_games g ON g.id = f.game WHERE g.status = 'CANCELLED' AND f.kind = 'fee' AND NOT EXISTS (SELECT 1 FROM live_ledger r WHERE r.game = f.game AND r.sid = f.sid AND r.kind = 'refund') LIMIT 3").all()).results || [];
+    for (const { id } of cxl) { const g = await liveGameRaw(env, id); if (g) await liveRefundChunk(env, g); }
+  } catch {}
   const due = (await env.DB.prepare("SELECT id FROM live_games WHERE status = 'SCHEDULED' AND results IS NULL AND start_at + n * (q_ms + reveal_ms) <= ?1 LIMIT 3").bind(now).all()).results || [];
   for (const { id } of due) { const g = await liveGame(env, id); const res = await liveFinalize(env, g, now); if (res) await livePayPrizes(env, g, res); }
 }
 async function handleLive(url, request, env, ctx) {
   if (!env.DB) return json({ ok: false, error: 'setup_db' }, 503);
   await liveReady(env);
+  LIVE_CTX = ctx;
   const P = url.pathname, now = Date.now();
   let b = {}; if (request.method === 'POST') { try { b = await request.json(); } catch { return json({ ok: false, error: 'bad json' }, 400); } }
   const isTeacher = !!env.TEACHER_TOKEN && b.t === env.TEACHER_TOKEN;
@@ -3784,7 +3855,10 @@ async function handleLive(url, request, env, ctx) {
     const maxPts = clampInt(b.scoring && b.scoring.max, 1, 1000, 100), minPts = clampInt(b.scoring && b.scoring.min, 0, maxPts, Math.round(maxPts * 0.7));
     const cfg = { questions: qs, classes: (Array.isArray(b.classes) ? b.classes : []).map(String).filter(Boolean).slice(0, 30),
       prizes: (Array.isArray(b.prizes) ? b.prizes : []).slice(0, 10).map(x => clampInt(x, 0, 10000, 0)), scoring: { max: maxPts, min: minPts }, source: String(b.source || '').slice(0, 120),
-      skin: LIVE_SKINS.includes(String(b.skin)) ? String(b.skin) : 'classic', notify: b.notify !== false };
+      skin: LIVE_SKINS.includes(String(b.skin)) ? String(b.skin) : 'classic', notify: b.notify !== false,
+      // 👥 حد أدنى للاعبين: يُفحص عند إغلاق التسجيل — تمديد (حتى مرتين) أو إلغاء مع استرداد الرسوم
+      minPlayers: clampInt(b.minPlayers, 0, 50, 0), minAction: b.minAction === 'cancel' ? 'cancel' : 'extend',
+      extendMin: clampInt(b.extendMin, 1, 30, 5), maxExtends: clampInt(b.maxExtends, 0, 5, 2), extends: 0 };
     const id = 'lg' + now.toString(36) + Math.random().toString(36).slice(2, 7);
     await env.DB.prepare('INSERT INTO live_games (id, title, cfg, status, reg_open, reg_close, start_at, q_ms, reveal_ms, n, fee, max_players, created_at) VALUES (?1, ?2, ?3, \'SCHEDULED\', ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)')
       .bind(id, String(b.title || 'مسابقة').slice(0, 80), JSON.stringify(cfg), regOpen, regClose, startAt, qMs, revealMs, qs.length, clampInt(b.fee, 0, 10000, 0), clampInt(b.maxPlayers, 0, 500, 0), now).run();
@@ -3793,6 +3867,10 @@ async function handleLive(url, request, env, ctx) {
   if (P === '/live/list' && request.method === 'POST') {
     if (!isTeacher) return json({ ok: false, error: 'unauthorized' }, 401);
     const rows = (await env.DB.prepare('SELECT g.*, (SELECT COUNT(*) FROM live_players p WHERE p.game = g.id) AS players FROM live_games g WHERE g.status <> \'DELETED\' ORDER BY g.start_at DESC LIMIT 20').all()).results || [];
+    // 👥 فحص الحد الأدنى لما أُغلق تسجيله ولم يُحسم (تمديد/إلغاء) — فتعرض القائمة الحالة الصحيحة
+    for (let i = 0; i < rows.length; i++) { const r = rows[i];
+      if (r.status === 'SCHEDULED' && now >= r.reg_close && now < r.start_at + 60000 && /"minPlayers":[1-9]/.test(r.cfg || '') && !/"minOk":true/.test(r.cfg || '')) {
+        const g2 = await liveGame(env, r.id); if (g2) { g2.players = r.players; rows[i] = g2; } } }
     return json({ ok: true, now, games: rows.map(g => { try { g.cfgObj = JSON.parse(g.cfg); } catch { g.cfgObj = {}; } return { ...livePublic(g, now), players: g.players, source: g.cfgObj.source || '' }; }) });
   }
   if (P === '/live/monitor' && request.method === 'POST') {
@@ -3852,20 +3930,7 @@ async function handleLive(url, request, env, ctx) {
     if (ph.status === 'LIVE' || ph.status === 'FINISHED') return json({ ok: false, error: 'already_started' }, 409);
     await env.DB.prepare("UPDATE live_games SET status = 'CANCELLED', cancelled_at = ?2 WHERE id = ?1 AND status <> 'CANCELLED'").bind(g.id, now).run();
     // الاسترداد: لكل رسوم بلا استرداد — القيد يمنع تكراره مهما تكرر الإلغاء
-    const due = (await env.DB.prepare("SELECT f.sid, f.amount FROM live_ledger f WHERE f.game = ?1 AND f.kind = 'fee' AND NOT EXISTS (SELECT 1 FROM live_ledger r WHERE r.game = f.game AND r.sid = f.sid AND r.kind = 'refund') LIMIT ?2").bind(g.id, LIVE_REFUND_CHUNK).all()).results || [];
-    let refunded = 0;
-    for (const f of due) {
-      const st = await resolveStudent(env, { id: f.sid }); if (!st.known) continue;
-      const out = await studentLocked(env, st, async () => {
-        const ins = await env.DB.prepare("INSERT INTO live_ledger (tx, game, sid, kind, amount, at, reason) VALUES (?1, ?2, ?3, 'refund', ?4, ?5, ?6) ON CONFLICT DO NOTHING RETURNING tx")
-          .bind(crypto.randomUUID(), g.id, st.id, f.amount, Date.now(), `استرداد رسوم — إلغاء ${g.title}`).first();
-        if (!ins) return { already: true };
-        await liveSetBal(env, st, (await liveBal(env, st)) + f.amount);
-        return { ok: true };
-      });
-      if (out && out.ok) refunded++;
-    }
-    const remaining = ((await env.DB.prepare("SELECT COUNT(*) AS n FROM live_ledger f WHERE f.game = ?1 AND f.kind = 'fee' AND NOT EXISTS (SELECT 1 FROM live_ledger r WHERE r.game = f.game AND r.sid = f.sid AND r.kind = 'refund')").bind(g.id).first()) || {}).n || 0;
+    const { refunded, remaining } = await liveRefundChunk(env, g);
     try { const rev = parseInt(await env.HW.get('meta:rev'), 10) || 0; await env.HW.put('meta:rev', String(rev + 1)); } catch {}
     return json({ ok: true, refunded, remaining });
   }
@@ -3874,8 +3939,12 @@ async function handleLive(url, request, env, ctx) {
   if (P === '/live/open') {
     const st = await resolveStudent(env, { id: String(url.searchParams.get('sid') || b.sid || '').slice(0, 80) });
     const rows = (await env.DB.prepare("SELECT g.*, (SELECT COUNT(*) FROM live_players p WHERE p.game = g.id) AS players FROM live_games g WHERE g.status = 'SCHEDULED' AND g.reg_open <= ?1 AND g.start_at + g.n * (g.q_ms + g.reveal_ms) + 1800000 > ?1 ORDER BY g.start_at LIMIT 5").bind(now).all()).results || [];
-    const games = rows.map(g => { try { g.cfgObj = JSON.parse(g.cfg); } catch { g.cfgObj = {}; } return g; })
-      .filter(g => st.known && liveAllowed(g, st.cls)).map(g => ({ ...livePublic(g, now), players: g.players }));
+    let games = rows.map(g => { try { g.cfgObj = JSON.parse(g.cfg); } catch { g.cfgObj = {}; } return g; })
+      .filter(g => st.known && liveAllowed(g, st.cls));
+    // 👥 فحص الحد الأدنى لما أُغلق تسجيله (تمديد/إلغاء) قبل عرضه
+    games = await Promise.all(games.map(async g => { if (!(g.cfgObj.minPlayers > 0) || g.cfgObj.minOk || now < g.reg_close) return g;
+      const g2 = await liveGame(env, g.id); if (g2) g2.players = g.players; return g2 || g; }));
+    games = games.filter(g => g && g.status === 'SCHEDULED').map(g => ({ ...livePublic(g, now), players: g.players }));
     return json({ ok: true, now, games });
   }
 
