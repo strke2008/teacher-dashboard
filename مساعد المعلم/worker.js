@@ -269,7 +269,7 @@ function cleanStudentPrefs(o) {
     out.av = { t: 'i', v };
   } else {
     const n = parseInt(av.v, 10);
-    out.av = { t: 'e', v: Number.isInteger(n) && n >= 0 && n < 18 ? n : 0 };
+    out.av = { t: 'e', v: Number.isInteger(n) && n >= 0 && n < 30 ? n : 0 };   // 18–29: رموز حصرية من المتجر
   }
   const fr = String(o.frame || 'none'); out.frame = ['none', 'gold', 'fire', 'rainbow'].includes(fr) ? fr : 'none';
   return out;
@@ -394,6 +394,30 @@ async function overlayExamBonuses(env, data) {
     } catch {}
   });
   return data;
+}
+/* 🏅 شهادة شكر وتقدير من المتجر (600): نص شهادة المعلم نفسه (/cert-tpl)، والتاريخ هجري مع الميلادي */
+const PCERT_DEF = { pre: 'يتقدم معلم المادة بالشكر والتقدير للطالب', dua: 'سائلين المولى له دوام التوفيق والنجاح',
+  rTitle: 'معلم المادة', rName: '', lTitle: 'مدير المدرسة', lName: '', reason: 'تميّزه واجتهاده في الأنشطة' };
+function certDateLine(at) {
+  const d = ksaDay(at), g = d.replace(/-/g, '/').replace(/\d/g, x => '٠١٢٣٤٥٦٧٨٩'[x]); let h = '';
+  try { h = new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura', { day: 'numeric', month: 'numeric', year: 'numeric', timeZone: 'Asia/Riyadh' })
+    .format(new Date(at)).replace(/\s*هـ$/, '').replace(/\u200f/g, ''); } catch {}
+  return h ? `حُررت في ${h}هـ الموافق ${g}م` : `حُررت في ${g}م`;
+}
+async function paidCertIssue(env, st, at) {
+  let tpl = {}; try { tpl = JSON.parse(await env.HW.get('certtpl') || '{}') || {}; } catch {}
+  const k = { ...PCERT_DEF };
+  if (tpl.pre) for (const f of ['pre', 'dua', 'rTitle', 'rName', 'lTitle', 'lName']) k[f] = String(tpl[f] || '');   // نص المعلم كما ضبطه (التوقيع الفارغ يبقى فارغًا)
+  if (tpl.reason) k.reason = tpl.reason;
+  let cls = '', name = st.name;
+  try { const s = (JSON.parse(await env.HW.get('tstate:main') || '{}').students || []).find(x => String(x.id) === String(st.id)); if (s) { cls = String(s.cls || '').trim(); name = s.name || name; } } catch {}
+  if (!/\d/.test(cls)) cls = '';
+  const fill = v => String(v || '').replace(/\{الفصل\}/g, cls).replace(/\s+/g, ' ').trim();
+  const c = { id: 'p' + at.toString(36), at, paid: true, name, cls, pre: fill(k.pre), reason: fill(k.reason), dua: fill(k.dua), date: certDateLine(at),
+    rTitle: fill(k.rTitle), rName: fill(k.rName), lTitle: fill(k.lTitle), lName: fill(k.lName) };
+  let list = []; try { list = JSON.parse(await env.HW.get(`pcert:${st.id}`) || '[]') || []; } catch {}
+  list.unshift(c); await env.HW.put(`pcert:${st.id}`, JSON.stringify(list.slice(0, 20)));
+  return c.id;
 }
 async function madForgivenRead(env) { try { const o = JSON.parse(await env.HW.get('mad:forgiven') || '{}'); return o && typeof o === 'object' ? o : {}; } catch { return {}; } }
 async function madExcluded(env) { try { return new Set(JSON.parse(await env.HW.get('mad:excluded') || '[]')); } catch { return new Set(); } }
@@ -5938,6 +5962,15 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       return json({ ok: true, hw: keys.map(k => k.slice(7)), names: [...names].slice(0, 500) });
     }
     // ── 🏅 شهاداتي: الشهادات التي أرسلها المعلم إلى بوابة الطالب (نصّها النهائي محفوظ مع الشهادة) ──
+    // ⚙️ نص شهادة المعلم (العبارات والتوقيعات بعد ملء المدرسة والمعلم والمدير) — لشهادات المتجر
+    if (url.pathname === '/cert-tpl' && request.method === 'POST') {
+      let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
+      if (!env.TEACHER_TOKEN || b.t !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
+      const x = b.tpl && typeof b.tpl === 'object' ? b.tpl : {}, t = v => String(v || '').replace(/\s+/g, ' ').trim().slice(0, 200);
+      const tpl = { pre: t(x.pre), dua: t(x.dua), rTitle: t(x.rTitle), rName: t(x.rName), lTitle: t(x.lTitle), lName: t(x.lName), reason: t(x.reason) };
+      await env.HW.put('certtpl', JSON.stringify(tpl));
+      return json({ ok: true, tpl });
+    }
     if (url.pathname === '/my-certs' && request.method === 'GET') {
       const st = await resolveStudent(env, { id: String(url.searchParams.get('sid') || '').slice(0, 40), name: String(url.searchParams.get('name') || '').slice(0, 80) });
       if (!st.known) return json({ ok: false, error: 'student not recognized' }, 403);
@@ -5950,7 +5983,9 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         .map(c => { const x = c.shared; const t = v => String(v || '').slice(0, 200);
           return { id: String(c.id), at: Number(x.at) || 0, name: t(x.name), cls: t(x.cls), pre: t(x.pre), reason: t(x.reason), dua: t(x.dua), date: t(x.date),
                    rTitle: t(x.rTitle), rName: t(x.rName), lTitle: t(x.lTitle), lName: t(x.lName) }; });
-      return json({ ok: true, rows });
+      // 🏅 شهادات اشتراها الطالب من المتجر: دائمة (دفع ثمنها) وتظهر أولًا
+      let paid = []; try { paid = JSON.parse(await env.HW.get(`pcert:${st.id}`) || '[]') || []; } catch {}
+      return json({ ok: true, rows: [...paid.filter(c => c && c.id).sort((a, b2) => (b2.at || 0) - (a.at || 0)), ...rows].slice(0, 40) });
     }
     // ── 🎯 خطتي: الطالب يرى خطته الجارية (الهدف، أين وصل، المهام، المدة) ──
     if (url.pathname === '/my-plan' && request.method === 'GET') {
@@ -6375,7 +6410,9 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         const p = cleanStudentPrefs(b.prefs);
         if (!p) return json({ ok: false, error: 'bad_prefs' }, 400);
         // ✨ المظاهر الحصرية لمن اشتراها فقط
-        if (['gold','diamond','saudi','spaceweek'].includes(p.theme) || p.frame !== 'none') { const own = await readOwn(env, st);
+        const avX = p.av.t === 'e' && p.av.v >= 18;
+        if (['gold','diamond','saudi','spaceweek'].includes(p.theme) || p.frame !== 'none' || avX) { const own = await readOwn(env, st);
+          if (avX && !(own.avatars > 0)) return json({ ok: false, error: 'avatar_locked' }, 403);
           if (['gold','diamond','saudi','spaceweek'].includes(p.theme) && !(own['theme_' + p.theme] > 0)) return json({ ok: false, error: 'theme_locked' }, 403);
           if (p.frame !== 'none' && !(own.frame > 0)) return json({ ok: false, error: 'frame_locked' }, 403); }
         await env.HW.put(key, JSON.stringify(p));
@@ -6441,7 +6478,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
       const card = String(b.card || '').replace(/[^a-z0-9_]/gi, '').slice(0, 24);
       // 💰 السعر يُحسم في الخادم، لا من المتصفح.
-      const STORE_PRICES={exam3:1000,exam2:750,exam1:450,exam05:250,thanks:300,theme_gold:250,theme_diamond:250,theme_saudi:250,theme_spaceweek:250,frame:200,namecolor:300,title:200,dbl:150,retry:80,early:60,ticket:40,hint:30,madforgive:MAD_FORGIVE_PRICE};
+      const STORE_PRICES={exam3:1000,exam2:750,exam1:450,exam05:250,thanks:300,theme_gold:250,theme_diamond:250,theme_saudi:250,theme_spaceweek:250,frame:200,namecolor:300,title:200,dbl:150,retry:80,early:60,ticket:40,hint:30,madforgive:MAD_FORGIVE_PRICE,avatars:250,cert:600};
       const price=Number(STORE_PRICES[card]||0);
       if(['exam05','exam1','exam2','exam3'].includes(card)) return json({ok:false,error:'exam_direct'},400);
       // 🧽 بطاقة مسح خصم مدرستي تُشترى وتُستخدم معًا على واجب بعينه من /mad-forgive — لا تُشترى فارغة
@@ -6452,20 +6489,22 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       const st = auth.st;
       return studentLocked(env, st, async () => {
         const bal = await readBal(env, st);
-        if ((card.startsWith('theme_') || card === 'frame' || card === 'namecolor') && ((await readOwn(env, st))[card] > 0)) return json({ ok: false, error: 'owned', pts: bal }, 200);
+        if ((card.startsWith('theme_') || card === 'frame' || card === 'namecolor' || card === 'avatars') && ((await readOwn(env, st))[card] > 0)) return json({ ok: false, error: 'owned', pts: bal }, 200);
         if (bal < price) return json({ ok: false, error: 'low', pts: bal }, 200);
         await env.HW.put(identityKey('bal:', st), String(bal - price));
         await dropLegacy(env, 'bal:', st);
         const own = await readOwn(env, st);
-        own[card] = (own[card] || 0) + 1;
-        await writeOwn(env, st, own);
+        if (card !== 'cert') { own[card] = (own[card] || 0) + 1; await writeOwn(env, st, own); }   // الشهادة تصدر فورًا ولا تبقى بطاقة
         await bumpRev(env);
         const reqName = st.name;
         const purchaseAt=Date.now();
         const purchaseLog={ name:reqName, sid:st.id, card, price, kind:'purchase', at:purchaseAt };
         await env.HW.put(`req:${purchaseAt}:${reqName}`, JSON.stringify(purchaseLog), {expirationTtl:60*60*24*120});
         await env.HW.put(`shoplog:${purchaseAt}:${st.id}:${Math.random().toString(36).slice(2,8)}`, JSON.stringify(purchaseLog), {expirationTtl:60*60*24*365});
-        return json({ ok: true, pts: bal - price, perks: own, sid: st.id, name: reqName });
+        // 🏅 شهادة الشكر والتقدير تصدر فورًا بنص شهادة المعلم وتوقيعاته، وتبقى في «شهاداتي»
+        let certId = '';
+        if (card === 'cert') certId = await paidCertIssue(env, st, purchaseAt);
+        return json({ ok: true, pts: bal - price, perks: own, sid: st.id, name: reqName, ...(certId ? { certId } : {}) });
       });
     }
 
@@ -8461,6 +8500,6 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
     }
 
     return json({ ok: true, service: 'homework',
-      paths: ['/publish','/messages','/hw','/unpublish','/removestudent','/find','/mine','/board','/review','/submit','/me','/buy','/use','/extra-attempt','/extra-attempt-bulk','/extra-attempt-status','/unlock-review','/title','/pin','/pinstatus','/pinmode','/pins','/resetpin','/rev','/store','/resolve','/adjust','/state','/recover-activities','/wipe','/results','/projects','/project-review','/project-file-delete','/file-submit','/file-download','/review-request','/review-request/complete','/notice-state','/notice-dismiss','/exam-options','/exam-shop-policy','/use-exam-bonus','/mad-forgive','/reset'] });
+      paths: ['/publish','/messages','/hw','/unpublish','/removestudent','/find','/mine','/board','/review','/submit','/me','/buy','/use','/extra-attempt','/extra-attempt-bulk','/extra-attempt-status','/unlock-review','/title','/pin','/pinstatus','/pinmode','/pins','/resetpin','/rev','/store','/resolve','/adjust','/state','/recover-activities','/wipe','/results','/projects','/project-review','/project-file-delete','/file-submit','/file-download','/review-request','/review-request/complete','/notice-state','/notice-dismiss','/exam-options','/exam-shop-policy','/use-exam-bonus','/mad-forgive','/cert-tpl','/reset'] });
   },
 };

@@ -7773,6 +7773,8 @@ const CARDS = [
   { id:'hint',   name:'تلميح',            price:30,  ic:'💡', teacher:false },
   { id:'ticket', name:'تذكرة مسابقة',     price:40,  ic:'🎟️', teacher:false },
   { id:'madforgive', name:'مسح خصم مدرستي', price:500, ic:'🧽', teacher:false },
+  { id:'cert', name:'شهادة شكر وتقدير', price:600, ic:'🏅', teacher:false },
+  { id:'avatars', name:'رموز حصرية', price:250, ic:'🐉', teacher:false },
   { id:'theme_gold', name:'مظهر ذهبي حصري', price:250, ic:'✨', teacher:false },
   { id:'theme_diamond', name:'مظهر ماسي حصري', price:250, ic:'💎', teacher:false },
   { id:'frame', name:'إطار الصورة', price:200, ic:'🖼️', teacher:false },
@@ -9505,12 +9507,22 @@ function ctCertMoeSettings(){
     <p class="muted" style="font-size:.8rem">يمكن استخدام: {المدرسة} {المادة} {المعلم} {المدير} {الفصل} — تُملأ من الإعدادات تلقائيًا. السطر الأول بعد الاسم هو سبب التكريم.</p>
     ${f('cm-pre','العبارة قبل الاسم',c.pre)}${f('cm-dua','سطر الدعاء بعد السبب',c.dua)}
     <div class="grid2">${f('cm-rt','لقب التوقيع الأيمن',c.rTitle,'اختياري')}${f('cm-rn','اسم التوقيع الأيمن',c.rName,'اختياري')}${f('cm-lt','لقب التوقيع الأيسر',c.lTitle)}${f('cm-ln','اسم التوقيع الأيسر',c.lName)}</div>
-    <div class="modal-foot"><button class="btn ghost" onclick="try{localStorage.removeItem(CT_MOE_KEY)}catch(e){};closeModal();toast('أُعيد النص الافتراضي')">النص الافتراضي</button><button class="btn tick" onclick="ctCertMoeSave()">حفظ</button></div>`);
+    <div class="modal-foot"><button class="btn ghost" onclick="try{localStorage.removeItem(CT_MOE_KEY)}catch(e){};closeModal();toast('أُعيد النص الافتراضي');ctCertTplPush()">النص الافتراضي</button><button class="btn tick" onclick="ctCertMoeSave()">حفظ</button></div>`);
 }
 function ctCertMoeSave(){
   const v=id=>String(document.getElementById(id)?.value||'').trim();
   try{ localStorage.setItem(CT_MOE_KEY,JSON.stringify({pre:v('cm-pre'),dua:v('cm-dua'),rTitle:v('cm-rt'),rName:v('cm-rn'),lTitle:v('cm-lt'),lName:v('cm-ln')})); }catch(e){}
-  closeModal(); toast('حُفظ نص الشهادة','good');
+  closeModal(); toast('حُفظ نص الشهادة','good'); ctCertTplPush();
+}
+/* 🏅 شهادات المتجر (يشتريها الطالب بـ 600 نقطة) تصدر من الخادم بنص شهادتك وتوقيعاتك نفسها:
+   يُرسل النص بعد ملء المدرسة والمادة والمعلم والمدير، ويبقى {الفصل} ليُملأ لكل طالب. يُرسل فقط إذا تغيّر. */
+async function ctCertTplPush(){
+  const api=getApi(), tok=getTok(); if(!api||!tok) return;
+  const k=ctMoeCfg(), s={cls:'{الفصل}'};
+  const tpl={pre:ctMoeFill(k.pre,s),dua:ctMoeFill(k.dua,s),rTitle:ctMoeFill(k.rTitle,s),rName:ctMoeFill(k.rName,s),lTitle:ctMoeFill(k.lTitle,s),lName:ctMoeFill(k.lName,s)};
+  const sig=JSON.stringify(tpl); try{ if(localStorage.getItem('ct_cert_tpl_pushed_v1')===sig) return; }catch(e){}
+  try{ const r=await fetch(`${api}/cert-tpl`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:tok,tpl})});
+    if(r.ok) try{ localStorage.setItem('ct_cert_tpl_pushed_v1',sig); }catch(e){} }catch(e){}
 }
 /* التاريخ هجريًا (أم القرى) مع الميلادي، والفصل يُذكر فقط إن كان فصلًا فعليًا (مثل 2/1) */
 function ctCertDateLine(d){
@@ -17833,6 +17845,7 @@ async function syncStore(silent){
     save(K.st, STUDENTS);
     // سجل المشتريات الكامل يأتي من الخادم. هذا مستقل عن طلبات رسائل الشكر حتى لا تختفي العملية من سجل المعلم بعد معالجة الطلب.
     STORE_PURCHASES = Array.isArray(j.purchases) ? j.purchases.slice().sort((a,b)=>(b.at||0)-(a.at||0)) : [];
+    ctCertTplPush();
     try{ localStorage.setItem('hwapp_store_purchases_v1', JSON.stringify(STORE_PURCHASES.slice(0,500))); }catch(_){}
     renderStorePurchases();
     // 💌 سجل رسائل الشكر من الخادم، مع دمج سجل هذا الجهاز القديم مرة واحدة
@@ -17875,7 +17888,8 @@ function initialsStore(name){
 }
 function storeCardLabel(q){
   const map={exam05:'+0.5 درجة',exam1:'+1 درجة',exam2:'+2 درجتين',exam3:'+3 درجات',dbl:'نقاط مضاعفة',thanks:'رسالة شكر للأهل',retry:'إعادة محاولة',early:'مراجعة مبكرة',hint:'تلميح',title:'لقب'};
-  return map[q?.card] || String(q?.card||'بطاقة');
+  const nm=map[q?.card] || (CARDS.find(c=>c.id===q?.card)||{}).name || String(q?.card||'بطاقة');
+  return q?.card==='madforgive'&&q.hwTitle ? `${nm} — «${q.hwTitle}»` : nm;
 }
 /* 🛒 عمليات الشراء في «يحتاج انتباهك»: تظهر الجديدة فقط.
    بعد «تمت المراجعة» تختفي اللوحة كلها، ويبقى السجل الكامل في «تحكم درجات المتجر».

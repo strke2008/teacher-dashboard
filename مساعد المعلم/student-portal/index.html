@@ -1132,6 +1132,11 @@ html[data-pt] body,html[data-pt] .sheet,html[data-pt] .btn,html[data-pt] .studen
 .pt-grid{display:grid;gap:.5rem}
 .pt-av-grid{grid-template-columns:repeat(auto-fill,minmax(48px,1fr))}
 .pt-av-opt{aspect-ratio:1;border-radius:50%;border:2px solid transparent;background:linear-gradient(135deg,#EEF2F7,#E2E8F2);font-size:1.45rem;cursor:pointer;display:grid;place-items:center;transition:transform .15s,border-color .15s}
+.pt-avx-h{margin:.7rem 0 .35rem;font-weight:800;font-size:.86rem;display:flex;gap:.4rem;align-items:baseline;flex-wrap:wrap}
+.pt-avx-h small{font-weight:600;font-size:.74rem;color:var(--ink-soft,#5A6B84)}
+.pt-av-opt.pt-av-x{background:linear-gradient(135deg,#FFF4D6,#F6D98B 55%,#E9B949);box-shadow:inset 0 0 0 1.5px rgba(184,134,11,.45)}
+.pt-av-opt.pt-av-x.pt-lock{filter:grayscale(.85);opacity:.55;position:relative}
+.pt-av-opt.pt-av-x.pt-lock::after{content:'🔒';position:absolute;bottom:-2px;left:-2px;font-size:.7rem}
 .pt-av-opt[aria-pressed="true"]{border-color:var(--acc,#16233A);transform:scale(1.08);box-shadow:0 4px 12px var(--acc-soft,rgba(0,0,0,.15))}
 .pt-up{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.6rem}
 .pt-up label,.pt-up button{border:1.5px dashed var(--rule);background:#F7F9FC;border-radius:12px;padding:.5rem .8rem;font:inherit;font-size:.82rem;font-weight:700;cursor:pointer;color:var(--ink)}
@@ -7758,7 +7763,11 @@ const CARDS = [
     d:'ترفع درجة الاختبارات نصف درجة إذا كان المتبقي المسموح لك يكفي' },
   { id:'madforgive', name:'مسح خصم مدرستي', price:500, ic:'🧽', mad:true,
     d:'تمسح خصم واجب في منصة مدرستي أُغلق ولم تحله — تختار الواجب قبل الدفع' },
-  { id:'title',  name:'لقب في الصدارة',   price:200, ic:'🏅',
+  { id:'cert', name:'شهادة شكر وتقدير', price:600, ic:'🏅',
+    d:'شهادة رسمية باسمك بنص معلمك وتوقيعه — تظهر فورًا في «شهاداتي» لتحفظها أو تطبعها' },
+  { id:'avatars', name:'رموز حصرية', price:250, ic:'🐉', once:true,
+    d:'12 صورة رمزية ذهبية لا يملكها غيرك: 🐉🦄👑🧙🥷🪐 — تختارها من «🎨 مظهري»' },
+  { id:'title',  name:'لقب في الصدارة',   price:200, ic:'🎖️',
     d:'لقب بأيقونة يظهر بجانب اسمك' },
   { id:'dbl',    name:'نقاط مضاعفة',      price:150, ic:'⭐',
     d:'نشاطك القادم بنقاط ×2 — تُستخدم تلقائياً' },
@@ -7789,8 +7798,8 @@ const CARDS = [
 const SHOP_CATS = [
   { ic:'🎓', t:'درجاتك', d:'ترفع درجة الاختبارات أو تمسح خصم واجب', ids:['exam3','exam2','exam1','exam05','madforgive'] },
   { ic:'🧩', t:'مساعدات الأنشطة', d:'تساعدك أثناء الحل وبعده', ids:['dbl','retry','early','hint','ticket'] },
-  { ic:'🎨', t:'مظهرك وتميّزك', d:'لك دائمًا — تُشترى مرة واحدة', ids:['namecolor','theme_gold','theme_diamond','theme_saudi','theme_spaceweek','frame','title'] },
-  { ic:'💌', t:'لأهلك', d:'رسالة من معلمك لولي أمرك', ids:['thanks'] }
+  { ic:'🎨', t:'مظهرك وتميّزك', d:'لك دائمًا — تُشترى مرة واحدة', ids:['namecolor','avatars','theme_gold','theme_diamond','theme_saudi','theme_spaceweek','frame','title'] },
+  { ic:'🏅', t:'تكريمك', d:'شهادة باسمك ورسالة شكر لأهلك', ids:['cert','thanks'] }
 ];
 
 // 🏅 الألقاب المتاحة — لكل لقب أيقونته
@@ -7998,6 +8007,8 @@ async function buyCard(btn, target){
       renderStore(target);
     }
     if(id === 'title'){ await pickTitle(); return; }
+    if(id === 'cert'){ await myCertsLoad(); if(j.certId && MY_CERTS.some(x=>x.id===j.certId)){ toast('🏅 مبروك! صدرت شهادتك — احفظها أو اطبعها','good'); myCertOpen(j.certId); }
+      else note('صدرت شهادتك — تجدها في «🏅 شهاداتي» في صفحتك.', 'تم الشراء ✅', '🏅'); return; }
     if(c.examBonus){
       await useExamBonus(id, target);
       return;
@@ -8013,6 +8024,7 @@ async function buyCard(btn, target){
       theme_saudi: 'افتح «🎨 مظهري» واختر «اليوم الوطني ٩٦» من الخلفيات.',
       frame: 'افتح «🎨 مظهري» واختر إطارك من «🖼️ إطار الصورة».',
       namecolor: 'صار اسمك ملوّنًا في الصدارة ونتائج المسابقات وترحيب صفحتك 🌈',
+      avatars: 'افتح «🎨 مظهري» واختر رمزك من «✨ رموز حصرية».',
       theme_spaceweek: 'افتح «🎨 مظهري» واختر «أسبوع الفضاء» من الخلفيات.',
       early:  'افتح النشاط الذي سلّمته واضغط «مراجعة مبكرة».'
     };
@@ -8743,7 +8755,10 @@ function spAfterGateLoad(){
    لا يغيّر أي محتوى أو ترتيب أو وظيفة؛ وطالب بلا تفضيلات يرى البوابة كما هي.
    ═══════════════════════════════════════════════════════════════ */
 const PT={
-  AV:['🧑‍🔬','🧪','🔭','🚀','🧠','🦉','🦁','🐬','🦊','🐼','🐢','🌍','⚡','🌟','🎨','⚽','🎮','🏆'],
+  AV:['🧑‍🔬','🧪','🔭','🚀','🧠','🦉','🦁','🐬','🦊','🐼','🐢','🌍','⚡','🌟','🎨','⚽','🎮','🏆',
+     // ✨ 18–29 رموز حصرية — تُفتح ببطاقة «رموز حصرية» من المتجر
+     '🐉','🦄','👑','🧙','🦸','🥷','🧑‍🚀','🦅','🪐','🌋','💎','🐺'],
+  AV_X:18,
   ACC:{navy:'كحلي',teal:'فيروزي',violet:'بنفسجي',rose:'وردي',orange:'برتقالي',emerald:'زمردي',sky:'سماوي',gold:'ذهبي'},
   TH:{classic:'كلاسيكي',aurora:'شفق',ocean:'محيط',meadow:'حديقة',sunset:'غروب',galaxy:'فضاء',lab:'دفتر المختبر',candy:'حلوى',saudi:'اليوم الوطني ٩٦',spaceweek:'أسبوع الفضاء',gold:'ذهبي ✨',diamond:'ماسي 💎'},
   CARDS:{soft:'ناعمة',glass:'زجاجية',outline:'محددة',bold:'بارزة'},
@@ -8811,7 +8826,10 @@ function ptOpen(){
         </div></div>
       <div style="display:grid;gap:1rem;min-width:0">
         <section class="pt-sec"><h3>🧑‍🎓 صورتي الرمزية</h3><p class="pt-hint">اختر رمزًا أو ارفع صورة. الصورة تظهر لك فقط.</p>
-          <div class="pt-grid pt-av-grid" id="pt-avs">${PT.AV.map((e,i)=>`<button type="button" class="pt-av-opt" data-av="${i}" aria-label="رمز ${i+1}">${e}</button>`).join('')}</div>
+          <div class="pt-grid pt-av-grid" id="pt-avs">${PT.AV.slice(0,PT.AV_X).map((e,i)=>`<button type="button" class="pt-av-opt" data-av="${i}" aria-label="رمز ${i+1}">${e}</button>`).join('')}</div>
+          <div class="pt-avx-h">✨ رموز حصرية ${MYPERKS.avatars>0?'<small>لك دائمًا</small>':'<small>🔒 تُفتح ببطاقة «رموز حصرية» من المتجر</small>'}</div>
+          <div class="pt-grid pt-av-grid">${PT.AV.slice(PT.AV_X).map((e,j)=>{ const i=PT.AV_X+j, lock=!(MYPERKS.avatars>0);
+            return `<button type="button" class="pt-av-opt pt-av-x${lock?' pt-lock':''}" ${lock?'data-lockav="1"':`data-av="${i}"`} aria-label="رمز حصري ${j+1}">${e}</button>`; }).join('')}</div>
           <div class="pt-up"><label>📷 رفع صورة<input type="file" id="pt-file" accept="image/*" hidden></label><span id="pt-upnote" class="muted" style="font-size:.76rem;align-self:center"></span></div></section>
         <section class="pt-sec"><h3>🖼️ إطار الصورة</h3><p class="pt-hint">${MYPERKS.frame>0?'إطار متحرك حول صورتك الرمزية.':'🔒 يُفتح ببطاقة «إطار الصورة» من المتجر.'}</p>
           <div class="pt-grid pt-fr-grid">${Object.entries(PT.FRAME).map(([k,t])=>{ const lock=k!=='none'&&!(MYPERKS.frame>0); return `<button type="button" class="pt-fr${lock?' pt-lock':''}" data-v="${k}" ${lock?'data-lockf="1"':'data-g="frame"'}><span class="pt-av pt-fr-demo" data-fr="${k}">🙂</span>${t}${lock?'<small>🔒</small>':''}</button>`; }).join('')}</div></section>
@@ -8841,6 +8859,7 @@ function ptOpen(){
   ov.querySelectorAll('[data-g]').forEach(b=>b.onclick=()=>{d[b.dataset.g]=b.dataset.v;sync()});
   ov.querySelectorAll('[data-lock]').forEach(b=>b.onclick=()=>toast('✨ مظهر حصري — اشترِه من «متجر النشاطات» ثم اختره هنا'));
   ov.querySelectorAll('[data-lockf]').forEach(b=>b.onclick=()=>toast('🖼️ الإطارات تُفتح ببطاقة «إطار الصورة» من «متجر النشاطات»'));
+  ov.querySelectorAll('[data-lockav]').forEach(b=>b.onclick=()=>toast('✨ رمز حصري — اشترِ بطاقة «رموز حصرية» من «متجر النشاطات»'));
   ov.querySelectorAll('[data-av]').forEach(b=>b.onclick=()=>{d.av={t:'e',v:+b.dataset.av};document.getElementById('pt-upnote').textContent='';sync()});
   document.getElementById('pt-file').onchange=e=>{
     const f=e.target.files&&e.target.files[0];if(!f)return;const note=document.getElementById('pt-upnote');
@@ -8963,13 +8982,13 @@ async function myCertsLoad(){
       <div class="mc-meta"><b>${esc(c.reason)}</b><small>${esc(c.date)}${mcLeft(c)}</small>
         <div class="mc-acts"><button type="button" class="mc-btn" onclick="myCertSave('${esc(c.id)}')">⬇️ حفظ صورة</button><button type="button" class="mc-btn" onclick="myCertPrint('${esc(c.id)}')">🖨️ طباعة</button><button type="button" class="mc-btn ghost" onclick="myCertHide('${esc(c.id)}')" title="إخفاؤها من صفحتي">🗑️ إخفاء</button></div></div>
     </div>`).join('')}</div>
-    <div class="mc-note">تبقى الشهادة هنا 7 أيام — احفظها صورة أو اطبعها قبل ذلك.</div></section>`;
+    ${rows.some(c=>!c.paid)?'<div class="mc-note">شهادات معلمك تبقى هنا 7 أيام — احفظها صورة أو اطبعها قبل ذلك.</div>':''}</section>`;
   try{localStorage.setItem(MC_SEEN_KEY,JSON.stringify([...new Set([...seen,...rows.map(c=>c.id)])].slice(-100)))}catch(e){}
   requestAnimationFrame(()=>myCertFit(box));
 }
 const MC_HIDE_KEY='my_certs_hidden_v1';
 /* الأيام المتبقية قبل أن تختفي الشهادة من الصفحة (7 أيام من مشاركتها) */
-function mcLeft(c){ const d=Math.ceil((7*864e5-(Date.now()-(Number(c.at)||0)))/864e5); return d>0?` · تبقى ${d===1?'يومًا واحدًا':d===2?'يومين':d+' أيام'}`:''; }
+function mcLeft(c){ if(c.paid) return ' · من المتجر — لك دائمًا'; const d=Math.ceil((7*864e5-(Date.now()-(Number(c.at)||0)))/864e5); return d>0?` · تبقى ${d===1?'يومًا واحدًا':d===2?'يومين':d+' أيام'}`:''; }
 function myCertHide(id){
   if(!confirm('إخفاء هذه الشهادة من صفحتك؟ احفظها صورة أو اطبعها أولًا إن أردت الاحتفاظ بها.')) return;
   let hid=[];try{hid=JSON.parse(localStorage.getItem(MC_HIDE_KEY)||'[]')}catch(e){}
