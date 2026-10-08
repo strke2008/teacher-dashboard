@@ -50,6 +50,12 @@
 .exh-old{background:#EEF1F5;border-radius:7px;padding:.1rem .5rem;color:#5A6B84}.exh-new{background:#E6F4EC;border-radius:7px;padding:.1rem .5rem;color:#14724A}
 .exh-bk{margin-top:.9rem;padding-top:.7rem;border-top:1px dashed var(--ui-border,#DCE5F0)}
 .exh-g{margin-top:.6rem;display:grid;gap:.35rem}.exh-gh{font-weight:800;font-size:.86rem}.exh-gh small{color:var(--ink-soft);font-weight:600}
+
+/* 🔴 عدّاد المشاريع بانتظار المراجعة */
+.tab[data-tab="projects"],#nav-more-btn{position:relative}
+.proj-badge{position:absolute;top:2px;inset-inline-end:2px;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:#D6455B;color:#fff;font-size:.68rem;font-weight:900;line-height:18px;text-align:center;box-shadow:0 0 0 2px #fff;pointer-events:none}
+.proj-badge-in{margin-inline-start:.5rem;display:inline-block;min-width:22px;height:22px;padding:0 7px;border-radius:999px;background:#D6455B;color:#fff;font-size:.75rem;font-weight:900;line-height:22px;text-align:center}
+.proj-badge-in.hide{display:none}
 </style>
 <style>
 :root{
@@ -8216,8 +8222,8 @@ function goTab(name){
     const portal = getPortal();
     openModal(`<div style="padding:1rem">
       <h3 style="margin:0 0 .8rem">المزيد</h3>
-      ${items.map(([k,l])=>k==='—'?`<div class="more-grp">${l}</div>`:`<button class="btn ghost" style="width:100%;min-height:46px;margin-bottom:.4rem;justify-content:flex-start"
-        onclick="goTab('${k}')">${l}</button>`).join('')}
+      ${items.map(([k,l])=>k==='—'?`<div class="more-grp">${l}</div>`:`<button class="btn ghost${k==='projects'?' more-proj-btn':''}" style="width:100%;min-height:46px;margin-bottom:.4rem;justify-content:flex-start"
+        onclick="goTab('${k}')">${l}${k==='projects'?`<span class="proj-badge-in${PROJ_PENDING?'':' hide'}">${PROJ_PENDING>99?'99+':PROJ_PENDING||''}</span>`:''}</button>`).join('')}
       ${portal?`<button class="btn ghost" style="width:100%;min-height:48px;margin-bottom:.5rem;justify-content:flex-start"
         onclick="closeModal();openPortal()">🧭 بوابة المعلم ↗</button>`:''}
       <button class="btn" style="width:100%;min-height:44px" onclick="closeModal()">إغلاق</button>
@@ -24454,7 +24460,35 @@ function renderProjectFilters(){
   if(projects.some(x=>x.id===curP)) p.value=curP;
   if(classes.includes(curC)) c.value=curC;
 }
+/* 🔴 عدّاد المشاريع بانتظار المراجعة: على تبويب «المشاريع» وزر «المزيد» وداخل قائمته */
+let PROJ_PENDING=0, PROJ_BADGE_AT=0;
+function projBadgeSet(n){
+  PROJ_PENDING=Math.max(0,Number(n)||0);
+  const txt=PROJ_PENDING>99?'99+':String(PROJ_PENDING);
+  document.querySelectorAll('.tab[data-tab="projects"],#nav-more-btn').forEach(el=>{
+    let b=el.querySelector('.proj-badge');
+    if(!PROJ_PENDING){ if(b) b.remove(); return; }
+    if(!b){ b=document.createElement('span'); b.className='proj-badge'; el.appendChild(b); }
+    b.textContent=txt; b.title=PROJ_PENDING+' مشروع بانتظار المراجعة';
+  });
+  const mi=document.querySelector('.more-proj-btn .proj-badge-in'); if(mi){ mi.textContent=PROJ_PENDING?txt:''; mi.classList.toggle('hide',!PROJ_PENDING); }
+}
+function projPendingOf(rows){ return (rows||[]).filter(x=>projectReviewStatus(x).key==='pending').length; }
+async function projBadgeRefresh(force){
+  if(!force && Date.now()-PROJ_BADGE_AT<60e3) return;
+  const api=getApi(), tok=getTok(); if(!api||!tok) return;
+  PROJ_BADGE_AT=Date.now();
+  try{
+    const r=await fetch(api.replace(/\/+$/,'')+'/projects?t='+encodeURIComponent(tok)+'&_='+Date.now(),{cache:'no-store'});
+    const j=await r.json().catch(()=>({}));
+    if(r.ok&&j.ok) projBadgeSet(projPendingOf(j.rows));
+  }catch(e){}
+}
+setTimeout(()=>projBadgeRefresh(true),2500);
+setInterval(()=>{ if(!document.hidden) projBadgeRefresh(true); },3*60e3);
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden) projBadgeRefresh(false); });
 function renderProjects(){
+  try{ if(PROJECTS_LOADED) projBadgeSet(projPendingOf(PROJECTS_DATA)); }catch(e){}
   const list=document.getElementById('projects-list'), state=document.getElementById('projects-state'), sum=document.getElementById('projects-summary');
   if(!list||!state) return;
   const rows=projectFiltered();
