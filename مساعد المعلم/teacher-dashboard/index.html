@@ -28245,6 +28245,16 @@ async function experimentAIGenerate(){
 <button aria-label="إغلاق الصورة" class="project-image-zoom-close" onclick="closeProjectImageZoom()" type="button">×</button>
 <img alt="الصورة المكبرة" id="projectImageZoomImg" onclick="closeProjectImageZoom()" src=""/>
 </div>
+<style id="ask-style">
+.ask-t{border:1px solid var(--ui-border,#e3e8ee);border-radius:12px;padding:.6rem .7rem;margin:.45rem 0;background:var(--ui-surface,#fff);display:grid;gap:.35rem}
+.ask-t-h{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;font-size:.84rem}
+.ask-cat{font-size:.72rem;font-weight:700;padding:.08rem .5rem;border-radius:999px;background:#EEF2FF;color:#22409A}
+.ask-t-q{font-size:.92rem;line-height:1.7;white-space:pre-wrap;background:var(--ui-bg,#f8fafc);border-radius:10px;padding:.45rem .6rem}
+.ask-t-r{font-size:.86rem;line-height:1.7;background:#EAF7F0;border-inline-start:4px solid #1E9E6A;border-radius:8px;padding:.4rem .55rem;white-space:pre-wrap}
+.ask-quick{display:flex;flex-wrap:wrap;gap:.3rem}.ask-quick button{border:1px solid var(--ui-border,#dce5f0);background:#fff;border-radius:999px;padding:.2rem .6rem;font:inherit;font-size:.76rem;cursor:pointer}
+.ask-t textarea{width:100%;box-sizing:border-box}
+.ask-t-b{display:flex;gap:.35rem;flex-wrap:wrap}.ask-t-b .btn{width:auto!important}
+</style>
 <style id="fu-style">.th-al.fu-row{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}.th-al.fu-row>span:first-child{flex:1;min-width:150px}
 .fu-acts{display:flex!important;flex-direction:row!important;gap:.3rem;flex-wrap:nowrap;align-items:center;flex:none}
 .fu-acts .btn{width:auto!important;min-height:32px;padding:.3rem .6rem!important;white-space:nowrap}
@@ -28867,6 +28877,7 @@ function pushRenderCard(message){
 /* فتح التسليم الذي أرسل الإشعار: «آخر التسليمات» ثم إبراز الصف */
 async function openSubmissionFromPush(data){
   if(!data) return;
+  if(data.type==='ask' || data.open==='asks'){ goTab('dashboard'); setTimeout(()=>asksOpen(),400); return; }
   if(data.type==='test' || data.open==='notifications'){ goTab('data'); setTimeout(()=>document.getElementById('push-settings-sheet')?.scrollIntoView({block:'start',behavior:'smooth'}),150); return; }
   goTab('dashboard');
   // عند الفتح البارد تكون اللوحة في منتصف مزامنتها الأولى: ننتظرها ثم نجلب التسليمات
@@ -30489,6 +30500,8 @@ function tdTasks(){
   { const M=typeof TD_MAD!=='undefined'?TD_MAD:null;
     if(M&&M.pendingLogin) L.push({key:'madlogin:'+M.pendingLogin,lv:'warn',ic:'🔑',t:'مزامنة مدرستي تنتظر تسجيل دخولك — بعد الدخول تكتمل وحدها',acts:[['فتح مدرستي',"window.open('https://schools.madrasati.sa/','_blank','noopener')"]]});
     else if(M&&M.n&&M.last&&Date.now()-M.last>72*3600e3) L.push({key:'madstale:'+M.last,lv:'warn',ic:'📱',t:`آخر مزامنة لمدرستي ${remAgo(M.last)} — «من حل ومن لم يحل» قد لا يكون دقيقًا`,acts:[['🔄 زامن الآن','tdMadSync()']]}); }
+  { const q=(ASKS||[]).filter(x=>x.status==='open'); if(q.length) L.push({key:'ask:'+q.map(x=>x.id).join(','),lv:'bad',ic:'💬',noDone:true,
+      t:`${q.length===1?'رسالة من طالب تنتظر ردك':q.length===2?'رسالتان من الطلاب تنتظران ردك':q.length+' رسائل من الطلاب تنتظر ردك'} — ${q.slice(0,2).map(x=>tdShortName(x.name)).join('، ')}${q.length>2?'…':''}`,acts:[['💬 ردّ',"asksOpen()"]]}); }
   { const ns=typeof nsOpenList==='function'?nsOpenList():[]; if(ns.length) L.push({doneJs:'tdAckAll(\'ns\')',key:'ns:'+ns.map(x=>x.s.id).join(','),lv:'warn',ic:'🚶',t:`${ns.length===1?'طالب واحد لم يبدأ':ns.length===2?'طالبان لم يبدآ':ns.length+' طلاب لم يبدؤوا'} بعد — لم ${ns.length===1?'يسلّم':ns.length===2?'يسلّما':'يسلّموا'} أي نشاط في البوابة`,acts:[['عرض','nsOpen()']]}); }
   thActions().forEach(([lv,ic,t,n,go])=>{
     if(/انتهت مواعيدها|ينتهي خلال يومين|متأخر(ون)? لم تذكّر/.test(t)) return;   // مغطّاة بأسطر الأنشطة أعلاه
@@ -30535,7 +30548,7 @@ function thDrawNow(){
   const done=tdDone(), all=tdTasks(), open=all.filter(x=>!done[x.key]), hid=all.length-open.length;
   const main=open.filter(x=>x.lv!=='info'), low=open.filter(x=>x.lv==='info');
   const row=x=>`<div class="td-task ${x.lv}"><span class="td-ic">${x.ic}</span><span class="td-t">${thEsc(x.t)}</span>
-    <span class="td-acts">${x.acts.map(([l,go])=>`<button type="button" class="btn ghost sm" onclick="${go}">${l}</button>`).join('')}${x.doneJs?`<button type="button" class="td-done" title="تم الإرسال — يُزال حتى يتكرر من جديد" onclick="${x.doneJs}">✓ تم</button>`:x.remId?`<button type="button" class="td-done" title="تمّت — تُحفظ في تذكيراتك بالبوابة أيضًا" onclick="tdRemDone('${thEsc(x.remId)}')">✓ تم</button>`:`<button type="button" class="td-done" title="تم — إخفاؤه حتى يتغيّر" onclick="tdMarkDone('${thEsc(x.key).replace(/'/g,"\\'")}')">✓ تم</button>`}</span></div>`;
+    <span class="td-acts">${x.acts.map(([l,go])=>`<button type="button" class="btn ghost sm" onclick="${go}">${l}</button>`).join('')}${x.noDone?'':x.doneJs?`<button type="button" class="td-done" title="تم الإرسال — يُزال حتى يتكرر من جديد" onclick="${x.doneJs}">✓ تم</button>`:x.remId?`<button type="button" class="td-done" title="تمّت — تُحفظ في تذكيراتك بالبوابة أيضًا" onclick="tdRemDone('${thEsc(x.remId)}')">✓ تم</button>`:`<button type="button" class="td-done" title="تم — إخفاؤه حتى يتغيّر" onclick="tdMarkDone('${thEsc(x.key).replace(/'/g,"\\'")}')">✓ تم</button>`}</span></div>`;
   tdLiveTick();
   const sT=document.getElementById('td-slot-tasks'), sW=document.getElementById('td-slot-week');
   const tasksHTML=`<div class="td-card td-taskcard"><div class="td-card-h"><b>✅ مهام اليوم</b><a href="#" class="td-link" onclick="event.preventDefault();rmgOpen()">⏰ تذكيراتي</a><small>${open.length?`${open.length} ${open.length===1?'مهمة':'مهام'}`:''}${hid?` · <a href="#" onclick="event.preventDefault();tdUndoAll()">إظهار المنجزة (${hid})</a>`:''}</small></div>
@@ -30559,7 +30572,7 @@ async function renderTodayHub(fetchNow){
     // الإعدادات الأكاديمية والفصل معًا لا بالتتابع
     const [,cd]=await Promise.all([loadDashboardAcademic().catch(()=>null), ctLoad()]);
     CT_DATA=cd; TH_AT=Date.now(); thDraw(); tdCacheSave();
-    tdMadLoad();
+    tdMadLoad(); asksLoad();
     if(!CT_GRADES){ try{ await ctEnsureGrades(false); tdCacheSave(); }catch(e){} }
   }catch(e){}
   TH_BUSY=false; thDraw();
@@ -31781,6 +31794,52 @@ function nsList(){
   const pub=HW.filter(h=>remPublished(h));
   return STUDENTS.map(s=>{ const mine=pub.filter(h=>hwFor(h,s.cls)); return {s,n:mine.length,any:mine.some(h=>h.subs&&h.subs[s.id])}; })
     .filter(x=>x.n>0&&!x.any).sort((a,b)=>String(a.s.cls).localeCompare(String(b.s.cls),'ar')||String(a.s.name).localeCompare(String(b.s.name),'ar'));
+}
+/* ═══ 💬 رسائل الطلاب: سؤال أو مشكلة من «راسل معلمك» في البوابة، والرد يصل الطالب في تنبيهاته ═══ */
+let ASKS=null, ASK_CATS={activity:'سؤال عن نشاط',tech:'مشكلة في البوابة',grade:'درجة أو تصحيح',lesson:'استفسار عن الدرس',other:'أخرى'};
+const ASK_QUICK=['تم حل المشكلة — جرّب الآن ✅','سأشرحها لك في الحصة القادمة إن شاء الله','راجع شرح الدرس في الكتاب ثم أعد المحاولة','فتحت لك محاولة إضافية في النشاط','راجعت درجتك وهي صحيحة','أحسنت على سؤالك 👏 — '];
+async function asksLoad(){
+  try{ const r=await fetch(getApi().replace(/\/+$/,'')+'/asks?t='+encodeURIComponent(getTok()),{cache:'no-store'}); const j=await r.json();
+    if(j&&j.ok){ ASKS=j.rows||[]; if(j.cats) ASK_CATS=j.cats; try{ thDraw(); }catch(e){} if(document.getElementById('ask-inbox')) asksOpen(true); } }catch(e){}
+}
+function askAgo(t){ const m=Math.round((Date.now()-t)/60000); return m<1?'الآن':m<60?`قبل ${m} د`:m<1440?`قبل ${Math.round(m/60)} س`:`قبل ${Math.round(m/1440)} يوم`; }
+function asksOpen(keep){
+  if(ASKS===null){ toast('جارٍ جلب الرسائل…'); asksLoad().then(()=>asksOpen()); return; }
+  const open=ASKS.filter(x=>x.status==='open'), done=ASKS.filter(x=>x.status!=='open').slice(0,30);
+  const card=x=>`<div class="ask-t" id="askc-${thEsc(x.id)}">
+      <div class="ask-t-h"><b>${thEsc(x.name)}</b><span class="muted">${thEsc(x.cls||'')}</span><span class="ask-cat">${thEsc(ASK_CATS[x.cat]||'')}</span><span class="muted">${askAgo(x.at)}</span></div>
+      ${x.hwTitle?`<div class="muted" style="font-size:.78rem">📚 «${thEsc(x.hwTitle)}»</div>`:''}
+      <div class="ask-t-q">${thEsc(x.text)}</div>
+      ${x.status==='open'?`<div class="ask-quick">${ASK_QUICK.map(t=>`<button type="button" onclick="askQuick('${thEsc(x.id)}',this.textContent)">${thEsc(t)}</button>`).join('')}</div>
+      <textarea class="inp" id="askr-${thEsc(x.id)}" rows="2" maxlength="1000" placeholder="اكتب ردك… يصل الطالب في تنبيهاته"></textarea>
+      <div class="ask-t-b"><button type="button" class="btn tick sm" onclick="askSend('${thEsc(x.id)}')">📩 أرسل الرد</button>
+        <button type="button" class="btn ghost sm" title="حللتها معه في الفصل — لا يُرسل شيء" onclick="askSend('${thEsc(x.id)}',true)">✓ أُغلق دون رد</button>
+        ${(STUDENTS||[]).some(s=>String(s.id)===String(x.sid))?`<button type="button" class="btn ghost sm" onclick="ctOpenProfile('${thEsc(x.sid)}')" title="الملف الشامل">👤</button>`:''}</div>`
+      :`${x.reply?`<div class="ask-t-r">📩 ${thEsc(x.reply)}</div>`:'<div class="muted" style="font-size:.78rem">أُغلق دون رد</div>'}
+        <div class="ask-t-b"><button type="button" class="btn ghost sm" onclick="askReopen('${thEsc(x.id)}')">↩️ إعادة فتح</button></div>`}
+    </div>`;
+  const html=`<h2 id="ask-inbox">💬 رسائل الطلاب ${open.length?`<span class="chip bad">${open.length} تنتظر ردك</span>`:''}</h2>
+    <p class="muted" style="font-size:.82rem;margin:.2rem 0 .7rem">يرسلها الطالب من «💬 راسل معلمك» في بوابته (حتى ${3} أسئلة مفتوحة و5 رسائل يوميًا). ردك يصله في تنبيهاته مع إشعار.</p>
+    ${open.length?open.map(card).join(''):'<div class="feature-empty">لا رسائل تنتظر ردك 🌿</div>'}
+    ${done.length?`<details style="margin-top:.7rem"><summary class="muted" style="cursor:pointer">✓ تمّ الرد عليها (${done.length})</summary>${done.map(card).join('')}</details>`:''}
+    <div class="modal-foot"><button class="btn ghost" onclick="closeModal()">إغلاق</button><button class="btn ghost" onclick="asksLoad()">🔄 تحديث</button></div>`;
+  if(keep&&document.getElementById('ask-inbox')){ const m=document.getElementById('ask-inbox').parentElement; if(m) m.innerHTML=html; return; }
+  openModal(html);
+}
+function askQuick(id,t){ const ta=document.getElementById('askr-'+id); if(!ta) return; ta.value=ta.value?ta.value.trim()+' '+t:t; ta.focus(); }
+async function askSend(id,close){
+  const ta=document.getElementById('askr-'+id), reply=close?'':String(ta&&ta.value||'').trim();
+  if(!close&&!reply){ toast('اكتب الرد أولًا','bad'); ta&&ta.focus(); return; }
+  try{ const r=await fetch(getApi().replace(/\/+$/,'')+'/ask-reply',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:getTok(),id,reply,close:!!close})});
+    const j=await r.json(); if(!j.ok) throw new Error(j.error||'');
+    const i=ASKS.findIndex(x=>x.id===id); if(i>=0) ASKS[i]=j.item;
+    toast(close?'✓ أُغلقت الرسالة':'📩 وصل ردك للطالب في تنبيهاته','good'); asksOpen(true); thDraw();
+  }catch(e){ toast(r404(e)?'ارفع worker.js الأخير':'تعذّر الإرسال — تحقق من الاتصال','bad'); }
+}
+function r404(e){ return /not found|404/.test(String(e&&e.message||'')); }
+async function askReopen(id){
+  try{ const r=await fetch(getApi().replace(/\/+$/,'')+'/ask-reply',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:getTok(),id,reopen:true})});
+    const j=await r.json(); if(!j.ok) throw 0; const i=ASKS.findIndex(x=>x.id===id); if(i>=0) ASKS[i]=j.item; asksOpen(true); thDraw(); }catch(e){ toast('تعذّر — تحقق من الاتصال','bad'); }
 }
 function nsLastPub(s){ return Math.max(0,...HW.filter(h=>remPublished(h)&&hwFor(h,s.cls)).map(h=>Number(h.publishedAt||h.at)||0)); }
 function nsOpenList(){ return nsList().filter(x=>{ const at=fuAt(x.s.id,'ns'); return !(at && at>=nsLastPub(x.s)); }); }

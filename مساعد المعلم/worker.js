@@ -1788,6 +1788,13 @@ const json = (data, status = 200) =>
 /* 💬 رسائل الطالب: تُدمج نسخة الاسم القديمة مع نسخة المعرف.
    القراءة بالمعرف وحده كانت تحجب كل رسالة قديمة حجبًا دائمًا متى وُجد
    المفتاحان معًا. الدمج يتم مرة واحدة ثم يُحذف المفتاح القديم. */
+/* 💬 أسئلة الطلاب للمعلم: مصفوفة واحدة (الأحدث أولًا)، بحدود تمنع الإغراق */
+const ASK = { maxLen: 600, maxOpen: 3, perDay: 5, keep: 600,
+  cats: { activity: 'سؤال عن نشاط', tech: 'مشكلة في البوابة', grade: 'درجة أو تصحيح', lesson: 'استفسار عن الدرس', other: 'أخرى' } };
+async function askLoad(env) { try { const a = JSON.parse(await env.HW.get('asks')); return Array.isArray(a) ? a : []; } catch { return []; } }
+async function askSave(env, all) { await env.HW.put('asks', JSON.stringify(all.slice(0, ASK.keep))); }
+function askMine(x, st) { return !!x && ((st.id && x.sid && String(x.sid) === String(st.id)) || (!x.sid && x.name === st.name)); }
+function askPublic(x) { return { id: x.id, cat: x.cat, hwTitle: x.hwTitle || '', text: x.text, at: x.at, status: x.status, reply: x.reply || '', repliedAt: x.repliedAt || 0 }; }
 async function readMessages(env, st) {
   const idKey = st.id ? `msg:${st.id}` : '';
   const nameKeys = [];
@@ -4724,6 +4731,73 @@ export default {
       if (request.method === 'POST' && typeof b.on === 'boolean') await env.HW.put(WK_CFG, JSON.stringify({ on: b.on, updatedAt: Date.now() }));
       const cfg = await kvJ(env, WK_CFG, null);
       return json({ ok: true, on: !!(cfg && cfg.on), last: await kvJ(env, 'wkauto:last', null) });
+    }
+
+    // ══ 💬 «راسل معلمك»: سؤال أو مشكلة من الطالب، ورد المعلم يصله في رسائله ══
+    if (url.pathname === '/ask' && request.method === 'POST') {
+      let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
+      const st = await resolveStudent(env, { id: String(b.sid || '').slice(0, 40), name: String(b.name || '').slice(0, 80) });
+      if (!st.known) return json({ ok: false, error: 'student not recognized' }, 403);
+      const text = String(b.text || '').trim().slice(0, ASK.maxLen);
+      if (text.length < 3) return json({ ok: false, error: 'اكتب سؤالك أولًا' }, 400);
+      const cat = ASK.cats[String(b.cat || '')] ? String(b.cat) : 'other';
+      const all = await askLoad(env), me = all.filter(x => askMine(x, st)), now = Date.now();
+      if (me.filter(x => x.status === 'open').length >= ASK.maxOpen) return json({ ok: false, error: `لديك ${ASK.maxOpen} أسئلة تنتظر رد معلمك — انتظر الرد أولًا` }, 429);
+      if (me.filter(x => now - x.at < 86400000).length >= ASK.perDay) return json({ ok: false, error: 'وصلت للحد اليومي للرسائل — حاول غدًا' }, 429);
+      let hwTitle = '';
+      const hw = String(b.hw || '').slice(0, 24);
+      if (hw) { try { const p = JSON.parse(await env.HW.get(`hw:${hw}`)); if (p && rosterHas(p, st)) hwTitle = String(p.t || '').slice(0, 120); } catch {} }
+      const q = { id: 'q' + now.toString(36) + Math.random().toString(36).slice(2, 6), sid: String(st.id || ''), name: String(st.name || ''), cls: String(st.cls || ''),
+        cat, hw: hwTitle ? hw : '', hwTitle, text, at: now, status: 'open', reply: '', repliedAt: 0 };
+      all.unshift(q);
+      await askSave(env, all);
+      // 🔔 إشعار المعلم على أجهزته (إن فعّل الإشعارات)
+      const task = (async () => {
+        if (!pushConfigured(env)) return; const subs = await pushListSubs(env); if (!subs.length) return;
+        const eventId = (await sha256Hex(`ask|${q.id}`)).slice(0, 32); if (!(await pushClaimEvent(env, eventId))) return;
+        await pushDeliver(env, { title: `💬 ${q.name}: ${ASK.cats[cat]}`, body: [q.cls, hwTitle ? `«${hwTitle}»` : '', text.slice(0, 120)].filter(Boolean).join(' • '),
+          tag: `ask-${q.id}`, data: { type: 'ask', id: q.id, url: './?open=asks' } }, eventId, subs);
+      })().catch(() => {});
+      if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(task);
+      return json({ ok: true, item: askPublic(q) });
+    }
+    if (url.pathname === '/ask-mine' && request.method === 'GET') {
+      const st = await resolveStudent(env, { id: String(url.searchParams.get('sid') || '').slice(0, 40), name: String(url.searchParams.get('name') || '').slice(0, 80) });
+      if (!st.known) return json({ ok: false, error: 'student not recognized' }, 403);
+      const rows = (await askLoad(env)).filter(x => askMine(x, st)).slice(0, 10).map(askPublic);
+      return json({ ok: true, rows, cats: ASK.cats, maxLen: ASK.maxLen, maxOpen: ASK.maxOpen });
+    }
+    if (url.pathname === '/asks' && request.method === 'GET') {
+      if (!env.TEACHER_TOKEN || url.searchParams.get('t') !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
+      return json({ ok: true, rows: (await askLoad(env)).slice(0, 300), cats: ASK.cats });
+    }
+    if (url.pathname === '/ask-reply' && request.method === 'POST') {
+      let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
+      if (!env.TEACHER_TOKEN || b.t !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
+      const all = await askLoad(env), q = all.find(x => x.id === String(b.id || ''));
+      if (!q) return json({ ok: false, error: 'not found' }, 404);
+      const reply = String(b.reply || '').trim().slice(0, 1000), now = Date.now();
+      if (b.reopen) { q.status = 'open'; await askSave(env, all); return json({ ok: true, item: q }); }
+      if (!reply && !b.close) return json({ ok: false, error: 'اكتب الرد' }, 400);
+      if (reply) { q.reply = reply; q.repliedAt = now; }
+      q.status = reply ? 'answered' : 'closed'; q.closedAt = now;
+      await askSave(env, all);
+      // 📩 الرد يصل الطالب في رسائله (ومعه إشعار إن فعّلها)
+      if (reply) {
+        const st = await resolveStudent(env, { id: q.sid, name: q.name });
+        if (st && (st.id || st.name)) {
+          const id = `${now.toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+          const msg = { id, title: `ردّ معلمك على ${q.hwTitle ? `سؤالك عن «${q.hwTitle}»` : 'سؤالك'}`, body: `سؤالك: ${q.text.slice(0, 200)}\n\n📩 الرد: ${reply}`,
+            type: 'reply', priority: 'normal', examDate: '', visibleFrom: '', expiresAt: '', createdAt: new Date().toISOString() };
+          let arr = await readMessages(env, st); arr.unshift(msg); arr = arr.slice(0, 40);
+          await env.HW.put(identityKey('msg:', st), JSON.stringify(arr), { expirationTtl: 60 * 60 * 24 * 180 });
+          await dropLegacy(env, 'msg:', st);
+          try { const rev = parseInt(await env.HW.get('meta:rev'), 10) || 0; await env.HW.put('meta:rev', String(rev + 1)); } catch {}
+          if (st.id) notifyStudents(env, ctx, new Set([String(st.id)]), { title: '📩 ردّ معلمك على سؤالك', body: reply.slice(0, 140), tag: `ask-${q.id}`,
+            data: { type: 'message', id, url: './?open=notices' } }, (await sha256Hex(`askr|${q.id}|${now}`)).slice(0, 32));
+        }
+      }
+      return json({ ok: true, item: q });
     }
 
     if (url.pathname === '/messages' && request.method === 'POST') {

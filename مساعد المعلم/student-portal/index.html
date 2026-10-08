@@ -1201,6 +1201,28 @@ html[data-pt] body,html[data-pt] .sheet,html[data-pt] .btn,html[data-pt] .studen
 .mp-h b{display:block;font-size:.95rem}.mp-h small{color:var(--ink-soft);font-size:.76rem}
 .mp-goal{display:flex;flex-wrap:wrap;gap:.35rem;align-items:center;font-size:.86rem;font-weight:700}
 .mp-sks{display:grid;gap:.55rem;margin-top:.55rem}
+.ask-card{margin:.8rem 0 0;border:1.5px solid #D9E2F2;border-radius:16px;padding:.75rem .8rem;background:linear-gradient(180deg,#F6F8FF,#fff);display:grid;gap:.55rem}
+.ask-h{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}.ask-h>div{flex:1 1 180px;min-width:0}
+@media(max-width:520px){.ask-go{width:100%;margin:0!important;padding:.65rem!important;font-size:.92rem!important}}.ask-h .ask-ic{width:38px;height:38px;border-radius:11px;background:#E4EAFB;display:grid;place-items:center;font-size:1.2rem;flex:none}
+.ask-h b{display:block;font-size:.95rem}.ask-h small{color:var(--ink-soft);font-size:.76rem;line-height:1.5}
+.ask-go{margin-inline-start:auto;flex:none;border:0;border-radius:12px;background:#3157C8;color:#fff;font:inherit;font-weight:800;font-size:.86rem;padding:.55rem .85rem;cursor:pointer;white-space:nowrap}
+.ask-list{display:grid;gap:.45rem}
+.ask-it{border:1px solid #E1E7F0;border-radius:12px;padding:.5rem .6rem;background:#fff;font-size:.84rem;line-height:1.6}
+.ask-it .ask-q{color:#33465E}.ask-it .ask-meta{display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;font-size:.72rem;color:var(--ink-soft);margin-bottom:.15rem}
+.ask-st{padding:.05rem .45rem;border-radius:999px;font-weight:800;font-size:.7rem}.ask-st.open{background:#FFF3D6;color:#8A5A00}.ask-st.answered{background:#DDF5E8;color:#14724A}.ask-st.closed{background:#EEF1F5;color:#5A6B84}
+.ask-rep{margin-top:.35rem;padding:.45rem .55rem;border-radius:10px;background:#EAF7F0;border-inline-start:4px solid #1E9E6A;color:#123}
+.ask-veil{position:fixed;inset:0;z-index:95;background:rgba(22,35,58,.5);display:flex;align-items:flex-end;justify-content:center;padding:0}
+@media(min-width:620px){.ask-veil{align-items:center;padding:1rem}}
+.ask-sheet{width:min(520px,100%);max-height:92vh;overflow:auto;background:#fff;border-radius:18px 18px 0 0;padding:1rem 1rem 1.2rem;box-shadow:0 -10px 40px rgba(0,0,0,.2)}
+@media(min-width:620px){.ask-sheet{border-radius:18px}}
+.ask-sheet h3{margin:0 0 .2rem;font-size:1.05rem}.ask-sheet label{display:block;font-weight:700;font-size:.84rem;margin:.7rem 0 .3rem}
+.ask-cats{display:flex;flex-wrap:wrap;gap:.35rem}.ask-cats button{border:1.5px solid #D5DEEA;background:#fff;border-radius:999px;padding:.35rem .7rem;font:inherit;font-size:.82rem;cursor:pointer}
+.ask-cats button.on{border-color:#3157C8;background:#EEF2FF;color:#22409A;font-weight:800}
+.ask-sheet select,.ask-sheet textarea{width:100%;box-sizing:border-box;border:1.5px solid #D5DEEA;border-radius:12px;padding:.55rem .65rem;font:inherit;font-size:.92rem;background:#fff}
+.ask-sheet textarea{min-height:110px;resize:vertical}.ask-cnt{font-size:.72rem;color:var(--ink-soft);text-align:left;margin-top:.15rem}
+.ask-err{color:#B3261E;font-size:.82rem;margin-top:.4rem;min-height:1em}
+.ask-btns{display:flex;gap:.5rem;margin-top:.6rem}.ask-btns button{flex:1;border-radius:12px;padding:.65rem;font:inherit;font-weight:800;cursor:pointer;border:1.5px solid #D5DEEA;background:#fff}
+.ask-btns .send{background:#3157C8;border-color:#3157C8;color:#fff}.ask-btns .send:disabled{opacity:.6}
 .gl-sec{margin:0 0 1rem}.gl-sec>summary{cursor:pointer;list-style:none}.gl-sec>summary::-webkit-details-marker{display:none}
 .gl-head,.gl-sec>summary{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;padding:.15rem .1rem .55rem;border-bottom:1px solid rgba(0,0,0,.08);margin-bottom:.6rem}
 .gl-sec>summary::after{content:'▾';margin-inline-start:auto;color:var(--ink-soft);transition:transform .2s}.gl-sec:not([open])>summary::after{transform:rotate(90deg)}
@@ -1531,6 +1553,7 @@ html[data-pt] body,html[data-pt] .sheet,html[data-pt] .btn,html[data-pt] .studen
         <div class="section-title" style="margin-bottom:.25rem"><h3 style="font-size:.9rem">🔔 التنبيهات</h3></div>
         <div id="space-notice-summary"></div>
       </div>
+      <div id="space-ask"></div>
       <div id="sp-push" class="sp-push hide"></div>
     </div>
 
@@ -3457,11 +3480,11 @@ function markMsgsSeen(ids){
     localStorage.setItem(MSG_SEEN_KEY, JSON.stringify([...set].slice(-200)));
   }catch(e){}
 }
-const MSG_ICON = { exam:'🗓️', warning:'⚠️', achievement:'⭐', activity:'📚', cert:'🏅', weekly:'📊', thanks:'💌' };
+const MSG_ICON = { exam:'🗓️', warning:'⚠️', achievement:'⭐', activity:'📚', cert:'🏅', weekly:'📊', thanks:'💌', reply:'📩' };
 const MSG_RANK = { urgent:0, important:1, normal:2 };
 /* ⏳ مدة ظهور الرسالة في التنبيهات: تاريخ انتهاء صريح إن وُجد، وإلا حسب نوعها.
    الاختبار يبقى حتى يوم الاختبار، والتقرير الأسبوعي مكانه «تقريري» لا التنبيهات. */
-const MSG_TTL_DAYS = { thanks:14, cert:30, achievement:21, warning:14, activity:14, message:21 };
+const MSG_TTL_DAYS = { thanks:14, cert:30, achievement:21, warning:14, activity:14, message:21, reply:21 };
 function msgActive(m){
   const now=Date.now();
   if(m.expiresAt){ const t=Date.parse(m.expiresAt); if(t && t<now) return false; }
@@ -3791,6 +3814,7 @@ async function loadStudentSpace(nm, rows){
   try{ annPortalLoad(); }catch(e){}
   try{ myPlanLoad(); }catch(e){}
   try{ myCertsLoad(); }catch(e){}
+  try{ myAskLoad(); }catch(e){}
   const list = Array.isArray(rows) ? rows : [];
   // 🧭 المهمة الأوضح: لا نخلط النشاط العلاجي مع التدريب، ونفضّل المهمة
   // المفتوحة الأقرب موعدًا. النشاط العلاجي يظهر هنا كمسار تطوير واضح.
@@ -8735,6 +8759,59 @@ async function myCertSave(id){
   document.body.appendChild(a);a.click();setTimeout(()=>a.remove(),300);
 }
 
+/* ═══ 💬 راسل معلمك: سؤال أو مشكلة تصل المعلم مباشرة، ورده يظهر هنا وفي التنبيهات ═══ */
+let ASK_META={cats:{activity:'سؤال عن نشاط',tech:'مشكلة في البوابة',grade:'درجة أو تصحيح',lesson:'استفسار عن الدرس',other:'أخرى'},maxLen:600,maxOpen:3}, ASK_ROWS=[];
+function askApi(){ return ((typeof HW!=='undefined'&&HW&&HW.api)||API||'').replace(/\/+$/,''); }
+function askWho(){ return {sid:String(mySid||''),name:String(myName||lockedName()||'').trim()}; }
+function askWhen(t){ const d=Math.floor((Date.now()-t)/864e5); return d<=0?'اليوم':d===1?'أمس':d===2?'قبل يومين':d<=10?`قبل ${d} أيام`:new Date(t).toLocaleDateString('ar-SA-u-ca-gregory',{day:'numeric',month:'long'}); }
+async function myAskLoad(){
+  const box=document.getElementById('space-ask'); if(!box) return;
+  const w=askWho(); if(!w.sid&&!w.name){ box.innerHTML=''; return; }
+  try{ const r=await fetch(askApi()+'/ask-mine?'+new URLSearchParams(w).toString(),{cache:'no-store'}); const j=await r.json();
+    if(j&&j.ok){ ASK_ROWS=j.rows||[]; if(j.cats) ASK_META={...ASK_META,cats:j.cats,maxLen:j.maxLen||600,maxOpen:j.maxOpen||3}; } }catch(e){}
+  if(String(mySid||'')!==w.sid) return;
+  const ST={open:'⏳ بانتظار الرد',answered:'✅ ردّ معلمك',closed:'أُغلق'};
+  const recent=ASK_ROWS.filter(x=>x.status==='open'||Date.now()-(x.repliedAt||x.at)<14*864e5).slice(0,3);
+  box.innerHTML=`<section class="ask-card">
+    <div class="ask-h"><span class="ask-ic">💬</span><div><b>عندك سؤال أو مشكلة؟</b><small>اكتب لمعلمك مباشرة — يصلك الرد هنا وفي التنبيهات</small></div>
+      <button type="button" class="ask-go" onclick="askOpen()">✍️ راسل معلمك</button></div>
+    ${recent.length?`<div class="ask-list">${recent.map(x=>`<div class="ask-it"><div class="ask-meta"><span class="ask-st ${esc(x.status)}">${ST[x.status]||''}</span><span>${esc(ASK_META.cats[x.cat]||'')}</span>${x.hwTitle?`<span>· «${esc(x.hwTitle)}»</span>`:''}<span>· ${askWhen(x.at)}</span></div>
+      <div class="ask-q">${esc(x.text)}</div>${x.reply?`<div class="ask-rep">📩 <b>ردّ المعلم:</b> ${esc(x.reply)}</div>`:''}</div>`).join('')}</div>`:''}
+  </section>`;
+}
+function askOpen(pre){
+  pre=pre||{}; document.getElementById('ask-veil')?.remove();
+  const open=ASK_ROWS.filter(x=>x.status==='open').length;
+  const acts=((window.__journeyRows||[]).filter(h=>h&&h.id&&!h.remedial)).slice().sort((a,b)=>(Number(b.at)||0)-(Number(a.at)||0)).slice(0,30);
+  const v=document.createElement('div'); v.id='ask-veil'; v.className='ask-veil';
+  v.innerHTML=`<div class="ask-sheet" role="dialog" aria-modal="true" aria-label="راسل معلمك">
+    <h3>💬 راسل معلمك</h3><div class="muted" style="font-size:.8rem;line-height:1.6">رسالتك تصل معلمك وحده. اكتب بوضوح ما الذي يحصل معك، ويصلك الرد في التنبيهات.</div>
+    ${open>=ASK_META.maxOpen?`<div class="ask-err" style="margin-top:.7rem">لديك ${open} أسئلة تنتظر الرد — انتظر رد معلمك قبل إرسال سؤال جديد.</div>`:''}
+    <label>نوع الرسالة</label><div class="ask-cats">${Object.entries(ASK_META.cats).map(([k,t],i)=>`<button type="button" data-k="${k}" class="${(pre.cat||'activity')===k?'on':''}">${esc(t)}</button>`).join('')}</div>
+    <label for="ask-hw">النشاط (اختياري)</label><select id="ask-hw"><option value="">— بدون نشاط محدد —</option>${acts.map(h=>`<option value="${esc(h.id)}" ${pre.hw===h.id?'selected':''}>${esc(h.t||'نشاط')}</option>`).join('')}</select>
+    <label for="ask-text">رسالتك</label><textarea id="ask-text" maxlength="${ASK_META.maxLen}" placeholder="مثال: في السؤال الثالث ما فهمت المطلوب… / ما يفتح معي النشاط ويطلع خطأ…"></textarea>
+    <div class="ask-cnt"><span id="ask-n">0</span>/${ASK_META.maxLen}</div>
+    <div class="ask-err" id="ask-err"></div>
+    <div class="ask-btns"><button type="button" class="send" id="ask-send" ${open>=ASK_META.maxOpen?'disabled':''}>📨 إرسال</button><button type="button" id="ask-cancel">إلغاء</button></div>
+  </div>`;
+  document.body.appendChild(v);
+  let cat=pre.cat||'activity';
+  v.querySelectorAll('.ask-cats button').forEach(b=>b.onclick=()=>{ cat=b.dataset.k; v.querySelectorAll('.ask-cats button').forEach(x=>x.classList.toggle('on',x===b)); });
+  const ta=v.querySelector('#ask-text'); ta.oninput=()=>{ v.querySelector('#ask-n').textContent=ta.value.length; };
+  v.querySelector('#ask-cancel').onclick=()=>v.remove(); v.onclick=e=>{ if(e.target===v) v.remove(); };
+  v.querySelector('#ask-send').onclick=async()=>{
+    const text=ta.value.trim(), err=v.querySelector('#ask-err'), btn=v.querySelector('#ask-send');
+    if(text.length<3){ err.textContent='اكتب رسالتك أولًا.'; ta.focus(); return; }
+    btn.disabled=true; btn.textContent='⏳ جارٍ الإرسال…'; err.textContent='';
+    try{ const r=await fetch(askApi()+'/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...askWho(),cat,hw:v.querySelector('#ask-hw').value,text})});
+      const j=await r.json().catch(()=>({}));
+      if(!r.ok||!j.ok){ err.textContent=j.error||'تعذّر الإرسال — تحقق من الإنترنت وحاول مجددًا'; btn.disabled=false; btn.textContent='📨 إرسال'; return; }
+      v.remove(); try{ toast('📨 وصلت رسالتك لمعلمك — سيصلك الرد في التنبيهات','good'); }catch(e){}
+      myAskLoad();
+    }catch(e){ err.textContent='تعذّر الإرسال — تحقق من الإنترنت وحاول مجددًا'; btn.disabled=false; btn.textContent='📨 إرسال'; }
+  };
+  setTimeout(()=>ta.focus(),50);
+}
 /* ═══ 🎯 خطتي: الطالب يعرف هدفه وأين وصل ═══ */
 const MP_HIDE_KEY='my_plan_hidden_v1';
 const mpKey=p=>`${p.id}:${(p.tasks||[]).length}`;
