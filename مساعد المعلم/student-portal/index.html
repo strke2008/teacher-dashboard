@@ -69,6 +69,15 @@ h1,h2,h3{margin:0;font-weight:700;line-height:1.35}
 .sp-mini-t{font-size:.8rem;font-weight:700;color:#137A53}
 .sp-mini-btn{width:30px;height:30px;border-radius:999px;border:0;background:transparent;font-size:.9rem;cursor:pointer;flex:none}
 .sp-head{display:flex;gap:.6rem;align-items:center}
+.sp-push.sp-off{display:grid;gap:.45rem;padding:.6rem .7rem;border-color:#BFD3F2;background:linear-gradient(135deg,#EEF4FF,#F7FAFF)}
+.sp-push.sp-off.hide{display:none}
+.sp-row{display:flex;align-items:center;gap:.6rem;min-width:0}
+.sp-ic2{width:38px;height:38px;border-radius:11px;background:#2F6FDB;display:grid;place-items:center;font-size:1.15rem;flex:none}
+.sp-tx{flex:1;min-width:0}.sp-tx b{display:block;font-size:.9rem}.sp-tx small{display:block;font-size:.72rem;color:var(--ink-soft);line-height:1.45}
+.sp-on{border:0;background:var(--tick);color:#fff;border-radius:10px;padding:.5rem .85rem;font:inherit;font-weight:800;font-size:.85rem;white-space:nowrap;flex:none;cursor:pointer}
+.sp-push.sp-off .sp-note{margin-top:0}
+.sp-push.sp-off details.sp-why{margin:0}.sp-push.sp-off details.sp-why summary{font-size:.76rem;color:#2459B8;font-weight:700;cursor:pointer;list-style:none}
+.sp-push.sp-off details.sp-why summary::-webkit-details-marker{display:none}
 .sp-ic{font-size:1.5rem;line-height:1}
 .sp-head b{display:block;font-size:.95rem}
 .sp-head small{display:block;color:var(--ink-soft);font-size:.8rem;line-height:1.5}
@@ -8048,6 +8057,7 @@ function spRender(showIosSteps){
   // 🔔 مفعّلة: سطر صغير فقط — التفاصيل وزر الإيقاف عند الضغط على ⚙️
   if(!on) window.__spOpen=false;                 // بعد الإيقاف: التفعيل القادم يعود سطرًا صغيرًا
   box.classList.toggle('sp-compact', on && !window.__spOpen);
+  box.classList.toggle('sp-off', !on);
   if(on && !window.__spOpen){
     box.innerHTML = `<span class="sp-mini-t">🔔 التنبيهات مفعّلة ✓</span><button type="button" class="sp-mini-btn" onclick="window.__spOpen=true;spRender()" aria-label="إعدادات التنبيهات">⚙️</button>`;
     return;
@@ -8059,6 +8069,24 @@ function spRender(showIosSteps){
       <li>اضغط زر المشاركة <b>⬆️</b> أسفل الشاشة.</li>
       <li>اختر <b>«إضافة إلى الشاشة الرئيسية»</b> ثم «إضافة».</li>
       <li>افتح «أنشطتي» من الأيقونة الجديدة واضغط «فعّل التنبيهات».</li></ol>`;
+  const whyHTML = `<details class="sp-why">
+      <summary>${on ? '💡 كيف تستفيد من التنبيهات؟' : '💡 لماذا أفعّلها؟ ⌄'}</summary>
+      <ul>
+        <li><b>ابدأ مبكرًا:</b> حلّ النشاط يوم وصوله وهو قصير وسهل، بدل أن تتراكم الأنشطة قبل الموعد النهائي.</li>
+        <li><b>ضغطة واحدة:</b> اضغط التنبيه فيفتح لك النشاط مباشرة، بلا بحث عنه.</li>
+        <li><b>لا تفوتك رسالة:</b> مواعيد الاختبارات وتنبيهات معلمك وتقرير الفترة تصلك حتى والتطبيق مغلق.</li>
+        <li><b>عادة ثابتة:</b> اختر وقتًا يوميًا بعد المدرسة، وحين يصل التنبيه أضفه لمهام ذلك الوقت — الانتظام يرفع نقاطك ومستواك.</li>
+      </ul>
+      <p class="sp-small">لن يصلك إلا ما يخصك: أنشطتك ورسائل معلمك وتقريرك فقط. يمكنك الإيقاف في أي وقت.</p>
+    </details>`;
+  // 🔕 غير مفعّلة: صف مضغوط (العنوان + زر فعّل)، والشرح عند الطلب — مهمة لكن لا تزاحم الصفحة
+  if(!on){
+    box.innerHTML = `<div class="sp-row"><span class="sp-ic2">🔔</span><span class="sp-tx"><b>فعّل التنبيهات على جوالك</b><small>يصلك النشاط الجديد ورسائل معلمك وتقريرك لحظة وصولها</small></span><button type="button" class="sp-on" onclick="spEnable()">فعّل</button></div>
+      ${iosNeedsHome || showIosSteps ? `<div class="sp-note">على iPhone تعمل التنبيهات من أيقونة الشاشة الرئيسية فقط:${steps}</div>` : ''}
+      ${denied ? '<div class="sp-note">التنبيهات محظورة لهذا الموقع — اسمح بها من إعدادات الجوال ثم اضغط «فعّل».</div>' : ''}
+      ${whyHTML}`;
+    return;
+  }
   box.innerHTML = `
     <div class="sp-head">
       <span class="sp-ic">${on ? '🔔' : '📲'}</span>
@@ -8067,16 +8095,7 @@ function spRender(showIosSteps){
     </div>
     ${!on && (iosNeedsHome || showIosSteps) ? `<div class="sp-note">على iPhone تعمل التنبيهات من أيقونة الشاشة الرئيسية فقط:${steps}</div>` : ''}
     ${denied && !on ? '<div class="sp-note">التنبيهات محظورة لهذا الموقع — اسمح بها من إعدادات الجوال ثم اضغط «فعّل».</div>' : ''}
-    <details class="sp-why"${on ? '' : ' open'}>
-      <summary>💡 كيف تستفيد من التنبيهات؟</summary>
-      <ul>
-        <li><b>ابدأ مبكرًا:</b> حلّ النشاط يوم وصوله وهو قصير وسهل، بدل أن تتراكم الأنشطة قبل الموعد النهائي.</li>
-        <li><b>ضغطة واحدة:</b> اضغط التنبيه فيفتح لك النشاط مباشرة، بلا بحث عنه.</li>
-        <li><b>لا تفوتك رسالة:</b> مواعيد الاختبارات وتنبيهات معلمك وتقرير الفترة تصلك حتى والتطبيق مغلق.</li>
-        <li><b>عادة ثابتة:</b> اختر وقتًا يوميًا بعد المدرسة، وحين يصل التنبيه أضفه لمهام ذلك الوقت — الانتظام يرفع نقاطك ومستواك.</li>
-      </ul>
-      <p class="sp-small">لن يصلك إلا ما يخصك: أنشطتك ورسائل معلمك وتقريرك فقط. يمكنك الإيقاف في أي وقت.</p>
-    </details>
+    ${whyHTML}
     <div class="sp-actions">
       ${on ? `<button class="btn ghost sm" onclick="spDisable()">إيقاف التنبيهات</button><button class="btn ghost sm" onclick="window.__spOpen=false;spRender()">إخفاء</button>`
            : `<button class="btn tick" onclick="spEnable()">🔔 فعّل التنبيهات</button>`}
