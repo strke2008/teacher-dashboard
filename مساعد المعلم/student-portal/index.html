@@ -3979,6 +3979,7 @@ async function loadStudentSpace(nm, rows){
   const localDeletedNoticeKeys = new Set((deletedNoticeStore()[noticeStudentKey]||[]).map(String));
   const serverDeletedNoticeKeys = await fetchNoticeState(nm);
   const deletedNoticeKeys = serverDeletedNoticeKeys || localDeletedNoticeKeys;
+  try{ repSeenSync(serverDeletedNoticeKeys); }catch(e){}
   // عند نجاح الاتصال بالخادم يصبح الخادم هو المصدر الرئيسي، مع ضمّ القديم المحلي حتى لا تعود حذوفات سابقة.
   if(serverDeletedNoticeKeys){
     localDeletedNoticeKeys.forEach(k=>{
@@ -3996,7 +3997,7 @@ async function loadStudentSpace(nm, rows){
       localStorage.setItem(NOTICE_DELETED_KEY,JSON.stringify(store));
     }catch(e){}
   };
-  let allNotices = msgNotices.concat(rest).filter(n=>!deletedNoticeKeys.has(noticeKey(n)));
+  let allNotices = msgNotices.concat(rest).filter(n=>!deletedNoticeKeys.has(noticeKey(n)) && !(n.openReport && n.id && REP_SEEN_SRV.has(String(n.id))));
   const summary = $('space-notice-summary');
   if(summary){
     // العدادات مرتبطة بالقائمة الحالية، لذلك ينخفض الرقم لحظيًا عند الحذف.
@@ -9071,6 +9072,7 @@ async function myPlanLoad(){
 @keyframes mrPing{0%{box-shadow:0 0 0 0 rgba(214,69,91,.6)}100%{box-shadow:0 0 0 10px rgba(214,69,91,0)}}
 #my-report-panel.mr-has-new{border-color:#E8A3AE;background:linear-gradient(180deg,#FFF3F5,#fff 75%);box-shadow:0 6px 20px rgba(214,69,91,.15)}
 .mr-alert{width:100%;display:flex;align-items:center;gap:.55rem;margin:.1rem 0 .3rem;border:0;border-radius:12px;background:#D6455B;color:#fff;font:inherit;font-weight:800;font-size:.86rem;padding:.65rem .8rem;cursor:pointer;text-align:start}
+.mr-alert.hide,.mr-ping.hide{display:none}
 .mr-alert span:nth-child(2){flex:1;min-width:0}
 .mr-alert b{white-space:nowrap;background:rgba(255,255,255,.2);border-radius:999px;padding:.15rem .6rem;font-size:.8rem}
 .mr-alert-dot{width:10px;height:10px;border-radius:50%;background:#fff;flex:none;animation:mrPing 1.4s ease-out infinite}
@@ -9400,7 +9402,24 @@ function myRepAlertSync(){
   if(t) t.textContent=w&&p?'وصلك تقريران جديدان':p?'وصلك تقرير الفترة الجديد':'وصلك تقرير أسبوعك الجديد';
 }
 function myRepPeriodBadge(on){ const b=document.getElementById('my-report-new-p'); if(b) b.classList.toggle('hide',!on); myRepTabsSync(); myRepAlertSync(); }
-function myRepNew(k){ const seen=new Set(seenMsgIds()); return (k==='week'?WEEKLY_MSGS:SREP_MSGS||[]).some(m=>!seen.has(m.id)); }
+/* 👁️ «شاهد التقرير» يُحفظ على الخادم أيضًا (msg:seen:<id> مع حالة التنبيهات)، فلا يعود أحمر في متصفح أو جهاز آخر */
+let REP_SEEN_SRV = new Set();
+function repSeen(id){ return REP_SEEN_SRV.has(String(id)) || seenMsgIds().includes(id); }
+function markRepSeen(ids){
+  markMsgsSeen(ids);
+  const nm=String(myName||lockedName()||'').trim(); if(!nm) return;
+  ids.filter(Boolean).forEach(id=>{ id=String(id); if(REP_SEEN_SRV.has(id)) return; REP_SEEN_SRV.add(id); dismissNoticeServer(nm,'msg:seen:'+id).catch(()=>{}); });
+}
+function repSeenSync(keys){
+  if(!keys) return;
+  keys.forEach(k=>{ k=String(k); if(k.startsWith('msg:seen:')) REP_SEEN_SRV.add(k.slice(9)); });
+  // ما رآه على هذا الجهاز ولم يصل الخادم بعد (تحديث قديم) يُرفع الآن
+  const local=new Set(seenMsgIds());
+  const ids=[...(WEEKLY_MSGS||[]),...(SREP_MSGS||[])].map(m=>m.id).filter(id=>local.has(id)&&!REP_SEEN_SRV.has(String(id)));
+  if(ids.length) markRepSeen(ids);
+  try{ myRepWeeklyBadge(myRepNew('week')); myRepPeriodBadge(myRepNew('period')); }catch(e){}
+}
+function myRepNew(k){ return ((k==='week'?WEEKLY_MSGS:SREP_MSGS)||[]).some(m=>!repSeen(m.id)); }
 /* 📊 تقارير الأسبوع: مكانها هنا (تبقى متاحة بلا ازدحام التنبيهات)، آخر 6 أسابيع */
 function myRepWeeklyHTML(){
   const list=(WEEKLY_MSGS||[]).slice(0,6);
@@ -9413,7 +9432,7 @@ function myRepWeeklyHTML(){
 function myRepWeekly(){
   const box=document.getElementById('myrep-weekly'); if(!box) return;
   box.innerHTML=`<p class="myrep-hint">📊 <b>تقرير الأسبوع</b>: ملخص سريع لأسبوع واحد (مشاركتك وواجباتك وأنشطتك) يصلك تلقائيًا كل أسبوع.</p>${myRepWeeklyHTML()}`;
-  const list=(WEEKLY_MSGS||[]).slice(0,6); if(list.length){ markMsgsSeen(list.map(m=>m.id)); myRepWeeklyBadge(false); }
+  const list=(WEEKLY_MSGS||[]).slice(0,6); if(list.length){ markRepSeen((WEEKLY_MSGS||[]).map(m=>m.id)); myRepWeeklyBadge(false); }
 }
 function myRepTabsSync(){
   const bar=document.getElementById('myrep-switch'); if(!bar) return;
@@ -9424,7 +9443,7 @@ function myRepTab(k){
   const w=document.getElementById('myrep-weekly'), p=document.getElementById('myrep-period'); if(!w||!p) return;
   w.classList.toggle('hide',MYREP.tab!=='week'); p.classList.toggle('hide',MYREP.tab!=='period');
   if(MYREP.tab==='week') myRepWeekly();
-  else{ if(!MYREP.loaded) myRepLoadPeriod(); if((SREP_MSGS||[]).length){ markMsgsSeen(SREP_MSGS.map(m=>m.id)); myRepPeriodBadge(false); } }
+  else{ if(!MYREP.loaded) myRepLoadPeriod(); if((SREP_MSGS||[]).length){ markRepSeen(SREP_MSGS.map(m=>m.id)); myRepPeriodBadge(false); } }
   myRepTabsSync();
 }
 function myRepOpen(tab){
