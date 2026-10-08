@@ -22485,8 +22485,14 @@ function getStudentMissingActivities(s){
 async function madUnsolvedFor(sid){
   try{
     const j = await Promise.race([madApi('/madrasati/student',{sid:String(sid)}), new Promise((_,no)=>setTimeout(()=>no(new Error('timeout')),4000))]);
-    return j && j.linked ? (j.unsolved||[]) : [];
+    return j && j.linked ? madOpenOnly(j.unsolved||[]) : [];
   }catch(e){ return []; }
+}
+/* ⏳ التذكير لما يمكن حله فقط: الواجب المُغلق فات وقته ولا فائدة من تذكيره (يبقى ظاهرًا في رصد مدرستي) */
+function madOpenOnly(list){
+  const now=Date.now();
+  return (list||[]).filter(x=>x && x.st==='pending' && !(x.dueAt && Date.parse(x.dueAt)<=now))
+    .sort((a,b)=>(Date.parse(a.dueAt)||Infinity)-(Date.parse(b.dueAt)||Infinity));   // الأقرب إغلاقًا أولًا
 }
 /* 📚 مدرستي تُغلق الواجب في موعده (لا سماح فيها): نص «يُغلق اليوم 11:59 م / غدًا / الأحد 12/10» بتوقيت السعودية */
 function madCloseText(dueAt){
@@ -31082,8 +31088,8 @@ function remCompose(s,x){
     S.push(`📕 لم تُنجز واجبك ${p===1?'يوم':'أيام'}: ${days} — أكمله وأحضره في الحصة القادمة.`);
   }
   if(x.mad.length){
-    P.push(`واجبات منصة مدرستي لم تُحل (${x.mad.length}):\n${madUnsolvedLines(x.mad)}`);
-    S.push(`واجبات في منصة مدرستي لم تحلها بعد:\n${madUnsolvedLines(x.mad)}\n\nادخل مدرستي وحلّها.`);
+    P.push(`واجبات منصة مدرستي مفتوحة ولم تُحل بعد (${x.mad.length}):\n${madUnsolvedLines(x.mad)}`);
+    S.push(`📱 ${x.mad.length===1?'واجب في منصة مدرستي مفتوح':'واجبات في منصة مدرستي مفتوحة'} ولم تحلها بعد:\n${madUnsolvedLines(x.mad)}\n\nادخل مدرستي وحلّها قبل الإغلاق.`);
   }
   return { parent:`السلام عليكم، ولي أمر الطالب ${s.name}،\nالفصل: ${s.cls||'غير محدد'}\n\n${P.join('\n\n')}\n\nنأمل متابعة الطالب وإكمالها.\nوشكرًا لتعاونكم.`,
            student:`مرحبًا ${first} 👋\n${S.join('\n\n')}\n\nبالتوفيق 🌟` };
@@ -31116,7 +31122,7 @@ async function openBulkReminder(keepOnly){
 }
 function brMad(sid){
   const md=BR.madBy&&BR.madBy[String(sid)]; if(!md) return [];
-  return [...(md.m||[]).map(t=>({title:t,st:'closed'})),...(md.o||[]).map(o=>({title:o.t,st:'pending',dueAt:o.d}))];
+  return madOpenOnly((md.o||[]).map(o=>({title:o.t,st:'pending',dueAt:o.d})));
 }
 function brBuild(){
   const roster=(STUDENTS||[]).filter(s=>(!BR.cls||String(s.cls||'')===BR.cls)&&(!BR.only||BR.only.has(String(s.id))));
@@ -31149,7 +31155,7 @@ function brRender(){
       <select class="inp" style="width:auto;max-width:240px" onchange="BR.act=this.value;BR.sel=null;brRender()"><option value="">كل الأنشطة المتأخرة والقريبة</option>${overdueActs.map(h=>`<option value="${esc(h.id)}" ${String(h.id)===BR.act?'selected':''}>${esc(h.title)}</option>`).join('')}</select>
       <label><input type="checkbox" ${BR.soon?'checked':''} onchange="BR.soon=this.checked;BR.sel=null;brRender()"> ⏳ ما ينتهي اليوم وغدًا</label>
       <label><input type="checkbox" ${BR.paper?'checked':''} onchange="BR.paper=this.checked;BR.sel=null;brRender()"> 📕 الواجب الورقي (آخر أسبوع)</label>
-      <label title="${BR.madBy?'':'تعذّر جلب واجبات مدرستي الآن'}"><input type="checkbox" ${BR.mad&&BR.madBy?'checked':''} ${BR.madBy?'':'disabled'} onchange="BR.mad=this.checked;BR.sel=null;brRender()"> 📱 واجبات مدرستي</label>
+      <label title="${BR.madBy?'':'تعذّر جلب واجبات مدرستي الآن'}"><input type="checkbox" ${BR.mad&&BR.madBy?'checked':''} ${BR.madBy?'':'disabled'} onchange="BR.mad=this.checked;BR.sel=null;brRender()"> 📱 واجبات مدرستي المفتوحة</label>
     </div>
     ${BR.rows.length?`<div class="br-list">${BR.rows.map(r=>{ const id=String(r.s.id), on=BR.sel.has(id);
       return `<div class="br-row ${on?'':'off'}"><input type="checkbox" ${on?'checked':''} onchange="brToggle('${esc(id)}',this.checked)">
