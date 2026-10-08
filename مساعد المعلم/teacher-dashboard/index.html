@@ -31815,7 +31815,7 @@ function asksOpen(keep){
       <div class="ask-t-b"><button type="button" class="btn tick sm" onclick="askSend('${thEsc(x.id)}')">📩 أرسل الرد</button>
         <button type="button" class="btn ghost sm" title="حللتها معه في الفصل — لا يُرسل شيء" onclick="askSend('${thEsc(x.id)}',true)">✓ أُغلق دون رد</button>
         ${(STUDENTS||[]).some(s=>String(s.id)===String(x.sid))?`<button type="button" class="btn ghost sm" onclick="ctOpenProfile('${thEsc(x.sid)}')" title="الملف الشامل">👤</button>`:''}</div>`
-      :`${x.reply?`<div class="ask-t-r">📩 ${thEsc(x.reply)}</div>`:'<div class="muted" style="font-size:.78rem">أُغلق دون رد</div>'}
+      :`${x.reply?`<div class="ask-t-r">📩 ${thEsc(x.reply)}</div><div class="muted" style="font-size:.74rem;margin-top:.2rem">${x.seenAt?'👁️ قرأ الطالب الرد':'⏳ لم يقرأ الطالب الرد بعد'}</div>`:'<div class="muted" style="font-size:.78rem">أُغلق دون رد</div>'}
         <div class="ask-t-b"><button type="button" class="btn ghost sm" onclick="askReopen('${thEsc(x.id)}')">↩️ إعادة فتح</button></div>`}
     </div>`;
   const html=`<h2 id="ask-inbox">💬 رسائل الطلاب ${open.length?`<span class="chip bad">${open.length} تنتظر ردك</span>`:''}</h2>

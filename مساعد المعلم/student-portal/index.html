@@ -1209,6 +1209,9 @@ html[data-pt] body,html[data-pt] .sheet,html[data-pt] .btn,html[data-pt] .studen
 .ask-list{display:grid;gap:.45rem}
 .ask-it{border:1px solid #E1E7F0;border-radius:12px;padding:.5rem .6rem;background:#fff;font-size:.84rem;line-height:1.6}
 .ask-it .ask-q{color:#33465E}.ask-it .ask-meta{display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;font-size:.72rem;color:var(--ink-soft);margin-bottom:.15rem}
+.ask-it{position:relative}.ask-it:has(.ask-x) .ask-meta{padding-inline-end:2rem}
+.ask-x{position:absolute;top:.4rem;inset-inline-end:.4rem;border:0;background:#EEF1F5;color:#5A6B84;border-radius:999px;width:26px;height:26px;font-size:.8rem;font-weight:900;cursor:pointer;flex:0 0 auto}.ask-x:hover{background:#E1E7F0;color:#1B2A41}
+.ask-note{font-size:.72rem;color:var(--ink-soft);margin-top:.45rem;line-height:1.6}
 .ask-st{padding:.05rem .45rem;border-radius:999px;font-weight:800;font-size:.7rem}.ask-st.open{background:#FFF3D6;color:#8A5A00}.ask-st.answered{background:#DDF5E8;color:#14724A}.ask-st.closed{background:#EEF1F5;color:#5A6B84}
 .ask-rep{margin-top:.35rem;padding:.45rem .55rem;border-radius:10px;background:#EAF7F0;border-inline-start:4px solid #1E9E6A;color:#123}
 .ask-veil{position:fixed;inset:0;z-index:95;background:rgba(22,35,58,.5);display:flex;align-items:flex-end;justify-content:center;padding:0}
@@ -8798,16 +8801,30 @@ async function myAskLoad(){
   const box=document.getElementById('space-ask'); if(!box) return;
   const w=askWho(); if(!w.sid&&!w.name){ box.innerHTML=''; return; }
   try{ const r=await fetch(askApi()+'/ask-mine?'+new URLSearchParams(w).toString(),{cache:'no-store'}); const j=await r.json();
-    if(j&&j.ok){ ASK_ROWS=j.rows||[]; if(j.cats) ASK_META={...ASK_META,cats:j.cats,maxLen:j.maxLen||600,maxOpen:j.maxOpen||3}; } }catch(e){}
+    if(j&&j.ok){ ASK_ROWS=j.rows||[]; if(j.keepDays) ASK_META.keepDays=j.keepDays; askDropNotices(j.gone); if(j.cats) ASK_META={...ASK_META,cats:j.cats,maxLen:j.maxLen||600,maxOpen:j.maxOpen||3}; } }catch(e){}
   if(String(mySid||'')!==w.sid) return;
   const ST={open:'⏳ بانتظار الرد',answered:'✅ ردّ معلمك',closed:'أُغلق'};
-  const recent=ASK_ROWS.filter(x=>x.status==='open'||Date.now()-(x.repliedAt||x.at)<14*864e5).slice(0,3);
+  const kd=(ASK_META.keepDays||3)*864e5;
+  const recent=ASK_ROWS.filter(x=>x.status==='open'||Date.now()-(x.seenAt||x.repliedAt||x.at)<kd).slice(0,3);
   box.innerHTML=`<section class="ask-card">
     <div class="ask-h"><span class="ask-ic">💬</span><div><b>عندك سؤال أو مشكلة؟</b><small>اكتب لمعلمك مباشرة — يصلك الرد هنا وفي التنبيهات</small></div>
       <button type="button" class="ask-go" onclick="askOpen()">✍️ راسل معلمك</button></div>
-    ${recent.length?`<div class="ask-list">${recent.map(x=>`<div class="ask-it"><div class="ask-meta"><span class="ask-st ${esc(x.status)}">${ST[x.status]||''}</span><span>${esc(ASK_META.cats[x.cat]||'')}</span>${x.hwTitle?`<span>· «${esc(x.hwTitle)}»</span>`:''}<span>· ${askWhen(x.at)}</span></div>
-      <div class="ask-q">${esc(x.text)}</div>${x.reply?`<div class="ask-rep">📩 <b>ردّ المعلم:</b> ${esc(x.reply)}</div>`:''}</div>`).join('')}</div>`:''}
+    ${recent.length?`<div class="ask-list">${recent.map(x=>`<div class="ask-it"><div class="ask-meta"><span class="ask-st ${esc(x.status)}">${ST[x.status]||''}</span><span>${esc(ASK_META.cats[x.cat]||'')}</span>${x.hwTitle?`<span>· «${esc(x.hwTitle)}»</span>`:''}<span>· ${askWhen(x.at)}</span>${x.status!=='open'?`<button type="button" class="ask-x" onclick="askHide('${esc(x.id)}',this)" title="إخفاء" aria-label="إخفاء الرد">✕</button>`:''}</div>
+      <div class="ask-q">${esc(x.text)}</div>${x.reply?`<div class="ask-rep">📩 <b>ردّ المعلم:</b> ${esc(x.reply)}</div>`:''}</div>`).join('')}</div>
+    ${recent.some(x=>x.status!=='open')?`<div class="ask-note">الرد يبقى هنا ${ASK_META.keepDays||3} أيام بعد قراءته ثم يختفي مع تنبيهه — أو اضغط ✕ لإخفائه الآن.</div>`:''}`:''}
   </section>`;
+}
+/* إخفاء الرد: يختفي من البطاقة ومن التنبيهات معًا (والسؤال يبقى محفوظًا عند المعلم) */
+function askDropNotices(ids){
+  (ids||[]).forEach(id=>{ const b=document.querySelector(`[data-delete-notice="msg:${CSS.escape(String(id))}"]`); if(b) b.click(); });
+}
+async function askHide(id,btn){
+  const it=btn&&btn.closest('.ask-it'); if(it) it.style.opacity='.4'; if(btn) btn.disabled=true;
+  try{ const r=await fetch(askApi()+'/ask-hide',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,...askWho()})});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok||!j.ok) throw 0;
+    ASK_ROWS=ASK_ROWS.filter(x=>x.id!==id); askDropNotices(j.gone); myAskLoad();
+  }catch(e){ if(it) it.style.opacity=''; if(btn) btn.disabled=false; alert('تعذّر الإخفاء — تحقق من الإنترنت وحاول مجددًا'); }
 }
 function askOpen(pre){
   pre=pre||{}; document.getElementById('ask-veil')?.remove();

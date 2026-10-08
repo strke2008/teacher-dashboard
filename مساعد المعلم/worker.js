@@ -1789,12 +1789,31 @@ const json = (data, status = 200) =>
    القراءة بالمعرف وحده كانت تحجب كل رسالة قديمة حجبًا دائمًا متى وُجد
    المفتاحان معًا. الدمج يتم مرة واحدة ثم يُحذف المفتاح القديم. */
 /* 💬 أسئلة الطلاب للمعلم: مصفوفة واحدة (الأحدث أولًا)، بحدود تمنع الإغراق */
-const ASK = { maxLen: 600, maxOpen: 3, perDay: 5, keep: 600,
+const ASK = { maxLen: 600, maxOpen: 3, perDay: 5, keep: 600, keepSeenDays: 3,
   cats: { activity: 'سؤال عن نشاط', tech: 'مشكلة في البوابة', grade: 'درجة أو تصحيح', lesson: 'استفسار عن الدرس', other: 'أخرى' } };
 async function askLoad(env) { try { const a = JSON.parse(await env.HW.get('asks')); return Array.isArray(a) ? a : []; } catch { return []; } }
 async function askSave(env, all) { await env.HW.put('asks', JSON.stringify(all.slice(0, ASK.keep))); }
 function askMine(x, st) { return !!x && ((st.id && x.sid && String(x.sid) === String(st.id)) || (!x.sid && x.name === st.name)); }
-function askPublic(x) { return { id: x.id, cat: x.cat, hwTitle: x.hwTitle || '', text: x.text, at: x.at, status: x.status, reply: x.reply || '', repliedAt: x.repliedAt || 0 }; }
+function askPublic(x) { return { id: x.id, cat: x.cat, hwTitle: x.hwTitle || '', text: x.text, at: x.at, status: x.status, reply: x.reply || '', repliedAt: x.repliedAt || 0, seenAt: x.seenAt || 0 }; }
+// 🧹 الرد يبقى عند الطالب ASK.keepSeenDays بعد أن يراه، أو يخفيه بنفسه — ومعه تنبيهه، فلا يتكرر ولا يزدحم
+function askGoneForStudent(x, now) {
+  if (!x || x.status === 'open') return false;
+  if (x.hiddenAt) return true;
+  const since = x.seenAt || (x.reply ? 0 : (x.closedAt || x.at));
+  return !!since && now - since > ASK.keepSeenDays * 864e5;
+}
+async function askDropReplyMsgs(env, x) {
+  const st = await resolveStudent(env, { id: x.sid, name: x.name });
+  if (!st || !(st.id || st.name)) return [];
+  const ids = new Set((x.msgIds || []).map(String)), head = `سؤالك: ${String(x.text || '').slice(0, 200)}`;
+  const arr = await readMessages(env, st);
+  const drop = arr.filter(m => m && m.type === 'reply' && (ids.has(String(m.id)) || String(m.body || '').startsWith(head)));
+  if (!drop.length) return [];
+  await env.HW.put(identityKey('msg:', st), JSON.stringify(arr.filter(m => !drop.includes(m))), { expirationTtl: 60 * 60 * 24 * 180 });
+  await dropLegacy(env, 'msg:', st);
+  try { const rev = parseInt(await env.HW.get('meta:rev'), 10) || 0; await env.HW.put('meta:rev', String(rev + 1)); } catch {}
+  return drop.map(m => String(m.id));
+}
 async function readMessages(env, st) {
   const idKey = st.id ? `msg:${st.id}` : '';
   const nameKeys = [];
@@ -4764,8 +4783,29 @@ export default {
     if (url.pathname === '/ask-mine' && request.method === 'GET') {
       const st = await resolveStudent(env, { id: String(url.searchParams.get('sid') || '').slice(0, 40), name: String(url.searchParams.get('name') || '').slice(0, 80) });
       if (!st.known) return json({ ok: false, error: 'student not recognized' }, 403);
-      const rows = (await askLoad(env)).filter(x => askMine(x, st)).slice(0, 10).map(askPublic);
-      return json({ ok: true, rows, cats: ASK.cats, maxLen: ASK.maxLen, maxOpen: ASK.maxOpen });
+      const all = await askLoad(env), now = Date.now(), mine = all.filter(x => askMine(x, st));
+      let dirty = false; const gone = [];
+      for (const x of mine) {
+        // 👁️ البطاقة تُعرض فور جلب الأسئلة، فأول جلب بعد الرد = رآه الطالب
+        if (x.reply && x.status !== 'open' && !x.seenAt) { x.seenAt = now; dirty = true; }
+        // انتهت مدته: يختفي تنبيه الرد أيضًا (مرة واحدة)
+        if (askGoneForStudent(x, now) && !x.msgGone) { x.msgGone = now; dirty = true; try { gone.push(...await askDropReplyMsgs(env, x)); } catch {} }
+      }
+      if (dirty) await askSave(env, all);
+      const rows = mine.filter(x => !askGoneForStudent(x, now)).slice(0, 10).map(askPublic);
+      return json({ ok: true, rows, gone, keepDays: ASK.keepSeenDays, cats: ASK.cats, maxLen: ASK.maxLen, maxOpen: ASK.maxOpen });
+    }
+    if (url.pathname === '/ask-hide' && request.method === 'POST') {
+      let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
+      const st = await resolveStudent(env, { id: String(b.sid || '').slice(0, 40), name: String(b.name || '').slice(0, 80) });
+      if (!st.known) return json({ ok: false, error: 'student not recognized' }, 403);
+      const all = await askLoad(env), x = all.find(q => q.id === String(b.id || '') && askMine(q, st));
+      if (!x) return json({ ok: false, error: 'not found' }, 404);
+      if (x.status === 'open') return json({ ok: false, error: 'لا يُخفى سؤال ينتظر الرد' }, 400);
+      x.hiddenAt = Date.now(); x.msgGone = x.hiddenAt;
+      let gone = []; try { gone = await askDropReplyMsgs(env, x); } catch {}
+      await askSave(env, all);
+      return json({ ok: true, gone });
     }
     if (url.pathname === '/asks' && request.method === 'GET') {
       if (!env.TEACHER_TOKEN || url.searchParams.get('t') !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
@@ -4777,9 +4817,9 @@ export default {
       const all = await askLoad(env), q = all.find(x => x.id === String(b.id || ''));
       if (!q) return json({ ok: false, error: 'not found' }, 404);
       const reply = String(b.reply || '').trim().slice(0, 1000), now = Date.now();
-      if (b.reopen) { q.status = 'open'; await askSave(env, all); return json({ ok: true, item: q }); }
+      if (b.reopen) { q.status = 'open'; delete q.hiddenAt; delete q.msgGone; await askSave(env, all); return json({ ok: true, item: q }); }
       if (!reply && !b.close) return json({ ok: false, error: 'اكتب الرد' }, 400);
-      if (reply) { q.reply = reply; q.repliedAt = now; }
+      if (reply) { q.reply = reply; q.repliedAt = now; delete q.seenAt; delete q.hiddenAt; delete q.msgGone; }
       q.status = reply ? 'answered' : 'closed'; q.closedAt = now;
       await askSave(env, all);
       // 📩 الرد يصل الطالب في رسائله (ومعه إشعار إن فعّلها)
@@ -4789,6 +4829,7 @@ export default {
           const id = `${now.toString(36)}${Math.random().toString(36).slice(2, 8)}`;
           const msg = { id, title: `ردّ معلمك على ${q.hwTitle ? `سؤالك عن «${q.hwTitle}»` : 'سؤالك'}`, body: `سؤالك: ${q.text.slice(0, 200)}\n\n📩 الرد: ${reply}`,
             type: 'reply', priority: 'normal', examDate: '', visibleFrom: '', expiresAt: '', createdAt: new Date().toISOString() };
+          q.msgIds = [...(q.msgIds || []), id].slice(-5); await askSave(env, all);
           let arr = await readMessages(env, st); arr.unshift(msg); arr = arr.slice(0, 40);
           await env.HW.put(identityKey('msg:', st), JSON.stringify(arr), { expirationTtl: 60 * 60 * 24 * 180 });
           await dropLegacy(env, 'msg:', st);
