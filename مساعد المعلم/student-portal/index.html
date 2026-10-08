@@ -976,6 +976,10 @@ body.rev-mode #s-gate > :not(#rev-view){display:none!important}
 .shop button{padding:.75rem .6rem;border-radius:12px;background:#F7F9FC;border:2px solid var(--rule);
   color:var(--ink);font-family:inherit;text-align:center;font-weight:700;font-size:.92rem;line-height:1.4}
 .shop button:disabled{opacity:.45}
+.shop-cat{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:baseline;gap:.15rem .5rem;margin:.55rem 0 -.1rem;padding-bottom:.3rem;border-bottom:1.5px solid var(--rule)}
+.shop-cat:first-child{margin-top:0}
+.shop-cat b{font-size:.95rem}
+.shop-cat small{font-size:.74rem;color:var(--ink-soft)}
 .shop .p{display:block;font-size:.8rem;font-weight:800;color:var(--tick);margin-top:.2rem}
 .bal{font-size:1.5rem;font-weight:700;color:var(--tick)}
 /* 🎓 بطاقات رفع درجات الاختبارات */
@@ -7781,6 +7785,13 @@ const CARDS = [
   { id:'theme_spaceweek', name:'مظهر أسبوع الفضاء', price:250, ic:'🚀', once:true,
     d:'سماء ليلية بكوكب وشريط «أسبوع الفضاء العالمي» — لك دائمًا من «🎨 مظهري»' }
 ].sort((a,b)=>b.price-a.price);
+// 🗂️ فئات المتجر — كل بطاقة في فئة واحدة، وداخل الفئة من الأغلى للأرخص
+const SHOP_CATS = [
+  { ic:'🎓', t:'درجاتك', d:'ترفع درجة الاختبارات أو تمسح خصم واجب', ids:['exam3','exam2','exam1','exam05','madforgive'] },
+  { ic:'🧩', t:'مساعدات الأنشطة', d:'تساعدك أثناء الحل وبعده', ids:['dbl','retry','early','hint','ticket'] },
+  { ic:'🎨', t:'مظهرك وتميّزك', d:'لك دائمًا — تُشترى مرة واحدة', ids:['namecolor','theme_gold','theme_diamond','theme_saudi','theme_spaceweek','frame','title'] },
+  { ic:'💌', t:'لأهلك', d:'رسالة من معلمك لولي أمرك', ids:['thanks'] }
+];
 
 // 🏅 الألقاب المتاحة — لكل لقب أيقونته
 const TITLES = [
@@ -7927,6 +7938,17 @@ function renderStore(target){
   const examRemaining=examKnown ? Math.max(0,Number(EXAM_SHOP_REMAINING)||0) : 0;
   const examAvailable=examKnown && EXAM_SHOP_POLICY?.available!==false && examRemaining>0;
   const examNotice=!examKnown ? '⏳ جارٍ التحقق من درجاتك…' : (EXAM_SHOP_POLICY?.reason||(!EXAM_SHOP_HAS_SCORE && examAvailable ? '🎓 الحد المسموح محفوظ لك، وتُحدد الدرجات المتبقية بعد ظهور درجة الاختبار.' : (examRemaining<=0 && EXAM_SHOP_HAS_SCORE ? '🎓 استخدمت كامل الحد المسموح لرفع درجة الاختبار.' : examShopMessage())));
+  const cardBtn=c=>{
+          const remainingEnough=!c.examBonus || examRemaining>=Number(c.examBonus);
+          const ownedOnce = c.once && MYPERKS[c.id] > 0;
+          const can = !ownedOnce && (MYPTS >= c.price || (c.mad && MYPERKS[c.id] > 0)) && (!c.examBonus || (examAvailable && remainingEnough));
+          const examLine=c.examBonus ? (!examKnown ? '⏳ جارٍ التحقق…' : (examRemaining<=0 && EXAM_SHOP_HAS_SCORE) ? 'استخدمت كامل الحد' : remainingEnough && examAvailable ? `المتاح لك الآن ${String(examRemaining).replace(/\.0$/,'')} درجة` : (examAvailable ? `المتبقي ${String(examRemaining).replace(/\.0$/,'')} درجة · البطاقة تحتاج ${c.examBonus}` : 'غير متاح حاليًا')) : '';
+          return `<button data-c="${c.id}" data-p="${c.price}" ${can?'':'disabled'}>
+            ${c.ic} ${esc(c.name)}
+            <span style="display:block;font-size:.74rem;font-weight:500;color:var(--ink-soft);line-height:1.4;margin-top:.15rem">${esc(c.d||'')}</span>
+            ${c.examBonus?`<span style="display:block;font-size:.7rem;font-weight:800;margin-top:.2rem">${esc(examLine)}</span>`:''}
+            <span class="p">${ownedOnce ? '✓ تملكه' : c.price + ' نقطة'}</span></button>`;
+        };
   box.innerHTML = `
     <div class="sheet" style="margin-top:1.2rem">
       ${examCards.length?`<div style="margin-bottom:.7rem;padding:.65rem .75rem;border-radius:10px;background:${!examKnown?'#EEF2F7':examAvailable?'#E4F4EC':'#FFF1F2'};font-size:.8rem;line-height:1.6">${esc(examNotice)}${examKnown?`<br><b>المتبقي لك: ${String(examRemaining).replace(/\.0$/,'')} درجة</b>`:''}</div>`:''}
@@ -7939,16 +7961,8 @@ function renderStore(target){
         return c.ic+' '+esc(c.name)+(MYPERKS[k]>1?' ×'+MYPERKS[k]:'');}).join(' · ')}</div>` : ''}
       ${owned.filter(k=>examCardOf(k)).map(k=>{const c=examCardOf(k);return `<div class="exam-bonus-owned"><div class="exam-bonus-owned-head"><span>${c.ic} لديك بطاقة «${esc(c.name)}» ×${MYPERKS[k]}</span><span>${c.examBonus} درجة</span></div><button type="button" class="exam-bonus-use" data-use-exam-card="${c.id}">🎓 استخدم بطاقة قديمة لرفع درجة الاختبارات</button></div>`;}).join('')}
       <div class="shop">
-        ${CARDS.map(c=>{
-          const remainingEnough=!c.examBonus || examRemaining>=Number(c.examBonus);
-          const ownedOnce = c.once && MYPERKS[c.id] > 0;
-          const can = !ownedOnce && (MYPTS >= c.price || (c.mad && MYPERKS[c.id] > 0)) && (!c.examBonus || (examAvailable && remainingEnough));
-          const examLine=c.examBonus ? (!examKnown ? '⏳ جارٍ التحقق…' : (examRemaining<=0 && EXAM_SHOP_HAS_SCORE) ? 'استخدمت كامل الحد' : remainingEnough && examAvailable ? `المتاح لك الآن ${String(examRemaining).replace(/\.0$/,'')} درجة` : (examAvailable ? `المتبقي ${String(examRemaining).replace(/\.0$/,'')} درجة · البطاقة تحتاج ${c.examBonus}` : 'غير متاح حاليًا')) : '';
-          return `<button data-c="${c.id}" data-p="${c.price}" ${can?'':'disabled'}>
-            ${c.ic} ${esc(c.name)}
-            <span style="display:block;font-size:.74rem;font-weight:500;color:var(--ink-soft);line-height:1.4;margin-top:.15rem">${esc(c.d||'')}</span>
-            ${c.examBonus?`<span style="display:block;font-size:.7rem;font-weight:800;margin-top:.2rem">${esc(examLine)}</span>`:''}
-            <span class="p">${ownedOnce ? '✓ تملكه' : c.price + ' نقطة'}</span></button>`;
+        ${SHOP_CATS.map(cat=>{ const list=CARDS.filter(c=>cat.ids.includes(c.id)); if(!list.length) return '';
+          return `<div class="shop-cat"><b>${cat.ic} ${esc(cat.t)}</b><small>${esc(cat.d)}</small></div>` + list.map(cardBtn).join('');
         }).join('')}
       </div>
       <p class="muted center" style="font-size:.78rem;margin:.6rem 0 0">
