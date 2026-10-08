@@ -4798,15 +4798,15 @@ export default {
       const st = await resolveStudent(env, { id: String(url.searchParams.get('sid') || '').slice(0, 40), name: String(url.searchParams.get('name') || '').slice(0, 80) });
       if (!st.known) return json({ ok: false, error: 'student not recognized' }, 403);
       const all = await askLoad(env), now = Date.now(), mine = all.filter(x => askMine(x, st));
-      let dirty = false; const gone = [];
+      let dirty = false; const gone = [], fresh = new Set();
       for (const x of mine) {
         // 👁️ البطاقة تُعرض فور جلب الأسئلة، فأول جلب بعد الرد = رآه الطالب
-        if (x.reply && x.status !== 'open' && !x.seenAt) { x.seenAt = now; dirty = true; }
+        if (x.reply && x.status !== 'open' && !x.seenAt) { x.seenAt = now; dirty = true; fresh.add(x.id); }
         // انتهت مدته: يختفي تنبيه الرد أيضًا (مرة واحدة)
         if (askGoneForStudent(x, now) && !x.msgGone) { x.msgGone = now; dirty = true; try { gone.push(...await askDropReplyMsgs(env, x)); } catch {} }
       }
       if (dirty) await askSave(env, all);
-      const rows = mine.filter(x => !askGoneForStudent(x, now)).slice(0, 10).map(askPublic);
+      const rows = mine.filter(x => !askGoneForStudent(x, now)).slice(0, 10).map(x => ({ ...askPublic(x), fresh: fresh.has(x.id) }));
       return json({ ok: true, rows, gone, keepDays: ASK.keepSeenDays, cats: ASK.cats, maxLen: ASK.maxLen, maxOpen: ASK.maxOpen });
     }
     if (url.pathname === '/ask-hide' && request.method === 'POST') {

@@ -1237,6 +1237,21 @@ html[data-pt] body,html[data-pt] .sheet,html[data-pt] .btn,html[data-pt] .studen
 .ask-list{display:grid;gap:.45rem}
 .ask-it{border:1px solid #E1E7F0;border-radius:12px;padding:.5rem .6rem;background:#fff;font-size:.84rem;line-height:1.6}
 .ask-it .ask-q{color:#33465E}.ask-it .ask-meta{display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;font-size:.72rem;color:var(--ink-soft);margin-bottom:.15rem}
+.askc-sum{width:100%;display:flex;align-items:center;flex-wrap:wrap;gap:.4rem;margin-top:.55rem;border:1px solid #DCE5F2;background:#F6F9FE;border-radius:12px;padding:.55rem .7rem;font:inherit;font-size:.84rem;font-weight:700;color:#16233A;cursor:pointer;text-align:start}
+.askc-sum>span:first-child{flex:1;min-width:0}.askc-chips{flex-basis:100%;display:flex;gap:.35rem;flex-wrap:wrap}.askc-sum em{font-style:normal;background:#D6455B;color:#fff;border-radius:99px;padding:.05rem .5rem;font-size:.7rem}
+.askc-sum i{font-style:normal;background:#FFF3D6;color:#8A5A00;border-radius:99px;padding:.05rem .5rem;font-size:.7rem}.askc-sum b{color:#2F6FDB;font-size:.78rem;white-space:nowrap}
+.askc-list{display:grid;grid-template-columns:minmax(0,1fr);gap:.4rem;margin-top:.5rem;min-width:0}
+.askc-it{min-width:0;overflow:hidden;position:relative;border:1px solid #E1E7F0;border-radius:12px;padding:.5rem .6rem;background:#fff;cursor:pointer}
+.askc-it.new{border-color:#E8A3AE;background:#FFF7F8}
+.askc-q{font-size:.82rem;color:#33465E;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-inline-end:1.7rem}
+.askc-r{font-size:.8rem;color:#137A53;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:.15rem}.askc-r b{color:#0E5B4E}
+.askc-it.open .askc-q,.askc-it.open .askc-r{white-space:normal;line-height:1.7}
+.askc-it.open .askc-r{background:#EAF7F0;border-radius:8px;padding:.35rem .5rem;margin-top:.35rem}
+.askc-meta{font-size:.68rem;color:#8A97AB;margin-top:.2rem;display:flex;align-items:center;gap:.3rem;flex-wrap:wrap}
+.askc-new{background:#D6455B;color:#fff;border-radius:99px;padding:0 .4rem;font-size:.64rem;font-weight:800}
+.askc-x{position:absolute;top:.4rem;inset-inline-end:.4rem;border:0;background:#EEF1F5;color:#5A6B84;border-radius:99px;width:24px;height:24px;font-size:.72rem;font-weight:900;cursor:pointer}
+.askc-more{border:0;background:none;color:#2F6FDB;font:inherit;font-size:.78rem;font-weight:700;padding:.35rem .2rem 0;cursor:pointer}
+.askc-note{font-size:.7rem;color:#8A97AB;margin-top:.35rem}
 .ask-it{position:relative}.ask-it:has(.ask-x) .ask-meta{padding-inline-end:2rem}
 .ask-x{position:absolute;top:.4rem;inset-inline-end:.4rem;border:0;background:#EEF1F5;color:#5A6B84;border-radius:999px;width:26px;height:26px;font-size:.8rem;font-weight:900;cursor:pointer;flex:0 0 auto}.ask-x:hover{background:#E1E7F0;color:#1B2A41}
 .ask-note{font-size:.72rem;color:var(--ink-soft);margin-top:.45rem;line-height:1.6}
@@ -8863,33 +8878,56 @@ let ASK_META={cats:{activity:'سؤال عن نشاط',tech:'مشكلة في ال
 function askApi(){ return ((typeof HW!=='undefined'&&HW&&HW.api)||API||'').replace(/\/+$/,''); }
 function askWho(){ return {sid:String(mySid||''),name:String(myName||lockedName()||'').trim()}; }
 function askWhen(t){ const d=Math.floor((Date.now()-t)/864e5); return d<=0?'اليوم':d===1?'أمس':d===2?'قبل يومين':d<=10?`قبل ${d} أيام`:new Date(t).toLocaleDateString('ar-SA-u-ca-gregory',{day:'numeric',month:'long'}); }
+/* 💬 محادثات الطالب مع معلمه: مطوية في سطر واحد مهما كثرت.
+   الرد الجديد (أول مرة يُعرض) يظهر وحده مفتوحًا حتى لا يفوت الطالب، ثم تعود مطوية. */
+const ASK_UI={ open:false, more:false, exp:new Set(), fresh:new Set() };
 async function myAskLoad(){
   const box=document.getElementById('space-ask'); if(!box) return;
   const w=askWho(); if(!w.sid&&!w.name){ box.innerHTML=''; return; }
   try{ const r=await fetch(askApi()+'/ask-mine?'+new URLSearchParams(w).toString(),{cache:'no-store'}); const j=await r.json();
-    if(j&&j.ok){ ASK_ROWS=j.rows||[]; if(j.keepDays) ASK_META.keepDays=j.keepDays; askDropNotices(j.gone); if(j.cats) ASK_META={...ASK_META,cats:j.cats,maxLen:j.maxLen||600,maxOpen:j.maxOpen||3}; } }catch(e){}
+    if(j&&j.ok){ ASK_ROWS=j.rows||[]; ASK_ROWS.forEach(x=>{ if(x.fresh) ASK_UI.fresh.add(x.id); }); if(j.keepDays) ASK_META.keepDays=j.keepDays; askDropNotices(j.gone); if(j.cats) ASK_META={...ASK_META,cats:j.cats,maxLen:j.maxLen||600,maxOpen:j.maxOpen||3}; } }catch(e){}
   if(String(mySid||'')!==w.sid) return;
+  askRender();
+}
+function askRender(){
+  const box=document.getElementById('space-ask'); if(!box) return;
   const ST={open:'⏳ بانتظار الرد',answered:'✅ ردّ معلمك',closed:'أُغلق'};
   const kd=(ASK_META.keepDays||3)*864e5;
-  const recent=ASK_ROWS.filter(x=>x.status==='open'||Date.now()-(x.seenAt||x.repliedAt||x.at)<kd).slice(0,3);
+  const rows=ASK_ROWS.filter(x=>x.status==='open'||Date.now()-(x.seenAt||x.repliedAt||x.at)<kd).sort((a,b)=>(b.repliedAt||b.at)-(a.repliedAt||a.at));
+  const fresh=rows.filter(x=>ASK_UI.fresh.has(x.id)), waiting=rows.filter(x=>x.status==='open').length;
+  const item=(x,full)=>`<div class="askc-it${ASK_UI.fresh.has(x.id)?' new':''}${full?' open':''}" onclick="askToggle('${esc(x.id)}',event)">
+      ${x.status!=='open'?`<button type="button" class="askc-x" onclick="event.stopPropagation();askHide('${esc(x.id)}',this)" title="إخفاء" aria-label="إخفاء الرد">✕</button>`:''}
+      <div class="askc-q">❓ ${esc(x.text)}</div>
+      ${x.reply?`<div class="askc-r"><b>📩 ردّ المعلم:</b> ${esc(x.reply)}</div>`:''}
+      <div class="askc-meta"><span class="ask-st ${esc(x.status)}">${ST[x.status]||''}</span> ${esc(ASK_META.cats[x.cat]||'')}${x.hwTitle?` · «${esc(x.hwTitle)}»`:''} · ${askWhen(x.at)}${ASK_UI.fresh.has(x.id)?'<span class="askc-new">رد جديد</span>':''}</div></div>`;
+  let body='';
+  if(rows.length){
+    body+=`<button type="button" class="askc-sum" onclick="ASK_UI.open=!ASK_UI.open;askRender()" aria-expanded="${ASK_UI.open}"><span>📩 محادثاتك (${rows.length})</span><b>${ASK_UI.open?'إخفاء ⌃':'عرض ⌄'}</b>${fresh.length||waiting?`<span class="askc-chips">${fresh.length?`<em>${fresh.length} ${fresh.length===1?'رد جديد':'ردود جديدة'}</em>`:''}${waiting?`<i>⏳ ${waiting} بانتظار الرد</i>`:''}</span>`:''}</button>`;
+    if(ASK_UI.open){
+      const list=ASK_UI.more?rows:rows.slice(0,3);
+      body+=`<div class="askc-list">${list.map(x=>item(x,ASK_UI.exp.has(x.id))).join('')}</div>`
+        +(rows.length>3?`<button type="button" class="askc-more" onclick="ASK_UI.more=!ASK_UI.more;askRender()">${ASK_UI.more?'إخفاء الأقدم ⌃':`عرض الأقدم (${rows.length-3}) ⌄`}</button>`:'')
+        +`<div class="askc-note">اضغط أي محادثة لعرضها كاملة · الرد يختفي بعد ${ASK_META.keepDays||3} أيام من قراءته، أو اضغط ✕</div>`;
+    }else if(fresh.length){
+      body+=`<div class="askc-list">${fresh.map(x=>item(x,true)).join('')}</div>`;
+    }
+  }
   box.innerHTML=`<section class="ask-card">
     <div class="ask-h"><span class="ask-ic">💬</span><div><b>عندك سؤال أو مشكلة؟</b><small>اكتب لمعلمك مباشرة — يصلك الرد هنا وفي التنبيهات</small></div>
-      <button type="button" class="ask-go" onclick="askOpen()">✍️ راسل معلمك</button></div>
-    ${recent.length?`<div class="ask-list">${recent.map(x=>`<div class="ask-it"><div class="ask-meta"><span class="ask-st ${esc(x.status)}">${ST[x.status]||''}</span><span>${esc(ASK_META.cats[x.cat]||'')}</span>${x.hwTitle?`<span>· «${esc(x.hwTitle)}»</span>`:''}<span>· ${askWhen(x.at)}</span>${x.status!=='open'?`<button type="button" class="ask-x" onclick="askHide('${esc(x.id)}',this)" title="إخفاء" aria-label="إخفاء الرد">✕</button>`:''}</div>
-      <div class="ask-q">${esc(x.text)}</div>${x.reply?`<div class="ask-rep">📩 <b>ردّ المعلم:</b> ${esc(x.reply)}</div>`:''}</div>`).join('')}</div>
-    ${recent.some(x=>x.status!=='open')?`<div class="ask-note">الرد يبقى هنا ${ASK_META.keepDays||3} أيام بعد قراءته ثم يختفي مع تنبيهه — أو اضغط ✕ لإخفائه الآن.</div>`:''}`:''}
+      <button type="button" class="ask-go" onclick="askOpen()">✍️ راسل معلمك</button></div>${body}
   </section>`;
 }
+function askToggle(id,e){ if(e&&e.target.closest('button')) return; ASK_UI.exp.has(id)?ASK_UI.exp.delete(id):ASK_UI.exp.add(id); askRender(); }
 /* إخفاء الرد: يختفي من البطاقة ومن التنبيهات معًا (والسؤال يبقى محفوظًا عند المعلم) */
 function askDropNotices(ids){
   (ids||[]).forEach(id=>{ const b=document.querySelector(`[data-delete-notice="msg:${CSS.escape(String(id))}"]`); if(b) b.click(); });
 }
 async function askHide(id,btn){
-  const it=btn&&btn.closest('.ask-it'); if(it) it.style.opacity='.4'; if(btn) btn.disabled=true;
+  const it=btn&&btn.closest('.askc-it,.ask-it'); if(it) it.style.opacity='.4'; if(btn) btn.disabled=true;
   try{ const r=await fetch(askApi()+'/ask-hide',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,...askWho()})});
     const j=await r.json().catch(()=>({}));
     if(!r.ok||!j.ok) throw 0;
-    ASK_ROWS=ASK_ROWS.filter(x=>x.id!==id); askDropNotices(j.gone); myAskLoad();
+    ASK_ROWS=ASK_ROWS.filter(x=>x.id!==id); ASK_UI.fresh.delete(id); askDropNotices(j.gone); askRender();
   }catch(e){ if(it) it.style.opacity=''; if(btn) btn.disabled=false; alert('تعذّر الإخفاء — تحقق من الإنترنت وحاول مجددًا'); }
 }
 function askOpen(pre){
