@@ -11934,8 +11934,18 @@ function toArabicIndicDigits(value){
 }
 
 /* عرض النص مع إبقاء الأرقام العلوية مرتفعة: م/ث٢ → م/ث² بصريًا */
+/* 🔢 أرقام نص السؤال تُطبع عربية (١٢٣) ولو كُتبت إنجليزية — تتبع خيار «أرقام عربية» (مفعّل افتراضيًا).
+   تُستثنى الأرقام الملتصقة بحروف لاتينية (H2O · CO2 · m2) والكسر العشري يصير «٫» */
+function examArDigits(t){
+  return String(t).replace(/[0-9]+(?:\.[0-9]+)?/g, (m, off, all) => {
+    if(/[A-Za-z]/.test(all[off-1] || '') || /[A-Za-z]/.test(all[off+m.length] || '')) return m;
+    return m.replace(/[0-9]/g, d => '٠١٢٣٤٥٦٧٨٩'[d]).replace('.', '٫');
+  });
+}
 function escExamText(value){
-  let s = esc(value == null ? '' : String(value));
+  let raw = value == null ? '' : String(value);
+  if(document.getElementById('ex-hindi')?.checked !== false) raw = examArDigits(raw);
+  let s = esc(raw);
   // الأس يبقى عنصرًا معزولًا حتى لا يعبث اتجاه RTL بمكانه.
   s = s.replace(/\uE000([٠١٢٣٤٥٦٧٨٩])\uE001/g, '<span class="exam-power" dir="ltr">$1</span>');
   s = s.replace(/\\uE000([٠١٢٣٤٥٦٧٨٩])\\uE001/g, '<span class="exam-power" dir="ltr">$1</span>');
@@ -12643,7 +12653,7 @@ function examFlexSecHtml(sec, o){
   if(sec.t === 'tf'){
     if(!sec.items.length) return '';
     return `<div class="ex-sec">${examSecHead('h-tf', `السؤال ${sec.ord}: ضع علامة (✓) أمام العبارة الصحيحة و(✗) أمام الخاطئة:`, sec.marks, D)}${sec.items.map((q, i) => `
-      <div class="ex-tf" data-mid="tf${sec.start + i}"><span class="ex-num">${D(i+1)}</span><span>${esc(q.q)}</span>
+      <div class="ex-tf" data-mid="tf${sec.start + i}"><span class="ex-num">${D(i+1)}</span><span>${escExamText(q.q)}</span>
         <span class="ex-tf-c${key && q.a ? ' key' : ''}"><span class="ex-box"></span> صح</span>
         <span class="ex-tf-c${key && !q.a ? ' key' : ''}"><span class="ex-box"></span> خطأ</span></div>`).join('')}</div>`;
   }
@@ -13065,7 +13075,7 @@ function examBuild(force){
     tf.forEach((q, i) => units.push({ sec:'tf', kind:'item', id:'tf'+i, html:`
       <div class="ex-tf" data-mid="tf${i}">
         <span class="ex-num">${D(i+1)}</span>
-        <span>${esc(q.q)}</span>
+        <span>${escExamText(q.q)}</span>
         <span class="ex-tf-c${key && q.a ? ' key' : ''}"><span class="ex-box"></span> صح</span>
         <span class="ex-tf-c${key && !q.a ? ' key' : ''}"><span class="ex-box"></span> خطأ</span>
       </div>` }));
