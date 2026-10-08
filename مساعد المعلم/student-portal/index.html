@@ -423,6 +423,8 @@ body.live-open{overflow:hidden}
 .now-t{font-size:.95rem;font-weight:800;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .now-task .space-next-meta{margin-top:0;font-size:.72rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .now-task .space-next-action{width:auto;margin-top:0;flex:none;padding:.5rem .75rem;font-size:.82rem;white-space:nowrap}
+.space-next-action.hide{display:none!important}   /* لا مهمة ← لا زر */
+.now-task:has(.space-next-action.hide){cursor:default}
 .now-prog{display:flex;align-items:center;gap:.5rem;font-size:.78rem;color:#33465E;padding:0 .2rem;min-width:0}
 .now-prog b{white-space:nowrap}.now-bar{flex:1;height:.45rem;border-radius:99px;background:#E6EEF6;overflow:hidden;min-width:40px}.now-bar em{display:block;height:100%;width:0;background:#2F6FDB;border-radius:99px;transition:width .4s}
 .space-notices{margin-top:.65rem;border-top:1px solid var(--rule);padding-top:.65rem}
@@ -3918,7 +3920,7 @@ async function loadStudentSpace(nm, rows){
     if($('space-next-icon')) $('space-next-icon').textContent = '✓';
     if(nextTitle) nextTitle.textContent = 'لا توجد مهمة مفتوحة الآن 🎉';
     if(nextMeta) nextMeta.textContent = 'أكملت المهام المتاحة أو لا توجد مهام حالية.';
-    if(nextAction) nextAction.classList.add('hide');
+    if(nextAction){ nextAction.classList.add('hide'); nextAction.textContent=''; }
   }
   { const dn=list.filter(h=>h.done).length, pc=list.length?Math.round(dn*100/list.length):0;
     $('space-progress').textContent = `${dn} من ${list.length}`;
