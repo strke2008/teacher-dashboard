@@ -1261,6 +1261,15 @@ html[data-pt] body,html[data-pt] .sheet,html[data-pt] .btn,html[data-pt] .studen
 .mp-nums{display:flex;justify-content:space-between;gap:.5rem;margin-top:.3rem;font-size:.8rem;color:var(--ink-soft)}.mp-nums b{color:var(--ink)}
 .mp-tasks{display:flex;flex-wrap:wrap;gap:.35rem;align-items:center}.mp-task{font-size:.78rem;border:1px solid var(--rule);border-radius:10px;padding:.2rem .5rem;background:#fff}
 .mp-tasks small{flex-basis:100%;font-size:.74rem}
+
+/* 👤 بعد تسجيل الدخول: بطاقة الاسم سطر واحد بدل بطاقة كاملة (العنوان وحقل الاسم لا لزوم لهما) */
+.gk-row:not(.hide){display:flex;align-items:center;gap:.6rem;min-width:0}
+.gk-av{width:36px;height:36px;border-radius:11px;background:#EFF3F8;display:grid;place-items:center;font-size:1.05rem;flex:none}
+.gk-tx{flex:1;min-width:0;display:grid}.gk-tx small{font-size:.7rem;color:var(--ink-soft)}
+.gk-tx b{font-size:.95rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.btn.gk-switch{width:auto!important;margin:0!important;padding:.4rem .7rem!important;font-size:.8rem!important;flex:none;white-space:nowrap}
+#s-gate>.sheet:has(#gate-known:not(.hide)){padding:.6rem .75rem}
+#s-gate>.sheet:has(#gate-known:not(.hide)) #gate-title,#s-gate>.sheet:has(#gate-known:not(.hide)) #gate-sub{display:none}
 </style>
 <style>
 .exam-date-line{display:inline-block;margin-top:.35rem;font-weight:900}
@@ -1532,12 +1541,10 @@ html[data-pt] body,html[data-pt] .sheet,html[data-pt] .btn,html[data-pt] .studen
         </div>
       </div>
 
-      <div id="gate-known" class="hide" style="margin-top:.7rem">
-        <div style="background:#F7F9FC;border:1.5px solid var(--rule);border-radius:12px;padding:.8rem;text-align:center">
-          <div class="muted" style="font-size:.82rem">مرحباً</div>
-          <b id="gate-name" style="font-size:1.05rem"></b>
-        </div>
-        <button class="btn ghost" id="gate-switch" style="margin-top:.5rem;font-size:.85rem">👥 لست أنا — طالب آخر على نفس الجهاز</button>
+      <div id="gate-known" class="hide gk-row">
+        <span class="gk-av">👤</span>
+        <span class="gk-tx"><small>مسجّل الدخول باسم</small><b id="gate-name"></b></span>
+        <button class="btn ghost gk-switch" id="gate-switch" title="طالب آخر على نفس الجهاز" aria-label="لست أنا — طالب آخر على نفس الجهاز">👥 لست أنا</button>
       </div>
     </div>
     <div id="live-card" class="hide"></div>
