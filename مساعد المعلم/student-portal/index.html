@@ -1269,6 +1269,11 @@ html[data-pt] body,html[data-pt] .sheet,html[data-pt] .btn,html[data-pt] .studen
 .gk-tx b{font-size:.95rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .btn.gk-switch{width:auto!important;margin:0!important;padding:.4rem .7rem!important;font-size:.8rem!important;flex:none;white-space:nowrap}
 #s-gate>.sheet:has(#gate-known:not(.hide)){padding:.6rem .75rem}
+/* دمج: متى ظهرت مساحة الطالب (فيها الترحيب بالاسم) تختفي بطاقة الاسم، و«لست أنا» ينتقل بجوار «مظهري».
+   إن تعذّر تحميل المساحة تبقى بطاقة الاسم السطرية كما هي */
+#s-gate:has(#gate-space:not(.hide))>.sheet:has(#gate-known:not(.hide)){display:none}
+.sp-head-btns{display:flex;flex-direction:column;gap:.3rem;flex:none}
+.sp-head-btns .pt-gear{white-space:nowrap}
 #s-gate>.sheet:has(#gate-known:not(.hide)) #gate-title,#s-gate>.sheet:has(#gate-known:not(.hide)) #gate-sub{display:none}
 </style>
 <style>
@@ -1556,7 +1561,7 @@ html[data-pt] body,html[data-pt] .sheet,html[data-pt] .btn,html[data-pt] .studen
           <span>آخر ما يهمك في مكان واحد</span>
         </div>
         <span id="space-unread" class="hw-tag hide" style="background:rgba(214,69,91,.12);color:var(--pen)">0 جديد</span>
-        <button type="button" class="pt-gear" id="pt-open" aria-label="إعداداتي: تخصيص مظهري">🎨 مظهري</button>
+        <span class="sp-head-btns"><button type="button" class="pt-gear" id="pt-open" aria-label="إعداداتي: تخصيص مظهري">🎨 مظهري</button><button type="button" class="pt-gear sp-switch" onclick="document.getElementById('gate-switch').click()" title="طالب آخر على نفس الجهاز" aria-label="لست أنا — طالب آخر على نفس الجهاز">👥 لست أنا</button></span>
       </div>
       <div id="space-review"></div>
       <div id="space-plan"></div>
