@@ -254,7 +254,7 @@ async function issueSession(env, sid, pin) {
 /* 🎨 تفضيلات المظهر: قيم من قوائم ثابتة فقط، والصورة data URL صغيرة */
 const PREF_ENUM = {
   accent: ['navy','teal','violet','rose','orange','emerald','sky','gold'],
-  theme: ['classic','aurora','ocean','meadow','sunset','galaxy','lab','candy'],
+  theme: ['classic','aurora','ocean','meadow','sunset','galaxy','lab','candy','saudi','spaceweek'],
   cards: ['soft','glass','outline','bold'],
   btn: ['round','pill','sharp','gradient']
 };
