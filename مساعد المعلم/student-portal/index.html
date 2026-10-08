@@ -4018,7 +4018,8 @@ async function loadStudentSpace(nm, rows){
     try{ myRepPeriodBadge(SREP_MSGS.some(m=>!seen.has(m.id))); }catch(e){}
     const newSr = SREP_MSGS.find(m=>!seen.has(m.id));
     if(newSr) notices.push({ i:'📄', t:newSr.title||'وصلك تقرير الفترة', p:`${newSr.body||''} — تقريرك الرسمي بالدرجات، افتحه من «📄 تقريري ← 📄 تقرير الفترة» ويمكنك طباعته.`, id:newSr.id, isNew:true, at:msgTime(newSr), priority:'important', openReport:'period' });
-    msgs.filter(m=>m.type!=='weekly' && m.type!=='srep' && msgActive(m)).forEach(m=>{
+    // 📩 ردود المعلم على أسئلة الطالب مكانها «محادثاتك» (تُبرز الرد الجديد هناك) — لا تتكرر هنا
+    msgs.filter(m=>m.type!=='weekly' && m.type!=='srep' && m.type!=='reply' && msgActive(m)).forEach(m=>{
       notices.push({
         i: MSG_ICON[m.type] || '💬',
         t: m.title||'رسالة من المعلم', p: m.body||'',
@@ -8153,8 +8154,8 @@ async function spVerify(){
   if(!sub || Notification.permission !== 'granted'){ try{ localStorage.removeItem(SP_SID); }catch(e){} spRender(); }
 }
 /* فتح تنبيه رسالة: ./?open=notices → اذهب للتنبيهات بعد تحميل المساحة */
-let spOpenNotices = false, spOpenReport = false;
-try{ const q = new URLSearchParams(location.search), o = q.get('open'); spOpenNotices = o === 'notices'; spOpenReport = o === 'report' ? (q.get('tab') === 'period' ? 'period' : q.get('tab') === 'week' ? 'week' : true) : false; }catch(e){}
+let spOpenNotices = false, spOpenReport = false, spOpenAsk = false;
+try{ const q = new URLSearchParams(location.search), o = q.get('open'); spOpenNotices = o === 'notices'; spOpenAsk = o === 'ask'; spOpenReport = o === 'report' ? (q.get('tab') === 'period' ? 'period' : q.get('tab') === 'week' ? 'week' : true) : false; }catch(e){}
 /* ═══════════ 🎮 المسابقة الجماعية المباشرة — واجهة الطالب ═══════════
    الخادم وحده يقرر: الدخول والخصم، السؤال الحالي، صحة الإجابة، النقاط، الترتيب.
    الواجهة تعرض ما يعيده فقط، وتحسب العدّادات بساعة الخادم (فرق الساعة من كل رد) لا بساعة الجوال.
@@ -8581,6 +8582,12 @@ function spAfterGateLoad(){
     try{ const u = new URL(location.href); u.searchParams.delete('open'); u.searchParams.delete('tab'); history.replaceState(null, '', u.pathname + u.search + u.hash); }catch(e){}
     setTimeout(() => { if(typeof myRepOpen === 'function') myRepOpen(tab); }, 900);
   }
+  /* إشعار رد المعلم: ./?open=ask → افتح «محادثاتك» */
+  if(spOpenAsk){
+    spOpenAsk = false;
+    try{ const u = new URL(location.href); u.searchParams.delete('open'); history.replaceState(null, '', u.pathname + u.search + u.hash); }catch(e){}
+    setTimeout(() => { try{ ASK_UI.open = true; askRender(); }catch(e){} const n = document.getElementById('space-ask'); if(n) n.scrollIntoView({ behavior:'smooth', block:'start' }); }, 1500);
+  }
   if(spOpenNotices){
     spOpenNotices = false;
     try{ const u = new URL(location.href); u.searchParams.delete('open'); history.replaceState(null, '', u.pathname + u.search + u.hash); }catch(e){}
@@ -8925,7 +8932,7 @@ function askRender(){
     }
   }
   box.innerHTML=`<section class="ask-card">
-    <div class="ask-h"><span class="ask-ic">💬</span><div><b>عندك سؤال أو مشكلة؟</b><small>اكتب لمعلمك مباشرة — يصلك الرد هنا وفي التنبيهات</small></div>
+    <div class="ask-h"><span class="ask-ic">💬</span><div><b>عندك سؤال أو مشكلة؟</b><small>اكتب لمعلمك مباشرة — يصلك الرد هنا وعلى جوالك</small></div>
       <button type="button" class="ask-go" onclick="askOpen()">✍️ راسل معلمك</button></div>${body}
   </section>`;
 }
@@ -8948,7 +8955,7 @@ function askOpen(pre){
   const acts=((window.__journeyRows||[]).filter(h=>h&&h.id&&!h.remedial)).slice().sort((a,b)=>(Number(b.at)||0)-(Number(a.at)||0)).slice(0,30);
   const v=document.createElement('div'); v.id='ask-veil'; v.className='ask-veil';
   v.innerHTML=`<div class="ask-sheet" role="dialog" aria-modal="true" aria-label="راسل معلمك">
-    <h3>💬 راسل معلمك</h3><div class="muted" style="font-size:.8rem;line-height:1.6">رسالتك تصل معلمك وحده. اكتب بوضوح ما الذي يحصل معك، ويصلك الرد في التنبيهات.</div>
+    <h3>💬 راسل معلمك</h3><div class="muted" style="font-size:.8rem;line-height:1.6">رسالتك تصل معلمك وحده. اكتب بوضوح ما الذي يحصل معك، ويصلك الرد في «محادثاتك» هنا.</div>
     ${open>=ASK_META.maxOpen?`<div class="ask-err" style="margin-top:.7rem">لديك ${open} أسئلة تنتظر الرد — انتظر رد معلمك قبل إرسال سؤال جديد.</div>`:''}
     <label>نوع الرسالة</label><div class="ask-cats">${Object.entries(ASK_META.cats).map(([k,t],i)=>`<button type="button" data-k="${k}" class="${(pre.cat||'activity')===k?'on':''}">${esc(t)}</button>`).join('')}</div>
     <label for="ask-hw">النشاط (اختياري)</label><select id="ask-hw"><option value="">— بدون نشاط محدد —</option>${acts.map(h=>`<option value="${esc(h.id)}" ${pre.hw===h.id?'selected':''}>${esc(h.t||'نشاط')}</option>`).join('')}</select>

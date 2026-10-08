@@ -4843,13 +4843,16 @@ export default {
           const id = `${now.toString(36)}${Math.random().toString(36).slice(2, 8)}`;
           const msg = { id, title: `ردّ معلمك على ${q.hwTitle ? `سؤالك عن «${q.hwTitle}»` : 'سؤالك'}`, body: `سؤالك: ${q.text.slice(0, 200)}\n\n📩 الرد: ${reply}`,
             type: 'reply', priority: 'normal', examDate: '', visibleFrom: '', expiresAt: '', createdAt: new Date().toISOString() };
-          q.msgIds = [...(q.msgIds || []), id].slice(-5); await askSave(env, all);
-          let arr = await readMessages(env, st); arr.unshift(msg); arr = arr.slice(0, 40);
+          // رد واحد لكل سؤال: تعديل الرد أو إعادة إرساله يستبدل رسالته السابقة لا يكررها
+          const prevIds = new Set((q.msgIds || []).map(String));
+          q.msgIds = [id]; await askSave(env, all);
+          let arr = (await readMessages(env, st)).filter(m => !(m && m.type === 'reply' && prevIds.has(String(m.id))));
+          arr.unshift(msg); arr = arr.slice(0, 40);
           await env.HW.put(identityKey('msg:', st), JSON.stringify(arr), { expirationTtl: 60 * 60 * 24 * 180 });
           await dropLegacy(env, 'msg:', st);
           try { const rev = parseInt(await env.HW.get('meta:rev'), 10) || 0; await env.HW.put('meta:rev', String(rev + 1)); } catch {}
           if (st.id) notifyStudents(env, ctx, new Set([String(st.id)]), { title: '📩 ردّ معلمك على سؤالك', body: reply.slice(0, 140), tag: `ask-${q.id}`,
-            data: { type: 'message', id, url: './?open=notices' } }, (await sha256Hex(`askr|${q.id}|${now}`)).slice(0, 32));
+            data: { type: 'message', id, url: './?open=ask' } }, (await sha256Hex(`askr|${q.id}|${now}`)).slice(0, 32));
         }
       }
       return json({ ok: true, item: q });
