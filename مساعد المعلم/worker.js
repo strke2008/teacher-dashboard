@@ -6365,7 +6365,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         const p = cleanStudentPrefs(b.prefs);
         if (!p) return json({ ok: false, error: 'bad_prefs' }, 400);
         // ✨ المظاهر الحصرية لمن اشتراها فقط
-        if (['gold','diamond'].includes(p.theme)) { const own = await readOwn(env, st); if (!(own['theme_' + p.theme] > 0)) return json({ ok: false, error: 'theme_locked' }, 403); }
+        if (['gold','diamond','saudi','spaceweek'].includes(p.theme)) { const own = await readOwn(env, st); if (!(own['theme_' + p.theme] > 0)) return json({ ok: false, error: 'theme_locked' }, 403); }
         await env.HW.put(key, JSON.stringify(p));
         return json({ ok: true, prefs: p });
       }
@@ -6378,7 +6378,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
       const card = String(b.card || '').replace(/[^a-z0-9_]/gi, '').slice(0, 24);
       // 💰 السعر يُحسم في الخادم، لا من المتصفح.
-      const STORE_PRICES={exam3:1000,exam2:750,exam1:450,exam05:250,thanks:300,theme_gold:250,theme_diamond:250,title:200,dbl:150,retry:80,early:60,ticket:40,hint:30};
+      const STORE_PRICES={exam3:1000,exam2:750,exam1:450,exam05:250,thanks:300,theme_gold:250,theme_diamond:250,theme_saudi:250,theme_spaceweek:250,title:200,dbl:150,retry:80,early:60,ticket:40,hint:30};
       const price=Number(STORE_PRICES[card]||0);
       if(['exam05','exam1','exam2','exam3'].includes(card)) return json({ok:false,error:'exam_direct'},400);
       if (!card || !price) return json({ error: 'missing fields' }, 400);

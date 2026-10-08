@@ -7740,7 +7740,11 @@ const CARDS = [
   { id:'theme_gold', name:'مظهر ذهبي حصري', price:250, ic:'✨', once:true,
     d:'خلفية ذهبية لامعة لصفحتك — لك دائمًا من «🎨 مظهري»' },
   { id:'theme_diamond', name:'مظهر ماسي حصري', price:250, ic:'💎', once:true,
-    d:'خلفية ماسية متلألئة لصفحتك — لك دائمًا من «🎨 مظهري»' }
+    d:'خلفية ماسية متلألئة لصفحتك — لك دائمًا من «🎨 مظهري»' },
+  { id:'theme_saudi', name:'مظهر اليوم الوطني ٩٦', price:250, ic:'🇸🇦', once:true,
+    d:'أخضر بنقش السدو وشريط «اليوم الوطني السعودي ٩٦» — لك دائمًا من «🎨 مظهري»' },
+  { id:'theme_spaceweek', name:'مظهر أسبوع الفضاء', price:250, ic:'🚀', once:true,
+    d:'سماء ليلية بكوكب وشريط «أسبوع الفضاء العالمي» — لك دائمًا من «🎨 مظهري»' }
 ].sort((a,b)=>b.price-a.price);
 
 // 🏅 الألقاب المتاحة — لكل لقب أيقونته
@@ -7956,6 +7960,8 @@ async function buyCard(btn, target){
       ticket: 'ستُستخدم تلقائيًا بدل رسوم الدخول في المسابقة المباشرة القادمة التي تسجّل فيها.',
       theme_gold: 'افتح «🎨 مظهري» واختر «ذهبي ✨» من الخلفيات.',
       theme_diamond: 'افتح «🎨 مظهري» واختر «ماسي 💎» من الخلفيات.',
+      theme_saudi: 'افتح «🎨 مظهري» واختر «اليوم الوطني ٩٦» من الخلفيات.',
+      theme_spaceweek: 'افتح «🎨 مظهري» واختر «أسبوع الفضاء» من الخلفيات.',
       early:  'افتح النشاط الذي سلّمته واضغط «مراجعة مبكرة».'
     };
     note(after[id] || '', `تم شراء "${c.name}" ✅`, c.ic);
@@ -8639,7 +8645,7 @@ const PT={
   BTN:{round:'مستديرة',pill:'كبسولة',sharp:'حادة',gradient:'متدرّجة'},
   HEX:{navy:'#16233A',teal:'#0E8C8F',violet:'#6A47E8',rose:'#D63B72',orange:'#DD640C',emerald:'#11935A',sky:'#1976D2',gold:'#A97C08'}
 };
-const PT_LOCKED=['gold','diamond'];   // ✨ مظاهر حصرية: تُفتح بشرائها من المتجر
+const PT_LOCKED=['gold','diamond','saudi','spaceweek'];   // ✨ مظاهر حصرية: تُفتح بشرائها من المتجر
 const PT_DEF={av:{t:'e',v:0},accent:'violet',theme:'aurora',cards:'glass',btn:'pill'};
 let PT_CUR=null;
 function ptKey(){return 'pt_prefs_'+(String(mySid||'')||'x')}
