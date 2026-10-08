@@ -12831,17 +12831,21 @@ function examSecHead(id, text, marks, D){
   return `<div class="ex-sec-head" data-mid="${id}"><span>${text}</span><span class="ex-badge">${D(marks)} درجة</span></div>`;
 }
 function examMatchSec(X, o){
+  /* ✍️ الطالب يكتب رقم العبارة من العمود الأول في المربع المقابل للعمود الثاني —
+     كان يُطلب حرف العمود الثاني فكتب أغلب الطلاب الرقم الملاصق للمربع. العمود الثاني بلا حروف، فلا لبس */
   const rows = Math.max(X.A.length, X.B.length);
-  let h = `<div class="ex-mhead"><span>العمود الأول</span><span>الحرف</span><span>العمود الثاني</span></div>`;
+  let h = `<div class="ex-mhead"><span>العمود الأول</span><span>الرقم</span><span>العمود الثاني</span></div>`;
   for(let i = 0; i < rows; i++){
     const a = X.A[i], b = X.B[i];
+    const src = b && b.ans >= 0 ? X.A[b.ans] : null;
+    const keyTxt = !o.key || !b ? '' : src && src.a ? o.D(b.ans + 1) : '—';
     h += `<div class="ex-mrow" data-mid="mt${i}">
       <span class="ex-mcell">${a ? `<span class="ex-num">${o.D(i+1)}</span><span>${a.a ? escExamText(a.a) : '<i class="ex-dots"></i>'}</span>` : ''}</span>
-      <span class="ex-mbox${o.key && a ? ' key' : ''}">${o.key && a && a.a ? X.letterOf[i] : ''}</span>
-      <span class="ex-mcell">${b ? `<span class="ex-ltr">${EX_LET[i]}</span><span>${b.t ? escExamText(b.t) : '<i class="ex-dots"></i>'}</span>` : ''}</span>
+      ${b ? `<span class="ex-mbox${o.key ? ' key' : ''}">${keyTxt}</span>` : '<span></span>'}
+      <span class="ex-mcell">${b ? `<span class="ex-mdot"></span><span>${b.t ? escExamText(b.t) : '<i class="ex-dots"></i>'}</span>` : ''}</span>
     </div>`;
   }
-  return `<div class="ex-sec">${examSecHead('h-mt', `السؤال ${o.no}: صِل بين العمود الأول وما يناسبه من العمود الثاني (اكتب الحرف في المربع):`, X.marksMatch, o.D)}${h}</div>`;
+  return `<div class="ex-sec">${examSecHead('h-mt', `السؤال ${o.no}: صِل بين العمودين (اكتب رقم العمود الأول في المربع):`, X.marksMatch, o.D)}${h}</div>`;
 }
 function examFillSec(X, o){
   const rows = X.fill.map((f, i) => {
@@ -25669,6 +25673,7 @@ async function wrSendAll(){
 .ex-mcell{display:flex;gap:2mm;align-items:center;min-width:0}
 .ex-mbox{justify-self:center;width:10mm;height:7.5mm;border:1.3px solid #10323a;border-radius:3px;display:grid;place-items:center;font-weight:900;color:#0E5B4E}
 .ex-mbox.key{background:#EAF3F0}
+.ex-mdot{width:2mm;height:2mm;border-radius:50%;background:#7D9A9B;flex:0 0 2mm}
 .ex-dots{display:inline-block;flex:1;min-width:20mm;height:1em;border-bottom:1.2px dotted #7D9A9B}
 .ex-dots.wide{width:100%}
 .ex-fq{display:flex;gap:2mm;align-items:baseline;padding:2mm 3mm;border-bottom:1px solid #D7E3E1;font-weight:700;line-height:1.75;min-height:14mm}
