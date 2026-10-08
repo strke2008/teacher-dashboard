@@ -8977,6 +8977,36 @@ async function myPlanLoad(){
   .srp-tiles,.srp-tiles.n5{grid-template-columns:1fr 1fr;padding:.8rem 1rem .3rem}.srp-tiles .srp-tile:last-child:nth-child(odd){grid-column:1/-1}.srp-grid{grid-template-columns:1fr;padding:.5rem 1rem}
   .srp-beh,.srp-note{margin-left:1rem;margin-right:1rem}.srp-notes li{grid-template-columns:auto 1fr;}.srp-notes li .srp-nx{grid-column:1/-1}
 }
+/* 📐 الترويسة: الاسم لا يزاحم العنوان (كان يأخذ عرضه كاملًا فيتكسّر العنوان كلمة كلمة) */
+.srp-who{flex:0 1 auto;min-width:0;max-width:42%}
+.srp-tv{flex-wrap:nowrap}.srp-tv small{white-space:nowrap}
+/* 📐 التخطيط حسب عرض التقرير نفسه (نافذة المعاينة/البوابة أضيق من الشاشة) — للعرض فقط، لا للطباعة ولا PDF */
+.srp{container:srp/inline-size}
+.srp-pdf .srp{container-type:normal}
+@media screen{
+  @container srp (max-width:720px){
+    .srp-head{flex-direction:row;flex-wrap:wrap;align-items:center;gap:.5rem .9rem;padding:1rem 1.1rem}
+    .srp-logo{width:72px;height:72px;margin:-6px 0}
+    .srp-brand{flex:1 1 12rem}
+    .srp-brand h1{font-size:1.3rem}
+    .srp-who{flex:1 1 100%;max-width:none;text-align:start;display:flex;flex-wrap:wrap;align-items:baseline;gap:.2rem .6rem;padding-top:.55rem;border-top:1px solid rgba(255,255,255,.2)}
+    .srp-tiles{grid-template-columns:1fr 1fr;padding:.8rem 1rem .3rem}
+    .srp-tiles.n5{grid-template-columns:repeat(6,1fr)}
+    .srp-tiles.n5 .srp-tile{grid-column:span 2}
+    .srp-tiles.n5 .srp-tile:nth-child(n+4){grid-column:span 3}
+    .srp-grid{padding:.5rem 1rem}
+    .srp-beh,.srp-note{margin-left:1rem;margin-right:1rem}
+  }
+  @container srp (max-width:600px){
+    .srp-grid{grid-template-columns:1fr}
+  }
+  @container srp (max-width:460px){
+    .srp-tiles.n5{grid-template-columns:1fr 1fr}
+    .srp-tiles.n5 .srp-tile,.srp-tiles.n5 .srp-tile:nth-child(n+4){grid-column:auto}
+    .srp-tiles .srp-tile:last-child:nth-child(odd),.srp-tiles.n5 .srp-tile:last-child:nth-child(odd){grid-column:1/-1}
+    .srp-notes li{grid-template-columns:auto 1fr}.srp-notes li .srp-nx{grid-column:1/-1}
+  }
+}
 #srp-print-host{display:none}
 .srp-pdf .srp{border:0;border-radius:0;max-width:none}
 /* تباعد الحروف يجعل html2canvas يرسم العربية حرفًا حرفًا فتنفصل — صفر في نسخة PDF */
