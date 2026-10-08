@@ -414,6 +414,17 @@ body.live-open{overflow:hidden}
 .space-card.action{cursor:pointer}
 .space-next-meta{font-size:.76rem;color:var(--ink-soft);line-height:1.6;margin-top:.28rem}.space-next-action{display:inline-flex;align-items:center;justify-content:center;width:100%;margin-top:.55rem;padding:.5rem .7rem;border-radius:10px;background:var(--tick);color:#fff;font-weight:800;font-size:.78rem}
 .space-card.action:active{transform:translateY(1px)}
+/* 🎯 مهمتك الآن + إنجازي: شريط مضغوط بدل بطاقتين */
+.space-grid.now-compact{display:grid;grid-template-columns:1fr!important;gap:.5rem}
+.now-task{display:flex;align-items:center;gap:.6rem;padding:.6rem .7rem!important;background:linear-gradient(135deg,#E8F6F0,#F4FBF8)!important;border-color:#BFE3D2!important;min-width:0}
+.now-ic{width:38px;height:38px;border-radius:11px;background:var(--tick);color:#fff;display:grid;place-items:center;font-size:1.1rem;flex:none}
+.now-tx{flex:1;min-width:0;display:grid}
+.now-lbl{font-size:.7rem;font-weight:800;color:#137A53}
+.now-t{font-size:.95rem;font-weight:800;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.now-task .space-next-meta{margin-top:0;font-size:.72rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.now-task .space-next-action{width:auto;margin-top:0;flex:none;padding:.5rem .75rem;font-size:.82rem;white-space:nowrap}
+.now-prog{display:flex;align-items:center;gap:.5rem;font-size:.78rem;color:#33465E;padding:0 .2rem;min-width:0}
+.now-prog b{white-space:nowrap}.now-bar{flex:1;height:.45rem;border-radius:99px;background:#E6EEF6;overflow:hidden;min-width:40px}.now-bar em{display:block;height:100%;width:0;background:#2F6FDB;border-radius:99px;transition:width .4s}
 .space-notices{margin-top:.65rem;border-top:1px solid var(--rule);padding-top:.65rem}
 .space-notice{display:flex;gap:.55rem;padding:.58rem 0;border-bottom:1px solid rgba(201,214,229,.65)}
 .space-notice:last-child{border-bottom:0}
@@ -1542,17 +1553,13 @@ html[data-pt] body,html[data-pt] .sheet,html[data-pt] .btn,html[data-pt] .studen
       <div id="space-plan"></div>
       <div id="space-certs"></div>
       <div id="space-ann"></div>
-      <div class="space-grid">
-        <div class="space-card action" id="space-next-card">
-          <div class="sc-top"><span class="sc-icon" id="space-next-icon">🎯</span><span class="sc-title">مهمتك الآن</span></div>
-          <div id="space-next" class="sc-value">جارٍ التحميل…</div>
-          <div id="space-next-meta" class="space-next-meta"></div>
-          <div id="space-next-action" class="space-next-action">🚀 ابدأ الآن</div>
+      <div class="space-grid now-compact">
+        <div class="space-card action now-task" id="space-next-card">
+          <span class="now-ic" id="space-next-icon">🎯</span>
+          <span class="now-tx"><span class="now-lbl">مهمتك الآن</span><span id="space-next" class="now-t">جارٍ التحميل…</span><span id="space-next-meta" class="space-next-meta"></span></span>
+          <span id="space-next-action" class="space-next-action">ابدأ ←</span>
         </div>
-        <div class="space-card">
-          <div class="sc-top"><span class="sc-icon">📚</span><span class="sc-title">إنجازي</span></div>
-          <div id="space-progress" class="sc-value">—</div>
-        </div>
+        <div class="now-prog">📚 <b>إنجازي: <span id="space-progress">—</span></b><i class="now-bar"><em id="space-progress-bar"></em></i><b id="space-progress-pct"></b></div>
       </div>
       <div class="space-notices compact-notices">
         <div class="section-title" style="margin-bottom:.25rem"><h3 style="font-size:.9rem">🔔 التنبيهات</h3></div>
@@ -3906,14 +3913,16 @@ async function loadStudentSpace(nm, rows){
                 : next.kind==='game'
                   ? '🎮 تحدٍ تعليمي · أنجزه الآن'
                   : '✏️ تدريب وممارسة · ابدأ لإكمال مهمتك الحالية';
-    if(nextAction) nextAction.textContent = startKind ? '🚀 ابدأ الاختبار' : isRemedial ? '🎯 ابدأ التطوير' : projectResubmit ? '🔁 أعد التسليم' : teacherRetry ? '🔓 أعد التسليم' : purchasedRetry ? '🔁 أعد المحاولة' : '🚀 ابدأ النشاط الآن';
+    if(nextAction){ nextAction.classList.remove('hide'); nextAction.textContent = startKind ? 'ابدأ الاختبار ←' : isRemedial ? 'ابدأ التطوير ←' : projectResubmit ? 'أعد التسليم ←' : teacherRetry ? 'أعد التسليم ←' : purchasedRetry ? 'أعد المحاولة ←' : 'ابدأ ←'; }
   }else{
     if($('space-next-icon')) $('space-next-icon').textContent = '✓';
     if(nextTitle) nextTitle.textContent = 'لا توجد مهمة مفتوحة الآن 🎉';
     if(nextMeta) nextMeta.textContent = 'أكملت المهام المتاحة أو لا توجد مهام حالية.';
-    if(nextAction) nextAction.textContent = '✓ لا توجد مهمة تحتاج إجراءً الآن';
+    if(nextAction) nextAction.classList.add('hide');
   }
-  $('space-progress').textContent = `${list.filter(h=>h.done).length} من ${list.length} نشاطًا مكتملًا`;
+  { const dn=list.filter(h=>h.done).length, pc=list.length?Math.round(dn*100/list.length):0;
+    $('space-progress').textContent = `${dn} من ${list.length}`;
+    const pb=$('space-progress-bar'); if(pb) pb.style.width=pc+'%'; const pp=$('space-progress-pct'); if(pp) pp.textContent=pc+'%'; }
   $('space-next-card').onclick = ()=>{
     if(!next) return;
     // النشاط العلاجي مستبعد عمدًا من القائمة العامة، لذلك نفتح مسار الرحلة
