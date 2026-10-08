@@ -1342,6 +1342,16 @@ html[data-pt] body,html[data-pt] .sheet,html[data-pt] .btn,html[data-pt] .studen
 #s-gate>.sheet:has(#gate-known:not(.hide)) #gate-title,#s-gate>.sheet:has(#gate-known:not(.hide)) #gate-sub{display:none}
 
 .live-min{background:#FFF6E3;color:#8A5A00;border-radius:10px;padding:.45rem .7rem;font-size:.85rem;font-weight:700}
+/* 🧽 اختيار واجب مدرستي لمسح خصمه */
+.madfg-list{display:grid;gap:.45rem}
+.madfg-it{display:flex;align-items:center;gap:.6rem;width:100%;text-align:right;padding:.6rem .7rem;border-radius:12px;border:1.5px solid #F3C9C9;background:#FFF7F7;font:inherit;color:inherit;cursor:pointer}
+.madfg-it:hover:not(:disabled){border-color:#E07A1F;background:#FFF3E8}
+.madfg-it:disabled{opacity:.55;cursor:not-allowed}
+.madfg-x{flex:none;direction:ltr;unicode-bidi:isolate;font-weight:800;color:#B42318;font-size:.8rem;background:#FDE2E2;border-radius:8px;padding:.2rem .4rem}
+.madfg-t{flex:1;display:flex;flex-direction:column;gap:.1rem;min-width:0}
+.madfg-t b{font-size:.88rem;overflow-wrap:anywhere}
+.madfg-t small{font-size:.74rem;color:var(--ink-soft)}
+.madfg-go{flex:none;font-weight:800;font-size:.8rem;color:#fff;background:#E07A1F;border-radius:999px;padding:.25rem .7rem}
 </style>
 <style>
 .exam-date-line{display:inline-block;margin-top:.35rem;font-weight:900}
@@ -7742,6 +7752,8 @@ const CARDS = [
     d:'ترفع درجة الاختبارات درجة واحدة إذا كان المتبقي المسموح لك يكفي' },
   { id:'exam05',  name:'رفع الاختبار +0.5', price:250, ic:'⭐', teacher:false, examBonus:.5,
     d:'ترفع درجة الاختبارات نصف درجة إذا كان المتبقي المسموح لك يكفي' },
+  { id:'madforgive', name:'مسح خصم مدرستي', price:500, ic:'🧽', mad:true,
+    d:'تمسح خصم واجب في منصة مدرستي أُغلق ولم تحله — تختار الواجب قبل الدفع' },
   { id:'title',  name:'لقب في الصدارة',   price:200, ic:'🏅',
     d:'لقب بأيقونة يظهر بجانب اسمك' },
   { id:'dbl',    name:'نقاط مضاعفة',      price:150, ic:'⭐',
@@ -7930,7 +7942,7 @@ function renderStore(target){
         ${CARDS.map(c=>{
           const remainingEnough=!c.examBonus || examRemaining>=Number(c.examBonus);
           const ownedOnce = c.once && MYPERKS[c.id] > 0;
-          const can = !ownedOnce && MYPTS >= c.price && (!c.examBonus || (examAvailable && remainingEnough));
+          const can = !ownedOnce && (MYPTS >= c.price || (c.mad && MYPERKS[c.id] > 0)) && (!c.examBonus || (examAvailable && remainingEnough));
           const examLine=c.examBonus ? (!examKnown ? '⏳ جارٍ التحقق…' : (examRemaining<=0 && EXAM_SHOP_HAS_SCORE) ? 'استخدمت كامل الحد' : remainingEnough && examAvailable ? `المتاح لك الآن ${String(examRemaining).replace(/\.0$/,'')} درجة` : (examAvailable ? `المتبقي ${String(examRemaining).replace(/\.0$/,'')} درجة · البطاقة تحتاج ${c.examBonus}` : 'غير متاح حاليًا')) : '';
           return `<button data-c="${c.id}" data-p="${c.price}" ${can?'':'disabled'}>
             ${c.ic} ${esc(c.name)}
@@ -7950,6 +7962,7 @@ async function buyCard(btn, target){
   const id = btn.dataset.c, price = +btn.dataset.p;
   const c = CARDS.find(x=>x.id===id);
   if(c && c.examBonus){ await buyExamBonusDirect(c, target); return; }
+  if(c && c.mad){ await madForgivePick(target); return; }
   const okBuy = await ask({ icon:c.ic, title:'تأكيد الشراء',
     msg:`"${c.name}" مقابل ${price} نقطة.\nرصيدك بعدها: ${MYPTS - price}`,
     yes:'اشترِ', no:'إلغاء' });
@@ -7991,6 +8004,59 @@ async function buyCard(btn, target){
     };
     note(after[id] || '', `تم شراء "${c.name}" ✅`, c.ic);
   }catch(e){ toast('تعذّر الاتصال — حاول لاحقاً','bad'); renderStore(target); }
+}
+
+/* 🧽 بطاقة «مسح خصم مدرستي»: يختار الطالب الواجب المخصوم أولًا، ثم يدفع — فلا تُشترى بطاقة بلا فائدة */
+async function madForgivePick(target){
+  const api = ((HW && HW.api) || API || '').replace(/\/+$/,'');
+  const nm = String(myName || lockedName() || '').trim();
+  const post = body => storeFetch(api + '/mad-forgive', { method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ name: nm, sid: mySid||'', ...body }) }).then(r=>r.json());
+  let j; try{ j = await post({ op:'list' }); }catch(e){ toast('تعذّر الاتصال — حاول لاحقاً','bad'); return; }
+  if(!j.ok){ toast(storeErrText(j, 'تعذّر جلب واجباتك'),'bad'); return; }
+  MYPTS = j.pts ?? MYPTS;
+  const owned = j.owned > 0, price = j.price || 500;
+  const day = t => t ? new Date(t).toLocaleDateString('ar-SA-u-ca-gregory-nu-arab',{ weekday:'long', day:'numeric', month:'numeric', timeZone:'Asia/Riyadh' }) : '';
+  const empty = !j.linked ? 'حسابك غير مربوط بمنصة مدرستي بعد — اطلب من معلمك ربطه.'
+    : !j.open ? 'الفترة الحالية مغلقة — لا يمكن تعديل خصومها الآن.'
+    : 'لا يوجد عليك خصم في واجبات مدرستي هذه الفترة 👏 — لم يُخصم شيء.';
+  const box = document.createElement('div');
+  box.id = 'madfg-pick';
+  box.style.cssText = 'position:fixed;inset:0;z-index:60;background:rgba(22,35,58,.5);display:flex;align-items:center;justify-content:center;padding:1rem';
+  box.innerHTML = `
+    <div class="sheet" style="max-width:440px;width:100%;max-height:86vh;overflow:auto">
+      <h3 class="center" style="margin:.2rem 0 .1rem">🧽 مسح خصم مدرستي</h3>
+      <p class="muted center" style="font-size:.84rem;margin:0 0 .7rem;line-height:1.6">اختر الواجب الذي أُغلق ولم تحله ليُمسح خصمه (0.5) من درجتك
+        <br><b>${owned ? 'ستُستخدم بطاقتك 🧽' : `السعر ${price} نقطة · رصيدك ${MYPTS} 📖`}</b></p>
+      ${(j.items||[]).length ? `<div class="madfg-list">${j.items.map(x=>`<button type="button" class="madfg-it" data-k="${esc(x.key)}" ${owned||MYPTS>=price?'':'disabled'}>
+          <span class="madfg-x">−0.5</span><span class="madfg-t"><b>${esc(x.title)}</b><small>أُغلق ${esc(day(x.dueAt))}</small></span><span class="madfg-go">امسح</span></button>`).join('')}</div>
+        ${!owned && MYPTS<price ? `<p class="center" style="color:#B42318;font-size:.82rem;margin:.6rem 0 0">رصيدك لا يكفي — تحتاج ${price-MYPTS} نقطة أخرى</p>` : ''}`
+        : `<div class="center muted" style="padding:1rem .5rem;font-size:.9rem;line-height:1.7">${empty}</div>`}
+      ${(j.forgiven||[]).length ? `<div class="muted" style="font-size:.78rem;margin-top:.7rem">✓ مُسح سابقًا: ${j.forgiven.map(x=>esc(x.title)).join(' · ')}</div>` : ''}
+      <button type="button" class="btn ghost" data-close style="width:100%;margin-top:.8rem">إغلاق</button>
+    </div>`;
+  document.body.appendChild(box);
+  box.querySelector('[data-close]').onclick = ()=>box.remove();
+  box.onclick = e=>{ if(e.target===box) box.remove(); };
+  box.querySelectorAll('[data-k]').forEach(b=>b.onclick = async ()=>{
+    const it = j.items.find(x=>x.key===b.dataset.k); if(!it) return;
+    box.remove();
+    const ok = await ask({ icon:'🧽', title:'تأكيد المسح',
+      msg:`يُمسح خصم واجب «${it.title}» من درجة مدرستي.\n${owned ? 'تُستخدم بطاقتك 🧽' : `يُخصم ${price} نقطة — رصيدك بعدها: ${MYPTS - price}`}`,
+      yes:'امسح الخصم', no:'إلغاء' });
+    if(!ok) return;
+    try{
+      const r = await post({ op:'use', key: it.key });
+      if(!r.ok){ MYPTS = r.pts ?? MYPTS;
+        toast(r.error==='low' ? 'رصيدك لا يكفي' : r.error==='already' ? 'مُسح خصم هذا الواجب من قبل' : r.error==='not_missed' ? 'هذا الواجب لم يعد مخصومًا عليك — لم يُخصم شيء' : r.error==='period_closed' ? 'الفترة الحالية مغلقة — لم يُخصم شيء' : storeErrText(r, 'تعذّر المسح — لم يُخصم شيء'),'bad');
+        renderStore(target); return; }
+      MYPTS = r.pts; MYPERKS = r.perks || MYPERKS;
+      if(target==='pre-store') await loadStore(true);
+      else if(target==='gate-store-box'){ renderStore('gate-store-box'); await gateLoad(nm); }
+      else renderStore(target);
+      note(`مُسح خصم واجب «${it.title}» — صار محتسبًا لك بلا خصم في درجة مدرستي.`, 'تم المسح ✅', '🧽');
+    }catch(e){ toast('تعذّر الاتصال — حاول لاحقاً','bad'); }
+  });
 }
 
 /* 🏅 اختيار اللقب بعد شرائه */
@@ -9259,13 +9325,13 @@ function srpEsc(v){ return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&am
 function srpMadTxt(md){
   if(md.counted===undefined) return `حل ${md.solved} · لم يحل ${md.missed}`;
   const base = md.counted ? `حل ${md.solved} من ${md.counted}${md.pct!=null?` (${md.pct}%)`:''}` : 'لا واجبات منتهية بعد';
-  return base + (md.inGrace ? ` · ${md.inGrace} ضمن مهلة الحل` : '');
+  return base + (md.inGrace ? ` · ${md.inGrace} ضمن مهلة الحل` : '') + (md.forgiven ? ` · ${md.forgiven} مُسح ببطاقة` : '');
 }
 function srpMadList(md){
-  const miss = Array.isArray(md.missedList) ? md.missedList : [], pend = Array.isArray(md.pendingList) ? md.pendingList : [];
-  if(!md.linked || (!miss.length && !pend.length)) return '';
+  const miss = Array.isArray(md.missedList) ? md.missedList : [], pend = Array.isArray(md.pendingList) ? md.pendingList : [], fg = Array.isArray(md.forgivenList) ? md.forgivenList : [];
+  if(!md.linked || (!miss.length && !pend.length && !fg.length)) return '';
   const e = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-  return `<tr class="srp-madlist"><td colspan="3">${miss.length ? `<div><b>لم يُحل:</b> ${miss.map(e).join('، ')}</div>` : ''}${pend.length ? `<div><b>ما زال مفتوحًا في المنصة:</b> ${pend.map(p => `${e(p.title)} (${p.dueAt ? madCloseText(p.dueAt) : `${p.daysLeft} ${p.daysLeft === 1 ? 'يوم' : p.daysLeft === 2 ? 'يومان' : 'أيام'}`})`).join('، ')}</div>` : ''}</td></tr>`;
+  return `<tr class="srp-madlist"><td colspan="3">${miss.length ? `<div><b>لم يُحل:</b> ${miss.map(e).join('، ')}</div>` : ''}${fg.length ? `<div><b>🧽 مُسح خصمه ببطاقة:</b> ${fg.map(e).join('، ')}</div>` : ''}${pend.length ? `<div><b>ما زال مفتوحًا في المنصة:</b> ${pend.map(p => `${e(p.title)} (${p.dueAt ? madCloseText(p.dueAt) : `${p.daysLeft} ${p.daysLeft === 1 ? 'يوم' : p.daysLeft === 2 ? 'يومان' : 'أيام'}`})`).join('، ')}</div>` : ''}</td></tr>`;
 }
 function srpNum(v){ if(v==null||v==='') return '—'; const n=Number(v); return Number.isInteger(n)?String(n):n.toFixed(1).replace(/\.0$/,''); }
 function srpDate(d){ try{ const t=typeof d==='number'?d:Date.parse(d+'T12:00:00+03:00'); return new Date(t).toLocaleDateString('ar-SA-u-ca-gregory-nu-latn',{day:'numeric',month:'long',year:'numeric',timeZone:'Asia/Riyadh'}); }catch(_){ return String(d||''); } }
@@ -9418,7 +9484,7 @@ function srxHTML(r){
   ];
   const tot=D.reduce((a,x)=>a+(x.s==null?0:Number(x.s)||0),0), totMax=D.reduce((a,x)=>a+x.m,0), totP=pct(tot,totMax);
   const totLv=srxLevel(tot,totMax,true);
-  const miss=md&&Array.isArray(md.missedList)?md.missedList:[], pend=md&&Array.isArray(md.pendingList)?md.pendingList:[];
+  const miss=md&&Array.isArray(md.missedList)?md.missedList:[], pend=md&&Array.isArray(md.pendingList)?md.pendingList:[]; const fgl=md&&Array.isArray(md.forgivenList)?md.forgivenList:[];
   const pendTxt=x=>x.dueAt&&typeof madCloseText==='function'?madCloseText(x.dueAt):(x.daysLeft!=null?`باقي ${x.daysLeft} ${x.daysLeft===1?'يوم':'أيام'}`:'');
   // 🎯 خطوتك القادمة: ما يستطيع الطالب فعله الآن، لا لوم على ما فات
   const next=[];
@@ -9454,6 +9520,7 @@ function srxHTML(r){
         ${md?`<div class="srx-row"><div><b>منصة مدرستي</b><small>${md.linked?srpMadTxt(md):'غير مربوط'}</small></div><em>${N(md.score)} / ${md.max}</em></div>`:''}
         <div class="srx-row sum"><b>مجموع الواجبات</b><em>${N(h.score)} / ${h.max||10}</em></div>
         ${miss.length?`<div class="srx-list bad"><b>✗ لم يُحل في مدرستي (${miss.length})</b><ul>${miss.map(t=>`<li>${E(t)}</li>`).join('')}</ul></div>`:''}
+        ${fgl.length?`<div class="srx-list"><b>🧽 مُسح خصمه ببطاقة (${fgl.length})</b><ul>${fgl.map(t=>`<li>${E(t)}</li>`).join('')}</ul></div>`:''}
         ${pend.length?`<div class="srx-list warn"><b>⏳ ما زال مفتوحًا — حلّه الآن (${pend.length})</b><ul>${pend.map(x=>`<li>${E(x.title)}${pendTxt(x)?` <small>· ${E(pendTxt(x))}</small>`:''}</li>`).join('')}</ul></div>`:''}
       </div>
       <div class="srx-col"><div class="srx-card" ${sty('ex')}><h3><i>📝</i>الاختبارات الفترية</h3>

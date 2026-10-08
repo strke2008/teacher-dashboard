@@ -7772,6 +7772,7 @@ const CARDS = [
   { id:'retry',  name:'إعادة محاولة',     price:80,  ic:'🔁', teacher:false },
   { id:'hint',   name:'تلميح',            price:30,  ic:'💡', teacher:false },
   { id:'ticket', name:'تذكرة مسابقة',     price:40,  ic:'🎟️', teacher:false },
+  { id:'madforgive', name:'مسح خصم مدرستي', price:500, ic:'🧽', teacher:false },
   { id:'theme_gold', name:'مظهر ذهبي حصري', price:250, ic:'✨', teacher:false },
   { id:'theme_diamond', name:'مظهر ماسي حصري', price:250, ic:'💎', teacher:false },
   { id:'frame', name:'إطار الصورة', price:200, ic:'🖼️', teacher:false },
@@ -29616,6 +29617,7 @@ function madRegisterData(cls, asgs){
     const g=gradeById.get(String(sid)), items=(g&&g.homework&&g.homework.madrasati&&g.homework.madrasati.items)||null;
     const it=items?items.find(x=>x.key===assignment.key):null;
     if(items && !it) return { st:'out', counted:false, solved:student.solved, mid };   // خارج الفترة المختارة
+    if(it && it.st==='forgiven' && !student.solved) return { st:'forgiven', counted:false, solved:false, mid };   // 🧽 مسحه الطالب ببطاقة
     if(it && it.st==='pending' && !student.solved) return { st: open?'pending':'grace', daysLeft:it.daysLeft||0, counted:false, solved:false, mid };
     return {
       st:student.solved ? 'solved' : (open ? 'pending' : 'missed'),
@@ -29652,6 +29654,7 @@ function madRegisterRender(cls, asgs, mids, linkNote){
     : x.st==='pending'?'<td class="madr-c wait" title="لم يحل بعد — الموعد لم ينتهِ">⏳</td>'
     : x.st==='grace'?`<td class="madr-c grace" title="لم يحل — انتهى الموعد، لكنه في أسبوع السماح: يُخصم بعد ${x.daysLeft} ${x.daysLeft===1?'يوم':'أيام'} إن لم يحله">❌<small>${x.daysLeft}ي</small></td>`
     : x.st==='excluded'?'<td class="madr-c none" title="مستبعد من التقييم">🚫</td>'
+    : x.st==='forgiven'?'<td class="madr-c none" title="لم يحل — مسح الطالب خصمه ببطاقة «مسح خصم مدرستي» (500 نقطة)">🧽</td>'
     : x.st==='out'?`<td class="madr-c out" title="يُغلق خارج الفترة المختارة${termTxt?' ('+termTxt+')':''} — لا يدخل درجتها">↗</td>`
     : '<td class="madr-c no" title="لم يحل — مخصوم 0.5">❌</td>';
   const linkedMids=new Set(Object.keys(MADREG.links));
@@ -29664,7 +29667,7 @@ function madRegisterRender(cls, asgs, mids, linkNote){
         ${closed&&selP===1?' الفترة الأولى مغلقة، فهذه الواجبات تتبع <b>الفترة الثانية</b> — <button type="button" class="btn ghost sm" onclick="document.getElementById(\'madr-per\').value=\'2\';madRegisterLoad()">اعرض الفترة الثانية</button>':' إن كانت تخص هذه الفترة فعدّل «إلى» في «بوابة المعلم ← الدرجات ← فترة التقييم».'}</div>`})():''}
     ${rows[0]&&rows[0].closed?'<div class="madr-note">🔒 هذه الفترة مغلقة — الدرجات من لقطة الإغلاق.</div>':''}
     <div class="madr-note madr-legend"><b>كيف تُقرأ الدرجة:</b> تبدأ مدرستي من 5، ويُخصم 0.5 لكل واجب لم يُحل <b>عند إغلاقه في المنصة</b>.
-      <span>✅ حل</span><span>⏳ مفتوح — لم يُغلق بعد</span><span class="lg-no">❌ أُغلق ولم يُحل (مخصوم)</span><span>🚫 مستبعد من التقييم</span><span>— غير مربوط</span></div>
+      <span>✅ حل</span><span>⏳ مفتوح — لم يُغلق بعد</span><span class="lg-no">❌ أُغلق ولم يُحل (مخصوم)</span><span>🚫 مستبعد من التقييم</span><span>🧽 مُسح خصمه ببطاقة</span><span>— غير مربوط</span></div>
     <div class="madr-wrap"><table class="madr-table" id="madr-table"><thead><tr><th>#</th><th class="madr-name">الطالب</th>
       ${asgs.map(a=>`<th class="madr-asg${a.excluded?' ex':''}" title="${esc(a.title)}${a.excluded?' — مستبعد من التقييم':''}"><span>${a.excluded?'🚫 ':''}${esc(a.title)}</span><small>${a.dueAt?fmtDate(a.dueAt):''}</small></th>`).join('')}
       <th class="madr-sum">الفصل<br><small>/5</small></th><th class="madr-sum">مدرستي<br><small>/5</small></th><th class="madr-sum tot">الواجب<br><small>/10</small></th></tr></thead>
@@ -29689,7 +29692,7 @@ function madRegisterRows(){
 }
 function madRegisterCsv(){
   const {cls,asgs,rows}=madRegisterRows();
-  const sym=x=>!x?'':x.st==='solved'?'حل':x.st==='pending'?'قبل الموعد':x.st==='grace'?'لم يحل (أسبوع السماح)':x.st==='excluded'?'مستبعد':x.st==='out'?'خارج الفترة':'لم يحل';
+  const sym=x=>!x?'':x.st==='solved'?'حل':x.st==='pending'?'قبل الموعد':x.st==='grace'?'لم يحل (أسبوع السماح)':x.st==='excluded'?'مستبعد':x.st==='forgiven'?'مُسح ببطاقة':x.st==='out'?'خارج الفترة':'لم يحل';
   const q=v=>`"${String(v??'').replace(/"/g,'""')}"`;
   const lines=[['#','الطالب',...asgs.map(a=>a.title),'واجبات الفصل (5)','واجبات مدرستي (5)','الواجب (10)'].map(q).join(',')]
     .concat(rows.map((r,i)=>[i+1,r.s.name,...r.cells.map(sym),r.cp,r.mp,r.tot].map(q).join(',')));
@@ -30230,13 +30233,13 @@ function srpEsc(v){ return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&am
 function srpMadTxt(md){
   if(md.counted===undefined) return `حل ${md.solved} · لم يحل ${md.missed}`;
   const base = md.counted ? `حل ${md.solved} من ${md.counted}${md.pct!=null?` (${md.pct}%)`:''}` : 'لا واجبات منتهية بعد';
-  return base + (md.inGrace ? ` · ${md.inGrace} ضمن مهلة الحل` : '');
+  return base + (md.inGrace ? ` · ${md.inGrace} ضمن مهلة الحل` : '') + (md.forgiven ? ` · ${md.forgiven} مُسح ببطاقة` : '');
 }
 function srpMadList(md){
-  const miss = Array.isArray(md.missedList) ? md.missedList : [], pend = Array.isArray(md.pendingList) ? md.pendingList : [];
-  if(!md.linked || (!miss.length && !pend.length)) return '';
+  const miss = Array.isArray(md.missedList) ? md.missedList : [], pend = Array.isArray(md.pendingList) ? md.pendingList : [], fg = Array.isArray(md.forgivenList) ? md.forgivenList : [];
+  if(!md.linked || (!miss.length && !pend.length && !fg.length)) return '';
   const e = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-  return `<tr class="srp-madlist"><td colspan="3">${miss.length ? `<div><b>لم يُحل:</b> ${miss.map(e).join('، ')}</div>` : ''}${pend.length ? `<div><b>ما زال مفتوحًا في المنصة:</b> ${pend.map(p => `${e(p.title)} (${p.dueAt ? madCloseText(p.dueAt) : `${p.daysLeft} ${p.daysLeft === 1 ? 'يوم' : p.daysLeft === 2 ? 'يومان' : 'أيام'}`})`).join('، ')}</div>` : ''}</td></tr>`;
+  return `<tr class="srp-madlist"><td colspan="3">${miss.length ? `<div><b>لم يُحل:</b> ${miss.map(e).join('، ')}</div>` : ''}${fg.length ? `<div><b>🧽 مُسح خصمه ببطاقة:</b> ${fg.map(e).join('، ')}</div>` : ''}${pend.length ? `<div><b>ما زال مفتوحًا في المنصة:</b> ${pend.map(p => `${e(p.title)} (${p.dueAt ? madCloseText(p.dueAt) : `${p.daysLeft} ${p.daysLeft === 1 ? 'يوم' : p.daysLeft === 2 ? 'يومان' : 'أيام'}`})`).join('، ')}</div>` : ''}</td></tr>`;
 }
 function srpNum(v){ if(v==null||v==='') return '—'; const n=Number(v); return Number.isInteger(n)?String(n):n.toFixed(1).replace(/\.0$/,''); }
 function srpDate(d){ try{ const t=typeof d==='number'?d:Date.parse(d+'T12:00:00+03:00'); return new Date(t).toLocaleDateString('ar-SA-u-ca-gregory-nu-latn',{day:'numeric',month:'long',year:'numeric',timeZone:'Asia/Riyadh'}); }catch(_){ return String(d||''); } }
@@ -30387,7 +30390,7 @@ function srxHTML(r){
   ];
   const tot=D.reduce((a,x)=>a+(x.s==null?0:Number(x.s)||0),0), totMax=D.reduce((a,x)=>a+x.m,0), totP=pct(tot,totMax);
   const totLv=srxLevel(tot,totMax,true);
-  const miss=md&&Array.isArray(md.missedList)?md.missedList:[], pend=md&&Array.isArray(md.pendingList)?md.pendingList:[];
+  const miss=md&&Array.isArray(md.missedList)?md.missedList:[], pend=md&&Array.isArray(md.pendingList)?md.pendingList:[]; const fgl=md&&Array.isArray(md.forgivenList)?md.forgivenList:[];
   const pendTxt=x=>x.dueAt&&typeof madCloseText==='function'?madCloseText(x.dueAt):(x.daysLeft!=null?`باقي ${x.daysLeft} ${x.daysLeft===1?'يوم':'أيام'}`:'');
   // 🎯 خطوتك القادمة: ما يستطيع الطالب فعله الآن، لا لوم على ما فات
   const next=[];
@@ -30423,6 +30426,7 @@ function srxHTML(r){
         ${md?`<div class="srx-row"><div><b>منصة مدرستي</b><small>${md.linked?srpMadTxt(md):'غير مربوط'}</small></div><em>${N(md.score)} / ${md.max}</em></div>`:''}
         <div class="srx-row sum"><b>مجموع الواجبات</b><em>${N(h.score)} / ${h.max||10}</em></div>
         ${miss.length?`<div class="srx-list bad"><b>✗ لم يُحل في مدرستي (${miss.length})</b><ul>${miss.map(t=>`<li>${E(t)}</li>`).join('')}</ul></div>`:''}
+        ${fgl.length?`<div class="srx-list"><b>🧽 مُسح خصمه ببطاقة (${fgl.length})</b><ul>${fgl.map(t=>`<li>${E(t)}</li>`).join('')}</ul></div>`:''}
         ${pend.length?`<div class="srx-list warn"><b>⏳ ما زال مفتوحًا — حلّه الآن (${pend.length})</b><ul>${pend.map(x=>`<li>${E(x.title)}${pendTxt(x)?` <small>· ${E(pendTxt(x))}</small>`:''}</li>`).join('')}</ul></div>`:''}
       </div>
       <div class="srx-col"><div class="srx-card" ${sty('ex')}><h3><i>📝</i>الاختبارات الفترية</h3>

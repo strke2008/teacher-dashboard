@@ -395,6 +395,7 @@ async function overlayExamBonuses(env, data) {
   });
   return data;
 }
+async function madForgivenRead(env) { try { const o = JSON.parse(await env.HW.get('mad:forgiven') || '{}'); return o && typeof o === 'object' ? o : {}; } catch { return {}; } }
 async function madExcluded(env) { try { return new Set(JSON.parse(await env.HW.get('mad:excluded') || '[]')); } catch { return new Set(); } }
 async function madBuildSummary(env) {
   let idx = []; try { idx = JSON.parse(await env.HW.get('mad:index') || '[]'); } catch {}
@@ -420,12 +421,15 @@ async function attachMadrasati(env, data) {
     let links = {}; try { links = JSON.parse(await env.HW.get('mad:links') || '{}') || {}; } catch {}
     // 🚫 واجبات استبعدها المعلم من التقييم: لا تدخل الدرجة ولا الكشوف ولا التقارير ولا التذكير
     const excluded = await madExcluded(env);
+    // 🧽 واجبات مسحها الطالب ببطاقة «مسح خصم مدرستي»: لا تُخصم ولا تظهر في «لم يحل»
+    const forgiven = await madForgivenRead(env);
     const bySid = {};
     for (const [key, a] of Object.entries(summary)) {
       if (excluded.has(key)) continue;
       for (const [mids, solved] of [[a.s || [], true], [a.n || [], false]]) for (const mid of mids) {
         const sid = links[mid]; if (!sid) continue;
-        (bySid[sid] = bySid[sid] || []).push({ key, title: String(a.title || ''), dueAt: a.dueAt, startAt: a.startAt || 0, firstAt: a.firstAt, solved });
+        (bySid[sid] = bySid[sid] || []).push({ key, title: String(a.title || ''), dueAt: a.dueAt, startAt: a.startAt || 0, firstAt: a.firstAt, solved,
+          forgiven: !solved && !!(forgiven[sid] && forgiven[sid][key]) });
       }
     }
     Object.defineProperty(data, '__mad', { value: { bySid, linkedSids: new Set(Object.values(links).map(String)) }, enumerable: false, configurable: true });
@@ -453,6 +457,7 @@ function madReportPart(m) {
   return { score: m.score, max: m.max, solved: m.solved || 0, missed: m.missed || 0, linked: !!m.linked, measured: !!m.measured,
     counted, pct: counted ? Math.round((m.solved || 0) * 100 / counted) : null, inGrace: m.inGrace || 0,
     missedList: items.filter(x => x.st === 'missed').map(t).slice(0, 15),
+    forgiven: m.forgiven || 0, forgivenList: items.filter(x => x.st === 'forgiven').map(t).slice(0, 15),
     pendingList: items.filter(x => x.st === 'pending').map(x => ({ title: t(x), daysLeft: x.daysLeft || 1, dueAt: x.dueAt || 0 })).slice(0, 15) };
 }
 function studentReportBuild(data, g, semester, period, teacherNote, acts) {
@@ -609,7 +614,8 @@ const GRADE_RULES = {
 };
 const GDAY = 86400000;
 /* 📚 تقسيم درجة الواجب (10): واجبات الفصل 5 + واجبات منصة مدرستي 5 */
-const HW_SPLIT = { classMax: 5, madMax: 5 };   // كل واجب لم يُسلَّم/لم يُحل −0.5: واجب الفصل بعد أسبوع سماح، ومدرستي عند إغلاقه في المنصة
+const HW_SPLIT = { classMax: 5, madMax: 5 };
+const MAD_FORGIVE_PRICE = 500;   // 🧽 بطاقة مسح خصم واجب مدرستي   // كل واجب لم يُسلَّم/لم يُحل −0.5: واجب الفصل بعد أسبوع سماح، ومدرستي عند إغلاقه في المنصة
 const ksaDay = ts => new Date(Number(ts) + 3 * 3600000).toISOString().slice(0, 10);
 const gToday = () => new Date(Date.now() + 3 * 3600000).toISOString().slice(0, 10);   // اليوم بتوقيت السعودية
 const gClamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -701,7 +707,7 @@ function gradeMadrasati(data, sid, range, now) {
   const ctx = data && data.__mad;
   const list = (ctx && ctx.bySid[String(sid)]) || [];
   const grace = GRADE_RULES.graceDays * GDAY;
-  let solved = 0, missed = 0;
+  let solved = 0, missed = 0, forgiven = 0;
   const pending = [], items = [];
   for (const a of list) {
     // الواجب ينتمي للفترة التي يُغلق فيها (وقت احتسابه)، لا التي نُشر فيها
@@ -710,14 +716,15 @@ function gradeMadrasati(data, sid, range, now) {
     const countAfter = a.dueAt ? a.dueAt : base + grace;
     let st, daysLeft = 0;
     if (a.solved) { solved++; st = 'solved'; }
+    else if (a.forgiven) { forgiven++; st = 'forgiven'; }
     else if (now < countAfter) { st = 'pending'; daysLeft = Math.max(1, Math.ceil((countAfter - now) / GDAY)); pending.push({ key: a.key, daysLeft }); }
     else { missed++; st = 'missed'; }
-    items.push({ key: a.key, title: a.title || '', st, counted: st !== 'pending', daysLeft, dueAt: a.dueAt || 0 });
+    items.push({ key: a.key, title: a.title || '', st, counted: st === 'solved' || st === 'missed', daysLeft, dueAt: a.dueAt || 0 });
   }
   const counted = solved + missed;
   return {
     score: gRound(gClamp(HW_SPLIT.madMax - missed * GRADE_RULES.hwPenalty, 0, HW_SPLIT.madMax)),
-    max: HW_SPLIT.madMax, solved, missed, inGrace: pending.length, pending: pending.length, pendingList: pending,
+    max: HW_SPLIT.madMax, solved, missed, forgiven, inGrace: pending.length, pending: pending.length, pendingList: pending,
     counted, measured: counted > 0 || pending.length > 0,
     linked: !!(ctx && ctx.linkedSids.has(String(sid))), items,
   };
@@ -3410,8 +3417,8 @@ function madWeekPart(data, sid, dset, now) {
   for (const a of (ctx.bySid[String(sid)] || [])) {
     const due = a.dueAt || 0; if (!due) continue;
     const t = String(a.title || 'واجب').slice(0, 60);
-    if (dset.has(ksaDay(due))) { if (a.solved) s++; else if (due <= now) m.push(t); }
-    if (!a.solved && due > now) o.push({ t, d: due });
+    if (dset.has(ksaDay(due))) { if (a.solved) s++; else if (!a.forgiven && due <= now) m.push(t); }
+    if (!a.solved && !a.forgiven && due > now) o.push({ t, d: due });
   }
   o.sort((x, y) => x.d - y.d);
   return (s || m.length || o.length) ? { s, m: m.slice(0, 6), o: o.slice(0, 4) } : null;
@@ -4512,7 +4519,7 @@ export default {
         const all = { start: '0000-01-01', end: '9999-12-31' };
         const m = gradeMadrasati(d, sid, all, Date.now());
         return json({ ok: true, linked: m.linked, solved: m.solved, missed: m.missed, inGrace: m.inGrace,
-          unsolved: m.items.filter(x => x.st !== 'solved').sort((a, b2) => (a.dueAt || 0) - (b2.dueAt || 0))
+          unsolved: m.items.filter(x => x.st !== 'solved' && x.st !== 'forgiven').sort((a, b2) => (a.dueAt || 0) - (b2.dueAt || 0))
             .map(x => ({ title: x.title || 'واجب', st: x.st, daysLeft: x.daysLeft || 0, dueAt: x.dueAt || 0 })).slice(0, 30) });
       }
       /* 🔗 ربط طالب مدرستي بطالب الكشف: { links: { mid: sid | null } } — null يلغي الربط */
@@ -6378,14 +6385,67 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       return json({ ok: true, prefs: cleanStudentPrefs(p) });
     }
 
+    /* 🧽 بطاقة «مسح خصم مدرستي» (500): تمسح خصم واجب مدرستي أُغلق ولم يحله الطالب.
+       list: الواجبات المخصومة في الفترة المفتوحة الحالية فقط (الفترة المغلقة درجاتها من لقطة الإغلاق فلا يفيدها المسح).
+       use: يتحقق أن الواجب مخصوم فعلًا على هذا الطالب، ثم يدفع ببطاقة يملكها إن وُجدت وإلا من رصيده، ويسجّل الإعفاء. */
+    if (url.pathname === '/mad-forgive' && request.method === 'POST') {
+      let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
+      const auth = await requireStudentSession(env, b); if (auth.res) return auth.res;
+      const st = auth.st, sid = String(st.id || '');
+      const eligible = async () => {
+        const data = await attachMadrasati(env, await loadClassroom(env));
+        const ctx = data.__mad;
+        if (!sid || !ctx || !ctx.linkedSids.has(sid)) return { linked: false, items: [], forgiven: [] };
+        const academic = academicNormalize(data);
+        const semester = academic.currentSemester, sem = academic.semesters[String(semester)] || {};
+        const period = sem.activePeriod === 2 ? 2 : 1;
+        const open = sem.status === 'open' && (sem.periodStatus || {})[String(period)] !== 'closed';
+        const m = gradeMadrasati(data, sid, gradeTermRange(data, period, semester), Date.now());
+        const pick = x => ({ key: x.key, title: String(x.title || 'واجب').slice(0, 80), dueAt: x.dueAt || 0 });
+        return { linked: true, open, score: m.score, max: m.max,
+          items: open ? m.items.filter(x => x.st === 'missed').map(pick) : [],
+          forgiven: m.items.filter(x => x.st === 'forgiven').map(pick) };
+      };
+      if (b.op !== 'use') {
+        const e = await eligible(), own = await readOwn(env, st);
+        return json({ ok: true, price: MAD_FORGIVE_PRICE, owned: own.madforgive || 0, pts: await readBal(env, st), ...e });
+      }
+      const key = String(b.key || '').toUpperCase();
+      if (!/^[0-9A-F]{24,64}$/.test(key)) return json({ ok: false, error: 'bad_key' }, 400);
+      return studentLocked(env, st, async () => {
+        const e = await eligible();
+        const it = e.items.find(x => x.key === key);
+        if (!it) return json({ ok: false, error: e.forgiven.some(x => x.key === key) ? 'already' : (e.linked && !e.open) ? 'period_closed' : 'not_missed', pts: await readBal(env, st) }, 200);
+        const own = await readOwn(env, st), bal = await readBal(env, st);
+        const useOwned = (own.madforgive || 0) > 0;
+        if (!useOwned && bal < MAD_FORGIVE_PRICE) return json({ ok: false, error: 'low', pts: bal }, 200);
+        await withLock(env, 'mad:forgiven', async () => {
+          const f = await madForgivenRead(env);
+          (f[sid] = f[sid] || {})[key] = { at: Date.now(), title: it.title };
+          await env.HW.put('mad:forgiven', JSON.stringify(f));
+        });
+        let pts = bal;
+        if (useOwned) { own.madforgive--; if (own.madforgive <= 0) delete own.madforgive; await writeOwn(env, st, own); }
+        else { pts = bal - MAD_FORGIVE_PRICE; await env.HW.put(identityKey('bal:', st), String(pts)); await dropLegacy(env, 'bal:', st); }
+        await bumpRev(env);
+        const at = Date.now();
+        const log = { name: st.name, sid, card: 'madforgive', price: useOwned ? 0 : MAD_FORGIVE_PRICE, kind: 'purchase', at, hwTitle: it.title, madKey: key };
+        await env.HW.put(`req:${at}:${st.name}`, JSON.stringify(log), { expirationTtl: 60 * 60 * 24 * 120 });
+        await env.HW.put(`shoplog:${at}:${sid}:${Math.random().toString(36).slice(2, 8)}`, JSON.stringify(log), { expirationTtl: 60 * 60 * 24 * 365 });
+        return json({ ok: true, pts, perks: own, erased: it });
+      });
+    }
+
     if (url.pathname === '/buy' && request.method === 'POST') {
       let b;
       try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
       const card = String(b.card || '').replace(/[^a-z0-9_]/gi, '').slice(0, 24);
       // 💰 السعر يُحسم في الخادم، لا من المتصفح.
-      const STORE_PRICES={exam3:1000,exam2:750,exam1:450,exam05:250,thanks:300,theme_gold:250,theme_diamond:250,theme_saudi:250,theme_spaceweek:250,frame:200,namecolor:300,title:200,dbl:150,retry:80,early:60,ticket:40,hint:30};
+      const STORE_PRICES={exam3:1000,exam2:750,exam1:450,exam05:250,thanks:300,theme_gold:250,theme_diamond:250,theme_saudi:250,theme_spaceweek:250,frame:200,namecolor:300,title:200,dbl:150,retry:80,early:60,ticket:40,hint:30,madforgive:MAD_FORGIVE_PRICE};
       const price=Number(STORE_PRICES[card]||0);
       if(['exam05','exam1','exam2','exam3'].includes(card)) return json({ok:false,error:'exam_direct'},400);
+      // 🧽 بطاقة مسح خصم مدرستي تُشترى وتُستخدم معًا على واجب بعينه من /mad-forgive — لا تُشترى فارغة
+      if(card==='madforgive') return json({ok:false,error:'mad_direct'},400);
       if (!card || !price) return json({ error: 'missing fields' }, 400);
       // 🔐 الهوية من الجلسة الموقّعة فقط — لا من name/sid في الطلب
       const auth = await requireStudentSession(env, b); if (auth.res) return auth.res;
@@ -8401,6 +8461,6 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
     }
 
     return json({ ok: true, service: 'homework',
-      paths: ['/publish','/messages','/hw','/unpublish','/removestudent','/find','/mine','/board','/review','/submit','/me','/buy','/use','/extra-attempt','/extra-attempt-bulk','/extra-attempt-status','/unlock-review','/title','/pin','/pinstatus','/pinmode','/pins','/resetpin','/rev','/store','/resolve','/adjust','/state','/recover-activities','/wipe','/results','/projects','/project-review','/project-file-delete','/file-submit','/file-download','/review-request','/review-request/complete','/notice-state','/notice-dismiss','/exam-options','/exam-shop-policy','/use-exam-bonus','/reset'] });
+      paths: ['/publish','/messages','/hw','/unpublish','/removestudent','/find','/mine','/board','/review','/submit','/me','/buy','/use','/extra-attempt','/extra-attempt-bulk','/extra-attempt-status','/unlock-review','/title','/pin','/pinstatus','/pinmode','/pins','/resetpin','/rev','/store','/resolve','/adjust','/state','/recover-activities','/wipe','/results','/projects','/project-review','/project-file-delete','/file-submit','/file-download','/review-request','/review-request/complete','/notice-state','/notice-dismiss','/exam-options','/exam-shop-policy','/use-exam-bonus','/mad-forgive','/reset'] });
   },
 };
