@@ -1898,6 +1898,20 @@ function doneKey(nm){
 }
 function isDone(nm){ try{ return localStorage.getItem(doneKey(nm))==='1'; }catch(e){ return false; } }
 function markDone(nm){ try{ localStorage.setItem(doneKey(nm),'1'); }catch(e){} }
+function clearDone(nm){ try{ localStorage.removeItem(doneKey(nm)); }catch(e){} }
+/* 🛡️ الخادم هو المرجع: علامة «سلّمت» المحفوظة على الجهاز احتياط عند انقطاع الاتصال فقط.
+   كانت تحجب الطالب ولو لم تصل إجاباته للخادم (انقطاع أثناء الإرسال) أو بعد أن أعاد المعلم ضبط تسليمه،
+   فيعمل النشاط في متصفح آخر ولا يعمل في جهازه. */
+async function serverSubmitted(nm){
+  const api=((HW&&HW.api)||API||'').replace(/\/+$/,''); if(!api||!nm) return null;
+  const ids=[HW&&HW.id,HW&&HW.sid].filter((v,i,a)=>v&&a.indexOf(v)===i);
+  let seen=null;
+  for(const hwKey of ids){
+    try{ const r=await fetch(api+'/me?name='+encodeURIComponent(nm)+idQS()+'&hw='+encodeURIComponent(hwKey)+'&_='+Date.now(),{cache:'no-store'});
+      const x=await r.json(); if(x&&x.ok){ if(x.submitted||Number(x.extra||x.extraAttempts||0)>0) return x; seen=x; } }catch(e){}
+  }
+  return seen;
+}
 
 async function verifyActivityStillPublished(){
   // 🔐 حتى الرابط الطويل القديم لا يستطيع تجاوز حذف النشاط من الخادم.
@@ -2138,7 +2152,11 @@ async function boot(){
   // إذا لم توجد صلاحية إعادة تسليم، يستمر النظام الأصلي حرفياً.
   if(lk && await openRejectedProjectResubmit(lk)) return;
 
-  // 🔒 اجحب فقط إن كان صاحب الجهاز نفسه هو من سلّم
+  // 🔒 اجحب فقط إن كان صاحب الجهاز نفسه هو من سلّم — بعد التأكد من الخادم
+  if(lk && isDone(lk)){
+    const sv=await serverSubmitted(lk);
+    if(sv && !sv.submitted) clearDone(lk);   // الخادم لا يعرف تسليمًا ← العلامة المحلية قديمة أو لم يصل الإرسال
+  }
   if(lk && isDone(lk)){
     show('s-empty');
     document.querySelector('#s-empty h2').textContent = `سبق أن سلّمت هذا النشاط يا ${lk}`;
@@ -2287,8 +2305,8 @@ async function beginWith(i){
         }catch(e){}
       }
       if(j){
-        // 🔒 القفل الحقيقي من الخادم — لا يتجاوزه تغيير الجهاز
-        if(j.submitted) markDone(myName);
+        // 🔒 القفل الحقيقي من الخادم — لا يتجاوزه تغيير الجهاز، ولا تحجب علامة محلية ما لم يستلمه الخادم
+        if(j.submitted) markDone(myName); else clearDone(myName);
         MYPTS = j.pts || MYPTS; MYPERKS = j.perks || MYPERKS;
       }
     }
@@ -7520,12 +7538,13 @@ async function finish(){
     if(reviewOpenNow()) renderReview(marks);
     else renderReviewLocked(marks);
   }
-  markDone(myName);                 // 🔒 قفل باسم هذا الطالب فقط
+  // 🔒 علامة القفل تُكتب بعد أن يؤكد الخادم الاستلام (لا قبلها) — وإلا حُجب الطالب ولم تصل إجاباته
   const detail = marks.map(m=>m?'1':'0').join('');
 
   const api = ((HW && HW.api) || API || '').replace(/\/+$/,'');
   if(api){
     const s = $('sent-line');
+    const trySend = async () => {
     s.textContent = 'جارٍ التسليم…';
     for(let n=1;n<=3;n++){
       try{
@@ -7558,6 +7577,8 @@ async function finish(){
           return;
         }
         if(!r.ok||!j.ok) throw 0;
+        markDone(myName);           // ✅ وصل للخادم — الآن فقط يُقفل على هذا الجهاز
+        hide('code-wrap');
         s.textContent = j.already ? 'نشاطك مُسلّم مسبقاً ✅' : (HW && HW.personalRemedial ? 'سُجّلت محاولتك ✅' : 'وصلت نتيجتك للمعلم ✅');
         // 🩹 العلاج التلقائي: رسالة واضحة ولطيفة بلا إحراج
         if(j.remedial){
@@ -7575,8 +7596,17 @@ async function finish(){
         return;
       }catch(e){ if(n<3) await new Promise(r=>setTimeout(r,900*n)); }
     }
-    s.textContent = 'تعذّر الاتصال — أرِ معلمك هذا الرمز';
+    // لم يصل: لا قفل على الجهاز، وزر لإعادة الإرسال بالإجابات نفسها (لا يحتاج الحل من جديد)
+    s.innerHTML = 'تعذّر الاتصال — لم تصل إجاباتك بعد. <button type="button" id="resend-btn" class="btn" style="margin-top:.5rem;width:100%">🔄 أعد الإرسال</button>'
+      + '<span style="display:block;font-size:.8rem;margin-top:.35rem">تأكد من الإنترنت ثم اضغط. إن استمر الخطأ أرِ معلمك الرمز بالأسفل.</span>';
+    const rb = document.getElementById('resend-btn'); if(rb) rb.onclick = () => { rb.disabled = true; trySend(); };
+    show('code-wrap');
+    $('done-code').textContent = makeCode(HW.id, me, correct, total);
+    };
+    await trySend();
+    return;
   }
+  markDone(myName);                 // بلا خادم: القفل المحلي هو الوحيد المتاح
   show('code-wrap');
   $('done-code').textContent = makeCode(HW.id, me, correct, total);
 }
