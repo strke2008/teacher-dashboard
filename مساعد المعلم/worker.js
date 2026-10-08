@@ -254,7 +254,7 @@ async function issueSession(env, sid, pin) {
 /* 🎨 تفضيلات المظهر: قيم من قوائم ثابتة فقط، والصورة data URL صغيرة */
 const PREF_ENUM = {
   accent: ['navy','teal','violet','rose','orange','emerald','sky','gold'],
-  theme: ['classic','aurora','ocean','meadow','sunset','galaxy','lab','candy','saudi','spaceweek'],
+  theme: ['classic','aurora','ocean','meadow','sunset','galaxy','lab','candy','saudi','spaceweek','gold','diamond'],
   cards: ['soft','glass','outline','bold'],
   btn: ['round','pill','sharp','gradient']
 };
@@ -3751,7 +3751,21 @@ async function liveRefundChunk(env, g) {
     });
     if (out && out.ok) refunded++;
   }
-  const remaining = ((await env.DB.prepare("SELECT COUNT(*) AS n FROM live_ledger f WHERE f.game = ?1 AND f.kind = 'fee' AND NOT EXISTS (SELECT 1 FROM live_ledger r WHERE r.game = f.game AND r.sid = f.sid AND r.kind = 'refund')").bind(g.id).first()) || {}).n || 0;
+  // 🎟️ من دخل بتذكرة تُعاد له التذكرة
+  const tks = (await env.DB.prepare("SELECT f.sid FROM live_ledger f WHERE f.game = ?1 AND f.kind = 'ticket' AND NOT EXISTS (SELECT 1 FROM live_ledger r WHERE r.game = f.game AND r.sid = f.sid AND r.kind = 'tref') LIMIT ?2").bind(g.id, LIVE_REFUND_CHUNK).all()).results || [];
+  for (const f of tks) {
+    const st = await resolveStudent(env, { id: f.sid }); if (!st.known) continue;
+    const out = await studentLocked(env, st, async () => {
+      const ins = await env.DB.prepare("INSERT INTO live_ledger (tx, game, sid, kind, amount, at, reason) VALUES (?1, ?2, ?3, 'tref', 0, ?4, ?5) ON CONFLICT DO NOTHING RETURNING tx")
+        .bind(crypto.randomUUID(), g.id, st.id, Date.now(), `إعادة تذكرة — إلغاء ${g.title}`).first();
+      if (!ins) return { already: true };
+      const own = await readOwn(env, st); own.ticket = (own.ticket || 0) + 1; await writeOwn(env, st, own);
+      return { ok: true };
+    });
+    if (out && out.ok) refunded++;
+  }
+  const remaining = (((await env.DB.prepare("SELECT COUNT(*) AS n FROM live_ledger f WHERE f.game = ?1 AND f.kind = 'fee' AND NOT EXISTS (SELECT 1 FROM live_ledger r WHERE r.game = f.game AND r.sid = f.sid AND r.kind = 'refund')").bind(g.id).first()) || {}).n || 0)
+    + (((await env.DB.prepare("SELECT COUNT(*) AS n FROM live_ledger f WHERE f.game = ?1 AND f.kind = 'ticket' AND NOT EXISTS (SELECT 1 FROM live_ledger r WHERE r.game = f.game AND r.sid = f.sid AND r.kind = 'tref')").bind(g.id).first()) || {}).n || 0);
   return { refunded, remaining };
 }
 /* 👥 الحد الأدنى للاعبين: عند إغلاق التسجيل — يكفي العدد؟ تبدأ. لا يكفي؟ تمديد (حتى maxExtends) ثم إلغاء واسترداد.
@@ -3826,7 +3840,7 @@ async function liveTick(env, ctx) {
   try {
     const chk = (await env.DB.prepare("SELECT id FROM live_games WHERE status = 'SCHEDULED' AND reg_close <= ?1 AND start_at + 60000 > ?1 AND cfg LIKE '%\"minPlayers\":%' AND cfg NOT LIKE '%\"minOk\":true%' LIMIT 5").bind(now).all()).results || [];
     for (const { id } of chk) await liveGame(env, id);
-    const cxl = (await env.DB.prepare("SELECT DISTINCT f.game AS id FROM live_ledger f JOIN live_games g ON g.id = f.game WHERE g.status = 'CANCELLED' AND f.kind = 'fee' AND NOT EXISTS (SELECT 1 FROM live_ledger r WHERE r.game = f.game AND r.sid = f.sid AND r.kind = 'refund') LIMIT 3").all()).results || [];
+    const cxl = (await env.DB.prepare("SELECT DISTINCT f.game AS id FROM live_ledger f JOIN live_games g ON g.id = f.game WHERE g.status = 'CANCELLED' AND ((f.kind = 'fee' AND NOT EXISTS (SELECT 1 FROM live_ledger r WHERE r.game = f.game AND r.sid = f.sid AND r.kind = 'refund')) OR (f.kind = 'ticket' AND NOT EXISTS (SELECT 1 FROM live_ledger r WHERE r.game = f.game AND r.sid = f.sid AND r.kind = 'tref'))) LIMIT 3").all()).results || [];
     for (const { id } of cxl) { const g = await liveGameRaw(env, id); if (g) await liveRefundChunk(env, g); }
   } catch {}
   const due = (await env.DB.prepare("SELECT id FROM live_games WHERE status = 'SCHEDULED' AND results IS NULL AND start_at + n * (q_ms + reveal_ms) <= ?1 LIMIT 3").bind(now).all()).results || [];
@@ -3961,6 +3975,20 @@ async function handleLive(url, request, env, ctx) {
       const had = await env.DB.prepare('SELECT sid FROM live_players WHERE game = ?1 AND sid = ?2').bind(g.id, st.id).first();
       if (had) return json({ ok: true, already: true, bal: await liveBal(env, st) });
       const bal = await liveBal(env, st);
+      // 🎟️ تذكرة مسابقة: تُستخدم تلقائيًا بدل الرسوم إن كان يملكها (وتُعاد إن أُلغيت المسابقة)
+      const own0 = g.fee > 0 ? await readOwn(env, st) : {};
+      if (g.fee > 0 && own0.ticket > 0) {
+        const r0 = await env.DB.batch([
+          env.DB.prepare('INSERT INTO live_players (game, sid, name, cls, joined_at, last_seen) SELECT ?1, ?2, ?3, ?4, ?5, ?5 WHERE ?6 = 0 OR (SELECT COUNT(*) FROM live_players WHERE game = ?1) < ?6 ON CONFLICT DO NOTHING')
+            .bind(g.id, st.id, st.name, st.cls || '', now, g.max_players),
+          env.DB.prepare("INSERT INTO live_ledger (tx, game, sid, kind, amount, at, reason) SELECT ?1, ?2, ?3, 'ticket', 0, ?4, ?5 WHERE EXISTS (SELECT 1 FROM live_players WHERE game = ?2 AND sid = ?3) ON CONFLICT DO NOTHING")
+            .bind(crypto.randomUUID(), g.id, st.id, now, `🎟️ تذكرة — ${g.title}`),
+        ]);
+        const seated0 = r0 && r0[0] && r0[0].meta ? r0[0].meta.changes > 0 : !!(await env.DB.prepare('SELECT 1 AS x FROM live_players WHERE game = ?1 AND sid = ?2').bind(g.id, st.id).first());
+        if (!seated0) return json({ ok: false, error: 'full' }, 409);
+        own0.ticket--; if (own0.ticket <= 0) delete own0.ticket; await writeOwn(env, st, own0);
+        return json({ ok: true, joined: true, ticket: true, fee: 0, bal, perks: own0 });
+      }
       if (bal < g.fee) return json({ ok: false, error: 'insufficient', bal, fee: g.fee }, 402);
       const tx = crypto.randomUUID();
       // المقعد والسجل في معاملة واحدة؛ الحد الأقصى يُفرض داخل الإدراج نفسه (لا سباق بين طالبين)
@@ -6336,6 +6364,8 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         if (b.prefs === null) { await env.HW.delete(key); return json({ ok: true, prefs: null }); }
         const p = cleanStudentPrefs(b.prefs);
         if (!p) return json({ ok: false, error: 'bad_prefs' }, 400);
+        // ✨ المظاهر الحصرية لمن اشتراها فقط
+        if (['gold','diamond'].includes(p.theme)) { const own = await readOwn(env, st); if (!(own['theme_' + p.theme] > 0)) return json({ ok: false, error: 'theme_locked' }, 403); }
         await env.HW.put(key, JSON.stringify(p));
         return json({ ok: true, prefs: p });
       }
@@ -6348,7 +6378,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
       const card = String(b.card || '').replace(/[^a-z0-9_]/gi, '').slice(0, 24);
       // 💰 السعر يُحسم في الخادم، لا من المتصفح.
-      const STORE_PRICES={exam3:1000,exam2:750,exam1:450,exam05:250,title:200,dbl:150,thanks:120,retry:80,early:60,hint:30};
+      const STORE_PRICES={exam3:1000,exam2:750,exam1:450,exam05:250,thanks:300,theme_gold:250,theme_diamond:250,title:200,dbl:150,retry:80,early:60,ticket:40,hint:30};
       const price=Number(STORE_PRICES[card]||0);
       if(['exam05','exam1','exam2','exam3'].includes(card)) return json({ok:false,error:'exam_direct'},400);
       if (!card || !price) return json({ error: 'missing fields' }, 400);
@@ -6357,6 +6387,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       const st = auth.st;
       return studentLocked(env, st, async () => {
         const bal = await readBal(env, st);
+        if (card.startsWith('theme_') && ((await readOwn(env, st))[card] > 0)) return json({ ok: false, error: 'owned', pts: bal }, 200);
         if (bal < price) return json({ ok: false, error: 'low', pts: bal }, 200);
         await env.HW.put(identityKey('bal:', st), String(bal - price));
         await dropLegacy(env, 'bal:', st);
