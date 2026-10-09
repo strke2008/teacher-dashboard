@@ -1787,19 +1787,28 @@ thead .madr-name{background:var(--ui-surface-2,#F7FAFD)}
 #td-board>.td-blk{margin:0 0 .7rem;min-width:0;position:relative}
 #td-board>.td-blk.tl-hidden{display:none}
 @media (min-width:1000px){
-  #td-board{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:.8rem;align-items:start;grid-auto-flow:row dense}
-  #td-board>.td-blk{margin:0;grid-column:span var(--w,2)}
+  /* 12 عمودًا، بلا «dense» حتى لا تقفز البطاقات من ترتيبها، وبطاقات الصف الواحد تمتد بطول أطولها */
+  #td-board{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:.8rem;align-items:stretch;grid-auto-flow:row}
+  #td-board>.td-blk{margin:0;grid-column:span var(--w,4)}
+  #td-board>div.td-blk{display:flex;flex-direction:column}
+  #td-board>div.td-blk>:not(.tl-bar):not(.tl-rs){flex:1 1 auto;margin:0}
+  #td-board>div.td-blk:not([data-h="a"])>:not(.tl-bar):not(.tl-rs){max-height:var(--h);overflow:auto}
+  #td-board>div.td-blk[data-h="px"]>:not(.tl-bar):not(.tl-rs){height:var(--h)}
   #td-board>.td-more{background:var(--ui-surface,#fff);border:1px solid var(--ui-border,#e5e7eb);border-radius:14px}
   #td-board>.td-more>summary{border:0;border-bottom:1px solid transparent;border-radius:14px 14px 0 0;background:none}
   #td-board>.td-more[open]>summary{border-bottom-color:var(--ui-border,#e5e7eb);margin-bottom:0}
-  #td-board>.td-more>:not(summary):not(.tl-bar){max-height:var(--h,320px);overflow:auto;padding:.5rem .6rem;box-shadow:none!important;border:0!important}
+  #td-board>.td-more>:not(summary):not(.tl-bar):not(.tl-rs){max-height:var(--h,320px);overflow:auto;padding:.5rem .6rem;box-shadow:none!important;border:0!important}
+  #td-board>.td-more[data-h="px"]>:not(summary):not(.tl-bar):not(.tl-rs){height:var(--h);box-sizing:border-box}
   #td-board>.td-more>summary .btn{white-space:nowrap;flex:none}
   #td-board #dash-stats{grid-template-columns:repeat(auto-fit,minmax(130px,1fr))!important}
-  /* الأسبوع: عمودي في البطاقة الضيقة، أفقي في العريضة */
-  #td-board>.td-weekcard:not([data-w="4"]):not([data-w="6"]) .td-week{grid-template-columns:1fr;overflow:visible;gap:.35rem}
-  #td-board>.td-weekcard:not([data-w="4"]):not([data-w="6"]) .td-day{min-height:0;display:flex;gap:.5rem;align-items:flex-start;flex-wrap:wrap;padding:.35rem .5rem}
-  #td-board>.td-weekcard:not([data-w="4"]):not([data-w="6"]) .td-day h4{margin:0;flex:0 0 92px;gap:.3rem;justify-content:flex-start}
-  #td-board>.td-weekcard:not([data-w="4"]):not([data-w="6"]) .td-day>:not(h4){flex:1 1 140px}
+  /* الأسبوع: عمودي في البطاقة الضيقة، أفقي في العريضة (⅔ فأكثر) */
+  #td-board>.td-weekcard:not(.tl-wide) .td-week{grid-template-columns:1fr;overflow:visible;gap:.35rem}
+  #td-board>.td-weekcard:not(.tl-wide) .td-day{min-height:0;display:flex;gap:.5rem;align-items:flex-start;flex-wrap:wrap;padding:.35rem .5rem}
+  #td-board>.td-weekcard:not(.tl-wide) .td-day h4{margin:0;flex:0 0 92px;gap:.3rem;justify-content:flex-start}
+  #td-board>.td-weekcard:not(.tl-wide) .td-day>:not(h4){flex:1 1 140px}
+  #td-board>div.td-weekcard>:not(.td-week):not(.tl-bar):not(.tl-rs){flex:none}
+  #td-board>div.td-weekcard>.td-week{align-content:start}
+  #td-board>.td-weekcard:not([data-h="a"]) .td-week{max-height:var(--h);overflow:auto}
 }
 /* وضع الترتيب */
 .tl-top{display:none}
@@ -1811,6 +1820,13 @@ thead .madr-name{background:var(--ui-surface-2,#F7FAFD)}
 #td-board.tl-on>.td-blk.tl-drag{opacity:.35}
 #td-board.tl-on>.td-blk.tl-over{box-shadow:0 0 0 3px #2563eb;border-radius:14px}
 .tl-bar{display:none}
+.tl-rs{display:none}
+#td-board.tl-on>.td-blk>.tl-rs{display:flex;position:absolute;bottom:2px;inset-inline-end:2px;width:26px;height:26px;align-items:center;justify-content:center;background:#2563eb;color:#fff;border-radius:8px 0 12px 0;font-size:.85rem;cursor:nwse-resize;touch-action:none;user-select:none;-webkit-user-select:none;z-index:3;box-shadow:0 2px 6px rgba(0,0,0,.2)}
+[dir=rtl] #td-board.tl-on>.td-blk>.tl-rs{cursor:nesw-resize;transform:scaleX(-1);border-radius:8px 0 12px 0}
+#td-board.tl-sizing-on{user-select:none;-webkit-user-select:none}
+#td-board.tl-on>.td-blk.tl-sizing{box-shadow:0 0 0 3px #2563eb;border-radius:14px}
+#td-board.tl-on>.td-blk.tl-sizing::after{content:attr(data-sz);position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#1e293b;color:#fff;padding:.35rem .7rem;border-radius:10px;font-size:.85rem;font-weight:800;z-index:4;pointer-events:none;white-space:nowrap}
+@media screen and (max-width:999px){ #td-board.tl-on>.td-blk>.tl-rs{display:none} }
 #td-board.tl-on>details.td-blk>summary{flex-wrap:wrap}
 #td-board.tl-on>details.td-blk>summary::before{display:none}
 #td-board.tl-on>details.td-blk>summary>.tl-bar{flex-basis:100%;margin:0 0 .35rem}
@@ -1831,7 +1847,7 @@ thead .madr-name{background:var(--ui-surface-2,#F7FAFD)}
 .br-row{position:relative}.br-par{display:flex;gap:.2rem;align-items:flex-start;flex:none}
 .br-row.off{opacity:1}.br-row.off>input,.br-row.off>.br-main{opacity:.55}   /* غير المحدد باهت، لكن زر ولي الأمر يبقى واضحًا */
 /* 💬 بطاقة رسائل الطلاب في صفحة اليوم */
-.ask-card .td-card-h{display:flex;align-items:center;gap:.45rem;flex-wrap:wrap}.ask-card .td-card-h .td-link{margin-inline-start:auto}
+.askc-card .td-card-h{display:flex;align-items:center;gap:.45rem;flex-wrap:wrap}.askc-card .td-card-h .td-link{margin-inline-start:auto}
 .askc-list{display:grid;gap:.45rem;max-height:420px;overflow:auto;padding:.1rem}
 .askc{border:1px solid var(--ui-border,#e3e8ee);border-inline-start:3px solid #D6455B;border-radius:12px;padding:.55rem .65rem;background:var(--ui-bg,#f8fafc);display:grid;gap:.3rem}
 .askc-h{display:flex;flex-wrap:wrap;gap:.35rem;align-items:center;font-size:.84rem}.askc-t{margin-inline-start:auto;font-size:.74rem}

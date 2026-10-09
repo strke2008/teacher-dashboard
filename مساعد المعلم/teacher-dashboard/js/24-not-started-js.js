@@ -39,7 +39,7 @@ function asksOpen(keep){
 /* 💬 بطاقة «رسائل الطلاب» في صفحة اليوم: كل رسالة مفتوحة مع رد سريع، بلا فتح نافذة */
 const ASK_CARD_OPEN=new Set(), ASK_DRAFT={};
 function asksCardHTML(){
-  if(ASKS===null) return `<div class="td-card ask-card"><div class="td-card-h"><b>💬 رسائل الطلاب</b></div><div class="muted" style="padding:.5rem">⏳ جارٍ الجلب…</div></div>`;
+  if(ASKS===null) return `<div class="td-card askc-card"><div class="td-card-h"><b>💬 رسائل الطلاب</b></div><div class="muted" style="padding:.5rem">⏳ جارٍ الجلب…</div></div>`;
   const open=ASKS.filter(x=>x.status==='open').sort((a,b)=>(a.at||0)-(b.at||0)), done=ASKS.filter(x=>x.status!=='open');
   const item=x=>{ const id=thEsc(x.id), ex=ASK_CARD_OPEN.has(x.id);
     return `<div class="askc ${ex?'ex':''}"><div class="askc-h"><b>${thEsc(x.name)}</b><span class="muted">${thEsc(x.cls||'')}</span>${ASK_CATS[x.cat]?`<span class="ask-cat">${thEsc(ASK_CATS[x.cat])}</span>`:''}<span class="muted askc-t">${askAgo(x.at)}</span></div>
@@ -50,7 +50,7 @@ function asksCardHTML(){
         <div class="askc-b"><button type="button" class="btn tick sm" onclick="askSend('${id}',false,'askcr-')">📩 أرسل</button><button type="button" class="btn ghost sm" onclick="askCardToggle('${id}')">إلغاء</button>
           <button type="button" class="btn ghost sm" title="حللتها معه في الفصل — لا يُرسل شيء" onclick="askSend('${id}',true)">✓ أُغلق دون رد</button></div>`
       :`<div class="askc-b"><button type="button" class="btn sm" onclick="askCardToggle('${id}')">✍️ رد</button></div>`}</div>`; };
-  return `<div class="td-card ask-card"><div class="td-card-h"><b>💬 رسائل الطلاب</b>${open.length?`<span class="chip bad">${open.length} تنتظر ردك</span>`:''}<a href="#" class="td-link" onclick="event.preventDefault();asksOpen()">كل الرسائل</a></div>
+  return `<div class="td-card askc-card"><div class="td-card-h"><b>💬 رسائل الطلاب</b>${open.length?`<span class="chip bad">${open.length} تنتظر ردك</span>`:''}<a href="#" class="td-link" onclick="event.preventDefault();asksOpen()">كل الرسائل</a></div>
     ${open.length?`<div class="askc-list">${open.map(item).join('')}</div>`:`<div class="td-empty">🌿 لا رسائل تنتظر ردك${done.length?` <small class="muted">· ردَدت على ${done.length}</small>`:''}</div>`}</div>`;
 }
 function askCardRender(){ const sA=document.getElementById('td-slot-asks'); if(sA){ try{ sA.innerHTML=asksCardHTML(); }catch(e){} } }
