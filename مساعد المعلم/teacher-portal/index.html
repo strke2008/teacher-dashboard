@@ -1936,8 +1936,71 @@ function vrMoveTo(ctx){
    • إن رفض الجهاز إعادة الاستماع يظهر «⏸️ تابِع» بدل صمت مخادع.
    • محرّك واحد يعمل في كل لحظة: بدء أي استماع يوقف الآخر.
    • سجل أحداث مختصر: اضغط على شريط الاستماع لعرضه (للتشخيص). */
-const VB_VER = 'صوت ٨';
+const VB_VER = 'صوت ٩';
 const VB_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+/* 🍎 iPhone — جلسة استماع واحدة للصفحة كلها، مشتركة بين الرصد والسلوك والرسائل والاختبارات.
+   ثبت من سجل الأحداث على جهاز المعلم:
+   • الجلسة التي تُعاد تلقائيًا (بلا لمسة) تبدأ ولا يصلها صوت.
+   • وبعد إغلاق الجلسة، جلسة جديدة في الصفحة نفسها لا يصلها صوت حتى يُعاد فتح المتصفح.
+   لذا: جلسة مستمرة واحدة تبدأ بلمستك، و«إيقاف» يكتمها فقط (دقيقتان) بدل إغلاقها؛
+   فإن فتحت الصوت مجددًا خلالها يكمل فورًا. بعدها تُغلق، ويُعاد تشغيل الكائن نفسه عند الحاجة.
+   النص فيها يطول مع كلامك: نعتمد الجديد منه بعد سكوتك 1.3 ث (بعدّ الكلمات — iPhone يعدّل ما قبله). */
+const VBI = { rec:null, active:false, owner:null, n:{}, idleT:0, offT:0, pend:null };
+const vbiWords = t => vrNorm(t).split(' ').filter(Boolean);
+function vbiCommit(i, t, why){
+  const E = VBI.owner, w = vbiWords(t), n = VBI.n[i] || 0;
+  if(w.length <= n) return; VBI.n[i] = w.length; VBI.pend = null;
+  if(!E || !E.on) return;                       // مكتوم: يُستهلك ولا يُرصد
+  const f = w.slice(n).join(' '); E.L(why + ' «' + f + '»'); E.worked = true; E.fire(f);
+}
+function vbiRec(fresh){
+  if(VBI.rec && !fresh) return VBI.rec;
+  const r = new VR_SUP();
+  r.lang = 'ar-SA'; r.interimResults = true; r.maxAlternatives = 1; r.continuous = true;
+  r.onstart = () => { VBI.active = true; VBI.n = {}; VBI.owner && VBI.owner.L('start'); };
+  r.onresult = ev => {
+    if(VBI.rec !== r) return;
+    const E = VBI.owner, from = typeof ev.resultIndex === 'number' ? ev.resultIndex : 0;
+    for(let i = from; i < ev.results.length; i++){
+      const res = ev.results[i]; if(!res) continue;
+      const t = String(res[0]?.transcript||'').trim(); if(!t) continue;
+      if(!E || !E.on){ VBI.n[i] = vbiWords(t).length; continue; }      // مكتوم
+      if(res.isFinal){ clearTimeout(VBI.idleT); vbiCommit(i, t, 'final'); continue; }
+      const w = vbiWords(t), n = VBI.n[i] || 0;
+      if(w.length > n){ vbLive(E.p, `🎙️ <b>«${esc(w.slice(n).join(' '))}»</b>`); VBI.pend = { i, t }; }
+      clearTimeout(VBI.idleT);
+      VBI.idleT = setTimeout(() => { if(VBI.pend){ const q = VBI.pend; vbiCommit(q.i, q.t, 'pause'); } }, 1300);
+    }
+  };
+  r.onerror = e => { const err = (e && e.error) || '?', E = VBI.owner; E && E.L('error ' + err);
+    if((err === 'not-allowed' || err === 'service-not-allowed') && E && E.on && !E.worked) E.fatal(); };
+  r.onend = () => {
+    if(VBI.rec !== r) return;
+    VBI.active = false; clearTimeout(VBI.idleT);
+    const E = VBI.owner; E && E.L('end');
+    if(VBI.pend){ const q = VBI.pend; vbiCommit(q.i, q.t, 'end'); }
+    VBI.pend = null;
+    if(E && E.on) E.pauseUI();                      // إعادة بلا لمسة = جلسة صمّاء ⟵ «تابِع»
+  };
+  VBI.rec = r; return r;
+}
+function vbiGo(E){                                  // تُستدعى داخل لمستك
+  clearTimeout(VBI.offT);
+  if(VBI.owner && VBI.owner !== E && VBI.owner.on) VBI.owner.stopAll();
+  VBI.owner = E;
+  if(VBI.active){ E.L('live'); return; }            // الجلسة تعمل (مكتومة): نكمل فورًا
+  try{ vbiRec().start(); E.L('go'); }
+  catch(e){ E.L('go-fail ' + (e && e.message || ''));
+    try{ vbiRec(true).start(); E.L('go-new'); }catch(x){ E.L('go-fail2'); E.pauseUI(); } }
+}
+function vbiMute(E){
+  E.L('stop'); clearTimeout(VBI.idleT); VBI.pend = null;
+  clearTimeout(VBI.offT);
+  VBI.offT = setTimeout(() => { if(!(VBI.owner && VBI.owner.on) && VBI.active){ try{ VBI.rec.stop(); }catch(e){} } }, 120000);
+}
+document.addEventListener('visibilitychange', () => {   // مغادرة التطبيق: إغلاق حقيقي للميكروفون
+  if(document.hidden && VBI.active && !(VBI.owner && VBI.owner.on)){ clearTimeout(VBI.offT); try{ VBI.rec.stop(); }catch(e){} }
+});
 const VB_ENGINES = {};
 function vbEngine(p, { onFinal, pick, onFatal, onStop }){
   const E = { p, on:false, rec:null, restartT:0, idleT:0, pend:'', last:'', lastAt:0, fails:0, worked:false, log:[] };
@@ -1945,47 +2008,7 @@ function vbEngine(p, { onFinal, pick, onFatal, onStop }){
   const fire = t => { t = String(t||'').trim(); if(!t) return; const now = Date.now();
     if(t === E.last && now - E.lastAt < 1500) return;
     E.last = t; E.lastAt = now; try{ onFinal(t); }catch(e){ L('handle-err ' + e.message); } };
-  /* 🍎 iPhone (ثبت من سجل الأحداث): الجلسة التي تُعاد بلا لمستك «تبدأ» لكن لا يصلها صوت.
-     لذا على iPhone: جلسة واحدة مستمرة تبدأ بلمستك ولا تُغلق؛ النص فيها يطول مع كلامك،
-     فنعتمد الجديد منه بعد سكوتك ‎1.3 ث‎ (بعدّ الكلمات لا بالحروف، لأن iPhone يعدّل ما قبله). */
-  function makeIOS(){
-    const r = new VR_SUP();
-    r.lang = 'ar-SA'; r.interimResults = true; r.maxAlternatives = 1; r.continuous = true;
-    r.__n = {};                                     // لكل نتيجة: عدد الكلمات المعتمدة منها
-    const words = t => vrNorm(t).split(' ').filter(Boolean);
-    const commit = (i, t, why) => {
-      const w = words(t), n = r.__n[i] || 0; if(w.length <= n) return;
-      r.__n[i] = w.length; E.pend = ''; E.worked = true;
-      const f = w.slice(n).join(' '); L(why + ' «' + f + '»'); fire(f);
-    };
-    r.onstart = () => { L('start'); E.fails = 0; };
-    r.onresult = ev => {
-      if(E.rec !== r) return;
-      const from = typeof ev.resultIndex === 'number' ? ev.resultIndex : 0;
-      for(let i = from; i < ev.results.length; i++){
-        const res = ev.results[i]; if(!res) continue;
-        const t = String(res[0]?.transcript||'').trim(); if(!t) continue;
-        if(res.isFinal){ clearTimeout(E.idleT); commit(i, t, 'final'); continue; }
-        const w = words(t), n = r.__n[i] || 0;
-        if(w.length > n){ vbLive(p, `🎙️ <b>«${esc(w.slice(n).join(' '))}»</b>`); E.pend = { i, t }; }
-        clearTimeout(E.idleT);
-        E.idleT = setTimeout(() => { if(E.rec === r && E.pend){ const q = E.pend; commit(q.i, q.t, 'pause'); } }, 1300);
-      }
-    };
-    r.onerror = e => { const err = (e && e.error) || '?'; L('error ' + err);
-      if((err === 'not-allowed' || err === 'service-not-allowed') && !E.worked){ E.on = false;
-        try{ onFatal && onFatal('تعذّر استخدام الميكروفون — لم يُسمح بالإذن. فعّله من إعدادات المتصفح.'); }catch(x){} } };
-    r.onend = () => {
-      L('end'); clearTimeout(E.idleT);
-      if(E.rec !== r) return;
-      if(E.pend && typeof E.pend === 'object'){ const q = E.pend; commit(q.i, q.t, 'end'); }
-      E.pend = '';
-      if(E.on) pause();                             // إعادة بلا لمسة = جلسة صمّاء على iPhone ⟵ «تابِع»
-    };
-    return r;
-  }
   function make(){
-    if(VB_IOS) return makeIOS();
     const r = new VR_SUP();
     r.lang = 'ar-SA'; r.interimResults = true; r.maxAlternatives = 3; r.continuous = false;
     r.onstart = () => { L('start'); E.fails = 0; };
@@ -2021,6 +2044,11 @@ function vbEngine(p, { onFinal, pick, onFatal, onStop }){
     };
     return r;
   }
+  E.L = L; E.fire = fire;
+  E.fatal = () => { E.on = false; try{ onFatal && onFatal('تعذّر استخدام الميكروفون — لم يُسمح بالإذن. فعّله من إعدادات المتصفح.'); }catch(x){} };
+  E.pauseUI = () => { L('paused');
+    vbLive(p, `⏸️ توقف الاستماع <button type="button" class="vb-resume" onclick="VB_ENGINES['${p}'].resume()">▶︎ تابِع</button>`);
+    try{ navigator.vibrate && navigator.vibrate(60); }catch(e){} };
   function pause(){
     clearTimeout(E.restartT); L('paused');
     const r = E.rec; E.rec = null; try{ r && r.abort && r.abort(); }catch(e){}
@@ -2031,10 +2059,13 @@ function vbEngine(p, { onFinal, pick, onFatal, onStop }){
     E.rec = r; try{ r.start(); L('go'); }catch(e){ L('go-fail ' + (e && e.message || '')); pause(); } }
   E.start = () => {
     for(const k in VB_ENGINES) if(k !== p && VB_ENGINES[k].on) VB_ENGINES[k].stopAll();
-    E.on = true; E.worked = false; go();          // داخل لمستك
+    E.on = true; E.worked = false;
+    if(VB_IOS) return vbiGo(E);                     // iPhone: الجلسة المشتركة
+    go();                                           // داخل لمستك
   };
-  E.resume = () => { if(!E.on) return; vbLive(p, '🎙️ أستمع…'); go(); };
+  E.resume = () => { if(!E.on) return; vbLive(p, '🎙️ أستمع…'); if(VB_IOS) return vbiGo(E); go(); };
   E.stop = () => {
+    if(VB_IOS){ E.on = false; vbiMute(E); return; }
     E.on = false; E.pend = ''; clearTimeout(E.restartT); clearTimeout(E.idleT); L('stop');
     const r = E.rec; E.rec = null; try{ r && (r.abort ? r.abort() : r.stop()); }catch(e){}
   };
