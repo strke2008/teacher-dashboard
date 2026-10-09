@@ -19189,7 +19189,7 @@ async function ensureToken(){
       const ok = await pullState();
       if(ok === false && !getTok()) return;
       closeModal(); res(true);
-      syncStore(true); pullAll(true);
+      syncStore(true); pullAll(true); ctCertTplPush();
     };
     document.getElementById('tok-go').onclick = go;
     document.getElementById('tok-in').addEventListener('keydown', e=>{ if(e.key==='Enter') go(); });
@@ -20520,6 +20520,7 @@ let REPCFG = (function(){
 function rcGet(k){ return REPCFG[k] || ''; }
 function rcSave(){
   save(K_RC, REPCFG);      // save يدفعه للخادم تلقائياً
+  try{ ctCertTplPush(); }catch(e){}   // أسماء المدرسة والمعلم والمدير تصل لشهادات المتجر
 }
 /* 🏫 حقول «بيانات المدرسة والتوقيعات» في الإعدادات — نفس مخزن بيانات التقارير (مصدر واحد) */
 function offNamesLoad(){

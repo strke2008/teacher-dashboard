@@ -404,17 +404,21 @@ function certDateLine(at) {
     .format(new Date(at)).replace(/\s*هـ$/, '').replace(/\u200f/g, ''); } catch {}
   return h ? `حُررت في ${h}هـ الموافق ${g}م` : `حُررت في ${g}م`;
 }
-async function paidCertIssue(env, st, at) {
-  let tpl = {}; try { tpl = JSON.parse(await env.HW.get('certtpl') || '{}') || {}; } catch {}
+async function certTplRead(env) { try { return JSON.parse(await env.HW.get('certtpl') || '{}') || {}; } catch { return {}; } }
+/* نص الشهادة: نص المعلم كما ضبطه في اللوحة (التوقيع الفارغ يبقى فارغًا)، وإلا النص العام */
+function certText(tpl, cls) {
   const k = { ...PCERT_DEF };
-  if (tpl.pre) for (const f of ['pre', 'dua', 'rTitle', 'rName', 'lTitle', 'lName']) k[f] = String(tpl[f] || '');   // نص المعلم كما ضبطه (التوقيع الفارغ يبقى فارغًا)
-  if (tpl.reason) k.reason = tpl.reason;
+  if (tpl && tpl.pre) for (const f of ['pre', 'dua', 'rTitle', 'rName', 'lTitle', 'lName']) k[f] = String(tpl[f] || '');
+  if (tpl && tpl.reason) k.reason = tpl.reason;
+  const fill = v => String(v || '').replace(/\{الفصل\}/g, cls || '').replace(/\s+/g, ' ').trim();
+  return { pre: fill(k.pre), reason: fill(k.reason), dua: fill(k.dua), rTitle: fill(k.rTitle), rName: fill(k.rName), lTitle: fill(k.lTitle), lName: fill(k.lName), def: !(tpl && tpl.pre) };
+}
+async function paidCertIssue(env, st, at) {
+  const tpl = await certTplRead(env);
   let cls = '', name = st.name;
   try { const s = (JSON.parse(await env.HW.get('tstate:main') || '{}').students || []).find(x => String(x.id) === String(st.id)); if (s) { cls = String(s.cls || '').trim(); name = s.name || name; } } catch {}
   if (!/\d/.test(cls)) cls = '';
-  const fill = v => String(v || '').replace(/\{الفصل\}/g, cls).replace(/\s+/g, ' ').trim();
-  const c = { id: 'p' + at.toString(36), at, paid: true, name, cls, pre: fill(k.pre), reason: fill(k.reason), dua: fill(k.dua), date: certDateLine(at),
-    rTitle: fill(k.rTitle), rName: fill(k.rName), lTitle: fill(k.lTitle), lName: fill(k.lName) };
+  const c = { id: 'p' + at.toString(36), at, paid: true, name, cls, date: certDateLine(at), ...certText(tpl, cls) };
   let list = []; try { list = JSON.parse(await env.HW.get(`pcert:${st.id}`) || '[]') || []; } catch {}
   list.unshift(c); await env.HW.put(`pcert:${st.id}`, JSON.stringify(list.slice(0, 20)));
   return c.id;
@@ -5985,6 +5989,12 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
                    rTitle: t(x.rTitle), rName: t(x.rName), lTitle: t(x.lTitle), lName: t(x.lName) }; });
       // 🏅 شهادات اشتراها الطالب من المتجر: دائمة (دفع ثمنها) وتظهر أولًا
       let paid = []; try { paid = JSON.parse(await env.HW.get(`pcert:${st.id}`) || '[]') || []; } catch {}
+      // شهادة صدرت قبل أن تصل للخادم نصوص المعلم وتوقيعاته (def): تُكمل من نصه الحالي فتظهر بالأسماء
+      if (paid.some(c => c && c.def)) {
+        const tpl = await certTplRead(env);
+        if (tpl.pre) { paid = paid.map(c => c && c.def ? { ...c, ...certText(tpl, c.cls) } : c);
+          await env.HW.put(`pcert:${st.id}`, JSON.stringify(paid)); }
+      }
       return json({ ok: true, rows: [...paid.filter(c => c && c.id).sort((a, b2) => (b2.at || 0) - (a.at || 0)), ...rows].slice(0, 40) });
     }
     // ── 🎯 خطتي: الطالب يرى خطته الجارية (الهدف، أين وصل، المهام، المدة) ──
