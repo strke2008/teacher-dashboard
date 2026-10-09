@@ -10184,7 +10184,8 @@ async function syncStore(silent){
         if(st){ st.points = pts; synced++; }
       });
     }
-    save(K.st, STUDENTS);
+    // الأرصدة من الخادم نفسه: تُحفظ على الجهاز فقط ولا تُعاد رفعًا (كانت تُرفع اللقطة كاملة كل 5 ثوانٍ)
+    _suppressSyncSave=true; try{ save(K.st, STUDENTS); }finally{ _suppressSyncSave=false; }
     // سجل المشتريات الكامل يأتي من الخادم. هذا مستقل عن طلبات رسائل الشكر حتى لا تختفي العملية من سجل المعلم بعد معالجة الطلب.
     STORE_PURCHASES = Array.isArray(j.purchases) ? j.purchases.slice().sort((a,b)=>(b.at||0)-(a.at||0)) : [];
     ctCertTplPush();
@@ -16476,23 +16477,27 @@ async function pullExtraAttemptStatus(){
   const api=getApi(), tok=getTok();
   if(!api || !tok || !Array.isArray(HW) || !HW.length || !Array.isArray(STUDENTS)) return;
   try{
-    await Promise.all(HW.map(async h=>{
+    const before=JSON.stringify(HW.map(h=>h.extraAttempts||{}));
+    const byName=new Map(STUDENTS.map(s=>[String(s.name||'').trim(),s.id]));
+    const apply=(h,grants)=>{ const extra={}; Object.entries(grants||{}).forEach(([name,count])=>{ const id=byName.get(String(name).trim()); if(id && Number(count)>0) extra[id]=Number(count); }); h.extraAttempts=extra; };
+    // ⚡ طلب واحد لكل الأنشطة (الخادم الجديد)، وإلا طلب لكل نشاط كما كان
+    let all=null;
+    try{ const r=await fetch(`${api}/extra-attempt-status?all=1&t=${encodeURIComponent(tok)}`,{cache:'no-store'}); const j=r.ok?await r.json().catch(()=>null):null; if(j&&j.ok&&j.all&&typeof j.all==='object') all=j.all; }catch(e){}
+    if(all) HW.forEach(h=>{ const hwId=h.sid||h.id; if(hwId) apply(h, all[hwId]); });
+    else await Promise.all(HW.map(async h=>{
       const hwId=h.sid || h.id;
       if(!hwId) return;
       const r=await fetch(`${api}/extra-attempt-status?hwId=${encodeURIComponent(hwId)}&t=${encodeURIComponent(tok)}`);
       if(!r.ok) return;
       const j=await r.json().catch(()=>({}));
       if(!j.ok || !j.grants) return;
-      const byName=new Map(STUDENTS.map(s=>[String(s.name||'').trim(),s.id]));
-      const extra={};
-      Object.entries(j.grants).forEach(([name,count])=>{
-        const id=byName.get(String(name).trim());
-        if(id && Number(count)>0) extra[id]=Number(count);
-      });
-      h.extraAttempts=extra;
+      apply(h, j.grants);
     }));
-    save(K.hw,HW);
-    renderAll();
+    // بيانات من الخادم نفسه: لا تُعاد رفعًا إليه، ولا رسم إلا إذا تغيّر شيء
+    if(JSON.stringify(HW.map(h=>h.extraAttempts||{}))!==before){
+      _suppressSyncSave=true; try{ save(K.hw,HW); }finally{ _suppressSyncSave=false; }
+      renderAll();
+    }
   }catch(e){ console.error('pullExtraAttemptStatus:',e); }
 }
 
@@ -16677,26 +16682,45 @@ renderAll();
   let running = false;
   let initialized = false;
 
-  async function syncNow(){
+  /* ⚡ مزامنة موفّرة:
+     - طلب صغير (/rev) يخبر هل تغيّرت بيانات الطلاب والأنشطة (stateAt) أو وصل جديد (rev)
+     - لا تُنزّل اللقطة كاملة إلا عند التغيير، ومرة كل 5 دقائق احتياطًا
+     - كل 5 ثوانٍ أثناء الاستخدام، وكل دقيقة إذا تُركت اللوحة بلا لمس أو كانت في الخلفية */
+  let lastFull=0, lastStateAt=null, lastRevSeen=null, lastActive=Date.now(), timer=0;
+  ['pointerdown','keydown','wheel','touchstart'].forEach(t=>addEventListener(t,()=>{ const idle=Date.now()-lastActive>60000; lastActive=Date.now(); if(idle) schedule(0); },{passive:true,capture:true}));
+  function schedule(ms){ clearTimeout(timer); timer=setTimeout(tick, ms); }
+  function nextDelay(){ return (document.hidden || Date.now()-lastActive>60000) ? 60000 : 5000; }
+  async function tick(){ await syncNow(); schedule(nextDelay()); }
+
+  async function syncNow(force){
     if(running || !getApi() || !getTok()) return;
 
     running = true;
 
     try{
-      // Always refresh canonical assignments/students first.
-      const pulled = await pullState();
+      let probe=null;
+      try{ const r=await fetch(`${getApi()}/rev?t=${encodeURIComponent(getTok())}`,{cache:'no-store'}); if(r.ok) probe=await r.json().catch(()=>null); }catch(e){}
+      const stale = Date.now()-lastFull > 5*60000;   // تنزيل كامل احتياطي كل 5 دقائق
+      const known = probe && probe.ok && Number(probe.stateAt) > 0;     // الخادم القديم لا يعيد stateAt ⇒ نتصرف كالسابق
+      const stateChanged = force || !initialized || stale || !known || Number(probe.stateAt)!==lastStateAt;
+      const revChanged = force || !initialized || stale || !probe || !probe.ok || probe.rev!==lastRevSeen;
 
-      if(!pulled && !initialized){
-        return;
+      if(stateChanged){
+        const pulled = await pullState();
+        if(!pulled && !initialized) return;
+        lastFull = Date.now();
+        if(known) lastStateAt = Number(probe.stateAt);
       }
+      if(probe && probe.ok) lastRevSeen = probe.rev;
 
-      // Then query the result endpoint directly. This does not depend on
-      // opening the Activities tab.
-      await checkLiveSubmissions();
-
-      // Keep the rest of the app synchronized without generating a second
-      // submission notification.
-      await syncStore(true);
+      if(revChanged || stateChanged){
+        // نتائج الأنشطة (التسليمات) — مباشرة بلا فحص /rev ثانٍ
+        await checkLiveSubmissions(true);
+        // المتجر والأرصدة
+        await syncStore(true);
+        // 💬 رسائل الطلاب (بطاقة صفحة اليوم)
+        try{ if(typeof asksLoad==='function') asksLoad(); }catch(e){}
+      }
 
       initialized = true;
     }catch(error){
@@ -16708,13 +16732,11 @@ renderAll();
 
   await ensureToken();
   await syncNow();
-
-  // Poll continuously while the page is open.
-  setInterval(syncNow, 5000);
+  schedule(nextDelay());
 
   document.addEventListener('visibilitychange', ()=>{
-    if(!document.hidden) syncNow();
+    if(!document.hidden){ lastActive=Date.now(); schedule(0); }
   });
 
-  window.addEventListener('focus', syncNow);
+  window.addEventListener('focus', ()=>{ lastActive=Date.now(); schedule(0); });
 })();

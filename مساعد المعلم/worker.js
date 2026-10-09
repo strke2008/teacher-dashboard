@@ -549,6 +549,9 @@ async function addExamBonus(env, data, sid, sem, per, add, extra) {
   setBonusInData(data, sid, sem, per, entry);
   return entry;
 }
+// ⚡ ختم آخر تعديل على tstate:main (مفتاح صغير): /rev يعيده فتعرف اللوحة بطلب صغير هل تغيّرت بيانات الطلاب والأنشطة
+//    بدل تنزيل اللقطة كاملة كل 5 ثوانٍ. يُستدعى بعد كل كتابة لـ tstate:main.
+async function stateStamp(env) { try { await env.HW.put('meta:stateAt', String(Date.now())); } catch {} }
 async function bumpRev(env) {
   try { const rev = parseInt(await env.HW.get('meta:rev'), 10) || 0; await env.HW.put('meta:rev', String(rev + 1)); } catch {}
 }
@@ -3637,6 +3640,7 @@ async function backupRestore(env, snap) {
     if (k === 'tstate:main') { try { const s = JSON.parse(v); s.savedAt = Date.now(); val = JSON.stringify(s); } catch {} }   // الأجهزة تسحب النسخة المستعادة
     await env.HW.put(k, val); n++;
   }
+  await stateStamp(env);
   try { const rev = parseInt(await env.HW.get('meta:rev'), 10) || 0; await env.HW.put('meta:rev', String(rev + 1)); } catch {}
   try { await env.HW.delete('mad:summary'); } catch {}
   return { restored: n, undoId: before.id };
@@ -4942,6 +4946,7 @@ export default {
           tag: `ask-${q.id}`, data: { type: 'ask', id: q.id, url: './?open=asks' } }, eventId, subs);
       })().catch(() => {});
       if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(task);
+      await bumpRev(env);   // ⚡ تعرف اللوحة بالتغيير فورًا
       return json({ ok: true, item: askPublic(q) });
     }
     if (url.pathname === '/ask-mine' && request.method === 'GET') {
@@ -5710,6 +5715,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         const rev = parseInt(await env.HW.get('meta:rev'), 10) || 0;
         await env.HW.put('meta:rev', String(rev + 1));
       } catch {}
+      await bumpRev(env);   // ⚡ تعرف اللوحة بالتسليم فورًا
       return json({ ok: true, files: uploaded.map(({key,name,type,size,at}) => ({key,name,type,size,at})) });
     }
 
@@ -5894,6 +5900,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       if (!activity.personalRemedial) notifyTeacherOfSubmission(env, ctx, { hwId: hw, activity, st,
         record: { at: submittedAt, correct, total, name: st.name }, resubmitted: wasResubmission });
 
+      await bumpRev(env);   // ⚡ تعرف اللوحة بالتسليم فورًا
       return json({ ok: true, pts: prev + gain, gain, mult, remedial });
       }, { required: false });
     }
@@ -6178,6 +6185,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         notifyTeacherOfSubmission(env, ctx, { hwId: hw, activity, st,
           record: { at, correct, total, name: st.name }, resubmitted: !!found.value });
         const mx = Number(activity.mx) > 0 ? Number(activity.mx) : 20;
+        await bumpRev(env);   // ⚡ تعرف اللوحة بالتسليم فورًا
         return json({ ok: true, score: graded.score, grade: Math.round(mx * correct / total), mx,
                       gain, pts: prev + gain, mult, lab: graded.lab });
       }, { required: false });
@@ -6282,6 +6290,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       }
       try { const rev = parseInt(await env.HW.get('meta:rev'), 10) || 0; await env.HW.put('meta:rev', String(rev + 1)); } catch {}
 
+      await bumpRev(env);   // ⚡ تعرف اللوحة بالتسليم فورًا
       return json({ ok: true, already: false, retried, prevScore: old ? baseline : null, extraLeft,
         score: pts, gain, pts: prev + gain, max: 50 });
       });
@@ -6633,6 +6642,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
           rec.reset = true; rec.prevScore = Math.max(parseInt(rec.prevScore, 10) || 0, parseInt(rec.score, 10) || 0);
           await env.HW.put(identityKey(`gp:${gameKey}:`, st), JSON.stringify(rec), { expirationTtl: 60 * 60 * 24 * 180 });
           if (gpFound.key && gpFound.key !== identityKey(`gp:${gameKey}:`, st)) { try { await env.HW.delete(gpFound.key); } catch {} }
+          await bumpRev(env);   // ⚡ تعرف اللوحة بالتغيير فورًا
           return json({ ok: true, perks: own, game: gameKey });
         }
         // 🔁 إعادة المحاولة: احذف التسليم واحفظ أعلى درجة سابقة
@@ -6648,6 +6658,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
             await env.HW.delete(oldFound.key);
           }
         }
+        await bumpRev(env);   // ⚡ تعرف اللوحة بالتغيير فورًا
         return json({ ok: true, perks: own });
       });
     }
@@ -6763,7 +6774,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       if (recovered.length) {
         state.savedAt = Math.max(Date.now(), (Number(state.savedAt) || 0) + 1);
         newSavedAt = state.savedAt;   // 🔑 يُعاد للوحة لتحدّث ختمها
-        await env.HW.put('tstate:main', JSON.stringify(state));
+        await env.HW.put('tstate:main', JSON.stringify(state)); await stateStamp(env);
       }
       return json({ ok: true, recovered, count: recovered.length,
                     assignments: state.assignments, savedAt: newSavedAt || undefined });
@@ -7170,7 +7181,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
 
       const stamp = Math.max(Date.now(), curSaved + 1);
       const nextState = { ...b.data, savedAt: stamp };
-      await env.HW.put('tstate:main', JSON.stringify(nextState));
+      await env.HW.put('tstate:main', JSON.stringify(nextState)); await stateStamp(env);
 
       // 👥 حدّث قوائم الطلاب داخل الأنشطة المنشورة تلقائياً.
       // النشاط المنشور يحتفظ بلقطة من الطلاب وقت النشر، لذلك كان الطالب
@@ -7248,7 +7259,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         const changed = mutator(st);
         if (!changed) return false;
         st.savedAt = Math.max(Date.now(), (Number(st.savedAt) || 0) + 1);
-        await env.HW.put('tstate:main', JSON.stringify(st));
+        await env.HW.put('tstate:main', JSON.stringify(st)); await stateStamp(env);
         // 🔑 يُعاد الختم الجديد لتُرجعه المسارات إلى اللوحة. بدونه تبقى اللوحة
         // على ختم قديم، فيصطدم أول حفظ بعد كل حذف نشاط أو طالب بتعارض وهمي.
         return st.savedAt;
@@ -7679,8 +7690,10 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
     if (url.pathname === '/rev' && request.method === 'GET') {
       const token = url.searchParams.get('t') || '';
       if (!env.TEACHER_TOKEN || token !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
-      const rev = parseInt(await env.HW.get('meta:rev'), 10) || 0;
-      return json({ ok: true, rev });
+      const [rev, sa] = await Promise.all([env.HW.get('meta:rev'), env.HW.get('meta:stateAt')]);
+      let stateAt = parseInt(sa, 10) || 0;
+      if (!stateAt) { stateAt = Date.now(); try { await env.HW.put('meta:stateAt', String(stateAt)); } catch {} }   // أول مرة بعد التحديث
+      return json({ ok: true, rev: parseInt(rev, 10) || 0, stateAt });
     }
 
     // ── 🎟️ منح محاولات إضافية لعدة طلاب (متوافق مع لوحة المعلم الحالية) ──
@@ -7814,6 +7827,20 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
     if (url.pathname === '/extra-attempt-status' && request.method === 'GET') {
       const token = url.searchParams.get('t') || '';
       if (!env.TEACHER_TOKEN || token !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
+      // ⚡ دفعة واحدة لكل الأنشطة (?all=1): قائمة مفاتيح واحدة بدل طلب لكل نشاط
+      if (url.searchParams.get('all') === '1') {
+        const roster = await loadRoster(env);
+        const byId = new Map((roster || []).map(s => [String(s?.id || ''), s]).filter(([id]) => id));
+        const all = {};
+        for (const key of await listAllKeys(env, 'xa:')) {
+          const rest = key.slice(3), cut = rest.indexOf(':'); if (cut <= 0) continue;
+          const hwk = rest.slice(0, cut), suffix = rest.slice(cut + 1);
+          const n = parseInt(await env.HW.get(key), 10) || 0; if (n <= 0) continue;
+          const stn = byId.get(String(suffix)); const name = stn?.name ? String(stn.name).trim() : String(suffix).trim();
+          if (!name) continue; const g = all[hwk] || (all[hwk] = {}); g[name] = Math.max(Number(g[name] || 0), n);
+        }
+        return json({ ok: true, all });
+      }
       const hw = String(url.searchParams.get('hwId') || url.searchParams.get('assignmentId') || '').slice(0, 64);
       if (!hw) return json({ error: 'missing hwId' }, 400);
       const roster = await loadRoster(env);
@@ -8048,7 +8075,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       if (stateChanged) {
         state.savedAt = Math.max(Date.now(), (Number(state.savedAt) || 0) + 1);
         newSavedAt = state.savedAt;   // 🔑 يُعاد للوحة لتحدّث ختمها
-        await env.HW.put('tstate:main', JSON.stringify(state));
+        await env.HW.put('tstate:main', JSON.stringify(state)); await stateStamp(env);
         stats.cleanedState = true;
       }
 
