@@ -2452,6 +2452,15 @@ function annKind(type) {
 }
 async function annList(env) { try { return JSON.parse(await env.HW.get('ann:list')) || []; } catch { return []; } }
 function annFor(a, st) { const c = Array.isArray(a.classes) ? a.classes : []; return !c.length || c.includes(String(st.cls || '')); }
+// ⏰ نافذة الظهور: showFrom (اختياري) ≤ الآن < showUntil (اختياري) — خارجها لا يرى الطالب الإعلان ولا ملفاته
+function annLive(a, now = Date.now()) { return !(Number(a.showFrom) > now) && !(Number(a.showUntil) && Number(a.showUntil) <= now); }
+function annTimes(from, until) {
+  const f = Number(from) || 0, u = Number(until) || 0;
+  if (from != null && from !== '' && !Number.isFinite(Number(from))) return { err: 'bad_from' };
+  if (until != null && until !== '' && !Number.isFinite(Number(until))) return { err: 'bad_until' };
+  if (f && u && u <= f) return { err: 'until_before_from' };
+  return { showFrom: f > 0 ? f : 0, showUntil: u > 0 ? u : 0 };
+}
 /* 💌 سجل رسائل الشكر في الخادم — يظهر من أي جهاز يفتح منه المعلم */
 async function thxLogAdd(env, item) {
   let arr = []; try { arr = JSON.parse(await env.HW.get('thxlog:main')) || []; } catch {}
@@ -5161,6 +5170,8 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       let classes = []; try { classes = JSON.parse(String(fd.get('classes') || '[]')).map(String).slice(0, 40); } catch {}
       const files = fd.getAll('files').filter(x => x && typeof x.arrayBuffer === 'function').slice(0, ANN.maxFiles);
       if (!title && !body && !files.length) return json({ ok: false, error: 'empty' }, 400);
+      const tm = annTimes(fd.get('from'), fd.get('until'));
+      if (tm.err) return json({ ok: false, error: tm.err }, 400);
       const id = 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
       const saved = [];
       for (const f of files) {
@@ -5173,7 +5184,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         saved.push({ key, name: String(f.name || safe).slice(0, 120), type, kind, size: f.size });
       }
       const list = await annList(env);
-      list.unshift({ id, title, body, classes, files: saved, at: Date.now() });
+      list.unshift({ id, title, body, classes, files: saved, at: Date.now(), showFrom: tm.showFrom, showUntil: tm.showUntil });
       await env.HW.put('ann:list', JSON.stringify(list.slice(0, ANN.keep)));
       try { const rev = parseInt(await env.HW.get('meta:rev'), 10) || 0; await env.HW.put('meta:rev', String(rev + 1)); } catch {}
       return json({ ok: true, id, files: saved.length });
@@ -5191,12 +5202,25 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       await env.HW.put('ann:list', JSON.stringify(list.filter(x => x.id !== a.id)));
       return json({ ok: true });
     }
+    // ⏰ تعديل وقت ظهور إعلان منشور (إظهار الآن · إخفاء الآن · جدولة)
+    if (url.pathname === '/ann-time' && request.method === 'POST') {
+      let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
+      if (!env.TEACHER_TOKEN || b.t !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
+      const tm = annTimes(b.from, b.until); if (tm.err) return json({ ok: false, error: tm.err }, 400);
+      const list = await annList(env), a = list.find(x => x.id === String(b.id || ''));
+      if (!a) return json({ ok: false, error: 'not_found' }, 404);
+      a.showFrom = tm.showFrom; a.showUntil = tm.showUntil;
+      await env.HW.put('ann:list', JSON.stringify(list));
+      try { const rev = parseInt(await env.HW.get('meta:rev'), 10) || 0; await env.HW.put('meta:rev', String(rev + 1)); } catch {}
+      return json({ ok: true, showFrom: a.showFrom, showUntil: a.showUntil });
+    }
     // الطالب: إعلانات فصله فقط
     if (url.pathname === '/ann-mine' && request.method === 'GET') {
       const st = await resolveStudent(env, { id: String(url.searchParams.get('sid') || '').slice(0, 40), name: String(url.searchParams.get('name') || '').slice(0, 80) });
       if (!st.known) return json({ ok: false, error: 'student not recognized' }, 403);
-      const rows = (await annList(env)).filter(a => annFor(a, st)).slice(0, 20)
-        .map(a => ({ id: a.id, title: a.title, body: a.body, at: a.at, files: (a.files || []).map((f, i) => ({ i, name: f.name, kind: f.kind, type: f.type, size: f.size })) }));
+      const rows = (await annList(env)).filter(a => annFor(a, st) && annLive(a)).slice(0, 20)
+        // المجدول يظهر «جديدًا» من لحظة نشره لا من لحظة إنشائه
+        .map(a => ({ id: a.id, title: a.title, body: a.body, at: Math.max(Number(a.at) || 0, Number(a.showFrom) || 0), until: Number(a.showUntil) || 0, files: (a.files || []).map((f, i) => ({ i, name: f.name, kind: f.kind, type: f.type, size: f.size })) }));
       return json({ ok: true, rows });
     }
     // تنزيل/عرض ملف إعلان — للطالب المسموح له أو للمعلم؛ يدعم Range لتقديم الفيديو
@@ -5208,7 +5232,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       const isTeacher = env.TEACHER_TOKEN && url.searchParams.get('t') === env.TEACHER_TOKEN;
       if (!isTeacher) {
         const st = await resolveStudent(env, { id: String(url.searchParams.get('sid') || '').slice(0, 40), name: String(url.searchParams.get('name') || '').slice(0, 80) });
-        if (!st.known || !annFor(a, st)) return json({ error: 'not allowed' }, 403);
+        if (!st.known || !annFor(a, st) || !annLive(a)) return json({ error: 'not allowed' }, 403);
       }
       const range = request.headers.get('range');
       const obj = await env.FILES.get(f.key, range ? { range: request.headers } : undefined);

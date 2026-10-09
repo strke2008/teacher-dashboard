@@ -16,6 +16,7 @@ async function annPortalLoad(){
     const imgs=a.files.filter(f=>f.kind==='image'),vids=a.files.filter(f=>f.kind==='video'),pdfs=a.files.filter(f=>f.kind==='pdf');
     return `<article class="ann-card ${isNew?'is-new':''}" ${i>=3?'data-more hidden':''}>
       <div class="ann-h"><b>${esc(a.title||'إعلان')}</b>${isNew?'<span class="ann-new">جديد</span>':''}<small>${new Date(a.at).toLocaleDateString('ar-SA',{day:'numeric',month:'long'})}</small></div>
+      ${a.until?`<div class="ann-until">⏳ متاح حتى ${new Date(a.until).toLocaleString('ar-SA-u-ca-gregory',{weekday:'long',day:'numeric',month:'numeric',hour:'numeric',minute:'2-digit'})}</div>`:''}
       ${a.body?`<div class="ann-b">${annLinkify(a.body)}</div>`:''}
       ${imgs.length?`<div class="ann-imgs n${Math.min(imgs.length,3)}">${imgs.map(f=>`<button type="button" class="ann-img" onclick="annZoom('${annFileUrl(a,f.i)}')" aria-label="تكبير الصورة"><img loading="lazy" src="${annFileUrl(a,f.i)}" alt="${esc(f.name)}"></button>`).join('')}</div>`:''}
       ${vids.map(f=>`<video class="ann-vid" controls playsinline preload="metadata" src="${annFileUrl(a,f.i)}"></video>`).join('')}

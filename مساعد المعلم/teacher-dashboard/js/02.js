@@ -1286,7 +1286,21 @@ function annInit(){
       ANN_FILES.push(f)}
     e.target.value='';annPicked()});
   document.getElementById('ann-send').onclick=annSend;
+  // ⏰ اختصارات «يختفي بعد»: تُحسب من وقت الظهور (أو من الآن)
+  document.getElementById('ann-quick').addEventListener('click',e=>{const b=e.target.closest('[data-ann-q]');if(!b)return;const d=+b.dataset.annQ;
+    const fv=document.getElementById('ann-from').value, base=fv?new Date(fv).getTime():Date.now();
+    document.getElementById('ann-until').value=d?annLocal(base+d*864e5):'';
+    document.querySelectorAll('#ann-quick button').forEach(x=>x.classList.toggle('on',x===b))});
   annLoad();
+}
+/* ⏰ أدوات الوقت: حقل datetime-local بتوقيت الجهاز ⇄ ملّي ثانية */
+const annLocal=ms=>{const d=new Date(ms);d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,16)};
+const annMs=v=>v?new Date(v).getTime():0;
+const annWhen=ms=>new Date(ms).toLocaleString('ar-SA-u-ca-gregory',{weekday:'short',day:'numeric',month:'numeric',hour:'numeric',minute:'2-digit'});
+function annState(a,now=Date.now()){
+  if(a.showFrom&&a.showFrom>now) return {k:'soon',t:`⏳ مجدول — يظهر ${annWhen(a.showFrom)}${a.showUntil?` ويختفي ${annWhen(a.showUntil)}`:''}`};
+  if(a.showUntil&&a.showUntil<=now) return {k:'off',t:`⌛ انتهى ظهوره ${annWhen(a.showUntil)} — مخفي عن الطلاب`};
+  return {k:'on',t:a.showUntil?`✅ ظاهر الآن — يختفي ${annWhen(a.showUntil)}`:'✅ ظاهر الآن — بلا نهاية'};
 }
 function annPicked(){
   const el=document.getElementById('ann-picked');if(!el)return;
@@ -1296,7 +1310,10 @@ function annSend(){
   const title=document.getElementById('ann-title').value.trim(),body=document.getElementById('ann-body').value.trim();
   if(!title&&!body&&!ANN_FILES.length){toast('اكتب عنوانًا أو أرفق ملفًا','bad');return}
   const classes=[...document.querySelectorAll('#ann-classes input:checked')].map(x=>x.value).filter(Boolean);
+  const from=annMs(document.getElementById('ann-from').value), until=annMs(document.getElementById('ann-until').value);
+  if(until&&until<=(from||Date.now())){toast('وقت الاختفاء يجب أن يكون بعد وقت الظهور','bad');return}
   const fd=new FormData();fd.append('t',getTok());fd.append('title',title);fd.append('body',body);fd.append('classes',JSON.stringify(classes));
+  if(from>Date.now()+60000) fd.append('from',String(from)); if(until) fd.append('until',String(until));
   ANN_FILES.forEach(f=>fd.append('files',f,f.name));
   const pr=document.getElementById('ann-progress'),btn=document.getElementById('ann-send');
   pr.classList.remove('hide');btn.disabled=true;
@@ -1305,8 +1322,9 @@ function annSend(){
   xhr.onload=()=>{btn.disabled=false;pr.classList.add('hide');let j={};try{j=JSON.parse(xhr.responseText)}catch(e){}
     if(xhr.status===404||/not found/i.test(String(j.error||''))&&!j.ok){toast('ارفع worker.js الأخير ثم أعد المحاولة','bad');return}
     if(!j.ok){toast(j.error==='too_big'?`«${j.name}» أكبر من المسموح`:j.error==='bad_type'?`«${j.name}» نوع غير مدعوم`:j.error&&/R2/.test(j.error)?'تخزين الملفات (R2) غير مربوط بالخادم':'تعذّر النشر','bad');return}
-    toast('📢 نُشر الإعلان — يظهر الآن في بوابة الطلاب','good');
-    document.getElementById('ann-title').value='';document.getElementById('ann-body').value='';ANN_FILES=[];annPicked();annLoad()};
+    toast(from>Date.now()+60000?`⏳ جُدول الإعلان — يظهر للطلاب ${annWhen(from)}`:'📢 نُشر الإعلان — يظهر الآن في بوابة الطلاب','good');
+    document.getElementById('ann-title').value='';document.getElementById('ann-body').value='';document.getElementById('ann-from').value='';document.getElementById('ann-until').value='';
+    document.querySelectorAll('#ann-quick button').forEach(x=>x.classList.remove('on'));ANN_FILES=[];annPicked();annLoad()};
   xhr.onerror=()=>{btn.disabled=false;pr.classList.add('hide');toast('انقطع الاتصال أثناء الرفع','bad')};
   xhr.send(fd);
 }
@@ -1315,11 +1333,34 @@ async function annLoad(){
   let rows=[];try{const r=await fetch(getApi().replace(/\/+$/,'')+'/ann-list?t='+encodeURIComponent(getTok()));const j=await r.json();rows=j.rows||[]}catch(e){}
   if(!rows.length){el.innerHTML='<div class="muted" style="font-size:.86rem">لا توجد إعلانات منشورة.</div>';return}
   const base=getApi().replace(/\/+$/,''),tk=encodeURIComponent(getTok());
-  el.innerHTML=rows.map(a=>`<div class="ann-row"><div><b>${esc(a.title||'(بلا عنوان)')}</b>
-    <small class="muted">${new Date(a.at).toLocaleString('ar-SA',{dateStyle:'medium',timeStyle:'short'})} · ${a.classes&&a.classes.length?esc(a.classes.join('، ')):'كل الطلاب'}</small>
+  ANN_ROWS=rows;
+  el.innerHTML=rows.map(a=>{const st=annState(a);return `<div class="ann-row ${st.k}"><div style="min-width:0;flex:1"><b>${esc(a.title||'(بلا عنوان)')}</b>
+    <span class="ann-st ${st.k}">${st.t}</span>
+    <small class="muted">أُنشئ ${new Date(a.at).toLocaleString('ar-SA',{dateStyle:'medium',timeStyle:'short'})} · ${a.classes&&a.classes.length?esc(a.classes.join('، ')):'كل الطلاب'}</small>
     ${a.body?`<div class="muted" style="font-size:.84rem;white-space:pre-wrap">${esc(a.body.slice(0,160))}${a.body.length>160?'…':''}</div>`:''}
-    <div class="ann-fl">${(a.files||[]).map((f,i)=>`<a href="${base}/ann-file?a=${encodeURIComponent(a.id)}&f=${i}&t=${tk}" target="_blank" rel="noopener">${annIcon(f.kind)} ${esc(f.name)}</a>`).join('')}</div></div>
-    <button class="btn ghost sm" onclick="annDelete('${esc(a.id)}')">🗑️ حذف</button></div>`).join('');
+    <div class="ann-fl">${(a.files||[]).map((f,i)=>`<a href="${base}/ann-file?a=${encodeURIComponent(a.id)}&f=${i}&t=${tk}" target="_blank" rel="noopener">${annIcon(f.kind)} ${esc(f.name)}</a>`).join('')}</div>
+    <div class="ann-edit hide" id="ann-ed-${esc(a.id)}"><label>يظهر من<input class="inp" type="datetime-local" value="${a.showFrom?annLocal(a.showFrom):''}"></label><label>ويختفي في<input class="inp" type="datetime-local" value="${a.showUntil?annLocal(a.showUntil):''}"></label>
+      <button class="btn tick sm" type="button" onclick="annTimeSave('${esc(a.id)}')">حفظ الوقت</button></div></div>
+    <div class="ann-acts">${st.k==='on'?`<button class="btn ghost sm" onclick="annTimeSet('${esc(a.id)}','hide')">⏹️ أخفِ الآن</button>`:`<button class="btn ghost sm" onclick="annTimeSet('${esc(a.id)}','show')">▶️ أظهر الآن</button>`}
+      <button class="btn ghost sm" onclick="document.getElementById('ann-ed-${esc(a.id)}').classList.toggle('hide')">⏰ الوقت</button>
+      <button class="btn ghost sm" onclick="annDelete('${esc(a.id)}')">🗑️ حذف</button></div></div>`}).join('');
+}
+let ANN_ROWS=[];
+async function annTimePost(id,from,until,msg){
+  try{const r=await fetch(getApi().replace(/\/+$/,'')+'/ann-time',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:getTok(),id,from:from||0,until:until||0})});
+    if(r.status===404){toast('ارفع worker.js الأخير ثم أعد المحاولة','bad');return}
+    const j=await r.json();if(!j.ok)throw new Error(j.error);toast(msg,'good');annLoad()}
+  catch(e){toast(String(e.message)==='until_before_from'?'وقت الاختفاء يجب أن يكون بعد وقت الظهور':'تعذّر حفظ الوقت','bad')}
+}
+function annTimeSet(id,what){
+  const a=ANN_ROWS.find(x=>x.id===id);if(!a)return;const now=Date.now();
+  if(what==='hide') annTimePost(id,a.showFrom&&a.showFrom<now?a.showFrom:0,now,'⏹️ أُخفي الإعلان عن الطلاب');
+  else annTimePost(id,0,a.showUntil&&a.showUntil>now?a.showUntil:0,'▶️ ظهر الإعلان للطلاب الآن');
+}
+function annTimeSave(id){
+  const ins=document.querySelectorAll(`#ann-ed-${CSS.escape(id)} input`),from=annMs(ins[0].value),until=annMs(ins[1].value);
+  if(until&&until<=(from||Date.now())){toast('وقت الاختفاء يجب أن يكون بعد وقت الظهور','bad');return}
+  annTimePost(id,from,until,'⏰ حُفظ وقت الظهور');
 }
 async function annDelete(id){
   if(!(await askConfirm('سيُحذف الإعلان وملفاته من بوابة الطلاب نهائيًا.',{title:'حذف الإعلان؟',yes:'احذف',no:'رجوع'})))return;

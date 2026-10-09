@@ -20,9 +20,9 @@
 <meta content="black" name="apple-mobile-web-app-status-bar-style"/>
 <meta content="yes" name="mobile-web-app-capable"/>
 <meta content="root-cause-sync-v2" name="sync-fix-version"/>
-<link rel="stylesheet" href="app.css?v=6d208d38">
+<link rel="stylesheet" href="app.css?v=0a05a8c7">
 <script src="js/01-right-sidebar-navigation-js.js?v=41ea29b3" defer></script>
-<script src="js/02.js?v=03a572a0" defer></script>
+<script src="js/02.js?v=1a395690" defer></script>
 <script src="js/03-projects-students-logic-v13.js?v=7d97d67f" defer></script>
 <script src="js/04.js?v=88f51ee5" defer></script>
 <script src="js/05.js?v=5e4e4410" defer></script>
@@ -572,13 +572,17 @@
 <div class="field"><label>العنوان</label><input class="inp" id="ann-title" maxlength="140" placeholder="مثال: مشروع الفصل — نموذج الخلية"></div>
 <div class="field"><label>النص (اختياري)</label><textarea class="inp" id="ann-body" rows="3" maxlength="3000" placeholder="تفاصيل الإعلان، المطلوب، الموعد…"></textarea></div>
 <div class="field"><label>لمن؟</label><div id="ann-classes" class="ann-cls"></div></div>
+<div class="field"><label>⏰ وقت الظهور للطلاب</label>
+<div class="ann-when"><label>يظهر من<input class="inp" type="datetime-local" id="ann-from"><small>فارغ = الآن</small></label>
+<label>ويختفي في<input class="inp" type="datetime-local" id="ann-until"><small>فارغ = يبقى حتى تحذفه</small></label></div>
+<div class="ann-quick" id="ann-quick"><span>يختفي بعد:</span><button type="button" data-ann-q="1">يوم</button><button type="button" data-ann-q="3">3 أيام</button><button type="button" data-ann-q="7">أسبوع</button><button type="button" data-ann-q="14">أسبوعين</button><button type="button" data-ann-q="30">شهر</button><button type="button" data-ann-q="0">بلا نهاية</button></div></div>
 <div class="field"><label>المرفقات (حتى 6)</label>
 <label class="ann-drop" for="ann-files">📎 اختر صورًا أو فيديو أو PDF<small>الصورة حتى 10MB · الـPDF حتى 25MB · الفيديو حتى 95MB (MP4 مفضّل)</small></label>
 <input type="file" id="ann-files" multiple accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime,application/pdf" hidden>
 <div id="ann-picked" class="ann-picked"></div></div>
 <div id="ann-progress" class="ann-progress hide"><i></i><span></span></div>
 <div class="row" style="gap:.5rem;justify-content:flex-end"><button class="btn tick" id="ann-send" type="button">📢 انشر الإعلان</button></div>
-<div style="margin-top:1rem"><b>الإعلانات المنشورة</b><div id="ann-list" class="ann-list"><div class="muted">جارٍ التحميل…</div></div></div>
+<div style="margin-top:1rem"><b>الإعلانات</b><div id="ann-list" class="ann-list"><div class="muted">جارٍ التحميل…</div></div></div>
 </div>
 <div class="sheet" id="msgq-sheet" style="display:none">
 <div class="sheet-head" style="margin:0 0 .5rem">

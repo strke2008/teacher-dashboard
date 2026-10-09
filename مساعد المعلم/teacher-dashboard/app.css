@@ -6116,3 +6116,17 @@ body{
     font-size:6.8pt !important;
   }
 }
+/* ⏰ وقت ظهور الإعلان */
+.ann-when{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:.5rem}
+.ann-when label,.ann-edit label{display:flex;flex-direction:column;gap:.2rem;font-size:.8rem;color:var(--ink-soft)}
+.ann-when small{font-size:.72rem;color:var(--ink-soft)}
+.ann-quick{display:flex;flex-wrap:wrap;align-items:center;gap:.35rem;margin-top:.45rem;font-size:.8rem;color:var(--ink-soft)}
+.ann-quick button{border:1px solid var(--ui-border,#e5e7eb);background:var(--ui-surface,#fff);border-radius:999px;padding:.25rem .7rem;font:inherit;font-size:.78rem;cursor:pointer;color:var(--ink)}
+.ann-quick button.on{background:#1F2D45;color:#fff;border-color:#1F2D45}
+.ann-st{display:inline-block;font-size:.76rem;font-weight:700;border-radius:8px;padding:.15rem .5rem;margin:.25rem 0 .15rem}
+.ann-st.on{background:#E3F5EC;color:#167852}.ann-st.soon{background:#FEF3C7;color:#92400E}.ann-st.off{background:#EEF2F7;color:#5A6B84}
+.ann-row.off{opacity:.75}
+.ann-acts{display:flex;flex-direction:column;gap:.3rem;flex:none}
+.ann-edit{display:flex;flex-wrap:wrap;gap:.5rem;align-items:flex-end;margin-top:.5rem}.ann-edit.hide{display:none}
+@media (max-width:640px){.ann-row{flex-wrap:wrap}.ann-acts{flex-direction:row;flex-wrap:wrap}}
+
