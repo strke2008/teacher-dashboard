@@ -14683,10 +14683,20 @@ async function brandRefresh(){
     if(!(await askConfirm('ستُغلق النافذة المفتوحة، وما لم تحفظه فيها لن يُحفظ.', { title:'تحديث الصفحة؟', yes:'حدّث', no:'رجوع' }))) return;
   }
   document.querySelectorAll('.brand-refresh .mark').forEach(el => el.classList.add('spin'));
+  // نتذكّر التبويب الحالي وموضع التمرير، فيعود إليه التحديث بدل «اليوم»
+  try{ const t=document.querySelector('.tab.on[data-tab]');
+    if(t) sessionStorage.setItem('dash_refresh_tab', JSON.stringify({tab:t.dataset.tab, view:t.dataset.view||'', y:Math.round(scrollY)})); }catch(e){}
   try{ if(getApi() && getTok()) await Promise.race([pushStateNow(), new Promise(r => setTimeout(r, 3000))]); }catch(e){}
   location.reload();
 }
 document.addEventListener('click', e => { if(e.target.closest && e.target.closest('.brand-refresh')) brandRefresh(); });
+/* بعد تحديث الشعار: الرجوع للتبويب الذي كان مفتوحًا (مرة واحدة — الفتح العادي يبدأ من «اليوم») */
+document.addEventListener('DOMContentLoaded', () => setTimeout(() => {
+  let r=null; try{ r=JSON.parse(sessionStorage.getItem('dash_refresh_tab')||'null'); sessionStorage.removeItem('dash_refresh_tab'); }catch(e){}
+  if(!r || !r.tab || (r.tab==='dashboard' && !r.view)) { if(r && r.y) setTimeout(()=>scrollTo(0,r.y),400); return; }
+  try{ goTab(r.view ? r.tab+':'+r.view : r.tab); }catch(e){ return; }
+  if(r.y) setTimeout(()=>scrollTo(0,r.y),400);
+}, 0));
 document.addEventListener('keydown', e => { if((e.key === 'Enter' || e.key === ' ') && e.target.closest && e.target.closest('.brand-refresh')){ e.preventDefault(); brandRefresh(); } });
 function markFollowupHandled(studentId){
   const s=byId(studentId);
