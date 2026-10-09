@@ -514,6 +514,38 @@ body.ex-kb-on #undo-bar{display:none!important}
 .ask-card p{white-space:pre-line}
 .vb-live{cursor:pointer}
 .vb-v{flex:none;font-size:.62rem;color:var(--ink-faint);font-weight:700}
+#bh-voice[hidden],#bh-pick[hidden],#bh-custom[hidden],.bh-grid[hidden]{display:none!important}
+#bh-voice #vr-btn,#bh-voice #vr-examples,#bh-voice #undo-btn{display:none!important}
+#bh-voice #vr-wrap{margin-top:0!important}
+#bh-voice:has(.vr-q) #vr-log{display:none!important}
+.bh-pick{margin-bottom:10px}
+.bh-st{display:flex;align-items:center;gap:10px;background:var(--surface);border:1.5px solid var(--accent);border-radius:14px;padding:9px 11px;margin-bottom:10px}
+.bh-av{width:38px;height:38px;border-radius:50%;background:var(--accent-soft);display:grid;place-items:center;font-weight:800;color:var(--accent-ink);flex:none}
+.bh-nm{flex:1;min-width:0}.bh-nm b{display:block;font-size:.92rem;line-height:1.35;overflow-wrap:anywhere}.bh-nm small{color:var(--ink-soft);font-size:.74rem}
+.bh-chg{flex:none;border:1px solid var(--rule);background:var(--surface-2);border-radius:9px;padding:6px 10px;font:inherit;font-size:.78rem;font-weight:700;color:var(--ink);cursor:pointer}
+.bh-seg{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}
+.bh-seg button{min-height:42px;border-radius:12px;border:1.5px solid var(--rule);background:var(--surface);font:inherit;font-weight:800;font-size:.86rem;color:var(--ink);cursor:pointer}
+.bh-seg .on.g{background:var(--green-soft);border-color:var(--green);color:var(--green-ink)}
+.bh-seg .on.r{background:var(--red-soft);border-color:var(--red);color:var(--red-ink)}
+.bh-wrap{position:relative}
+.bh-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.bh-grid .btn.preset{min-height:46px;border-radius:12px;font-size:.84rem;font-weight:700;text-align:right;justify-content:flex-start;padding:6px 10px;margin:0;width:100%}
+.bh-wrap.locked .bh-grid{opacity:.35;pointer-events:none;filter:grayscale(.5)}
+.bh-lock{display:none}
+.bh-wrap.locked .bh-lock{display:flex;position:absolute;inset:0;align-items:center;justify-content:center;pointer-events:none}
+.bh-lock::before{content:'👆 اختر الطالب أولًا ثم السلوك';background:var(--surface);border:1.5px solid var(--accent);color:var(--accent-ink);font-weight:800;font-size:.88rem;padding:9px 14px;border-radius:999px;box-shadow:var(--shadow-lift)}
+.bh-more{margin-top:8px;width:100%;min-height:42px;border-radius:12px;border:1.5px dashed var(--rule-strong);background:transparent;font:inherit;font-weight:700;font-size:.82rem;color:var(--accent-ink);cursor:pointer}
+.bh-more.on{border-style:solid;background:var(--accent-soft)}
+#bh-custom{margin-top:8px}
+.bh-log{margin-top:14px}
+.bh-log h3{font-size:.95rem;margin:0 0 6px;display:flex;justify-content:space-between;align-items:baseline}
+.bh-log h3 small{font-weight:600;color:var(--ink-soft);font-size:.74rem}
+.bh-row{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--rule);border-radius:12px;padding:7px 10px;margin-bottom:5px}
+.bh-row .t{flex:1;min-width:0;font-size:.84rem;font-weight:700;line-height:1.4}
+.bh-row .t b{display:block;font-size:.84rem}
+.bh-row.g{border-inline-start:3px solid var(--green)}.bh-row.r{border-inline-start:3px solid var(--red)}
+.bh-row .t span{display:block}
+.bh-row .t small{display:block;font-weight:600;color:var(--ink-soft);font-size:.72rem}
 </style>
 
 <style id="schedule-tab-style">
@@ -1083,23 +1115,30 @@ header .brand{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 <!-- ══ السلوك ══ -->
 <section class="panel" id="behavior">
-  <div class="page-head"><div><h1>السلوك</h1><p>سجّل الموقف بسرعة، ثم راجع سجل الطالب عند الحاجة.</p></div><button class="back">الرئيسية</button></div>
-  <div class="sheet tinted">
-    <div class="section-head"><h3>⚡ تسجيل سريع</h3><span class="count">اختر الطالب ثم السلوك</span></div>
+  <!-- 🌟 السلوك: اختر الطالب ⟵ اختر السلوك (إيجابي أو متابعة) — والصوت من 🎤 كما في الرصد -->
+  <div class="rd-head"><h1>السلوك</h1>
+    <button type="button" class="rd-ic" id="bh-voice-btn" title="تسجيل السلوك بالصوت" aria-label="تسجيل السلوك بالصوت">🎤</button></div>
+  <div class="vb" id="bh-voice" hidden><div id="vr-slot-beh"></div></div>
+  <div class="bh-pick" id="bh-pick">
     <div class="search"><span class="search-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span><input class="inp" id="b-search" autocomplete="off" placeholder="ابحث عن الطالب…"></div>
-    <div class="search-results" id="b-results"></div><div id="b-selected"></div>
-    <div id="vr-slot-beh"></div>
+    <div class="search-results" id="b-results"></div>
   </div>
-  <div class="sheet"><div class="section-head"><h3>🌟 إيجابي</h3><span class="count">تسجيل مباشر</span></div><div id="positive-behaviors" class="preset-grid"></div></div>
-  <div class="sheet"><div class="section-head"><h3>⚠️ يحتاج متابعة</h3><span class="count">تسجيل مباشر</span></div><div id="negative-behaviors" class="preset-grid"></div></div>
-  <div class="sheet">
-    <div class="section-head"><h3>سلوك مخصص</h3></div>
+  <div id="b-selected"></div>
+  <div class="bh-seg" role="tablist"><button type="button" class="on g" data-bh-tab="positive">🌟 إيجابي</button><button type="button" class="r" data-bh-tab="negative">⚠️ يحتاج متابعة</button></div>
+  <div class="bh-wrap locked" id="bh-wrap">
+    <div id="positive-behaviors" class="bh-grid"></div>
+    <div id="negative-behaviors" class="bh-grid" hidden></div>
+    <div class="bh-lock" aria-hidden="true"></div>
+  </div>
+  <button type="button" class="bh-more" id="bh-more-btn">＋ سلوك مخصص · قوالبك</button>
+  <div class="sheet" id="bh-custom" hidden>
+    <div class="section-head"><h3>سلوك مخصص</h3><span class="count">يُحفظ قالبًا تستخدمه لاحقًا</span></div>
     <div class="grid2"><div><label>النوع</label><select class="inp" id="custom-beh-type"><option value="positive">🌟 إيجابي</option><option value="negative">⚠️ متابعة</option></select></div><div><label>اسم السلوك</label><input class="inp" id="custom-beh-title" placeholder="مثال: قيادة المجموعة"></div></div>
     <div style="margin-top:8px"><label>وصف السلوك</label><input class="inp" id="custom-beh-note" placeholder="وصف مختصر"></div>
     <div class="actions" style="margin-top:9px"><button class="btn tick wide" onclick="addBehaviorTemplate()">＋ حفظ القالب</button></div>
     <div id="custom-beh-list" class="template-grid" style="margin-top:9px"></div>
   </div>
-  <div class="sheet"><div class="section-head"><h3>آخر السجلات</h3><span class="count" id="beh-count"></span></div><div id="behlist" class="behlist"></div></div>
+  <div class="bh-log"><h3><span id="bh-log-title">آخر السجلات</span><small id="beh-count"></small></h3><div id="behlist"></div></div>
 </section>
 
 <!-- ══ الرسائل ══ -->
@@ -1485,7 +1524,10 @@ function renderQuick(kind){
    const d=$('date').value||today();const p=rec('participation',d,s.id),h=rec('homework',d,s.id);
    box.innerHTML=`<div class="quick-student"><div class="student-top"><div class="grow"><div class="quick-name">${esc(s.name)}</div><div class="muted">${esc(s.cls||'بدون فصل')}</div></div><button class="btn sm" data-clear="quick">تغيير</button></div><div class="quick-actions"><button class="btn tick" data-quick="participation|شارك|${esc(s.id)}">🗣️ شارك</button><button class="btn bad" data-quick="participation|غائب|${esc(s.id)}">🚫 غائب</button><button class="btn tick" data-quick="homework|أنجز|${esc(s.id)}">📚 أنجز</button><button class="btn bad" data-quick="homework|لم ينجز|${esc(s.id)}">📚 لم ينجز</button></div><div class="muted" style="margin-top:9px">اليوم: المشاركة <b>${esc(p||'—')}</b> · الواجب <b>${esc(h||'—')}</b></div></div>`;
  }else if(kind==='behavior'){
-   box.innerHTML=`<div class="quick-student"><div class="student-top"><div class="grow"><div class="quick-name">${esc(s.name)}</div><div class="muted">${esc(s.cls||'بدون فصل')}</div></div><button class="btn sm" data-clear="behavior">تغيير</button></div><div class="muted" style="margin-top:8px">اختر نوع السلوك من القوائم أدناه.</div></div>`;
+   // بطاقة الطالب المختار + حصيلة أسبوعه (آخر ٧ أيام)
+   const wk=Date.now()-7*864e5, mine=(data.behavior||[]).filter(x=>x&&!x.deleted&&x.studentId===s.id&&(Number(x.at)||Date.parse(x.date||''))>=wk);
+   const np=mine.filter(x=>x.type==='positive').length, nn=mine.length-np;
+   box.innerHTML=`<div class="bh-st"><span class="bh-av">${esc((s.name||'?').trim()[0]||'?')}</span><div class="bh-nm"><b>${esc(s.name)}</b><small>${esc(s.cls||'بدون فصل')} · 🌟 ${np} إيجابي · ⚠️ ${nn} متابعة هذا الأسبوع</small></div><button type="button" class="bh-chg" data-clear="behavior">تغيير</button></div>`;
    renderBehaviorButtons();renderBeh();
  }else{
    box.innerHTML=`<div class="quick-student"><div class="student-top"><div class="grow"><div class="quick-name">${esc(s.name)}</div><div class="muted">${esc(s.cls||'بدون فصل')}</div></div><button class="btn sm" data-clear="cert">تغيير</button></div></div>`;
@@ -2090,6 +2132,7 @@ function vrStop(){
   const b=$('vr-btn'); if(b){ b.textContent=vrLabel(); b.classList.remove('bad'); }
   vbOn('vr', false);
   const rv=$('rd-voice'); if(rv){ rv.hidden=true; } $('rd-tools-btn')?.classList.remove('on');
+  const bv=$('bh-voice'); if(bv){ bv.hidden=true; } $('bh-voice-btn')?.classList.remove('on');
 }
 const vrEng = vbEngine('vr', {
   // نختار البديل الذي يطابق أكبر عدد من أوامر الجملة — لا أول بديل فحسب
@@ -2107,6 +2150,7 @@ function vrStart(){
   vrOn = true;
   vbOn('vr', true); vrSay('🎙️ أستمع… قل اسم الطالب ثم '+(VR_CTX==='beh'?'السلوك':'الحالة'));
   const rv=$('rd-voice'); if(rv && VR_CTX==='daily'){ rv.hidden=false; $('rd-tools-btn')?.classList.add('on'); }
+  const bv=$('bh-voice'); if(bv && VR_CTX==='beh'){ bv.hidden=false; $('bh-voice-btn')?.classList.add('on'); }
   vrEng.start();
 }
 
@@ -2172,7 +2216,7 @@ async function undoLast(){
   renderUndo();
   undoBarHide();
   await save();
-  renderDaily(); renderQuick('quick'); renderBeh(); scheduleGrades();
+  renderDaily(); renderQuick('quick'); renderBeh(); if(behaviorStudentId) renderQuick('behavior'); scheduleGrades();
   toast('تم التراجع');
 }
 
@@ -2183,12 +2227,19 @@ async function quickBehavior(sid,type,category,note){
   const __bid=Date.now().toString(36);
   data.behavior.unshift({id:__bid,studentId:sid,type,category,note,date:d,at:Date.now()});
   undoPush({kind:'behavior',id:__bid,title:category||'ملاحظة',names:__nm(sid)});
-  renderBeh();scheduleGrades();
+  renderBeh();scheduleGrades(); if(behaviorStudentId===sid) renderQuick('behavior');   // حصيلة الأسبوع في بطاقة الطالب
   await save();
   const s=students.find(x=>x.id===sid);
   toast(`تم تسجيل ${type==='positive'?'مكافأة':'ملاحظة'} لـ ${s?.name||'الطالب'}`)
 }
-function renderBeh(){const sid=behaviorStudentId||quickStudentId;const __live=(data.behavior||[]).filter(x=>x&&!x.deleted);const L=__live.filter(x=>!sid||x.studentId===sid).slice(0,15);$('beh-count').textContent=sid?`${L.length} ملاحظة للطالب`:`${__live.length} ملاحظة`;$('behlist').innerHTML=L.map(x=>{const s=students.find(a=>a.id===x.studentId);return `<div class="note"><span>${x.type==='positive'?'🌟':'⚠️'}</span><div class="grow"><b style="font-size:.86rem">${esc(s?.name||'طالب محذوف')}</b><div class="muted">${esc(x.category||'ملاحظة')} · ${esc(x.note||'')} · ${esc(x.date||'')}</div></div><button type="button" class="beh-del" title="حذف هذا السجل" aria-label="حذف" onclick="behDelete('${esc(x.id)}')">🗑</button></div>`}).join('')||'<div class="empty">لا توجد ملاحظات.</div>';}
+function bhWhen(x){ const t=Number(x.at)||Date.parse(x.date||''); if(!t) return esc(x.date||''); const d=new Date(t), td=today(), ds=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh'}).format(d);
+  const y=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh'}).format(new Date(Date.now()-864e5));
+  const hm=new Intl.DateTimeFormat('ar-SA-u-nu-latn',{timeZone:'Asia/Riyadh',hour:'numeric',minute:'2-digit'}).format(d);
+  return ds===td?`اليوم ${hm}`:ds===y?`أمس ${hm}`:new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn',{timeZone:'Asia/Riyadh',weekday:'long',day:'numeric',month:'numeric'}).format(d); }
+function renderBeh(){const sid=behaviorStudentId;const __live=(data.behavior||[]).filter(x=>x&&!x.deleted);const L=__live.filter(x=>!sid||x.studentId===sid).slice(0,15);
+ const st=sid&&students.find(a=>a.id===sid); if($('bh-log-title')) $('bh-log-title').textContent=st?`سجل ${st.name.split(' ')[0]}`:'آخر السجلات';
+ $('beh-count').textContent=sid?`${L.length} ملاحظة`:`${__live.length} ملاحظة`;
+ $('behlist').innerHTML=L.map(x=>{const s=students.find(a=>a.id===x.studentId);const c=String(x.category||'ملاحظة'), hasIc=/^\p{Extended_Pictographic}/u.test(c);return `<div class="bh-row ${x.type==='positive'?'g':'r'}">${hasIc?'':`<span>${x.type==='positive'?'🌟':'⚠️'}</span>`}<div class="t">${sid?'':`<b>${esc(s?.name||'طالب محذوف')}</b>`}<span>${esc(x.category||'ملاحظة')}</span><small>${bhWhen(x)}</small></div><button type="button" class="beh-del" title="حذف هذا السجل" aria-label="حذف" onclick="behDelete('${esc(x.id)}')">🗑</button></div>`}).join('')||'<div class="empty">لا توجد ملاحظات.</div>';}
 /* 🗑 حذف سجل سلوك بعينه (سُجّل بالخطأ ولو لم يكن الأخير): يُعلَّم deleted بطابع أحدث فيغلب في الخادم،
    ويُضاف للتراجع فيمكن إعادته */
 async function behDelete(id){
@@ -2200,10 +2251,18 @@ async function behDelete(id){
   renderBeh(); scheduleGrades(); await save();
   toast('حُذف السجل — يمكنك التراجع');
 }
+let BH_TAB='positive';
+function bhTab(t){ BH_TAB=t==='negative'?'negative':'positive';
+  document.querySelectorAll('[data-bh-tab]').forEach(b=>b.classList.toggle('on',b.dataset.bhTab===BH_TAB));
+  const pos=$('positive-behaviors'),neg=$('negative-behaviors'); if(pos) pos.hidden=BH_TAB!=='positive'; if(neg) neg.hidden=BH_TAB!=='negative'; }
 function renderBehaviorButtons(){
  const pos=$('positive-behaviors'),neg=$('negative-behaviors');
  if(!pos||!neg)return;
- const sid=behaviorStudentId||quickStudentId;
+ const sid=behaviorStudentId;
+ const w=$('bh-wrap'); if(w) w.classList.toggle('locked',!sid);
+ const pk=$('bh-pick'); if(pk) pk.hidden=!!sid;
+ const mb=$('bh-more-btn'), n=(data.behaviorTemplates||[]).length; if(mb) mb.textContent='＋ سلوك مخصص'+(n?` · قوالبك (${n})`:'');
+ bhTab(BH_TAB);
  pos.innerHTML=POS_BEHAVIORS.map(([t,n])=>`<button class="btn preset positive" data-beh="positive" data-sid="${esc(sid)}" data-title="${esc(t)}" data-note="${esc(n)}">${esc(t)}</button>`).join('');
  neg.innerHTML=NEG_BEHAVIORS.map(([t,n])=>`<button class="btn preset negative" data-beh="negative" data-sid="${esc(sid)}" data-title="${esc(t)}" data-note="${esc(n)}">${esc(t)}</button>`).join('');
 }
@@ -3299,6 +3358,9 @@ function wire(){
  $('rd-search-btn').onclick=()=>{const w=$('rd-search');w.hidden=!w.hidden;$('rd-search-btn').classList.toggle('on',!w.hidden);if(!w.hidden)$('roster-search').focus();else{$('roster-search').value='';renderDaily()}};
  $('rd-tools-btn').onclick=()=>{ if(!VR_SUP){ toast('🎤 الرصد الصوتي غير مدعوم في هذا المتصفح — استخدم 🔍 للبحث'); return; } if(vrOn){ vrStop(); return; } try{ vrMoveTo('daily'); }catch(e){} vrStart(); };
  $('vr-stop').onclick=()=>vrStop();
+ $('bh-voice-btn').onclick=()=>{ if(!VR_SUP){ toast('🎤 الرصد الصوتي غير مدعوم في هذا المتصفح'); return; } if(vrOn){ vrStop(); return; } try{ vrMoveTo('beh'); }catch(e){} vrStart(); };
+ document.querySelectorAll('[data-bh-tab]').forEach(b=>b.onclick=()=>bhTab(b.dataset.bhTab));
+ $('bh-more-btn').onclick=()=>{ const c=$('bh-custom'); c.hidden=!c.hidden; $('bh-more-btn').classList.toggle('on',!c.hidden); if(!c.hidden) c.scrollIntoView({behavior:'smooth',block:'start'}); };
  $('bulk-done').onclick=bulkDone;$('bulk-absent').onclick=bulkAbsent;
  const setMode=m=>{mode=m;$('mode-part').classList.toggle('on',m==='participation');$('mode-home').classList.toggle('on',m==='homework');renderDaily()};
  $('mode-part').onclick=()=>setMode('participation');$('mode-home').onclick=()=>setMode('homework');
