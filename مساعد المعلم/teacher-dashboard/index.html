@@ -30912,11 +30912,22 @@ async function renderTodayHub(fetchNow){
   if(Date.now()-TH_AT<20000&&CT_DATA) return;
   TH_BUSY=true; thDraw();
   try{
-    // الإعدادات الأكاديمية والفصل معًا لا بالتتابع
-    const [,cd]=await Promise.all([loadDashboardAcademic().catch(()=>null), ctLoad()]);
-    CT_DATA=cd; TH_AT=Date.now(); thDraw(); tdCacheSave();
+    // ⚡ كل الطلبات معًا: الإعدادات الأكاديمية والفصل، والدرجات تبدأ فور وصول الإعدادات (تحتاج الفصل/الفترة فقط)
+    // بدل انتظار بيانات الفصل كاملة ثم طلبها — كان ذلك يضيف ذهابًا وإيابًا كاملًا للخادم قبل ظهور التنبيهات.
+    const acadP=loadDashboardAcademic().catch(()=>null);
+    // وفي الزيارات التالية لا ننتظر حتى الإعدادات: الفصل/الفترة معروفان من النسخة المحفوظة، ونتحقق بعد وصولها
+    const semOf=a=>{ a=a||{}; const s1=Number(a.currentSemester)===2?2:1; return { sem:s1, per:Number(a.semesters?.[s1]?.activePeriod)===2?2:1 }; };
+    const cacheA=(typeof DASH_ACADEMIC==='undefined'||!DASH_ACADEMIC)&&TD_CACHE&&TD_CACHE.data&&TD_CACHE.data.academic&&TD_CACHE.data.academic.semesters?TD_CACHE.data.academic:null;
+    let gradesP=null;
+    if(!CT_GRADES){
+      if(cacheA){ const g=semOf(cacheA), early=loadServerGrades(true,g.sem,g.per).catch(()=>null);
+        gradesP=Promise.all([acadP,early]).then(async([,G])=>{ const n=ctSem(); CT_GRADES=(G&&n.sem===g.sem&&n.per===g.per)?G:await loadServerGrades(true,n.sem,n.per); return CT_GRADES; }).catch(()=>null); }
+      else gradesP=acadP.then(()=>ctEnsureGrades(false)).catch(()=>null);
+    }
     tdMadLoad(); asksLoad();
-    if(!CT_GRADES){ try{ await ctEnsureGrades(false); tdCacheSave(); }catch(e){} }
+    const [,cd]=await Promise.all([acadP, ctLoad()]);
+    CT_DATA=cd; TH_AT=Date.now(); thDraw(); tdCacheSave();
+    if(gradesP){ try{ await gradesP; tdCacheSave(); }catch(e){} }
   }catch(e){}
   TH_BUSY=false; thDraw();
 }
