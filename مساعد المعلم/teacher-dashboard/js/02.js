@@ -3523,7 +3523,7 @@ function unifiedA4Print({bodyClass,title,selector,orientation='portrait',margin=
   const style=document.createElement('style');
   style.id='__unified-a4-print-style';
   style.textContent=`@media print{ @page{size:A4 ${orientation}; margin:${margin};} }`;
-  document.head.appendChild(style);
+  document.head.insertBefore(style, document.getElementById('late-css'));
   // الاختبار الورقي صفحته 210×297 مم بحشوه الداخلي فهامشه صفر. ستايل الكشف الشامل فيه
   // @page{margin:7mm!important} عام لكل طباعة، فيُنقص الورقة وتنقسم كل صفحة اختبار إلى ورقتين
   // مع قصّ الحافة اليسرى، ولا تتغلب عليه قاعدة !important لاحقة في Chrome.
@@ -15573,7 +15573,7 @@ function injectUiTheme(){
     :root[data-ui-theme="dark"] .feature-item .fi-icon,
     :root[data-ui-theme="dark"] .profile-head{background:#111A2A}
   `;
-  document.head.appendChild(st);
+  document.head.insertBefore(st, document.getElementById('late-css'));
   applyUiTheme();
 }
 

@@ -1922,15 +1922,25 @@ async function thanksShare(id, mid){
   const m = { id: mid, createdAt: new Date(j.until - THX_DAYS * 86400000).toISOString() };
   if(foot) foot.outerHTML = thanksFootHTML(m, id);
 }
+/* 🖨️ تنظيف ما بعد الطباعة: على iPhone تعود window.print() فورًا ويرسم Safari المعاينة لاحقًا،
+   فإزالة نسخة الطباعة بمؤقت (أو مع afterprint المبكر) تُخرج ورقة فاضية. لذا تبقى حتى أول لمسة بعد الطباعة
+   (قواعد الطباعة لا تؤثر على الشاشة، فبقاؤها لا يغيّر شيئًا مما يراه الطالب). */
+let PRINT_CLEAN=null;
+function printCleanupLater(fn){
+  if(PRINT_CLEAN){ try{ PRINT_CLEAN(); }catch(e){} }
+  let armed=false; const go=()=>{ if(!armed) return; ['pointerdown','keydown'].forEach(t=>removeEventListener(t,go,true)); PRINT_CLEAN=null; try{ fn(); }catch(e){} };
+  PRINT_CLEAN=()=>{ armed=true; go(); };
+  setTimeout(()=>{ armed=true; },1200);
+  ['pointerdown','keydown'].forEach(t=>addEventListener(t,go,true));
+}
 function certPrint(id){
   const el = document.getElementById(id); if(!el) return;
   document.querySelectorAll('.cert-sheet').forEach(x=>x.classList.remove('cert-printing'));
   el.classList.add('cert-printing');
   document.body.classList.add('printing-cert');
   const done = ()=>{ document.body.classList.remove('printing-cert'); el.classList.remove('cert-printing'); };
-  window.addEventListener('afterprint', done, { once:true });
+  printCleanupLater(done);
   setTimeout(()=>{ try{ window.print(); }catch(e){ done(); } }, 60);
-  setTimeout(done, 4000);   // احتياط لو لم يُطلق المتصفح afterprint
 }
 /* 📊 تقرير الأسبوع: بطاقة مرئية بدل فقرة أرقام.
    الأرقام تصل مع الرسالة في سطر مضغوط نقرؤه ونخفيه — لا نفكّك النص

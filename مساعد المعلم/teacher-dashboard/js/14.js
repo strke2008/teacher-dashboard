@@ -137,7 +137,7 @@ const SRX_CSS = `
 `;
 function srxStyle(){
   if(document.getElementById('srx-style')) return;
-  const st=document.createElement('style'); st.id='srx-style'; st.textContent=SRX_CSS; document.head.appendChild(st);
+  const st=document.createElement('style'); st.id='srx-style'; st.textContent=SRX_CSS; document.head.insertBefore(st, document.getElementById('late-css'));
 }
 function srxLevel(score,max,measured){
   if(score==null||measured===false) return ['لم يُرصد','n'];

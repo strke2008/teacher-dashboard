@@ -68,9 +68,9 @@ function myCertPrint(id){
   box.style.cssText='display:block;position:absolute;left:-20000px;top:0;width:297mm;visibility:hidden';
   box.querySelector('.mc-cert').style.width='297mm'; myCertFit(box); box.style.cssText=''; box.querySelector('.mc-cert').style.width='';
   document.body.classList.add('printing-mycert');
-  const done=()=>{document.body.classList.remove('printing-mycert');box.remove();st.remove();window.removeEventListener('afterprint',done)};
-  window.addEventListener('afterprint',done);
-  const img=box.querySelector('img');const go=()=>setTimeout(()=>{window.print();setTimeout(done,1500)},150);
+  const done=()=>{document.body.classList.remove('printing-mycert');box.remove();st.remove()};
+  printCleanupLater(done);
+  const img=box.querySelector('img');const go=()=>setTimeout(()=>{window.print()},150);
   if(img&&!img.complete)img.onload=go;else go();
 }
 /* حفظ صورة: الشهادة تُرسم على لوحة بدقة الطباعة ثم تُنزّل PNG — تعمل على الجوال بلا طابعة */

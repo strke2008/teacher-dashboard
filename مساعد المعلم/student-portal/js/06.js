@@ -139,7 +139,7 @@ const SRX_CSS = `
 `;
 function srxStyle(){
   if(document.getElementById('srx-style')) return;
-  const st=document.createElement('style'); st.id='srx-style'; st.textContent=SRX_CSS; document.head.appendChild(st);
+  const st=document.createElement('style'); st.id='srx-style'; st.textContent=SRX_CSS; document.head.insertBefore(st, document.getElementById('late-css'));
 }
 function srxLevel(score,max,measured){
   if(score==null||measured===false) return ['لم يُرصد','n'];
@@ -224,9 +224,9 @@ function srpPrintNative(r){
   if(!host){ host=document.createElement('div'); host.id='srp-print-host'; document.body.appendChild(host); }
   host.innerHTML=srxHTML(r);
   document.documentElement.classList.add('srp-printing');
-  const done=()=>{ document.documentElement.classList.remove('srp-printing'); host.innerHTML=''; window.removeEventListener('afterprint',done); };
-  window.addEventListener('afterprint',done);
-  setTimeout(()=>{ window.print(); setTimeout(done, 1500); }, 60);
+  const done=()=>{ document.documentElement.classList.remove('srp-printing'); host.innerHTML=''; };
+  printCleanupLater(done);
+  setTimeout(()=>{ window.print(); }, 60);
 }
 
 /* 🖨️ الطباعة: في Safari والمتصفحات = نافذة الطباعة كما هي.
