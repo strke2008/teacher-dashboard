@@ -6547,7 +6547,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
       const card = String(b.card || '').replace(/[^a-z0-9_]/gi, '').slice(0, 24);
       // 💰 السعر يُحسم في الخادم، لا من المتصفح.
-      const STORE_PRICES={exam3:1000,exam2:750,exam1:450,exam05:250,thanks:300,theme_gold:250,theme_diamond:250,theme_saudi:250,theme_spaceweek:250,frame:200,namecolor:300,title:200,dbl:150,retry:80,early:60,ticket:40,hint:30,fifty:40,madforgive:MAD_FORGIVE_PRICE,hwforgive:HW_FORGIVE_PRICE,avatars:250,cert:600};
+      const STORE_PRICES={exam3:1000,exam2:750,exam1:450,exam05:250,thanks:300,theme_gold:250,theme_diamond:250,theme_saudi:250,theme_spaceweek:250,frame:200,namecolor:300,title:200,dbl:150,retry:80,early:60,ticket:50,hint:30,fifty:40,madforgive:MAD_FORGIVE_PRICE,hwforgive:HW_FORGIVE_PRICE,avatars:250,cert:600};
       const price=Number(STORE_PRICES[card]||0);
       if(['exam05','exam1','exam2','exam3'].includes(card)) return json({ok:false,error:'exam_direct'},400);
       // 🧽 بطاقة مسح خصم مدرستي تُشترى وتُستخدم معًا على واجب بعينه من /mad-forgive — لا تُشترى فارغة
@@ -6564,7 +6564,8 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         await env.HW.put(identityKey('bal:', st), String(bal - price));
         await dropLegacy(env, 'bal:', st);
         const own = await readOwn(env, st);
-        if (card !== 'cert') { own[card] = (own[card] || 0) + 1; await writeOwn(env, st, own); }   // الشهادة تصدر فورًا ولا تبقى بطاقة
+        // الشهادة تصدر فورًا ولا تبقى بطاقة · 🎟️ التذكرة: دخولان بسعر دخول واحد (اشترِ واحدة والثانية مجانًا)
+        if (card !== 'cert') { own[card] = (own[card] || 0) + (card === 'ticket' ? 2 : 1); await writeOwn(env, st, own); }
         await bumpRev(env);
         const reqName = st.name;
         const purchaseAt=Date.now();

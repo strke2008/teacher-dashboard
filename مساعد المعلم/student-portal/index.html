@@ -7813,8 +7813,8 @@ const CARDS = [
     d:'في سؤال الاختيار من متعدد: يحذف خيارين خاطئين' },
   { id:'hint',   name:'تلميح',            price:30,  ic:'💡',
     d:'مساعدة في مهمة صعبة أثناء الحل' },
-  { id:'ticket', name:'تذكرة مسابقة',     price:40,  ic:'🎟️',
-    d:'دخول مجاني لمسابقة مباشرة واحدة — تُستخدم تلقائيًا بدل الرسوم' },
+  { id:'ticket', name:'تذكرة مسابقة',     shop:'تذكرتا مسابقة (2 بسعر 1)', price:50,  ic:'🎟️',
+    d:'دخولان لمسابقتين مباشرتين بسعر دخول واحد — الثانية مجانًا، وتُستخدم تلقائيًا بدل الرسوم' },
   { id:'theme_gold', name:'مظهر ذهبي حصري', price:250, ic:'✨', once:true,
     d:'خلفية ذهبية لامعة لصفحتك — لك دائمًا من «🎨 مظهري»' },
   { id:'theme_diamond', name:'مظهر ماسي حصري', price:250, ic:'💎', once:true,
@@ -7987,7 +7987,7 @@ function renderStore(target){
           const can = !ownedOnce && (MYPTS >= c.price || (c.mad && MYPERKS[c.id] > 0)) && (!c.examBonus || (examAvailable && remainingEnough));
           const examLine=c.examBonus ? (!examKnown ? '⏳ جارٍ التحقق…' : (examRemaining<=0 && EXAM_SHOP_HAS_SCORE) ? 'استخدمت كامل الحد' : remainingEnough && examAvailable ? `المتاح لك الآن ${String(examRemaining).replace(/\.0$/,'')} درجة` : (examAvailable ? `المتبقي ${String(examRemaining).replace(/\.0$/,'')} درجة · البطاقة تحتاج ${c.examBonus}` : 'غير متاح حاليًا')) : '';
           return `<button data-c="${c.id}" data-p="${c.price}" ${can?'':'disabled'}>
-            ${c.ic} ${esc(c.name)}
+            ${c.ic} ${esc(c.shop||c.name)}
             <span style="display:block;font-size:.74rem;font-weight:500;color:var(--ink-soft);line-height:1.4;margin-top:.15rem">${esc(c.d||'')}</span>
             ${c.examBonus?`<span style="display:block;font-size:.7rem;font-weight:800;margin-top:.2rem">${esc(examLine)}</span>`:''}
             <span class="p">${ownedOnce ? '✓ تملكه' : c.price + ' نقطة'}</span></button>`;
@@ -8021,7 +8021,7 @@ async function buyCard(btn, target){
   if(c && c.examBonus){ await buyExamBonusDirect(c, target); return; }
   if(c && c.mad){ await madForgivePick(target, c.id); return; }
   const okBuy = await ask({ icon:c.ic, title:'تأكيد الشراء',
-    msg:`"${c.name}" مقابل ${price} نقطة.\nرصيدك بعدها: ${MYPTS - price}`,
+    msg:`"${c.shop||c.name}" مقابل ${price} نقطة.\nرصيدك بعدها: ${MYPTS - price}`,
     yes:'اشترِ', no:'إلغاء' });
   if(!okBuy) return;
   const api = ((HW && HW.api) || API || '').replace(/\/+$/,'');
@@ -8053,7 +8053,7 @@ async function buyCard(btn, target){
       retry:  'افتح النشاط الذي سلّمته وستجد زر إعادة المحاولة.',
       dbl:    'ستُضاعف نقاط نشاطك القادم تلقائياً.',
       thanks: 'وصل طلبك لمعلمك — سيرسل الرسالة لولي أمرك.',
-      ticket: 'ستُستخدم تلقائيًا بدل رسوم الدخول في المسابقة المباشرة القادمة التي تسجّل فيها.',
+      ticket: 'لديك الآن تذكرتان إضافيتان 🎟️🎟️ — تُستخدم واحدة تلقائيًا بدل رسوم الدخول في كل مسابقة مباشرة تسجّل فيها.',
       theme_gold: 'افتح «🎨 مظهري» واختر «ذهبي ✨» من الخلفيات.',
       theme_diamond: 'افتح «🎨 مظهري» واختر «ماسي 💎» من الخلفيات.',
       theme_saudi: 'افتح «🎨 مظهري» واختر «اليوم الوطني ٩٦» من الخلفيات.',
