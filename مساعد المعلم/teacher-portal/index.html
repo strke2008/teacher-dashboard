@@ -654,9 +654,21 @@ body:has(#bh-mbar:not([hidden])) #behavior{padding-bottom:70px}
 #ms-custom{margin-top:2px}#ms-custom textarea{width:100%;min-height:80px;resize:vertical}
 .ms-why{display:flex;align-items:center;gap:8px;border-radius:10px;padding:7px 10px;margin-bottom:8px;font-size:.78rem;font-weight:700;background:#FEF3C7;color:#92400E}
 .ms-why span{flex:1}.ms-why button{border:1px solid #F59E0B;background:#fff;border-radius:8px;padding:4px 8px;font:inherit;font-size:.74rem;font-weight:800;color:#92400E;cursor:pointer}
-#mq-list{display:grid;gap:5px}
+#mq-list{display:grid;grid-template-columns:minmax(0,1fr);gap:5px}
 .mq-r{display:flex;align-items:center;gap:6px;background:var(--surface-2);border-radius:10px;padding:6px 8px;border-inline-start:3px solid var(--accent)}
+.mq-r .beh-del{flex:none;width:34px;height:34px}
 .mq-r .t{flex:1;min-width:0;font-size:.82rem;line-height:1.5}.mq-r .t small{display:block;color:var(--ink-soft);font-size:.74rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#ms-undo[hidden],#ms-alt[hidden],#mq-foot[hidden]{display:none!important}
+.ms-undo{position:fixed;left:14px;right:14px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:170;background:#16233A;color:#fff;border-radius:14px;padding:10px 12px 10px 10px;display:flex;align-items:center;gap:10px;font-weight:800;font-size:.86rem;box-shadow:0 8px 24px #0004;max-width:520px;margin:auto}
+.ms-undo span{flex:1}.ms-undo button{font:inherit;font-weight:800;border:0;border-radius:10px;padding:8px 12px;background:rgba(255,255,255,.16);color:#fff;cursor:pointer}
+#ms-act{grid-template-columns:2fr 1fr 1fr}
+.m2-act .p{background:var(--green);color:#fff}.m2-act .b{background:var(--accent);color:#fff}
+.m2-act .s{background:var(--surface,#fff);color:var(--ink);border:1.5px solid var(--line,#d9e0ea)!important}
+.m2-prev.par{border-color:#B45309}
+.m2-alt{font-size:.74rem;color:var(--ink-soft);line-height:1.7;margin-top:7px}
+.m2-tag.lt{background:var(--accent-soft);color:var(--accent-ink)}
+.mq-r.neg{border-inline-start-color:var(--red)}
+#mq-foot{grid-template-columns:2fr 1fr;margin-top:10px}
 </style>
 
 <style id="schedule-tab-style">
@@ -1260,18 +1272,20 @@ header .brand{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     <div class="bh-chips" id="ms-chips"></div>
     <div id="ms-custom" hidden><textarea class="inp" id="custom-msg" rows="3" placeholder="اكتب الرسالة… {الطالب} للاسم الأول، {الاسم الكامل}، {الفصل}"></textarea></div>
     <div class="m2-prev" id="ms-prev" hidden><small id="ms-prev-h">نص الرسالة</small><div id="ms-prev-t"></div></div>
-    <div class="m2-act" id="ms-act" hidden><button type="button" class="c" id="ms-copy">📋 نسخ</button><button type="button" class="q" id="ms-queue">📤 للمركز</button></div>
+    <div class="m2-act" id="ms-act" hidden></div>
+    <div class="m2-alt" id="ms-alt" hidden></div>
   </div>
 </div>
 <!-- 📤 الرسائل الجاهزة للمركز -->
 <div id="mq-sheet" hidden>
   <div class="bh-veil" data-mq-close></div>
   <div class="bh-box" role="dialog" aria-modal="true" aria-labelledby="mq-title">
-    <div class="bh-sh-h"><div class="bh-sh-n"><b id="mq-title">📤 الرسائل الجاهزة</b><small>تُرسل من لوحة التحكم: رسائل الطلاب ← الطابور من بوابة المعلم</small></div><button type="button" class="bh-x" data-mq-close aria-label="إغلاق">✕</button></div>
+    <div class="bh-sh-h"><div class="bh-sh-n"><b id="mq-title">🕘 رسائل لاحقًا</b><small>أرسلها من هنا أو من لوحة التحكم ← رسائل الطلاب</small></div><button type="button" class="bh-x" data-mq-close aria-label="إغلاق">✕</button></div>
     <div id="mq-list"></div>
-    <button type="button" class="btn bad wide" id="mq-clear" style="margin-top:10px">مسح القائمة</button>
+    <div class="m2-act" id="mq-foot"><button type="button" class="p" id="mq-sendall"></button><button type="button" class="s" id="mq-clear">مسح القائمة</button></div>
   </div>
 </div>
+<div class="ms-undo" id="ms-undo" hidden><span id="ms-undo-t"></span><button type="button" id="ms-undo-b">↩︎ تراجع</button></div>
 <div class="bh-mbar" id="ms-mbar" hidden><button type="button" class="go" id="ms-mgo"></button><button type="button" class="x" id="ms-mx">إلغاء</button></div>
 <!-- ☑️ زر تسجيل سلوك للمحددين -->
 <div class="bh-mbar" id="bh-mbar" hidden><button type="button" class="go" id="bh-mgo"></button><button type="button" class="x" id="bh-mx">إلغاء</button></div>
@@ -1302,7 +1316,7 @@ header .brand{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 <section class="panel" id="messages">
   <!-- 💌 الرسائل: قائمة طلاب الفصل ⟵ اضغط الطالب ⟵ نافذة بالقوالب ونص الرسالة (نسخ · للمركز) -->
   <div class="rd-head"><h1>الرسائل</h1>
-    <button type="button" class="rd-ic bh-logb" id="mq-btn" title="الرسائل الجاهزة للمركز" aria-label="الرسائل الجاهزة">📤<em id="mq-badge" hidden></em></button>
+    <button type="button" class="rd-ic bh-logb" id="mq-btn" title="رسائل لاحقًا" aria-label="رسائل لاحقًا">🕘<em id="mq-badge" hidden></em></button>
     <button type="button" class="rd-ic" id="ms-multi-btn" title="رسالة لعدة طلاب" aria-label="تحديد عدة طلاب">☑️</button>
     <button type="button" class="rd-ic" id="ms-search-btn" title="بحث داخل الفصل" aria-label="بحث داخل الفصل">🔍</button>
     <button type="button" class="rd-ic" id="ms-voice-btn" title="رسائل بالصوت" aria-label="رسائل بالصوت">🎤</button></div>
@@ -1320,7 +1334,7 @@ header .brand{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   <div id="ms-search" hidden><div class="search"><span class="search-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span><input class="inp" id="ms-q" autocomplete="off" placeholder="بحث داخل الفصل"></div></div>
   <div class="m2-alert" id="ms-alert" hidden><b id="ms-alert-t"></b><button type="button" id="ms-alert-btn">اعرضهم</button></div>
   <div class="bh-mode" id="ms-mode" hidden><b>☑️ رسالة لعدة طلاب — اضغط على الطلاب</b><button type="button" id="ms-all">تحديد الكل</button><button type="button" id="ms-mcancel">إلغاء</button></div>
-  <div class="bh-hint" id="ms-hint">اضغط الطالب لكتابة رسالة <small>· ✉️ جاهزة · 🔔 يحتاج</small></div>
+  <div class="bh-hint" id="ms-hint">اضغط الطالب لكتابة رسالة <small>· ✓ أُرسلت اليوم · 🕘 لاحقًا · 🔔 يحتاج</small></div>
   <div id="ms-list" class="bh-list"></div>
   <!-- عناصر قديمة تبقى للتوافق — لا تظهر -->
   <div hidden><div class="sheet" id="alerts-sheet" style="display:none"><span id="alerts-count"></span><div id="alerts-list"></div></div>
@@ -2001,13 +2015,16 @@ function vrClearPick(){ const e=$('vr-pick'); if(e) e.innerHTML=''; }
 /* التنفيذ — عبر الدوال الحالية دون أي مسار جديد */
 async function vrApply(st, kind, batch){
   if(kind && kind.type==='msg'){
-    // نفس طابور الرسائل ونفس القالب — لا نص جديد ولا إرسال.
-    if(MSGQ.some(m => m.id===st.id && m.k===kind.k)){
-      vrLog(`• مُجهّزة سلفًا — ${st.name}`);
+    // 🌟 الإيجابية تُرسل للطالب (بمهلة تراجع)، والمتابعة تذهب إلى «لاحقًا».
+    if(!msIsNeg(kind.k)){
+      if(msSentToday(st.id).some(x=>x.k===kind.k)||msPending(st.id,kind.k)) vrLog(`• أُرسلت اليوم — ${st.name}`);
+      else { const P=msSend([{s:st,k:kind.k,body:msgStu(kind.k,st)}]); vbCard('vr-log', { label:'📨 '+MSG_LABEL(kind.k), cls:'b', name:st.name, heard:vrHeard, undo: async()=>{ if(msCancel(P)) return; toast('أُرسلت فعلًا — لا يمكن التراجع'); return false; } }); }
+    }else if(MSGQ.some(m => m.id===st.id && m.k===kind.k)){
+      vrLog(`• في لاحقًا سلفًا — ${st.name}`);
     }else{
       MSGQ.push({ id:st.id, name:st.name, k:kind.k, text: msg(kind.k, st) });
       msgqSave(); if(typeof mvRender==='function') mvRender();
-      vrCard(st, '✉️ رسالة جُهّزت', 'b', null);
+      vrCard(st, '🕘 رسالة لاحقًا', 'b', null);
     }
     vrClearPick();
     if(!batch){ if(vrQueue.length) vrNext(); else vrSay(vrOn ? '🎙️ استمع… تحدث باسم الطالب ونوع الرصد' : 'جاهز'); }
@@ -2716,17 +2733,24 @@ function mvHandle(text){
     if(hits.length !== 1){ problems.push(sg.name.join(' ') + (hits.length?' (أكثر من طالب)':' (غير موجود)')); continue; }
     if(!sg.kind){ problems.push(hits[0].name + ' (بلا نوع رسالة)'); continue; }
     const st = hits[0];
-    if(MSGQ.some(m => m.id===st.id && m.k===sg.kind.k)){ problems.push(st.name + ' (مُجهّزة سلفًا)'); continue; }
-    const item={ id: st.id, name: st.name, k: sg.kind.k, text: msg(sg.kind.k, st) };   // القالب الموجود نفسه
+    const k=sg.kind.k;
+    if(!msIsNeg(k)){   // 🌟 إيجابية ⟵ تُرسل للطالب (بعد 5 ثوانٍ قابلة للتراجع)
+      if(msSentToday(st.id).some(x=>x.k===k)||msPending(st.id,k)){ problems.push(st.name + ' (أُرسلت اليوم)'); continue; }
+      const P=msSend([{s:st,k,body:msgStu(k,st)}]);
+      vbCard('mv-cards', { label:'📨 '+MSG_LABEL(k), cls:'b', name:st.name, heard,
+        undo: async()=>{ if(msCancel(P)) return; toast('أُرسلت فعلًا — لا يمكن التراجع'); return false; } });
+      added++; continue; }
+    if(MSGQ.some(m => m.id===st.id && m.k===k)){ problems.push(st.name + ' (في لاحقًا سلفًا)'); continue; }
+    const item={ id: st.id, name: st.name, k, text: msg(k, st) };   // ⚠️ متابعة ⟵ «لاحقًا» لتنسخها لوليّ الأمر
     MSGQ.push(item);
-    vbCard('mv-cards', { label:'✉️ '+MSG_LABEL(sg.kind.k), cls:'b', name:st.name, heard,
+    vbCard('mv-cards', { label:'🕘 '+MSG_LABEL(k), cls:'b', name:st.name, heard,
       undo: async()=>{ const i=MSGQ.indexOf(item); if(i<0){ toast('حُذفت مسبقًا'); return false; } msgqRemove(i); mvRender(); toast('أُزيلت الرسالة'); } });
     added++;
   }
   msgqSave();
   mvRender();
   $('mv-status').innerHTML = problems.length ? `⚠️ تعذّر: ${esc(problems.join('، '))}` : '';
-  vbLive('mv', added ? `✓ جُهّزت ${added} — 🎙️ أستمع…` : '🎙️ أستمع…');
+  vbLive('mv', added ? `✓ ${added} — 🎙️ أستمع…` : '🎙️ أستمع…');
 }
 
 let mvRec = null, mvOn = false;
@@ -2788,7 +2812,7 @@ function renderMsgList(){
   if(!A.length) MS_ALERT=false;
   const q=String($('ms-q')?.value||'').trim(); let L=list($('cls')?.value||''); if(MS_ALERT) L=L.filter(s=>alertIds.has(s.id)); if(q) L=L.filter(s=>s.name.includes(q));
   box.innerHTML=L.map((s,i)=>{ const r=msReady(s.id);
-    return `<button type="button" class="bh-r${MS_MULTI&&MS_SEL.has(s.id)?' pick':''}${messageStudentId===s.id&&!$('ms-sheet').hidden?' sel':''}" data-ms-open="${esc(s.id)}">${MS_MULTI?`<span class="mk">${MS_SEL.has(s.id)?'✓':''}</span>`:''}<i>${i+1}</i><span class="n">${esc(s.name)}</span><span class="bh-cnt">${r?`<span class="m2-tag ok">✉️ ${r>1?r:'جاهزة'}</span>`:''}${alertIds.has(s.id)?'<span class="m2-tag nd">🔔</span>':''}</span></button>`; }).join('')||'<div class="empty">لا يوجد طلاب مطابقون.</div>';
+    return `<button type="button" class="bh-r${MS_MULTI&&MS_SEL.has(s.id)?' pick':''}${messageStudentId===s.id&&!$('ms-sheet').hidden?' sel':''}" data-ms-open="${esc(s.id)}">${MS_MULTI?`<span class="mk">${MS_SEL.has(s.id)?'✓':''}</span>`:''}<i>${i+1}</i><span class="n">${esc(s.name)}</span><span class="bh-cnt">${msSentToday(s.id).length?'<span class="m2-tag ok">✓ أُرسلت اليوم</span>':''}${r?`<span class="m2-tag lt">🕘 ${r>1?r+' ':''}لاحقًا</span>`:''}${alertIds.has(s.id)?'<span class="m2-tag nd">🔔</span>':''}</span></button>`; }).join('')||'<div class="empty">لا يوجد طلاب مطابقون.</div>';
   const n=MSGQ.length, b=$('mq-badge'); if(b){ b.hidden=!n; b.textContent=n; }
   msMbar();
 }
@@ -2803,36 +2827,120 @@ function msOpen(sid){ const s=students.find(x=>x.id===String(sid)); if(!s) retur
 function msOpenMulti(){ if(!MS_SEL.size) return; MS_MS=true; messageStudentId=''; MS_K=''; MS_TAB='pos'; $('ms-sheet').hidden=false; document.body.classList.add('bh-on'); msSheet(); msMbar(); }
 function msClose(){ $('ms-sheet').hidden=true; document.body.classList.remove('bh-on'); if(!MS_MS) messageStudentId=''; MS_MS=false; renderMsgList(); }
 function msTargets(){ return MS_MS?[...MS_SEL].map(id=>students.find(x=>x.id===id)).filter(Boolean):[students.find(x=>x.id===messageStudentId)].filter(Boolean); }
-function msText(s){ if(MS_TAB==='custom'){ return ($('custom-msg').value||'').replaceAll('{الطالب}',firstName(s.name)).replaceAll('{الاسم الكامل}',s.name).replaceAll('{الفصل}',s.cls||'').trim(); } return MS_K?msg(MS_K,s):''; }
+/* 💬 صياغة موجّهة للطالب نفسه — تصل لبوابته. (msg() تبقى صياغة وليّ الأمر للنسخ) */
+function msgStu(k,s){
+ const n=firstName(s.name);
+ const M={
+  participation:`أحسنت يا ${n} 🌟 مشاركتك اليوم في حصة العلوم كانت رائعة، استمر!`,
+  homework:`شكرًا يا ${n} 📚 على التزامك بإنجاز واجب العلوم، هذا ما أتوقعه منك.`,
+  achievement:`أداء متميز يا ${n} 🏆 فخور بما قدّمته في مادة العلوم.`,
+  improvement:`ألاحظ تحسّنك الواضح يا ${n} 🌱 في مادة العلوم، واصل على هذا المستوى.`,
+  cooperation:`شكرًا يا ${n} 🤝 على تعاونك والتزامك داخل الحصة.`,
+  science:`أعجبني اهتمامك وحرصك في مادة العلوم يا ${n} 🧪 استمر.`,
+  behavior:`${n}، لاحظت عليك اليوم سلوكًا لا يليق بك في حصة العلوم، وأنا واثق أنك ستتجاوزه 👍`,
+  homework_neg:`${n}، لم تنجز واجب العلوم 📚 أرجو أن تنجزه في أقرب وقت.`,
+  late:`${n}، لاحظت تأخرك عن حصة العلوم أكثر من مرة ⏰ أنتظرك في الموعد 👍`,
+  support:`${n}، تحتاج إلى مزيد من المتابعة في مادة العلوم 📝 لا تتردد في سؤالي عن أي شيء.`,
+  skill:`${n}، أنصحك بمزيد من التدريب على مهارات العلوم 🎯 وأنا معك.`
+ };
+ return M[k]||'';
+}
+const msIsNeg=k=>NEG_MSGS.some(([,x])=>x===k);
+const msCustom=s=>($('custom-msg').value||'').replaceAll('{الطالب}',firstName(s.name)).replaceAll('{الاسم الكامل}',s.name).replaceAll('{الفصل}',s.cls||'').trim();
+/* النص الظاهر في النافذة: الإيجابية والمخصصة للطالب، المتابعة لوليّ الأمر */
+function msText(s){ if(MS_TAB==='custom') return msCustom(s); if(!MS_K) return ''; return msIsNeg(MS_K)?msg(MS_K,s):msgStu(MS_K,s); }
+/* ✓ سجل ما أُرسل (على هذا الجهاز) — يمنع إرسال نفس الرسالة مرتين في اليوم */
+const MS_SENT_KEY='teacher_msgsent_v1';
+let MS_SENT=[]; try{ MS_SENT=JSON.parse(localStorage.getItem(MS_SENT_KEY)||'[]')||[]; }catch(e){ MS_SENT=[]; }
+const msDay=t=>new Date(t+3*36e5).toISOString().slice(0,10);
+function msSentToday(sid){ const d=msDay(Date.now()); return MS_SENT.filter(x=>x.id===sid&&msDay(x.at)===d); }
+function msSentAdd(id,k){ MS_SENT.push({id,k,at:Date.now()}); MS_SENT=MS_SENT.filter(x=>Date.now()-x.at<30*864e5).slice(-400); try{ localStorage.setItem(MS_SENT_KEY,JSON.stringify(MS_SENT)); }catch(e){} }
+const msLbl=k=>k==='custom'?'✏️ رسالة من معلمك':k==='cert'?'🏅 شهادة تقدير':MSG_LABEL(k);
+/* 📨 الإرسال المؤجل 5 ثوانٍ: تراجع حقيقي — لا يخرج شيء قبل انتهاء المهلة */
+const MS_PEND=new Set(); let MS_LAST=null;
+function msSend(items, label){
+  items=items.filter(x=>x&&x.s&&x.body); if(!items.length) return null;
+  const P={items, left:5, label: label||(items.length>1?`✓ أُرسلت لـ ${items.length} طلاب`:`✓ أُرسلت ل${msShort(items[0].s.name)}`)};
+  P.tick=setInterval(()=>{ P.left--; if(MS_LAST===P) msUndoBar(); if(P.left<=0) msFlush(P); },1000);
+  MS_PEND.add(P); MS_LAST=P; msUndoBar(); renderMsgList(); return P;
+}
+function msUndoBar(){ const b=$('ms-undo'); if(!b) return; const P=MS_LAST;
+  if(!P||!MS_PEND.has(P)){ b.hidden=true; return; }
+  b.hidden=false; $('ms-undo-t').textContent=P.label; $('ms-undo-b').textContent=`↩︎ تراجع ${P.left}`; }
+function msCancel(P){ if(!P||!MS_PEND.has(P)) return false; clearInterval(P.tick); MS_PEND.delete(P); if(MS_LAST===P) MS_LAST=null; msUndoBar(); renderMsgList(); toast('↩︎ أُلغي الإرسال'); return true; }
+async function msFlush(P){
+  if(!MS_PEND.has(P)) return; clearInterval(P.tick); MS_PEND.delete(P); msUndoBar();
+  let fail=0;
+  for(const it of P.items){
+    const b={ t:token, audience:'students', title:it.title||msLbl(it.k), body:it.body, type:it.k==='cert'?'cert':'note', priority:'normal', recipients:[{id:it.s.id,name:it.s.name}] };
+    let ok=false;
+    try{ const r=await fetch(API+'/messages',{method:'POST',keepalive:true,headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}); const j=await r.json().catch(()=>({})); ok=r.ok&&j.ok; }catch(e){}
+    if(ok){ msSentAdd(it.s.id,it.k); const i=MSGQ.findIndex(m=>m.id===it.s.id&&m.k===it.k); if(i>=0) msgqRemove(i); }
+    else { fail++; if(!MSGQ.some(m=>m.id===it.s.id&&m.k===it.k)) MSGQ.push({id:it.s.id,name:it.s.name,k:it.k,text:it.body}); }
+  }
+  if(fail){ msgqSave(); toast(`⚠️ تعذّر إرسال ${fail} — حُفظت في 🕘 لاحقًا`); }
+  renderMsgList(); try{ msSheet(); if(!$('mq-sheet').hidden) mqRender(); }catch(e){}
+}
+function msFlushAll(){ [...MS_PEND].forEach(P=>{ P.left=0; msFlush(P); }); }
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden') msFlushAll(); });
+window.addEventListener('pagehide',msFlushAll);
+const msPending=(sid,k)=>[...MS_PEND].some(P=>P.items.some(x=>x.s.id===sid&&(k==null||x.k===k)));
+/* قبل الإرسال: نفس الرسالة أُرسلت اليوم؟ */
+async function msDupOk(T,k){ const d=T.filter(s=>msSentToday(s.id).some(x=>x.k===k)||msPending(s.id,k)); if(!d.length) return true;
+  return askConfirm(d.length===1?`أُرسلت ل${msShort(d[0].name)} نفس الرسالة اليوم.`:`${d.length} منهم أُرسلت لهم نفس الرسالة اليوم.`,{title:'إرسال مرة ثانية؟',yes:'أرسل',no:'إلغاء'}); }
+function msDone(){ const multi=MS_MS; msClose(); if(multi) msMulti(false); }
+async function msAct(a){
+  const T=msTargets(); if(!T.length) return;
+  const k=MS_TAB==='custom'?'custom':MS_K; if(!k||(MS_TAB==='custom'&&!msCustom(T[0]))){ toast('اكتب الرسالة أولًا'); return; }
+  if(a==='send'||a==='sendneg'){
+    const body=s=>MS_TAB==='custom'?msCustom(s):msgStu(k,s);
+    if(a==='sendneg' && !(await askConfirm(`تصل ${T.length>1?'لكل طالب':'للطالب'} في بوابته:\n«${body(T[0])}»`,{title:'إرسال للطالب؟',yes:'📨 أرسل',no:'إلغاء'}))) return;
+    if(!(await msDupOk(T,k))) return;
+    msSend(T.map(s=>({s,k,body:body(s)}))); msDone(); return; }
+  if(a==='copy'||a==='copyp'){ const txt=T.map(s=>msText(s)).filter(Boolean);
+    copyText(txt.join('\n\n')).then(()=>toast(a==='copyp'?(T.length>1?`📋 نُسخت ${txt.length} رسائل لأولياء الأمور`:'📋 نُسخت — الصقها لوليّ الأمر'):(T.length>1?`تم نسخ ${txt.length} رسائل`:'تم نسخ الرسالة'))).catch(()=>toast('تعذر النسخ')); return; }
+  if(a==='later'){ let n=0;
+    for(const s of T){ const b=msText(s); if(!b) continue; const i=MSGQ.findIndex(m=>m.id===s.id&&m.k===k); if(i>=0) MSGQ[i].text=b; else MSGQ.push({id:s.id,name:s.name,k,text:b}); n++; }
+    msgqSave(); if(typeof mvRender==='function') mvRender(); msDone();
+    toast(n>1?`🕘 حُفظت ${n} رسائل في «لاحقًا»`:'🕘 حُفظت في «لاحقًا»'); }
+}
+function msCopy(){ return msAct('copy'); }
+function msQueue(){ return msAct('later'); }
 function msSheet(){
   if($('ms-sheet').hidden) return;
   const T=msTargets(); if(!T.length) return;
   if(MS_MS){ $('ms-sh-name').textContent=`${T.length} ${T.length===2?'طالبان':'طلاب'}: ${T.slice(0,4).map(x=>msShort(x.name)).join(' · ')}${T.length>4?' …':''}`; $('ms-sh-cls').textContent='تُكتب الرسالة باسم كل طالب'; $('ms-sh-cnt').innerHTML=''; $('ms-why').innerHTML=''; }
-  else { const s=T[0], r=msReady(s.id), a=msAlerts().find(x=>x.studentId===s.id);
-    $('ms-sh-name').textContent=s.name; $('ms-sh-cls').textContent=s.cls||''; $('ms-sh-cnt').innerHTML=r?`<span class="m2-tag ok">✉️ ${r} جاهزة</span>`:'';
-    $('ms-why').innerHTML=a?`<div class="ms-why ${a.tone==='positive'?'g':'r'}"><span>🔔 ${esc(a.reason)}${a.date?` · آخرها ${esc(a.date)}`:''}</span><button type="button" data-alert-done="${esc(JSON.stringify(a.dismiss||{[a.key]:a.count}))}">✓ تم الإرسال</button></div>`:''; }
+  else { const s=T[0], r=msReady(s.id), a=msAlerts().find(x=>x.studentId===s.id), sent=msSentToday(s.id);
+    $('ms-sh-name').textContent=s.name; $('ms-sh-cls').textContent=s.cls||''; $('ms-sh-cnt').innerHTML=(sent.length?`<span class="m2-tag ok">✓ ${sent.length>1?sent.length+' ':''}اليوم</span>`:'')+(r?`<span class="m2-tag lt">🕘 ${r}</span>`:'');
+    $('ms-why').innerHTML=a?`<div class="ms-why ${a.tone==='positive'?'g':'r'}"><span>🔔 ${esc(a.reason)}${a.date?` · آخرها ${esc(a.date)}`:''}</span><button type="button" data-alert-done="${esc(JSON.stringify(a.dismiss||{[a.key]:a.count}))}">✓ تم التواصل</button></div>`:''; }
   document.querySelectorAll('[data-ms-tab]').forEach(b=>b.classList.toggle('on',b.dataset.msTab===MS_TAB));
   $('ms-custom').hidden=MS_TAB!=='custom';
   const arr=MS_TAB==='pos'?POS_MSGS:MS_TAB==='neg'?NEG_MSGS:[];
   $('ms-chips').innerHTML=arr.map(([t,k])=>`<button type="button" class="bh-chip ${MS_TAB==='pos'?'g':'r'}${MS_K===k?' on':''}" data-msk="${esc(k)}">${esc(t)}</button>`).join('');
-  const t=msText(T[0]), show=!!t;
-  $('ms-prev').hidden=!show; $('ms-act').hidden=!show;
-  if(show){ $('ms-prev-h').textContent=MS_MS?`نص الرسالة (مثال: ${msShort(T[0].name)})`:'نص الرسالة'; $('ms-prev-t').textContent=t;
-    $('ms-copy').textContent=MS_MS?`📋 نسخ الكل (${T.length})`:'📋 نسخ'; $('ms-queue').textContent=MS_MS?`📤 للمركز (${T.length})`:'📤 للمركز'; }
+  const t=msText(T[0]), show=!!t, neg=MS_TAB==='neg', N=T.length, many=N>1, fn=msShort(T[0].name).split(' ')[0];
+  $('ms-prev').hidden=!show; $('ms-act').hidden=!show; $('ms-alt').hidden=!(show&&neg);
+  $('ms-prev').classList.toggle('par',neg);
+  if(!show) return;
+  $('ms-prev-h').textContent=(neg?'👨‍👩‍👦 لوليّ الأمر':'💬 تصل للطالب في بوابته مع إشعار')+(many?` · مثال: ${msShort(T[0].name)}`:'');
+  $('ms-prev-t').textContent=t;
+  $('ms-act').innerHTML=neg
+    ? `<button type="button" class="b" data-ms-act="copyp">📋 نسخ لوليّ الأمر${many?` (${N})`:''}</button><button type="button" class="s" data-ms-act="sendneg">📨 للطالب</button><button type="button" class="s" data-ms-act="later">🕘 لاحقًا</button>`
+    : `<button type="button" class="p" data-ms-act="send">📨 ${many?`أرسل للـ${N}`:`أرسل ل${esc(fn)}`}</button><button type="button" class="s" data-ms-act="later">🕘 لاحقًا</button><button type="button" class="s" data-ms-act="copy">📋 نسخ</button>`;
+  if(neg) $('ms-alt').textContent=`«📨 للطالب» يرسل له بصيغة موجّهة له بعد تأكيد: «${msgStu(MS_K,T[0])}»`;
 }
-function msCopy(){ const T=msTargets(); const txt=T.map(s=>msText(s)).filter(Boolean); if(!txt.length){ toast('اكتب الرسالة أولًا'); return; }
-  copyText(txt.join('\n\n')).then(()=>toast(T.length>1?`تم نسخ ${txt.length} رسائل`:'تم نسخ الرسالة')).catch(()=>toast('تعذر النسخ')); }
-function msQueue(){ const T=msTargets(); let n=0;
-  for(const s of T){ const body=msText(s); if(!body) continue; const k=MS_TAB==='custom'?'custom':MS_K;
-    const i=MSGQ.findIndex(m=>m.id===s.id&&m.k===k); if(i>=0) MSGQ[i].text=body; else MSGQ.push({id:s.id,name:s.name,k,text:body}); n++; }
-  if(!n){ toast('اكتب الرسالة أولًا'); return; }
-  msgqSave(); if(typeof mvRender==='function') mvRender();
-  const multi=MS_MS; msClose(); if(multi) msMulti(false); renderMsgList();
-  toast(n>1?`📤 جُهّزت ${n} رسائل في المركز`:'📤 أُضيفت إلى المركز'); }
+/* 🕘 قائمة «لاحقًا» */
+function mqItemBody(m){ const s=students.find(x=>x.id===m.id)||{id:m.id,name:m.name}; return (m.k&&msgStu(m.k,s))||m.text||''; }
 function mqRender(){ const box=$('mq-list'); if(!box) return;
-  box.innerHTML=MSGQ.length?MSGQ.map((m,i)=>`<div class="mq-r"><div class="t"><b>${esc(msShort(m.name))}</b> — ${esc(m.k==='custom'?'✏️ مخصصة':MSG_LABEL(m.k))}<small>${esc(m.text||'')}</small></div><button type="button" class="beh-del" data-mq-del="${i}" aria-label="حذف">🗑</button></div>`).join(''):'<div class="empty">لا توجد رسائل جاهزة.</div>';
-  $('mq-clear').hidden=!MSGQ.length; }
+  box.innerHTML=MSGQ.length?MSGQ.map((m,i)=>`<div class="mq-r${msIsNeg(m.k)?' neg':''}"><div class="t"><b>${esc(msShort(m.name))}</b> — ${esc(m.k==='custom'?'✏️ مخصصة':msLbl(m.k))}<small>${esc(m.text||'')}</small></div><button type="button" class="beh-del" data-mq-send="${i}" title="${msIsNeg(m.k)?'إرسال للطالب بصيغة موجّهة له':'إرسال للطالب'}" aria-label="إرسال">📨</button><button type="button" class="beh-del" data-mq-copy="${i}" aria-label="نسخ">📋</button><button type="button" class="beh-del" data-mq-del="${i}" aria-label="حذف">🗑</button></div>`).join(''):'<div class="empty">لا توجد رسائل مؤجلة.</div>';
+  $('mq-foot').hidden=!MSGQ.length; $('mq-sendall').textContent=`📨 أرسل الكل للطلاب (${MSGQ.length})`; }
 function mqOpen(on){ $('mq-sheet').hidden=!on; document.body.classList.toggle('bh-on',!!on); if(on) mqRender(); }
+async function mqSend(idx){
+  const L=idx.map(i=>MSGQ[i]).filter(Boolean); if(!L.length) return;
+  if(L.some(m=>msIsNeg(m.k)) && !(await askConfirm('رسائل المتابعة تصل للطالب بصيغة موجّهة له (لا صيغة وليّ الأمر).',{title:`إرسال ${L.length>1?L.length+' رسائل':'الرسالة'} للطلاب؟`,yes:'📨 أرسل',no:'إلغاء'}))) return;
+  const items=L.map(m=>({s:students.find(x=>x.id===m.id)||{id:m.id,name:m.name},k:m.k,body:mqItemBody(m),title:m.k==='cert'?'🏅 شهادة تقدير':''}));
+  // تُزال من «لاحقًا» عند نجاح الإرسال فعلًا (msFlush)، والتراجع يبقيها
+  msSend(items); mqRender(); }
+
 function useMessage(k){const s=studentForMessage();if(!s){toast('اختر طالبًا أولًا');return}const t=msg(k,s);$('message-preview').textContent=t;copyText(t).then(()=>toast('تم نسخ الرسالة')).catch(()=>toast('تعذر النسخ'))}
 
 /* ── السجلات ── */
@@ -3669,7 +3777,9 @@ function wire(){
  document.querySelectorAll('[data-ms-tab]').forEach(b=>b.onclick=()=>{ MS_TAB=b.dataset.msTab; if(MS_TAB!=='custom'&&!(MS_TAB==='pos'?POS_MSGS:NEG_MSGS).some(([,k])=>k===MS_K)) MS_K=''; msSheet(); if(MS_TAB==='custom') $('custom-msg').focus(); });
  $('custom-msg').addEventListener('input',msSheet);
  document.querySelectorAll('[data-ms-close]').forEach(b=>b.onclick=msClose);
- $('ms-copy').onclick=msCopy; $('ms-queue').onclick=msQueue;
+ $('ms-act').addEventListener('click',e=>{ const b=e.target.closest('[data-ms-act]'); if(b) msAct(b.dataset.msAct); });
+ $('ms-undo-b').onclick=()=>msCancel(MS_LAST);
+ $('mq-sendall').onclick=()=>mqSend(MSGQ.map((_,i)=>i));
  $('ms-multi-btn').onclick=()=>msMulti(!MS_MULTI);
  $('ms-mcancel').onclick=$('ms-mx').onclick=()=>msMulti(false);
  $('ms-all').onclick=()=>{ const q=String($('ms-q')?.value||'').trim(); list($('cls')?.value||'').filter(s=>!q||s.name.includes(q)).forEach(s=>MS_SEL.add(s.id)); renderMsgList(); };
@@ -3680,7 +3790,10 @@ function wire(){
  $('ms-voice-btn').onclick=()=>{ if(!VR_SUP){ toast('🎤 الرصد الصوتي غير مدعوم في هذا المتصفح'); return; } mvOn ? mvStop() : mvStart(); };
  $('mq-btn').onclick=()=>mqOpen(true);
  document.querySelectorAll('[data-mq-close]').forEach(b=>b.onclick=()=>mqOpen(false));
- $('mq-list').addEventListener('click',e=>{ const b=e.target.closest('[data-mq-del]'); if(!b) return; msgqRemove(+b.dataset.mqDel); mqRender(); renderMsgList(); });
+ $('mq-list').addEventListener('click',e=>{ const b=e.target.closest('[data-mq-del],[data-mq-send],[data-mq-copy]'); if(!b) return;
+   if(b.dataset.mqSend!==undefined){ mqSend([+b.dataset.mqSend]); return; }
+   if(b.dataset.mqCopy!==undefined){ const m=MSGQ[+b.dataset.mqCopy]; if(m) copyText(m.text||'').then(()=>toast('تم نسخ الرسالة')).catch(()=>toast('تعذر النسخ')); return; }
+   msgqRemove(+b.dataset.mqDel); mqRender(); renderMsgList(); });
  $('mq-clear').onclick=async()=>{ if(!(await askConfirm('ستُزال كل الرسائل التي جهّزتها ولم تُرسل بعد.',{title:'مسح القائمة؟',yes:'امسح',no:'إلغاء',danger:true}))) return; for(let i=MSGQ.length-1;i>=0;i--) msgqRemove(i); mqRender(); renderMsgList(); };
  document.addEventListener('keydown',e=>{ if(e.key!=='Escape') return; if(!$('ms-sheet').hidden) msClose(); if(!$('mq-sheet').hidden) mqOpen(false); });
  document.querySelectorAll('[data-lg-close]').forEach(b=>b.onclick=()=>bhLog(false));
