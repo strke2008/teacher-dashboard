@@ -700,6 +700,26 @@ body:has(#bh-mbar:not([hidden])) #behavior{padding-bottom:70px}
 #att-kpis{grid-template-columns:repeat(4,1fr)!important;gap:5px!important}#att-kpis .kpi{padding:7px 4px!important;font-size:.66rem!important;text-align:center}#att-kpis .kpi b{font-size:1rem!important}
 #level-kpis{grid-template-columns:repeat(4,1fr)!important;gap:5px!important}#level-kpis .level-card{padding:7px 4px!important;font-size:.66rem!important}#level-kpis .level-card b{font-size:1rem!important}
 #levels .level-row{padding:7px 9px!important}
+#gr-set[hidden],#gr-search[hidden],#gr-grace-w[hidden]{display:none!important}
+#gr-set{position:fixed;inset:0;z-index:150}
+#gr-set .sheet{box-shadow:none;border:1px solid var(--rule);margin:8px 0 0}
+#gr-set .grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:7px}#gr-set .inp{min-width:0;width:100%;box-sizing:border-box}#gr-set .section-head{flex-wrap:wrap}#gr-set .section-head .count{flex-basis:100%;text-align:right}
+#gr-search{margin-bottom:8px}
+.gr-ctx{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;border:1.5px solid var(--rule);background:var(--surface);border-radius:12px;padding:8px 11px;margin-bottom:8px;font:inherit;color:var(--ink);cursor:pointer;text-align:right}
+.gr-ctx span{font-weight:800;font-size:.82rem}.gr-ctx small{color:var(--ink-soft);font-size:.72rem;font-weight:700}
+.gr-kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:8px}
+.gr-kpi div{background:var(--surface);border:1px solid var(--rule);border-radius:12px;padding:7px 4px;text-align:center}
+.gr-kpi span{display:block;font-size:.66rem;color:var(--ink-soft);font-weight:700}.gr-kpi b{font-size:1rem}.gr-kpi b small{font-size:.62rem;color:var(--ink-faint)}
+.gr-tbl{background:var(--surface);border:1px solid var(--rule);border-radius:var(--r);overflow:hidden}
+.gr-hd,.gr-r{display:grid;grid-template-columns:minmax(0,1fr) repeat(4,42px);align-items:center;gap:3px;padding:0 8px}
+.gr-hd{position:sticky;top:0;background:var(--surface-2);font-size:.66rem;font-weight:800;color:var(--ink-soft);min-height:36px;text-align:center}
+.gr-hd small{display:block;font-weight:600;color:var(--ink-faint);font-size:.6rem}.gr-hd .n{text-align:right;font-size:.74rem}.gr-hd .n small{display:inline;margin-inline-start:4px}
+.gr-r{width:100%;border:0;border-top:1px solid var(--rule);background:transparent;font:inherit;color:var(--ink);min-height:48px;cursor:pointer;text-align:right}
+.gr-r .n{font-weight:700;font-size:.82rem;line-height:1.35;overflow-wrap:anywhere;padding:5px 0}.gr-r .n i{font-style:normal;font-size:.68rem;color:var(--ink-faint);margin-inline-end:5px}.gr-r .n em{font-style:normal;font-size:.7rem;margin-inline-start:4px}
+.gc{display:grid;place-items:center;height:30px;border-radius:8px;font-weight:900;font-size:.82rem;background:var(--surface-2)}
+.gc.g{background:var(--green-soft);color:var(--green)}.gc.a{background:#FEF3C7;color:#92400E}.gc.r{background:var(--red-soft);color:var(--red)}.gc.m{color:var(--ink-faint);font-weight:700}
+.gr-sec{margin-top:12px}.gr-sec>b{display:block;font-size:.86rem;margin:0 2px 6px}.gr-sec>b small{font-weight:600;color:var(--ink-soft);font-size:.72rem;margin-inline-start:4px}
+#grades .pf-how{margin-top:12px}
 </style>
 
 <style id="schedule-tab-style">
@@ -1149,26 +1169,18 @@ header .brand{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 <!-- ══ الدرجات ══ -->
 <section class="panel" id="grades">
-  <div class="page-head"><div><h1>الدرجات</h1><p>المشاركة والسلوك، كل واحدة من 10 ومستقلة عن الأخرى.</p></div><button class="back">الرئيسية</button></div>
-  <div class="sheet">
-    <div class="section-head"><h3>السنة الدراسية</h3><span class="count" id="academic-status"></span></div>
-    <div class="grid2"><div><label>السنة الدراسية</label><input class="inp" id="academic-year" placeholder="مثال: 1448-1449"></div><div><label>الفصل الدراسي</label><select class="inp" id="academic-semester"><option value="1">الفصل الدراسي الأول</option><option value="2">الفصل الدراسي الثاني</option></select></div></div>
-    <div class="actions" style="margin-top:9px;gap:7px;flex-wrap:wrap"><button class="btn gold" id="period-transition">🔒 إغلاق الفترة الأولى وبدء الفترة الثانية</button><button class="btn" id="semester-lock">🔒 إغلاق الفصل</button></div>
-  </div>
-  <div class="sheet">
-    <div class="section-head"><h3>فترة التقييم</h3><span class="count" id="term-note"></span></div>
-    <div style="margin-bottom:8px"><label>الفترة<select class="inp" id="grade-period"><option value="1">الفترة الأولى</option><option value="2">الفترة الثانية</option></select></label></div>
-    <div class="grid2"><div><label>من</label><input class="inp" type="date" id="term-start"></div><div><label>إلى</label><input class="inp" type="date" id="term-end"></div></div>
-    <div class="actions" style="margin-top:9px"><button class="btn sm" id="term-reset">إعادة للافتراضي</button></div>
-  </div>
-  <div class="kpis" id="grade-kpis"></div>
-  <div class="sheet">
-    <div class="section-head"><h3>درجات الطلاب</h3><span class="count" id="grade-count"></span></div><div class="muted" style="margin:-3px 0 8px">تشمل المشاركة والواجب والسلوك ودرجة الاختبارات المحوّلة من 20.</div>
-    <div class="search"><span class="search-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span><input class="inp" id="grade-search" autocomplete="off" placeholder="ابحث عن طالب…"></div>
-    <div id="grades-list" class="student-list" style="margin-top:9px"></div>
-  </div>
-  <div class="sheet"><div class="section-head"><h3>⏳ في فترة السماح</h3><span class="count">فرصة التسليم المتأخر قبل الخصم</span></div><div id="grace-list" class="student-list"></div></div>
-  <div class="sheet"><div class="section-head"><h3>كيف تُحسب؟</h3></div><div class="msg" id="grade-rules"></div></div>
+  <!-- 📊 الدرجات: جدول مختصر (مشاركة · واجب · سلوك · اختبارات) ⟵ اضغط الطالب لملفه. إعدادات الفترة في ⚙️ -->
+  <div class="rd-head"><h1>الدرجات</h1>
+    <button type="button" class="rd-ic" id="gr-search-btn" title="بحث داخل الفصل" aria-label="بحث داخل الفصل">🔍</button>
+    <button type="button" class="rd-ic" id="gr-set-btn" title="السنة والفترة" aria-label="إعدادات السنة والفترة">⚙️</button></div>
+  <button type="button" class="gr-ctx" id="gr-ctx"></button>
+  <div id="gr-search" hidden><div class="search"><span class="search-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span><input class="inp" id="grade-search" autocomplete="off" placeholder="بحث داخل الفصل"></div></div>
+  <div class="gr-kpi" id="grade-kpis"></div>
+  <div class="st-fl" id="gr-fl"></div>
+  <div class="gr-tbl"><div class="gr-hd"><span class="n">الطالب <small id="grade-count"></small></span><span>مشاركة<small>/10</small></span><span>واجب<small>/10</small></span><span>سلوك<small>/10</small></span><span>اختبار<small>/20</small></span></div>
+    <div id="grades-list"></div></div>
+  <div class="gr-sec" id="gr-grace-w"><b>⏳ في فترة السماح <small>فرصة التسليم المتأخر قبل الخصم</small></b><div id="grace-list" class="bh-list"></div></div>
+  <details class="pf-how"><summary>ℹ️ كيف تُحسب الدرجات؟</summary><div class="msg" id="grade-rules"></div></details>
 </section>
 
 <!-- ══ رصد الاختبارات ══ -->
@@ -1293,6 +1305,24 @@ header .brand{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     <div class="bh-sh-h"><div class="bh-sh-n"><b id="bh-log-title">آخر السجلات</b><small id="beh-count"></small></div><button type="button" class="bh-x" data-lg-close aria-label="إغلاق">✕</button></div>
     <div class="bh-tabs lg-f"><button type="button" class="on" data-lg-f="today">اليوم</button><button type="button" data-lg-f="week">هذا الأسبوع</button><button type="button" data-lg-f="all">الكل</button></div>
     <div id="behlist"></div>
+  </div>
+</div>
+<!-- ⚙️ السنة الدراسية وفترة التقييم -->
+<div id="gr-set" hidden>
+  <div class="bh-veil" data-gr-close></div>
+  <div class="bh-box" role="dialog" aria-modal="true" aria-labelledby="gr-set-t">
+    <div class="bh-sh-h"><div class="bh-sh-n"><b id="gr-set-t">⚙️ السنة والفترة</b><small>تُستخدم في حساب الدرجات والاختبارات</small></div><button type="button" class="bh-x" data-gr-close aria-label="إغلاق">✕</button></div>
+  <div class="sheet">
+    <div class="section-head"><h3>السنة الدراسية</h3><span class="count" id="academic-status"></span></div>
+    <div class="grid2"><div><label>السنة الدراسية</label><input class="inp" id="academic-year" placeholder="مثال: 1448-1449"></div><div><label>الفصل الدراسي</label><select class="inp" id="academic-semester"><option value="1">الفصل الدراسي الأول</option><option value="2">الفصل الدراسي الثاني</option></select></div></div>
+    <div class="actions" style="margin-top:9px;gap:7px;flex-wrap:wrap"><button class="btn gold" id="period-transition">🔒 إغلاق الفترة الأولى وبدء الفترة الثانية</button><button class="btn" id="semester-lock">🔒 إغلاق الفصل</button></div>
+  </div>
+  <div class="sheet">
+    <div class="section-head"><h3>فترة التقييم</h3><span class="count" id="term-note"></span></div>
+    <div style="margin-bottom:8px"><label>الفترة<select class="inp" id="grade-period"><option value="1">الفترة الأولى</option><option value="2">الفترة الثانية</option></select></label></div>
+    <div class="grid2"><div><label>من</label><input class="inp" type="date" id="term-start"></div><div><label>إلى</label><input class="inp" type="date" id="term-end"></div></div>
+    <div class="actions" style="margin-top:9px"><button class="btn sm" id="term-reset">إعادة للافتراضي</button></div>
+  </div>
   </div>
 </div>
 <!-- 💌 نافذة رسالة الطالب (أو عدة طلاب) -->
@@ -3478,7 +3508,12 @@ async function exKbKey(k){
 document.addEventListener('keydown',e=>{if(!EXKB.sid||e.target.closest('input,textarea,select'))return;
   const m=e.key==='Enter'?'next':e.key==='Backspace'?'del':e.key==='Escape'?'x':/^[0-9.]$/.test(e.key)?e.key:/^[٠-٩]$/.test(e.key)?String('٠١٢٣٤٥٦٧٨٩'.indexOf(e.key)):'';
   if(m){e.preventDefault();exKbKey(m);}});
+let GR_F='all';
+function grCtx(){ const b=$('gr-ctx'); if(!b) return; const {explicit}=termRange();
+  b.innerHTML=`<span>${gradeSemester===1?'الفصل الأول':'الفصل الثاني'} · ${gradePeriod===2?'الفترة الثانية':'الفترة الأولى'}${academicYear?' · '+esc(academicYear):''}</span><small>${academicClosed()?'🔒 مغلق':'🔓 مفتوح'} · ${explicit?'تواريخ يدوية':'تلقائي'} ⚙️</small>`; }
+function grSet(on){ $('gr-set').hidden=!on; document.body.classList.toggle('bh-on',!!on); }
 function renderGrades(){
+ try{ grCtx(); }catch(e){}
  const cls=$('cls')?.value||'',q=String($('grade-search')?.value||'').trim();
  const{start,end,explicit}=termRange();
  if($('term-start')&&document.activeElement!==$('term-start'))$('term-start').value=start;
@@ -3488,27 +3523,32 @@ function renderGrades(){
  if(gradesErr){ if($('grades-list'))$('grades-list').innerHTML=`<div class="empty">${esc(gradesErr)}<div style="margin-top:10px"><button class="btn sm" onclick="loadGrades()">إعادة المحاولة</button></div></div>`;
    if($('grace-list'))$('grace-list').innerHTML='';if($('grade-kpis'))$('grade-kpis').innerHTML='';return }
  if(!GRADES){ if($('grades-list'))$('grades-list').innerHTML='<div class="empty">جارٍ حساب الدرجات من الخادم…</div>'; loadGrades(); return }
- const all=list(cls),rows=all.map(s=>{const g=gradeOf(s.id);return{s,p:g.participation,h:g.homework,b:g.behavior}}).filter(x=>!q||x.s.name.includes(q));
- const measured=rows.filter(x=>x.p.measured);
-  const examMeasured=rows.map(x=>examFor(x.s.id)).filter(v=>v!=null&&Number.isFinite(v));
+ const all=list(cls).map(s=>{const g=gradeOf(s.id);return{s,p:g.participation,h:g.homework,b:g.behavior,x:examFor(s.id)}});
+ const F={all:['الكل',()=>true], grace:['⏳ في السماح',x=>x.h.inGrace], none:['بلا رصد مشاركة',x=>!x.p.measured], low:['الأقل أولًا',()=>true]};
+ if(!F[GR_F]) GR_F='all';
+ if($('gr-fl')) $('gr-fl').innerHTML=Object.entries(F).map(([k,[t,f]])=>{ const n=k==='low'?'':all.filter(f).length; return (k==='all'||k==='low'||n||GR_F===k)?`<button type="button" class="${GR_F===k?'on':''}" data-gr-f="${k}">${t}${n!==''?` <b>${n}</b>`:''}</button>`:''; }).join('');
+ let rows=all.filter(F[GR_F][1]).filter(x=>!q||x.s.name.includes(q));
+ const tot=x=>(x.p.score??10)+(x.h.measured?x.h.score:10)+(x.b.score??10)+(x.x==null?20:x.x)/2;
+ if(GR_F==='low') rows=rows.slice().sort((a,b)=>tot(a)-tot(b));
+ const measured=all.filter(x=>x.p.measured), examMeasured=all.map(x=>x.x).filter(v=>v!=null&&Number.isFinite(v));
  const avg=a=>a.length?(a.reduce((t,v)=>t+v,0)/a.length).toFixed(1):'—';
  if($('grade-kpis'))$('grade-kpis').innerHTML=
-   `<div class="kpi">الطلاب<b>${rows.length}</b></div>`+
-   `<div class="kpi">متوسط المشاركة<b>${avg(measured.map(x=>x.p.score))}</b></div>`+
-   `<div class="kpi">متوسط الواجب<b>${avg(rows.filter(x=>x.h.measured).map(x=>x.h.score))}</b></div>`+
-   `<div class="kpi">متوسط السلوك<b>${avg(rows.map(x=>x.b.score))}</b></div>`+
-    `<div class=\"kpi\">متوسط الاختبارات<b>${examMeasured.length?avg(examMeasured):'—'}/20</b></div>`+
-   `<div class="kpi">بلا رصد مشاركة<b>${rows.length-measured.length}</b></div>`;
- if($('grade-count'))$('grade-count').textContent=`${rows.length} طالب`;
- if($('grades-list'))$('grades-list').innerHTML=rows.map(x=>
-   `<button class="student" data-profile="${esc(x.s.id)}"><div class="student-top"><div class="grow"><div class="student-name">${esc(x.s.name)}</div></div></div><div class="grade-row">${gchip('المشاركة',x.p)}${gchip('الواجب',x.h)}${gchip('السلوك',x.b)}<span class="gchip ${examFor(x.s.id)==null?'none':(examFor(x.s.id)>=16?'good':examFor(x.s.id)>=10?'mid':'low')}">الاختبارات <b>${examFor(x.s.id)==null?'—':fmt(examFor(x.s.id))}</b><small>/20</small></span>${x.h.inGrace?`<span class="gchip grace">⏳ ${x.h.inGrace} في فترة السماح</span>`:''}<span class="muted">${x.p.measured?x.p.recorded+' حصة مرصودة':'لم يُرصد بعد'}</span></div></button>`
+   `<div><span>المشاركة</span><b>${avg(measured.map(x=>x.p.score))}</b></div>`+
+   `<div><span>الواجب</span><b>${avg(all.filter(x=>x.h.measured).map(x=>x.h.score))}</b></div>`+
+   `<div><span>السلوك</span><b>${avg(all.map(x=>x.b.score).filter(v=>v!=null))}</b></div>`+
+   `<div><span>الاختبارات</span><b>${examMeasured.length?avg(examMeasured):'—'}<small>/20</small></b></div>`;
+ if($('grade-count'))$('grade-count').textContent=`${rows.length}`;
+ const cell=(v,max,on)=>{ if(v==null||!on) return '<span class="gc m">—</span>'; const r=v/max; return `<span class="gc ${r>=.8?'g':r>=.5?'a':'r'}">${fmt(v)}</span>`; };
+ if($('grades-list'))$('grades-list').innerHTML=rows.map((x,i)=>
+   `<button type="button" class="gr-r" data-profile="${esc(x.s.id)}"><span class="n"><i>${i+1}</i>${esc(x.s.name)}${x.h.inGrace?'<em>⏳</em>':''}</span>${cell(x.p.score,10,x.p.measured)}${cell(x.h.score,10,x.h.measured)}${cell(x.b.score,10,x.b.score!=null)}${cell(x.x,20,x.x!=null)}</button>`
  ).join('')||'<div class="empty">لا يوجد طلاب مطابقون.</div>';
  if($('grace-list')){
-   const g=rows.filter(x=>x.h.inGrace>0).sort((a,b)=>Math.min(...a.h.pending.map(z=>z.daysLeft))-Math.min(...b.h.pending.map(z=>z.daysLeft)));
+   const g=all.filter(x=>x.h.inGrace>0).sort((a,b)=>Math.min(...a.h.pending.map(z=>z.daysLeft))-Math.min(...b.h.pending.map(z=>z.daysLeft)));
    $('grace-list').innerHTML=g.map(x=>{
      const soon=Math.min(...x.h.pending.map(z=>z.daysLeft));
-     return `<button class="student" data-profile="${esc(x.s.id)}"><div class="student-top"><div class="grow"><div class="student-name">${esc(x.s.name)}</div></div></div><div class="grade-row"><span class="gchip grace">⏳ يتبقى ${soon} ${soon===1?'يوم':'أيام'}</span><span class="muted">${x.h.inGrace} واجب لم يُسلَّم بعد · لو سلّم غيّر الحالة إلى «أنجز»</span></div></button>`;
-   }).join('')||'<div class="empty">لا يوجد واجب داخل فترة السماح حاليًا.</div>';
+     return `<button type="button" class="bh-r" data-profile="${esc(x.s.id)}"><span class="n">${esc(x.s.name)}<small class="st-sub">${x.h.inGrace} واجب لم يُسلَّم · من ملفه: «سلّمه» أو «سامحه»</small></span><span class="st-tags"><span class="st-t a">⏳ ${soon} ${soon===1?'يوم':'أيام'}</span></span></button>`;
+   }).join('');
+   if($('gr-grace-w')) $('gr-grace-w').hidden=!g.length;
  }
  if($('grade-rules'))$('grade-rules').textContent=
 `المشاركة: يبدأ كل طالب بـ ${GRADE.max} من ${GRADE.max}.
@@ -3840,7 +3880,7 @@ function openTeacherPanel(target){
   try{ if(target!=='messages'){ if(!$('ms-sheet').hidden) msClose(); if(!$('mq-sheet').hidden) mqOpen(false); if(MS_MULTI) msMulti(false); } }catch(e){}
   try{ if(target!=='behavior' && $('bh-logsheet') && !$('bh-logsheet').hidden) bhLog(false); if(target!=='behavior' && $('bh-sheet') && !$('bh-sheet').hidden) bhClose(); if(target!=='behavior' && BH_MULTI) bhMulti(false); }catch(e){}
   // مغادرة صفحة فيها استماع تُطفئه (لا يبقى ميكروفون يعمل في صفحة لا تراها)
-  try{ if(svOn && target!=='students') svStop(); }catch(e){}
+  try{ if(svOn && target!=='students') svStop(); if(target!=='grades' && !$('gr-set').hidden) grSet(false); }catch(e){}
   try{ if(vrOn && target!=='daily' && target!=='behavior') vrStop(); if(mvOn && target!=='messages') mvStop(); if(examVrOn && target!=='exams') examVrStop(); }catch(e){}
   if(target==='behavior'){renderQuick('behavior');renderBehaviorButtons();renderCustomBehaviorTemplates();renderBeh()}
   if(target==='messages'){renderAlerts();renderMessages();fillMessageSearch()}
@@ -3926,6 +3966,11 @@ function wire(){
  $('rec-date').addEventListener('change',renderRecords);
  $('level-search').addEventListener('input',renderLevels);
  $('students-search').addEventListener('input',renderStudents);
+ // 📊 الدرجات
+ $('gr-fl').addEventListener('click',e=>{ const b=e.target.closest('[data-gr-f]'); if(!b) return; GR_F=b.dataset.grF; renderGrades(); });
+ $('gr-search-btn').onclick=()=>{ const w=$('gr-search'); w.hidden=!w.hidden; $('gr-search-btn').classList.toggle('on',!w.hidden); if(!w.hidden) $('grade-search').focus(); else { $('grade-search').value=''; renderGrades(); } };
+ $('gr-set-btn').onclick=$('gr-ctx').onclick=()=>grSet(true);
+ document.querySelectorAll('[data-gr-close]').forEach(b=>b.onclick=()=>grSet(false));
  $('st-fl').addEventListener('click',e=>{ const b=e.target.closest('[data-st-f]'); if(!b) return; ST_F=b.dataset.stF; renderStudents(); });
  $('st-search-btn').onclick=()=>{ const w=$('st-search'); w.hidden=!w.hidden; $('st-search-btn').classList.toggle('on',!w.hidden); if(!w.hidden) $('students-search').focus(); else { $('students-search').value=''; renderStudents(); } };
  $('st-voice-btn').onclick=()=>{ if(!VR_SUP){ toast('🎤 الصوت غير مدعوم في هذا المتصفح — استخدم 🔍'); return; } svOn?svStop():svStart(); };
