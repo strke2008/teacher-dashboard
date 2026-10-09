@@ -7773,6 +7773,8 @@ const CARDS = [
   { id:'hint',   name:'تلميح',            price:30,  ic:'💡', teacher:false },
   { id:'ticket', name:'تذكرة مسابقة',     price:40,  ic:'🎟️', teacher:false },
   { id:'madforgive', name:'مسح خصم مدرستي', price:500, ic:'🧽', teacher:false },
+  { id:'hwforgive', name:'مسح خصم واجب الفصل', price:500, ic:'📘', teacher:false },
+  { id:'fifty', name:'حذف إجابتين', price:40, ic:'✂️', teacher:false },
   { id:'cert', name:'شهادة شكر وتقدير', price:600, ic:'🏅', teacher:false },
   { id:'avatars', name:'رموز حصرية', price:250, ic:'🐉', teacher:false },
   { id:'theme_gold', name:'مظهر ذهبي حصري', price:250, ic:'✨', teacher:false },
@@ -17889,7 +17891,7 @@ function initialsStore(name){
 function storeCardLabel(q){
   const map={exam05:'+0.5 درجة',exam1:'+1 درجة',exam2:'+2 درجتين',exam3:'+3 درجات',dbl:'نقاط مضاعفة',thanks:'رسالة شكر للأهل',retry:'إعادة محاولة',early:'مراجعة مبكرة',hint:'تلميح',title:'لقب'};
   const nm=map[q?.card] || (CARDS.find(c=>c.id===q?.card)||{}).name || String(q?.card||'بطاقة');
-  return q?.card==='madforgive'&&q.hwTitle ? `${nm} — «${q.hwTitle}»` : nm;
+  return (q?.card==='madforgive'||q?.card==='hwforgive')&&q.hwTitle ? `${nm} — «${q.hwTitle}»` : nm;
 }
 /* 🛒 عمليات الشراء في «يحتاج انتباهك»: تظهر الجديدة فقط.
    بعد «تمت المراجعة» تختفي اللوحة كلها، ويبقى السجل الكامل في «تحكم درجات المتجر».
@@ -30285,7 +30287,7 @@ function srpHTML(r){
     <section class="srp-grid">
       <div class="srp-card"><h2>الواجبات</h2>
         <table class="srp-t"><tbody>
-          ${cp?`<tr><th>واجبات الفصل</th><td>سُلّم ${cp.done} · لم يُسلَّم ${cp.missed}</td><td class="srp-s">${srpNum(cp.score)} / ${cp.max}</td></tr>`:''}
+          ${cp?`<tr><th>واجبات الفصل</th><td>سُلّم ${cp.done} · لم يُسلَّم ${cp.missed}${Number(cp.forgiven)>0?` · 🧽 مُسح ${cp.forgiven}`:''}</td><td class="srp-s">${srpNum(cp.score)} / ${cp.max}</td></tr>`:''}
           ${md?`<tr><th>واجبات منصة مدرستي</th><td>${md.linked?srpMadTxt(md):'—'}</td><td class="srp-s">${srpNum(md.score)} / ${md.max}</td></tr>${srpMadList(md)}`:''}
           <tr class="srp-sum"><th>المجموع</th><td></td><td class="srp-s">${srpNum(h.score)} / ${h.max||10}</td></tr>
         </tbody></table></div>
@@ -30437,7 +30439,7 @@ function srxHTML(r){
     <div class="srx-h">📋 التفاصيل</div>
     <section class="srx-grid">
       <div class="srx-card" ${sty('hw')}><h3><i>📚</i>الواجبات</h3>
-        ${cp?`<div class="srx-row"><div><b>واجبات الفصل</b><small>سُلّم ${cp.done} · لم يُسلَّم ${cp.missed}</small></div><em>${N(cp.score)} / ${cp.max}</em></div>`:''}
+        ${cp?`<div class="srx-row"><div><b>واجبات الفصل</b><small>سُلّم ${cp.done} · لم يُسلَّم ${cp.missed}${Number(cp.forgiven)>0?` · 🧽 مُسح ${cp.forgiven}`:''}</small></div><em>${N(cp.score)} / ${cp.max}</em></div>`:''}
         ${md?`<div class="srx-row"><div><b>منصة مدرستي</b><small>${md.linked?srpMadTxt(md):'غير مربوط'}</small></div><em>${N(md.score)} / ${md.max}</em></div>`:''}
         <div class="srx-row sum"><b>مجموع الواجبات</b><em>${N(h.score)} / ${h.max||10}</em></div>
         ${miss.length?`<div class="srx-list bad"><b>✗ لم يُحل في مدرستي (${miss.length})</b><ul>${miss.map(t=>`<li>${E(t)}</li>`).join('')}</ul></div>`:''}

@@ -1828,6 +1828,9 @@ html[data-pt] body,html[data-pt] .sheet,html[data-pt] .btn,html[data-pt] .studen
         <button id="hint-btn" class="hide" style="padding:.3rem .7rem;border-radius:99px;
           background:rgba(27,156,107,.12);border:1.5px solid var(--tick);color:var(--tick);
           font-family:inherit;font-weight:700;font-size:.82rem;cursor:pointer">💡 تلميح</button>
+        <button id="fifty-btn" class="hide" style="padding:.3rem .7rem;border-radius:99px;
+          background:rgba(98,71,232,.1);border:1.5px solid #6247E8;color:#6247E8;
+          font-family:inherit;font-weight:700;font-size:.82rem;cursor:pointer">✂️ حذف إجابتين</button>
       </div>
       <div id="reading-stage" class="hide" style="font-size:.78rem;font-weight:900;color:var(--tick);margin:.2rem 0 .55rem"></div>
       <div id="reading-passage-box"></div>
@@ -7012,11 +7015,38 @@ async function useHint(){
 
 function updateHintBtn(){
   const b = $('hint-btn');
-  const k = (HW.q[idx]||{}).t || 'q';
+  const q = HW.q[idx]||{}, k = q.t || 'q';
   const noHelp = (HW.kind === 'style' || HW.kind === 'diag');   // 🚫 لا مساعدة في الاختبارات
   const has = !noHelp && MYPERKS.hint > 0;
   if(has && k!=='tf'){ b.classList.remove('hide'); b.textContent = '💡 تلميح ×' + MYPERKS.hint; }
   else b.classList.add('hide');
+  // ✂️ يظهر فقط في سؤال اختيار من متعدد بقي فيه خياران خاطئان على الأقل
+  const f = $('fifty-btn'); if(!f) return;
+  if(!noHelp && MYPERKS.fifty > 0 && fiftyLeft(q).length >= 2){ f.classList.remove('hide'); f.textContent = '✂️ حذف إجابتين ×' + MYPERKS.fifty; }
+  else f.classList.add('hide');
+}
+function fiftyLeft(q){
+  if(!q || (q.t||'q')!=='q' || !Array.isArray(q.o)) return [];
+  return q.o.map((_,i)=>i).filter(i=>i!==q.a && !(hintUsed[idx]||[]).includes(i));
+}
+/* ✂️ حذف إجابتين: يستبعد خيارين خاطئين من السؤال الحالي */
+async function useFifty(){
+  if(HW.kind === 'style' || HW.kind === 'diag'){ toast('البطاقات لا تعمل في اختبارات القياس','bad'); return; }
+  const q = HW.q[idx], bad = fiftyLeft(q);
+  if(bad.length < 2){ toast('تعمل في سؤال اختيار من متعدد فيه خياران خاطئان على الأقل','bad'); return; }
+  if(!(MYPERKS.fifty > 0)){ toast('لا تملك بطاقة حذف إجابتين','bad'); return; }
+  const api = ((HW && HW.api) || API || '').replace(/\/+$/,'');
+  try{
+    const r = await storeFetch(api + '/use', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ name: myName, sid: mySid||'', card:'fifty', hw: HW.id }) });
+    const j = await r.json();
+    if(!j.ok){ toast(storeErrText(j, 'لا تملك بطاقة حذف إجابتين'),'bad'); return; }
+    MYPERKS = j.perks || {};
+  }catch(e){ toast('تعذّر الاتصال','bad'); return; }
+  const pick = bad.slice().sort(()=>Math.random()-.5).slice(0,2);
+  hintUsed[idx] = (hintUsed[idx]||[]).concat(pick);
+  render();
+  updateHintBtn();
 }
 
 function ready(){
@@ -7761,6 +7791,8 @@ const CARDS = [
     d:'ترفع درجة الاختبارات درجة واحدة إذا كان المتبقي المسموح لك يكفي' },
   { id:'exam05',  name:'رفع الاختبار +0.5', price:250, ic:'⭐', teacher:false, examBonus:.5,
     d:'ترفع درجة الاختبارات نصف درجة إذا كان المتبقي المسموح لك يكفي' },
+  { id:'hwforgive', name:'مسح خصم واجب الفصل', price:500, ic:'📘', mad:true,
+    d:'تمسح خصم واجب فصل رُصد عليك «لم ينجز» بعد أسبوع السماح — تختار الواجب قبل الدفع' },
   { id:'madforgive', name:'مسح خصم مدرستي', price:500, ic:'🧽', mad:true,
     d:'تمسح خصم واجب في منصة مدرستي أُغلق ولم تحله — تختار الواجب قبل الدفع' },
   { id:'cert', name:'شهادة شكر وتقدير', price:600, ic:'🏅',
@@ -7777,6 +7809,8 @@ const CARDS = [
     d:'تعيد حل نشاط سلّمته — تُحتسب الأعلى' },
   { id:'early',  name:'مراجعة مبكرة',     price:60,  ic:'🔓',
     d:'افتح أخطاءك قبل موعد الإغلاق' },
+  { id:'fifty',  name:'حذف إجابتين',      price:40,  ic:'✂️',
+    d:'في سؤال الاختيار من متعدد: يحذف خيارين خاطئين' },
   { id:'hint',   name:'تلميح',            price:30,  ic:'💡',
     d:'مساعدة في مهمة صعبة أثناء الحل' },
   { id:'ticket', name:'تذكرة مسابقة',     price:40,  ic:'🎟️',
@@ -7796,8 +7830,8 @@ const CARDS = [
 ].sort((a,b)=>b.price-a.price);
 // 🗂️ فئات المتجر — كل بطاقة في فئة واحدة، وداخل الفئة من الأغلى للأرخص
 const SHOP_CATS = [
-  { ic:'🎓', t:'درجاتك', d:'ترفع درجة الاختبارات أو تمسح خصم واجب', ids:['exam3','exam2','exam1','exam05','madforgive'] },
-  { ic:'🧩', t:'مساعدات الأنشطة', d:'تساعدك أثناء الحل وبعده', ids:['dbl','retry','early','hint','ticket'] },
+  { ic:'🎓', t:'درجاتك', d:'ترفع درجة الاختبارات أو تمسح خصم واجب', ids:['exam3','exam2','exam1','exam05','hwforgive','madforgive'] },
+  { ic:'🧩', t:'مساعدات الأنشطة', d:'تساعدك أثناء الحل وبعده', ids:['dbl','retry','early','fifty','hint','ticket'] },
   { ic:'🎨', t:'مظهرك وتميّزك', d:'لك دائمًا — تُشترى مرة واحدة', ids:['namecolor','avatars','theme_gold','theme_diamond','theme_saudi','theme_spaceweek','frame','title'] },
   { ic:'🏅', t:'تكريمك', d:'شهادة باسمك ورسالة شكر لأهلك', ids:['cert','thanks'] }
 ];
@@ -7985,7 +8019,7 @@ async function buyCard(btn, target){
   const id = btn.dataset.c, price = +btn.dataset.p;
   const c = CARDS.find(x=>x.id===id);
   if(c && c.examBonus){ await buyExamBonusDirect(c, target); return; }
-  if(c && c.mad){ await madForgivePick(target); return; }
+  if(c && c.mad){ await madForgivePick(target, c.id); return; }
   const okBuy = await ask({ icon:c.ic, title:'تأكيد الشراء',
     msg:`"${c.name}" مقابل ${price} نقطة.\nرصيدك بعدها: ${MYPTS - price}`,
     yes:'اشترِ', no:'إلغاء' });
@@ -8015,6 +8049,7 @@ async function buyCard(btn, target){
     }
     const after = {
       hint:   'اضغط زر «تلميح» أثناء حل المهام.',
+      fifty:  'في سؤال الاختيار من متعدد اضغط زر «✂️ حذف إجابتين».',
       retry:  'افتح النشاط الذي سلّمته وستجد زر إعادة المحاولة.',
       dbl:    'ستُضاعف نقاط نشاطك القادم تلقائياً.',
       thanks: 'وصل طلبك لمعلمك — سيرسل الرسالة لولي أمرك.',
@@ -8032,33 +8067,43 @@ async function buyCard(btn, target){
   }catch(e){ toast('تعذّر الاتصال — حاول لاحقاً','bad'); renderStore(target); }
 }
 
-/* 🧽 بطاقة «مسح خصم مدرستي»: يختار الطالب الواجب المخصوم أولًا، ثم يدفع — فلا تُشترى بطاقة بلا فائدة */
-async function madForgivePick(target){
+/* 🧽📘 بطاقتا «مسح خصم مدرستي» و«مسح خصم واجب الفصل»: يختار الطالب الواجب المخصوم أولًا، ثم يدفع — فلا تُشترى بطاقة بلا فائدة */
+const FORGIVE_KINDS = {
+  madforgive: { path:'/mad-forgive', ic:'🧽', title:'مسح خصم مدرستي', intro:'اختر الواجب الذي أُغلق ولم تحله ليُمسح خصمه (0.5) من درجتك',
+    none:'لا يوجد عليك خصم في واجبات مدرستي هذه الفترة 👏 — لم يُخصم شيء.', where:'درجة مدرستي' },
+  hwforgive:  { path:'/hw-forgive', ic:'📘', title:'مسح خصم واجب الفصل', intro:'اختر واجب الفصل المرصود عليك «لم ينجز» ليُمسح خصمه (0.5) من درجتك',
+    none:'لا يوجد عليك خصم في واجبات الفصل هذه الفترة 👏 — لم يُخصم شيء.', where:'درجة واجبات الفصل' }
+};
+async function madForgivePick(target, card){
+  const K = FORGIVE_KINDS[card] || FORGIVE_KINDS.madforgive, cardId = FORGIVE_KINDS[card] ? card : 'madforgive';
   const api = ((HW && HW.api) || API || '').replace(/\/+$/,'');
   const nm = String(myName || lockedName() || '').trim();
-  const post = body => storeFetch(api + '/mad-forgive', { method:'POST', headers:{'Content-Type':'application/json'},
+  const post = body => storeFetch(api + K.path, { method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({ name: nm, sid: mySid||'', ...body }) }).then(r=>r.json());
   let j; try{ j = await post({ op:'list' }); }catch(e){ toast('تعذّر الاتصال — حاول لاحقاً','bad'); return; }
   if(!j.ok){ toast(storeErrText(j, 'تعذّر جلب واجباتك'),'bad'); return; }
   MYPTS = j.pts ?? MYPTS;
   const owned = j.owned > 0, price = j.price || 500;
   const day = t => t ? new Date(t).toLocaleDateString('ar-SA-u-ca-gregory-nu-arab',{ weekday:'long', day:'numeric', month:'numeric', timeZone:'Asia/Riyadh' }) : '';
+  // واجب الفصل يُعرف بتاريخه: «واجب الأحد ١٢/١٠»
+  const label = x => x.date ? 'واجب ' + day(Date.parse(x.date + 'T12:00:00+03:00')) : x.title;
+  const sub = x => x.date ? 'مرصود: لم ينجز' : 'أُغلق ' + day(x.dueAt);
   const empty = !j.linked ? 'حسابك غير مربوط بمنصة مدرستي بعد — اطلب من معلمك ربطه.'
     : !j.open ? 'الفترة الحالية مغلقة — لا يمكن تعديل خصومها الآن.'
-    : 'لا يوجد عليك خصم في واجبات مدرستي هذه الفترة 👏 — لم يُخصم شيء.';
+    : K.none;
   const box = document.createElement('div');
   box.id = 'madfg-pick';
   box.style.cssText = 'position:fixed;inset:0;z-index:60;background:rgba(22,35,58,.5);display:flex;align-items:center;justify-content:center;padding:1rem';
   box.innerHTML = `
     <div class="sheet" style="max-width:440px;width:100%;max-height:86vh;overflow:auto">
-      <h3 class="center" style="margin:.2rem 0 .1rem">🧽 مسح خصم مدرستي</h3>
-      <p class="muted center" style="font-size:.84rem;margin:0 0 .7rem;line-height:1.6">اختر الواجب الذي أُغلق ولم تحله ليُمسح خصمه (0.5) من درجتك
-        <br><b>${owned ? 'ستُستخدم بطاقتك 🧽' : `السعر ${price} نقطة · رصيدك ${MYPTS} 📖`}</b></p>
+      <h3 class="center" style="margin:.2rem 0 .1rem">${K.ic} ${K.title}</h3>
+      <p class="muted center" style="font-size:.84rem;margin:0 0 .7rem;line-height:1.6">${K.intro}
+        <br><b>${owned ? `ستُستخدم بطاقتك ${K.ic}` : `السعر ${price} نقطة · رصيدك ${MYPTS} 📖`}</b></p>
       ${(j.items||[]).length ? `<div class="madfg-list">${j.items.map(x=>`<button type="button" class="madfg-it" data-k="${esc(x.key)}" ${owned||MYPTS>=price?'':'disabled'}>
-          <span class="madfg-x">−0.5</span><span class="madfg-t"><b>${esc(x.title)}</b><small>أُغلق ${esc(day(x.dueAt))}</small></span><span class="madfg-go">امسح</span></button>`).join('')}</div>
+          <span class="madfg-x">−0.5</span><span class="madfg-t"><b>${esc(label(x))}</b><small>${esc(sub(x))}</small></span><span class="madfg-go">امسح</span></button>`).join('')}</div>
         ${!owned && MYPTS<price ? `<p class="center" style="color:#B42318;font-size:.82rem;margin:.6rem 0 0">رصيدك لا يكفي — تحتاج ${price-MYPTS} نقطة أخرى</p>` : ''}`
         : `<div class="center muted" style="padding:1rem .5rem;font-size:.9rem;line-height:1.7">${empty}</div>`}
-      ${(j.forgiven||[]).length ? `<div class="muted" style="font-size:.78rem;margin-top:.7rem">✓ مُسح سابقًا: ${j.forgiven.map(x=>esc(x.title)).join(' · ')}</div>` : ''}
+      ${(j.forgiven||[]).length ? `<div class="muted" style="font-size:.78rem;margin-top:.7rem">✓ مُسح سابقًا: ${j.forgiven.map(x=>esc(label(x))).join(' · ')}</div>` : ''}
       <button type="button" class="btn ghost" data-close style="width:100%;margin-top:.8rem">إغلاق</button>
     </div>`;
   document.body.appendChild(box);
@@ -8067,8 +8112,8 @@ async function madForgivePick(target){
   box.querySelectorAll('[data-k]').forEach(b=>b.onclick = async ()=>{
     const it = j.items.find(x=>x.key===b.dataset.k); if(!it) return;
     box.remove();
-    const ok = await ask({ icon:'🧽', title:'تأكيد المسح',
-      msg:`يُمسح خصم واجب «${it.title}» من درجة مدرستي.\n${owned ? 'تُستخدم بطاقتك 🧽' : `يُخصم ${price} نقطة — رصيدك بعدها: ${MYPTS - price}`}`,
+    const ok = await ask({ icon:K.ic, title:'تأكيد المسح',
+      msg:`يُمسح خصم «${label(it)}» من ${K.where}.\n${owned ? `تُستخدم بطاقتك ${K.ic}` : `يُخصم ${price} نقطة — رصيدك بعدها: ${MYPTS - price}`}`,
       yes:'امسح الخصم', no:'إلغاء' });
     if(!ok) return;
     try{
@@ -8080,7 +8125,7 @@ async function madForgivePick(target){
       if(target==='pre-store') await loadStore(true);
       else if(target==='gate-store-box'){ renderStore('gate-store-box'); await gateLoad(nm); }
       else renderStore(target);
-      note(`مُسح خصم واجب «${it.title}» — صار محتسبًا لك بلا خصم في درجة مدرستي.`, 'تم المسح ✅', '🧽');
+      note(`مُسح خصم «${label(it)}» — صار محتسبًا لك بلا خصم في ${K.where}.`, 'تم المسح ✅', K.ic);
     }catch(e){ toast('تعذّر الاتصال — حاول لاحقاً','bad'); }
   });
 }
@@ -8175,6 +8220,7 @@ async function offerMore(nm, where){
 }
 
 $('hint-btn').onclick = ()=> useHint();
+$('fifty-btn').onclick = ()=> useFifty();
 $('retry-btn').onclick = ()=> doRetry();
 
 $('copy-btn').onclick = async ()=>{
@@ -9397,7 +9443,7 @@ function srpHTML(r){
     <section class="srp-grid">
       <div class="srp-card k-hw"><h2><em class="srp-ic">📚</em>الواجبات</h2>
         <table class="srp-t"><tbody>
-          ${cp?`<tr><th>واجبات الفصل</th><td>سُلّم ${cp.done} · لم يُسلَّم ${cp.missed}</td><td class="srp-s">${srpNum(cp.score)} / ${cp.max}</td></tr>`:''}
+          ${cp?`<tr><th>واجبات الفصل</th><td>سُلّم ${cp.done} · لم يُسلَّم ${cp.missed}${Number(cp.forgiven)>0?` · 🧽 مُسح ${cp.forgiven}`:''}</td><td class="srp-s">${srpNum(cp.score)} / ${cp.max}</td></tr>`:''}
           ${md?`<tr><th>واجبات منصة مدرستي</th><td>${md.linked?srpMadTxt(md):'—'}</td><td class="srp-s">${srpNum(md.score)} / ${md.max}</td></tr>${srpMadList(md)}`:''}
           <tr class="srp-sum"><th>المجموع</th><td></td><td class="srp-s">${srpNum(h.score)} / ${h.max||10}</td></tr>
         </tbody></table></div>
@@ -9549,7 +9595,7 @@ function srxHTML(r){
     <div class="srx-h">📋 التفاصيل</div>
     <section class="srx-grid">
       <div class="srx-card" ${sty('hw')}><h3><i>📚</i>الواجبات</h3>
-        ${cp?`<div class="srx-row"><div><b>واجبات الفصل</b><small>سُلّم ${cp.done} · لم يُسلَّم ${cp.missed}</small></div><em>${N(cp.score)} / ${cp.max}</em></div>`:''}
+        ${cp?`<div class="srx-row"><div><b>واجبات الفصل</b><small>سُلّم ${cp.done} · لم يُسلَّم ${cp.missed}${Number(cp.forgiven)>0?` · 🧽 مُسح ${cp.forgiven}`:''}</small></div><em>${N(cp.score)} / ${cp.max}</em></div>`:''}
         ${md?`<div class="srx-row"><div><b>منصة مدرستي</b><small>${md.linked?srpMadTxt(md):'غير مربوط'}</small></div><em>${N(md.score)} / ${md.max}</em></div>`:''}
         <div class="srx-row sum"><b>مجموع الواجبات</b><em>${N(h.score)} / ${h.max||10}</em></div>
         ${miss.length?`<div class="srx-list bad"><b>✗ لم يُحل في مدرستي (${miss.length})</b><ul>${miss.map(t=>`<li>${E(t)}</li>`).join('')}</ul></div>`:''}
