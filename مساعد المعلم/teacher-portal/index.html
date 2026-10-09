@@ -744,6 +744,20 @@ body:has(#bh-mbar:not([hidden])) #behavior{padding-bottom:70px}
 .sc-wr select{flex:none;width:96px;border:1.5px solid var(--rule);border-radius:10px;background:var(--surface-2);font:inherit;font-weight:800;font-size:.82rem;padding:6px;color:var(--ink)}
 .sc-wr.has select{border-color:var(--accent);background:var(--accent-soft)}
 #schedule .gr-sec{margin-top:14px}
+#sc-dayview[hidden],#sc-weekview[hidden]{display:none!important}
+.sc-wh{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 2px 6px}.sc-wh b{font-size:.86rem}
+.sc-vw{display:flex;background:var(--surface-2);border:1px solid var(--rule);border-radius:10px;padding:2px}
+.sc-vw button{font:inherit;font-weight:800;font-size:.74rem;border:0;background:transparent;color:var(--ink-soft);border-radius:8px;padding:5px 10px;cursor:pointer}
+.sc-vw button.on{background:var(--accent);color:#fff}
+.sc-full{background:var(--surface);border:1px solid var(--rule);border-radius:var(--r);overflow:hidden}
+.sc-full table{width:100%;border-collapse:collapse;table-layout:fixed}
+.sc-full th,.sc-full td{border:1px solid var(--rule);text-align:center;padding:0;height:40px;font-size:.74rem}
+.sc-full thead th{background:var(--surface-2);font-weight:900;height:36px}.sc-full thead th small{display:block;font-weight:600;font-size:.56rem;color:var(--ink-faint)}
+.sc-full thead th:first-child{width:52px}
+.sc-full tbody th{background:var(--surface-2);font-weight:800;font-size:.7rem;cursor:pointer}
+.sc-full td{cursor:pointer;color:var(--ink-faint)}.sc-full td.c{font-weight:900;color:var(--accent-ink);background:var(--accent-soft)}
+.sc-full tr.td th{background:var(--green-soft);color:var(--green)}.sc-full td.now{outline:2.5px solid var(--green);outline-offset:-3px}
+.sc-sum{display:flex;flex-wrap:wrap;gap:5px;padding:8px}.sc-sum span{font-size:.72rem;font-weight:700;background:var(--surface-2);border-radius:8px;padding:3px 8px;color:var(--ink-soft)}.sc-sum b{color:var(--ink)}
 </style>
 
 <style id="schedule-tab-style">
@@ -1491,9 +1505,9 @@ header .brand{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     <div id="sch-now" class="level-table"></div>
   </div>
   <div class="gr-sec"><b>📅 حصص اليوم <small id="sc-day-t"></small></b><div id="sc-day" class="sc-day"></div></div>
-  <div class="gr-sec"><b>🗓️ جدولي الأسبوعي <small>الفراغ = لا حصة</small></b>
-    <div class="sc-days" id="sc-days"></div>
-    <div id="sch-grid" class="sc-wk"></div></div>
+  <div class="gr-sec"><div class="sc-wh"><b>🗓️ جدولي الأسبوعي</b><div class="sc-vw" role="tablist"><button type="button" data-sc-view="day">يوم</button><button type="button" data-sc-view="week">الأسبوع كامل</button></div></div>
+    <div id="sc-dayview"><div class="sc-days" id="sc-days"></div><div id="sch-grid" class="sc-wk"></div></div>
+    <div id="sc-weekview" hidden><div id="sc-full" class="sc-full"></div><div class="bh-hint" style="margin-top:6px">اضغط أي يوم أو حصة لتعديله</div></div></div>
   <div hidden><div id="sch-log"></div></div>
 </section>
 
@@ -3997,6 +4011,8 @@ function wire(){
  // 🗓️ الجدول
  $('sc-set-btn').onclick=$('sc-ctx').onclick=()=>scSet(true);
  document.querySelectorAll('[data-sc-close]').forEach(b=>b.onclick=()=>scSet(false));
+ document.querySelectorAll('[data-sc-view]').forEach(b=>b.onclick=()=>{ SC_VIEW=b.dataset.scView; try{ localStorage.setItem('teacher_sc_view',SC_VIEW); }catch(e){} renderSchedule(); });
+ $('sc-full').addEventListener('click',e=>{ const c=e.target.closest('[data-sc-goday]'); if(!c) return; SC_DAY=+c.dataset.scGoday; SC_VIEW='day'; try{ localStorage.setItem('teacher_sc_view','day'); }catch(e){} renderSchedule(); $('sc-days').scrollIntoView({block:'center',behavior:'smooth'}); });
  $('sc-days').addEventListener('click',e=>{ const b=e.target.closest('[data-sc-day]'); if(!b) return; SC_DAY=+b.dataset.scDay; renderSchedule(); });
  // 📊 الدرجات
  $('gr-fl').addEventListener('click',e=>{ const b=e.target.closest('[data-gr-f]'); if(!b) return; GR_F=b.dataset.grF; renderGrades(); });
@@ -4342,7 +4358,7 @@ function schClassOptions(sel){
   const set = [...new Set(students.map(s=>s.cls).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ar'));
   return '<option value="">—</option>' + set.map(c=>`<option value="${esc(c)}"${c===sel?' selected':''}>${esc(c)}</option>`).join('');
 }
-let SC_DAY=-1;
+let SC_DAY=-1, SC_VIEW=(()=>{ try{ return localStorage.getItem('teacher_sc_view')==='week'?'week':'day'; }catch(e){ return 'day'; } })();
 function scSet(on){ $('sc-set').hidden=!on; document.body.classList.toggle('bh-on',!!on); }
 function renderSchedule(){
   const s = sch(), T = schTimes(), dow = schDow(), d = today();
@@ -4420,6 +4436,18 @@ function renderSchedule(){
   const dc=$('sc-days');
   if(dc) dc.innerHTML = SCH_DAYS.map((nm,dy)=>{ const n=T.filter(t=>(s.grid[String(dy)]||{})[String(t.n)]).length;
     return `<button type="button" class="${dy===SC_DAY?'on':''}${dy===dow?' td':''}" data-sc-day="${dy}">${nm}<small>${n?n+' حصص':'—'}</small></button>`; }).join('');
+  /* عرض الأسبوع كامل: جدول مختصر للقراءة — الضغط يفتح اليوم للتعديل */
+  document.querySelectorAll('[data-sc-view]').forEach(b=>b.classList.toggle('on',b.dataset.scView===SC_VIEW));
+  if($('sc-dayview')) $('sc-dayview').hidden=SC_VIEW!=='day';
+  if($('sc-weekview')) $('sc-weekview').hidden=SC_VIEW!=='week';
+  const fw=$('sc-full');
+  if(fw && SC_VIEW==='week'){
+    const cur=open?open.p:(schFind(now,T).cur||{}).n;
+    fw.innerHTML=`<table><thead><tr><th></th>${T.map(t=>`<th>${t.n}<small>${t.s}</small></th>`).join('')}</tr></thead><tbody>${SCH_DAYS.map((nm,dy)=>{ const gd=s.grid[String(dy)]||{};
+      return `<tr class="${dy===dow?'td':''}"><th data-sc-goday="${dy}">${nm}</th>${T.map(t=>{ const c=gd[String(t.n)]||''; return `<td data-sc-goday="${dy}" class="${c?'c':''}${dy===dow&&cur===t.n?' now':''}">${c?esc(c):''}</td>`; }).join('')}</tr>`; }).join('')}</tbody></table>`;
+    const cnt={}; for(let dy=0;dy<5;dy++) for(const t of T){ const c=(s.grid[String(dy)]||{})[String(t.n)]; if(c) cnt[c]=(cnt[c]||0)+1; }
+    fw.innerHTML+=`<div class="sc-sum">${Object.keys(cnt).length?Object.entries(cnt).sort().map(([c,n])=>`<span>${esc(c)} <b>${n}</b></span>`).join('')+`<span>المجموع <b>${Object.values(cnt).reduce((a,b)=>a+b,0)}</b> حصة</span>`:'<span>لم تُدخل حصصًا بعد</span>'}</div>`;
+  }
   const g = $('sch-grid');
   if(g){ const gd=s.grid[String(SC_DAY)]||{};
     g.innerHTML = T.map(t=>`${t.n===s.breakAfter+1 && s.breakLen>0 ? `<div class="sc-brk">☕ الفسحة</div>`:''}${s.prayAfter>0 && t.n===s.prayAfter+1 && s.prayLen>0 ? `<div class="sc-brk">🕌 الصلاة</div>`:''}
