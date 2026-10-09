@@ -275,20 +275,34 @@ function tdCacheSave(){
   try{ const D=CT_DATA; if(!D) return; const from=remKsaDay(-7), recent=m=>Object.fromEntries(Object.entries(D[m]||{}).filter(([d])=>d>=from));
     const G=(typeof CT_GRADES!=='undefined'&&CT_GRADES)||null;
     const c={at:Date.now(),data:{schedule:D.schedule,reminders:D.reminders,roles:D.roles,msgFlags:D.msgFlags,examBooks:D.examBooks,academic:D.academic,
-      participation:recent('participation'),homework:recent('homework'),behavior:(D.behavior||[]).filter(x=>x&&String(x.date||'')>=from).slice(0,300)},
-      grades:G?{alerts:G.alerts||[],plans:(G.plans||[]).map(p=>({status:p.status,timing:p.timing}))}:(TD_CACHE&&TD_CACHE.grades)||null};
+      participation:recent('participation'),homework:recent('homework'),behavior:(D.behavior||[]).filter(x=>x&&String(x.date||'')>=from).slice(0,300),
+      followups:D.followups, devOk:D.devOk},
+      grades:G?{alerts:G.alerts||[],plans:(G.plans||[]).map(p=>({status:p.status,timing:p.timing}))}:(TD_CACHE&&TD_CACHE.grades)||null,
+      tasks:(TD_CACHE&&TD_CACHE.tasks)||null};
     localStorage.setItem(TD_CACHE_KEY,JSON.stringify(c)); TD_CACHE=c; }catch(e){}
 }
+let TD_FROM_CACHE=false, TD_TASKS_SAVED=0;
 function thDraw(){
   // قبل وصول بيانات الخادم: ارسم من النسخة المحفوظة (مؤقتًا وبشكل متزامن فقط — لا تبقى في CT_DATA)
-  if(!CT_DATA&&TD_CACHE&&TD_CACHE.data){ const g0=CT_GRADES; CT_DATA=TD_CACHE.data; if(!CT_GRADES&&TD_CACHE.grades) CT_GRADES=TD_CACHE.grades;
-    try{ thDrawNow(); }finally{ CT_DATA=null; CT_GRADES=g0; } return; }
+  if(!CT_DATA&&TD_CACHE&&TD_CACHE.data){ const g0=CT_GRADES; CT_DATA=TD_CACHE.data; if(!CT_GRADES&&TD_CACHE.grades) CT_GRADES=TD_CACHE.grades; TD_FROM_CACHE=true;
+    try{ thDrawNow(); }finally{ CT_DATA=null; CT_GRADES=g0; TD_FROM_CACHE=false; } return; }
+  // وصل الفصل ولم تصل الدرجات بعد: نُبقي تنبيهات الدرجات المحفوظة بدل أن تختفي ثم تعود
+  if(!CT_GRADES&&TD_CACHE&&TD_CACHE.grades){ CT_GRADES=TD_CACHE.grades; try{ thDrawNow(); }finally{ CT_GRADES=null; } return; }
   thDrawNow();
+}
+/* 📌 مهام اليوم ثابتة: النسخة المحفوظة ناقصة (لا متابعات ولا أجهزة متحقَّق منها ولا 30 يومًا من الحضور)،
+   فحساب المهام منها كان يُظهر مهامًا أنهيتها ثم يخفيها بعد ثانية. نعرض آخر قائمة حُسبت من البيانات الكاملة حتى تصل. */
+function tdTaskList(){
+  if(TD_FROM_CACHE&&TD_CACHE&&Array.isArray(TD_CACHE.tasks)) return TD_CACHE.tasks;
+  const L=tdTasks();
+  if(!TD_FROM_CACHE&&TD_CACHE&&Date.now()-TD_TASKS_SAVED>15000){ TD_TASKS_SAVED=Date.now();
+    try{ TD_CACHE.tasks=L; localStorage.setItem(TD_CACHE_KEY,JSON.stringify(TD_CACHE)); }catch(e){} }
+  return L;
 }
 function thDrawNow(){
   const box=document.getElementById('today-hub'); if(!box) return;
   const dl=document.getElementById('td-date'); if(dl&&!dl.textContent) dl.textContent=tdDateLabel();
-  const done=tdDone(), all=tdTasks(), open=all.filter(x=>!done[x.key]), hid=all.length-open.length;
+  const done=tdDone(), all=tdTaskList(), open=all.filter(x=>!done[x.key]), hid=all.length-open.length;
   const main=open.filter(x=>x.lv!=='info'), low=open.filter(x=>x.lv==='info');
   const row=x=>`<div class="td-task ${x.lv}"><span class="td-ic">${x.ic}</span><span class="td-t">${thEsc(x.t)}</span>
     <span class="td-acts">${x.acts.map(([l,go])=>`<button type="button" class="btn ghost sm" onclick="${go}">${l}</button>`).join('')}${x.noDone?'':x.doneJs?`<button type="button" class="td-done" title="تم الإرسال — يُزال حتى يتكرر من جديد" onclick="${x.doneJs}">✓ تم</button>`:x.remId?`<button type="button" class="td-done" title="تمّت — تُحفظ في تذكيراتك بالبوابة أيضًا" onclick="tdRemDone('${thEsc(x.remId)}')">✓ تم</button>`:`<button type="button" class="td-done" title="تم — إخفاؤه حتى يتغيّر" onclick="tdMarkDone('${thEsc(x.key).replace(/'/g,"\\'")}')">✓ تم</button>`}</span></div>`;
