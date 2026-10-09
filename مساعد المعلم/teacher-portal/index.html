@@ -381,6 +381,95 @@ select.inp{appearance:none;-webkit-appearance:none;background-image:linear-gradi
 .hwh-tag{display:inline-block;font-size:.72rem;font-weight:800;border-radius:999px;padding:1px 8px;background:var(--surface-2,#EEF2F7);margin-inline-start:4px}
 .hwh-tag.no{background:#FCEBEE;color:#B03348}.hwh-tag.grace{background:#FBF1E0;color:#96651B}.hwh-tag.ok{background:#E4F4EC;color:#167852}
 .hwh-acts{display:flex;gap:6px}
+#rd-tools[hidden],#rd-search[hidden]{display:none!important}
+.rd-head{display:flex;align-items:center;gap:7px;margin:2px 0 10px}
+.rd-head h1{margin:0;font-size:1.35rem;flex:1;min-width:0}
+.rd-date{display:flex;align-items:center;gap:4px;border:1.5px solid var(--rule);background:var(--surface);border-radius:999px;padding:0 4px 0 10px;font-size:.9rem;margin:0}
+.rd-date .inp{border:0;background:transparent;padding:6px 2px;min-height:0;width:auto;font-size:.82rem;font-weight:700;box-shadow:none}
+.rd-ic{width:40px;height:40px;flex:none;border-radius:12px;border:1.5px solid var(--rule);background:var(--surface);font-size:1.05rem;cursor:pointer}
+.rd-ic.on{border-color:var(--accent);background:var(--accent-soft)}
+#rd-tools{margin-bottom:10px}
+.rd-bar{position:sticky;top:calc(var(--header-h) + var(--safe-t));z-index:6;background:var(--paper);padding:4px 0 2px}
+.rd-search{margin-bottom:6px}
+.rd-cnt{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.rd-cnt>*{text-align:center;border-radius:10px;padding:5px 2px;font:inherit;font-size:.7rem;font-weight:700;background:var(--surface);border:1px solid var(--rule);color:var(--ink-soft)}
+.rd-cnt b{display:block;font-size:1.05rem}
+.rd-cnt .g{color:var(--green-ink)}.rd-cnt .r{color:var(--red-ink)}.rd-cnt .a{color:var(--amber-ink)}
+.rd-cnt .u{background:var(--accent-soft);border:1.5px solid var(--accent);color:var(--accent-ink);cursor:pointer}
+.rd-cnt .u.on{background:var(--accent);color:#fff}
+.rd-cols,.rd-row{display:grid;grid-template-columns:minmax(0,1fr) 112px 76px;gap:6px;align-items:center}
+.rd-cols{font-size:.7rem;font-weight:800;color:var(--ink-soft);padding:6px 10px 3px}
+.rd-cols span{text-align:center}.rd-cols span:first-child{text-align:right}
+.rd-cols b{font-weight:700}
+.rd-list{background:var(--surface);border:1px solid var(--rule);border-radius:var(--r);overflow:hidden}
+.rd-row{padding:6px 10px;border-top:1px solid var(--rule);min-height:50px}
+.rd-row:first-child{border-top:0}
+.rd-row.un{background:var(--surface)}
+.rd-nm{display:flex;align-items:center;gap:7px;min-width:0;border:0;background:none;padding:0;font:inherit;color:var(--ink);text-align:right;cursor:pointer}
+.rd-nm i{font-style:normal;font-size:.7rem;color:var(--ink-faint);width:18px;text-align:center;flex:none}
+.rd-nm span{font-weight:700;font-size:.84rem;line-height:1.35;overflow-wrap:anywhere}
+.rd-row.abs .rd-nm span{color:var(--ink-faint);text-decoration:line-through}
+.rd-g{display:flex;gap:4px;justify-content:center}
+.rd-b{width:34px;height:34px;flex:none;border-radius:10px;border:1.5px solid var(--rule);background:var(--surface-2);font-size:.95rem;display:grid;place-items:center;padding:0;cursor:pointer;filter:grayscale(.35);opacity:.42;transition:transform .1s}
+.rd-b:active{transform:scale(.9)}
+.rd-b.on{filter:none;opacity:1}
+.rd-b.on.g{background:var(--green-soft);border-color:var(--green)}
+.rd-b.on.r{background:var(--red-soft);border-color:var(--red)}
+.rd-b.on.a{background:var(--amber-soft);border-color:var(--amber)}
+.rd-exc{font-size:.72rem;font-weight:700;color:var(--amber-ink);background:var(--amber-soft);border-radius:8px;padding:5px 8px}
+.rd-done{position:sticky;bottom:calc(var(--nav-h) + var(--safe-b) + 8px);z-index:6;display:flex;gap:6px;margin-top:10px}
+body:has(#undo-bar.show) .rd-done{bottom:calc(72px + env(safe-area-inset-bottom,0px) + 58px)}   /* شريط التراجع لا يغطي زر الباقي */
+@media(min-width:900px){body:has(#undo-bar.show) .rd-done{bottom:calc(var(--nav-h) + var(--safe-b) + 8px)}}
+.rd-rest{flex:1;min-height:52px;border-radius:14px;border:0;background:var(--green);color:#fff;font:inherit;font-weight:800;font-size:.95rem;box-shadow:var(--shadow-lift);cursor:pointer;padding:6px}
+.rd-rest.h{background:var(--teal)}
+.rd-rest small{display:block;font-weight:600;font-size:.68rem;opacity:.92}
+.rd-all{flex:1;text-align:center;font-weight:800;color:var(--green-ink);background:var(--green-soft);border-radius:12px;padding:10px}
+.rd-tip{font-size:.74rem;color:var(--ink-soft);text-align:center;margin:8px 0 0}
+@media(min-width:700px){.rd-cols,.rd-row{grid-template-columns:minmax(0,1fr) 150px 100px}.rd-b{width:40px;height:40px}}
+#ex-setup[hidden],#ex-voice[hidden],#ex-search[hidden],#ex-kb[hidden]{display:none!important}
+.rd-pill{border:1.5px solid var(--rule);background:var(--surface);border-radius:999px;padding:7px 13px;font:inherit;font-weight:700;font-size:.8rem;color:var(--ink);cursor:pointer}
+.rd-pill.on{border-color:var(--accent);background:var(--accent-soft)}
+#ex-setup,#ex-voice{margin-bottom:10px}
+.ex-chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:6px;scrollbar-width:none}
+.ex-chips button{flex:none;border:1.5px solid var(--rule);background:var(--surface);border-radius:999px;padding:7px 13px;font:inherit;font-weight:700;font-size:.8rem;color:var(--ink);cursor:pointer}
+.ex-chips button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.ex-chips button.add{border-style:dashed;color:var(--accent-ink)}
+.ex-info{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px}
+.ex-info span{text-align:center;background:var(--surface);border:1px solid var(--rule);border-radius:10px;padding:6px 2px;font-size:.72rem;font-weight:700;color:var(--ink-soft)}
+.ex-info b{display:block;font-size:1rem;color:var(--ink)}.ex-info small{font-size:.7rem;color:var(--ink-faint)}
+.ex-tools{display:flex;gap:6px;margin-bottom:8px}
+.ex-tools button{flex:1;min-height:42px;border-radius:12px;border:1.5px solid var(--rule);background:var(--surface);font:inherit;font-weight:700;font-size:.78rem;color:var(--ink);cursor:pointer}
+.ex-tools button:last-child{flex:none;width:44px}
+.ex-tools button.on{border-color:var(--accent);background:var(--accent-soft)}
+#ex-search{margin-bottom:8px}
+.ex-list{background:var(--surface);border:1px solid var(--rule);border-radius:var(--r);overflow:hidden}
+.ex-row{display:grid;grid-template-columns:minmax(0,1fr) 84px 40px;gap:8px;align-items:center;padding:6px 10px;border-top:1px solid var(--rule);min-height:52px}
+.ex-row:first-child{border-top:0}
+.ex-row.cur{background:var(--accent-soft);box-shadow:inset -4px 0 0 var(--accent)}
+.ex-nm{display:flex;gap:7px;align-items:center;min-width:0}
+.ex-nm i{font-style:normal;font-size:.7rem;color:var(--ink-faint);width:18px;text-align:center;flex:none}
+.ex-nm span{font-weight:700;font-size:.86rem;line-height:1.35;overflow-wrap:anywhere}
+.ex-nm small{display:block;font-weight:600;font-size:.68rem;color:var(--ink-faint)}
+.ex-cell{height:40px;border-radius:10px;border:1.5px solid var(--rule);background:var(--surface-2);font:inherit;font-weight:800;font-size:1rem;color:var(--ink);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:1px}
+.ex-cell.ok{border-color:var(--green);background:var(--green-soft);color:var(--green-ink)}
+.ex-cell.ab{border-color:var(--amber);background:var(--amber-soft);color:var(--amber-ink);font-size:.8rem}
+.ex-cell.f{border-color:var(--accent);background:var(--surface);box-shadow:0 0 0 3px var(--accent-soft)}
+.ex-caret{display:inline-block;width:2px;height:1.1em;background:var(--accent);animation:exBlink 1s steps(2) infinite}
+@keyframes exBlink{50%{opacity:0}}
+.ex-full{width:40px;height:40px;border-radius:10px;border:1.5px solid var(--rule);background:var(--surface);font-size:.95rem;cursor:pointer;padding:0}
+#ex-kb{position:fixed;left:0;right:0;bottom:calc(var(--nav-h) + var(--safe-b));z-index:60;background:var(--surface);border-top:1px solid var(--rule);box-shadow:0 -8px 24px rgba(22,35,58,.14);padding:6px 10px 8px}
+@media(min-width:900px){#ex-kb{bottom:0;left:auto;right:auto;inset-inline-end:16px;width:440px;border:1px solid var(--rule);border-radius:16px 16px 0 0}}
+.exk-h{display:flex;align-items:center;gap:8px;font-size:.78rem;color:var(--ink-soft);margin-bottom:6px}
+.exk-h b{color:var(--ink);font-size:.86rem;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.exk-x{width:30px;height:30px;border-radius:8px;border:1px solid var(--rule);background:var(--surface-2);font-size:.8rem;cursor:pointer;color:var(--ink)}
+.exk-d{display:grid;grid-template-columns:repeat(10,1fr);gap:4px}
+.exk-e{display:grid;grid-template-columns:1fr 1fr 1fr 2.2fr;gap:4px;margin-top:4px}
+.exk-d button,.exk-e button{height:42px;border-radius:9px;background:var(--surface-2);border:1px solid var(--rule);font:inherit;font-weight:800;font-size:1.05rem;color:var(--ink);cursor:pointer;padding:0}
+.exk-d button:active,.exk-e button:active{transform:scale(.94)}
+.exk-e .nx{background:var(--accent);border-color:var(--accent);color:#fff;font-size:.9rem}
+.exk-e .ab{color:var(--amber-ink);font-size:.82rem}
+body.ex-kb-on .panel#exams{padding-bottom:150px}
+body.ex-kb-on #undo-bar{display:none!important}
 </style>
 
 <style id="schedule-tab-style">
@@ -767,8 +856,12 @@ header .brand{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 <!-- ══ الرصد ══ -->
 <section class="panel" id="daily">
-  <div class="page-head"><div><h1>الرصد</h1><p>سجّل الحالة مباشرة للطلاب.</p></div><button class="back">الرئيسية</button></div>
-  <div class="sheet tinted">
+  <!-- 📋 الرصد: القائمة أولًا — صف واحد لكل طالب فيه المشاركة والواجب معًا -->
+  <div class="rd-head"><h1>الرصد</h1>
+    <label class="rd-date" title="تاريخ الرصد">📅<input class="inp" type="date" id="date"></label>
+    <button type="button" class="rd-ic" id="rd-search-btn" title="بحث داخل الفصل" aria-label="بحث داخل الفصل">🔍</button>
+    <button type="button" class="rd-ic" id="rd-tools-btn" title="رصد سريع لطالب وبالصوت" aria-label="رصد سريع لطالب وبالصوت">🎤</button></div>
+  <div class="sheet tinted" id="rd-tools" hidden>
     <div class="section-head"><h3>⚡ رصد سريع لطالب</h3><span class="count">ابحث مرة واحدة</span></div>
     <div class="search"><span class="search-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span><input class="inp" id="quick-search" autocomplete="off" placeholder="اكتب اسم الطالب…"></div>
     <div class="search-results" id="quick-results"></div><div id="quick-card"></div>
@@ -796,21 +889,17 @@ header .brand{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
       🎤 الرصد الصوتي غير مدعوم في هذا المتصفح — استخدم البحث بالأعلى.
     </div></div>
   </div>
-  <div class="sheet">
-    <div><label>التاريخ</label><input class="inp" type="date" id="date"></div>
-    <div class="segmented" style="margin-top:10px;grid-template-columns:repeat(2,1fr)">
-      <button class="btn on" id="mode-part">المشاركة</button>
-      <button class="btn" id="mode-home">الواجب</button>
-    </div>
+  <!-- أزرار قديمة تبقى للتوافق (السياق الذكي يبدّل الوضع بها) — لا تظهر -->
+  <div hidden><button class="btn on" id="mode-part">المشاركة</button><button class="btn" id="mode-home">الواجب</button>
+    <button class="btn" id="bulk-done"></button><button class="btn" id="bulk-absent"></button><div id="unrec"></div></div>
+  <div class="rd-bar">
+    <div class="rd-search" id="rd-search" hidden><div class="search"><span class="search-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span><input class="inp" id="roster-search" autocomplete="off" placeholder="بحث داخل الفصل"></div></div>
+    <div class="rd-cnt" id="kpis"></div>
+    <div class="rd-cols"><span>الطالب <b id="student-count"></b></span><span>المشاركة</span><span>الواجب</span></div>
   </div>
-  <div class="kpis" id="kpis"></div>
-  <div id="unrec"></div>
-  <div class="sheet">
-    <div class="bulk"><button class="btn tick" id="bulk-done">تحديد الكل بالحالة الأفضل</button><button class="btn bad" id="bulk-absent">تحديد الكل بالحالة التي تحتاج متابعة</button></div>
-    <div class="section-head"><h3>الطلاب</h3><span class="count" id="student-count"></span></div>
-    <div class="search"><span class="search-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span><input class="inp" id="roster-search" autocomplete="off" placeholder="بحث داخل الفصل"></div>
-    <div id="students-roster" class="student-list" style="margin-top:9px"></div>
-  </div>
+  <div id="students-roster" class="rd-list"></div>
+  <div class="rd-done" id="rd-done"></div>
+  <p class="rd-tip">اضغط الحالة لرصدها، ومرة ثانية لإلغائها · اضغط الاسم لفتح ملف الطالب</p>
 </section>
 
 <!-- ══ المستويات ══ -->
@@ -859,8 +948,10 @@ header .brand{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 <!-- ══ رصد الاختبارات ══ -->
 <section class="panel" id="exams">
-  <div class="page-head"><div><h1>رصد الاختبارات</h1><p>أضف عدد الاختبارات الذي تريده في الفترة، ويحوّل النظام مجموعها تلقائيًا إلى 20.</p></div><button class="back">الرئيسية</button></div>
-  <div class="sheet">
+  <!-- 📝 رصد الاختبارات: اختبار واحد ظاهر في كل مرة، سطر لكل طالب، ولوحة أرقام لا تغطي الطالب الحالي -->
+  <div class="rd-head"><h1>رصد الاختبارات</h1><button type="button" class="rd-pill" id="ex-setup-btn">⚙️ الإعداد</button></div>
+  <div class="ex-chips" id="ex-chips"></div>
+  <div class="sheet" id="ex-setup" hidden>
     <div class="section-head"><h3>إعداد الاختبارات في هذه الفترة</h3><span class="count">مرن من اختبار واحد إلى عدة اختبارات</span></div>
     <div class="exam-period-tools">
       <label style="flex:1;min-width:170px">الفترة<select class="inp" id="exam-period"><option value="1">الفترة الأولى</option><option value="2">الفترة الثانية</option></select></label>
@@ -868,7 +959,14 @@ header .brand{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     <div class="exam-book-tools">
       <div class="exam-summary" id="exam-config-summary"></div>
       <div id="exam-test-list" class="exam-test-list"></div>
-      <div id="exam-vr-wrap" style="margin-top:10px;display:none">
+      <button class="btn primary wide" id="exam-add-test" type="button">＋ إضافة اختبار</button>
+    </div>
+    <div class="msg" id="exam-term-note"></div>
+  </div>
+  <div class="ex-info" id="exam-kpis"></div>
+  <div class="ex-tools"><button type="button" id="ex-voice-btn">🎤 بالصوت</button><button type="button" id="omr-open" onclick="omrOpen()">📷 بالكاميرا</button><button type="button" id="ex-miss-btn">⚠️ لم يُرصد فقط</button><button type="button" id="ex-search-btn" aria-label="بحث">🔍</button></div>
+  <div class="sheet" id="ex-voice" hidden>
+<div id="exam-vr-wrap" style="margin-top:10px;display:none">
         <div class="exam-vr-tools">
           <label>الرصد الصوتي للاختبار
             <select class="inp" id="exam-vr-test"></select>
@@ -885,19 +983,11 @@ header .brand{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         <div id="exam-vr-status" class="muted" style="margin-top:8px;min-height:20px;line-height:1.7"></div>
         <div id="exam-vr-log" class="muted" style="margin-top:6px;font-size:.78rem;line-height:1.8"></div>
       </div>
-      <button class="btn primary wide" id="exam-add-test" type="button">＋ إضافة اختبار</button>
-      <button class="btn wide omr-open-btn" id="omr-open" type="button" onclick="omrOpen()">📷 التصحيح الآلي بالكاميرا</button>
-    </div>
-    <div class="msg" id="exam-term-note"></div>
   </div>
-  <div class="kpis" id="exam-kpis"></div>
-  <div class="sheet">
-    <div class="section-head"><h3>رصد درجات الطلاب</h3><span class="count" id="exam-count"></span></div>
-    <div class="search"><span class="search-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span><input class="inp" id="exam-search" autocomplete="off" placeholder="ابحث عن طالب…"></div>
-<div class="exam-filter" id="exam-filter"></div>
-    <div id="exam-list" class="student-list" style="margin-top:9px"></div>
-  </div>
-  <div class="sheet"><div class="section-head"><h3>طريقة الاحتساب</h3></div><div class="msg" id="exam-rules"></div></div>
+  <div id="ex-search" hidden><div class="search"><span class="search-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span><input class="inp" id="exam-search" autocomplete="off" placeholder="ابحث عن طالب…"></div></div>
+  <div hidden><div class="exam-filter" id="exam-filter"></div><span id="exam-count"></span></div>
+  <div id="exam-list" class="ex-list"></div>
+  <div class="sheet" style="margin-top:12px"><div class="section-head"><h3>طريقة الاحتساب</h3></div><div class="msg" id="exam-rules"></div></div>
 </section>
 
 <!-- ══ المهام ══ -->
@@ -1304,24 +1394,39 @@ async function setMany(m,ids,status){const d=$('date').value||today();data[m][d]
   if(skip.length) ids=ids.filter(id=>!skip.includes(id));
   if(!ids.length){ toast(`لا أحد للرصد — ${skip.length} غائب${skip.length===1?'':'ون'} تُركوا كما هم`); return; }undoPush({kind:'status',m,st:status,names:`${ids.length} طالب`,items:ids.map(id=>({d,id,prev:data[m][d][id]}))});ids.forEach(id=>data[m][d][id]={status,at:now});if(m==='participation')absHwSync(d,ids);localStorage.setItem('teacher_classroom_v1',JSON.stringify(data));await save();renderDaily();scheduleGrades();toast(`تم الرصد لـ ${ids.length} طالب`+(skip.length?` · تُجوِّز ${skip.length} غائب`:''))}
 let unrecOnly=false;
+/* 📋 الرصد: صف واحد لكل طالب — المشاركة (✅ ✋ 🚫) والواجب (📗 📕) معًا.
+   الغائب: واجبه «معذور» تلقائيًا (absHwSync) فلا تظهر أزرار واجبه.
+   «الباقي»: يرصد من لم يُرصد له فقط ولا يغيّر شيئًا رصدته بيدك. */
+const RD_P=[['شارك','✅','g'],['لم يشارك','✋','r'],['غائب','🚫','a']], RD_H=[['أنجز','📗','g'],['لم ينجز','📕','r']];
 function renderDaily(){
  const cls=$('cls').value||'', d=$('date').value||today(), all=list(cls), q=String($('roster-search').value||'').trim();
- // ⚠️ رصد جزئي: من بقي بلا رصد اليوم (لا يظهر قبل أن تبدأ، حتى لا يكون إزعاجًا)
- const un=all.filter(s=>!rec(mode,d,s.id));
+ const pOf=id=>rec('participation',d,id), hOf=id=>rec('homework',d,id);
+ const absent=id=>ABSENT_ST.includes(pOf(id));
+ const un=all.filter(s=>!pOf(s.id));
  if(!un.length) unrecOnly=false;
- if($('unrec')) $('unrec').innerHTML=(un.length && un.length<all.length)
-   ? `<div class="unrec"><span>⚠️ ${un.length} ${un.length===1?'طالب':'طلاب'} بلا رصد اليوم: ${esc(un.slice(0,4).map(s=>s.name.split(' ')[0]).join('، '))}${un.length>4?' …':''}</span><button type="button" class="btn sm" onclick="unrecOnly=!unrecOnly;renderDaily()">${unrecOnly?'إظهار الكل':'إظهارهم'}</button></div>` : '';
  const base=unrecOnly?un:all;
  const L=q?base.filter(s=>s.name.includes(q)):base;
- const statuses=mode==='participation'?['شارك','لم يشارك','غائب']:['أنجز','لم ينجز','معذور'];
- const good=statuses[0];
- const counts=Object.fromEntries(statuses.map(x=>[x,0]));all.forEach(s=>{const st=rec(mode,d,s.id);if(st)counts[st]=(counts[st]||0)+1});
- $('kpis').innerHTML=`<div class="kpi">الطلاب<b>${all.length}</b></div>`+statuses.map(x=>`<div class="kpi">${esc(x)}<b>${counts[x]||0}</b></div>`).join('');
- $('student-count').textContent=`${L.length} من ${all.length}`;
+ const cnt=v=>all.filter(s=>v==='غائب'?absent(s.id):pOf(s.id)===v).length;
+ $('kpis').innerHTML=`<span class="g">شارك<b>${cnt('شارك')}</b></span><span class="r">لم يشارك<b>${cnt('لم يشارك')}</b></span><span class="a">غائب<b>${cnt('غائب')}</b></span>`
+   +`<button type="button" class="u${unrecOnly?' on':''}" onclick="unrecOnly=!unrecOnly;renderDaily()" title="${unrecOnly?'إظهار الكل':'إظهار من لم يُرصد فقط'}">${unrecOnly?'↩︎ الكل':'بلا رصد'}<b>${un.length}</b></button>`;
+ $('student-count').textContent=L.length===all.length?`(${all.length})`:`(${L.length} من ${all.length})`;
+ const b=(id,m,cur,[v,ic,c])=>`<button type="button" class="rd-b ${c}${(cur===v||(v==='غائب'&&cur==='غائب بعذر'))?' on':''}" data-set="${esc(id)}" data-m="${m}" data-status="${esc(v)}" title="${esc(v)}" aria-label="${esc(v)}" aria-pressed="${cur===v}">${ic}</button>`;
  $('students-roster').innerHTML=L.map((s,i)=>{
-   const st=rec(mode,d,s.id);
-   return `<div class="student"><div class="student-top"><span class="student-num">${i+1}</span><div class="grow"><button class="student-name" style="border:0;background:none;padding:0;text-align:right" data-profile="${esc(s.id)}">${esc(s.name)}</button><div class="muted">${esc(s.cls||'بدون فصل')}</div></div><div class="status-line">${esc(st||'لم يُرصد')}</div></div><div class="status" data-n="${statuses.length}">${statuses.map(x=>`<button class="btn ${(st===x||(x==='غائب'&&st==='غائب بعذر'))?(x===good?'tick':'gold'):''}" data-set="${esc(s.id)}" data-status="${esc(x)}">${esc(x)}</button>`).join('')}</div></div>`;
+   const p=pOf(s.id), h=hOf(s.id), ab=absent(s.id);
+   return `<div class="rd-row${ab?' abs':''}${p?'':' un'}"><button type="button" class="rd-nm" data-profile="${esc(s.id)}"><i>${i+1}</i><span>${esc(s.name)}</span></button>
+     <div class="rd-g">${RD_P.map(x=>b(s.id,'participation',p,x)).join('')}</div>
+     <div class="rd-g">${ab?`<span class="rd-exc" title="الغائب معذور في واجب يومه تلقائيًا">معذور</span>`:RD_H.map(x=>b(s.id,'homework',h,x)).join('')}</div></div>`;
  }).join('')||'<div class="empty">لا يوجد طلاب مطابقون.</div>';
+ // ✅ الباقي: المشاركة دائمًا، والواجب فقط بعد أن تبدأ رصده اليوم (حتى لا يُكتب «أنجز» في يوم بلا واجب)
+ const restP=all.filter(s=>!pOf(s.id)), hwStarted=all.some(s=>{const h=hOf(s.id);return h==='أنجز'||h==='لم ينجز'});
+ const restH=hwStarted?all.filter(s=>!absent(s.id)&&!hOf(s.id)):[];
+ $('rd-done').innerHTML=(restP.length||restH.length)?`${restP.length?`<button type="button" class="rd-rest" onclick="rdRest('participation')">✅ الباقي (${restP.length}): شارك<small>لا يغيّر ما رصدته — والغائب يبقى غائبًا</small></button>`:''}${restH.length?`<button type="button" class="rd-rest h" onclick="rdRest('homework')">📗 الباقي (${restH.length}): أنجز<small>لمن لم يُرصد واجبه</small></button>`:''}`
+   :(all.length?'<div class="rd-all">✓ رُصد الفصل كاملًا</div>':'');
+}
+function rdRest(m){
+ const d=$('date').value||today(), all=list($('cls').value||'');
+ const ids=all.filter(s=>!rec(m,d,s.id)).map(s=>s.id);
+ if(ids.length) setMany(m,ids,m==='participation'?'شارك':'أنجز');
 }
 function searchPeople(inputId,resultId,selectedId,kind){
  const q=String($(inputId).value||'').trim();const cls=$('cls').value||'';const pool=list(cls);const out=q?pool.filter(s=>s.name.includes(q)).slice(0,8):[];
@@ -2536,46 +2641,102 @@ async function deleteExamTest(id){
   for(const sid of Object.keys(b.scores||{})){if(b.scores[sid])delete b.scores[sid][String(id)];}
   renderExamConfig();renderExamGrades();await save();toast('تم حذف الاختبار');
 }
-async function setExamScore(sid,testId,value){
+async function setExamScore(sid,testId,value,quiet){
   if(academicClosed()){toast('الفصل مغلق. افتحه للضرورة أولًا.');renderExamGrades();return}
   const b=examBook(),t=b.tests.find(x=>String(x.id)===String(testId));if(!t)return;
   const n=String(value).trim(), bucket=b.scores[String(sid)]=b.scores[String(sid)]||{};
   if(n===''){delete bucket[String(testId)];if(!Object.keys(bucket).length)delete b.scores[String(sid)];}
+  // 🚫 غائب: علامة فقط — لا درجة (تُحتسب كدرجة لم تُرصد حتى تُرصد له درجة)، لكنه لا يُعدّ «لم يُرصد»
+  else if(n==='غ'||n==='غائب'){bucket[String(testId)]={absent:true,at:Date.now()};}
   else{const score=Math.max(0,Math.min(Number(t.max)||0,Number(n)));if(!Number.isFinite(score))return;bucket[String(testId)]={score,at:Date.now()};}
   renderExamGrades();
-  if(examFilter.mode==='missing'&&n!==''){const next=document.querySelector(`#exam-list input[data-missing="1"]${examFilter.test?`[data-exam-test="${examFilter.test}"]`:''}`);if(next)setTimeout(()=>next.focus(),30);}
-  await save();toast('تم حفظ الدرجة');
+  await save();if(!quiet)toast('تم حفظ الدرجة');
 }
 /* 📝 من لم يُرصد له: يُحسب من الدرجات الخام لكل اختبار (خانة فارغة = لم يُرصد).
    فلتر: الكل · لم يُرصد · مكتمل، ولأي اختبار أو اختبار بعينه. */
 let examFilter={mode:'all',test:''};
 function examMissingTests(sid){
   const b=examBook(),by=b.scores[String(sid)]&&typeof b.scores[String(sid)]==='object'?b.scores[String(sid)]:{};
-  return b.tests.filter(t=>{const v=by[String(t.id)];const sc=v&&typeof v==='object'?v.score:v;return sc==null||sc===''||!Number.isFinite(Number(sc))});
+  return b.tests.filter(t=>{const v=by[String(t.id)];if(v&&typeof v==='object'&&v.absent)return false;const sc=v&&typeof v==='object'?v.score:v;return sc==null||sc===''||!Number.isFinite(Number(sc))});
 }
 function examIsMissing(sid){const miss=examMissingTests(sid);return examFilter.test?miss.some(t=>String(t.id)===examFilter.test):miss.length>0}
 function setExamFilter(mode,test){examFilter={mode:mode||examFilter.mode,test:test==null?examFilter.test:test};renderExamGrades();}
+/* الاختبار الظاهر: يُختار من الأزرار أعلى الصفحة، وتعمل عليه القائمة ولوحة الأرقام والفلتر */
+let EX_CUR='';
+function exCurTest(){const b=examBook();let t=b.tests.find(x=>String(x.id)===EX_CUR);
+  if(!t){t=b.tests.find(x=>list($('cls')?.value||'').some(s=>examMissingTests(s.id).some(m=>m.id===x.id)))||b.tests[b.tests.length-1];EX_CUR=t?String(t.id):'';}
+  return t||null;}
+function exPick(id){EX_CUR=String(id);examFilter.test=EX_CUR;if($('exam-vr-test'))$('exam-vr-test').value=EX_CUR;exKbClose(false);renderExamGrades();}
+function exVal(sid,t){const v=((examBook().scores[String(sid)]||{})[String(t.id)]);if(v&&typeof v==='object'&&v.absent)return 'غ';const sc=v&&typeof v==='object'?v.score:v;return sc==null||sc===''||!Number.isFinite(Number(sc))?'':String(Number(sc));}
 function renderExamGrades(){
-  const cls=$('cls')?.value||'',q=String($('exam-search')?.value||'').trim(),b=examBook(),max=examMaxTotal();
-  if(examFilter.test&&!b.tests.some(t=>String(t.id)===examFilter.test))examFilter.test='';
+  const cls=$('cls')?.value||'',q=String($('exam-search')?.value||'').trim(),b=examBook(),max=examMaxTotal(),t=exCurTest(),locked=academicClosed();
+  examFilter.test=t?String(t.id):'';
   const base=list(cls).filter(s=>!q||s.name.includes(q));
-  const nMiss=b.tests.length?base.filter(s=>examIsMissing(s.id)).length:0, nDone=base.length-nMiss;
-  const all=base,rows=!b.tests.length||examFilter.mode==='all'?base:base.filter(s=>examFilter.mode==='missing'?examIsMissing(s.id):!examIsMissing(s.id));
-  if($('exam-filter'))$('exam-filter').innerHTML=b.tests.length?`<div class="ef-chips">
-    <button type="button" class="ef-chip ${examFilter.mode==='all'?'on':''}" onclick="setExamFilter('all')">الكل <b>${base.length}</b></button>
-    <button type="button" class="ef-chip miss ${examFilter.mode==='missing'?'on':''}" onclick="setExamFilter('missing')">⚠️ لم يُرصد <b>${nMiss}</b></button>
-    <button type="button" class="ef-chip done ${examFilter.mode==='done'?'on':''}" onclick="setExamFilter('done')">✓ مكتمل <b>${nDone}</b></button></div>
-    ${b.tests.length>1?`<select class="inp ef-test" onchange="setExamFilter(null,this.value)" aria-label="الاختبار"><option value="">في أي اختبار</option>${b.tests.map(t=>`<option value="${esc(t.id)}" ${examFilter.test===String(t.id)?'selected':''}>في ${esc(t.title)}</option>`).join('')}</select>`:''}`:'';
-  const vals=rows.map(s=>examFor(s.id)).filter(v=>Number.isFinite(v));
-  const avg=vals.length?(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1):'—';
-  if($('exam-kpis'))$('exam-kpis').innerHTML=`<div class="kpi">الطلاب<b>${base.length}</b></div><div class="kpi">مكتمل الرصد<b>${nDone}</b></div><button type="button" class="kpi kpi-miss ${nMiss?'has':''}" onclick="setExamFilter('missing');document.getElementById('exam-filter')?.scrollIntoView({behavior:'smooth',block:'start'})">لم يُرصد<b>${nMiss}</b><small>اعرضهم</small></button><div class="kpi">متوسط النهائي<b>${avg}</b><small>/20</small></div>`;
-  if($('exam-count'))$('exam-count').textContent=examFilter.mode==='all'?`${rows.length} طالب`:`${rows.length} من ${base.length}`;
+  const rows=!t||examFilter.mode!=='missing'?base:base.filter(s=>examIsMissing(s.id));
+  if($('ex-chips'))$('ex-chips').innerHTML=b.tests.map(x=>`<button type="button" class="${t&&String(t.id)===String(x.id)?'on':''}" onclick="exPick('${esc(String(x.id))}')">${esc(x.title)} · من ${fmt(x.max)}</button>`).join('')+(locked?'':'<button type="button" class="add" onclick="addExamTest()">＋ اختبار</button>');
+  if($('ex-miss-btn')){$('ex-miss-btn').classList.toggle('on',examFilter.mode==='missing');$('ex-miss-btn').textContent=examFilter.mode==='missing'?'↩︎ الكل':'⚠️ لم يُرصد فقط';}
+  const all=list(cls), vals=t?all.map(s=>exVal(s.id,t)):[], done=vals.filter(v=>v!=='').length, nums=vals.filter(v=>v!==''&&v!=='غ').map(Number), abs=vals.filter(v=>v==='غ').length;
+  if($('exam-kpis'))$('exam-kpis').innerHTML=t?`<span>رُصد<b>${done} / ${all.length}</b></span><span>المتوسط<b>${nums.length?fmt(Math.round(nums.reduce((a,c)=>a+c,0)/nums.length*10)/10):'—'}<small> / ${fmt(t.max)}</small></b></span><span>الغائبون<b>${abs}</b></span>`:'';
+  if($('exam-count'))$('exam-count').textContent=`${rows.length} طالب`;
   const tr=academicPeriod();
-  if($('exam-term-note'))$('exam-term-note').textContent=`${gradeSemester===1?'الفصل الدراسي الأول':'الفصل الدراسي الثاني'} · ${gradePeriod===1?'الفترة الأولى':'الفترة الثانية'}${tr.start&&tr.end?`: ${tr.start} إلى ${tr.end}`:''} · ${academicClosed()?'🔒 الفصل مغلق':'🔓 الفصل مفتوح'} · ${b.tests.length?`${b.tests.length} اختبار · مجموع خام ${fmt(max)} → نهائي من 20`:'لم تُضف اختبارات بعد'}`;
-  if($('exam-rules'))$('exam-rules').textContent=b.tests.length?`النهائي من 20 يُحسب نسبيًا: مجموع درجة الطالب في كل الاختبارات ÷ مجموع الدرجات القصوى لكل الاختبارات × 20. مثال: اختباران 10+10 = مجموع من 20، ثلاثة اختبارات 10+10+10 = مجموع من 30 ثم يُحوّل نسبيًا إلى 20، واختبار واحد من 10 يُحوّل ×2 إلى 20.`:'أضف اختبارًا واحدًا أو أكثر. النظام يحوّل مجموع الاختبارات في هذه الفترة إلى 20 تلقائيًا.';
-  if($('exam-list'))$('exam-list').innerHTML=rows.map((s,i)=>{const raw=b.scores[String(s.id)]&&typeof b.scores[String(s.id)]==='object'?b.scores[String(s.id)]:{};const final=examFor(s.id),miss=examMissingTests(s.id);return `<div class="exam-student-card${miss.length?' exam-missing':''}"><div class="exam-student-head"><div class="student-num">${i+1}</div><div class="grow"><b>${esc(s.name)}</b><div class="muted">${esc(s.cls||'بدون فصل')}</div></div>${miss.length?`<span class="exam-miss-badge">⚠️ ${miss.length===b.tests.length?'لم يُرصد له أي اختبار':'لم يُرصد: '+miss.map(t=>esc(t.title)).join('، ')}</span>`:(b.tests.length?'<span class="exam-done-badge">✓ مكتمل</span>':'')}</div><div class="exam-score-grid">${b.tests.map(t=>{const rv=raw[String(t.id)];const sc=rv&&typeof rv==='object'?rv.score:rv;return `<div class="exam-score-cell"><label title="${esc(t.title)}">${esc(t.title)} <span class="exam-test-max-note">/ ${fmt(t.max)}</span></label><input class="exam-score-input" type="number" min="0" max="${Number(t.max)||0}" step="0.5" inputmode="decimal" value="${sc==null?'':sc}" placeholder="${sc==null||sc===''?'لم يُرصد':'—'}" ${sc==null||sc===''?'data-missing="1"':''} data-exam-score="${esc(s.id)}" data-exam-test="${esc(t.id)}" aria-label="${esc(t.title)} للطالب ${esc(s.name)}" ${academicClosed()?'disabled':''}></div>`}).join('')}</div><div class="exam-student-total"><span>المجموع المحوّل</span><span>${final==null?'—':fmt(final)} <small>/20</small></span></div></div>`}).join('')||'<div class="empty">لا يوجد طلاب مطابقون.</div>';
+  if($('exam-term-note'))$('exam-term-note').textContent=`${gradeSemester===1?'الفصل الدراسي الأول':'الفصل الدراسي الثاني'} · ${gradePeriod===1?'الفترة الأولى':'الفترة الثانية'}${tr.start&&tr.end?`: ${tr.start} إلى ${tr.end}`:''} · ${locked?'🔒 الفصل مغلق':'🔓 الفصل مفتوح'} · ${b.tests.length?`${b.tests.length} اختبار · مجموع خام ${fmt(max)} → نهائي من 20`:'لم تُضف اختبارات بعد'}`;
+  if($('exam-rules'))$('exam-rules').textContent=b.tests.length?`النهائي من 20 يُحسب نسبيًا: مجموع درجة الطالب في كل الاختبارات ÷ مجموع الدرجات القصوى لكل الاختبارات × 20. مثال: اختباران 10+10 = مجموع من 20، ثلاثة اختبارات 10+10+10 = مجموع من 30 ثم يُحوّل نسبيًا إلى 20، واختبار واحد من 10 يُحوّل ×2 إلى 20. الغائب يُعامل كمن لم تُرصد درجته حتى تُرصد له درجة.`:'أضف اختبارًا واحدًا أو أكثر. النظام يحوّل مجموع الاختبارات في هذه الفترة إلى 20 تلقائيًا.';
+  if(!t){ if($('exam-list'))$('exam-list').innerHTML='<div class="empty">أضف اختبارًا من «＋ اختبار» لتبدأ الرصد.</div>'; return; }
+  if($('exam-list'))$('exam-list').innerHTML=rows.map((s,i)=>{const v=exVal(s.id,t), final=examFor(s.id), cur=EXKB.sid===String(s.id);
+    const shown=cur?(EXKB.buf===''?'':EXKB.buf):v;
+    return `<div class="ex-row${cur?' cur':''}" data-ex-row="${esc(s.id)}"><div class="ex-nm"><i>${i+1}</i><span>${esc(s.name)}${b.tests.length>1||final!=null?`<small>النهائي ${final==null?'—':fmt(final)} / 20</small>`:''}</span></div>
+      <button type="button" class="ex-cell${cur?' f':shown==='غ'?' ab':shown!==''?' ok':''}" data-ex-cell="${esc(s.id)}" ${locked?'disabled':''} aria-label="درجة ${esc(s.name)}">${shown==='غ'?'غائب':esc(shown)}${cur?'<em class="ex-caret"></em>':''}</button>
+      <button type="button" class="ex-full" data-ex-full="${esc(s.id)}" ${locked?'disabled':''} title="درجة كاملة (${fmt(t.max)})" aria-label="درجة كاملة">💯</button></div>`;}).join('')||`<div class="empty">${examFilter.mode==='missing'?'✓ رُصد الجميع في هذا الاختبار':'لا يوجد طلاب مطابقون.'}</div>`;
 }
-
+/* ⌨️ لوحة أرقام الاختبارات: سطران فقط، والطالب الحالي يُرفع فوقها دائمًا */
+const EXKB={sid:'',buf:'',orig:''};
+function exKbEl(){let k=$('ex-kb');if(k)return k;k=document.createElement('div');k.id='ex-kb';k.hidden=true;
+  k.innerHTML=`<div class="exk-h">✏️ <b id="exk-name"></b><span id="exk-max"></span><button type="button" class="exk-x" data-k="x" aria-label="إغلاق اللوحة">✕</button></div>
+  <div class="exk-d">${[1,2,3,4,5,6,7,8,9,0].map(n=>`<button type="button" data-k="${n}">${n}</button>`).join('')}</div>
+  <div class="exk-e"><button type="button" data-k=".">.</button><button type="button" data-k="del" aria-label="مسح">⌫</button><button type="button" class="ab" data-k="abs">غائب</button><button type="button" class="nx" data-k="next" id="exk-next">التالي ⬇️</button></div>`;
+  k.addEventListener('click',e=>{const b=e.target.closest('[data-k]');if(b)exKbKey(b.dataset.k)});
+  document.body.appendChild(k);return k;}
+function exRowsSids(){return [...document.querySelectorAll('#exam-list [data-ex-row]')].map(x=>x.dataset.exRow);}
+function exKbOpen(sid){
+  const t=exCurTest();if(!t||academicClosed())return;
+  const s=students.find(x=>x.id===String(sid));if(!s)return;
+  EXKB.sid=String(sid);EXKB.orig=exVal(sid,t);EXKB.buf=EXKB.orig==='غ'?'':EXKB.orig;
+  const k=exKbEl();k.hidden=false;document.body.classList.add('ex-kb-on');
+  $('exk-name').textContent=s.name;$('exk-max').textContent='من '+fmt(t.max);
+  const ids=exRowsSids(),nx=ids[ids.indexOf(EXKB.sid)+1],ns=nx&&students.find(x=>x.id===nx);
+  $('exk-next').textContent=ns?'التالي ⬇️':'حفظ ✓';
+  renderExamGrades();exKbScroll();
+}
+function exKbScroll(){const r=document.querySelector(`#exam-list [data-ex-row="${CSS.escape(EXKB.sid)}"]`),k=$('ex-kb');if(!r||!k)return;
+  const kt=k.getBoundingClientRect().top,rb=r.getBoundingClientRect().bottom,hd=document.querySelector('header'),top=(hd?hd.offsetHeight:0)+8;
+  if(rb>kt-10||r.getBoundingClientRect().top<top)window.scrollBy({top:rb-(kt-12),behavior:'smooth'});}
+async function exKbCommit(){
+  const t=exCurTest();if(!t||!EXKB.sid)return true;
+  const v=EXKB.buf;if(v===EXKB.orig||(v===''&&EXKB.orig==='غ'))return true;
+  if(v!==''&&Number(v)>Number(t.max)){toast(`الدرجة أعلى من القصوى (${fmt(t.max)})`);return false;}
+  if(v===''&&EXKB.orig===''){return true;}
+  await setExamScore(EXKB.sid,t.id,v,true);return true;
+}
+function exKbClose(commit){
+  const go=async()=>{if(commit&&!(await exKbCommit()))return;EXKB.sid='';EXKB.buf='';const k=$('ex-kb');if(k)k.hidden=true;document.body.classList.remove('ex-kb-on');renderExamGrades();};
+  if(!EXKB.sid){const k=$('ex-kb');if(k)k.hidden=true;document.body.classList.remove('ex-kb-on');return;}
+  go();
+}
+async function exKbKey(k){
+  if(!EXKB.sid)return;
+  if(k==='x'){exKbClose(true);return}
+  const ids=exRowsSids(),next=ids[ids.indexOf(EXKB.sid)+1]||'';
+  if(k==='next'){if(!(await exKbCommit()))return;if(next)exKbOpen(next);else{exKbClose(false);toast('✓ انتهى الرصد');}return}
+  if(k==='abs'){const t=exCurTest();await setExamScore(EXKB.sid,t.id,'غ',true);if(next)exKbOpen(next);else exKbClose(false);return}
+  if(k==='del')EXKB.buf=EXKB.buf.slice(0,-1);
+  else if(k==='.'){if(!EXKB.buf.includes('.'))EXKB.buf=(EXKB.buf||'0')+'.';}
+  else if(/^\d$/.test(k)){if(EXKB.buf.replace('.','').length<4)EXKB.buf=(EXKB.buf==='0'&&k!=='.'?'':EXKB.buf)+k;}
+  const t=exCurTest();if(t&&EXKB.buf!==''&&Number(EXKB.buf)>Number(t.max))toast(`أعلى من القصوى (${fmt(t.max)})`);
+  const c=document.querySelector(`#exam-list [data-ex-cell="${CSS.escape(EXKB.sid)}"]`);if(c)c.innerHTML=esc(EXKB.buf)+'<em class="ex-caret"></em>';
+}
+document.addEventListener('keydown',e=>{if(!EXKB.sid||e.target.closest('input,textarea,select'))return;
+  const m=e.key==='Enter'?'next':e.key==='Backspace'?'del':e.key==='Escape'?'x':/^[0-9.]$/.test(e.key)?e.key:/^[٠-٩]$/.test(e.key)?String('٠١٢٣٤٥٦٧٨٩'.indexOf(e.key)):'';
+  if(m){e.preventDefault();exKbKey(m);}});
 function renderGrades(){
  const cls=$('cls')?.value||'',q=String($('grade-search')?.value||'').trim();
  const{start,end,explicit}=termRange();
@@ -2916,6 +3077,8 @@ function wire(){
  CLASS_SELECTS.forEach(id=>{const e=$(id);if(e)e.addEventListener('change',()=>setCurrentClass(e.value))});
  $('date').addEventListener('change',()=>{renderDaily();renderQuick('quick');renderRecords()});
  $('roster-search').addEventListener('input',renderDaily);
+ $('rd-search-btn').onclick=()=>{const w=$('rd-search');w.hidden=!w.hidden;$('rd-search-btn').classList.toggle('on',!w.hidden);if(!w.hidden)$('roster-search').focus();else{$('roster-search').value='';renderDaily()}};
+ $('rd-tools-btn').onclick=()=>{const w=$('rd-tools');w.hidden=!w.hidden;$('rd-tools-btn').classList.toggle('on',!w.hidden);if(!w.hidden)$('quick-search').focus()};
  $('bulk-done').onclick=bulkDone;$('bulk-absent').onclick=bulkAbsent;
  const setMode=m=>{mode=m;$('mode-part').classList.toggle('on',m==='participation');$('mode-home').classList.toggle('on',m==='homework');renderDaily()};
  $('mode-part').onclick=()=>setMode('participation');$('mode-home').onclick=()=>setMode('homework');
@@ -2943,6 +3106,12 @@ function wire(){
   $('grade-period').onchange=()=>{gradePeriod=Number($('grade-period').value)===2?2:1;renderExamConfig();loadGrades();renderExamGrades()};
   $('exam-period').onchange=()=>{gradePeriod=Number($('exam-period').value)===2?2:1;if(examVrOn)examVrStop();if($('grade-period'))$('grade-period').value=String(gradePeriod);renderExamConfig();loadGrades();renderExamGrades()};
   $('exam-search').addEventListener('input',renderExamGrades);
+  $('ex-setup-btn').onclick=()=>{const w=$('ex-setup');w.hidden=!w.hidden;$('ex-setup-btn').classList.toggle('on',!w.hidden)};
+  $('ex-voice-btn').onclick=()=>{if(!VR_SUP){toast('الرصد الصوتي غير مدعوم في هذا المتصفح');return}const w=$('ex-voice');w.hidden=!w.hidden;$('ex-voice-btn').classList.toggle('on',!w.hidden);if($('exam-vr-test')&&EX_CUR)$('exam-vr-test').value=EX_CUR};
+  $('ex-miss-btn').onclick=()=>setExamFilter(examFilter.mode==='missing'?'all':'missing');
+  $('ex-search-btn').onclick=()=>{const w=$('ex-search');w.hidden=!w.hidden;$('ex-search-btn').classList.toggle('on',!w.hidden);if(!w.hidden)$('exam-search').focus();else{$('exam-search').value='';renderExamGrades()}};
+  $('exam-list').addEventListener('click',e=>{const c=e.target.closest('[data-ex-cell]');if(c){exKbOpen(c.dataset.exCell);return}
+    const f=e.target.closest('[data-ex-full]');if(f){const t=exCurTest();if(t){if(EXKB.sid===f.dataset.exFull){EXKB.buf=String(t.max);exKbKey('next')}else setExamScore(f.dataset.exFull,t.id,String(t.max),true).then(()=>toast(`💯 ${fmt(t.max)}`))}}});
   $('exam-add-test').onclick=addExamTest;
  $('rec-part').onclick=()=>selectRecordTab('participation');$('rec-home').onclick=()=>selectRecordTab('homework');$('rec-beh').onclick=()=>selectRecordTab('behavior');
  document.querySelectorAll('.back').forEach(b=>b.onclick=()=>openTeacherPanel('home'));
@@ -2979,7 +3148,7 @@ function wire(){
   if(d.attClose!==undefined){attStudentId='';renderAttendance();return}
   if(d.exc!==undefined){const[sid,dt,mk]=d.exc.split('|');toggleExcused(sid,dt,mk==='1');return}
   if(d.profile!==undefined){openStudentProfile(d.profile);return}
-  if(d.set!==undefined){setOne(mode,d.set,d.status,true);return}
+  if(d.set!==undefined){setOne(d.m||mode,d.set,d.status,true);return}
   if(d.pick!==undefined){selectSearch(d.pick,d.id);return}
   if(d.pickmsg!==undefined){selectMessageStudent(d.pickmsg);return}
   if(d.clear!==undefined){clearPick(d.clear);return}
