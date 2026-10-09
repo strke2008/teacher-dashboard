@@ -1936,7 +1936,7 @@ function vrMoveTo(ctx){
    • إن رفض الجهاز إعادة الاستماع يظهر «⏸️ تابِع» بدل صمت مخادع.
    • محرّك واحد يعمل في كل لحظة: بدء أي استماع يوقف الآخر.
    • سجل أحداث مختصر: اضغط على شريط الاستماع لعرضه (للتشخيص). */
-const VB_VER = 'صوت ٩';
+const VB_VER = 'صوت ١٠';
 const VB_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 /* 🍎 iPhone — جلسة استماع واحدة للصفحة كلها، مشتركة بين الرصد والسلوك والرسائل والاختبارات.
    ثبت من سجل الأحداث على جهاز المعلم:
@@ -1945,7 +1945,7 @@ const VB_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform
    لذا: جلسة مستمرة واحدة تبدأ بلمستك، و«إيقاف» يكتمها فقط (دقيقتان) بدل إغلاقها؛
    فإن فتحت الصوت مجددًا خلالها يكمل فورًا. بعدها تُغلق، ويُعاد تشغيل الكائن نفسه عند الحاجة.
    النص فيها يطول مع كلامك: نعتمد الجديد منه بعد سكوتك 1.3 ث (بعدّ الكلمات — iPhone يعدّل ما قبله). */
-const VBI = { rec:null, active:false, owner:null, n:{}, idleT:0, offT:0, pend:null };
+const VBI = { rec:null, active:false, owner:null, n:{}, idleT:0, offT:0, pend:null, err:'', endedAt:0 };
 const vbiWords = t => vrNorm(t).split(' ').filter(Boolean);
 function vbiCommit(i, t, why){
   const E = VBI.owner, w = vbiWords(t), n = VBI.n[i] || 0;
@@ -1957,7 +1957,7 @@ function vbiRec(fresh){
   if(VBI.rec && !fresh) return VBI.rec;
   const r = new VR_SUP();
   r.lang = 'ar-SA'; r.interimResults = true; r.maxAlternatives = 1; r.continuous = true;
-  r.onstart = () => { VBI.active = true; VBI.n = {}; VBI.owner && VBI.owner.L('start'); };
+  r.onstart = () => { VBI.active = true; VBI.n = {}; VBI.err = ''; VBI.owner && VBI.owner.L('start'); };
   r.onresult = ev => {
     if(VBI.rec !== r) return;
     const E = VBI.owner, from = typeof ev.resultIndex === 'number' ? ev.resultIndex : 0;
@@ -1973,14 +1973,15 @@ function vbiRec(fresh){
     }
   };
   r.onerror = e => { const err = (e && e.error) || '?', E = VBI.owner; E && E.L('error ' + err);
+    if(err === 'audio-capture') VBI.err = err;      // الميكروفون مشغول: الكائن قد يعلق ⟵ نصنع جديدًا عند «تابِع»
     if((err === 'not-allowed' || err === 'service-not-allowed') && E && E.on && !E.worked) E.fatal(); };
   r.onend = () => {
     if(VBI.rec !== r) return;
-    VBI.active = false; clearTimeout(VBI.idleT);
+    VBI.active = false; VBI.endedAt = Date.now(); clearTimeout(VBI.idleT);
     const E = VBI.owner; E && E.L('end');
     if(VBI.pend){ const q = VBI.pend; vbiCommit(q.i, q.t, 'end'); }
     VBI.pend = null;
-    if(E && E.on) E.pauseUI();                      // إعادة بلا لمسة = جلسة صمّاء ⟵ «تابِع»
+    if(E && E.on) E.pauseUI(VBI.err === 'audio-capture' ? '🎤 الميكروفون كان مشغولًا' : '');   // إعادة بلا لمسة = جلسة صمّاء ⟵ «تابِع»
   };
   VBI.rec = r; return r;
 }
@@ -1989,14 +1990,17 @@ function vbiGo(E){                                  // تُستدعى داخل �
   if(VBI.owner && VBI.owner !== E && VBI.owner.on) VBI.owner.stopAll();
   VBI.owner = E;
   if(VBI.active){ E.L('live'); return; }            // الجلسة تعمل (مكتومة): نكمل فورًا
-  try{ vbiRec().start(); E.L('go'); }
+  try{ if(typeof omrKillStreams === 'function' && OMR_STREAMS && OMR_STREAMS.size) omrKillStreams(); }catch(e){}   // الكاميرا تنافس الميكروفون
+  // بعد «audio-capture» قد يعلق الكائن نفسه: نبدأ بكائن جديد
+  const fresh = VBI.err === 'audio-capture'; VBI.err = '';
+  try{ vbiRec(fresh).start(); E.L(fresh ? 'go-new' : 'go'); }
   catch(e){ E.L('go-fail ' + (e && e.message || ''));
     try{ vbiRec(true).start(); E.L('go-new'); }catch(x){ E.L('go-fail2'); E.pauseUI(); } }
 }
 function vbiMute(E){
   E.L('stop'); clearTimeout(VBI.idleT); VBI.pend = null;
   clearTimeout(VBI.offT);
-  VBI.offT = setTimeout(() => { if(!(VBI.owner && VBI.owner.on) && VBI.active){ try{ VBI.rec.stop(); }catch(e){} } }, 120000);
+  VBI.offT = setTimeout(() => { if(!(VBI.owner && VBI.owner.on) && VBI.active){ try{ VBI.rec.stop(); }catch(e){} } }, 600000);   // ١٠ دقائق
 }
 document.addEventListener('visibilitychange', () => {   // مغادرة التطبيق: إغلاق حقيقي للميكروفون
   if(document.hidden && VBI.active && !(VBI.owner && VBI.owner.on)){ clearTimeout(VBI.offT); try{ VBI.rec.stop(); }catch(e){} }
@@ -2011,7 +2015,7 @@ function vbEngine(p, { onFinal, pick, onFatal, onStop }){
   function make(){
     const r = new VR_SUP();
     r.lang = 'ar-SA'; r.interimResults = true; r.maxAlternatives = 3; r.continuous = false;
-    r.onstart = () => { L('start'); E.fails = 0; };
+    r.onstart = () => { L('start'); E.fails = 0; E.audioErr = 0; };
     r.onresult = ev => {
       if(E.rec !== r) return;
       const res = ev.results[ev.results.length-1]; if(!res) return;
@@ -2022,6 +2026,7 @@ function vbEngine(p, { onFinal, pick, onFatal, onStop }){
     };
     r.onerror = e => {
       const err = (e && e.error) || '?'; L('error ' + err);
+      if(err === 'audio-capture'){ E.audioErr = (E.audioErr||0) + 1; if(E.audioErr >= 2){ E.audioErr = 0; pause('🎤 الميكروفون مشغول'); } return; }
       if(err === 'not-allowed' || err === 'service-not-allowed'){
         if(E.worked){ pause(); return; }            // كان يعمل ثم رُفضت الإعادة: «تابِع» بلمسة
         E.on = false; clearTimeout(E.restartT);
@@ -2046,13 +2051,13 @@ function vbEngine(p, { onFinal, pick, onFatal, onStop }){
   }
   E.L = L; E.fire = fire;
   E.fatal = () => { E.on = false; try{ onFatal && onFatal('تعذّر استخدام الميكروفون — لم يُسمح بالإذن. فعّله من إعدادات المتصفح.'); }catch(x){} };
-  E.pauseUI = () => { L('paused');
-    vbLive(p, `⏸️ توقف الاستماع <button type="button" class="vb-resume" onclick="VB_ENGINES['${p}'].resume()">▶︎ تابِع</button>`);
+  E.pauseUI = (why) => { L('paused');
+    vbLive(p, `⏸️ ${why || 'توقف الاستماع'} <button type="button" class="vb-resume" onclick="VB_ENGINES['${p}'].resume()">▶︎ تابِع</button>`);
     try{ navigator.vibrate && navigator.vibrate(60); }catch(e){} };
-  function pause(){
+  function pause(why){
     clearTimeout(E.restartT); L('paused');
     const r = E.rec; E.rec = null; try{ r && r.abort && r.abort(); }catch(e){}
-    vbLive(p, `⏸️ توقف الاستماع <button type="button" class="vb-resume" onclick="VB_ENGINES['${p}'].resume()">▶︎ تابِع</button>`);
+    vbLive(p, `⏸️ ${why || 'توقف الاستماع'} <button type="button" class="vb-resume" onclick="VB_ENGINES['${p}'].resume()">▶︎ تابِع</button>`);
     try{ navigator.vibrate && navigator.vibrate(60); }catch(e){}
   }
   function go(){ E.fails = 0; E.pend = ''; let r; try{ r = make(); }catch(e){ return pause(); }
