@@ -1,7 +1,7 @@
 /* 🧩 ترتيب صفحة اليوم — لكل جهاز ترتيبه (الكمبيوتر غير الجوال) */
 const TL_KEY='dash_today_layout_v1';
-const TL_NAMES={tasks:'✅ مهام اليوم',week:'📅 هذا الأسبوع',alerts:'🔔 التنبيهات والطلبات',follow:'👥 يحتاجون متابعتك',recent:'🕐 آخر التسليمات',hw:'📚 حالة الأنشطة',stats:'📊 أرقام عامة'};
-const TL_DEF={order:['stats','tasks','week','follow','alerts','recent','hw'],w:{stats:6,tasks:2,week:2,follow:2,alerts:3,recent:3,hw:2},hide:{}};   // الافتراضي: ترتيب المعلم المختار
+const TL_NAMES={tasks:'✅ مهام اليوم',asks:'💬 رسائل الطلاب',week:'📅 هذا الأسبوع',alerts:'🔔 التنبيهات والطلبات',follow:'👥 يحتاجون متابعتك',recent:'🕐 آخر التسليمات',hw:'📚 حالة الأنشطة',stats:'📊 أرقام عامة'};
+const TL_DEF={order:['stats','tasks','asks','week','follow','alerts','recent','hw'],w:{stats:6,tasks:2,asks:2,week:2,follow:2,alerts:3,recent:3,hw:2},hide:{}};   // الافتراضي: ترتيب المعلم المختار
 const TL_W=[[2,'⅓'],[3,'½'],[4,'⅔'],[6,'كامل']];
 /* الطول: لبطاقات القوائم (التنبيهات، المتابعة، التسليمات، الأنشطة، الأرقام) — [المفتاح، الاسم، أقصى ارتفاع، عدد آخر التسليمات] */
 const TL_H=[['s','قصير','200px',5],['m','متوسط','320px',7],['l','طويل','560px',15],['x','طويل جدًا','none',40]];
@@ -9,7 +9,8 @@ function tlRows(k){ const h=tlGet().h[k]||'m'; return (TL_H.find(x=>x[0]===h)||T
 let TL_ON=false;
 function tlGet(){ let c=null; try{ c=JSON.parse(localStorage.getItem(TL_KEY)||'null'); }catch(e){}
   c=c&&typeof c==='object'?c:{}; const o=(Array.isArray(c.order)?c.order:[]).filter(k=>TL_DEF.order.includes(k));
-  TL_DEF.order.forEach(k=>{ if(!o.includes(k)) o.push(k); });
+  // بطاقة جديدة لم تكن في ترتيب المعلم المحفوظ: تُضاف بعد سابقتها في الترتيب الافتراضي (لا في الآخر)
+  TL_DEF.order.forEach((k,i)=>{ if(o.includes(k)) return; let at=o.length; for(let j=i-1;j>=0;j--){ const p=o.indexOf(TL_DEF.order[j]); if(p>=0){ at=p+1; break; } } o.splice(at,0,k); });
   return {order:o,w:{...TL_DEF.w,...(c.w||{})},h:{...(c.h||{})},hide:{...(c.hide||{})}}; }
 function tlSet(c){ try{ localStorage.setItem(TL_KEY,JSON.stringify(c)); }catch(e){} tlApply(); }
 function tlApply(){

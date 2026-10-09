@@ -1830,3 +1830,14 @@ thead .madr-name{background:var(--ui-surface-2,#F7FAFD)}
 .br-chip.np{background:rgba(100,116,139,.14);color:#475569}
 .br-row{position:relative}.br-par{display:flex;gap:.2rem;align-items:flex-start;flex:none}
 .br-row.off{opacity:1}.br-row.off>input,.br-row.off>.br-main{opacity:.55}   /* غير المحدد باهت، لكن زر ولي الأمر يبقى واضحًا */
+/* 💬 بطاقة رسائل الطلاب في صفحة اليوم */
+.ask-card .td-card-h{display:flex;align-items:center;gap:.45rem;flex-wrap:wrap}.ask-card .td-card-h .td-link{margin-inline-start:auto}
+.askc-list{display:grid;gap:.45rem;max-height:420px;overflow:auto;padding:.1rem}
+.askc{border:1px solid var(--ui-border,#e3e8ee);border-inline-start:3px solid #D6455B;border-radius:12px;padding:.55rem .65rem;background:var(--ui-bg,#f8fafc);display:grid;gap:.3rem}
+.askc-h{display:flex;flex-wrap:wrap;gap:.35rem;align-items:center;font-size:.84rem}.askc-t{margin-inline-start:auto;font-size:.74rem}
+.askc-hw{font-size:.76rem}
+.askc-q{font-size:.88rem;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.askc.ex .askc-q{-webkit-line-clamp:unset;display:block}
+.askc-b{display:flex;flex-wrap:wrap;gap:.35rem}
+.askc textarea{width:100%;box-sizing:border-box}
+

@@ -244,8 +244,7 @@ function tdTasks(){
   { const M=typeof TD_MAD!=='undefined'?TD_MAD:null;
     if(M&&M.pendingLogin) L.push({key:'madlogin:'+M.pendingLogin,lv:'warn',ic:'🔑',t:'مزامنة مدرستي تنتظر تسجيل دخولك — بعد الدخول تكتمل وحدها',acts:[['فتح مدرستي',"window.open('https://schools.madrasati.sa/','_blank','noopener')"]]});
     else if(M&&M.n&&M.last&&Date.now()-M.last>72*3600e3) L.push({key:'madstale:'+M.last,lv:'warn',ic:'📱',t:`آخر مزامنة لمدرستي ${remAgo(M.last)} — «من حل ومن لم يحل» قد لا يكون دقيقًا`,acts:[['🔄 زامن الآن','tdMadSync()']]}); }
-  { const q=(ASKS||[]).filter(x=>x.status==='open'); if(q.length) L.push({key:'ask:'+q.map(x=>x.id).join(','),lv:'bad',ic:'💬',noDone:true,
-      t:`${q.length===1?'رسالة من طالب تنتظر ردك':q.length===2?'رسالتان من الطلاب تنتظران ردك':q.length+' رسائل من الطلاب تنتظر ردك'} — ${q.slice(0,2).map(x=>tdShortName(x.name)).join('، ')}${q.length>2?'…':''}`,acts:[['💬 ردّ',"asksOpen()"]]}); }
+  // 💬 رسائل الطلاب لها بطاقتها المستقلة في صفحة اليوم (td-slot-asks) — لا تُكرَّر هنا
   { const ns=typeof nsOpenList==='function'?nsOpenList():[]; if(ns.length) L.push({doneJs:'tdAckAll(\'ns\')',key:'ns:'+ns.map(x=>x.s.id).join(','),lv:'warn',ic:'🚶',t:`${ns.length===1?'طالب واحد لم يبدأ':ns.length===2?'طالبان لم يبدآ':ns.length+' طلاب لم يبدؤوا'} بعد — لم ${ns.length===1?'يسلّم':ns.length===2?'يسلّما':'يسلّموا'} أي نشاط في البوابة`,acts:[['عرض','nsOpen()']]}); }
   thActions().forEach(([lv,ic,t,n,go])=>{
     if(/انتهت مواعيدها|ينتهي خلال يومين|متأخر(ون)? لم تذكّر/.test(t)) return;   // مغطّاة بأسطر الأنشطة أعلاه
@@ -299,6 +298,8 @@ function thDrawNow(){
       ${main.length?main.map(row).join(''):(TH_BUSY&&!CT_DATA?'<div class="muted" style="padding:.6rem">⏳ جارٍ الفحص…</div>':'<div class="td-empty">🌿 لا شيء عاجل — كل شيء تحت السيطرة</div>')}
       ${low.length?`<details class="td-low"><summary>أقل أهمية (${low.length})</summary>${low.map(row).join('')}</details>`:''}</div>`;
   const head=`${tdNowBar()}${tdKpis()}${tdAbsentLine()}`;
+  // لا نعيد رسم البطاقة والمعلم يكتب ردًا فيها (التحديث الدوري كان سيمسح ما كتبه)
+  { const sA=document.getElementById('td-slot-asks'); if(sA && !(sA.contains(document.activeElement) && /^(TEXTAREA|INPUT)$/.test(document.activeElement.tagName))){ try{ sA.innerHTML=asksCardHTML(); }catch(e){} } }
   if(sT&&sW){ box.innerHTML=head; sT.innerHTML=tasksHTML; sW.innerHTML=tdWeek(); try{ tlDecorate(); }catch(e){} }
   else box.innerHTML=head+tasksHTML+`<div class="td-weekcard">${tdWeek()}</div>`;
 }

@@ -36,14 +36,34 @@ function asksOpen(keep){
   if(keep&&document.getElementById('ask-inbox')){ const m=document.getElementById('ask-inbox').parentElement; if(m) m.innerHTML=html; return; }
   openModal(html);
 }
-function askQuick(id,t){ const ta=document.getElementById('askr-'+id); if(!ta) return; ta.value=ta.value?ta.value.trim()+' '+t:t; ta.focus(); }
-async function askSend(id,close){
-  const ta=document.getElementById('askr-'+id), reply=close?'':String(ta&&ta.value||'').trim();
+/* 💬 بطاقة «رسائل الطلاب» في صفحة اليوم: كل رسالة مفتوحة مع رد سريع، بلا فتح نافذة */
+const ASK_CARD_OPEN=new Set(), ASK_DRAFT={};
+function asksCardHTML(){
+  if(ASKS===null) return `<div class="td-card ask-card"><div class="td-card-h"><b>💬 رسائل الطلاب</b></div><div class="muted" style="padding:.5rem">⏳ جارٍ الجلب…</div></div>`;
+  const open=ASKS.filter(x=>x.status==='open').sort((a,b)=>(a.at||0)-(b.at||0)), done=ASKS.filter(x=>x.status!=='open');
+  const item=x=>{ const id=thEsc(x.id), ex=ASK_CARD_OPEN.has(x.id);
+    return `<div class="askc ${ex?'ex':''}"><div class="askc-h"><b>${thEsc(x.name)}</b><span class="muted">${thEsc(x.cls||'')}</span>${ASK_CATS[x.cat]?`<span class="ask-cat">${thEsc(ASK_CATS[x.cat])}</span>`:''}<span class="muted askc-t">${askAgo(x.at)}</span></div>
+      ${x.hwTitle?`<div class="muted askc-hw">📚 «${thEsc(x.hwTitle)}»</div>`:''}
+      <div class="askc-q">${thEsc(x.text)}</div>
+      ${ex?`<div class="ask-quick">${ASK_QUICK.map(t=>`<button type="button" onclick="askQuick('${id}',this.textContent,'askcr-')">${thEsc(t)}</button>`).join('')}</div>
+        <textarea class="inp" id="askcr-${id}" rows="2" maxlength="1000" placeholder="اكتب ردك… يصل الطالب في تنبيهاته" oninput="ASK_DRAFT['${id}']=this.value">${thEsc(ASK_DRAFT[x.id]||'')}</textarea>
+        <div class="askc-b"><button type="button" class="btn tick sm" onclick="askSend('${id}',false,'askcr-')">📩 أرسل</button><button type="button" class="btn ghost sm" onclick="askCardToggle('${id}')">إلغاء</button>
+          <button type="button" class="btn ghost sm" title="حللتها معه في الفصل — لا يُرسل شيء" onclick="askSend('${id}',true)">✓ أُغلق دون رد</button></div>`
+      :`<div class="askc-b"><button type="button" class="btn sm" onclick="askCardToggle('${id}')">✍️ رد</button></div>`}</div>`; };
+  return `<div class="td-card ask-card"><div class="td-card-h"><b>💬 رسائل الطلاب</b>${open.length?`<span class="chip bad">${open.length} تنتظر ردك</span>`:''}<a href="#" class="td-link" onclick="event.preventDefault();asksOpen()">كل الرسائل</a></div>
+    ${open.length?`<div class="askc-list">${open.map(item).join('')}</div>`:`<div class="td-empty">🌿 لا رسائل تنتظر ردك${done.length?` <small class="muted">· ردَدت على ${done.length}</small>`:''}</div>`}</div>`;
+}
+function askCardRender(){ const sA=document.getElementById('td-slot-asks'); if(sA){ try{ sA.innerHTML=asksCardHTML(); }catch(e){} } }
+function askCardToggle(id){ ASK_CARD_OPEN.has(id)?ASK_CARD_OPEN.delete(id):ASK_CARD_OPEN.add(id); askCardRender(); if(ASK_CARD_OPEN.has(id)) setTimeout(()=>document.getElementById('askcr-'+id)?.focus(),30); }
+function askQuick(id,t,pre){ const ta=document.getElementById((pre||'askr-')+id); if(!ta) return; ta.value=ta.value?ta.value.trim()+' '+t:t; if(pre==='askcr-') ASK_DRAFT[id]=ta.value; ta.focus(); }
+async function askSend(id,close,pre){
+  const ta=document.getElementById((pre||'askr-')+id), reply=close?'':String(ta&&ta.value||'').trim();
   if(!close&&!reply){ toast('اكتب الرد أولًا','bad'); ta&&ta.focus(); return; }
   try{ const r=await fetch(getApi().replace(/\/+$/,'')+'/ask-reply',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:getTok(),id,reply,close:!!close})});
     const j=await r.json(); if(!j.ok) throw new Error(j.error||'');
     const i=ASKS.findIndex(x=>x.id===id); if(i>=0) ASKS[i]=j.item;
-    toast(close?'✓ أُغلقت الرسالة':'📩 وصل ردك للطالب في تنبيهاته','good'); asksOpen(true); thDraw();
+    ASK_CARD_OPEN.delete(id); delete ASK_DRAFT[id];
+    toast(close?'✓ أُغلقت الرسالة':'📩 وصل ردك للطالب في تنبيهاته','good'); if(document.getElementById('ask-inbox')) asksOpen(true); if(document.activeElement) document.activeElement.blur(); askCardRender(); thDraw();
   }catch(e){ toast(r404(e)?'ارفع worker.js الأخير':'تعذّر الإرسال — تحقق من الاتصال','bad'); }
 }
 function r404(e){ return /not found|404/.test(String(e&&e.message||'')); }
