@@ -758,6 +758,18 @@ body:has(#bh-mbar:not([hidden])) #behavior{padding-bottom:70px}
 .sc-full td{cursor:pointer;color:var(--ink-faint)}.sc-full td.c{font-weight:900;color:var(--accent-ink);background:var(--accent-soft)}
 .sc-full tr.td th{background:var(--green-soft);color:var(--green)}.sc-full td.now{outline:2.5px solid var(--green);outline-offset:-3px}
 .sc-sum{display:flex;flex-wrap:wrap;gap:5px;padding:8px}.sc-sum span{font-size:.72rem;font-weight:700;background:var(--surface-2);border-radius:8px;padding:3px 8px;color:var(--ink-soft)}.sc-sum b{color:var(--ink)}
+#sc-pick[hidden]{display:none!important}
+#sc-pick{position:fixed;inset:0;z-index:150}
+.cc{background:hsl(var(--h) 85% 92%)!important;color:hsl(var(--h) 65% 28%)!important}
+:root[data-theme="dark"] .cc{background:hsl(var(--h) 35% 24%)!important;color:hsl(var(--h) 85% 82%)!important}
+.sc-full td{font-size:.72rem}.sc-full td:not(.c){color:var(--rule-strong);font-size:.8rem}
+.sc-full td.cc{font-weight:900}
+.sc-r span i.cc{font-style:normal;border-radius:7px;padding:1px 8px;display:inline-block}
+.sc-wr.has select{border-color:hsl(var(--h) 60% 60%);background:hsl(var(--h) 85% 92%);color:hsl(var(--h) 65% 28%)}
+:root[data-theme="dark"] .sc-wr.has select{background:hsl(var(--h) 35% 24%);color:hsl(var(--h) 85% 82%)}
+.sc-pl{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:6px}
+.sc-pl button{min-height:52px;border-radius:12px;border:2px solid transparent;font:inherit;font-weight:900;font-size:.95rem;cursor:pointer;background:var(--surface-2);color:var(--ink)}
+.sc-pl button.on{border-color:var(--ink)}.sc-pl button.none{color:var(--ink-soft);font-weight:700}
 </style>
 
 <style id="schedule-tab-style">
@@ -1345,6 +1357,14 @@ header .brand{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     <div id="behlist"></div>
   </div>
 </div>
+<!-- 🎨 اختيار فصل لخانة من الجدول الأسبوعي -->
+<div id="sc-pick" hidden>
+  <div class="bh-veil" data-sc-pclose></div>
+  <div class="bh-box" role="dialog" aria-modal="true" aria-labelledby="sc-pick-t">
+    <div class="bh-sh-h"><div class="bh-sh-n"><b id="sc-pick-t"></b><small id="sc-pick-s"></small></div><button type="button" class="bh-x" data-sc-pclose aria-label="إغلاق">✕</button></div>
+    <div class="sc-pl" id="sc-pick-l"></div>
+  </div>
+</div>
 <!-- ⚙️ إعدادات الجدول: الرصد التلقائي · التنبيهات · أوقات الحصص -->
 <div id="sc-set" hidden>
   <div class="bh-veil" data-sc-close></div>
@@ -1507,7 +1527,7 @@ header .brand{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   <div class="gr-sec"><b>📅 حصص اليوم <small id="sc-day-t"></small></b><div id="sc-day" class="sc-day"></div></div>
   <div class="gr-sec"><div class="sc-wh"><b>🗓️ جدولي الأسبوعي</b><div class="sc-vw" role="tablist"><button type="button" data-sc-view="day">يوم</button><button type="button" data-sc-view="week">الأسبوع كامل</button></div></div>
     <div id="sc-dayview"><div class="sc-days" id="sc-days"></div><div id="sch-grid" class="sc-wk"></div></div>
-    <div id="sc-weekview" hidden><div id="sc-full" class="sc-full"></div><div class="bh-hint" style="margin-top:6px">اضغط أي يوم أو حصة لتعديله</div></div></div>
+    <div id="sc-weekview" hidden><div id="sc-full" class="sc-full"></div><div class="bh-hint" style="margin-top:6px">اضغط أي خانة لتغيير فصلها</div></div></div>
   <div hidden><div id="sch-log"></div></div>
 </section>
 
@@ -3922,6 +3942,7 @@ function openTeacherPanel(target){
   try{ if(target!=='messages'){ if(!$('ms-sheet').hidden) msClose(); if(!$('mq-sheet').hidden) mqOpen(false); if(MS_MULTI) msMulti(false); } }catch(e){}
   try{ if(target!=='behavior' && $('bh-logsheet') && !$('bh-logsheet').hidden) bhLog(false); if(target!=='behavior' && $('bh-sheet') && !$('bh-sheet').hidden) bhClose(); if(target!=='behavior' && BH_MULTI) bhMulti(false); }catch(e){}
   // مغادرة صفحة فيها استماع تُطفئه (لا يبقى ميكروفون يعمل في صفحة لا تراها)
+  try{ if(target!=='schedule' && !$('sc-pick').hidden) scPickClose(); }catch(e){}
   try{ if(svOn && target!=='students') svStop(); if(target!=='grades' && !$('gr-set').hidden) grSet(false); if(target!=='schedule' && !$('sc-set').hidden) scSet(false); }catch(e){}
   try{ if(vrOn && target!=='daily' && target!=='behavior') vrStop(); if(mvOn && target!=='messages') mvStop(); if(examVrOn && target!=='exams') examVrStop(); }catch(e){}
   if(target==='behavior'){renderQuick('behavior');renderBehaviorButtons();renderCustomBehaviorTemplates();renderBeh()}
@@ -4012,7 +4033,9 @@ function wire(){
  $('sc-set-btn').onclick=$('sc-ctx').onclick=()=>scSet(true);
  document.querySelectorAll('[data-sc-close]').forEach(b=>b.onclick=()=>scSet(false));
  document.querySelectorAll('[data-sc-view]').forEach(b=>b.onclick=()=>{ SC_VIEW=b.dataset.scView; try{ localStorage.setItem('teacher_sc_view',SC_VIEW); }catch(e){} renderSchedule(); });
- $('sc-full').addEventListener('click',e=>{ const c=e.target.closest('[data-sc-goday]'); if(!c) return; SC_DAY=+c.dataset.scGoday; SC_VIEW='day'; try{ localStorage.setItem('teacher_sc_view','day'); }catch(e){} renderSchedule(); $('sc-days').scrollIntoView({block:'center',behavior:'smooth'}); });
+ $('sc-full').addEventListener('click',e=>{ const c=e.target.closest('[data-sc-cell]'); if(!c) return; const [dy,n]=c.dataset.scCell.split('|').map(Number); scPickOpen(dy,n); });
+ $('sc-pick-l').addEventListener('click',e=>{ const b=e.target.closest('[data-sc-set]'); if(!b||!SC_PICK) return; const {dy,n}=SC_PICK; scPickClose(); schSetCell(dy,n,b.dataset.scSet); toast(b.dataset.scSet?`✓ ${SCH_DAYS[dy]} · الحصة ${n}: ${b.dataset.scSet}`:`✓ ${SCH_DAYS[dy]} · الحصة ${n}: فراغ`); });
+ document.querySelectorAll('[data-sc-pclose]').forEach(b=>b.onclick=()=>scPickClose());
  $('sc-days').addEventListener('click',e=>{ const b=e.target.closest('[data-sc-day]'); if(!b) return; SC_DAY=+b.dataset.scDay; renderSchedule(); });
  // 📊 الدرجات
  $('gr-fl').addEventListener('click',e=>{ const b=e.target.closest('[data-gr-f]'); if(!b) return; GR_F=b.dataset.grF; renderGrades(); });
@@ -4358,6 +4381,18 @@ function schClassOptions(sel){
   const set = [...new Set(students.map(s=>s.cls).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ar'));
   return '<option value="">—</option>' + set.map(c=>`<option value="${esc(c)}"${c===sel?' selected':''}>${esc(c)}</option>`).join('');
 }
+/* 🎨 لون ثابت لكل فصل (حسب ترتيب الفصول) */
+const SC_HUES=[210,145,28,280,350,180,50,250,5,100,320,195];
+function scClasses(){ return [...new Set(students.map(s=>s.cls).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ar')); }
+function scHue(c){ const i=scClasses().indexOf(c); return SC_HUES[(i<0?0:i)%SC_HUES.length]; }
+const scCC=c=>c?` cc" style="--h:${scHue(c)}`:'';
+let SC_PICK=null;
+function scPickOpen(dy,n){ const s=sch(), t=schTimes().find(x=>x.n===n); if(!t) return; SC_PICK={dy,n};
+  const cur=(s.grid[String(dy)]||{})[String(n)]||'';
+  $('sc-pick-t').textContent=`${SCH_DAYS[dy]} · الحصة ${CTX_ORD[n]||n}`; $('sc-pick-s').textContent=`${t.s} – ${t.e}`;
+  $('sc-pick-l').innerHTML=scClasses().map(c=>`<button type="button" class="${c===cur?'on':''}${scCC(c)}" data-sc-set="${esc(c)}">${esc(c)}</button>`).join('')+`<button type="button" class="none${cur?'':' on'}" data-sc-set="">— فراغ</button>`;
+  $('sc-pick').hidden=false; document.body.classList.add('bh-on'); }
+function scPickClose(){ $('sc-pick').hidden=true; document.body.classList.remove('bh-on'); SC_PICK=null; }
 let SC_DAY=-1, SC_VIEW=(()=>{ try{ return localStorage.getItem('teacher_sc_view')==='week'?'week':'day'; }catch(e){ return 'day'; } })();
 function scSet(on){ $('sc-set').hidden=!on; document.body.classList.toggle('bh-on',!!on); }
 function renderSchedule(){
@@ -4444,14 +4479,14 @@ function renderSchedule(){
   if(fw && SC_VIEW==='week'){
     const cur=open?open.p:(schFind(now,T).cur||{}).n;
     fw.innerHTML=`<table><thead><tr><th></th>${T.map(t=>`<th>${t.n}<small>${t.s}</small></th>`).join('')}</tr></thead><tbody>${SCH_DAYS.map((nm,dy)=>{ const gd=s.grid[String(dy)]||{};
-      return `<tr class="${dy===dow?'td':''}"><th data-sc-goday="${dy}">${nm}</th>${T.map(t=>{ const c=gd[String(t.n)]||''; return `<td data-sc-goday="${dy}" class="${c?'c':''}${dy===dow&&cur===t.n?' now':''}">${c?esc(c):''}</td>`; }).join('')}</tr>`; }).join('')}</tbody></table>`;
+      return `<tr class="${dy===dow?'td':''}"><th>${nm}</th>${T.map(t=>{ const c=gd[String(t.n)]||''; return `<td data-sc-cell="${dy}|${t.n}" class="${c?'c':''}${dy===dow&&cur===t.n?' now':''}${scCC(c)}">${c?esc(c):'＋'}</td>`; }).join('')}</tr>`; }).join('')}</tbody></table>`;
     const cnt={}; for(let dy=0;dy<5;dy++) for(const t of T){ const c=(s.grid[String(dy)]||{})[String(t.n)]; if(c) cnt[c]=(cnt[c]||0)+1; }
-    fw.innerHTML+=`<div class="sc-sum">${Object.keys(cnt).length?Object.entries(cnt).sort().map(([c,n])=>`<span>${esc(c)} <b>${n}</b></span>`).join('')+`<span>المجموع <b>${Object.values(cnt).reduce((a,b)=>a+b,0)}</b> حصة</span>`:'<span>لم تُدخل حصصًا بعد</span>'}</div>`;
+    fw.innerHTML+=`<div class="sc-sum">${Object.keys(cnt).length?Object.entries(cnt).sort((a,b)=>a[0].localeCompare(b[0],'ar')).map(([c,n])=>`<span class="${scCC(c)}">${esc(c)} <b>${n}</b></span>`).join('')+`<span>المجموع <b>${Object.values(cnt).reduce((a,b)=>a+b,0)}</b> حصة</span>`:'<span>لم تُدخل حصصًا بعد</span>'}</div>`;
   }
   const g = $('sch-grid');
   if(g){ const gd=s.grid[String(SC_DAY)]||{};
     g.innerHTML = T.map(t=>`${t.n===s.breakAfter+1 && s.breakLen>0 ? `<div class="sc-brk">☕ الفسحة</div>`:''}${s.prayAfter>0 && t.n===s.prayAfter+1 && s.prayLen>0 ? `<div class="sc-brk">🕌 الصلاة</div>`:''}
-      <label class="sc-wr${gd[String(t.n)]?' has':''}"><b>${t.n}</b><span>الحصة ${CTX_ORD[t.n]||t.n}<small>${t.s} – ${t.e}</small></span>
+      <label class="sc-wr${gd[String(t.n)]?' has':''}"${gd[String(t.n)]?` style="--h:${scHue(gd[String(t.n)])}"`:''}><b>${t.n}</b><span>الحصة ${CTX_ORD[t.n]||t.n}<small>${t.s} – ${t.e}</small></span>
       <select onchange="schSetCell(${SC_DAY},${t.n},this.value)">${schClassOptions(gd[String(t.n)]||'')}</select></label>`).join(''); }
 
   /* حصص اليوم: خط زمني */
@@ -4462,7 +4497,7 @@ function renderSchedule(){
       $('sc-day-t').textContent=SCH_DAYS[dow];
       dy0.innerHTML=T.map(t=>{ const c=todayGrid[String(t.n)]||'', x=day[String(t.n)], isCur=cur===t.n, done=x&&x.en, past=now>=t.em;
         const st = x ? (x.en ? (x.skipped?'✓ أُنهيت بلا كتابة':`✓ ${x.n||0} مشاركة${x.auto?' · أُغلقت تلقائيًا':''}`) : '● مفتوحة الآن') : (isCur&&c?'الآن':past&&c?'لم تُبدأ':'');
-        return `${t.n===s.breakAfter+1 && s.breakLen>0 ? `<div class="sc-brk">☕ الفسحة · ${s.breakLen} د</div>`:''}<div class="sc-r${isCur?' cur':''}${done?' done':''}${c?'':' free'}"><b>${isCur?'●':done?'✓':t.n}</b><span>${c?esc(c):'فراغ'}<small>${t.s} – ${t.e}</small></span><em class="${x&&!x.en?'g':x&&x.auto?'a':''}">${esc(st)}</em></div>`; }).join(''); }
+        return `${t.n===s.breakAfter+1 && s.breakLen>0 ? `<div class="sc-brk">☕ الفسحة · ${s.breakLen} د</div>`:''}<div class="sc-r${isCur?' cur':''}${done?' done':''}${c?'':' free'}"><b>${isCur?'●':done?'✓':t.n}</b><span>${c?`<i class="cc" style="--h:${scHue(c)}">${esc(c)}</i>`:'فراغ'}<small>${t.s} – ${t.e}</small></span><em class="${x&&!x.en?'g':x&&x.auto?'a':''}">${esc(st)}</em></div>`; }).join(''); }
   }
   /* سطر الحالة */
   const cx=$('sc-ctx'); if(cx){ let pon=false; try{ pon=ppOn(); }catch(e){}
