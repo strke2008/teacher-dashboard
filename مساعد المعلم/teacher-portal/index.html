@@ -669,6 +669,9 @@ body:has(#bh-mbar:not([hidden])) #behavior{padding-bottom:70px}
 .m2-tag.lt{background:var(--accent-soft);color:var(--accent-ink)}
 .mq-r.neg{border-inline-start-color:var(--red)}
 #mq-foot{grid-template-columns:2fr 1fr;margin-top:10px}
+#ms-when-w[hidden]{display:none!important}
+.ms-when{display:flex;align-items:center;gap:6px;margin-top:10px;background:var(--surface-2);border:1.5px solid var(--line,#d9e0ea);border-radius:12px;padding:4px 10px}
+.ms-when select{flex:1;border:0;background:transparent;font:inherit;font-weight:800;font-size:.84rem;color:var(--ink);padding:6px 0;min-height:36px}
 </style>
 
 <style id="schedule-tab-style">
@@ -1270,6 +1273,7 @@ header .brand{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     <div id="ms-why"></div>
     <div class="bh-tabs" role="tablist"><button type="button" class="on g" data-ms-tab="pos">🌟 إيجابية</button><button type="button" class="r" data-ms-tab="neg">⚠️ متابعة</button><button type="button" class="c" data-ms-tab="custom">✏️ مخصصة</button></div>
     <div class="bh-chips" id="ms-chips"></div>
+    <label class="ms-when" id="ms-when-w" hidden><span>📅</span><select id="ms-when" aria-label="اليوم والحصة"></select></label>
     <div id="ms-custom" hidden><textarea class="inp" id="custom-msg" rows="3" placeholder="اكتب الرسالة… {الطالب} للاسم الأول، {الاسم الكامل}، {الفصل}"></textarea></div>
     <div class="m2-prev" id="ms-prev" hidden><small id="ms-prev-h">نص الرسالة</small><div id="ms-prev-t"></div></div>
     <div class="m2-act" id="ms-act" hidden></div>
@@ -2022,7 +2026,7 @@ async function vrApply(st, kind, batch){
     }else if(MSGQ.some(m => m.id===st.id && m.k===kind.k)){
       vrLog(`• في لاحقًا سلفًا — ${st.name}`);
     }else{
-      MSGQ.push({ id:st.id, name:st.name, k:kind.k, text: msg(kind.k, st) });
+      MSGQ.push({ id:st.id, name:st.name, k:kind.k, text: msg(kind.k, st), stu: msgStu(kind.k, st), at: Date.now() });
       msgqSave(); if(typeof mvRender==='function') mvRender();
       vrCard(st, '🕘 رسالة لاحقًا', 'b', null);
     }
@@ -2608,18 +2612,21 @@ function firstName(full){
  if(NAME_PREFIX.includes(t[0])&&t[1])return t[0]+' '+t[1];
  return t[0];
 }
-function msg(k,s){
+/* 📅 توثيق اليوم والحصة: «… اليوم الأحد في الحصة الرابعة». w غير مُمرَّر ⟵ تلقائي من الجدول */
+function msg(k,s,w){
  const n=firstName(s.name);
+ if(w===undefined) w=msWhenAuto(s);
+ const ord=w&&w.p?(CTX_ORD[w.p]||w.p):'', D=w?` اليوم ${w.day}`:'', P=ord?` في الحصة ${ord}`:'';
  const M={
-  participation:`أشكر ابنكم ${n} على مشاركته الفاعلة في مادة العلوم.`,
-  homework:`أشكر ابنكم ${n} على التزامه بإنجاز واجب مادة العلوم.`,
-  achievement:`أشكر ابنكم ${n} على أدائه المتميز في مادة العلوم.`,
-  improvement:`ألاحظ تحسنًا واضحًا في مستوى ابنكم ${n} في مادة العلوم.`,
-  cooperation:`أشكر ابنكم ${n} على تعاونه والتزامه داخل الحصة.`,
-  science:`أشكر ابنكم ${n} على اهتمامه وحرصه في مادة العلوم.`,
-  behavior:`أرجو متابعة ابنكم ${n}، فقد صدرت منه ملاحظة سلوكية في حصة العلوم.`,
-  homework_neg:`لم ينجز ابنكم ${n} واجب مادة العلوم، وأرجو متابعته.`,
-  late:`تأخر ابنكم ${n} عن حصة العلوم، وأرجو تنبيهه على الالتزام بالوقت.`,
+  participation:`أشكر ابنكم ${n} على مشاركته الفاعلة في مادة العلوم${D}${P}.`,
+  homework:`أشكر ابنكم ${n} على التزامه بإنجاز واجب مادة العلوم${D}${P}.`,
+  achievement:`أشكر ابنكم ${n} على أدائه المتميز في مادة العلوم${D}${P}.`,
+  improvement:`ألاحظ تحسنًا واضحًا في مستوى ابنكم ${n} في مادة العلوم${D}${P}.`,
+  cooperation:`أشكر ابنكم ${n} على تعاونه والتزامه داخل ${ord?`الحصة ${ord}`:'الحصة'}${D}.`,
+  science:`أشكر ابنكم ${n} على اهتمامه وحرصه في مادة العلوم${D}${P}.`,
+  behavior:`أرجو متابعة ابنكم ${n}، فقد صدرت منه ملاحظة سلوكية في مادة العلوم${D}${P}.`,
+  homework_neg:`لم ينجز ابنكم ${n} واجب مادة العلوم${D?` المطلوب${D}${P}`:''}، وأرجو متابعته.`,
+  late:`تأخر ابنكم ${n} عن ${ord?`الحصة ${ord} (العلوم)`:'حصة العلوم'}${D}، وأرجو تنبيهه على الالتزام بالوقت.`,
   support:`يحتاج ابنكم ${n} إلى متابعة إضافية في مادة العلوم.`,
   skill:`يحتاج ابنكم ${n} إلى مزيد من التدريب على مهارات مادة العلوم.`
  };
@@ -2741,7 +2748,7 @@ function mvHandle(text){
         undo: async()=>{ if(msCancel(P)) return; toast('أُرسلت فعلًا — لا يمكن التراجع'); return false; } });
       added++; continue; }
     if(MSGQ.some(m => m.id===st.id && m.k===k)){ problems.push(st.name + ' (في لاحقًا سلفًا)'); continue; }
-    const item={ id: st.id, name: st.name, k, text: msg(k, st) };   // ⚠️ متابعة ⟵ «لاحقًا» لتنسخها لوليّ الأمر
+    const item={ id: st.id, name: st.name, k, text: msg(k, st), stu: msgStu(k, st), at: Date.now() };   // ⚠️ متابعة ⟵ «لاحقًا» لتنسخها لوليّ الأمر
     MSGQ.push(item);
     vbCard('mv-cards', { label:'🕘 '+MSG_LABEL(k), cls:'b', name:st.name, heard,
       undo: async()=>{ const i=MSGQ.indexOf(item); if(i<0){ toast('حُذفت مسبقًا'); return false; } msgqRemove(i); mvRender(); toast('أُزيلت الرسالة'); } });
@@ -2821,15 +2828,16 @@ function msMbar(){ const b=$('ms-mbar'); if(!b) return; const n=MS_SEL.size;
   $('ms-mgo').textContent=n===1?'جهّز رسالة لطالب واحد':n===2?'جهّز رسالة لطالبين':`جهّز رسالة لـ ${n} طلاب`; }
 function msMulti(on){ MS_MULTI=!!on; if(!on){ MS_SEL.clear(); MS_MS=false; }
   $('ms-multi-btn')?.classList.toggle('on',MS_MULTI); $('ms-mode').hidden=!MS_MULTI; $('ms-hint').hidden=MS_MULTI; renderMsgList(); }
-function msOpen(sid){ const s=students.find(x=>x.id===String(sid)); if(!s) return; messageStudentId=s.id; MS_MS=false;
+function msOpen(sid){ const s=students.find(x=>x.id===String(sid)); if(!s) return; messageStudentId=s.id; MS_MS=false; MS_WHEN='auto';
   const a=msAlerts().find(x=>x.studentId===s.id); MS_K=a&&a.suggest?a.suggest:''; MS_TAB=MS_K&&NEG_MSGS.some(([,k])=>k===MS_K)?'neg':'pos';
   $('ms-sheet').hidden=false; document.body.classList.add('bh-on'); msSheet(); renderMsgList(); }
-function msOpenMulti(){ if(!MS_SEL.size) return; MS_MS=true; messageStudentId=''; MS_K=''; MS_TAB='pos'; $('ms-sheet').hidden=false; document.body.classList.add('bh-on'); msSheet(); msMbar(); }
+function msOpenMulti(){ if(!MS_SEL.size) return; MS_MS=true; messageStudentId=''; MS_K=''; MS_TAB='pos'; MS_WHEN='auto'; $('ms-sheet').hidden=false; document.body.classList.add('bh-on'); msSheet(); msMbar(); }
 function msClose(){ $('ms-sheet').hidden=true; document.body.classList.remove('bh-on'); if(!MS_MS) messageStudentId=''; MS_MS=false; renderMsgList(); }
 function msTargets(){ return MS_MS?[...MS_SEL].map(id=>students.find(x=>x.id===id)).filter(Boolean):[students.find(x=>x.id===messageStudentId)].filter(Boolean); }
 /* 💬 صياغة موجّهة للطالب نفسه — تصل لبوابته. (msg() تبقى صياغة وليّ الأمر للنسخ) */
-function msgStu(k,s){
+function msgStu(k,s,w){
  const n=firstName(s.name);
+ if(w===undefined) w=msWhenAuto(s);
  const M={
   participation:`أحسنت يا ${n} 🌟 مشاركتك اليوم في حصة العلوم كانت رائعة، استمر!`,
   homework:`شكرًا يا ${n} 📚 على التزامك بإنجاز واجب العلوم، هذا ما أتوقعه منك.`,
@@ -2843,12 +2851,33 @@ function msgStu(k,s){
   support:`${n}، تحتاج إلى مزيد من المتابعة في مادة العلوم 📝 لا تتردد في سؤالي عن أي شيء.`,
   skill:`${n}، أنصحك بمزيد من التدريب على مهارات العلوم 🎯 وأنا معك.`
  };
- return M[k]||'';
+ if(!M[k]) return '';
+ return M[k] + (w&&!MS_NOWHEN.includes(k) ? `\n📅 ${w.day}${w.p?` · الحصة ${CTX_ORD[w.p]||w.p}`:''}` : '');
+}
+/* 📅 اليوم والحصة */
+const MS_NOWHEN=['support','skill'];   // حالة عامة لا حدث في حصة
+let MS_WHEN='auto';
+const msDayName=()=>{ try{ return new Date().toLocaleDateString('ar-SA',{weekday:'long',timeZone:'Asia/Riyadh'}); }catch(e){ return ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'][new Date().getDay()]; } };
+function msPeriodsFor(cls){ try{ const r=ctxResolve(); if(r.dow<0||r.dow>4) return []; const c=String(cls||'').trim();
+  return r.T.filter(t=>r.clsOf(t.n)===c).map(t=>({n:t.n,started:r.now>=t.sm-5})); }catch(e){ return []; } }
+/* الحصة الحالية لفصل الطالب، وإلا آخر حصة له اليوم بدأت فعلًا */
+function msAutoP(s){ const st=msPeriodsFor(s&&s.cls).filter(x=>x.started); return st.length?st[st.length-1].n:0; }
+function msWhenAuto(s){ return { day:msDayName(), p:msAutoP(s) }; }
+function msWhen(s){ if(MS_WHEN==='none') return null; const day=msDayName();
+  if(MS_WHEN==='day') return {day,p:0}; if(MS_WHEN.startsWith('p:')) return {day,p:+MS_WHEN.slice(2)}; return msWhenAuto(s); }
+function msWhenOpts(T){
+  const day=msDayName(), ords=n=>CTX_ORD[n]||n, s0=T[0];
+  const same=T.every(x=>String(x.cls||'')===String(s0.cls||'')), ap=msAutoP(s0);
+  const o=[['auto', same ? (ap?`اليوم ${day} · الحصة ${ords(ap)}`:`اليوم ${day}`) : `اليوم ${day} · حصة كل طالب`]];
+  if(same) msPeriodsFor(s0.cls).forEach(x=>{ if(x.n!==ap) o.push(['p:'+x.n,`اليوم ${day} · الحصة ${ords(x.n)}`]); });
+  if(ap||!same) o.push(['day',`اليوم ${day} فقط`]);
+  o.push(['none','بدون يوم ولا حصة']);
+  return o;
 }
 const msIsNeg=k=>NEG_MSGS.some(([,x])=>x===k);
 const msCustom=s=>($('custom-msg').value||'').replaceAll('{الطالب}',firstName(s.name)).replaceAll('{الاسم الكامل}',s.name).replaceAll('{الفصل}',s.cls||'').trim();
 /* النص الظاهر في النافذة: الإيجابية والمخصصة للطالب، المتابعة لوليّ الأمر */
-function msText(s){ if(MS_TAB==='custom') return msCustom(s); if(!MS_K) return ''; return msIsNeg(MS_K)?msg(MS_K,s):msgStu(MS_K,s); }
+function msText(s){ if(MS_TAB==='custom') return msCustom(s); if(!MS_K) return ''; return msIsNeg(MS_K)?msg(MS_K,s,msWhen(s)):msgStu(MS_K,s,msWhen(s)); }
 /* ✓ سجل ما أُرسل (على هذا الجهاز) — يمنع إرسال نفس الرسالة مرتين في اليوم */
 const MS_SENT_KEY='teacher_msgsent_v1';
 let MS_SENT=[]; try{ MS_SENT=JSON.parse(localStorage.getItem(MS_SENT_KEY)||'[]')||[]; }catch(e){ MS_SENT=[]; }
@@ -2893,14 +2922,15 @@ async function msAct(a){
   const T=msTargets(); if(!T.length) return;
   const k=MS_TAB==='custom'?'custom':MS_K; if(!k||(MS_TAB==='custom'&&!msCustom(T[0]))){ toast('اكتب الرسالة أولًا'); return; }
   if(a==='send'||a==='sendneg'){
-    const body=s=>MS_TAB==='custom'?msCustom(s):msgStu(k,s);
+    const body=s=>MS_TAB==='custom'?msCustom(s):msgStu(k,s,msWhen(s));
     if(a==='sendneg' && !(await askConfirm(`تصل ${T.length>1?'لكل طالب':'للطالب'} في بوابته:\n«${body(T[0])}»`,{title:'إرسال للطالب؟',yes:'📨 أرسل',no:'إلغاء'}))) return;
     if(!(await msDupOk(T,k))) return;
     msSend(T.map(s=>({s,k,body:body(s)}))); msDone(); return; }
   if(a==='copy'||a==='copyp'){ const txt=T.map(s=>msText(s)).filter(Boolean);
     copyText(txt.join('\n\n')).then(()=>toast(a==='copyp'?(T.length>1?`📋 نُسخت ${txt.length} رسائل لأولياء الأمور`:'📋 نُسخت — الصقها لوليّ الأمر'):(T.length>1?`تم نسخ ${txt.length} رسائل`:'تم نسخ الرسالة'))).catch(()=>toast('تعذر النسخ')); return; }
   if(a==='later'){ let n=0;
-    for(const s of T){ const b=msText(s); if(!b) continue; const i=MSGQ.findIndex(m=>m.id===s.id&&m.k===k); if(i>=0) MSGQ[i].text=b; else MSGQ.push({id:s.id,name:s.name,k,text:b}); n++; }
+    for(const s of T){ const b=msText(s); if(!b) continue; const stu=MS_TAB==='custom'?b:msgStu(k,s,msWhen(s)), at=Date.now();
+      const i=MSGQ.findIndex(m=>m.id===s.id&&m.k===k); if(i>=0) Object.assign(MSGQ[i],{text:b,stu,at}); else MSGQ.push({id:s.id,name:s.name,k,text:b,stu,at}); n++; }
     msgqSave(); if(typeof mvRender==='function') mvRender(); msDone();
     toast(n>1?`🕘 حُفظت ${n} رسائل في «لاحقًا»`:'🕘 حُفظت في «لاحقًا»'); }
 }
@@ -2919,6 +2949,9 @@ function msSheet(){
   $('ms-chips').innerHTML=arr.map(([t,k])=>`<button type="button" class="bh-chip ${MS_TAB==='pos'?'g':'r'}${MS_K===k?' on':''}" data-msk="${esc(k)}">${esc(t)}</button>`).join('');
   const t=msText(T[0]), show=!!t, neg=MS_TAB==='neg', N=T.length, many=N>1, fn=msShort(T[0].name).split(' ')[0];
   $('ms-prev').hidden=!show; $('ms-act').hidden=!show; $('ms-alt').hidden=!(show&&neg);
+  const ww=$('ms-when-w'); ww.hidden=!(show&&MS_TAB!=='custom'&&!MS_NOWHEN.includes(MS_K));
+  if(!ww.hidden){ const o=msWhenOpts(T); if(!o.some(([v])=>v===MS_WHEN)) MS_WHEN='auto';
+    $('ms-when').innerHTML=o.map(([v,l])=>`<option value="${v}"${v===MS_WHEN?' selected':''}>${esc(l)}</option>`).join(''); }
   $('ms-prev').classList.toggle('par',neg);
   if(!show) return;
   $('ms-prev-h').textContent=(neg?'👨‍👩‍👦 لوليّ الأمر':'💬 تصل للطالب في بوابته مع إشعار')+(many?` · مثال: ${msShort(T[0].name)}`:'');
@@ -2929,9 +2962,11 @@ function msSheet(){
   if(neg) $('ms-alt').textContent=`«📨 للطالب» يرسل له بصيغة موجّهة له بعد تأكيد: «${msgStu(MS_K,T[0])}»`;
 }
 /* 🕘 قائمة «لاحقًا» */
-function mqItemBody(m){ const s=students.find(x=>x.id===m.id)||{id:m.id,name:m.name}; return (m.k&&msgStu(m.k,s))||m.text||''; }
+function mqItemBody(m){ if(m.stu) return m.stu; const s=students.find(x=>x.id===m.id)||{id:m.id,name:m.name}; return (m.k&&msgStu(m.k,s,null))||m.text||''; }
+/* رسالة أُجّلت لغير يومها: «اليوم الأحد» ⟵ «يوم الأحد 12/4» حتى يبقى التوثيق صحيحًا */
+function mqText(m){ let t=m.text||''; if(m.at && msDay(m.at)!==msDay(Date.now())){ const d=new Date(m.at+3*36e5); t=t.replace(/اليوم (الأحد|الاثنين|الثلاثاء|الأربعاء|الخميس|الجمعة|السبت)/,(x,dn)=>`يوم ${dn} ${d.getUTCDate()}/${d.getUTCMonth()+1}`); } return t; }
 function mqRender(){ const box=$('mq-list'); if(!box) return;
-  box.innerHTML=MSGQ.length?MSGQ.map((m,i)=>`<div class="mq-r${msIsNeg(m.k)?' neg':''}"><div class="t"><b>${esc(msShort(m.name))}</b> — ${esc(m.k==='custom'?'✏️ مخصصة':msLbl(m.k))}<small>${esc(m.text||'')}</small></div><button type="button" class="beh-del" data-mq-send="${i}" title="${msIsNeg(m.k)?'إرسال للطالب بصيغة موجّهة له':'إرسال للطالب'}" aria-label="إرسال">📨</button><button type="button" class="beh-del" data-mq-copy="${i}" aria-label="نسخ">📋</button><button type="button" class="beh-del" data-mq-del="${i}" aria-label="حذف">🗑</button></div>`).join(''):'<div class="empty">لا توجد رسائل مؤجلة.</div>';
+  box.innerHTML=MSGQ.length?MSGQ.map((m,i)=>`<div class="mq-r${msIsNeg(m.k)?' neg':''}"><div class="t"><b>${esc(msShort(m.name))}</b> — ${esc(m.k==='custom'?'✏️ مخصصة':msLbl(m.k))}<small>${esc(mqText(m))}</small></div><button type="button" class="beh-del" data-mq-send="${i}" title="${msIsNeg(m.k)?'إرسال للطالب بصيغة موجّهة له':'إرسال للطالب'}" aria-label="إرسال">📨</button><button type="button" class="beh-del" data-mq-copy="${i}" aria-label="نسخ">📋</button><button type="button" class="beh-del" data-mq-del="${i}" aria-label="حذف">🗑</button></div>`).join(''):'<div class="empty">لا توجد رسائل مؤجلة.</div>';
   $('mq-foot').hidden=!MSGQ.length; $('mq-sendall').textContent=`📨 أرسل الكل للطلاب (${MSGQ.length})`; }
 function mqOpen(on){ $('mq-sheet').hidden=!on; document.body.classList.toggle('bh-on',!!on); if(on) mqRender(); }
 async function mqSend(idx){
@@ -3779,6 +3814,7 @@ function wire(){
  document.querySelectorAll('[data-ms-close]').forEach(b=>b.onclick=msClose);
  $('ms-act').addEventListener('click',e=>{ const b=e.target.closest('[data-ms-act]'); if(b) msAct(b.dataset.msAct); });
  $('ms-undo-b').onclick=()=>msCancel(MS_LAST);
+ $('ms-when').onchange=e=>{ MS_WHEN=e.target.value; msSheet(); };
  $('mq-sendall').onclick=()=>mqSend(MSGQ.map((_,i)=>i));
  $('ms-multi-btn').onclick=()=>msMulti(!MS_MULTI);
  $('ms-mcancel').onclick=$('ms-mx').onclick=()=>msMulti(false);
@@ -3792,7 +3828,7 @@ function wire(){
  document.querySelectorAll('[data-mq-close]').forEach(b=>b.onclick=()=>mqOpen(false));
  $('mq-list').addEventListener('click',e=>{ const b=e.target.closest('[data-mq-del],[data-mq-send],[data-mq-copy]'); if(!b) return;
    if(b.dataset.mqSend!==undefined){ mqSend([+b.dataset.mqSend]); return; }
-   if(b.dataset.mqCopy!==undefined){ const m=MSGQ[+b.dataset.mqCopy]; if(m) copyText(m.text||'').then(()=>toast('تم نسخ الرسالة')).catch(()=>toast('تعذر النسخ')); return; }
+   if(b.dataset.mqCopy!==undefined){ const m=MSGQ[+b.dataset.mqCopy]; if(m) copyText(mqText(m)).then(()=>toast('تم نسخ الرسالة')).catch(()=>toast('تعذر النسخ')); return; }
    msgqRemove(+b.dataset.mqDel); mqRender(); renderMsgList(); });
  $('mq-clear').onclick=async()=>{ if(!(await askConfirm('ستُزال كل الرسائل التي جهّزتها ولم تُرسل بعد.',{title:'مسح القائمة؟',yes:'امسح',no:'إلغاء',danger:true}))) return; for(let i=MSGQ.length-1;i>=0;i--) msgqRemove(i); mqRender(); renderMsgList(); };
  document.addEventListener('keydown',e=>{ if(e.key!=='Escape') return; if(!$('ms-sheet').hidden) msClose(); if(!$('mq-sheet').hidden) mqOpen(false); });
