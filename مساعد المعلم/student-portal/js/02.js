@@ -33,6 +33,8 @@ function ptAvatarHTML(av){
 }
 function ptApply(p){
   const r=document.documentElement;PT_CUR=p||null;
+  // ⚡ آخر مظهر يُحفظ على الجهاز ليُطبَّق في أول لحظة عند الفتح التالي (قبل تحميل البرمجة والاتصال بالخادم)
+  try{ if(p) localStorage.setItem('pt_last',JSON.stringify({a:p.accent,t:p.theme,c:p.cards,b:p.btn,f:p.frame||'none'})); else localStorage.removeItem('pt_last'); }catch(e){}
   const meta=document.querySelector('meta[name="theme-color"]');
   if(!p){['pt','ptAccent','ptTheme','ptCards','ptBtn','ptFrame'].forEach(k=>delete r.dataset[k]);
     const a=document.querySelector('.student-space-head .avatar');if(a)a.textContent='🎓';if(meta)meta.content='#16233A';return}
