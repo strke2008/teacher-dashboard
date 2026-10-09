@@ -635,6 +635,28 @@ body:has(#bh-mbar:not([hidden])) #behavior{padding-bottom:70px}
 .lg-t b{font-weight:800}.lg-t small{color:var(--ink-faint);font-weight:600}
 .lg-t .f{display:none}.lg-t.full .s{display:none}.lg-t.full .f{display:inline}
 .lg-r .beh-del{flex:none}
+#ms-sheet[hidden],#mq-sheet[hidden],#ms-mbar[hidden],#ms-voice[hidden],#ms-search[hidden],#ms-alert[hidden],#ms-mode[hidden],#ms-hint[hidden],#ms-custom[hidden],#ms-prev[hidden],#ms-act[hidden],#mq-badge[hidden],#mq-clear[hidden]{display:none!important}
+#ms-sheet,#mq-sheet{position:fixed;inset:0;z-index:150}
+#ms-voice #mv-btn,#ms-voice .vr-hint{display:none!important}
+#ms-voice #mv-wrap{margin-top:0!important}
+#ms-search{margin-bottom:8px}
+#messages .subtabs{margin-bottom:8px}
+.m2-alert{display:flex;align-items:center;gap:8px;background:#FEF3C7;border:1.5px solid #F59E0B;color:#92400E;border-radius:12px;padding:8px 11px;margin-bottom:8px;font-weight:800;font-size:.82rem}
+.m2-alert b{flex:1}.m2-alert button{font:inherit;font-weight:700;font-size:.74rem;border:1px solid #F59E0B;border-radius:8px;padding:4px 9px;background:#fff;color:#92400E;cursor:pointer}
+.m2-tag{border-radius:8px;padding:3px 7px;font-size:.72rem;font-weight:800}
+.m2-tag.ok{background:var(--accent-soft);color:var(--accent-ink)}.m2-tag.nd{background:#FEF3C7;color:#92400E}
+.bh-chip.on{background:var(--green-soft);border-color:var(--green)!important}.bh-chip.r.on{background:var(--red-soft);border-color:var(--red)!important}
+.m2-prev{background:var(--surface-2);border:1.5px solid var(--accent);border-radius:12px;padding:10px 12px;margin-top:10px;font-size:.88rem;line-height:1.8;white-space:pre-line}
+.m2-prev small{display:block;color:var(--ink-soft);font-size:.72rem;font-weight:700;margin-bottom:2px}
+.m2-act{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+.m2-act button{min-height:46px;border-radius:12px;font:inherit;font-weight:800;font-size:.88rem;border:0;cursor:pointer}
+.m2-act .c{background:var(--green);color:#fff}.m2-act .q{background:var(--accent);color:#fff}
+#ms-custom{margin-top:2px}#ms-custom textarea{width:100%;min-height:80px;resize:vertical}
+.ms-why{display:flex;align-items:center;gap:8px;border-radius:10px;padding:7px 10px;margin-bottom:8px;font-size:.78rem;font-weight:700;background:#FEF3C7;color:#92400E}
+.ms-why span{flex:1}.ms-why button{border:1px solid #F59E0B;background:#fff;border-radius:8px;padding:4px 8px;font:inherit;font-size:.74rem;font-weight:800;color:#92400E;cursor:pointer}
+#mq-list{display:grid;gap:5px}
+.mq-r{display:flex;align-items:center;gap:6px;background:var(--surface-2);border-radius:10px;padding:6px 8px;border-inline-start:3px solid var(--accent)}
+.mq-r .t{flex:1;min-width:0;font-size:.82rem;line-height:1.5}.mq-r .t small{display:block;color:var(--ink-soft);font-size:.74rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 </style>
 
 <style id="schedule-tab-style">
@@ -1228,6 +1250,29 @@ header .brand{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     <div id="behlist"></div>
   </div>
 </div>
+<!-- 💌 نافذة رسالة الطالب (أو عدة طلاب) -->
+<div id="ms-sheet" hidden>
+  <div class="bh-veil" data-ms-close></div>
+  <div class="bh-box" role="dialog" aria-modal="true" aria-labelledby="ms-sh-name">
+    <div class="bh-sh-h"><div class="bh-sh-n"><b id="ms-sh-name"></b><small id="ms-sh-cls"></small></div><span class="bh-cnt" id="ms-sh-cnt"></span><button type="button" class="bh-x" data-ms-close aria-label="إغلاق">✕</button></div>
+    <div id="ms-why"></div>
+    <div class="bh-tabs" role="tablist"><button type="button" class="on g" data-ms-tab="pos">🌟 إيجابية</button><button type="button" class="r" data-ms-tab="neg">⚠️ متابعة</button><button type="button" class="c" data-ms-tab="custom">✏️ مخصصة</button></div>
+    <div class="bh-chips" id="ms-chips"></div>
+    <div id="ms-custom" hidden><textarea class="inp" id="custom-msg" rows="3" placeholder="اكتب الرسالة… {الطالب} للاسم الأول، {الاسم الكامل}، {الفصل}"></textarea></div>
+    <div class="m2-prev" id="ms-prev" hidden><small id="ms-prev-h">نص الرسالة</small><div id="ms-prev-t"></div></div>
+    <div class="m2-act" id="ms-act" hidden><button type="button" class="c" id="ms-copy">📋 نسخ</button><button type="button" class="q" id="ms-queue">📤 للمركز</button></div>
+  </div>
+</div>
+<!-- 📤 الرسائل الجاهزة للمركز -->
+<div id="mq-sheet" hidden>
+  <div class="bh-veil" data-mq-close></div>
+  <div class="bh-box" role="dialog" aria-modal="true" aria-labelledby="mq-title">
+    <div class="bh-sh-h"><div class="bh-sh-n"><b id="mq-title">📤 الرسائل الجاهزة</b><small>تُرسل من لوحة التحكم: رسائل الطلاب ← الطابور من بوابة المعلم</small></div><button type="button" class="bh-x" data-mq-close aria-label="إغلاق">✕</button></div>
+    <div id="mq-list"></div>
+    <button type="button" class="btn bad wide" id="mq-clear" style="margin-top:10px">مسح القائمة</button>
+  </div>
+</div>
+<div class="bh-mbar" id="ms-mbar" hidden><button type="button" class="go" id="ms-mgo"></button><button type="button" class="x" id="ms-mx">إلغاء</button></div>
 <!-- ☑️ زر تسجيل سلوك للمحددين -->
 <div class="bh-mbar" id="bh-mbar" hidden><button type="button" class="go" id="bh-mgo"></button><button type="button" class="x" id="bh-mx">إلغاء</button></div>
 <!-- 🪟 نافذة سلوك الطالب (خارج الصفحة حتى تثبت أسفل الشاشة) -->
@@ -1255,16 +1300,14 @@ header .brand{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 <!-- ══ الرسائل ══ -->
 <section class="panel" id="messages">
-  <div class="page-head"><div><h1>الرسائل</h1><p>رسائل قصيرة مباشرة بالاسم الأول — جاهزة للنسخ واللصق.</p></div><button class="back">الرئيسية</button></div>
+  <!-- 💌 الرسائل: قائمة طلاب الفصل ⟵ اضغط الطالب ⟵ نافذة بالقوالب ونص الرسالة (نسخ · للمركز) -->
+  <div class="rd-head"><h1>الرسائل</h1>
+    <button type="button" class="rd-ic bh-logb" id="mq-btn" title="الرسائل الجاهزة للمركز" aria-label="الرسائل الجاهزة">📤<em id="mq-badge" hidden></em></button>
+    <button type="button" class="rd-ic" id="ms-multi-btn" title="رسالة لعدة طلاب" aria-label="تحديد عدة طلاب">☑️</button>
+    <button type="button" class="rd-ic" id="ms-search-btn" title="بحث داخل الفصل" aria-label="بحث داخل الفصل">🔍</button>
+    <button type="button" class="rd-ic" id="ms-voice-btn" title="رسائل بالصوت" aria-label="رسائل بالصوت">🎤</button></div>
   <div class="subtabs" role="tablist"><button type="button" data-sub="messages" class="on" aria-selected="true">الرسائل</button><button type="button" data-sub="cert">الشهادات</button></div>
-  <div class="sheet" id="alerts-sheet" style="display:none">
-    <div class="section-head"><h3>🔔 يحتاجون رسالة</h3><span class="count" id="alerts-count"></span></div>
-    <div id="alerts-list" class="student-list"></div>
-  </div>
-  <div class="sheet tinted">
-    <div class="search"><span class="search-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span><input class="inp" id="m-search" autocomplete="off" placeholder="ابحث عن الطالب…"></div>
-    <div class="search-results" id="m-results"></div><div id="m-selected"></div>
-    <!-- 🎤 رسائل بالصوت: تُجهّز الرسائل بـ msg() نفسها، والنسخ بـ copyText() نفسها -->
+  <div class="vb" id="ms-voice" hidden>
     <div id="mv-wrap" style="margin-top:10px;display:none">
       <button class="btn" id="mv-btn" type="button"
         style="width:100%;min-height:52px;font-size:1rem;font-weight:700">🎤 رسائل بالصوت</button>
@@ -1273,16 +1316,16 @@ header .brand{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
       <div id="mv-status" class="muted" style="margin-top:6px;font-size:.8rem;line-height:1.7"></div>
       <div class="vr-cards" id="mv-cards"></div>
     </div>
-    <div id="mv-list" style="margin-top:8px"></div>
   </div>
-  <div class="sheet"><div class="section-head"><h3>🌟 رسائل إيجابية</h3></div><div id="positive-msgs" class="template-grid"></div></div>
-  <div class="sheet"><div class="section-head"><h3>⚠️ رسائل متابعة</h3></div><div id="negative-msgs" class="template-grid"></div></div>
-  <div class="sheet">
-    <div class="section-head"><h3>رسالة مخصصة</h3></div>
-    <textarea id="custom-msg" rows="5" placeholder="اكتب نص الرسالة… يمكنك استخدام {الطالب} للاسم الأول، و{الاسم الكامل}، و{الفصل}"></textarea>
-    <div class="actions" style="margin-top:8px"><button class="btn tick wide" onclick="copyCustomMessage()">📋 نسخ الرسالة</button></div>
-    <div class="msg" id="message-preview" style="margin-top:9px">اختر طالبًا ثم اختر قالبًا.</div>
-  </div>
+  <div id="ms-search" hidden><div class="search"><span class="search-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span><input class="inp" id="ms-q" autocomplete="off" placeholder="بحث داخل الفصل"></div></div>
+  <div class="m2-alert" id="ms-alert" hidden><b id="ms-alert-t"></b><button type="button" id="ms-alert-btn">اعرضهم</button></div>
+  <div class="bh-mode" id="ms-mode" hidden><b>☑️ رسالة لعدة طلاب — اضغط على الطلاب</b><button type="button" id="ms-all">تحديد الكل</button><button type="button" id="ms-mcancel">إلغاء</button></div>
+  <div class="bh-hint" id="ms-hint">اضغط الطالب لكتابة رسالة <small>· ✉️ جاهزة · 🔔 يحتاج</small></div>
+  <div id="ms-list" class="bh-list"></div>
+  <!-- عناصر قديمة تبقى للتوافق — لا تظهر -->
+  <div hidden><div class="sheet" id="alerts-sheet" style="display:none"><span id="alerts-count"></span><div id="alerts-list"></div></div>
+    <input id="m-search"><div id="m-results"></div><div id="m-selected"></div><div id="positive-msgs"></div><div id="negative-msgs"></div>
+    <div id="message-preview"></div><div id="mv-list"></div></div>
 </section>
 
 <!-- ══ التحفيز ══ -->
@@ -2515,6 +2558,7 @@ async function markMessaged(map){
  toast('أُزيل من القائمة حتى تتكرر 3 مرات جديدة');
 }
 function renderAlerts(){
+ try{ renderMsgList(); msSheet(); }catch(e){}
  const box=$('alerts-sheet');if(!box)return;
  const cls=$('cls')?.value||'';
  const ids=new Set(list(cls).map(s=>s.id));
@@ -2565,6 +2609,7 @@ function msg(k,s){
  return M[k]||M.behavior;
 }
 function renderMessages(){
+ try{ renderMsgList(); msSheet(); }catch(e){}
  const s=studentForMessage();
  const render=(arr,id)=>$(id).innerHTML=arr.map(([t,k])=>`<div class="template-card${alertSuggest===k?' suggested':''}"><b style="font-size:.85rem">${esc(t)}</b>${s?`<div class="muted" style="margin-top:4px;line-height:1.6">${esc(msg(k,s))}</div>`:''}<div class="mini-actions" style="margin-top:7px"><button class="btn sm tick" data-msg="${esc(k)}">📋 نسخ</button><button class="btn sm" data-msgq="${esc(k)}">📨 للمركز</button></div></div>`).join('');
  render(POS_MSGS,'positive-msgs');render(NEG_MSGS,'negative-msgs');
@@ -2590,6 +2635,7 @@ function msgqPull(){
 function msgqSave(){
   try{ localStorage.setItem(MSGQ_KEY, JSON.stringify(MSGQ.slice(-200))); }catch(e){}
   try{ data.msgq = MSGQ.slice(-200).map(m => Object.assign({at:Date.now()}, m)); save(); }catch(e){}
+  try{ renderMsgList(); if(!$('mq-sheet').hidden) mqRender(); }catch(e){}
 }
 /* الإزالة توسم x:1 بدل الحذف — الحذف وحده يعيده اتحاد الخادم. */
 function msgqRemove(i){
@@ -2688,6 +2734,7 @@ function mvStop(){
   mvOn = false; mvEng.stop();
   const b=$('mv-btn'); if(b){ b.textContent='🎤 رسائل بالصوت'; b.classList.remove('bad'); }
   vbOn('mv', false);
+  const w=$('ms-voice'); if(w){ w.hidden=true; $('ms-voice-btn')?.classList.remove('on'); }
 }
 const mvEng = vbEngine('mv', {
   pick: r => { let bestT = String(r[0]?.transcript||''), bestN = -1;
@@ -2703,6 +2750,7 @@ function mvStart(){
   if(!VR_SUP) return;
   mvOn = true;
   vbOn('mv', true); vbLive('mv','🎙️ أستمع… قل اسم الطالب ثم نوع الرسالة'); $('mv-status').innerHTML='';
+  const w=$('ms-voice'); if(w){ w.hidden=false; $('ms-voice-btn')?.classList.add('on'); }
   mvEng.start();
 }
 
@@ -2728,6 +2776,63 @@ function queueMessage(k){
   msgqSave();
   if(typeof mvRender==='function') mvRender();
 }
+/* ═══════════ 💌 صفحة الرسائل: قائمة ⟵ نافذة الطالب ═══════════ */
+let MS_TAB='pos', MS_K='', MS_MULTI=false, MS_MS=false, MS_ALERT=false; const MS_SEL=new Set();
+const msAlerts=()=>{ const ids=new Set(list($('cls')?.value||'').map(s=>s.id)); return alertsList().filter(a=>ids.has(a.studentId)); };
+const msReady=sid=>MSGQ.filter(m=>m&&m.id===sid).length;
+function msShort(n){ const p=String(n||'').split(' ').filter(w=>w&&w!=='بن'); return p.length>2?p[0]+' '+p[p.length-1]:p.join(' '); }
+function renderMsgList(){
+  const box=$('ms-list'); if(!box) return;
+  const A=msAlerts(), alertIds=new Set(A.map(a=>a.studentId));
+  const al=$('ms-alert'); if(al){ al.hidden=!A.length; $('ms-alert-t').textContent=`🔔 ${A.length} ${A.length===1?'يحتاج':'يحتاجون'} رسالة`; $('ms-alert-btn').textContent=MS_ALERT?'↩︎ الكل':'اعرضهم'; }
+  if(!A.length) MS_ALERT=false;
+  const q=String($('ms-q')?.value||'').trim(); let L=list($('cls')?.value||''); if(MS_ALERT) L=L.filter(s=>alertIds.has(s.id)); if(q) L=L.filter(s=>s.name.includes(q));
+  box.innerHTML=L.map((s,i)=>{ const r=msReady(s.id);
+    return `<button type="button" class="bh-r${MS_MULTI&&MS_SEL.has(s.id)?' pick':''}${messageStudentId===s.id&&!$('ms-sheet').hidden?' sel':''}" data-ms-open="${esc(s.id)}">${MS_MULTI?`<span class="mk">${MS_SEL.has(s.id)?'✓':''}</span>`:''}<i>${i+1}</i><span class="n">${esc(s.name)}</span><span class="bh-cnt">${r?`<span class="m2-tag ok">✉️ ${r>1?r:'جاهزة'}</span>`:''}${alertIds.has(s.id)?'<span class="m2-tag nd">🔔</span>':''}</span></button>`; }).join('')||'<div class="empty">لا يوجد طلاب مطابقون.</div>';
+  const n=MSGQ.length, b=$('mq-badge'); if(b){ b.hidden=!n; b.textContent=n; }
+  msMbar();
+}
+function msMbar(){ const b=$('ms-mbar'); if(!b) return; const n=MS_SEL.size;
+  b.hidden=!(MS_MULTI&&n&&$('ms-sheet').hidden&&document.getElementById('messages').classList.contains('on'));
+  $('ms-mgo').textContent=n===1?'جهّز رسالة لطالب واحد':n===2?'جهّز رسالة لطالبين':`جهّز رسالة لـ ${n} طلاب`; }
+function msMulti(on){ MS_MULTI=!!on; if(!on){ MS_SEL.clear(); MS_MS=false; }
+  $('ms-multi-btn')?.classList.toggle('on',MS_MULTI); $('ms-mode').hidden=!MS_MULTI; $('ms-hint').hidden=MS_MULTI; renderMsgList(); }
+function msOpen(sid){ const s=students.find(x=>x.id===String(sid)); if(!s) return; messageStudentId=s.id; MS_MS=false;
+  const a=msAlerts().find(x=>x.studentId===s.id); MS_K=a&&a.suggest?a.suggest:''; MS_TAB=MS_K&&NEG_MSGS.some(([,k])=>k===MS_K)?'neg':'pos';
+  $('ms-sheet').hidden=false; document.body.classList.add('bh-on'); msSheet(); renderMsgList(); }
+function msOpenMulti(){ if(!MS_SEL.size) return; MS_MS=true; messageStudentId=''; MS_K=''; MS_TAB='pos'; $('ms-sheet').hidden=false; document.body.classList.add('bh-on'); msSheet(); msMbar(); }
+function msClose(){ $('ms-sheet').hidden=true; document.body.classList.remove('bh-on'); if(!MS_MS) messageStudentId=''; MS_MS=false; renderMsgList(); }
+function msTargets(){ return MS_MS?[...MS_SEL].map(id=>students.find(x=>x.id===id)).filter(Boolean):[students.find(x=>x.id===messageStudentId)].filter(Boolean); }
+function msText(s){ if(MS_TAB==='custom'){ return ($('custom-msg').value||'').replaceAll('{الطالب}',firstName(s.name)).replaceAll('{الاسم الكامل}',s.name).replaceAll('{الفصل}',s.cls||'').trim(); } return MS_K?msg(MS_K,s):''; }
+function msSheet(){
+  if($('ms-sheet').hidden) return;
+  const T=msTargets(); if(!T.length) return;
+  if(MS_MS){ $('ms-sh-name').textContent=`${T.length} ${T.length===2?'طالبان':'طلاب'}: ${T.slice(0,4).map(x=>msShort(x.name)).join(' · ')}${T.length>4?' …':''}`; $('ms-sh-cls').textContent='تُكتب الرسالة باسم كل طالب'; $('ms-sh-cnt').innerHTML=''; $('ms-why').innerHTML=''; }
+  else { const s=T[0], r=msReady(s.id), a=msAlerts().find(x=>x.studentId===s.id);
+    $('ms-sh-name').textContent=s.name; $('ms-sh-cls').textContent=s.cls||''; $('ms-sh-cnt').innerHTML=r?`<span class="m2-tag ok">✉️ ${r} جاهزة</span>`:'';
+    $('ms-why').innerHTML=a?`<div class="ms-why ${a.tone==='positive'?'g':'r'}"><span>🔔 ${esc(a.reason)}${a.date?` · آخرها ${esc(a.date)}`:''}</span><button type="button" data-alert-done="${esc(JSON.stringify(a.dismiss||{[a.key]:a.count}))}">✓ تم الإرسال</button></div>`:''; }
+  document.querySelectorAll('[data-ms-tab]').forEach(b=>b.classList.toggle('on',b.dataset.msTab===MS_TAB));
+  $('ms-custom').hidden=MS_TAB!=='custom';
+  const arr=MS_TAB==='pos'?POS_MSGS:MS_TAB==='neg'?NEG_MSGS:[];
+  $('ms-chips').innerHTML=arr.map(([t,k])=>`<button type="button" class="bh-chip ${MS_TAB==='pos'?'g':'r'}${MS_K===k?' on':''}" data-msk="${esc(k)}">${esc(t)}</button>`).join('');
+  const t=msText(T[0]), show=!!t;
+  $('ms-prev').hidden=!show; $('ms-act').hidden=!show;
+  if(show){ $('ms-prev-h').textContent=MS_MS?`نص الرسالة (مثال: ${msShort(T[0].name)})`:'نص الرسالة'; $('ms-prev-t').textContent=t;
+    $('ms-copy').textContent=MS_MS?`📋 نسخ الكل (${T.length})`:'📋 نسخ'; $('ms-queue').textContent=MS_MS?`📤 للمركز (${T.length})`:'📤 للمركز'; }
+}
+function msCopy(){ const T=msTargets(); const txt=T.map(s=>msText(s)).filter(Boolean); if(!txt.length){ toast('اكتب الرسالة أولًا'); return; }
+  copyText(txt.join('\n\n')).then(()=>toast(T.length>1?`تم نسخ ${txt.length} رسائل`:'تم نسخ الرسالة')).catch(()=>toast('تعذر النسخ')); }
+function msQueue(){ const T=msTargets(); let n=0;
+  for(const s of T){ const body=msText(s); if(!body) continue; const k=MS_TAB==='custom'?'custom':MS_K;
+    const i=MSGQ.findIndex(m=>m.id===s.id&&m.k===k); if(i>=0) MSGQ[i].text=body; else MSGQ.push({id:s.id,name:s.name,k,text:body}); n++; }
+  if(!n){ toast('اكتب الرسالة أولًا'); return; }
+  msgqSave(); if(typeof mvRender==='function') mvRender();
+  const multi=MS_MS; msClose(); if(multi) msMulti(false); renderMsgList();
+  toast(n>1?`📤 جُهّزت ${n} رسائل في المركز`:'📤 أُضيفت إلى المركز'); }
+function mqRender(){ const box=$('mq-list'); if(!box) return;
+  box.innerHTML=MSGQ.length?MSGQ.map((m,i)=>`<div class="mq-r"><div class="t"><b>${esc(msShort(m.name))}</b> — ${esc(m.k==='custom'?'✏️ مخصصة':MSG_LABEL(m.k))}<small>${esc(m.text||'')}</small></div><button type="button" class="beh-del" data-mq-del="${i}" aria-label="حذف">🗑</button></div>`).join(''):'<div class="empty">لا توجد رسائل جاهزة.</div>';
+  $('mq-clear').hidden=!MSGQ.length; }
+function mqOpen(on){ $('mq-sheet').hidden=!on; document.body.classList.toggle('bh-on',!!on); if(on) mqRender(); }
 function useMessage(k){const s=studentForMessage();if(!s){toast('اختر طالبًا أولًا');return}const t=msg(k,s);$('message-preview').textContent=t;copyText(t).then(()=>toast('تم نسخ الرسالة')).catch(()=>toast('تعذر النسخ'))}
 
 /* ── السجلات ── */
@@ -3516,6 +3621,7 @@ function openTeacherPanel(target){
   document.querySelectorAll('#main-tabs .tab').forEach(x=>x.classList.toggle('on',x.dataset.p===target));
   document.querySelectorAll('.panel').forEach(x=>x.classList.toggle('on',x.id===target));
   if(target==='behavior'||target==='daily'){ try{ vrMoveTo(target==='behavior'?'beh':'daily'); }catch(e){} }
+  try{ if(target!=='messages'){ if(!$('ms-sheet').hidden) msClose(); if(!$('mq-sheet').hidden) mqOpen(false); if(MS_MULTI) msMulti(false); } }catch(e){}
   try{ if(target!=='behavior' && $('bh-logsheet') && !$('bh-logsheet').hidden) bhLog(false); if(target!=='behavior' && $('bh-sheet') && !$('bh-sheet').hidden) bhClose(); if(target!=='behavior' && BH_MULTI) bhMulti(false); }catch(e){}
   // مغادرة صفحة فيها استماع تُطفئه (لا يبقى ميكروفون يعمل في صفحة لا تراها)
   try{ if(vrOn && target!=='daily' && target!=='behavior') vrStop(); if(mvOn && target!=='messages') mvStop(); if(examVrOn && target!=='exams') examVrStop(); }catch(e){}
@@ -3556,6 +3662,27 @@ function wire(){
    bhOpen(r.dataset.bhOpen); });
  $('bh-multi-btn').onclick=()=>bhMulti(!BH_MULTI);
  $('bh-log-btn').onclick=()=>bhLog(true);
+ // 💌 الرسائل
+ $('ms-list').addEventListener('click',e=>{ const r=e.target.closest('[data-ms-open]'); if(!r) return;
+   if(MS_MULTI){ const id=r.dataset.msOpen; MS_SEL.has(id)?MS_SEL.delete(id):MS_SEL.add(id); renderMsgList(); return; } msOpen(r.dataset.msOpen); });
+ $('ms-chips').addEventListener('click',e=>{ const c=e.target.closest('[data-msk]'); if(!c) return; MS_K=c.dataset.msk; msSheet(); });
+ document.querySelectorAll('[data-ms-tab]').forEach(b=>b.onclick=()=>{ MS_TAB=b.dataset.msTab; if(MS_TAB!=='custom'&&!(MS_TAB==='pos'?POS_MSGS:NEG_MSGS).some(([,k])=>k===MS_K)) MS_K=''; msSheet(); if(MS_TAB==='custom') $('custom-msg').focus(); });
+ $('custom-msg').addEventListener('input',msSheet);
+ document.querySelectorAll('[data-ms-close]').forEach(b=>b.onclick=msClose);
+ $('ms-copy').onclick=msCopy; $('ms-queue').onclick=msQueue;
+ $('ms-multi-btn').onclick=()=>msMulti(!MS_MULTI);
+ $('ms-mcancel').onclick=$('ms-mx').onclick=()=>msMulti(false);
+ $('ms-all').onclick=()=>{ const q=String($('ms-q')?.value||'').trim(); list($('cls')?.value||'').filter(s=>!q||s.name.includes(q)).forEach(s=>MS_SEL.add(s.id)); renderMsgList(); };
+ $('ms-mgo').onclick=msOpenMulti;
+ $('ms-alert-btn').onclick=()=>{ MS_ALERT=!MS_ALERT; renderMsgList(); };
+ $('ms-q').addEventListener('input',renderMsgList);
+ $('ms-search-btn').onclick=()=>{ const w=$('ms-search'); w.hidden=!w.hidden; $('ms-search-btn').classList.toggle('on',!w.hidden); if(!w.hidden) $('ms-q').focus(); else { $('ms-q').value=''; renderMsgList(); } };
+ $('ms-voice-btn').onclick=()=>{ if(!VR_SUP){ toast('🎤 الرصد الصوتي غير مدعوم في هذا المتصفح'); return; } mvOn ? mvStop() : mvStart(); };
+ $('mq-btn').onclick=()=>mqOpen(true);
+ document.querySelectorAll('[data-mq-close]').forEach(b=>b.onclick=()=>mqOpen(false));
+ $('mq-list').addEventListener('click',e=>{ const b=e.target.closest('[data-mq-del]'); if(!b) return; msgqRemove(+b.dataset.mqDel); mqRender(); renderMsgList(); });
+ $('mq-clear').onclick=async()=>{ if(!(await askConfirm('ستُزال كل الرسائل التي جهّزتها ولم تُرسل بعد.',{title:'مسح القائمة؟',yes:'امسح',no:'إلغاء',danger:true}))) return; for(let i=MSGQ.length-1;i>=0;i--) msgqRemove(i); mqRender(); renderMsgList(); };
+ document.addEventListener('keydown',e=>{ if(e.key!=='Escape') return; if(!$('ms-sheet').hidden) msClose(); if(!$('mq-sheet').hidden) mqOpen(false); });
  document.querySelectorAll('[data-lg-close]').forEach(b=>b.onclick=()=>bhLog(false));
  document.querySelectorAll('[data-lg-f]').forEach(b=>b.onclick=()=>{ BH_LOGF=b.dataset.lgF; renderBeh(); });
  $('bh-mcancel').onclick=$('bh-mx').onclick=()=>bhMulti(false);
@@ -3628,11 +3755,8 @@ function wire(){
   if(d.dutyPick!==undefined){dutyStudentId=d.dutyPick;const s=students.find(x=>x.id===d.dutyPick);if(s)$('duty-search').value=s.name;$('duty-results').innerHTML='';openTeacherPanel('duties');renderDuties();return}
   if(d.dutyClear!==undefined){dutyStudentId='';$('duty-search').value='';renderDuties();return}
   if(d.dutyEnd!==undefined){endDuty(d.dutyEnd);return}
-  if(d.alertOpen!==undefined){const[sid,sug]=d.alertOpen.split('|');alertSuggest=sug;messageStudentId=sid;
-    openTeacherPanel('messages');fillMessageSearch();renderMessages();
-    const s=studentForMessage();if(s)$('m-search').value=s.name;
-    setTimeout(()=>{const el=document.querySelector('.template-card.suggested');if(el&&el.scrollIntoView)el.scrollIntoView({block:'center',behavior:'smooth'})},120);return}
-  if(d.alertDone!==undefined){try{markMessaged(JSON.parse(d.alertDone))}catch(e){toast('تعذّر التحديث')}return}
+  if(d.alertOpen!==undefined){const[sid,sug]=d.alertOpen.split('|');alertSuggest=sug;openTeacherPanel('messages');msOpen(sid);if(sug){MS_K=sug;MS_TAB=NEG_MSGS.some(([,k])=>k===sug)?'neg':'pos';msSheet();}return}
+  if(d.alertDone!==undefined){try{markMessaged(JSON.parse(d.alertDone)).then(()=>{ try{ msSheet(); renderMsgList(); }catch(e){} })}catch(e){toast('تعذّر التحديث')}return}
   if(d.att!==undefined){attStudentId=(attStudentId===d.att?'':d.att);renderAttendance();window.scrollTo({top:0,behavior:'smooth'});return}
   if(d.attClose!==undefined){attStudentId='';renderAttendance();return}
   if(d.exc!==undefined){const[sid,dt,mk]=d.exc.split('|');toggleExcused(sid,dt,mk==='1');return}
@@ -3649,7 +3773,7 @@ function wire(){
   if(d.msgq!==undefined){queueMessage(d.msgq);return} if(d.msg!==undefined){useMessage(d.msg);return}
   if(d.levelOpen!==undefined){openLevelStudent(d.levelOpen);return}
   if(d.goDaily!==undefined){closeStudentProfile();quickStudentId=d.goDaily;const s=students.find(x=>x.id===d.goDaily);openTeacherPanel('daily');$('quick-search').value=s?.name||'';renderQuick('quick');return}
-  if(d.goMsg!==undefined){closeStudentProfile();messageStudentId=d.goMsg;openTeacherPanel('messages');fillMessageSearch();renderMessages();return}
+  if(d.goMsg!==undefined){closeStudentProfile();openTeacherPanel('messages');msOpen(d.goMsg);return}
   if(d.goBeh!==undefined){closeStudentProfile();openTeacherPanel('behavior');bhOpen(d.goBeh);return}
  });
 }
