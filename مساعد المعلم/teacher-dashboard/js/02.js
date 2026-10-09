@@ -7000,7 +7000,7 @@ function openHwForm(id) {
         <span style="font-size:.76rem;color:var(--ink-soft);margin-top:.2rem;display:block">
           للكشف الأكاديمي — تُوزَّع بنسبة الإصابة</span></div>
       <div class="field"><label>نقاط المتجر</label>
-        <input class="inp" type="number" id="h-pts" min="1" value="${h ? h.pts : 50}">
+        <input class="inp" type="number" id="h-pts" min="1" value="${h ? (h.pts || 50) : 50}">
         <span style="font-size:.76rem;color:var(--ink-soft);margin-top:.2rem;display:block">
           عملة الطالب في المتجر</span></div>
     </div>
