@@ -603,6 +603,14 @@ body.bh-on{overflow:hidden}
 .bh-tpl button{border:0;background:none;font:inherit;font-weight:700;font-size:.8rem;color:var(--ink);padding-block:7px;padding-inline:11px 4px;cursor:pointer}
 .bh-tpl .x{padding-inline:8px 10px;color:var(--ink-faint);font-size:.75rem;border-inline-start:1px solid var(--rule)}
 .bh-tpl-empty{font-size:.78rem;color:var(--ink-faint)}
+.bh-tpl-note{font-size:.72rem;color:var(--ink-faint);line-height:1.6}
+#bh-new-save{min-height:44px;margin:0;font-weight:800}
+.bh-tplc{display:inline-flex;align-items:stretch;border-radius:999px;overflow:hidden;background:var(--surface)}
+.bh-tplc.g{border:1.5px solid #BFE3CF}.bh-tplc.r{border:1.5px solid #F3C1C9}
+.bh-tplc .bh-chip{border:0!important;border-radius:0;padding-inline:12px 6px}
+.bh-tplc .x{border:0;border-inline-start:1px solid var(--rule);background:none;color:var(--ink-faint);font-size:.72rem;padding-inline:8px 10px;cursor:pointer}
+.bh-chip.new{animation:rdFlash 2s ease-out}
+#custom-beh-list[hidden]{display:none!important}
 </style>
 
 <style id="schedule-tab-style">
@@ -1196,12 +1204,13 @@ header .brand{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     <div id="bh-custom" hidden>
       <div class="bh-new">
         <select id="custom-beh-type" hidden><option value="positive">🌟 إيجابي</option><option value="negative">⚠️ متابعة</option></select>
-        <div class="bh-ntype" role="radiogroup" aria-label="نوع السلوك"><span>سلوك جديد — النوع:</span><button type="button" class="on g" data-bh-ntype="positive">🌟 إيجابي</button><button type="button" class="r" data-bh-ntype="negative">⚠️ متابعة</button></div>
+        <div class="bh-ntype" role="radiogroup" aria-label="نوع السلوك"><span>قالب جديد — النوع:</span><button type="button" class="on g" data-bh-ntype="positive">🌟 إيجابي</button><button type="button" class="r" data-bh-ntype="negative">⚠️ متابعة</button></div>
         <input class="inp" id="custom-beh-title" maxlength="60" placeholder="اسم السلوك — مثال: قيادة المجموعة">
         <input class="inp" id="custom-beh-note" maxlength="120" placeholder="وصف مختصر (اختياري)">
-        <div class="bh-nact"><button type="button" class="btn tick" id="bh-new-rec">✓ سجّل الآن واحفظه قالبًا</button><button type="button" class="btn" id="bh-new-save" title="يُحفظ قالبًا دون تسجيل">حفظ فقط</button></div>
+        <button type="button" class="btn tick" id="bh-new-save">＋ حفظ القالب</button>
+        <div class="bh-tpl-note">يظهر القالب في تبويب «🌟 إيجابي» أو «⚠️ متابعة» حسب نوعه، ويُحذف من ✕ بجانبه هناك.</div>
       </div>
-      <div class="bh-tpls"><div class="bh-tpls-h"><b>قوالبي</b><small>اضغط القالب لتسجيله · ✕ للحذف</small></div><div id="custom-beh-list"></div></div>
+      <div id="custom-beh-list" hidden></div>
     </div>
     <div class="bh-mini" id="bh-mini"></div>
   </div>
@@ -2343,7 +2352,8 @@ function bhSheet(){
   const chip=(t,n,type,lbl)=>`<button type="button" class="bh-chip ${type==='positive'?'g':'r'}" data-beh="${type}" data-sid="${esc(s.id)}" data-title="${esc(t)}" data-note="${esc(n||'')}">${esc(lbl||t)}</button>`;
   $('bh-chips').innerHTML = BH_TAB==='custom' ? ''
     : (BH_TAB==='positive'?POS_BEHAVIORS:NEG_BEHAVIORS).map(([t,n])=>chip(t,n,BH_TAB)).join('')
-      + tpl.filter(x=>(x.type||'negative')===BH_TAB).map(x=>chip(x.title,x.note,BH_TAB,'✏️ '+x.title)).join('');
+      + (data.behaviorTemplates||[]).map((x,i)=>({x,i})).filter(o=>o.x&&o.x.title&&(o.x.type||'negative')===BH_TAB)
+          .map(({x,i})=>`<span class="bh-tplc ${BH_TAB==='positive'?'g':'r'}">${chip(x.title,x.note,BH_TAB,'✏️ '+x.title)}<button type="button" class="x" data-tpl-del="${i}" aria-label="حذف القالب ${esc(x.title)}">✕</button></span>`).join('');
   const mine=(data.behavior||[]).filter(x=>x&&!x.deleted&&x.studentId===s.id).slice(0,3);
   $('bh-mini').innerHTML=mine.length?`<b>آخر ملاحظاته</b>${mine.map(x=>`<span class="${x.type==='positive'?'g':'r'}">${esc(x.category||'ملاحظة')} <small>${bhWhen(x)}</small><button type="button" onclick="behDelete('${esc(x.id)}')" aria-label="حذف">🗑</button></span>`).join('')}`:'';
 }
@@ -2367,7 +2377,11 @@ async function deleteBehaviorTemplate(i){const x=data.behaviorTemplates?.[i];if(
 function addBehaviorTemplate(andRecord){const title=$('custom-beh-title').value.trim(),note=$('custom-beh-note').value.trim(),type=$('custom-beh-type').value;if(!title){toast('اكتب اسم السلوك');$('custom-beh-title').focus();return}
  data.behaviorTemplates=data.behaviorTemplates||[];
  if(!data.behaviorTemplates.some(x=>x&&x.title===title&&x.type===type)) data.behaviorTemplates.unshift({title,note,type});   // لا قالب مكرر
- if(andRecord&&behaviorStudentId){ const sid=behaviorStudentId; $('custom-beh-title').value='';$('custom-beh-note').value='';renderCustomBehaviorTemplates();quickBehavior(sid,type,title,note);return }$('custom-beh-title').value='';$('custom-beh-note').value='';save();renderCustomBehaviorTemplates();bhSheet();toast('تم حفظ القالب')}
+ if(andRecord&&behaviorStudentId){ const sid=behaviorStudentId; $('custom-beh-title').value='';$('custom-beh-note').value='';renderCustomBehaviorTemplates();quickBehavior(sid,type,title,note);return }
+ $('custom-beh-title').value='';$('custom-beh-note').value='';
+ save();renderCustomBehaviorTemplates();
+ if(!$('bh-sheet')?.hidden){ bhTab(type); const c=[...document.querySelectorAll('#bh-chips .bh-chip')].find(b=>b.dataset.title===title); if(c){ c.classList.add('new'); c.scrollIntoView({block:'nearest'}); } }
+ toast('تم حفظ القالب — اضغطه لتسجيله')}
 
 /* ── الشهادات ── */
 
@@ -3457,9 +3471,8 @@ function wire(){
  $('bh-voice-btn').onclick=()=>{ if(!VR_SUP){ toast('🎤 الرصد الصوتي غير مدعوم في هذا المتصفح'); return; } if(vrOn){ vrStop(); return; } try{ vrMoveTo('beh'); }catch(e){} vrStart(); };
  document.querySelectorAll('[data-bh-tab]').forEach(b=>b.onclick=()=>bhTab(b.dataset.bhTab));
  document.querySelectorAll('[data-bh-ntype]').forEach(b=>b.onclick=()=>{ $('custom-beh-type').value=b.dataset.bhNtype; document.querySelectorAll('[data-bh-ntype]').forEach(x=>x.classList.toggle('on',x===b)); });
- $('bh-new-rec').onclick=()=>addBehaviorTemplate(true);
  $('bh-new-save').onclick=()=>addBehaviorTemplate(false);
- $('custom-beh-title').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); addBehaviorTemplate(true); } });
+ $('custom-beh-title').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); addBehaviorTemplate(false); } });
  $('bh-list').addEventListener('click',e=>{ const r=e.target.closest('[data-bh-open]'); if(r) bhOpen(r.dataset.bhOpen); });
  document.querySelectorAll('[data-bh-close]').forEach(b=>b.onclick=bhClose);
  document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&!$('bh-sheet').hidden) bhClose(); });
