@@ -1488,6 +1488,12 @@ function resetGateToNameForm(){
   if(journeyWorkspace) journeyWorkspace.classList.add('hide');
   const allActivities = $('all-activities-panel');
   if(allActivities) allActivities.classList.add('hide');
+  // 📄 «تقريري» لا يظهر إلا بعد الدخول، وعند الخروج يُفرَّغ حتى لا يرى الطالب التالي تقارير من قبله
+  const myRep = $('my-report-panel');
+  if(myRep){ myRep.classList.add('hide'); myRep.classList.remove('mr-has-new');
+    ['my-report-box','my-report-alert','my-report-new','my-report-new-p','my-report-ping'].forEach(id=>{ const e=$(id); if(e) e.classList.add('hide'); });
+    const mb=$('my-report-box'); if(mb) mb.innerHTML=''; const ch=$('my-report-chev'); if(ch) ch.textContent='⌄'; }
+  try{ WEEKLY_MSGS=[]; SREP_MSGS=[]; Object.assign(MYREP,{open:false,reports:[],idx:0,wk:0,tab:'',loaded:false}); REP_SEEN_SRV=new Set(); }catch(e){}
 
   // 🧹 «مساحتك التعليمية» أُضيفت بعد كتابة هذا الزر فبقيت ظاهرة: اسم الطالب
   // السابق وتنبيهاته يراهما الطالب التالي على نفس الجهاز. نُعيدها لحالتها الأولى.
@@ -2065,6 +2071,7 @@ async function loadStudentSpace(nm, rows){
   const box = $('gate-space');
   if(!box) return;
   box.classList.remove('hide');
+  { const mr=$('my-report-panel'); if(mr) mr.classList.remove('hide'); }   // 📄 «تقريري» بعد الدخول فقط
   $('space-greeting').textContent = `أهلاً ${nm} 👋`;
   try{ ptOnLogin(); }catch(e){}
   try{ annPortalLoad(); }catch(e){}
