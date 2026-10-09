@@ -720,6 +720,30 @@ body:has(#bh-mbar:not([hidden])) #behavior{padding-bottom:70px}
 .gc.g{background:var(--green-soft);color:var(--green)}.gc.a{background:#FEF3C7;color:#92400E}.gc.r{background:var(--red-soft);color:var(--red)}.gc.m{color:var(--ink-faint);font-weight:700}
 .gr-sec{margin-top:12px}.gr-sec>b{display:block;font-size:.86rem;margin:0 2px 6px}.gr-sec>b small{font-weight:600;color:var(--ink-soft);font-size:.72rem;margin-inline-start:4px}
 #grades .pf-how{margin-top:12px}
+#sc-set[hidden]{display:none!important}
+#sc-set{position:fixed;inset:0;z-index:150}
+#sc-set .card{border:1px solid var(--rule);border-radius:14px;padding:11px;margin-top:8px;background:var(--surface)}
+#sc-set .sch-fields{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:7px}#sc-set input{min-width:0;max-width:100%;box-sizing:border-box}
+.sc-now{border:0;padding:0;background:transparent;margin-bottom:4px}
+.sc-now #sch-now>div{border:1.5px solid var(--accent)!important;border-radius:16px}
+#sc-set .hint,#sc-set p{font-size:.74rem!important;line-height:1.6}
+.sc-day,.sc-wk{background:var(--surface);border:1px solid var(--rule);border-radius:var(--r);overflow:hidden}
+.sc-r,.sc-wr{display:flex;align-items:center;gap:9px;padding:7px 10px;border-top:1px solid var(--rule);min-height:46px}
+.sc-r:first-child,.sc-wr:first-child{border-top:0}
+.sc-r b,.sc-wr b{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;background:var(--surface-2);font-size:.8rem;flex:none}
+.sc-r span,.sc-wr span{flex:1;min-width:0;font-weight:800;font-size:.86rem}.sc-r span small,.sc-wr span small{display:block;font-weight:600;font-size:.7rem;color:var(--ink-soft)}
+.sc-r em{font-style:normal;font-size:.72rem;font-weight:800;color:var(--ink-soft)}.sc-r em.g{color:var(--green)}.sc-r em.a{color:#92400E}
+.sc-r.free span{color:var(--ink-faint);font-weight:600}
+.sc-r.cur{background:var(--accent-soft)}.sc-r.cur b{background:var(--accent);color:#fff}
+.sc-r.done b{background:var(--green-soft);color:var(--green)}
+.sc-brk{font-size:.7rem;font-weight:700;color:var(--ink-soft);text-align:center;padding:3px;background:var(--surface-2);border-top:1px solid var(--rule)}
+.sc-days{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:6px}
+.sc-days button{font:inherit;font-weight:800;font-size:.76rem;border:1.5px solid var(--rule);background:var(--surface);color:var(--ink);border-radius:11px;padding:6px 2px;cursor:pointer}
+.sc-days button small{display:block;font-weight:600;font-size:.62rem;color:var(--ink-soft)}
+.sc-days button.td{border-color:var(--green)}.sc-days button.on{background:var(--accent);border-color:var(--accent);color:#fff}.sc-days button.on small{color:#fff}
+.sc-wr select{flex:none;width:96px;border:1.5px solid var(--rule);border-radius:10px;background:var(--surface-2);font:inherit;font-weight:800;font-size:.82rem;padding:6px;color:var(--ink)}
+.sc-wr.has select{border-color:var(--accent);background:var(--accent-soft)}
+#schedule .gr-sec{margin-top:14px}
 </style>
 
 <style id="schedule-tab-style">
@@ -1307,6 +1331,44 @@ header .brand{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     <div id="behlist"></div>
   </div>
 </div>
+<!-- ⚙️ إعدادات الجدول: الرصد التلقائي · التنبيهات · أوقات الحصص -->
+<div id="sc-set" hidden>
+  <div class="bh-veil" data-sc-close></div>
+  <div class="bh-box" role="dialog" aria-modal="true" aria-labelledby="sc-set-t">
+    <div class="bh-sh-h"><div class="bh-sh-n"><b id="sc-set-t">⚙️ الجدول</b><small>الرصد التلقائي · تنبيه الحصص · الأوقات</small></div><button type="button" class="bh-x" data-sc-close aria-label="إغلاق">✕</button></div>
+  <div class="card">
+    <div class="sch-switch">
+      <div>
+        <b>الرصد التلقائي للمشاركة</b>
+        <small id="sch-auto-note"></small>
+      </div>
+      <button class="sch-toggle" id="sch-auto-btn" onclick="schToggleAuto()" role="switch"><span></span></button>
+    </div>
+  </div>
+
+  <div class="card" id="pp-card"></div>
+
+  <div class="card">
+    <h3>أوقات الحصص</h3>
+    <p class="hint">التوقيت الصيفي والشتوي محفوظان معًا — التبديل بينهما بضغطة، ولا يمسّ الحصص المسجَّلة سابقًا.</p>
+    <div class="segmented" style="margin-bottom:10px">
+      <button class="btn" id="sch-p-summer" onclick="schSetPreset('summer')">صيفي</button>
+      <button class="btn" id="sch-p-winter" onclick="schSetPreset('winter')">شتوي</button>
+    </div>
+    <div class="sch-fields">
+      <label>بداية الحصة الأولى<input type="time" id="sch-base" onchange="schSaveFields()"></label>
+      <label>مدة الحصة (دقيقة)<input type="number" id="sch-dur" min="20" max="90" onchange="schSaveFields()"></label>
+      <label>الفسحة بعد الحصة<input type="number" id="sch-ba" min="1" max="7" onchange="schSaveFields()"></label>
+      <label>مدة الفسحة (دقيقة)<input type="number" id="sch-bl" min="0" max="60" onchange="schSaveFields()"></label>
+      <label>عدد الحصص<input type="number" id="sch-count" min="4" max="8" onchange="schSaveFields()"></label>
+      <label>🕌 فسحة الصلاة بعد الحصة<input type="number" id="sch-pa" min="0" max="8" onchange="schSaveFields()"></label>
+      <label>مدة فسحة الصلاة<input type="number" id="sch-pl" min="0" max="60" onchange="schSaveFields()"></label>
+    </div>
+    <div id="sch-times" class="sch-times"></div>
+  </div>
+
+  </div>
+</div>
 <!-- ⚙️ السنة الدراسية وفترة التقييم -->
 <div id="gr-set" hidden>
   <div class="bh-veil" data-gr-close></div>
@@ -1421,52 +1483,18 @@ header .brand{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 <!-- ══ السجلات ══ -->
 <section class="panel" id="schedule">
-  <div class="card">
-    <div class="sch-switch">
-      <div>
-        <b>الرصد التلقائي للمشاركة</b>
-        <small id="sch-auto-note"></small>
-      </div>
-      <button class="sch-toggle" id="sch-auto-btn" onclick="schToggleAuto()" role="switch"><span></span></button>
-    </div>
-  </div>
-
-  <div class="card" id="pp-card"></div>
-
-  <div class="card">
-    <h3>🗓️ الحصة الآن</h3>
+  <!-- 🗓️ الجدول: الحصة الآن ⟵ حصص اليوم ⟵ جدولي الأسبوعي (يومًا بيوم). الأوقات والتنبيهات في ⚙️ -->
+  <div class="rd-head"><h1>الجدول</h1>
+    <button type="button" class="rd-ic" id="sc-set-btn" title="الأوقات والتنبيهات" aria-label="إعدادات الجدول">⚙️</button></div>
+  <button type="button" class="gr-ctx" id="sc-ctx"></button>
+  <div class="card sc-now">
     <div id="sch-now" class="level-table"></div>
   </div>
-
-  <div class="card">
-    <h3>أوقات الحصص</h3>
-    <p class="hint">التوقيت الصيفي والشتوي محفوظان معًا — التبديل بينهما بضغطة، ولا يمسّ الحصص المسجَّلة سابقًا.</p>
-    <div class="segmented" style="margin-bottom:10px">
-      <button class="btn" id="sch-p-summer" onclick="schSetPreset('summer')">صيفي</button>
-      <button class="btn" id="sch-p-winter" onclick="schSetPreset('winter')">شتوي</button>
-    </div>
-    <div class="sch-fields">
-      <label>بداية الحصة الأولى<input type="time" id="sch-base" onchange="schSaveFields()"></label>
-      <label>مدة الحصة (دقيقة)<input type="number" id="sch-dur" min="20" max="90" onchange="schSaveFields()"></label>
-      <label>الفسحة بعد الحصة<input type="number" id="sch-ba" min="1" max="7" onchange="schSaveFields()"></label>
-      <label>مدة الفسحة (دقيقة)<input type="number" id="sch-bl" min="0" max="60" onchange="schSaveFields()"></label>
-      <label>عدد الحصص<input type="number" id="sch-count" min="4" max="8" onchange="schSaveFields()"></label>
-      <label>🕌 فسحة الصلاة بعد الحصة<input type="number" id="sch-pa" min="0" max="8" onchange="schSaveFields()"></label>
-      <label>مدة فسحة الصلاة<input type="number" id="sch-pl" min="0" max="60" onchange="schSaveFields()"></label>
-    </div>
-    <div id="sch-times" class="sch-times"></div>
-  </div>
-
-  <div class="card">
-    <h3>جدولي الأسبوعي</h3>
-    <p class="hint">اختر الفصل لكل حصة. الفراغ يعني لا حصة لك. الجدول يقترح فقط — الحصة لا تُحتسب إلا إذا بدأتها بنفسك.</p>
-    <div id="sch-grid" class="sch-grid-wrap"></div>
-  </div>
-
-  <div class="card">
-    <h3>حصص اليوم</h3>
-    <div id="sch-log" class="level-table"></div>
-  </div>
+  <div class="gr-sec"><b>📅 حصص اليوم <small id="sc-day-t"></small></b><div id="sc-day" class="sc-day"></div></div>
+  <div class="gr-sec"><b>🗓️ جدولي الأسبوعي <small>الفراغ = لا حصة</small></b>
+    <div class="sc-days" id="sc-days"></div>
+    <div id="sch-grid" class="sc-wk"></div></div>
+  <div hidden><div id="sch-log"></div></div>
 </section>
 
 <section class="panel" id="records">
@@ -3880,7 +3908,7 @@ function openTeacherPanel(target){
   try{ if(target!=='messages'){ if(!$('ms-sheet').hidden) msClose(); if(!$('mq-sheet').hidden) mqOpen(false); if(MS_MULTI) msMulti(false); } }catch(e){}
   try{ if(target!=='behavior' && $('bh-logsheet') && !$('bh-logsheet').hidden) bhLog(false); if(target!=='behavior' && $('bh-sheet') && !$('bh-sheet').hidden) bhClose(); if(target!=='behavior' && BH_MULTI) bhMulti(false); }catch(e){}
   // مغادرة صفحة فيها استماع تُطفئه (لا يبقى ميكروفون يعمل في صفحة لا تراها)
-  try{ if(svOn && target!=='students') svStop(); if(target!=='grades' && !$('gr-set').hidden) grSet(false); }catch(e){}
+  try{ if(svOn && target!=='students') svStop(); if(target!=='grades' && !$('gr-set').hidden) grSet(false); if(target!=='schedule' && !$('sc-set').hidden) scSet(false); }catch(e){}
   try{ if(vrOn && target!=='daily' && target!=='behavior') vrStop(); if(mvOn && target!=='messages') mvStop(); if(examVrOn && target!=='exams') examVrStop(); }catch(e){}
   if(target==='behavior'){renderQuick('behavior');renderBehaviorButtons();renderCustomBehaviorTemplates();renderBeh()}
   if(target==='messages'){renderAlerts();renderMessages();fillMessageSearch()}
@@ -3966,6 +3994,10 @@ function wire(){
  $('rec-date').addEventListener('change',renderRecords);
  $('level-search').addEventListener('input',renderLevels);
  $('students-search').addEventListener('input',renderStudents);
+ // 🗓️ الجدول
+ $('sc-set-btn').onclick=$('sc-ctx').onclick=()=>scSet(true);
+ document.querySelectorAll('[data-sc-close]').forEach(b=>b.onclick=()=>scSet(false));
+ $('sc-days').addEventListener('click',e=>{ const b=e.target.closest('[data-sc-day]'); if(!b) return; SC_DAY=+b.dataset.scDay; renderSchedule(); });
  // 📊 الدرجات
  $('gr-fl').addEventListener('click',e=>{ const b=e.target.closest('[data-gr-f]'); if(!b) return; GR_F=b.dataset.grF; renderGrades(); });
  $('gr-search-btn').onclick=()=>{ const w=$('gr-search'); w.hidden=!w.hidden; $('gr-search-btn').classList.toggle('on',!w.hidden); if(!w.hidden) $('grade-search').focus(); else { $('grade-search').value=''; renderGrades(); } };
@@ -4310,6 +4342,8 @@ function schClassOptions(sel){
   const set = [...new Set(students.map(s=>s.cls).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ar'));
   return '<option value="">—</option>' + set.map(c=>`<option value="${esc(c)}"${c===sel?' selected':''}>${esc(c)}</option>`).join('');
 }
+let SC_DAY=-1;
+function scSet(on){ $('sc-set').hidden=!on; document.body.classList.toggle('bh-on',!!on); }
 function renderSchedule(){
   const s = sch(), T = schTimes(), dow = schDow(), d = today();
   const todayGrid = s.grid[String(dow)] || {};
@@ -4381,32 +4415,30 @@ function renderSchedule(){
       ${t.fixed?`<button class="btn tiny" onclick="schClearFix(${t.n})">إرجاع</button>`:'<span></span>'}
     </div>`).join('') + `<div class="hint">الأوقات محسوبة تلقائيًا؛ عدّل أي حصة إن اختلفت.</div>`;
 
-  /* الجدول الأسبوعي */
+  /* الجدول الأسبوعي: يومًا بيوم */
+  if(SC_DAY<0) SC_DAY = (dow>=0&&dow<=4) ? dow : 0;
+  const dc=$('sc-days');
+  if(dc) dc.innerHTML = SCH_DAYS.map((nm,dy)=>{ const n=T.filter(t=>(s.grid[String(dy)]||{})[String(t.n)]).length;
+    return `<button type="button" class="${dy===SC_DAY?'on':''}${dy===dow?' td':''}" data-sc-day="${dy}">${nm}<small>${n?n+' حصص':'—'}</small></button>`; }).join('');
   const g = $('sch-grid');
-  if(g){
-    let h = '<table class="sch-grid"><thead><tr><th>اليوم</th>' +
-            T.map(t=>`<th>${t.n}<small>${t.s}</small></th>`).join('') + '</tr></thead><tbody>';
-    for(let dy=0; dy<5; dy++){
-      h += `<tr${dy===dow?' class="on"':''}><th>${SCH_DAYS[dy]}</th>` +
-           T.map(t=>`<td><select onchange="schSetCell(${dy},${t.n},this.value)">${schClassOptions((s.grid[String(dy)]||{})[String(t.n)]||'')}</select></td>`).join('') +
-           '</tr>';
-    }
-    g.innerHTML = h + '</tbody></table>';
-  }
+  if(g){ const gd=s.grid[String(SC_DAY)]||{};
+    g.innerHTML = T.map(t=>`${t.n===s.breakAfter+1 && s.breakLen>0 ? `<div class="sc-brk">☕ الفسحة</div>`:''}${s.prayAfter>0 && t.n===s.prayAfter+1 && s.prayLen>0 ? `<div class="sc-brk">🕌 الصلاة</div>`:''}
+      <label class="sc-wr${gd[String(t.n)]?' has':''}"><b>${t.n}</b><span>الحصة ${CTX_ORD[t.n]||t.n}<small>${t.s} – ${t.e}</small></span>
+      <select onchange="schSetCell(${SC_DAY},${t.n},this.value)">${schClassOptions(gd[String(t.n)]||'')}</select></label>`).join(''); }
 
-  /* سجل حصص اليوم */
-  const lg = $('sch-log');
-  if(lg){
-    const day = s.sessions[d] || {}, ks = Object.keys(day).sort((a,b)=>a-b);
-    lg.innerHTML = ks.length ? ks.map(k=>{
-      const x = day[k];
-      return `<div class="sch-log-row">
-        <b>الحصة ${k}</b><span>${esc(x.cls||'')}</span>
-        <span>${x.en ? (x.skipped ? 'بلا كتابة' : `${x.n} مشاركة`) : 'مفتوحة'}</span>
-        <span class="${x.auto?'warn':''}">${x.en ? (x.auto?'أُغلقت تلقائيًا':'أنهيتها') : '—'}</span>
-      </div>`;
-    }).join('') : '<div class="sch-empty">لم تبدأ حصة اليوم.</div>';
+  /* حصص اليوم: خط زمني */
+  const dy0=$('sc-day');
+  if(dy0){ const day=s.sessions[d]||{};
+    if(dow<0||dow>4){ dy0.innerHTML='<div class="pf-empty">لا دوام اليوم.</div>'; $('sc-day-t').textContent=''; }
+    else { const cur=open?open.p:(schFind(now,T).cur||{}).n;
+      $('sc-day-t').textContent=SCH_DAYS[dow];
+      dy0.innerHTML=T.map(t=>{ const c=todayGrid[String(t.n)]||'', x=day[String(t.n)], isCur=cur===t.n, done=x&&x.en, past=now>=t.em;
+        const st = x ? (x.en ? (x.skipped?'✓ أُنهيت بلا كتابة':`✓ ${x.n||0} مشاركة${x.auto?' · أُغلقت تلقائيًا':''}`) : '● مفتوحة الآن') : (isCur&&c?'الآن':past&&c?'لم تُبدأ':'');
+        return `${t.n===s.breakAfter+1 && s.breakLen>0 ? `<div class="sc-brk">☕ الفسحة · ${s.breakLen} د</div>`:''}<div class="sc-r${isCur?' cur':''}${done?' done':''}${c?'':' free'}"><b>${isCur?'●':done?'✓':t.n}</b><span>${c?esc(c):'فراغ'}<small>${t.s} – ${t.e}</small></span><em class="${x&&!x.en?'g':x&&x.auto?'a':''}">${esc(st)}</em></div>`; }).join(''); }
   }
+  /* سطر الحالة */
+  const cx=$('sc-ctx'); if(cx){ let pon=false; try{ pon=ppOn(); }catch(e){}
+    cx.innerHTML=`<span>⏰ ${s.active==='winter'?'شتوي':'صيفي'} · تبدأ ${esc(s.presets[s.active]||'')} · ${s.count} حصص</span><small>${s.auto?'✍️ رصد تلقائي':'✍️ يدوي'} · ${pon?'🔔 مُفعّل':'🔕'} ⚙️</small>`; }
   try{ ctxRefresh(); }catch(e){}   // أي تعديل في الجدول ينعكس فورًا على محدد السياق
   try{ ppRender(); ppSyncSoon(); }catch(e){}   // وتنبيهات الحصص تتبع الجدول المعدّل
 }
