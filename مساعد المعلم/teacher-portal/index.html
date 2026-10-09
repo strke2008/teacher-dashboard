@@ -1883,7 +1883,13 @@ function vrNext(){
   }
 }
 
+let vrHold = null;     // اسم قيل وحده — يُضم إليه ما يُقال بعده خلال ٨ ث («إبراهيم رضوان» … «مشارك»)
 async function vrHandle(text){
+  if(vrHold && Date.now() - vrHold.at < 8000){
+    const joined = vrHold.t + ' ' + text;
+    if(vrSegments(joined).some(sg => sg.kind && vrMatch(sg.name).hits.length)){ text = joined; vrClearPick(); }
+  }
+  vrHold = null;
   vrHeard = String(text||'').trim().slice(0,80);
   const segs = vrSegments(text);
   if(!segs.length){ vrSay('لم أتعرف على الأمر، حاول مرة أخرى'); return; }
@@ -1894,7 +1900,7 @@ async function vrHandle(text){
     const { hits, scope } = vrMatch(sg.name);
     if(!hits.length){ vrQueue.push({ type:'none', name: sg.name.join(' ') }); continue; }
     if(hits.length > 1){ vrQueue.push({ type:'pickStudent', hits, kind: sg.kind, scope }); continue; }
-    if(!sg.kind){ vrQueue.push({ type:'pickKind', st: hits[0] }); continue; }
+    if(!sg.kind){ if(segs.length===1) vrHold = { t: sg.name.join(' '), at: Date.now() }; vrQueue.push({ type:'pickKind', st: hits[0] }); continue; }
     if(scope==='all') vrLog(`ℹ️ ${hits[0].name} من فصل ${hits[0].cls||'—'}`);
     await vrApply(hits[0], sg.kind, true);    // الواضح يُسجَّل فورًا ولا ينتظر غيره
     done++;
@@ -1926,18 +1932,58 @@ function vrMoveTo(ctx){
    • إن رفض الجهاز إعادة الاستماع يظهر «⏸️ تابِع» بدل صمت مخادع.
    • محرّك واحد يعمل في كل لحظة: بدء أي استماع يوقف الآخر.
    • سجل أحداث مختصر: اضغط على شريط الاستماع لعرضه (للتشخيص). */
-const VB_VER = 'صوت ٦';
+const VB_VER = 'صوت ٧';
 const VB_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const VB_ENGINES = {};
 function vbEngine(p, { onFinal, pick, onFatal, onStop }){
-  const E = { p, on:false, rec:null, restartT:0, pend:'', last:'', lastAt:0, fails:0, worked:false, log:[] };
+  const E = { p, on:false, rec:null, restartT:0, idleT:0, pend:'', last:'', lastAt:0, fails:0, worked:false, log:[] };
   const L = x => { E.log.push(new Date().toTimeString().slice(0,8) + ' ' + x); if(E.log.length > 20) E.log.shift(); };
   const fire = t => { t = String(t||'').trim(); if(!t) return; const now = Date.now();
     if(t === E.last && now - E.lastAt < 1500) return;
     E.last = t; E.lastAt = now; try{ onFinal(t); }catch(e){ L('handle-err ' + e.message); } };
-  function make(){
+  /* 🍎 iPhone (ثبت من سجل الأحداث): الجلسة التي تُعاد بلا لمستك «تبدأ» لكن لا يصلها صوت.
+     لذا على iPhone: جلسة واحدة مستمرة تبدأ بلمستك ولا تُغلق؛ النص فيها يطول مع كلامك،
+     فنعتمد الجديد منه بعد سكوتك ‎1.3 ث‎ (بعدّ الكلمات لا بالحروف، لأن iPhone يعدّل ما قبله). */
+  function makeIOS(){
     const r = new VR_SUP();
-    r.lang = 'ar-SA'; r.interimResults = !VB_IOS; r.maxAlternatives = 3; r.continuous = false;
+    r.lang = 'ar-SA'; r.interimResults = true; r.maxAlternatives = 1; r.continuous = true;
+    r.__n = {};                                     // لكل نتيجة: عدد الكلمات المعتمدة منها
+    const words = t => vrNorm(t).split(' ').filter(Boolean);
+    const commit = (i, t, why) => {
+      const w = words(t), n = r.__n[i] || 0; if(w.length <= n) return;
+      r.__n[i] = w.length; E.pend = ''; E.worked = true;
+      const f = w.slice(n).join(' '); L(why + ' «' + f + '»'); fire(f);
+    };
+    r.onstart = () => { L('start'); E.fails = 0; };
+    r.onresult = ev => {
+      if(E.rec !== r) return;
+      const from = typeof ev.resultIndex === 'number' ? ev.resultIndex : 0;
+      for(let i = from; i < ev.results.length; i++){
+        const res = ev.results[i]; if(!res) continue;
+        const t = String(res[0]?.transcript||'').trim(); if(!t) continue;
+        if(res.isFinal){ clearTimeout(E.idleT); commit(i, t, 'final'); continue; }
+        const w = words(t), n = r.__n[i] || 0;
+        if(w.length > n){ vbLive(p, `🎙️ <b>«${esc(w.slice(n).join(' '))}»</b>`); E.pend = { i, t }; }
+        clearTimeout(E.idleT);
+        E.idleT = setTimeout(() => { if(E.rec === r && E.pend){ const q = E.pend; commit(q.i, q.t, 'pause'); } }, 1300);
+      }
+    };
+    r.onerror = e => { const err = (e && e.error) || '?'; L('error ' + err);
+      if((err === 'not-allowed' || err === 'service-not-allowed') && !E.worked){ E.on = false;
+        try{ onFatal && onFatal('تعذّر استخدام الميكروفون — لم يُسمح بالإذن. فعّله من إعدادات المتصفح.'); }catch(x){} } };
+    r.onend = () => {
+      L('end'); clearTimeout(E.idleT);
+      if(E.rec !== r) return;
+      if(E.pend && typeof E.pend === 'object'){ const q = E.pend; commit(q.i, q.t, 'end'); }
+      E.pend = '';
+      if(E.on) pause();                             // إعادة بلا لمسة = جلسة صمّاء على iPhone ⟵ «تابِع»
+    };
+    return r;
+  }
+  function make(){
+    if(VB_IOS) return makeIOS();
+    const r = new VR_SUP();
+    r.lang = 'ar-SA'; r.interimResults = true; r.maxAlternatives = 3; r.continuous = false;
     r.onstart = () => { L('start'); E.fails = 0; };
     r.onresult = ev => {
       if(E.rec !== r) return;
@@ -1958,7 +2004,7 @@ function vbEngine(p, { onFinal, pick, onFatal, onStop }){
     r.onend = () => {
       L('end');
       if(E.rec !== r) return;
-      if(E.pend){ const t = E.pend; E.pend = ''; E.worked = true; fire(t); }   // جملة لحظية لم تُعتمد
+      if(E.pend && typeof E.pend === 'string'){ const t = E.pend; E.pend = ''; E.worked = true; fire(t); }   // جملة لحظية لم تُعتمد
       if(!E.on) return;
       clearTimeout(E.restartT);
       E.restartT = setTimeout(() => {
@@ -1975,6 +2021,7 @@ function vbEngine(p, { onFinal, pick, onFatal, onStop }){
     clearTimeout(E.restartT); L('paused');
     const r = E.rec; E.rec = null; try{ r && r.abort && r.abort(); }catch(e){}
     vbLive(p, `⏸️ توقف الاستماع <button type="button" class="vb-resume" onclick="VB_ENGINES['${p}'].resume()">▶︎ تابِع</button>`);
+    try{ navigator.vibrate && navigator.vibrate(60); }catch(e){}
   }
   function go(){ E.fails = 0; E.pend = ''; let r; try{ r = make(); }catch(e){ return pause(); }
     E.rec = r; try{ r.start(); L('go'); }catch(e){ L('go-fail ' + (e && e.message || '')); pause(); } }
@@ -1984,7 +2031,7 @@ function vbEngine(p, { onFinal, pick, onFatal, onStop }){
   };
   E.resume = () => { if(!E.on) return; vbLive(p, '🎙️ أستمع…'); go(); };
   E.stop = () => {
-    E.on = false; E.pend = ''; clearTimeout(E.restartT); L('stop');
+    E.on = false; E.pend = ''; clearTimeout(E.restartT); clearTimeout(E.idleT); L('stop');
     const r = E.rec; E.rec = null; try{ r && (r.abort ? r.abort() : r.stop()); }catch(e){}
   };
   E.stopAll = () => { E.stop(); try{ onStop && onStop(); }catch(e){} };
@@ -2651,7 +2698,10 @@ function examVrStop(){
   examVrSay(''); vbOn('exv', false);
   const w=$('ex-voice'); if(w) w.hidden=true; $('ex-voice-btn')?.classList.remove('on');
 }
+let exHold=null;   // «زياد المالكي» … «ثمانية»: الاسم وحده يُضم إليه ما يُقال بعده خلال ٨ ث
 async function examVrHandle(text){
+  if(exHold && Date.now()-exHold.at<8000){ const j=exHold.t+' '+text; if(examVrSegments(j).some(sg=>sg.score!=null)) text=j; }
+  exHold=null;
   const heard=String(text||'').trim().slice(0,80);
   const testId=$('exam-vr-test')?.value||'';
   const b=examBook();
@@ -2666,7 +2716,7 @@ async function examVrHandle(text){
       problems.push(sg.name.join(' ')+(hit.hits.length?' (أكثر من طالب)':' (غير موجود)'));
       continue;
     }
-    if(sg.score==null){problems.push(hit.hits[0].name+' (بلا درجة)');continue}
+    if(sg.score==null){ if(segs.length===1) exHold={t:sg.name.join(' '),at:Date.now()}; problems.push(hit.hits[0].name+' (قل الدرجة)');continue}
     const max=Number(test.max)||0;
     const score=Math.max(0,Math.min(max,sg.score));
     if(score!==sg.score) examVrLog(`⚠️ ${hit.hits[0].name}: حُدّدت الدرجة إلى ${fmt(score)} من ${fmt(max)}`);
