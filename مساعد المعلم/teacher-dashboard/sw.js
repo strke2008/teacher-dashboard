@@ -81,7 +81,14 @@ self.addEventListener('push', event => {
     timestamp: Number(msg.data && msg.data.at) || Date.now()
   };
   if (!options.tag) delete options.tag;
-  event.waitUntil(self.registration.showNotification(title, options));
+  event.waitUntil((async () => {
+    await self.registration.showNotification(title, options);
+    // ⚡ اللوحة مفتوحة؟ نخبرها فورًا لتجلب التسليم بدل انتظار الفحص الدوري
+    if (msg.data && msg.data.type === 'submission') {
+      const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      for (const c of all) c.postMessage({ type: 'push-sub', data: msg.data });
+    }
+  })());
 });
 
 self.addEventListener('notificationclick', event => {

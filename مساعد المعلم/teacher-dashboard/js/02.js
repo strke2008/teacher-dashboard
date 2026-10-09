@@ -11378,7 +11378,23 @@ async function serverChanged(){
   }catch(e){ return false; }               // لا إنترنت ⇒ لا تُرهق الشبكة
 }
 
-async function checkLiveSubmissions(force){
+async function liveFetchResults(list, limit=6){
+  const out=new Array(list.length); let i=0;
+  const worker=async()=>{ while(i<list.length){ const k=i++, h=list[k];
+    try{ const r=await fetch(`${getApi()}/results?hw=${encodeURIComponent(h.sid)}&t=${encodeURIComponent(getTok())}&_=${Date.now()}`,{cache:'no-store'});
+      out[k]=[h, r.ok ? await r.json().catch(()=>null) : null]; }catch(e){ out[k]=[h,null]; } } };
+  await Promise.all(Array.from({length:Math.min(limit,list.length)},worker));
+  return out.filter(Boolean);
+}
+/* 🔔 وصل إشعار تسليم واللوحة مفتوحة: نفحص ذلك النشاط وحده فورًا بنفس منطق الفحص الدوري
+   (المحاولات الإضافية والتنبيه وغيرها) بدل انتظار دوره. إن كان فحص آخر جاريًا نعيد المحاولة بعد لحظة. */
+async function liveCheckOne(hwSid, tries=0){
+  if(!hwSid || !getApi() || !getTok()) return;
+  const h=HW.find(x=>x && (x.sid===hwSid || x.id===hwSid));
+  if(liveChecking){ if(tries<8) setTimeout(()=>liveCheckOne(hwSid,tries+1),1000); return; }
+  try{ await checkLiveSubmissions(true, h&&h.sid ? h.sid : null); }catch(e){}
+}
+async function checkLiveSubmissions(force, onlySid){
   if(liveChecking || !getApi() || !getTok()) return 0;
   // ⚡ لا تسحب كل النتائج إلا إذا تغيّر شيء فعلاً
   if(!force && !(await serverChanged())) return 0;
@@ -11388,19 +11404,13 @@ async function checkLiveSubmissions(force){
   const fresh = [];
 
   try{
-    const published = HW.filter(h => h && h.sid);
+    const published = HW.filter(h => h && h.sid && (!onlySid || h.sid === onlySid));
 
-    for(const h of published){
+    // ⚡ نتائج كل الأنشطة بالتوازي (6 طلبات معًا) بدل طلب تلو الآخر — كان التسليم الجديد ينتظر دوره في الطابور
+    const fetched = await liveFetchResults(published);
+    for(const [h, j] of fetched){
       try{
-        const r = await fetch(
-          `${getApi()}/results?hw=${encodeURIComponent(h.sid)}&t=${encodeURIComponent(getTok())}&_=${Date.now()}`,
-          {cache:'no-store'}
-        );
-
-        if(!r.ok) continue;
-
-        const j = await r.json();
-        if(!j.ok) continue;
+        if(!j || !j.ok) continue;
 
         for(const row of (j.rows || [])){
           const key = liveRowKey(h, row);
