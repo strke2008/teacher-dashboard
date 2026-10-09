@@ -672,6 +672,34 @@ body:has(#bh-mbar:not([hidden])) #behavior{padding-bottom:70px}
 #ms-when-w[hidden]{display:none!important}
 .ms-when{display:flex;align-items:center;gap:6px;margin-top:10px;background:var(--surface-2);border:1.5px solid var(--line,#d9e0ea);border-radius:12px;padding:4px 10px}
 .ms-when select{flex:1;border:0;background:transparent;font:inherit;font-weight:800;font-size:.84rem;color:var(--ink);padding:6px 0;min-height:36px}
+#st-voice[hidden],#st-search[hidden]{display:none!important}
+#st-search{margin-bottom:8px}#st-voice{margin-bottom:8px}
+#students .subtabs,#levels .subtabs,#attendance .subtabs,#duties .subtabs{margin-bottom:8px}
+.st-fl{display:flex;gap:6px;overflow-x:auto;margin-bottom:8px;scrollbar-width:none}.st-fl:empty{display:none}
+.st-fl button{flex:none;font:inherit;font-weight:800;font-size:.76rem;border:1.5px solid var(--rule);background:var(--surface);color:var(--ink-soft);border-radius:999px;padding:6px 11px;cursor:pointer}
+.st-fl button b{font-weight:900;margin-inline-start:2px}.st-fl button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.st-tags{display:flex;align-items:center;gap:4px;flex:none}
+.st-t{border-radius:7px;padding:2px 6px;font-size:.7rem;font-weight:800;background:var(--surface-2);color:var(--ink-soft);white-space:nowrap}
+.st-t.g{background:var(--green-soft);color:var(--green)}.st-t.r{background:var(--red-soft);color:var(--red)}.st-t.a{background:#FEF3C7;color:#92400E}
+.st-lv{width:9px;height:9px;border-radius:50%;background:var(--rule-strong);flex:none}.st-lv.g{background:var(--green)}.st-lv.r{background:var(--red)}
+.st-sub{display:block;font-weight:600;font-size:.72rem;color:var(--ink-soft)}
+#students-modal-x{display:none}
+.pf4{grid-template-columns:repeat(4,1fr)!important;gap:5px!important;margin:10px 0!important}.pf4 .profile-card{padding:7px 4px}.pf4 .profile-card b{font-size:.82rem}
+.profile-card b.g{color:var(--green)}.profile-card b.r{color:var(--red)}
+.pf-today{background:var(--surface-2);border:1px solid var(--rule);border-radius:12px;padding:8px;margin-bottom:8px}
+.pf-today>small{display:block;font-size:.7rem;font-weight:800;color:var(--ink-soft);margin:0 2px 5px}
+.pf-q{display:flex;gap:5px}.pf-q+.pf-q{margin-top:5px}
+.pf-q button{flex:1;min-height:40px;border-radius:10px;border:1.5px solid var(--rule);background:var(--surface);font:inherit;font-weight:800;font-size:.8rem;color:var(--ink);cursor:pointer}
+.pf-q button.on.g{background:var(--green-soft);border-color:var(--green);color:var(--green)}.pf-q button.on.r{background:var(--red-soft);border-color:var(--red);color:var(--red)}.pf-q button.on.n{background:var(--surface-2);border-color:var(--ink-soft)}
+.pf-how{margin-top:10px}.pf-how summary{cursor:pointer;font-size:.8rem;font-weight:700;color:var(--ink-soft);padding:4px 2px}.pf-how .msg{margin-top:6px;font-size:.78rem}
+.pf-sec{display:grid;gap:4px;margin-top:12px}.pf-sec>b{font-size:.84rem;margin-bottom:2px}.pf-sec>b small{font-weight:600;color:var(--ink-soft);font-size:.72rem;margin-inline-start:4px}
+.pf-ln{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 10px;border-radius:10px;background:var(--surface-2);font-size:.8rem;border-inline-start:3px solid var(--rule)}
+.pf-ln.g{border-inline-start-color:var(--green)}.pf-ln.r{border-inline-start-color:var(--red)}
+.pf-ln small{color:var(--ink-soft);font-size:.72rem;flex:none}.pf-ln b.r{color:var(--red)}.pf-ln b.m{color:var(--ink-faint)}
+.pf-empty{font-size:.78rem;color:var(--ink-faint);padding:4px 2px}
+#att-kpis{grid-template-columns:repeat(4,1fr)!important;gap:5px!important}#att-kpis .kpi{padding:7px 4px!important;font-size:.66rem!important;text-align:center}#att-kpis .kpi b{font-size:1rem!important}
+#level-kpis{grid-template-columns:repeat(4,1fr)!important;gap:5px!important}#level-kpis .level-card{padding:7px 4px!important;font-size:.66rem!important}#level-kpis .level-card b{font-size:1rem!important}
+#levels .level-row{padding:7px 9px!important}
 </style>
 
 <style id="schedule-tab-style">
@@ -1101,17 +1129,17 @@ header .brand{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 <!-- ══ المستويات ══ -->
 <section class="panel" id="levels">
-  <div class="page-head"><div><h1>المستويات</h1><p>يُشتق من إجابات الطالب الفعلية في الأنشطة — قياس موضوعي لا تقدير يدوي.</p></div><button class="back">الرئيسية</button></div>
+  <div class="rd-head"><h1>المستويات</h1></div>
   <div class="subtabs" role="tablist"><button type="button" data-sub="students">القائمة</button><button type="button" data-sub="levels" class="on" aria-selected="true">المستويات</button><button type="button" data-sub="attendance">الغياب</button><button type="button" data-sub="duties">المهام</button></div>
   <div class="sheet">
     <div class="muted" id="level-term" style="margin-bottom:4px"></div>
     <div class="level-grid" id="level-kpis"></div>
-    <div class="msg" id="level-rule"></div>
+    <details class="pf-how"><summary>ℹ️ كيف يُحسب المستوى؟</summary><div class="msg" id="level-rule"></div></details>
   </div>
   <div class="sheet">
     <div class="section-head"><h3>الطلاب حسب المستوى</h3><span class="count" id="level-count"></span></div>
     <div class="search"><span class="search-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span><input class="inp" id="level-search" autocomplete="off" placeholder="ابحث عن طالب…"></div>
-    <div id="levels-list" class="level-table" style="margin-top:9px"></div>
+    <div id="levels-list" class="bh-list" style="margin-top:9px"></div>
   </div>
   <div class="sheet">
     <div class="section-head"><h3>الأولويات</h3><span class="count">تدخّل · أو قياس</span></div>
@@ -1189,7 +1217,7 @@ header .brand{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 </section>
 
 <section class="panel" id="duties">
-  <div class="page-head"><div><h1>المهام</h1><p>مسؤوليات تُسند للطلاب — لا تدخل في الدرجات.</p></div><button class="back">الرئيسية</button></div>
+  <div class="rd-head"><h1>المهام</h1></div>
   <div class="subtabs" role="tablist"><button type="button" data-sub="students">القائمة</button><button type="button" data-sub="levels">المستويات</button><button type="button" data-sub="attendance">الغياب</button><button type="button" data-sub="duties" class="on" aria-selected="true">المهام</button></div>
   <div class="sheet tinted">
     <div class="section-head"><h3>إسناد مهمة</h3><span class="count" id="duty-cls"></span></div>
@@ -1207,36 +1235,38 @@ header .brand{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   </div>
   <div class="sheet">
     <div class="section-head"><h3>⚖️ عدالة التوزيع</h3><span class="count">الأقل نصيبًا أولًا</span></div>
-    <div id="duty-fair" class="student-list"></div>
+    <div class="bh-hint" style="margin:0 0 6px">اضغط الطالب لاختياره للمهمة</div><div id="duty-fair" class="bh-list"></div>
   </div>
   <div class="sheet"><div class="section-head"><h3>سجل المهام</h3><span class="count" id="duty-log-count"></span></div><div id="duty-log" class="level-table"></div></div>
 </section>
 
 <!-- ══ الغياب ══ -->
 <section class="panel" id="attendance">
-  <div class="page-head"><div><h1>الغياب</h1><p>مؤشر انضباط — لا يدخل في الدرجات إطلاقًا.</p></div><button class="back">الرئيسية</button></div>
+  <div class="rd-head"><h1>الغياب</h1></div>
   <div class="subtabs" role="tablist"><button type="button" data-sub="students">القائمة</button><button type="button" data-sub="levels">المستويات</button><button type="button" data-sub="attendance" class="on" aria-selected="true">الغياب</button><button type="button" data-sub="duties">المهام</button></div>
   <div class="kpis" id="att-kpis"></div>
   <div id="att-detail"></div>
   <div class="sheet">
     <div class="section-head"><h3>الطلاب</h3><span class="count" id="att-count"></span></div>
     <div class="search"><span class="search-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span><input class="inp" id="att-search" autocomplete="off" placeholder="ابحث عن طالب…"></div>
-    <div id="att-list" class="student-list" style="margin-top:9px"></div>
+    <div id="att-list" class="bh-list" style="margin-top:9px"></div>
   </div>
   <div class="sheet"><div class="section-head"><h3>كيف يُقرأ؟</h3></div><div class="msg" id="att-rule"></div></div>
 </section>
 
 <!-- ══ الطلاب ══ -->
 <section class="panel" id="students">
-  <div class="page-head"><div><h1>الطلاب</h1><p>بيانات الطلاب المرتبطة بكشف الطلاب في لوحة التحكم.</p></div><button class="back">الرئيسية</button></div>
+  <!-- 👥 الطلاب: قائمة مختصرة بعلامات اليوم ⟵ اضغط الطالب ⟵ ملفه -->
+  <div class="rd-head"><h1>الطلاب</h1>
+    <button type="button" class="rd-ic" id="st-search-btn" title="بحث داخل الفصل" aria-label="بحث داخل الفصل">🔍</button>
+    <button type="button" class="rd-ic" id="st-voice-btn" title="افتح ملف طالب بالصوت" aria-label="افتح ملف طالب بالصوت">🎤</button></div>
   <div class="subtabs" role="tablist"><button type="button" data-sub="students" class="on" aria-selected="true">القائمة</button><button type="button" data-sub="levels">المستويات</button><button type="button" data-sub="attendance">الغياب</button><button type="button" data-sub="duties">المهام</button></div>
-  <div class="sheet">
-    <div class="search"><span class="search-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span><input class="inp" id="students-search" autocomplete="off" placeholder="اكتب اسم الطالب…"></div>
-  </div>
-  <div class="sheet">
-    <div class="section-head"><h3>قائمة الطلاب</h3><span class="count" id="students-count"></span></div>
-    <div id="students-directory" class="student-list"></div>
-  </div>
+  <div class="vb" id="st-voice" hidden><div class="vb-bar" id="sv-bar" hidden><span class="vb-dot"></span><div class="vb-live" id="sv-live">أستمع…</div><button type="button" class="vb-stop" id="sv-stop">⏹️ إيقاف</button></div><div id="sv-status" class="muted" style="font-size:.78rem;margin-top:4px"></div></div>
+  <div id="st-search" hidden><div class="search"><span class="search-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span><input class="inp" id="students-search" autocomplete="off" placeholder="بحث داخل الفصل"></div></div>
+  <div class="st-fl" id="st-fl"></div>
+  <div class="bh-hint">اضغط الطالب لفتح ملفه <small>· ✋ مشاركة · 📚 واجب · 🔔 تنبيه · 💌 رسالة</small></div>
+  <div id="st-list" class="bh-list"></div>
+  <div hidden><span id="students-count"></span><div id="students-directory"></div></div>
 </section>
 
 <!-- ══ السلوك ══ -->
@@ -3510,7 +3540,7 @@ function renderLevels(){
    +`<div class="level-card"><span>لم يُقَس بعد</span><b>${unmeasured}</b></div>`;
  $('level-count').textContent=`${rows.length} طالب · ${rows.length-unmeasured} مقاس`;
  $('levels-list').innerHTML=rows.map(x=>
-   `<div class="level-row"><div class="grow"><b style="font-size:.87rem">${esc(x.s.name)}</b><div class="muted">${x.l.measured?`${x.l.rate}% · ${x.l.correct} من ${x.l.total} سؤالًا في ${x.l.count} نشاطًا`:'لم يسلّم أي نشاط بعد'}</div></div><span class="pill ${x.l.kind==='pos'?'pos':x.l.kind==='neg'?'neg':''}">${esc(x.l.label)}${x.l.measured?' '+x.l.rate+'%':''}</span></div>`
+   `<button type="button" class="bh-r" data-profile="${esc(x.s.id)}"><span class="n">${esc(x.s.name)}<small class="st-sub">${x.l.measured?`${x.l.correct} من ${x.l.total} سؤالًا في ${x.l.count} نشاطًا`:'لم يسلّم أي نشاط بعد'}</small></span><span class="st-tags"><span class="st-t ${x.l.kind==='pos'?'g':x.l.kind==='neg'?'r':'n'}">${esc(x.l.label)}${x.l.measured?' '+x.l.rate+'%':''}</span></span></button>`
  ).join('')||'<div class="empty">لا يوجد طلاب.</div>';
  const M=(GRADES&&GRADES.mastery)||{excellent:85,near:70};
  if($('level-rule'))$('level-rule').textContent=`المستوى يُحسب من نسبة الإجابات الصحيحة في كل أنشطة الفترة: ${M.excellent}% فأكثر «متقن» · ${M.near}%–${M.excellent-1}% «قريب من الإتقان» · أقل من ${M.near}% «يحتاج دعم». من لم يسلّم أي نشاط يظهر «لم يُقَس بعد» — لا يُحكم عليه قبل أن توجد إجابات تُقاس.`;
@@ -3530,33 +3560,55 @@ function openStudentProfile(id){
  const g=gradeOf(id),ps=g.participation,hs=g.homework,bs=g.behavior,l=g.level||EMPTY_LEVEL;
  $('profile-avatar').textContent=initials(s.name);$('profile-name').textContent=s.name;$('profile-class').textContent=s.cls||'بدون فصل';
  const recent=[];for(const d of Object.keys(data.learning||{}).sort().reverse()){const r=data.learning[d]?.[id];if(r)recent.push({date:d,label:r.status||'غير مقاس'});if(recent.length>=5)break}
- const beh=data.behavior.filter(x=>x.studentId===id&&!x.deleted).slice(0,5);
+ // اليوم (تاريخ الرصد)
+ const rd=$('date')?.value||today(), dl=rd===today()?'اليوم':rd, pv=rec('participation',rd,id), hv=rec('homework',rd,id);
+ const qb=(m,st,lbl,cls)=>`<button type="button" class="${(m==='participation'?pv:hv)===st?'on '+cls:''}" data-pq="${m}|${esc(st)}">${lbl}</button>`;
+ // تنبيه
+ const al=alertsList().find(a=>a.studentId===id);
+ // السلوك: آخر 7 أيام
+ const wk=Date.now()-7*864e5, B=(data.behavior||[]).filter(x=>x&&!x.deleted&&x.studentId===id).sort((a,b)=>(Number(b.at)||Date.parse(b.date||''))-(Number(a.at)||Date.parse(a.date||'')));
+ const bw=B.filter(x=>(Number(x.at)||Date.parse(x.date||''))>=wk), [bp,bn]=bhWeek(id);
+ const bshow=(bw.length?bw:B).slice(0,5);
+ // الاختبارات (الفترة الحالية)
+ let exH=''; try{ const b=examBook(), by=b.scores[String(id)]||{};
+   exH=b.tests.length?b.tests.map(t=>{ const v=by[String(t.id)], ab=v&&typeof v==='object'&&v.absent, sc=v&&typeof v==='object'?v.score:v, has=sc!=null&&sc!==''&&Number.isFinite(Number(sc));
+     return `<div class="pf-ln"><span>${esc(t.title||'اختبار')}</span><b class="${ab?'r':has?'':'m'}">${ab?'غ':has?fmt(Number(sc))+' / '+(t.max||''):'—'}</b></div>`; }).join(''):'<div class="pf-empty">لا اختبارات في هذه الفترة.</div>'; }catch(e){}
+ // الرسائل
+ const sent=(typeof MS_SENT!=='undefined'?MS_SENT:[]).filter(x=>x.id===id).slice(-4).reverse(), later=MSGQ.filter(m=>m&&m.id===id);
+ const dshort=t=>{ const x=new Date(t+3*36e5); return `${x.getUTCDate()}/${x.getUTCMonth()+1}`; };
+ const msgH=(sent.map(x=>`<div class="pf-ln"><span>✓ ${esc(msLbl(x.k))}</span><small>${msDay(x.at)===msDay(Date.now())?'اليوم':dshort(x.at)}</small></div>`).join('')
+   +later.map(m=>`<div class="pf-ln"><span>🕘 ${esc(msLbl(m.k))}</span><small>لاحقًا</small></div>`).join(''))||'<div class="pf-empty">لم تُرسل له رسالة من هذا الجهاز.</div>';
  $('profile-content').innerHTML=`
-  <div class="profile-grid">
+  ${al?`<div class="ms-why ${al.tone==='positive'?'g':'r'}" style="margin-top:10px"><span>🔔 ${esc(al.reason)}</span><button type="button" data-go-msg="${esc(id)}">💌 اكتب رسالة</button></div>`:''}
+  <div class="profile-grid pf4">
    <div class="profile-card"><span>المشاركة</span><b>${ps.measured?fmt(ps.score)+'/'+GRADE.max:'—'}</b></div>
    <div class="profile-card"><span>الواجب</span><b>${hs.measured?fmt(hs.score)+'/'+GRADE.max:'—'}</b></div>
    <div class="profile-card"><span>السلوك</span><b>${bs.score==null?'—':fmt(bs.score)+'/'+GRADE.max}</b></div>
-   <div class="profile-card"><span>المستوى</span><b>${esc(l.label)}</b></div>
+   <div class="profile-card"><span>المستوى</span><b class="${l.kind==='pos'?'g':l.kind==='neg'?'r':''}">${esc(l.label)}</b></div>
   </div>
-  <div class="msg" style="margin:10px 0">${!GRADES?'الدرجات قيد الحساب من الخادم…':ps.measured
+  <div class="pf-today"><small>رصد ${esc(dl)}</small>
+   <div class="pf-q">${qb('participation','شارك','✋ شارك','g')}${qb('participation','لم يشارك','✕ لم يشارك','r')}${qb('participation','غائب','🚫 غائب','n')}</div>
+   <div class="pf-q">${qb('homework','أنجز','📚 أنجز','g')}${qb('homework','لم ينجز','📚 لم ينجز','r')}</div></div>
+  <div class="profile-actions">
+   <button class="btn" data-go-beh="${esc(id)}">⭐ سلوك</button>
+   <button class="btn" data-go-msg="${esc(id)}">💌 رسالة</button>
+   <button class="btn" data-go-daily="${esc(id)}">👥 في الرصد</button>
+  </div>
+  <details class="pf-how"><summary>ℹ️ كيف حُسبت الدرجات؟</summary><div class="msg">${!GRADES?'الدرجات قيد الحساب من الخادم…':ps.measured
     ?`المشاركة: شارك ${ps.yes} · لم يشارك ${ps.no}${ps.absent?' · غائب '+ps.absent+' (غير محتسب)':''} ← الصافي ${ps.net} فخُصم ${ps.deduction} من ${GRADE.max}.`
     :'المشاركة: لم يُرصد له أي حصة بعد، والدرجة الكاملة هنا تعني «لا توجد بيانات» لا «أداء ممتاز».'}
 <br>الواجب: ${hs.measured?`سُلّم ${hs.done} · لم يُسلَّم ${hs.missed}${hs.inGrace?' · '+hs.inGrace+' داخل فترة السماح (لم يُخصم بعد)':''}${hs.excused?' · معذور '+hs.excused:''} ← خُصم ${fmt(hs.missed*GRADE.hwPenalty)}.`:'لم يُرصد له واجب بعد.'}
-<br>السلوك: إيجابي ${bs.pos||0} · سلبي ${bs.neg||0} ← فُقد ${bs.lost||0} ورُمِّم ${bs.repaired||0}${bs.wasted?` (${bs.wasted} إيجابي فوق الكامل لم يُحتسب)`:''}.</div>
-  <div class="profile-actions">
-   <button class="btn tick" data-go-daily="${esc(id)}">👥 الرصد</button>
-   <button class="btn" data-go-msg="${esc(id)}">💬 رسالة</button>
-   <button class="btn" data-go-beh="${esc(id)}">🧭 متابعة</button>
-  </div>
+<br>السلوك: إيجابي ${bs.pos||0} · سلبي ${bs.neg||0} ← فُقد ${bs.lost||0} ورُمِّم ${bs.repaired||0}${bs.wasted?` (${bs.wasted} إيجابي فوق الكامل لم يُحتسب)`:''}.</div></details>
+  <div class="pf-sec"><b>📝 الاختبارات <small>الفترة الحالية</small></b>${exH}</div>
+  <div class="pf-sec"><b>⭐ السلوك <small>${bw.length?'آخر ٧ أيام':'آخر الملاحظات'}${bp||bn?` · 🌟 ${bp} · ⚠️ ${bn}`:''}</small></b>
+   ${bshow.map(x=>`<div class="pf-ln ${x.type==='positive'?'g':'r'}"><span>${x.type==='positive'?'🌟':'⚠️'} ${esc(String(x.category||'ملاحظة').replace(/^[^\p{L}]+/u,''))}</span><small>${esc(x.date||'')}</small></div>`).join('')||'<div class="pf-empty">لا توجد ملاحظات.</div>'}</div>
+  <div class="pf-sec"><b>💌 الرسائل</b>${msgH}</div>
   ${hwHistoryHTML(id)}
-  <div class="profile-list">
-   <b>آخر مستويات التعلم</b>
-   ${recent.map(x=>`<div class="profile-line"><span>${esc(x.date)}</span><b>${esc(x.label)}</b></div>`).join('')||'<div class="empty">لم يسجل مستوى تعلم بعد.</div>'}
-   <b>آخر الملاحظات</b>
-   ${beh.map(x=>`<div class="profile-line"><span>${x.type==='positive'?'🌟':'⚠️'} ${esc(x.category||'ملاحظة')}</span><span class="muted">${esc(x.date||'')}</span></div>`).join('')||'<div class="empty">لا توجد ملاحظات.</div>'}
-  </div>`;
+  ${recent.length?`<div class="pf-sec"><b>📈 آخر مستويات التعلم</b>${recent.map(x=>`<div class="pf-ln"><span>${esc(x.date)}</span><b>${esc(x.label)}</b></div>`).join('')}</div>`:''}`;
  $('student-modal').classList.add('show');
+ $('student-modal').dataset.sid=id;
 }
+async function pfQuick(m,st){ const id=$('student-modal').dataset.sid; if(!id) return; await quickSet(m,id,st,true); openStudentProfile(id); renderStudents(); }
 function closeStudentProfile(){$('student-modal').classList.remove('show')}
 
 /* 📝 سجل واجبات الفصل للطالب: متى سُجّل عليه «لم ينجز»، وهل خُصم أم ما زال في السماح،
@@ -3601,16 +3653,37 @@ async function hwForgive(id,d,st){
 
 
 /* ── الطلاب ── */
-function renderStudents(){
- const cls=$('students-class')?.value||$('cls')?.value||'', q=String($('students-search')?.value||'').trim();
- const all=list(cls), rows=q?all.filter(s=>s.name.includes(q)):all;
- if($('students-count'))$('students-count').textContent=`${rows.length} من ${all.length} طالب`;
- if(!$('students-directory'))return;
- $('students-directory').innerHTML=rows.map(s=>{
-   const g=gradeOf(s.id),l=g.level||EMPTY_LEVEL;
-   return `<button class="student" data-profile="${esc(s.id)}"><div class="student-top"><div class="grow"><div class="student-name">${esc(s.name)}</div></div></div><div class="student-foot"><span class="muted">المشاركة ${g.participation.score==null?'—':fmt(g.participation.score)+'/10'} · الواجب ${g.homework.measured?fmt(g.homework.score)+'/10':'—'}</span><span class="pill ${l.kind==='pos'?'pos':l.kind==='neg'?'neg':''}">${esc(l.label)}</span></div></button>`;
- }).join('')||'<div class="empty">لا يوجد طلاب مطابقون.</div>';
+let ST_F='all';
+function stTags(s){
+  const d=today(), p=rec('participation',d,s.id), h=rec('homework',d,s.id), l=(gradeOf(s.id).level||EMPTY_LEVEL);
+  const al=alertsList().some(a=>a.studentId===s.id), sent=(typeof msSentToday==='function')&&msSentToday(s.id).length;
+  return (p==='شارك'?'<span class="st-t g">✋</span>':p==='لم يشارك'?'<span class="st-t r">✋✕</span>':String(p).startsWith('غائب')?'<span class="st-t n">🚫</span>':'')
+    +(h==='أنجز'?'<span class="st-t g">📚</span>':h==='لم ينجز'?'<span class="st-t r">📚✕</span>':'')
+    +(al?'<span class="st-t a">🔔</span>':'')+(sent?'<span class="st-t g">💌</span>':'')
+    +`<span class="st-lv ${l.kind==='pos'?'g':l.kind==='neg'?'r':''}" title="${esc(l.label)}"></span>`;
 }
+function renderStudents(){
+ const cls=$('cls')?.value||'', q=String($('students-search')?.value||'').trim(), all=list(cls);
+ const alertIds=new Set(alertsList().map(a=>a.studentId)), lv=s=>gradeOf(s.id).level||EMPTY_LEVEL;
+ const F={all:['الكل',()=>true], alert:['🔔 تنبيه',s=>alertIds.has(s.id)], weak:['يحتاج دعم',s=>lv(s).status==='يحتاج دعم'], none:['لم يُقَس',s=>GRADES&&!lv(s).measured]};
+ if(!F[ST_F]) ST_F='all';
+ if($('st-fl')) $('st-fl').innerHTML=Object.entries(F).map(([k,[t,f]])=>{ const n=all.filter(f).length; return (k==='all'||n||ST_F===k)?`<button type="button" class="${ST_F===k?'on':''}" data-st-f="${k}">${t} <b>${n}</b></button>`:''; }).join('');
+ const rows=all.filter(F[ST_F][1]).filter(s=>!q||s.name.includes(q));
+ if($('students-count'))$('students-count').textContent=`${rows.length} من ${all.length} طالب`;
+ if(!$('st-list'))return;
+ $('st-list').innerHTML=rows.map((s,i)=>`<button type="button" class="bh-r" data-profile="${esc(s.id)}"><i>${i+1}</i><span class="n">${esc(s.name)}</span><span class="st-tags">${stTags(s)}</span></button>`).join('')||'<div class="empty">لا يوجد طلاب مطابقون.</div>';
+}
+/* 🎤 قل اسم الطالب ⟵ يُفتح ملفه */
+let svOn=false;
+function svHandle(t){
+  const toks=vrNorm(t).split(' ').filter(Boolean), {hits}=vrMatch(toks);
+  if(hits.length===1){ $('sv-status').textContent=''; vbLive('sv',`✓ ${esc(hits[0].name)} — 🎙️ أستمع…`); openStudentProfile(hits[0].id); return; }
+  if(hits.length>1){ $('students-search').value=toks.join(' '); $('st-search').hidden=false; renderStudents(); $('sv-status').textContent=`أكثر من طالب بهذا الاسم (${hits.length}) — اختر من القائمة`; return; }
+  $('sv-status').textContent=`لم أجد «${t}» في الفصل`;
+}
+function svStop(){ svOn=false; try{ svEng.stop(); }catch(e){} vbOn('sv',false); $('st-voice').hidden=true; $('st-voice-btn')?.classList.remove('on'); }
+const svEng = (typeof vbEngine==='function' && VR_SUP) ? vbEngine('sv',{ onFinal:t=>svHandle(t), onFatal:m=>{ svStop(); toast(m); }, onStop:()=>svStop() }) : null;
+function svStart(){ if(!svEng) return; svOn=true; $('st-voice').hidden=false; $('st-voice-btn')?.classList.add('on'); vbOn('sv',true); vbLive('sv','🎙️ أستمع… قل اسم الطالب'); $('sv-status').textContent=''; svEng.start(); }
 
 /* ── الرئيسية (بوابة مهام: لا مؤشرات) ── */
 function renderHome(){
@@ -3691,7 +3764,7 @@ function renderDuties(){
  const fair=all.map(s=>({s,d:(gradeOf(s.id).duties)||{count:0,active:[],never:true}}))
    .sort((a,b)=>(a.d.count-b.d.count)||a.s.name.localeCompare(b.s.name,'ar'));
  if($('duty-fair'))$('duty-fair').innerHTML=GRADES?fair.map(x=>
-   `<button class="student" data-duty-pick="${esc(x.s.id)}"><div class="student-top"><div class="grow"><div class="student-name">${esc(x.s.name)}</div></div><span class="pill ${x.d.never?'neg':x.d.count>=3?'pos':''}">${x.d.never?'لم يُسند إليه':x.d.count+' مهام'}</span></div>${x.d.active.length?`<div class="grade-row">${x.d.active.map(a=>`<span class="gchip good">${esc(a.title)}</span>`).join('')}</div>`:''}</button>`
+   `<button type="button" class="bh-r${dutyStudentId===x.s.id?' sel':''}" data-duty-pick="${esc(x.s.id)}"><span class="n">${esc(x.s.name)}${x.d.active.length?`<small class="st-sub">${x.d.active.map(a=>esc(a.title)).join(' · ')}</small>`:''}</span><span class="st-tags"><span class="st-t ${x.d.never?'r':x.d.count>=3?'g':'n'}">${x.d.never?'لم يُسند إليه':x.d.count+' مهام'}</span></span></button>`
  ).join('')||'<div class="empty">لا يوجد طلاب.</div>':'<div class="empty">جارٍ الجلب من الخادم…</div>';
  // السجل
  const past=roles.filter(r=>!r.active).sort((a,b)=>String(b.to||b.from).localeCompare(String(a.to||a.from))).slice(0,20);
@@ -3734,7 +3807,7 @@ function renderAttendance(){
    `<div class="kpi">غياب متكرر<b>${rows.filter(x=>x.a.status==='غياب متكرر').length}</b></div>`;
  $('att-count').textContent=`${rows.length} طالب · الأكثر غيابًا أولًا`;
  $('att-list').innerHTML=rows.map(x=>
-   `<button class="student" data-att="${esc(x.s.id)}"><div class="student-top"><div class="grow"><div class="student-name">${esc(x.s.name)}</div></div><span class="pill ${x.a.kind==='pos'?'pos':x.a.kind==='neg'?'neg':''}">${esc(x.a.label)}</span></div><div class="grade-row">${x.a.measured?attChip('الحضور',x.a.rate+'%',x.a.kind==='pos'?'good':x.a.kind==='neg'?'low':'mid'):'<span class="gchip none">لم يُرصد</span>'}${x.a.absent?attChip('غياب',x.a.absent,'low'):''}${x.a.excused?attChip('بعذر',x.a.excused):''}${x.a.late?attChip('تأخر',x.a.late,'mid'):''}</div></button>`
+   `<button type="button" class="bh-r" data-att="${esc(x.s.id)}"><span class="n">${esc(x.s.name)}</span><span class="st-tags">${x.a.measured?`<span class="st-t ${x.a.kind==='pos'?'g':x.a.kind==='neg'?'r':'a'}">${x.a.rate}%</span>`:'<span class="st-t n">لم يُرصد</span>'}${x.a.absent?`<span class="st-t r">🚫 ${x.a.absent}</span>`:''}${x.a.excused?`<span class="st-t n">📄 ${x.a.excused}</span>`:''}${x.a.late?`<span class="st-t a">⏰ ${x.a.late}</span>`:''}</span></button>`
  ).join('')||'<div class="empty">لا يوجد طلاب مطابقون.</div>';
  // تفصيل الطالب المختار: أيام غيابه مع تبديل العذر
  const sel=students.find(s=>s.id===attStudentId);
@@ -3767,6 +3840,7 @@ function openTeacherPanel(target){
   try{ if(target!=='messages'){ if(!$('ms-sheet').hidden) msClose(); if(!$('mq-sheet').hidden) mqOpen(false); if(MS_MULTI) msMulti(false); } }catch(e){}
   try{ if(target!=='behavior' && $('bh-logsheet') && !$('bh-logsheet').hidden) bhLog(false); if(target!=='behavior' && $('bh-sheet') && !$('bh-sheet').hidden) bhClose(); if(target!=='behavior' && BH_MULTI) bhMulti(false); }catch(e){}
   // مغادرة صفحة فيها استماع تُطفئه (لا يبقى ميكروفون يعمل في صفحة لا تراها)
+  try{ if(svOn && target!=='students') svStop(); }catch(e){}
   try{ if(vrOn && target!=='daily' && target!=='behavior') vrStop(); if(mvOn && target!=='messages') mvStop(); if(examVrOn && target!=='exams') examVrStop(); }catch(e){}
   if(target==='behavior'){renderQuick('behavior');renderBehaviorButtons();renderCustomBehaviorTemplates();renderBeh()}
   if(target==='messages'){renderAlerts();renderMessages();fillMessageSearch()}
@@ -3852,6 +3926,11 @@ function wire(){
  $('rec-date').addEventListener('change',renderRecords);
  $('level-search').addEventListener('input',renderLevels);
  $('students-search').addEventListener('input',renderStudents);
+ $('st-fl').addEventListener('click',e=>{ const b=e.target.closest('[data-st-f]'); if(!b) return; ST_F=b.dataset.stF; renderStudents(); });
+ $('st-search-btn').onclick=()=>{ const w=$('st-search'); w.hidden=!w.hidden; $('st-search-btn').classList.toggle('on',!w.hidden); if(!w.hidden) $('students-search').focus(); else { $('students-search').value=''; renderStudents(); } };
+ $('st-voice-btn').onclick=()=>{ if(!VR_SUP){ toast('🎤 الصوت غير مدعوم في هذا المتصفح — استخدم 🔍'); return; } svOn?svStop():svStart(); };
+ $('sv-stop').onclick=svStop;
+ $('profile-content').addEventListener('click',e=>{ const b=e.target.closest('[data-pq]'); if(!b) return; const [m,st]=b.dataset.pq.split('|'); pfQuick(m,st); });
  $('grade-search').addEventListener('input',renderGrades);
  $('att-search').addEventListener('input',renderAttendance);
  $('duty-title').addEventListener('change',renderDuties);
