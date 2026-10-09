@@ -20,6 +20,20 @@
 <meta content="black" name="apple-mobile-web-app-status-bar-style"/>
 <meta content="yes" name="mobile-web-app-capable"/>
 <meta content="root-cause-sync-v2" name="sync-fix-version"/>
+<style id="td-boot-css">
+/* ⚡ صفحة «اليوم» تظهر فورًا بهيكل جاهز: الملف كبير، والمتصفح يرسم أعلاه قبل أن يصل لآخره (حيث منطق اليوم وتنسيقه).
+   فبدل أقسام فارغة بلا تنسيق ثم قفزة: بطاقات انتظار بنفس المكان، والأقسام المطوية تظهر بعد أول رسم. */
+html:not(.td-ready) #td-board>details{display:none!important}
+html:not(.td-ready) #today-hub:empty,html:not(.td-ready) #td-slot-tasks:empty,html:not(.td-ready) #td-slot-week:empty{display:block;border-radius:14px;margin:0 0 .7rem;
+  background:linear-gradient(90deg,rgba(148,163,184,.14) 25%,rgba(148,163,184,.26) 50%,rgba(148,163,184,.14) 75%) 0 0/200% 100%;animation:tdSk 1.2s linear infinite}
+html:not(.td-ready) #today-hub:empty{height:150px}
+html:not(.td-ready) #td-slot-tasks:empty{height:230px}
+html:not(.td-ready) #td-slot-week:empty{height:190px}
+@keyframes tdSk{to{background-position:-200% 0}}
+@media (prefers-reduced-motion:reduce){html:not(.td-ready) #td-board *:empty{animation:none}}
+</style>
+<script>/* احتياط: لو تعذّر الرسم لأي سبب لا تبقى الأقسام مخفية */
+addEventListener('load',function(){setTimeout(function(){document.documentElement.classList.add('td-ready')},2500)});</script>
 <style>
 /* ضبط الأس في وحدات القياس: صغير، مرتفع، وقريب من الوحدة */
 .exam-power {
@@ -30900,6 +30914,7 @@ function thDrawNow(){
   const head=`${tdNowBar()}${tdKpis()}${tdAbsentLine()}`;
   if(sT&&sW){ box.innerHTML=head; sT.innerHTML=tasksHTML; sW.innerHTML=tdWeek(); try{ tlDecorate(); }catch(e){} }
   else box.innerHTML=head+tasksHTML+`<div class="td-weekcard">${tdWeek()}</div>`;
+  document.documentElement.classList.add('td-ready');
 }
 /* كل تحديث للوحة (تسليم جديد، مزامنة، إرسال تذكير) يعيد رسم «مهام اليوم» */
 (function(){ const _rd=window.renderDashboard; if(typeof _rd!=='function') return;
