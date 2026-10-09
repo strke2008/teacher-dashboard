@@ -470,6 +470,41 @@ body:has(#undo-bar.show) .rd-done{bottom:calc(72px + env(safe-area-inset-bottom,
 .exk-e .ab{color:var(--amber-ink);font-size:.82rem}
 body.ex-kb-on .panel#exams{padding-bottom:150px}
 body.ex-kb-on #undo-bar{display:none!important}
+#rd-voice[hidden]{display:none!important}
+.vb{position:sticky;top:calc(var(--header-h) + var(--safe-t));z-index:7;background:var(--paper);padding:2px 0 8px}
+.vb-bar{display:flex;align-items:center;gap:8px;background:var(--surface);border:1.5px solid var(--red);border-radius:14px;padding:8px 10px;box-shadow:var(--shadow)}
+.vb-dot{width:10px;height:10px;border-radius:50%;background:var(--red);flex:none;animation:vbp 1.4s infinite}
+@keyframes vbp{0%{box-shadow:0 0 0 0 rgba(214,69,91,.55)}70%{box-shadow:0 0 0 10px rgba(214,69,91,0)}100%{box-shadow:0 0 0 0 rgba(214,69,91,0)}}
+.vb-live{flex:1;min-width:0;font-size:.84rem;color:var(--ink-soft);line-height:1.5}
+.vb-live b{color:var(--ink);font-size:.95rem}
+.vb-stop{flex:none;border:0;background:var(--red);color:#fff;border-radius:10px;padding:8px 12px;font:inherit;font-weight:800;font-size:.82rem;cursor:pointer}
+#rd-voice #vr-wrap{margin-top:0!important}
+#rd-voice #vr-btn,#rd-voice #vr-status,#rd-voice #vr-examples,#rd-voice #undo-btn{display:none!important}
+#rd-voice #vr-pick{margin-top:6px!important}
+#rd-voice #vr-log{margin-top:6px!important}
+#rd-voice:has(.vr-q) #vr-log{display:none!important}   /* سؤال معلّق: يظهر وحده حتى لا تكبر المساحة */
+.vr-hint{font-size:.74rem;color:var(--ink-soft);margin-top:6px}
+#vr-log{display:grid;gap:6px;font-size:inherit!important;line-height:inherit!important}
+.vr-card{display:flex;align-items:center;gap:8px;background:var(--surface);border:1.5px solid var(--rule);border-radius:12px;padding:8px 10px;color:var(--ink);animation:vrIn .25s ease-out}
+@keyframes vrIn{from{transform:translateY(-6px);opacity:0}}
+.vr-card.g{border-color:var(--green);background:var(--green-soft)}
+.vr-card.r{border-color:var(--red);background:var(--red-soft)}
+.vr-card.a{border-color:var(--amber);background:var(--amber-soft)}
+.vr-card.b{border-color:var(--accent);background:var(--accent-soft)}
+.vr-card.undone{opacity:.45;text-decoration:line-through}
+.vr-st{flex:none;font-weight:800;font-size:.8rem;border-radius:8px;padding:4px 8px;background:var(--surface)}
+.vr-nm{flex:1;min-width:0;font-weight:800;font-size:.88rem;line-height:1.35;overflow-wrap:anywhere}
+.vr-nm small{display:block;font-weight:600;font-size:.7rem;color:var(--ink-soft)}
+.vr-nm small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vr-card+.vr-card{padding:5px 10px;opacity:.8}.vr-card+.vr-card small{display:none}.vr-card+.vr-card .vr-st{font-size:.72rem;padding:2px 6px}
+.vr-u{flex:none;border:1px solid var(--rule);background:var(--surface);border-radius:9px;padding:6px 9px;font:inherit;font-size:.75rem;font-weight:700;color:var(--ink);cursor:pointer}
+.vr-q{border:1.5px solid var(--amber);background:var(--amber-soft);border-radius:12px;padding:8px 10px;color:var(--ink)}
+.vr-qt{font-weight:800;font-size:.86rem;margin-bottom:6px;line-height:1.5}
+.vr-qt small{display:block;font-weight:600;font-size:.7rem;color:var(--ink-soft)}
+.vr-qo{display:flex;flex-wrap:wrap;gap:5px}
+.vr-qo .btn{background:var(--surface)}
+.rd-row.flash{animation:rdFlash 1.8s ease-out}
+@keyframes rdFlash{0%{background:#BDEBD3;box-shadow:inset -4px 0 0 var(--green)}100%{background:transparent;box-shadow:none}}
 </style>
 
 <style id="schedule-tab-style">
@@ -866,19 +901,17 @@ header .brand{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     <div class="search"><span class="search-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span><input class="inp" id="quick-search" autocomplete="off" placeholder="اكتب اسم الطالب…"></div>
     <div class="search-results" id="quick-results"></div><div id="quick-card"></div>
     <!-- 🎤 الرصد الصوتي: واجهة إدخال فقط — تنادي quickSet/quickBehavior نفسها -->
+  </div>
+  <!-- أزرار قديمة تبقى للتوافق (السياق الذكي يبدّل الوضع بها) — لا تظهر -->
+  <div hidden><button class="btn on" id="mode-part">المشاركة</button><button class="btn" id="mode-home">الواجب</button>
+    <button class="btn" id="bulk-done"></button><button class="btn" id="bulk-absent"></button><div id="unrec"></div></div>
+  <!-- 🎙️ الرصد الصوتي: شريط استماع + بطاقة لكل رصد (الاسم كاملًا والحالة وما سُمع) -->
+  <div class="vb" id="rd-voice" hidden>
+    <div class="vb-bar"><span class="vb-dot"></span><div class="vb-live" id="vb-live">أستمع… قل اسم الطالب ثم الحالة</div><button type="button" class="vb-stop" id="vb-stop">⏹️ إيقاف</button></div>
     <div id="vr-slot-daily"><div id="vr-wrap" style="margin-top:10px;display:none">
       <button class="btn" id="vr-btn" type="button"
         style="width:100%;min-height:52px;font-size:1rem;font-weight:700">🎤 رصد بالصوت</button>
-      <div class="vr-examples" id="vr-examples">
-        <b>أمثلة</b>
-        <span>محمد <i>مشارك</i></span>
-        <span>محمد <i>لم يحل الواجب</i></span>
-        <span>محمد <i>غائب</i></span>
-        <span>محمد <i>تأخر</i> <small>سلوك</small></span>
-        <span>محمد <i>رسالة شكر</i></span>
-        <span>محمد <i>رسالة سلوك</i></span>
-        <small class="vr-note">قل «رسالة» قبل النوع لتجهيز رسالة — بدونها يُفهم سلوكًا.</small>
-      </div>
+      <div class="vr-hint" id="vr-examples">قل اسم الطالب ثم الحالة — ويمكن عدة طلاب في نفس النَّفَس</div>
       <div id="vr-status" class="muted" style="margin-top:8px;min-height:20px;line-height:1.7"></div>
       <div id="vr-pick" style="margin-top:8px"></div>
       <div id="vr-log" class="muted" style="margin-top:6px;font-size:.78rem;line-height:1.8"></div>
@@ -889,9 +922,6 @@ header .brand{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
       🎤 الرصد الصوتي غير مدعوم في هذا المتصفح — استخدم البحث بالأعلى.
     </div></div>
   </div>
-  <!-- أزرار قديمة تبقى للتوافق (السياق الذكي يبدّل الوضع بها) — لا تظهر -->
-  <div hidden><button class="btn on" id="mode-part">المشاركة</button><button class="btn" id="mode-home">الواجب</button>
-    <button class="btn" id="bulk-done"></button><button class="btn" id="bulk-absent"></button><div id="unrec"></div></div>
   <div class="rd-bar">
     <div class="rd-search" id="rd-search" hidden><div class="search"><span class="search-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span><input class="inp" id="roster-search" autocomplete="off" placeholder="بحث داخل الفصل"></div></div>
     <div class="rd-cnt" id="kpis"></div>
@@ -1480,7 +1510,7 @@ function vrNorm(t){
     .replace(/[^\u0621-\u064A0-9\s]/g,' ')
     .replace(/\s+/g,' ').trim();
 }
-const VR_SKIP = new Set(['بن','بنت','ابن','ال','آل','the']);
+const VR_SKIP = new Set(['بن','بنت','ابن','ال','آل','the','الطالب','طالب','يا','ترا','تري']);
 /* 🔗 «عبد» تُنطق منفصلة وتُكتب في الكشف موصولة (عبد الرحمن ⟷ عبدالرحمن)،
    فكانت المطابقة تفشل. نصل السابقة بما بعدها في الطرفين قبل المقارنة.
    وكذلك «أبو» و«أم» في الكنى. «عبد» لم تعد كلمة مُهمَلة. */
@@ -1500,16 +1530,34 @@ function vrEq(a,b){
   const x = vrBare(a), y = vrBare(b);
   return x===y || (x.length>=3 && y.startsWith(x)) || (y.length>=3 && x.startsWith(y));
 }
+/* 🔤 خطأ حرف واحد من التعرف الصوتي (الرضوانى ⟵ رضوان) — للأسماء فقط، وللكلمات الطويلة */
+function vrLev1(a,b){
+  if(a===b) return true; const la=a.length, lb=b.length; if(Math.abs(la-lb)>1) return false;
+  let i=0,j=0,d=0;
+  while(i<la&&j<lb){ if(a[i]===b[j]){i++;j++;continue} if(++d>1) return false; if(la>lb)i++; else if(lb>la)j++; else{i++;j++;} }
+  return d+(la-i)+(lb-j)<=1;
+}
+function vrNear(a,b){ const x=vrBare(a), y=vrBare(b); return vrEq(a,b) || (x.length>=4 && y.length>=4 && vrLev1(x,y)); }
+/* 🗣️ صيغ كلمة الحالة: «المشارك/مشاركين/ومشارك/مشاركه» = «مشارك». بلا تقريب حرفي هنا
+   حتى لا يُفهم اسم مثل «مشاري» على أنه «مشارك». */
+function vrKw(w){
+  let x=String(w||'');
+  if(x.length>4 && x.startsWith('وال')) x=x.slice(3); else if(x.length>3 && x.startsWith('ال')) x=x.slice(2); else if(x.length>4 && x.startsWith('و')) x=x.slice(1);
+  if(x.length>5 && /(ين|ون|ات)$/.test(x)) x=x.slice(0,-2); else if(x.length>4 && /ه$/.test(x)) x=x.slice(0,-1);
+  return x;
+}
+function vrKwEq(tok,w){ return !!tok && (tok===w || vrKw(tok)===vrKw(w)); }
 
 /* أنواع الرصد — مأخوذة من الحالات الموجودة أصلًا، لا أنواع مخترعة */
 const VR_KINDS = [
   { ph:['لم يحل الواجب','ما حل الواجب','لم يحل','ما حل','لم ينجز الواجب',
-        'لم ينجز','ما انجز','ماانجز','لم ينجزه','ماحل'],            m:'homework',      st:'لم ينجز'  },
-  { ph:['لم يشارك','ما شارك','مايشارك','لم يشترك','ماشارك'],        m:'participation', st:'لم يشارك' },
-  { ph:['حل الواجب','انجز الواجب','سلم الواجب'],                    m:'homework',      st:'أنجز'     },
-  { ph:['غائب','غياب','غايب','غائبه'],              m:'participation', st:'غائب'     },
+        'لم ينجز','ما انجز','ماانجز','لم ينجزه','ماحل','ما سوى الواجب','ما سوا الواجب','ماسوى الواجب','ما جاب الواجب',
+        'ما سلم الواجب','لم يسلم الواجب','نسي الواجب','ناسي الواجب','بدون واجب','ما سوى','ما جاب'],   m:'homework', st:'لم ينجز'  },
+  { ph:['لم يشارك','ما شارك','مايشارك','ما يشارك','لم يشترك','ماشارك','مو مشارك','ما اشترك','غير مشارك'], m:'participation', st:'لم يشارك' },
+  { ph:['حل الواجب','انجز الواجب','سلم الواجب','سوى الواجب','جاب الواجب','حال الواجب','حلال الواجب'],  m:'homework', st:'أنجز' },
+  { ph:['غائب','غياب','غايب','غائبه','ما حضر','ماحضر','لم يحضر','مو موجود'],   m:'participation', st:'غائب'     },
   { ph:['معذور','عذر'],                             m:'homework',      st:'معذور'    },
-  { ph:['مشاركه','مشارك','شارك','اشترك'],           m:'participation', st:'شارك'     },
+  { ph:['مشاركه','مشارك','شارك','اشترك','يشارك','تشارك','متفاعل'],   m:'participation', st:'شارك'     },
   { ph:['واجب','انجز','الواجب','نجز'],              m:'homework',      st:'أنجز'     }
 ];
 
@@ -1562,7 +1610,7 @@ function vrSegmentsBy(text, PH){
   for(let i=0;i<toks.length;){
     let hit = null;
     for(const p of PH){
-      if(p.t.every((w,j)=> p.loose ? (toks[i+j] && (toks[i+j].includes(w)||w.includes(toks[i+j]))) : toks[i+j]===w)){ hit=p; break; }
+      if(p.t.every((w,j)=> p.loose ? (toks[i+j] && (toks[i+j].includes(w)||w.includes(toks[i+j]))) : vrKwEq(toks[i+j],w))){ hit=p; break; }
     }
     if(hit){
       if(buf.length) segs.push({ name:buf, kind:hit.kind });
@@ -1672,8 +1720,8 @@ function vrParse(text){
   for(const {p,k} of flat){
     const pt = vrTokens(p);
     if(!pt.length) continue;
-    let i = toks.findIndex((_,ix)=> pt.every((w,j)=> toks[ix+j]===w));
-    if(i<0 && pt.length===1) i = toks.findIndex(y => y===pt[0]);
+    let i = toks.findIndex((_,ix)=> pt.every((w,j)=> vrKwEq(toks[ix+j],w)));
+    if(i<0 && pt.length===1) i = toks.findIndex(y => vrKwEq(y,pt[0]));
     if(i>=0){
       const rest = toks.slice(0,i).concat(toks.slice(i+pt.length));
       return { kind:{ type:'status', m:k.m, st:k.st }, rest };
@@ -1700,13 +1748,32 @@ function vrMatch(nameToks){
     const first = arr.filter(s => { const st = vrTokens(s.name); return st[0] && vrEq(st[0], head); });
     return first.length ? first : arr;
   };
+  // تقريب خطأ الحرف الواحد: فقط إن لم يطابق أحد تمامًا
+  const near = arr => arr.filter(s => { const st = vrTokens(s.name); return nameToks.every(n => st.some(x => vrNear(x,n))); });
   let hits = test(inCls);
   if(hits.length) return { hits: prefer(hits), scope:'cls' };
-  hits = test(Array.isArray(students)?students:[]);
+  hits = near(inCls);
+  if(hits.length) return { hits: prefer(hits), scope:'cls' };
+  const all = Array.isArray(students)?students:[];
+  hits = test(all); if(!hits.length) hits = near(all);
   return { hits: hits.length ? prefer(hits) : hits, scope: hits.length ? 'all' : '' };
 }
 
-function vrSay(t){ const e=$('vr-status'); if(e) e.innerHTML = t; }
+function vrSay(t){ const e=$('vr-status'); if(e) e.innerHTML = t; const l=$('vb-live'); if(l && t) l.innerHTML = t; }
+let vrHeard='';
+/* 🪪 بطاقة لكل رصد: الاسم كاملًا، والحالة ملوّنة، وما سُمع، وتراجع خاص بها. يبقى آخر بطاقتين */
+const VR_ST_UI={'شارك':['✅ شارك','g'],'لم يشارك':['✋ لم يشارك','r'],'غائب':['🚫 غائب','a'],'أنجز':['📗 أنجز','g'],'لم ينجز':['📕 لم ينجز','r'],'معذور':['🕊️ معذور','a']};
+function vrCard(st, label, cls, entry){
+  const e=$('vr-log'); if(!e) return;
+  const c=document.createElement('div'); c.className='vr-card '+(cls||'g');
+  c.innerHTML=`<span class="vr-st">${esc(label)}</span><div class="vr-nm">${esc(st.name)}${vrHeard?`<small>سمعت: «${esc(vrHeard)}»</small>`:''}</div>`;
+  if(entry){ const u=document.createElement('button'); u.type='button'; u.className='vr-u'; u.textContent='↩︎ تراجع';
+    u.onclick=async()=>{ const i=UNDO.indexOf(entry); if(i<0){ toast('تم التراجع عنه مسبقًا'); return; } UNDO.splice(i,1); UNDO.push(entry); await undoLast(); c.classList.add('undone'); u.remove(); };
+    c.appendChild(u); }
+  e.prepend(c); [...e.children].slice(2).forEach(k=>k.remove());
+  // صف الطالب في القائمة يومض بالأخضر
+  setTimeout(()=>{ const r=document.querySelector(`#students-roster [data-profile="${CSS.escape(st.id)}"]`); const row=r&&r.closest('.rd-row'); if(row){ row.classList.remove('flash'); void row.offsetWidth; row.classList.add('flash'); } },60);
+}
 function vrLog(t){
   const e=$('vr-log'); if(!e) return;
   e.innerHTML = `<div>${esc(t)}</div>` + e.innerHTML;
@@ -1723,7 +1790,7 @@ async function vrApply(st, kind, batch){
     }else{
       MSGQ.push({ id:st.id, name:st.name, k:kind.k, text: msg(kind.k, st) });
       msgqSave(); if(typeof mvRender==='function') mvRender();
-      vrLog(`✉️ رسالة جُهّزت — ${st.name}`);
+      vrCard(st, '✉️ رسالة جُهّزت', 'b', null);
     }
     vrClearPick();
     if(!batch){ if(vrQueue.length) vrNext(); else vrSay(vrOn ? '🎙️ استمع… تحدث باسم الطالب ونوع الرصد' : 'جاهز'); }
@@ -1731,10 +1798,11 @@ async function vrApply(st, kind, batch){
   }
   if(kind.type==='behavior'){
     await quickBehavior(st.id, kind.beh.type, kind.beh.title, kind.beh.note||'');
-    vrLog(`✓ ${kind.beh.title} — ${st.name}`);
+    vrCard(st, kind.beh.title, kind.beh.type==='positive'?'g':'r', UNDO[UNDO.length-1]);
   }else{
     await quickSet(kind.m, st.id, kind.st);
-    vrLog(`✓ ${kind.st} — ${st.name}`);
+    const ui=VR_ST_UI[kind.st]||[kind.st,'g'];
+    vrCard(st, ui[0], ui[1], UNDO[UNDO.length-1]);
   }
   vrClearPick();
   if(!batch){
@@ -1746,9 +1814,9 @@ async function vrApply(st, kind, batch){
 function vrAskStudent(hits, kind, scope){
   vrPending = { kind };
   const e=$('vr-pick'); if(!e) return;
-  e.innerHTML = `<div class="muted" style="margin-bottom:6px">هل تقصد؟${scope==='all'?' <small>(من خارج الفصل الحالي)</small>':''}</div>`
-    + `<div style="display:flex;flex-wrap:wrap;gap:6px"></div>`;
-  const row = e.lastElementChild;
+  const kl = kind ? ((VR_ST_UI[kind.st]||[])[0] || (kind.beh&&kind.beh.title) || '') : '';
+  e.innerHTML = `<div class="vr-q"><div class="vr-qt">❓ أي طالب تقصد؟${kl?` — ${esc(kl)}`:''}${scope==='all'?' <small>(من خارج الفصل الحالي)</small>':''}${vrHeard?`<small>سمعت: «${esc(vrHeard)}»</small>`:''}</div><div class="vr-qo"></div></div>`;
+  const row = e.querySelector('.vr-qo');
   hits.slice(0,6).forEach(s=>{
     const b=document.createElement('button');
     b.className='btn sm'; b.type='button';
@@ -1759,13 +1827,14 @@ function vrAskStudent(hits, kind, scope){
     };
     row.appendChild(b);
   });
+  vrSkipBtn(row);
 }
+function vrSkipBtn(row){ const x=document.createElement('button'); x.className='btn sm ghost'; x.type='button'; x.textContent='تجاهل'; x.onclick=()=>{ vrPending=null; vrClearPick(); if(vrQueue.length) vrNext(); }; row.appendChild(x); }
 
 function vrAskKind(st){
   const e=$('vr-pick'); if(!e) return;
-  e.innerHTML = `<div class="muted" style="margin-bottom:6px">اختر نوع الرصد لـ <b>${esc(st.name)}</b></div>`
-    + `<div style="display:flex;flex-wrap:wrap;gap:6px"></div>`;
-  const row = e.lastElementChild;
+  e.innerHTML = `<div class="vr-q"><div class="vr-qt">❓ ماذا ترصد لـ <b>${esc(st.name)}</b>؟${vrHeard?`<small>سمعت: «${esc(vrHeard)}»</small>`:''}</div><div class="vr-qo"></div></div>`;
+  const row = e.querySelector('.vr-qo');
   const opts = [
     ['🗣️ شارك',      {type:'status', m:'participation', st:'شارك'}],
     ['🚫 لم يشارك',  {type:'status', m:'participation', st:'لم يشارك'}],
@@ -1780,6 +1849,7 @@ function vrAskKind(st){
     b.onclick = ()=> vrApply(st, k);
     row.appendChild(b);
   }
+  vrSkipBtn(row);
 }
 
 let vrQueue = [];          // ما احتاج تدخّلك من أوامر هذه الجملة
@@ -1798,6 +1868,7 @@ function vrNext(){
 }
 
 async function vrHandle(text){
+  vrHeard = String(text||'').trim().slice(0,80);
   const segs = vrSegments(text);
   if(!segs.length){ vrSay('لم أتعرف على الأمر، حاول مرة أخرى'); return; }
 
@@ -1828,11 +1899,7 @@ function vrMoveTo(ctx){
   const ex=$('vr-examples');
   if(ex){
     if(!VR_EX_DAILY) VR_EX_DAILY=ex.innerHTML;
-    if(ctx==='beh'){
-      const pos=(POS_BEHAVIORS||[]).slice(0,2).map(x=>x[0]), neg=(NEG_BEHAVIORS||[]).slice(0,2).map(x=>x[0]);
-      const plain=x=>String(x).replace(/[\u{1F000}-\u{1FAFF}\u2300-\u27BF\uFE0F]/gu,'').trim();   // يُنطق بلا رموز
-      ex.innerHTML=`<b>أمثلة</b>${[...pos,...neg].map(x=>`<span>محمد <i>${esc(plain(x))}</i></span>`).join('')}<small class="vr-note">قل اسم الطالب ثم السلوك، ويمكن عدة طلاب في نفس النَّفَس. يُفهم أي سلوك من القوائم أدناه أو مما أضفته.</small>`;
-    } else ex.innerHTML=VR_EX_DAILY;
+    ex.textContent = ctx==='beh' ? 'قل اسم الطالب ثم السلوك — ويمكن عدة طلاب في نفس النَّفَس' : 'قل اسم الطالب ثم الحالة — ويمكن عدة طلاب في نفس النَّفَس';
   }
   const b=$('vr-btn'); if(b && !vrOn) b.textContent=vrLabel();
 }
@@ -1841,22 +1908,25 @@ function vrStop(){
   try{ vrRec && vrRec.stop(); }catch(e){}
   const b=$('vr-btn'); if(b){ b.textContent=vrLabel(); b.classList.remove('bad'); }
   vrSay('');
+  const rv=$('rd-voice'); if(rv){ rv.hidden=true; } $('rd-tools-btn')?.classList.remove('on');
 }
 
 function vrStart(){
   if(!VR_SUP) return;
   vrOn = true;
   const b=$('vr-btn'); if(b){ b.textContent='⏹️ إيقاف الاستماع'; b.classList.add('bad'); }
-  vrSay('🎙️ استمع… يمكنك ذكر عدة طلاب في نفس النَّفَس:<br><small>«تركي محمد مشارك · عادل علي مشارك · حسن العودة غايب»</small>');
+  vrSay('🎙️ أستمع… قل اسم الطالب ثم الحالة');
+  const rv=$('rd-voice'); if(rv && VR_CTX==='daily'){ rv.hidden=false; $('rd-tools-btn')?.classList.add('on'); }
 
   vrRec = new VR_SUP();
   vrRec.lang = 'ar-SA';
-  vrRec.interimResults = false;
+  vrRec.interimResults = true;      // ما يُسمع يظهر أمامك مباشرة وأنت تتكلم
   vrRec.maxAlternatives = 3;
   vrRec.continuous = false;          // Safari لا يحترم continuous — نعيد التشغيل يدويًا
 
   vrRec.onresult = (ev)=>{
     const r = ev.results[ev.results.length-1];
+    if(!r.isFinal){ const t=String(r[0]?.transcript||'').trim(); const l=$('vb-live'); if(l&&t) l.innerHTML=`🎙️ <b>«${esc(t)}»</b>`; return; }
     // نختار البديل الذي يطابق أكبر عدد من أوامر الجملة — لا أول بديل فحسب
     let bestT = String(r[0]?.transcript||''), bestN = -1;
     for(let i=0;i<r.length;i++){
@@ -3078,7 +3148,8 @@ function wire(){
  $('date').addEventListener('change',()=>{renderDaily();renderQuick('quick');renderRecords()});
  $('roster-search').addEventListener('input',renderDaily);
  $('rd-search-btn').onclick=()=>{const w=$('rd-search');w.hidden=!w.hidden;$('rd-search-btn').classList.toggle('on',!w.hidden);if(!w.hidden)$('roster-search').focus();else{$('roster-search').value='';renderDaily()}};
- $('rd-tools-btn').onclick=()=>{const w=$('rd-tools');w.hidden=!w.hidden;$('rd-tools-btn').classList.toggle('on',!w.hidden);if(!w.hidden)$('quick-search').focus()};
+ $('rd-tools-btn').onclick=()=>{ if(!VR_SUP){ toast('🎤 الرصد الصوتي غير مدعوم في هذا المتصفح — استخدم 🔍 للبحث'); return; } if(vrOn){ vrStop(); return; } try{ vrMoveTo('daily'); }catch(e){} vrStart(); };
+ $('vb-stop').onclick=()=>vrStop();
  $('bulk-done').onclick=bulkDone;$('bulk-absent').onclick=bulkAbsent;
  const setMode=m=>{mode=m;$('mode-part').classList.toggle('on',m==='participation');$('mode-home').classList.toggle('on',m==='homework');renderDaily()};
  $('mode-part').onclick=()=>setMode('participation');$('mode-home').onclick=()=>setMode('homework');
