@@ -586,6 +586,23 @@ body.ex-kb-on #undo-bar{display:none!important}
 .bh-mini small{flex:1;color:var(--ink-faint);font-weight:600}
 .bh-mini button{border:0;background:none;font-size:.85rem;opacity:.6;cursor:pointer}
 body.bh-on{overflow:hidden}
+.bh-new{display:grid;gap:7px}
+.bh-ntype{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.bh-ntype span{font-size:.78rem;font-weight:800;color:var(--ink-soft);margin-inline-end:auto}
+.bh-ntype button{min-height:32px;border-radius:999px;border:1.5px solid var(--rule);background:var(--surface);font:inherit;font-weight:700;font-size:.76rem;color:var(--ink);cursor:pointer;padding:0 11px}
+.bh-ntype .on.g{background:var(--green-soft);border-color:var(--green);color:var(--green-ink)}
+.bh-ntype .on.r{background:var(--red-soft);border-color:var(--red);color:var(--red-ink)}
+.bh-new .inp{min-height:42px}
+.bh-nact{display:grid;grid-template-columns:1fr auto;gap:6px}
+.bh-nact .btn{min-height:44px;margin:0;font-weight:800}
+.bh-tpls{margin-top:12px}
+.bh-tpls-h{display:flex;align-items:baseline;gap:8px;margin-bottom:6px}.bh-tpls-h b{font-size:.84rem}.bh-tpls-h small{font-size:.7rem;color:var(--ink-faint)}
+#custom-beh-list{display:flex;flex-wrap:wrap;gap:6px}
+.bh-tpl{display:inline-flex;align-items:stretch;border-radius:999px;overflow:hidden;background:var(--surface)}
+.bh-tpl.g{border:1.5px solid #BFE3CF}.bh-tpl.r{border:1.5px solid #F3C1C9}
+.bh-tpl button{border:0;background:none;font:inherit;font-weight:700;font-size:.8rem;color:var(--ink);padding-block:7px;padding-inline:11px 4px;cursor:pointer}
+.bh-tpl .x{padding-inline:8px 10px;color:var(--ink-faint);font-size:.75rem;border-inline-start:1px solid var(--rule)}
+.bh-tpl-empty{font-size:.78rem;color:var(--ink-faint)}
 </style>
 
 <style id="schedule-tab-style">
@@ -1175,11 +1192,16 @@ header .brand{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     <div class="bh-sh-h"><div class="bh-sh-n"><b id="bh-sh-name"></b><small id="bh-sh-cls"></small></div><span class="bh-cnt" id="bh-sh-cnt"></span><button type="button" class="bh-x" data-bh-close aria-label="إغلاق">✕</button></div>
     <div class="bh-tabs" role="tablist"><button type="button" class="on g" data-bh-tab="positive">🌟 إيجابي</button><button type="button" class="r" data-bh-tab="negative">⚠️ متابعة</button><button type="button" class="c" data-bh-tab="custom">＋ مخصص</button></div>
     <div class="bh-chips" id="bh-chips"></div>
+    <!-- ＋ مخصص: سلوك جديد يُسجَّل للطالب ويُحفظ قالبًا في خطوة واحدة · وقوالبك أزرار صغيرة -->
     <div id="bh-custom" hidden>
-    <div class="grid2"><div><label>النوع</label><select class="inp" id="custom-beh-type"><option value="positive">🌟 إيجابي</option><option value="negative">⚠️ متابعة</option></select></div><div><label>اسم السلوك</label><input class="inp" id="custom-beh-title" placeholder="مثال: قيادة المجموعة"></div></div>
-    <div style="margin-top:8px"><label>وصف السلوك</label><input class="inp" id="custom-beh-note" placeholder="وصف مختصر"></div>
-    <div class="actions" style="margin-top:9px"><button class="btn tick wide" onclick="addBehaviorTemplate()">＋ حفظ القالب</button></div>
-      <div id="custom-beh-list" class="template-grid" style="margin-top:9px"></div>
+      <div class="bh-new">
+        <select id="custom-beh-type" hidden><option value="positive">🌟 إيجابي</option><option value="negative">⚠️ متابعة</option></select>
+        <div class="bh-ntype" role="radiogroup" aria-label="نوع السلوك"><span>سلوك جديد — النوع:</span><button type="button" class="on g" data-bh-ntype="positive">🌟 إيجابي</button><button type="button" class="r" data-bh-ntype="negative">⚠️ متابعة</button></div>
+        <input class="inp" id="custom-beh-title" maxlength="60" placeholder="اسم السلوك — مثال: قيادة المجموعة">
+        <input class="inp" id="custom-beh-note" maxlength="120" placeholder="وصف مختصر (اختياري)">
+        <div class="bh-nact"><button type="button" class="btn tick" id="bh-new-rec">✓ سجّل الآن واحفظه قالبًا</button><button type="button" class="btn" id="bh-new-save" title="يُحفظ قالبًا دون تسجيل">حفظ فقط</button></div>
+      </div>
+      <div class="bh-tpls"><div class="bh-tpls-h"><b>قوالبي</b><small>اضغط القالب لتسجيله · ✕ للحذف</small></div><div id="custom-beh-list"></div></div>
     </div>
     <div class="bh-mini" id="bh-mini"></div>
   </div>
@@ -2334,11 +2356,18 @@ function renderBehaviorButtons(){
 }
 function renderCustomBehaviorTemplates(){
  const e=$('custom-beh-list');if(!e)return;
- e.innerHTML=(data.behaviorTemplates||[]).map((x,i)=>`<div class="template-card"><b style="font-size:.85rem">${x.type==='positive'?'🌟':'⚠️'} ${esc(x.title)}</b><div class="muted">${esc(x.note||'')}</div><div class="mini-actions" style="margin-top:7px"><button class="btn sm tick" data-tpl-use="${i}">تسجيل</button><button class="btn sm bad" data-tpl-del="${i}">حذف</button></div></div>`).join('')||'<div class="empty">لا توجد قوالب مخصصة.</div>';
+ const T=data.behaviorTemplates||[];
+ e.innerHTML=T.length?T.map((x,i)=>`<span class="bh-tpl ${x.type==='positive'?'g':'r'}"><button type="button" data-tpl-use="${i}" title="${esc(x.note||x.title)}">${x.type==='positive'?'🌟':'⚠️'} ${esc(x.title)}</button><button type="button" class="x" data-tpl-del="${i}" aria-label="حذف القالب ${esc(x.title)}">✕</button></span>`).join('')
+   :'<div class="bh-tpl-empty">لا توجد قوالب بعد — أضف سلوكًا بالأعلى ويُحفظ هنا.</div>';
 }
 function useBehaviorTemplate(i){const x=data.behaviorTemplates?.[i],sid=behaviorStudentId||quickStudentId;if(!x)return;if(!sid){toast('اختر طالبًا أولًا');return}quickBehavior(sid,x.type,x.title,x.note)}
-function deleteBehaviorTemplate(i){data.behaviorTemplates.splice(i,1);save();renderCustomBehaviorTemplates();toast('تم حذف القالب')}
-function addBehaviorTemplate(){const title=$('custom-beh-title').value.trim(),note=$('custom-beh-note').value.trim(),type=$('custom-beh-type').value;if(!title){toast('اكتب اسم السلوك');return}data.behaviorTemplates.unshift({title,note,type});$('custom-beh-title').value='';$('custom-beh-note').value='';save();renderCustomBehaviorTemplates();bhSheet();toast('تم حفظ القالب')}
+async function deleteBehaviorTemplate(i){const x=data.behaviorTemplates?.[i];if(!x)return;
+ if(!(await askConfirm(`حذف القالب «${x.title}»؟ لا يُحذف ما سُجّل به سابقًا.`,{title:'حذف القالب',yes:'احذف',no:'إلغاء'})))return;
+ data.behaviorTemplates.splice(i,1);save();renderCustomBehaviorTemplates();bhSheet();toast('تم حذف القالب')}
+function addBehaviorTemplate(andRecord){const title=$('custom-beh-title').value.trim(),note=$('custom-beh-note').value.trim(),type=$('custom-beh-type').value;if(!title){toast('اكتب اسم السلوك');$('custom-beh-title').focus();return}
+ data.behaviorTemplates=data.behaviorTemplates||[];
+ if(!data.behaviorTemplates.some(x=>x&&x.title===title&&x.type===type)) data.behaviorTemplates.unshift({title,note,type});   // لا قالب مكرر
+ if(andRecord&&behaviorStudentId){ const sid=behaviorStudentId; $('custom-beh-title').value='';$('custom-beh-note').value='';renderCustomBehaviorTemplates();quickBehavior(sid,type,title,note);return }$('custom-beh-title').value='';$('custom-beh-note').value='';save();renderCustomBehaviorTemplates();bhSheet();toast('تم حفظ القالب')}
 
 /* ── الشهادات ── */
 
@@ -3427,6 +3456,10 @@ function wire(){
  $('vr-stop').onclick=()=>vrStop();
  $('bh-voice-btn').onclick=()=>{ if(!VR_SUP){ toast('🎤 الرصد الصوتي غير مدعوم في هذا المتصفح'); return; } if(vrOn){ vrStop(); return; } try{ vrMoveTo('beh'); }catch(e){} vrStart(); };
  document.querySelectorAll('[data-bh-tab]').forEach(b=>b.onclick=()=>bhTab(b.dataset.bhTab));
+ document.querySelectorAll('[data-bh-ntype]').forEach(b=>b.onclick=()=>{ $('custom-beh-type').value=b.dataset.bhNtype; document.querySelectorAll('[data-bh-ntype]').forEach(x=>x.classList.toggle('on',x===b)); });
+ $('bh-new-rec').onclick=()=>addBehaviorTemplate(true);
+ $('bh-new-save').onclick=()=>addBehaviorTemplate(false);
+ $('custom-beh-title').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); addBehaviorTemplate(true); } });
  $('bh-list').addEventListener('click',e=>{ const r=e.target.closest('[data-bh-open]'); if(r) bhOpen(r.dataset.bhOpen); });
  document.querySelectorAll('[data-bh-close]').forEach(b=>b.onclick=bhClose);
  document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&!$('bh-sheet').hidden) bhClose(); });
