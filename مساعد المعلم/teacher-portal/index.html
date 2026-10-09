@@ -1916,36 +1916,46 @@ function vrMoveTo(ctx){
   }
   const b=$('vr-btn'); if(b && !vrOn) b.textContent=vrLabel();
 }
-/* 🎙️ محرّك استماع واحد لكل الأماكن — يعالج مشكلات المتصفحات:
-   ١) كائن تعرّف جديد في كل جولة (Safari يرفض إعادة تشغيل الكائن نفسه أحيانًا).
-   ٢) iPhone قد لا يُنهي الجملة وهو يعرض النص اللحظي: بعد 1.3 ث صمت نُنهيها بأنفسنا،
-      وإن انتهت الجولة بنص لحظي لم يُعتمد نعالجه بدل أن يضيع.
-   ٣) إن رفض الجهاز إعادة الاستماع (بلا لمسة منك) لا نوهمك أنه يسمع: «⏸️ متوقف — تابِع».
-   ٤) محرّك واحد يعمل في كل لحظة: بدء أي استماع يوقف الآخر (ميكروفونان = واحد أصم). */
+/* 🎙️ محرّك استماع واحد لكل الأماكن.
+   iPhone لا يسمح بتشغيل الميكروفون إلا بلمسة منك؛ أي جلسة تبدأ تلقائيًا بعد ذلك قد «تعمل» بلا صوت
+   فيسمعك مرة واحدة فقط. لذلك:
+   ١) جلسة واحدة مستمرة (continuous) تبدأ بلمستك ولا نغلقها بعد كل جملة.
+   ٢) الجمل تُلتقط منها: النهائية فورًا، واللحظية بعد 1.2 ث من سكوتك (iPhone قد لا يعتمدها أبدًا)،
+      ولا يُعاد ما عُولج من قبل (iPhone يُطيل الجملة نفسها بدل بدء جملة جديدة).
+   ٣) إن أنهى المتصفح الجلسة نعيد تشغيلها؛ وإن رفض الجهاز ذلك يظهر «⏸️ توقف — تابِع» بدل صمت مخادع.
+   ٤) محرّك واحد يعمل في كل لحظة: بدء أي استماع يوقف الآخر. */
 const VB_ENGINES = {};
 function vbEngine(p, { onFinal, pick, onFatal, onStop }){
-  const E = { p, on:false, rec:null, interim:'', idleT:0, restartT:0, last:'', lastAt:0, quick:0 };
+  const E = { p, on:false, rec:null, idleT:0, restartT:0, dogT:0, done:{}, last:'', lastAt:0, quick:0, sawStart:false };
   const fire = t => { t = String(t||'').trim(); if(!t) return; const now = Date.now();
-    if(t === E.last && now - E.lastAt < 1200) return;      // نفس الجملة مرتين من المتصفح
+    if(t === E.last && now - E.lastAt < 1500) return;
     E.last = t; E.lastAt = now; try{ onFinal(t); }catch(e){} };
-  function spawn(){
-    clearTimeout(E.restartT); if(!E.on) return;
-    let r; try{ r = new VR_SUP(); }catch(e){ return pause(); }
-    E.rec = r; r.__t0 = Date.now(); r.__ok = false;
-    r.lang = 'ar-SA'; r.interimResults = true; r.maxAlternatives = 3; r.continuous = false;
-    r.onstart = r.onaudiostart = () => { r.__ok = true; E.quick = 0; };
+  // الجزء الجديد فقط من نص النتيجة i (ما قيل بعد آخر جملة عولجت منها)
+  const fresh = (i, t) => { const was = E.done[i] || ''; t = String(t||'').trim();
+    if(was && t.startsWith(was)) return t.slice(was.length).trim();
+    return was === t ? '' : t; };
+  const take = (i, t, full) => { const f = fresh(i, t); E.done[i] = String(full||t||'').trim(); if(f) fire(f); };
+  function bind(r){
+    r.lang = 'ar-SA'; r.interimResults = true; r.maxAlternatives = 3; r.continuous = true;
+    r.onstart = r.onaudiostart = () => { r.__ok = true; E.sawStart = true; E.quick = 0; clearTimeout(E.dogT); };
     r.onresult = ev => {
       if(E.rec !== r) return;
-      r.__ok = true;
-      const res = ev.results[ev.results.length-1]; if(!res) return;
-      if(!res.isFinal){
-        const t = String(res[0]?.transcript||'').trim();
-        if(t){ E.interim = t; vbLive(p, `🎙️ <b>«${esc(t)}»</b>`);
-          clearTimeout(E.idleT); E.idleT = setTimeout(() => { try{ r.stop(); }catch(e){} }, 1300); }
-        return;
+      r.__ok = true; E.quick = 0; clearTimeout(E.dogT);
+      const from = typeof ev.resultIndex === 'number' ? ev.resultIndex : 0;
+      for(let i = from; i < ev.results.length; i++){
+        const res = ev.results[i]; if(!res) continue;
+        const t0 = String(res[0]?.transcript||'').trim();
+        if(res.isFinal){
+          clearTimeout(E.idleT); E.pend = null;
+          const picked = pick && !E.done[i] ? pick(res) : t0;
+          take(i, picked, t0);
+        }else if(t0){
+          const shown = fresh(i, t0);
+          if(shown) vbLive(p, `🎙️ <b>«${esc(shown)}»</b>`);
+          clearTimeout(E.idleT); E.pend = { i, t:t0 };
+          E.idleT = setTimeout(() => { if(E.rec === r){ E.pend = null; take(i, t0); } }, 1200);   // سكتّ: نعتمد ما قلت
+        }
       }
-      clearTimeout(E.idleT); E.interim = '';
-      fire(pick ? pick(res) : res[0]?.transcript);
     };
     r.onerror = e => {
       const err = e && e.error;
@@ -1953,29 +1963,47 @@ function vbEngine(p, { onFinal, pick, onFatal, onStop }){
     };
     r.onend = () => {
       if(E.rec !== r) return;
-      clearTimeout(E.idleT);
-      if(E.interim){ const t = E.interim; E.interim = ''; fire(t); }   // جملة لم يعتمدها المتصفح
+      clearTimeout(E.idleT); clearTimeout(E.dogT);
+      if(E.pend){ const q = E.pend; E.pend = null; if(E.on) take(q.i, q.t); }   // جملة انتهت الجلسة قبل اعتمادها
       if(!E.on) return;
-      // انتهاء فوري بلا بدء فعلي مرارًا = الجهاز يرفض إعادة الاستماع
-      if(!r.__ok && Date.now() - r.__t0 < 900){ if(++E.quick >= 3) return pause(); } else E.quick = 0;
-      E.restartT = setTimeout(spawn, 120);
+      if(!r.__ok && Date.now() - r.__t0 < 900){ if(++E.quick >= 3) return pause(); }
+      E.restartT = setTimeout(() => restart(r), 150);
     };
-    try{ r.start(); }catch(e){ if(++E.quick >= 3) return pause(); E.restartT = setTimeout(spawn, 400); }
+  }
+  function begin(r){
+    E.rec = r; r.__t0 = Date.now(); r.__ok = false; E.done = {};
+    try{ r.start(); }catch(e){ if(++E.quick >= 3) return pause(); E.restartT = setTimeout(() => restart(null), 400); return; }
+    // بدأت بلا صوت؟ (رأينا البدء سابقًا ولم يأتِ الآن) ⟵ لا نوهمك أنه يسمع
+    clearTimeout(E.dogT);
+    if(E.sawStart) E.dogT = setTimeout(() => { if(E.on && E.rec === r && !r.__ok) pause(); }, 3000);
+  }
+  function restart(old){
+    if(!E.on) return;
+    // نعيد تشغيل الكائن نفسه أولًا (أنجح على iPhone)، ونصنع جديدًا إن رفض
+    if(old){ try{ E.rec = old; old.__t0 = Date.now(); old.__ok = false; E.done = {}; old.start();
+      clearTimeout(E.dogT); if(E.sawStart) E.dogT = setTimeout(() => { if(E.on && E.rec === old && !old.__ok) pause(); }, 3000);
+      return; }catch(e){} }
+    let r; try{ r = new VR_SUP(); }catch(e){ return pause(); }
+    bind(r); begin(r);
   }
   function pause(){
-    clearTimeout(E.restartT); clearTimeout(E.idleT);
+    clearTimeout(E.restartT); clearTimeout(E.idleT); clearTimeout(E.dogT);
+    const r = E.rec; E.rec = null; try{ r && r.abort && r.abort(); }catch(e){}
     vbLive(p, `⏸️ توقف الاستماع <button type="button" class="vb-resume" onclick="VB_ENGINES['${p}'].resume()">▶︎ تابِع</button>`);
   }
   E.start = () => {
     for(const k in VB_ENGINES) if(k !== p && VB_ENGINES[k].on) VB_ENGINES[k].stopAll();
-    E.on = true; E.quick = 0; E.interim = ''; spawn();
+    E.on = true; E.quick = 0;
+    let r; try{ r = new VR_SUP(); }catch(e){ return pause(); }
+    bind(r); begin(r);                        // داخل لمستك — هكذا يقبله iPhone
   };
-  E.resume = () => { if(!E.on) return; E.quick = 0; vbLive(p, '🎙️ أستمع…'); spawn(); };
+  E.resume = () => { if(!E.on) return; E.quick = 0; vbLive(p, '🎙️ أستمع…');
+    let r; try{ r = new VR_SUP(); }catch(e){ return pause(); } bind(r); begin(r); };
   E.stop = () => {
-    E.on = false; clearTimeout(E.restartT); clearTimeout(E.idleT); E.interim = '';
+    E.on = false; E.pend = null; clearTimeout(E.restartT); clearTimeout(E.idleT); clearTimeout(E.dogT);
     const r = E.rec; E.rec = null; try{ r && (r.abort ? r.abort() : r.stop()); }catch(e){}
   };
-  E.stopAll = () => { E.stop(); try{ onStop && onStop(); }catch(e){} };   // يُطفئ واجهة هذا المكان أيضًا
+  E.stopAll = () => { E.stop(); try{ onStop && onStop(); }catch(e){} };
   VB_ENGINES[p] = E;
   return E;
 }
