@@ -479,7 +479,10 @@ body.ex-kb-on #undo-bar{display:none!important}
 .vb-live b{color:var(--ink);font-size:.95rem}
 .vb-stop{flex:none;border:0;background:var(--red);color:#fff;border-radius:10px;padding:8px 12px;font:inherit;font-weight:800;font-size:.82rem;cursor:pointer}
 #rd-voice #vr-wrap{margin-top:0!important}
-#rd-voice #vr-btn,#rd-voice #vr-status,#rd-voice #vr-examples,#rd-voice #undo-btn{display:none!important}
+#rd-voice #vr-btn,#rd-voice #vr-examples,#rd-voice #undo-btn{display:none!important}
+.vb-bar[hidden],#vr-status[hidden],[id$="-btn"][hidden]{display:none!important}
+#vr-wrap .vb-bar,#mv-wrap .vb-bar,#exam-vr-wrap .vb-bar{margin-top:2px}
+.vr-cards{display:grid;gap:6px;margin-top:6px}
 #rd-voice #vr-pick{margin-top:6px!important}
 #rd-voice #vr-log{margin-top:6px!important}
 #rd-voice:has(.vr-q) #vr-log{display:none!important}   /* سؤال معلّق: يظهر وحده حتى لا تكبر المساحة */
@@ -505,6 +508,8 @@ body.ex-kb-on #undo-bar{display:none!important}
 .vr-qo .btn{background:var(--surface)}
 .rd-row.flash{animation:rdFlash 1.8s ease-out}
 @keyframes rdFlash{0%{background:#BDEBD3;box-shadow:inset -4px 0 0 var(--green)}100%{background:transparent;box-shadow:none}}
+#ex-voice .exam-vr-tools{display:none}
+#ex-voice{position:sticky;top:calc(var(--header-h) + var(--safe-t));z-index:7}
 </style>
 
 <style id="schedule-tab-style">
@@ -907,12 +912,12 @@ header .brand{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     <button class="btn" id="bulk-done"></button><button class="btn" id="bulk-absent"></button><div id="unrec"></div></div>
   <!-- 🎙️ الرصد الصوتي: شريط استماع + بطاقة لكل رصد (الاسم كاملًا والحالة وما سُمع) -->
   <div class="vb" id="rd-voice" hidden>
-    <div class="vb-bar"><span class="vb-dot"></span><div class="vb-live" id="vb-live">أستمع… قل اسم الطالب ثم الحالة</div><button type="button" class="vb-stop" id="vb-stop">⏹️ إيقاف</button></div>
     <div id="vr-slot-daily"><div id="vr-wrap" style="margin-top:10px;display:none">
       <button class="btn" id="vr-btn" type="button"
         style="width:100%;min-height:52px;font-size:1rem;font-weight:700">🎤 رصد بالصوت</button>
+      <div class="vb-bar" id="vr-bar" hidden><span class="vb-dot"></span><div class="vb-live" id="vr-live">أستمع…</div><button type="button" class="vb-stop" id="vr-stop">⏹️ إيقاف</button></div>
       <div class="vr-hint" id="vr-examples">قل اسم الطالب ثم الحالة — ويمكن عدة طلاب في نفس النَّفَس</div>
-      <div id="vr-status" class="muted" style="margin-top:8px;min-height:20px;line-height:1.7"></div>
+      <div id="vr-status" class="muted" hidden></div>
       <div id="vr-pick" style="margin-top:8px"></div>
       <div id="vr-log" class="muted" style="margin-top:6px;font-size:.78rem;line-height:1.8"></div>
     </div>
@@ -1004,14 +1009,10 @@ header .brand{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
           <button class="btn" id="exam-vr-btn" type="button"
             style="width:100%;min-height:52px;font-size:1rem;font-weight:700">🎤 رصد الاختبارات بالصوت</button>
         </div>
-        <div class="vr-examples">
-          <b>مثال</b>
-          <span>سعيد محمد <i>6</i> · ضاري عبدالله <i>9</i> · كنان <i>7</i></span>
-          <span>علي محمد سعيد <i>5</i> · فهد الهاجري <i>8</i></span>
-          <small class="vr-note">اختر الاختبار أولًا، ثم اذكر اسم كل طالب وبعده الدرجة. يمكن رصد عدة طلاب في نفس الكلام.</small>
-        </div>
-        <div id="exam-vr-status" class="muted" style="margin-top:8px;min-height:20px;line-height:1.7"></div>
-        <div id="exam-vr-log" class="muted" style="margin-top:6px;font-size:.78rem;line-height:1.8"></div>
+        <div class="vb-bar" id="exv-bar" hidden><span class="vb-dot"></span><div class="vb-live" id="exv-live">أستمع…</div><button type="button" class="vb-stop" id="exv-stop">⏹️ إيقاف</button></div>
+        <div class="vr-hint">قل اسم الطالب ثم الدرجة — ويمكن عدة طلاب في نفس النَّفَس</div>
+        <div id="exam-vr-status" class="muted" style="margin-top:6px;font-size:.8rem;line-height:1.7"></div>
+        <div class="vr-cards" id="exam-vr-log"></div>
       </div>
   </div>
   <div id="ex-search" hidden><div class="search"><span class="search-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span><input class="inp" id="exam-search" autocomplete="off" placeholder="ابحث عن طالب…"></div></div>
@@ -1112,7 +1113,10 @@ header .brand{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     <div id="mv-wrap" style="margin-top:10px;display:none">
       <button class="btn" id="mv-btn" type="button"
         style="width:100%;min-height:52px;font-size:1rem;font-weight:700">🎤 رسائل بالصوت</button>
-      <div id="mv-status" class="muted" style="margin-top:8px;min-height:20px;line-height:1.7"></div>
+      <div class="vb-bar" id="mv-bar" hidden><span class="vb-dot"></span><div class="vb-live" id="mv-live">أستمع…</div><button type="button" class="vb-stop" id="mv-stop">⏹️ إيقاف</button></div>
+      <div class="vr-hint">قل اسم الطالب ثم نوع الرسالة</div>
+      <div id="mv-status" class="muted" style="margin-top:6px;font-size:.8rem;line-height:1.7"></div>
+      <div class="vr-cards" id="mv-cards"></div>
     </div>
     <div id="mv-list" style="margin-top:8px"></div>
   </div>
@@ -1759,20 +1763,28 @@ function vrMatch(nameToks){
   return { hits: hits.length ? prefer(hits) : hits, scope: hits.length ? 'all' : '' };
 }
 
-function vrSay(t){ const e=$('vr-status'); if(e) e.innerHTML = t; const l=$('vb-live'); if(l && t) l.innerHTML = t; }
+function vrSay(t){ const l=$('vr-live'); if(l && t) l.innerHTML = t; }
+/* 🎙️ واجهة صوت موحّدة لكل الأماكن (الرصد · السلوك · الرسائل · الاختبارات):
+   زر البدء ⟵ شريط استماع (ما يُسمع لحظيًا + إيقاف) · بطاقة لكل رصد مع تراجع خاص بها */
+function vbOn(p, on){ const bar=$(p+'-bar'), btn=$(p+'-btn'); if(bar) bar.hidden=!on; if(btn) btn.hidden=!!on; }
+function vbLive(p, html){ const l=$(p+'-live'); if(l) l.innerHTML=html; }
+function vbInterim(p, r){ if(r && !r.isFinal){ const t=String(r[0]?.transcript||'').trim(); if(t) vbLive(p, `🎙️ <b>«${esc(t)}»</b>`); return true; } return false; }
+function vbCard(boxId, {label, cls, name, heard, undo, flash}){
+  const e=$(boxId); if(!e) return;
+  const c=document.createElement('div'); c.className='vr-card '+(cls||'g');
+  c.innerHTML=`<span class="vr-st">${esc(label)}</span><div class="vr-nm">${esc(name)}${heard?`<small>سمعت: «${esc(heard)}»</small>`:''}</div>`;
+  if(undo){ const u=document.createElement('button'); u.type='button'; u.className='vr-u'; u.textContent='↩︎ تراجع';
+    u.onclick=async()=>{ if(await undo()===false) return; c.classList.add('undone'); u.remove(); }; c.appendChild(u); }
+  e.prepend(c); [...e.children].slice(2).forEach(k=>k.remove());
+  if(flash) setTimeout(()=>{ const row=document.querySelector(flash); if(row){ row.classList.remove('flash'); void row.offsetWidth; row.classList.add('flash'); } },60);
+}
 let vrHeard='';
 /* 🪪 بطاقة لكل رصد: الاسم كاملًا، والحالة ملوّنة، وما سُمع، وتراجع خاص بها. يبقى آخر بطاقتين */
 const VR_ST_UI={'شارك':['✅ شارك','g'],'لم يشارك':['✋ لم يشارك','r'],'غائب':['🚫 غائب','a'],'أنجز':['📗 أنجز','g'],'لم ينجز':['📕 لم ينجز','r'],'معذور':['🕊️ معذور','a']};
 function vrCard(st, label, cls, entry){
-  const e=$('vr-log'); if(!e) return;
-  const c=document.createElement('div'); c.className='vr-card '+(cls||'g');
-  c.innerHTML=`<span class="vr-st">${esc(label)}</span><div class="vr-nm">${esc(st.name)}${vrHeard?`<small>سمعت: «${esc(vrHeard)}»</small>`:''}</div>`;
-  if(entry){ const u=document.createElement('button'); u.type='button'; u.className='vr-u'; u.textContent='↩︎ تراجع';
-    u.onclick=async()=>{ const i=UNDO.indexOf(entry); if(i<0){ toast('تم التراجع عنه مسبقًا'); return; } UNDO.splice(i,1); UNDO.push(entry); await undoLast(); c.classList.add('undone'); u.remove(); };
-    c.appendChild(u); }
-  e.prepend(c); [...e.children].slice(2).forEach(k=>k.remove());
-  // صف الطالب في القائمة يومض بالأخضر
-  setTimeout(()=>{ const r=document.querySelector(`#students-roster [data-profile="${CSS.escape(st.id)}"]`); const row=r&&r.closest('.rd-row'); if(row){ row.classList.remove('flash'); void row.offsetWidth; row.classList.add('flash'); } },60);
+  const r=document.querySelector(`#students-roster [data-profile="${CSS.escape(st.id)}"]`);
+  vbCard('vr-log', { label, cls, name:st.name, heard:vrHeard, flash: r ? `#students-roster .rd-row:has([data-profile="${CSS.escape(st.id)}"])` : '',
+    undo: entry ? async()=>{ const i=UNDO.indexOf(entry); if(i<0){ toast('تم التراجع عنه مسبقًا'); return false; } UNDO.splice(i,1); UNDO.push(entry); await undoLast(); } : null });
 }
 function vrLog(t){
   const e=$('vr-log'); if(!e) return;
@@ -1895,6 +1907,7 @@ function vrMoveTo(ctx){
   if(!w || !slot) return;
   if(vrOn) vrStop();
   if(w.parentElement!==slot){ slot.appendChild(w); if(un) slot.appendChild(un); }
+  if(VR_CTX!==ctx){ const lg=$('vr-log'); if(lg) lg.innerHTML=''; vrClearPick(); }   // بطاقات كل صفحة لها وحدها
   VR_CTX=ctx;
   const ex=$('vr-examples');
   if(ex){
@@ -1907,7 +1920,7 @@ function vrStop(){
   vrOn = false;
   try{ vrRec && vrRec.stop(); }catch(e){}
   const b=$('vr-btn'); if(b){ b.textContent=vrLabel(); b.classList.remove('bad'); }
-  vrSay('');
+  vbOn('vr', false);
   const rv=$('rd-voice'); if(rv){ rv.hidden=true; } $('rd-tools-btn')?.classList.remove('on');
 }
 
@@ -1915,7 +1928,7 @@ function vrStart(){
   if(!VR_SUP) return;
   vrOn = true;
   const b=$('vr-btn'); if(b){ b.textContent='⏹️ إيقاف الاستماع'; b.classList.add('bad'); }
-  vrSay('🎙️ أستمع… قل اسم الطالب ثم الحالة');
+  vbOn('vr', true); vrSay('🎙️ أستمع… قل اسم الطالب ثم '+(VR_CTX==='beh'?'السلوك':'الحالة'));
   const rv=$('rd-voice'); if(rv && VR_CTX==='daily'){ rv.hidden=false; $('rd-tools-btn')?.classList.add('on'); }
 
   vrRec = new VR_SUP();
@@ -1926,7 +1939,7 @@ function vrStart(){
 
   vrRec.onresult = (ev)=>{
     const r = ev.results[ev.results.length-1];
-    if(!r.isFinal){ const t=String(r[0]?.transcript||'').trim(); const l=$('vb-live'); if(l&&t) l.innerHTML=`🎙️ <b>«${esc(t)}»</b>`; return; }
+    if(vbInterim('vr', r)) return;
     // نختار البديل الذي يطابق أكبر عدد من أوامر الجملة — لا أول بديل فحسب
     let bestT = String(r[0]?.transcript||''), bestN = -1;
     for(let i=0;i<r.length;i++){
@@ -2255,7 +2268,11 @@ function mvRender(){
     msgqRemove(+b.dataset.mvdel); mvRender(); });
 }
 
+/* في صفحة الرسائل كلمة «رسالة» زائدة: «تركي رسالة شكر» = «تركي شكر» */
+function mvClean(t){ return vrNorm(t).split(' ').filter(w=>w && !VR_MSG_LEAD.includes(w)).join(' '); }
 function mvHandle(text){
+  const heard=String(text||'').trim().slice(0,80);
+  text=mvClean(text);
   const segs = vrSegmentsBy(text, vrMsgPhrases());
   if(!segs.length){ $('mv-status').textContent='لم أتعرف على الأمر، حاول مرة أخرى'; return; }
   let added = 0; const problems = [];
@@ -2265,34 +2282,37 @@ function mvHandle(text){
     if(!sg.kind){ problems.push(hits[0].name + ' (بلا نوع رسالة)'); continue; }
     const st = hits[0];
     if(MSGQ.some(m => m.id===st.id && m.k===sg.kind.k)){ problems.push(st.name + ' (مُجهّزة سلفًا)'); continue; }
-    MSGQ.push({ id: st.id, name: st.name, k: sg.kind.k, text: msg(sg.kind.k, st) });   // القالب الموجود نفسه
+    const item={ id: st.id, name: st.name, k: sg.kind.k, text: msg(sg.kind.k, st) };   // القالب الموجود نفسه
+    MSGQ.push(item);
+    vbCard('mv-cards', { label:'✉️ '+MSG_LABEL(sg.kind.k), cls:'b', name:st.name, heard,
+      undo: async()=>{ const i=MSGQ.indexOf(item); if(i<0){ toast('حُذفت مسبقًا'); return false; } msgqRemove(i); mvRender(); toast('أُزيلت الرسالة'); } });
     added++;
   }
   msgqSave();
   mvRender();
-  $('mv-status').innerHTML = (added ? `✓ جُهّزت ${added} رسالة` : 'لم تُجهَّز رسائل')
-    + (problems.length ? ` · تعذّر: ${esc(problems.join('، '))}` : '')
-    + (mvOn ? '<br>🎙️ استمع…' : '');
+  $('mv-status').innerHTML = problems.length ? `⚠️ تعذّر: ${esc(problems.join('، '))}` : '';
+  vbLive('mv', added ? `✓ جُهّزت ${added} — 🎙️ أستمع…` : '🎙️ أستمع…');
 }
 
 let mvRec = null, mvOn = false;
 function mvStop(){
   mvOn = false; try{ mvRec && mvRec.stop(); }catch(e){}
   const b=$('mv-btn'); if(b){ b.textContent='🎤 رسائل بالصوت'; b.classList.remove('bad'); }
+  vbOn('mv', false);
 }
 function mvStart(){
   if(!VR_SUP) return;
   mvOn = true;
-  const b=$('mv-btn'); if(b){ b.textContent='⏹️ إيقاف الاستماع'; b.classList.add('bad'); }
-  $('mv-status').innerHTML = '🎙️ استمع… اسم الطالب ثم نوع الرسالة<br><small>«سعد القحطاني شكر · تركي الشمري تأخر»</small>';
+  vbOn('mv', true); vbLive('mv','🎙️ أستمع… قل اسم الطالب ثم نوع الرسالة'); $('mv-status').innerHTML='';
   mvRec = new VR_SUP();
-  mvRec.lang='ar-SA'; mvRec.interimResults=false; mvRec.maxAlternatives=3; mvRec.continuous=false;
+  mvRec.lang='ar-SA'; mvRec.interimResults=true; mvRec.maxAlternatives=3; mvRec.continuous=false;
   mvRec.onresult = (ev)=>{
     const r = ev.results[ev.results.length-1];
+    if(vbInterim('mv', r)) return;
     let bestT = String(r[0]?.transcript||''), bestN = -1;
     for(let i=0;i<r.length;i++){
       const t = String(r[i].transcript||'').trim(); if(!t) continue;
-      const n = vrSegmentsBy(t, vrMsgPhrases()).filter(sg=> sg.kind && vrMatch(sg.name).hits.length===1).length;
+      const n = vrSegmentsBy(mvClean(t), vrMsgPhrases()).filter(sg=> sg.kind && vrMatch(sg.name).hits.length===1).length;
       if(n > bestN){ bestN = n; bestT = t; }
     }
     mvHandle(bestT);
@@ -2312,6 +2332,7 @@ function mvStart(){
   if(!w || !b || !VR_SUP) return;                 // غير مدعوم: تبقى الرسائل يدوية كما هي
   w.style.display='block';
   b.addEventListener('click', e=>{ e.preventDefault(); mvOn ? mvStop() : mvStart(); });
+  const x=$('mv-stop'); if(x) x.onclick=()=>mvStop();
 })();
 
 /* 📨 قالب يدوي ⟶ مركز الرسائل.
@@ -2576,18 +2597,16 @@ function examVrSegments(text){
 }
 
 function examVrSay(t){const e=$('exam-vr-status');if(e)e.innerHTML=t}
-function examVrLog(t){
-  const e=$('exam-vr-log'); if(!e)return;
-  e.innerHTML=`<div>${esc(t)}</div>`+e.innerHTML;
-  const kids=[...e.children]; if(kids.length>5)kids.slice(5).forEach(k=>k.remove());
-}
+function examVrLog(t){ examVrSay(esc(t)); }
 function examVrStop(){
   examVrOn=false;
   try{examVrRec&&examVrRec.stop()}catch(e){}
   const b=$('exam-vr-btn');if(b){b.textContent='🎤 رصد الاختبارات بالصوت';b.classList.remove('bad')}
-  examVrSay('');
+  examVrSay(''); vbOn('exv', false);
+  const w=$('ex-voice'); if(w) w.hidden=true; $('ex-voice-btn')?.classList.remove('on');
 }
 async function examVrHandle(text){
+  const heard=String(text||'').trim().slice(0,80);
   const testId=$('exam-vr-test')?.value||'';
   const b=examBook();
   const test=b.tests.find(t=>String(t.id)===String(testId));
@@ -2605,13 +2624,15 @@ async function examVrHandle(text){
     const max=Number(test.max)||0;
     const score=Math.max(0,Math.min(max,sg.score));
     if(score!==sg.score) examVrLog(`⚠️ ${hit.hits[0].name}: حُدّدت الدرجة إلى ${fmt(score)} من ${fmt(max)}`);
-    await setExamScore(hit.hits[0].id,test.id,String(score));
-    examVrLog(`✓ ${hit.hits[0].name} — ${fmt(score)}/${fmt(max)} — ${test.title||'الاختبار'}`);
+    const st=hit.hits[0], prev=exVal(st.id,test);
+    await setExamScore(st.id,test.id,String(score),true);
+    vbCard('exam-vr-log',{ label:`📝 ${fmt(score)} / ${fmt(max)}`, cls:'g', name:st.name, heard,
+      flash:`#exam-list [data-ex-row="${CSS.escape(st.id)}"]`,
+      undo: async()=>{ await setExamScore(st.id,test.id,prev,true); toast('تم التراجع'); } });
     done++;
   }
-  examVrSay((done?`✓ سُجّل ${done} طالب`:'لم تُسجّل درجات')
-    +(problems.length?` · تعذّر: ${esc(problems.join('، '))}`:'')
-    +(examVrOn?'<br>🎙️ استمع…':''));
+  examVrSay(problems.length?`⚠️ تعذّر: ${esc(problems.join('، '))}`:'');
+  vbLive('exv', done?`✓ سُجّل ${done} — 🎙️ أستمع…`:'🎙️ أستمع…');
 }
 function examVrStart(){
   if(!VR_SUP)return;
@@ -2620,11 +2641,12 @@ function examVrStart(){
   if(!test){examVrSay('اختر الاختبار أولًا.');return}
   examVrOn=true;
   const btn=$('exam-vr-btn');if(btn){btn.textContent='⏹️ إيقاف الاستماع';btn.classList.add('bad')}
-  examVrSay(`🎙️ استمع… الاختبار: <b>${esc(test.title||'الاختبار')}</b><br><small>«سعيد محمد 6 · ضاري عبدالله 9 · كنان 7»</small>`);
+  vbOn('exv', true); examVrSay(''); vbLive('exv',`🎙️ أستمع… ${esc(test.title||'الاختبار')} · من ${fmt(test.max)}`);
   examVrRec=new VR_SUP();
-  examVrRec.lang='ar-SA';examVrRec.interimResults=false;examVrRec.maxAlternatives=3;examVrRec.continuous=false;
+  examVrRec.lang='ar-SA';examVrRec.interimResults=true;examVrRec.maxAlternatives=3;examVrRec.continuous=false;
   examVrRec.onresult=ev=>{
     const r=ev.results[ev.results.length-1];
+    if(vbInterim('exv', r)) return;
     let bestT=String(r[0]?.transcript||''),bestN=-1;
     for(let i=0;i<r.length;i++){
       const t=String(r[i].transcript||'').trim();if(!t)continue;
@@ -2658,6 +2680,7 @@ function examVrRenderTests(){
   if(!VR_SUP){return}
   wrap.style.display='block';
   btn.addEventListener('click',e=>{e.preventDefault();examVrOn?examVrStop():examVrStart()});
+  const x=$('exv-stop'); if(x) x.onclick=()=>examVrStop();
 })();
 
 function renderExamConfig(){
@@ -3149,7 +3172,7 @@ function wire(){
  $('roster-search').addEventListener('input',renderDaily);
  $('rd-search-btn').onclick=()=>{const w=$('rd-search');w.hidden=!w.hidden;$('rd-search-btn').classList.toggle('on',!w.hidden);if(!w.hidden)$('roster-search').focus();else{$('roster-search').value='';renderDaily()}};
  $('rd-tools-btn').onclick=()=>{ if(!VR_SUP){ toast('🎤 الرصد الصوتي غير مدعوم في هذا المتصفح — استخدم 🔍 للبحث'); return; } if(vrOn){ vrStop(); return; } try{ vrMoveTo('daily'); }catch(e){} vrStart(); };
- $('vb-stop').onclick=()=>vrStop();
+ $('vr-stop').onclick=()=>vrStop();
  $('bulk-done').onclick=bulkDone;$('bulk-absent').onclick=bulkAbsent;
  const setMode=m=>{mode=m;$('mode-part').classList.toggle('on',m==='participation');$('mode-home').classList.toggle('on',m==='homework');renderDaily()};
  $('mode-part').onclick=()=>setMode('participation');$('mode-home').onclick=()=>setMode('homework');
@@ -3178,7 +3201,10 @@ function wire(){
   $('exam-period').onchange=()=>{gradePeriod=Number($('exam-period').value)===2?2:1;if(examVrOn)examVrStop();if($('grade-period'))$('grade-period').value=String(gradePeriod);renderExamConfig();loadGrades();renderExamGrades()};
   $('exam-search').addEventListener('input',renderExamGrades);
   $('ex-setup-btn').onclick=()=>{const w=$('ex-setup');w.hidden=!w.hidden;$('ex-setup-btn').classList.toggle('on',!w.hidden)};
-  $('ex-voice-btn').onclick=()=>{if(!VR_SUP){toast('الرصد الصوتي غير مدعوم في هذا المتصفح');return}const w=$('ex-voice');w.hidden=!w.hidden;$('ex-voice-btn').classList.toggle('on',!w.hidden);if($('exam-vr-test')&&EX_CUR)$('exam-vr-test').value=EX_CUR};
+  $('ex-voice-btn').onclick=()=>{if(!VR_SUP){toast('الرصد الصوتي غير مدعوم في هذا المتصفح');return}
+    if(examVrOn){examVrStop();return}
+    if($('exam-vr-test')&&EX_CUR)$('exam-vr-test').value=EX_CUR;
+    $('ex-voice').hidden=false;$('ex-voice-btn').classList.add('on');exKbClose(true);examVrStart();};
   $('ex-miss-btn').onclick=()=>setExamFilter(examFilter.mode==='missing'?'all':'missing');
   $('ex-search-btn').onclick=()=>{const w=$('ex-search');w.hidden=!w.hidden;$('ex-search-btn').classList.toggle('on',!w.hidden);if(!w.hidden)$('exam-search').focus();else{$('exam-search').value='';renderExamGrades()}};
   $('exam-list').addEventListener('click',e=>{const c=e.target.closest('[data-ex-cell]');if(c){exKbOpen(c.dataset.exCell);return}
