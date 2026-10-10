@@ -34,7 +34,8 @@ function ptAvatarHTML(av){
 }
 /* 🌈 الاسم الملوّن: لمن اشترى البطاقة، باللون الذي اختاره (أو بلا لون إن اختار «عادي») */
 function nmStyle(){ const own=typeof MYPERKS!=='undefined'&&MYPERKS&&MYPERKS.namecolor>0; const nc=(PT_CUR&&PT_CUR.nc)||'rainbow'; return own&&nc!=='off'?nc:''; }
-function nmApply(){ const v=nmStyle(), r=document.documentElement; if(v) r.setAttribute('data-nm-glow',v); else r.removeAttribute('data-nm-glow'); }
+function nmApply(){ const v=nmStyle(), r=document.documentElement; if(v) r.setAttribute('data-nm-glow',v); else r.removeAttribute('data-nm-glow');
+  const n=document.querySelector('#space-greeting .sg-nm'); if(n) n.className='sg-nm '+nmCls(v); }
 /* صنف الاسم في الصدارة والمسابقات (الخادم يعيد اسم اللون، والقديم يعيد true = قوس قزح) */
 function nmCls(g){ return g ? 'nm-glow'+(typeof g==='string'&&g!=='rainbow'?' nm-'+g:'') : ''; }
 function ptApply(p){
@@ -113,7 +114,7 @@ function ptOpen(){
     Object.assign(pv.dataset,{ptAccent:d.accent,ptTheme:d.theme,ptCards:d.cards,ptBtn:d.btn,ptFrame:d.frame||'none'});
     panel.dataset.ptAccent=d.accent;
     document.getElementById('pv-av').innerHTML=ptAvatarHTML(d.av);
-    { const nb=document.getElementById('pv-nm'); if(nb) nb.className=ncOwn&&d.nc!=='off'?'pv-nm-on':''; pv.dataset.nc=d.nc; }
+    { const nb=document.getElementById('pv-nm'); if(nb) nb.className=ncOwn&&d.nc!=='off'?nmCls(d.nc):''; }
     ov.querySelectorAll('[data-g]').forEach(b=>b.setAttribute('aria-pressed',String(d[b.dataset.g]===b.dataset.v)));
     ov.querySelectorAll('[data-av]').forEach(b=>b.setAttribute('aria-pressed',String(d.av.t==='e'&&String(d.av.v)===b.dataset.av)));
   };

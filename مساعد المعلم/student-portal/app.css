@@ -1047,48 +1047,84 @@ html[data-pt-theme="diamond"] body,.pt-preview[data-pt-theme="diamond"],.pt-th[d
 html[data-pt-theme="gold"] .bar{background:linear-gradient(90deg,#7A5A00,#B8860B)}
 html[data-pt-theme="diamond"] .bar{background:linear-gradient(90deg,#1E3A6E,#3B6FB6)}
 .pt-th.pt-lock{opacity:.75;position:relative}.pt-th.pt-lock small{display:block;font-size:.66rem;color:#8A5A00}
-/* 🖼️ إطارات الصورة (بطاقة متجر) */
-html[data-pt-frame="gold"] .student-space-head .avatar,.pt-fr-demo[data-fr="gold"],.pt-preview[data-pt-frame="gold"] .pt-av{box-shadow:0 0 0 3px #fff,0 0 0 6px #E9B949,0 0 14px 4px rgba(233,185,73,.55);animation:frGlow 2.4s ease-in-out infinite}
-html[data-pt-frame="fire"] .student-space-head .avatar,.pt-fr-demo[data-fr="fire"],.pt-preview[data-pt-frame="fire"] .pt-av{box-shadow:0 0 0 3px #fff,0 0 0 6px #F05A28,0 0 16px 5px rgba(255,120,40,.6);animation:frFire 1.4s ease-in-out infinite}
-html[data-pt-frame="rainbow"] .student-space-head .avatar,.pt-fr-demo[data-fr="rainbow"],.pt-preview[data-pt-frame="rainbow"] .pt-av{box-shadow:0 0 0 3px #fff,0 0 0 7px #FF4D6D,0 0 14px 4px rgba(255,77,109,.45);animation:frRainbow 4s linear infinite}
-@keyframes frRainbow{0%,100%{box-shadow:0 0 0 3px #fff,0 0 0 7px #FF4D6D,0 0 14px 4px rgba(255,77,109,.45)}20%{box-shadow:0 0 0 3px #fff,0 0 0 7px #FFB703,0 0 14px 4px rgba(255,183,3,.45)}40%{box-shadow:0 0 0 3px #fff,0 0 0 7px #52B788,0 0 14px 4px rgba(82,183,136,.45)}60%{box-shadow:0 0 0 3px #fff,0 0 0 7px #4CC9F0,0 0 14px 4px rgba(76,201,240,.45)}80%{box-shadow:0 0 0 3px #fff,0 0 0 7px #7B2CBF,0 0 14px 4px rgba(123,44,191,.45)}}
-@keyframes frGlow{50%{box-shadow:0 0 0 3px #fff,0 0 0 6px #F6D77A,0 0 22px 7px rgba(233,185,73,.75)}}
-@keyframes frFire{50%{box-shadow:0 0 0 3px #fff,0 0 0 6px #FFB703,0 0 24px 8px rgba(255,80,20,.7)}}
+/* 🖼️ إطارات الصورة (بطاقة متجر): حلقة متحركة حول الصورة (::before) ومؤثر فوقها (::after)
+   الصورة نفسها تُقصّ دائرية بدل قص العنصر كله، حتى تظهر المؤثرات خارج حدوده */
+html[data-pt-frame]:not([data-pt-frame="none"]) .student-space-head .avatar,.pt-fr-demo:not([data-fr="none"]),.pt-preview:not([data-pt-frame="none"]) .pt-av{position:relative;overflow:visible!important;isolation:isolate}
+html[data-pt-frame] .student-space-head .avatar img,.pt-av img{border-radius:inherit}
+html[data-pt-frame="gold"] .student-space-head .avatar::before,.pt-fr-demo[data-fr="gold"]::before,.pt-preview[data-pt-frame="gold"] .pt-av::before,
+html[data-pt-frame="fire"] .student-space-head .avatar::before,.pt-fr-demo[data-fr="fire"]::before,.pt-preview[data-pt-frame="fire"] .pt-av::before,
+html[data-pt-frame="rainbow"] .student-space-head .avatar::before,.pt-fr-demo[data-fr="rainbow"]::before,.pt-preview[data-pt-frame="rainbow"] .pt-av::before{
+  content:"";position:absolute;inset:-6px;border-radius:50%;z-index:-1;pointer-events:none;
+  -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 5px),#000 calc(100% - 4.5px));mask:radial-gradient(farthest-side,transparent calc(100% - 5px),#000 calc(100% - 4.5px));animation:frSpin 3s linear infinite}
+/* ✨ ذهبي: حلقة ذهبية تدور عليها لمعة، ونجوم صغيرة تومض */
+html[data-pt-frame="gold"] .student-space-head .avatar::before,.pt-fr-demo[data-fr="gold"]::before,.pt-preview[data-pt-frame="gold"] .pt-av::before{
+  background:conic-gradient(from 0deg,#8A5A00,#D4A017,#FFF6C9 8%,#D4A017 16%,#8A5A00 30%,#E9B949 50%,#FFF6C9 58%,#E9B949 66%,#8A5A00 80%,#D4A017 92%,#8A5A00);filter:drop-shadow(0 0 4px rgba(233,185,73,.8))}
+html[data-pt-frame="gold"] .student-space-head .avatar::after,.pt-fr-demo[data-fr="gold"]::after,.pt-preview[data-pt-frame="gold"] .pt-av::after{
+  content:"✦";position:absolute;top:-10px;inset-inline-end:-6px;font-size:14px;line-height:1;color:#FFE27A;text-shadow:0 0 6px #FFC83D,-46px 44px 0 #FFF1B0;pointer-events:none;animation:frTwinkle 1.8s ease-in-out infinite}
+@keyframes frTwinkle{0%,100%{opacity:.15;transform:scale(.6) rotate(0)}50%{opacity:1;transform:scale(1.15) rotate(45deg)}}
+/* 🔥 ناري: حلقة لهب تدور بسرعة، وألسنة نار تتراقص حول الصورة */
+html[data-pt-frame="fire"] .student-space-head .avatar::before,.pt-fr-demo[data-fr="fire"]::before,.pt-preview[data-pt-frame="fire"] .pt-av::before{
+  background:conic-gradient(from 0deg,#D00000,#FF7B00,#FFD60A,#FF7B00,#D00000,#FF4D00,#FFB703,#D00000);animation:frSpin 1.2s linear infinite;filter:drop-shadow(0 0 5px rgba(255,90,0,.9))}
+html[data-pt-frame="fire"] .student-space-head .avatar::after,.pt-fr-demo[data-fr="fire"]::after,.pt-preview[data-pt-frame="fire"] .pt-av::after{
+  content:"";position:absolute;inset:-13px;border-radius:50%;z-index:-2;pointer-events:none;
+  background:repeating-conic-gradient(from 0deg,rgba(255,183,3,.95) 0deg 5deg,rgba(255,77,0,.8) 5deg 9deg,transparent 9deg 22deg);
+  -webkit-mask:radial-gradient(farthest-side,transparent 62%,#000 72%,transparent 100%);mask:radial-gradient(farthest-side,transparent 62%,#000 72%,transparent 100%);
+  filter:blur(1.5px);animation:frFlames .55s steps(2) infinite alternate,frSpin 6s linear infinite reverse}
+@keyframes frFlames{from{transform:scale(.94) rotate(0)}to{transform:scale(1.1) rotate(8deg)}}
+/* 🌈 قوس قزح: حلقة ألوان تدور، وهالة تتبدّل ألوانها */
+html[data-pt-frame="rainbow"] .student-space-head .avatar::before,.pt-fr-demo[data-fr="rainbow"]::before,.pt-preview[data-pt-frame="rainbow"] .pt-av::before{
+  background:conic-gradient(#FF4D6D,#FFB703,#52B788,#4CC9F0,#7B2CBF,#FF4D6D);animation:frSpin 2.5s linear infinite,frRbGlow 5s linear infinite}
+@keyframes frRbGlow{0%,100%{filter:drop-shadow(0 0 5px rgba(255,77,109,.8))}25%{filter:drop-shadow(0 0 5px rgba(255,183,3,.8))}50%{filter:drop-shadow(0 0 5px rgba(82,183,136,.8))}75%{filter:drop-shadow(0 0 5px rgba(76,201,240,.8))}}
+@keyframes frSpin{to{transform:rotate(360deg)}}
+html[data-pt-frame]:not([data-pt-frame="none"]) .student-space-head .avatar,.pt-fr-demo:not([data-fr="none"]),.pt-preview:not([data-pt-frame="none"]) .pt-av{box-shadow:0 0 0 2px rgba(255,255,255,.9)}
 .pt-fr-grid{grid-template-columns:repeat(4,1fr)}
 .pt-fr{border:2px solid transparent;border-radius:14px;padding:.45rem .2rem;background:#F7F9FC;cursor:pointer;font:inherit;font-size:.74rem;font-weight:700;color:var(--ink);display:grid;justify-items:center;gap:.45rem}
 .pt-fr[aria-pressed="true"]{border-color:var(--acc,#16233A);background:#fff}
-.pt-fr .pt-fr-demo{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:#EEF2F7;font-size:1.2rem}
+.pt-fr .pt-fr-demo{width:40px;height:40px;border-radius:50%;margin:8px 0 2px;display:grid;place-items:center;background:#EEF2F7;font-size:1.2rem}
 .pt-fr.pt-lock{opacity:.7}.pt-fr small{font-size:.64rem}
-/* 🌈 الاسم الملوّن (بطاقة متجر) */
-.nm-glow{background:linear-gradient(90deg,#E63957,#E08A00,#119C8F,#6247E8,#E63957);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent!important;-webkit-text-fill-color:transparent;font-weight:900;animation:nmShift 4s linear infinite}
-html[data-nm-glow] #space-greeting .sg-nm{background:linear-gradient(90deg,#FFE066,#FFB3C6,#A0F0FF,#C8FFB0,#FFE066);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent!important;-webkit-text-fill-color:transparent;font-weight:900;animation:nmShift 4s linear infinite}
+/* 🌈 الاسم الملوّن (بطاقة متجر): لكل لون حركته — قوس قزح يجري، ذهبي يلمع، ناري يتأجج، محيطي يموج، زمردي يتلألأ، ملكي يتوهّج
+   --g للخلفيات الفاتحة، و--gd للترويسة الملوّنة الداكنة */
+.nm-glow{--g:linear-gradient(90deg,#E63957,#E08A00,#119C8F,#6247E8,#E63957);--gd:linear-gradient(90deg,#FFE066,#FFB3C6,#A0F0FF,#C8FFB0,#FFE066);
+  background-image:var(--g);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent!important;-webkit-text-fill-color:transparent;
+  font-weight:900;-webkit-box-decoration-break:clone;box-decoration-break:clone;animation:nmShift 3s linear infinite,nmHue 6s linear infinite}
+html[data-pt] .student-space-head .nm-glow,.pv-head .nm-glow{background-image:var(--gd)}
 @keyframes nmShift{to{background-position:200% 0}}
-/* 🌈 ألوان الاسم التي يختارها الطالب من «إعداداتي» */
-.nm-glow.nm-gold{background-image:linear-gradient(90deg,#9A6B00,#E0A800,#7A5200,#D4A017,#9A6B00)}
-html[data-nm-glow="gold"] #space-greeting .sg-nm,#pt-pv[data-nc="gold"] .pv-nm-on{background-image:linear-gradient(90deg,#FFE58A,#FFC83D,#FFF3C4,#FFD966,#FFE58A)}
-.nm-glow.nm-fire{background-image:linear-gradient(90deg,#D62D20,#F07800,#C2185B,#E85D04,#D62D20)}
-html[data-nm-glow="fire"] #space-greeting .sg-nm,#pt-pv[data-nc="fire"] .pv-nm-on{background-image:linear-gradient(90deg,#FFB199,#FFD36E,#FF8FA3,#FFC07A,#FFB199)}
-.nm-glow.nm-ocean{background-image:linear-gradient(90deg,#0369A1,#0891B2,#1E40AF,#0EA5E9,#0369A1)}
-html[data-nm-glow="ocean"] #space-greeting .sg-nm,#pt-pv[data-nc="ocean"] .pv-nm-on{background-image:linear-gradient(90deg,#A5F3FC,#7DD3FC,#C7D2FE,#BAE6FD,#A5F3FC)}
-.nm-glow.nm-emerald{background-image:linear-gradient(90deg,#047857,#0E9F6E,#15803D,#059669,#047857)}
-html[data-nm-glow="emerald"] #space-greeting .sg-nm,#pt-pv[data-nc="emerald"] .pv-nm-on{background-image:linear-gradient(90deg,#A7F3D0,#6EE7B7,#D9F99D,#99F6E4,#A7F3D0)}
-.nm-glow.nm-royal{background-image:linear-gradient(90deg,#6D28D9,#C026D3,#4338CA,#DB2777,#6D28D9)}
-html[data-nm-glow="royal"] #space-greeting .sg-nm,#pt-pv[data-nc="royal"] .pv-nm-on{background-image:linear-gradient(90deg,#DDD6FE,#F9A8D4,#C7D2FE,#F5D0FE,#DDD6FE)}
-#pt-pv .pv-nm-on{background:linear-gradient(90deg,#FFE066,#FFB3C6,#A0F0FF,#C8FFB0,#FFE066);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;font-weight:900;animation:nmShift 4s linear infinite}
-/* ترويسة بيضاء (طالب بلا مظهر مخصّص): درجات داكنة بدل الفاتحة حتى يُقرأ الاسم */
-html[data-nm-glow]:not([data-pt]) #space-greeting .sg-nm{background-image:linear-gradient(90deg,#E63957,#E08A00,#119C8F,#6247E8,#E63957)}
-html[data-nm-glow="gold"]:not([data-pt]) #space-greeting .sg-nm{background-image:linear-gradient(90deg,#9A6B00,#E0A800,#7A5200,#D4A017,#9A6B00)}
-html[data-nm-glow="fire"]:not([data-pt]) #space-greeting .sg-nm{background-image:linear-gradient(90deg,#D62D20,#F07800,#C2185B,#E85D04,#D62D20)}
-html[data-nm-glow="ocean"]:not([data-pt]) #space-greeting .sg-nm{background-image:linear-gradient(90deg,#0369A1,#0891B2,#1E40AF,#0EA5E9,#0369A1)}
-html[data-nm-glow="emerald"]:not([data-pt]) #space-greeting .sg-nm{background-image:linear-gradient(90deg,#047857,#0E9F6E,#15803D,#059669,#047857)}
-html[data-nm-glow="royal"]:not([data-pt]) #space-greeting .sg-nm{background-image:linear-gradient(90deg,#6D28D9,#C026D3,#4338CA,#DB2777,#6D28D9)}
+@keyframes nmHue{0%,100%{filter:drop-shadow(0 0 3px rgba(255,77,109,.55))}25%{filter:drop-shadow(0 0 3px rgba(255,183,3,.55))}50%{filter:drop-shadow(0 0 3px rgba(17,156,143,.55))}75%{filter:drop-shadow(0 0 3px rgba(98,71,232,.6))}}
+/* ✨ ذهبي: معدن لامع تمرّ عليه لمعة بيضاء */
+.nm-glow.nm-gold{--g:linear-gradient(105deg,#7A4E00 0%,#C8910A 28%,#F2C94C 40%,#FFF8DC 48%,#F2C94C 56%,#C8910A 70%,#7A4E00 100%);
+  --gd:linear-gradient(105deg,#E8B33A 0%,#FFD966 30%,#FFF1B0 42%,#FFFFFF 48%,#FFF1B0 54%,#FFD966 68%,#E8B33A 100%);
+  background-size:260% 100%;animation:nmSweep 2.6s cubic-bezier(.45,.05,.55,.95) infinite,nmGold 2.6s ease-in-out infinite}
+@keyframes nmSweep{0%{background-position:120% 0}60%,100%{background-position:-20% 0}}
+@keyframes nmGold{0%,100%{filter:drop-shadow(0 0 1px rgba(200,145,10,.5))}55%{filter:drop-shadow(0 0 6px rgba(255,200,60,.9))}}
+/* 🔥 ناري: لهب يصعد من أسفل الحروف ويرتجف وهجه */
+.nm-glow.nm-fire{--g:linear-gradient(0deg,#6A040F 0%,#9D0208 16%,#D00000 32%,#E85D04 50%,#F48C06 66%,#E85D04 82%,#9D0208 100%);
+  --gd:linear-gradient(0deg,#FF4D00 0%,#FF7B00 20%,#FFB703 42%,#FFF3B0 60%,#FFD60A 78%,#FF4D00 100%);
+  background-size:100% 220%;animation:nmRise .9s linear infinite,nmFlicker 1.3s steps(1) infinite}
+@keyframes nmRise{from{background-position:0 0}to{background-position:0 -220%}}
+@keyframes nmFlicker{0%{filter:drop-shadow(0 -1px 3px rgba(255,90,0,.85))}17%{filter:drop-shadow(0 -2px 6px rgba(255,60,0,.95))}31%{filter:drop-shadow(0 -1px 2px rgba(255,170,0,.8))}46%{filter:drop-shadow(0 -3px 7px rgba(255,80,0,.9))}63%{filter:drop-shadow(0 -1px 4px rgba(255,140,0,.85))}81%{filter:drop-shadow(0 -2px 5px rgba(230,40,0,.95))}}
+/* 🌊 محيطي: موج يذهب ويعود مع زبد فاتح */
+.nm-glow.nm-ocean{--g:linear-gradient(90deg,#03045E,#0077B6,#00B4D8,#90E0EF,#00B4D8,#0077B6,#03045E);
+  --gd:linear-gradient(90deg,#90E0EF,#CAF0F8,#FFFFFF,#48CAE4,#ADE8F4,#90E0EF);
+  background-size:300% 100%;animation:nmWave 3.2s ease-in-out infinite alternate,nmSea 3.2s ease-in-out infinite alternate}
+@keyframes nmWave{from{background-position:0 0}to{background-position:100% 0}}
+@keyframes nmSea{from{filter:drop-shadow(0 1px 1px rgba(0,119,182,.4))}to{filter:drop-shadow(0 2px 6px rgba(0,180,216,.85))}}
+/* 💚 زمردي: جوهرة تتلألأ بومضة قصيرة */
+.nm-glow.nm-emerald{--g:linear-gradient(120deg,#064E3B 0%,#047857 25%,#10B981 40%,#D1FAE5 50%,#10B981 60%,#047857 75%,#064E3B 100%);
+  --gd:linear-gradient(120deg,#6EE7B7 0%,#A7F3D0 35%,#FFFFFF 50%,#A7F3D0 65%,#6EE7B7 100%);
+  background-size:260% 100%;animation:nmSweep 3.4s ease-in-out infinite,nmGem 3.4s ease-in-out infinite}
+@keyframes nmGem{0%,40%,100%{filter:drop-shadow(0 0 1px rgba(16,185,129,.5))}52%{filter:drop-shadow(0 0 7px rgba(110,231,183,1)) brightness(1.15)}64%{filter:drop-shadow(0 0 2px rgba(16,185,129,.6))}}
+/* 👑 ملكي: بنفسجي ووردي يتمازجان بهالة نابضة */
+.nm-glow.nm-royal{--g:linear-gradient(90deg,#3C096C,#7B2CBF,#C77DFF,#F72585,#7B2CBF,#3C096C);
+  --gd:linear-gradient(90deg,#E0AAFF,#F8C8FF,#FFFFFF,#FFB3D9,#E0AAFF);
+  background-size:300% 100%;animation:nmShift 4.5s linear infinite,nmAura 2.2s ease-in-out infinite}
+@keyframes nmAura{0%,100%{filter:drop-shadow(0 0 2px rgba(123,44,191,.6))}50%{filter:drop-shadow(0 0 8px rgba(247,37,133,.85))}}
 .pt-nc-grid{grid-template-columns:repeat(auto-fill,minmax(118px,1fr))}
 .pt-nc{display:grid;gap:.15rem;justify-items:center;padding:.55rem .4rem;border:2px solid var(--ui-border,#e5e7eb);border-radius:12px;background:var(--ui-surface,#fff);cursor:pointer;font:inherit;color:inherit}
 .pt-nc b{font-size:.95rem;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pt-nc small{font-size:.7rem;color:var(--ui-muted,#5B6B7F)}
 .pt-nc[aria-pressed="true"]{border-color:var(--acc,#6A47E8);box-shadow:0 0 0 3px var(--acc-soft,rgba(106,71,232,.18))}
 .pt-nc.pt-lock{opacity:.7}
-@media (prefers-reduced-motion:reduce){.nm-glow,html[data-nm-glow] #space-greeting .sg-nm,#pt-pv .pv-nm-on,html[data-pt-frame] .student-space-head .avatar,.pt-fr-demo{animation:none!important}}
+@media (prefers-reduced-motion:reduce){.nm-glow,.nm-glow[class*="nm-"],html[data-pt-frame] .student-space-head .avatar::before,html[data-pt-frame] .student-space-head .avatar::after,.pt-fr-demo::before,.pt-fr-demo::after,.pt-av::before,.pt-av::after{animation:none!important}}
 html[data-pt-theme] body{background-attachment:fixed}
 @media(hover:none){html[data-pt-theme] body{background-attachment:scroll}}
 /* البطاقات والأزرار والترويسة بلون الطالب */
