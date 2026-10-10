@@ -2046,7 +2046,7 @@ const LAB_M = {
   salt:{ n:'الملح', dissolves:true }, sugar:{ n:'السكر', dissolves:true },
   sand:{ n:'الرمل' }, gravel:{ n:'الحصى' }, iron:{ n:'برادة الحديد' }
 };
-const LAB_TOPICS = { mixtures: 'المخاليط', friction: 'قوة الاحتكاك', inertia: 'القصور الذاتي', work: 'الشغل', machines: 'الآلات البسيطة' };
+const LAB_TOPICS = { mixtures: 'المخاليط', friction: 'قوة الاحتكاك', inertia: 'القصور الذاتي', work: 'الشغل', machines: 'الآلات البسيطة', newton3: 'قانون نيوتن الثالث' };
 const LAB_CONCEPTS = { het:'المخلوط غير المتجانس', hom:'المخلوط المتجانس (المحلول)', sol:'الذوبان',
   dens:'الكثافة والطفو والترسّب', prop:'احتفاظ مكونات المخلوط بخصائصها', sep:'طرق فصل المخاليط',
   obs:'دقة الملاحظة', safe:'الالتزام بالسلامة' };
@@ -2136,6 +2136,7 @@ function labScore(cfg, b) {
   if (cfg.topic === 'inertia') return inertiaScore(log);
   if (cfg.topic === 'work') return workScore(log);
   if (cfg.topic === 'machines') return machinesScore(log);
+  if (cfg.topic === 'newton3') return newton3Score(log);
   const pair = Array.isArray(log.pair) ? log.pair.map(String) : [];
   if (pair.length !== 2 || !LAB_M[pair[0]] || !LAB_M[pair[1]] || pair[0] === pair[1]) return null;
   if (cfg.pair && [...cfg.pair].sort().join('+') !== [...pair].sort().join('+')) return null;   // الخليط الذي حدده المعلم فقط
@@ -2406,6 +2407,53 @@ function workScore(log) {
     steps: rows.map(w => `${w.F} N × ${w.d} m: حسب ${w.calc.length ? w.calc[w.calc.length - 1] : '—'} جول (الصحيح ${w.F * w.d} جول)`)
       .concat([`الجدار: كتب ${wall[wall.length - 1]} جول (الصحيح 0)`])
   }, { obs: obsScore >= 0.8, fair: unfair === 0, calc: calc === 15 }, log);
+}
+/* 🤝 تجربة قانون نيوتن الثالث — ميزانان متصلان (القراءتان متساويتان) + عربتان ونابض مضغوط
+   (القوة 6 N على كل عربة، والدفع 0.9 N·s فالسرعة = 0.9 ÷ الكتلة، ويقيسها الطالب = المسافة في 0.5 s ÷ 0.5) */
+const N3_FORCES = [10, 20, 30, 40], N3_MASSES = [0.5, 1, 1.5, 2];
+const N3_OBS = { ok: ['n3_equal','n3_opp','n3_light'], neutral: ['n3_same'], all: ['n3_equal','n3_opp','n3_light','n3_same','n3_bigger','n3_heavy'] };
+Object.assign(LAB_CONCEPTS, { n3:'الفعل ورد الفعل متساويان ومتعاكسان', pair:'تمييز أزواج الفعل ورد الفعل', cancel:'قوتا الفعل ورد الفعل تؤثران في جسمين مختلفين',
+  n3life:'قانون نيوتن الثالث في الحياة', scales:'قراءة الميزانين المتصلين' });
+function newton3Score(log) {
+  if (!log || typeof log !== 'object') return null;
+  const fOk = f => N3_FORCES.find(x => x === Number(f)), mOk = m => N3_MASSES.find(x => Math.abs(x - Number(m)) < 1e-9);
+  const rows = (Array.isArray(log.rows) ? log.rows : []).slice(0, 3).map(w => ({ F: fOk(w && w.F), rec: labNums(w && w.rec, 3) }));
+  if (rows.length !== 3 || rows.some(w => !w.F || !w.rec.length) || new Set(rows.map(w => w.F)).size !== 3) return null;   // البوابة: ثلاث قوى مختلفة
+  const carts = (Array.isArray(log.carts) ? log.carts : []).slice(0, 2).map(k => ({ mA: mOk(k && k.mA), mB: mOk(k && k.mB), a: labNums(k && k.a, 3), b: labNums(k && k.b, 3) }));
+  if (carts.length !== 2 || carts.some(k => !k.mA || !k.mB || !k.a.length || !k.b.length)) return null;
+  if (carts[0].mA !== carts[0].mB || carts[1].mA === carts[1].mB) return null;      // البوابة: (أ) كتلتان متساويتان، (ب) مختلفتان
+  const v = m => 0.9 / m;
+  let scl = 0; rows.forEach(w => { scl += Math.abs(w.rec[0] - w.F) < 0.05 ? 10 / 3 : w.rec.some(x => Math.abs(x - w.F) < 0.05) ? 5 / 3 : 0; });
+  const cp = (m, a) => Math.abs(a[0] - v(m)) <= 0.05 ? 3.75 : a.some(x => Math.abs(x - v(m)) <= 0.05) ? 2.25 : 0;
+  let calc = 0; carts.forEach(k => { calc += cp(k.mA, k.a) + cp(k.mB, k.b); });
+  const runs = (Array.isArray(log.runs) ? log.runs : []).slice(0, 30);
+  const unfair = runs.filter(z => z && z.ok === false).length;
+  const res = labAnswers(log, [{ type:'classify', concept:'pair', bins:[0,0,1,0] }, { type:'mcq', concept:'n3', ok:[0] },
+                              { type:'mcq', concept:'cancel', ok:[0] }, { type:'mcq', concept:'n3life', ok:[0] }]);
+  if (!res) return null;
+  const { obsIn, obsScore } = labObsScore(log, N3_OBS);
+  const chal = (Array.isArray(log.chal) ? log.chal : []).slice(0, 10).map(z => Array.isArray(z) ? [Number(z[0]), Number(z[1])] : [0, 0]);
+  const ti = chal.findIndex(z => mOk(z[0]) && mOk(z[1]) && Math.abs(z[1] / z[0] - 3) < 1e-9), tries = ti < 0 ? 0 : ti + 1;
+  const f = r => r && r.correct ? [0, 1, 0.6, 0.3][r.attempts] : 0;
+  const parts = [
+    ['تجربة الميزانين', scl, 10],
+    ['تجربة عادلة', Math.max(0, 10 - 5 * unfair), 10],
+    ['دقة حساب السرعة', calc, 15],
+    ['دقة الملاحظة', 15 * obsScore, 15],
+    ['الإجابات', 10 * f(res[0]) + 10 * f(res[2]), 20],
+    ['تفسير النتيجة', 10 * f(res[1]), 10],
+    ['التحدي العملي', tries ? [0, 10, 7, 4][Math.min(3, tries)] : 0, 10],
+    ['التطبيق في موقف جديد', 10 * f(res[3]), 10]
+  ];
+  const kg = m => m.toFixed(1), v2 = m => v(m).toFixed(2);
+  return labFinish('newton3', parts, res, {
+    names: ['قانون نيوتن الثالث', 'ميزانان وعربتان'],
+    result: carts.map(k => `${kg(k.mA)} و${kg(k.mB)} kg ← ${v2(k.mA)} و${v2(k.mB)} m/s (القوة 6 N على كل عربة)`).join('، '),
+    obs: obsIn, sepDone: tries > 0,
+    practical: { label: 'التحدي العملي', done: tries > 0, text: tries ? `جعل الحمراء أسرع بثلاث مرات في المحاولة ${tries}` : 'لم يُنجز' },
+    steps: rows.map(w => `سحب ${w.F} N: قرأ الميزان (أ) ${w.rec[w.rec.length - 1]} N (الصحيح ${w.F})`)
+      .concat(carts.map(k => `${kg(k.mA)} و${kg(k.mB)} kg: حسب ${k.a[k.a.length - 1]} و${k.b[k.b.length - 1]} m/s (الصحيح ${v2(k.mA)} و${v2(k.mB)})`))
+  }, { obs: obsScore >= 0.8, fair: unfair === 0, calc: calc >= 14.99, scales: scl >= 9.99 }, log);
 }
 /* 🔧 تجربة الآلات البسيطة — رافعة (حمل 60 N على 0.5 m) + سطح مائل (صندوق 40 N إلى 0.5 m) */
 const MC_ARMS = [0.5, 1, 1.5], MC_RAMPS = [0.5, 1, 2];

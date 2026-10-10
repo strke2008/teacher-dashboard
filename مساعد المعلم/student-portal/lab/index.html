@@ -570,6 +570,7 @@ const TOPICS=[
   {id:'inertia',path:'phys',title:'القصور الذاتي',desc:'عربة وراكب وحاجز، وعربات مختلفة الكتلة بالدفعة نفسها (القانون الأول لنيوتن)',ready:true},
   {id:'work',path:'phys',title:'الشغل',desc:'اسحب صندوقًا بميزان نابضي وادفع جدارًا: متى تنجز شغلًا؟ وكيف تحسبه؟ (الشغل = القوة × المسافة)',ready:true},
   {id:'machines',path:'phys',title:'الآلات البسيطة',desc:'الرافعة والسطح المائل: كيف تقلل الآلة القوة؟ وهل تقلل الشغل؟',ready:true},
+  {id:'newton3',path:'phys',title:'قانون نيوتن الثالث',desc:'ميزانان متصلان وعربتان بينهما نابض: هل رد الفعل يساوي الفعل؟ ولماذا تنطلق العربة الأخف أسرع؟',ready:true},
   {id:'density',path:'phys',title:'الكثافة والطفو والغوص',desc:'لماذا تطفو بعض الأجسام وتغوص أخرى؟'},
   {id:'massvol',path:'phys',title:'الكتلة والحجم',desc:'قِس بالميزان والمخبار المدرّج.'},
   {id:'separation',path:'phys',title:'الفصل: الترشيح والمغناطيس والتبخير',desc:'نفّذ عمليات الفصل بنفسك.'},
@@ -1228,7 +1229,7 @@ const app=$('#app');
 function go(screen){
   SIM.stop();SEP.stop();if(typeof FRSIM!=='undefined')FRSIM.stop();if(typeof INSIM!=='undefined')INSIM.stop();if(typeof WMSIM!=='undefined')WMSIM.stop();
   $$('.nav button').forEach(x=>{if(x.dataset.go===screen)x.setAttribute('aria-current','page');else x.removeAttribute('aria-current')});
-  ({home:renderHome,lab:renderLab,fric:renderFric,challenge:renderChal,inert:renderInert,inchal:renderInChal,work:renderWork,wkchal:renderWkChal,mach:renderMach,mchal:renderMcChal,think:renderThink,separate:renderSeparate,learned:renderLearned,apply:renderApply,result:renderResult,records:renderRecords,teacher:renderTeacher}[screen])();
+  ({home:renderHome,lab:renderLab,fric:renderFric,challenge:renderChal,inert:renderInert,inchal:renderInChal,work:renderWork,wkchal:renderWkChal,n3:renderN3,n3chal:renderN3Chal,mach:renderMach,mchal:renderMcChal,think:renderThink,separate:renderSeparate,learned:renderLearned,apply:renderApply,result:renderResult,records:renderRecords,teacher:renderTeacher}[screen])();
   window.scrollTo({top:0});
 }
 
@@ -1538,6 +1539,7 @@ function renderLearned(){
   if(APP.run.topic==='inertia') return renderInLearned();
   if(APP.run.topic==='work') return renderWkLearned();
   if(APP.run.topic==='machines') return renderMcLearned();
+  if(APP.run.topic==='newton3') return renderN3Learned();
   const r=APP.run,C=CONTENT[r.topic],c=r.ctx,L=C.learned(c,r),rd=r.finalReading||SIM.reading();
   const set=C.obs[c.cls];
   const mine=r.obs.map(o=>`${set.ok.includes(o)||set.neutral.includes(o)?'✓':'✗'} ${OBS_CHIPS[o]}`).join('، ');
@@ -3332,6 +3334,317 @@ function renderMcLearned(){
   $('#toApply').onclick=()=>go('apply');
 }
 
+/* ===================== 🤝 تجربة قانون نيوتن الثالث =====================
+   الجزء الأول: ميزانان نابضيان متصلان، أحدهما مثبت في جدار والآخر يسحبه الطالب — القراءتان متساويتان دائمًا.
+   الجزء الثاني: عربتان بينهما نابض مضغوط؛ عند إطلاقه يقرأ حسّاسا القوة القيمة نفسها على العربتين في اتجاهين متعاكسين،
+   والسرعة بعد الدفع = الدفع ÷ الكتلة (0.9 N·s)، فيقيس الطالب المسافة في 0.5 s ويحسب السرعة = المسافة ÷ الزمن. */
+const N3={forces:[10,20,30,40],masses:[0.5,1,1.5,2],J:0.9,T:0.5,Fs:6,PX:300,maxF:50};
+const n3v=m=>N3.J/m, n3d=m=>n3v(m)*N3.T;
+const N3_OBS={
+  n3_equal:'قراءة الميزانين متساوية في كل سحبة',
+  n3_opp:'دفع النابض العربتين في اتجاهين متعاكسين',
+  n3_light:'العربة الأخف تحركت أسرع مع أن القوة عليها تساوي القوة على الأثقل',
+  n3_same:'العربتان المتساويتان في الكتلة تحركتا بالسرعة نفسها',
+  n3_bigger:'الميزان الذي أسحبه قرأ أكبر من الميزان المثبت في الجدار',
+  n3_heavy:'القوة على العربة الأثقل كانت أكبر'
+};
+const N3_OBS_SET={ok:['n3_equal','n3_opp','n3_light'],neutral:['n3_same']};
+Object.assign(CONCEPTS,{n3:'الفعل ورد الفعل متساويان ومتعاكسان',pair:'تمييز أزواج الفعل ورد الفعل',cancel:'قوتا الفعل ورد الفعل تؤثران في جسمين مختلفين',
+  n3life:'قانون نيوتن الثالث في الحياة',scales:'قراءة الميزانين المتصلين'});
+const NEWTON3={
+  id:'newton3',title:'قانون نيوتن الثالث',screen:'n3',practical:'n3chal',
+  cycle:['التوقع','التجربة','الملاحظة','التفكير','التحدي العملي','الاستنتاج','التطبيق','التقييم'],
+  safety:['لا تشدّ الميزان النابضي أكثر من أقصى قراءة له (50 N).','أبعد يديك ووجهك عن النابض المضغوط قبل إطلاقه.','ثبّت نهايتي المسار حتى لا تسقط العربات عن الطاولة.'],
+  questions(){return [
+    {type:'classify',concept:'pair',prompt:'صنّف كل زوج من القوى: هل هو زوج فعل ورد فعل؟',
+     bins:['زوج فعل ورد فعل','ليسا زوج فعل ورد فعل'],
+     items:[{t:'قدمك تدفع الأرض إلى الخلف ↔ الأرض تدفع قدمك إلى الأمام',bin:0},{t:'الصاروخ يدفع الغازات إلى أسفل ↔ الغازات تدفع الصاروخ إلى أعلى',bin:0},
+       {t:'وزن الكتاب ↔ قوة الطاولة على الكتاب',bin:1},{t:'المضرب يدفع الكرة ↔ الكرة تدفع المضرب',bin:0}],
+     hints:['زوج الفعل ورد الفعل: جسمان يؤثر كل منهما في الآخر، «أ يؤثر في ب» و«ب يؤثر في أ».','انظر إلى زوج الكتاب: هل تؤثر القوتان في جسمين مختلفين، أم كلتاهما في الكتاب نفسه؟'],
+     explain:'في زوج الفعل ورد الفعل يتبادل جسمان التأثير: القدم والأرض، الصاروخ والغازات، المضرب والكرة. أما وزن الكتاب وقوة الطاولة عليه فكلتاهما تؤثران في الكتاب نفسه؛ فهما قوتان متزنتان لا زوج فعل ورد فعل (رد فعل وزن الكتاب هو جذب الكتاب للأرض).'},
+    {type:'mcq',concept:'n3',prompt:'لماذا تحركت العربة الأخف أسرع من العربة الأثقل مع أن النابض دفعهما بالقوة نفسها؟',
+     options:[{t:'لأن القوتين متساويتان، لكن الكتلة الأصغر تكتسب تسارعًا أكبر (ت = ق ÷ ك)',ok:1},{t:'لأن النابض دفع العربة الأخف بقوة أكبر'},{t:'لأن رد الفعل دائمًا أضعف من الفعل'},{t:'لأن العربة الأثقل لم تؤثر فيها أي قوة'}],
+     hints:['ارجع إلى قراءتي حسّاسَي القوة: هل اختلفت القوة على العربتين؟','القوة واحدة، والذي اختلف هو الكتلة. تذكّر القانون الثاني: التسارع = القوة ÷ الكتلة.'],
+     explain:`قرأ حسّاسا القوة ${N3.Fs} N على كل عربة: القوتان متساويتان ومتعاكستان (القانون الثالث). لكن أثر القوة يعتمد على الكتلة (القانون الثاني: ت = ق ÷ ك)، فالعربة 0.5 kg اكتسبت سرعة ${fx2(n3v(.5))} m/s، والعربة 1.5 kg سرعة ${fx2(n3v(1.5))} m/s فقط، أي ثلث سرعتها.`},
+    {type:'mcq',concept:'cancel',prompt:'إذا كانت قوتا الفعل ورد الفعل متساويتين ومتعاكستين، فلماذا لا تلغي إحداهما الأخرى؟',
+     options:[{t:'لأنهما تؤثران في جسمين مختلفين، فلكل جسم قوته',ok:1},{t:'لأنهما تؤثران في الجسم نفسه في اتجاهين متعاكسين'},{t:'لأن رد الفعل يحدث بعد الفعل بفترة'},{t:'لأن إحداهما أكبر قليلًا من الأخرى دائمًا'}],
+     hints:['في تجربة العربتين: في أي عربة أثّرت كل قوة؟','القوى تتزن (يلغي بعضها بعضًا) فقط إذا أثّرت في الجسم نفسه.'],
+     explain:'دفع النابض العربة الحمراء إلى اليسار، ودفعت العربة الحمراء (عبر النابض) العربة الزرقاء إلى اليمين: قوتان في جسمين مختلفين. كل عربة أثّرت فيها قوة واحدة غير متزنة فتحركت. لا تلغي القوى بعضها إلا إذا أثّرت في الجسم نفسه.'}
+  ]},
+  apply(){return {type:'mcq',concept:'n3life',prompt:'موقف جديد: سبّاح يدفع حافة المسبح بقدميه إلى الخلف فينطلق إلى الأمام. ما القوة التي دفعته إلى الأمام؟',
+    options:[{t:'قوة حافة المسبح على قدميه (رد الفعل)',ok:1},{t:'قوة قدميه على حافة المسبح'},{t:'وزن السبّاح'},{t:'قوة الماء على ظهره'}],
+    hints:['السبّاح يدفع الحافة. فماذا تفعل الحافة به؟','القوة التي تحرّك جسمًا هي القوة المؤثرة فيه هو، لا القوة التي يؤثر بها في غيره.'],
+    explain:'قدما السبّاح تدفعان الحافة إلى الخلف (الفعل)، والحافة تدفع قدميه إلى الأمام بقوة مساوية (رد الفعل). القوة المؤثرة في السبّاح هي رد الفعل، فهي التي تدفعه إلى الأمام.'}},
+  learned(){return {
+    lead:'لكل فعل رد فعل مساوٍ له في المقدار ومعاكس له في الاتجاه، والقوتان تؤثران في جسمين مختلفين.',
+    happened:`في الجزء الأول قرأ الميزانان القيمة نفسها في كل سحبة: الميزان (ب) يسحب (أ)، والميزان (أ) يسحب (ب) بالقوة نفسها في الاتجاه المعاكس. وفي الجزء الثاني دفع النابض العربتين بقوتين متساويتين (${N3.Fs} N على كل منهما) في اتجاهين متعاكسين؛ فتحركت العربتان المتساويتان في الكتلة بالسرعة نفسها، أما المختلفتان فتحركت الأخف أسرع.`,
+    why:'القانون الثالث لنيوتن: عندما يؤثر جسم في آخر بقوة، يؤثر الثاني في الأول بقوة مساوية في المقدار ومعاكسة في الاتجاه. القوتان في جسمين مختلفين فلا تلغي إحداهما الأخرى، وأثر كل منهما يعتمد على كتلة الجسم الذي تؤثر فيه (القانون الثاني: ت = ق ÷ ك).',
+    concept:'الفعل ورد الفعل: قوتان متساويتان مقدارًا، متعاكستان اتجاهًا، تؤثران في جسمين مختلفين.'}},
+  score(r){
+    const f=a=>a&&a.correct?[0,1,.6,.3][a.attempts]:0,q=r.answers,x=r.n3;
+    const scl=x.rows.reduce((s,w)=>s+(w.rec.length&&Math.abs(w.rec[0]-w.F)<.05?10/3:w.rec.some(v=>Math.abs(v-w.F)<.05)?5/3:0),0);
+    const unfair=x.runs.filter(z=>!z.ok).length;
+    const cp=(m,a)=>a.length&&Math.abs(a[0]-n3v(m))<=.05?3.75:a.some(v=>Math.abs(v-n3v(m))<=.05)?2.25:0;
+    const calc=x.carts.reduce((s,k)=>s+cp(k.mA,k.calc.a)+cp(k.mB,k.calc.b),0);
+    const ct=r.chal||[],ti=ct.findIndex(z=>Math.abs(z[1]/z[0]-3)<1e-9),tries=ti<0?0:ti+1;
+    const parts=[['تجربة الميزانين',scl,10],['تجربة عادلة',Math.max(0,10-5*unfair),10],['دقة حساب السرعة',calc,15],['دقة الملاحظة',15*r.obsScore,15],
+      ['الإجابات',10*f(q[0])+10*f(q[2]),20],['تفسير النتيجة',10*f(q[1]),10],['التحدي العملي',tries?[0,10,7,4][Math.min(3,tries)]:0,10],['التطبيق في موقف جديد',10*f(q[3]),10]];
+    const total=Math.round(parts.reduce((a,p)=>a+p[1],0)),byC={};
+    q.forEach(a=>{if(!a)return;const ok=a.correct&&a.attempts===1;byC[a.concept]=byC[a.concept]===undefined?ok:byC[a.concept]&&ok});
+    byC.obs=r.obsScore>=.8;byC.fair=unfair===0;byC.calc=calc>=14.99;byC.scales=scl>=9.99;
+    return {parts,total,mastered:Object.keys(byC).filter(k=>byC[k]),reinforce:Object.keys(byC).filter(k=>!byC[k])};
+  },
+  log(r){const x=r.n3;return {topic:'newton3',pred:x.pred,rows:x.rows.map(w=>({F:w.F,rec:w.rec.slice(0,3)})),runs:x.runs.slice(0,30),
+    carts:x.carts.map(k=>({mA:k.mA,mB:k.mB,a:k.calc.a.slice(0,3),b:k.calc.b.slice(0,3)})),
+    answers:r.answers.map(a=>({a:a&&a.log||[]})),obs:r.obs,chal:(r.chal||[]).slice(0,10),mistakes:r.log.slice(0,15)}},
+  next(){return 'جرّب في التدريب الحر: عربتان 2 kg و0.5 kg؛ توقّع النسبة بين سرعتيهما قبل أن تطلق النابض، ثم تحقّق.'},
+  record(r){const x=r.n3;return {title:`${this.title}: ميزانان وعربتان`,materials:['ميزانان نابضيان','جدار بخطاف','عربتان','نابض مضغوط','أثقال 0.5 kg','حسّاسا قوة','مسطرة وساعة إيقاف'],
+    result:x.carts.map(k=>`${kg(k.mA)} kg و${kg(k.mB)} kg ← ${fx2(n3v(k.mA))} و${fx2(n3v(k.mB))} m/s`).join('، '),
+    separation:x.rows.map(w=>`سحب ${w.F} N ← قرأ (أ) ${w.rec.length?w.rec[w.rec.length-1]:'—'} N`)}}
+};
+CONTENT.newton3=NEWTON3;
+
+/* ---- المشهد (أ): ميزانان متصلان بين جدار وشخص ---- */
+const N3_G=205,N3_Y=N3_G-86;
+const n3sc={F:10,Fs:0,active:false,auto:false,held:false,dragF:0,hold:0,done:false,onEnd:null};
+const N3H={grab:null};
+function n3ScGeo(F){const L=150+F*1.2;return {a:64,j:64+L,b:64+2*L}}
+function n3ScDraw(c,col,t,dt){
+  const W=800,H=270,G=N3_G,Y=N3_Y,v=n3sc;
+  WMD.bg(c,col,W,H,G);
+  if(v.active){const target=v.auto?v.F:(v.held?Math.min(v.F,v.dragF):0);v.Fs+=(target-v.Fs)*Math.min(1,dt*(v.auto?3:8));
+    if(v.Fs>=v.F-.25){v.hold+=dt;if(v.hold>=.9){v.active=false;v.done=true;v.Fs=v.F;const f=v.onEnd;v.onEnd=null;f&&f()}}else v.hold=0}
+  else if(!v.done)v.Fs*=Math.exp(-dt*5);
+  const g=n3ScGeo(v.Fs);
+  // جدار من الطوب وخطاف
+  const x0=14,x1=56,top=30;c.fillStyle='#A9B4BE';c.fillRect(x0,top,x1-x0,G-top);
+  for(let y=top,rw=0;y<G;y+=16,rw++){for(let x=x0-(rw%2?16:0);x<x1;x+=32){c.fillStyle=rw%2?'#B9C3CC':'#C6CFD7';c.fillRect(Math.max(x0,x)+1,y+1,Math.min(x+30,x1)-Math.max(x0,x)-2,14)}}
+  c.strokeStyle='#5D6873';c.lineWidth=2;c.strokeRect(x0,top,x1-x0,G-top);c.fillStyle='#5D6873';WMD.rr(c,x1-2,Y-12,10,24,3);c.fill();
+  // الميزانان
+  WMD.scale(c,g.a,Y,g.j,Y,v.Fs,N3.maxF);WMD.scale(c,g.j,Y,g.b,Y,v.Fs,N3.maxF);
+  WMD.pill(c,(g.a+g.j)/2,Y+30,'الميزان (أ)','#5D6873');WMD.pill(c,(g.j+g.b)/2,Y+30,'الميزان (ب)','#5D6873');
+  // زوج الفعل ورد الفعل عند نقطة الاتصال
+  if(v.Fs>.5){const L=24+v.Fs*2.4;
+    WMD.arrow(c,g.j,Y-50,g.j+L,Y-50,'#C3473E');n3Lbl(c,g.j+L/2+30,Y-60,`ب يسحب أ: ${fx1(v.Fs)} N`,'#C3473E');
+    WMD.arrow(c,g.j,Y-84,g.j-L,Y-84,'#2E7DB5');n3Lbl(c,g.j-L/2-30,Y-94,`أ يسحب ب: ${fx1(v.Fs)} N`,'#2E7DB5');
+    c.save();c.setLineDash([4,4]);c.strokeStyle='rgba(19,50,74,.35)';c.lineWidth=1.5;c.beginPath();c.moveTo(g.j,Y-108);c.lineTo(g.j,Y-6);c.stroke();c.restore()}
+  // الشخص يسحب
+  const lean=v.Fs>.5?.12+.3*Math.min(1,v.Fs/40):0;
+  WMD.person(c,{x:g.b+46,y:G,dir:-1,lean,phase:0,t,strain:v.Fs>25,shake:v.held&&v.Fs>30,hands:[{x:g.b+2,y:Y},{x:g.b+9,y:Y+3}],shirt:'#2E7DB5'});
+  WMD.hud(c,560,12,[['قراءة الميزان (أ)',`${fx1(v.Fs)} N`,'#9BE6BF'],['قراءة الميزان (ب)',`${fx1(v.Fs)} N`,'#FFB4A8']]);
+  if(v.done)WMD.pill(c,(g.a+g.b)/2,G+36,'✓ ثبتت القراءة — سجّلها في الجدول','#1E8A5C');
+  else if(APP.run&&APP.run.step==='pull'&&!WMSIM.tweening()){if(!v.active)WMD.hint(c,g.b+20,Y-62,'امسك هنا واسحب →',t);else if(!v.auto&&v.Fs<v.F-.25)WMD.hint(c,g.b+20,Y-62,`اسحب حتى ${v.F} N →`,t)}
+}
+function n3Lbl(c,x,y,t,cl,al){c.save();c.font='bold 13px system-ui,sans-serif';c.textAlign=al||'center';c.fillStyle=cl;c.fillText(t,x,y);c.restore()}
+function n3ScMount(id){const v=n3sc;Object.assign(v,{Fs:0,active:false,auto:false,held:false,dragF:0,dragBase:0,hold:0,done:false,onEnd:null});
+  WMSIM.mount($(id),800,270,n3ScDraw,{
+    hit(p){const g=n3ScGeo(v.Fs);return Math.hypot(p.x-g.b,p.y-N3_Y)<60||(p.x>g.b-10&&p.x<g.b+90&&p.y>N3_G-150&&p.y<N3_G)},
+    down(){if(v.active&&!v.auto){v.held=true;return}if(!v.active&&N3H.grab&&N3H.grab()){v.held=true}},
+    move(p,dl){if(v.active&&!v.auto&&v.held)v.dragF=Math.max(0,Math.min(v.F,dl.dx/2.2+v.dragBase))},
+    up(){v.held=false;v.dragBase=v.Fs}});
+  setTimeout(()=>frFollowEl(id,300),0)}
+function n3ScStart(F,auto,onEnd){Object.assign(n3sc,{F,Fs:0,active:true,auto:!!auto,held:!auto,dragF:0,dragBase:0,hold:0,done:false,onEnd})}
+
+/* ---- المشهد (ب): عربتان ونابض مضغوط على مسار ---- */
+const N3_TG=190,N3_CW=70;
+const n3ct={mA:1,mB:1,phase:'idle',sep:0,dA:0,dB:0,tm:0,F:0,onEnd:null};
+function n3Cart(c,x,y,cl,m,lbl,F,dir){
+  const w=N3_CW,h=32,top=y-12-h;WMD.shadow(c,x+w/2,y+2,w-6);
+  c.fillStyle='#2B3440';[x+14,x+w-14].forEach(wx=>{c.beginPath();c.arc(wx,y-6,7,0,7);c.fill()});c.fillStyle='#9AA6B2';[x+14,x+w-14].forEach(wx=>{c.beginPath();c.arc(wx,y-6,2.5,0,7);c.fill()});
+  c.fillStyle=cl;WMD.rr(c,x,top,w,h,6);c.fill();c.fillStyle='rgba(255,255,255,.22)';WMD.rr(c,x+3,top+3,w-6,9,4);c.fill();c.strokeStyle='rgba(0,0,0,.35)';c.lineWidth=1.5;WMD.rr(c,x,top,w,h,6);c.stroke();
+  c.fillStyle='#fff';c.font='bold 12px system-ui,sans-serif';c.textAlign='center';c.fillText(lbl,x+w/2,top+h/2+5);
+  const n=Math.round((m-.5)/.5);if(n>0)WMD.weights(c,x+w/2,top,n,null);
+  WMD.pill(c,x+w/2,top-n*16-16,`${kg(m)} kg`,cl);
+  // حسّاس القوة على الوجه الداخلي
+  const sx=dir<0?x+w-8:x;c.fillStyle='#F2C94C';WMD.rr(c,sx,top+8,8,16,2);c.fill();c.strokeStyle='#7A5A00';c.lineWidth=1;c.stroke();
+}
+function n3CtDraw(c,col,t,dt){
+  const W=800,H=270,G=N3_TG,v=n3ct,PX=N3.PX,C=400;
+  WMD.bg(c,col,W,H,G);
+  // المسار والمسطرة
+  c.fillStyle='#B8C2CC';WMD.rr(c,24,G-2,W-48,8,3);c.fill();c.strokeStyle='#6B7784';c.lineWidth=1;c.stroke();
+  c.fillStyle='rgba(255,250,235,.92)';WMD.rr(c,40,G+14,W-80,22,5);c.fill();c.strokeStyle='#8A6A44';c.stroke();
+  c.strokeStyle='#4A3420';c.fillStyle='#4A3420';c.font='10px system-ui,sans-serif';c.textAlign='center';
+  for(let d=-1.1;d<=1.101;d+=.1){const x=C+d*PX,mj=Math.abs(Math.round(d*10)%5)===0;c.beginPath();c.moveTo(x,G+14);c.lineTo(x,G+(mj?26:20));c.stroke();if(mj)c.fillText(`${Math.abs(Math.round(d*10)/10)}`,x,G+34)}
+  const gap0=22,gap1=56,mT=v.mA+v.mB;
+  const push=Math.max(0,Math.min(1,v.sep)),sepA=(gap1-gap0)*push*v.mB/mT,sepB=(gap1-gap0)*push*v.mA/mT;
+  const rA=C-gap0/2-sepA-v.dA*PX,lB=C+gap0/2+sepB+v.dB*PX;
+  // النابض (مثبت في العربة الحمراء)
+  const sL=Math.min(gap1,lB-rA),sy=G-12-16;c.strokeStyle='#5D6873';c.lineWidth=2;c.beginPath();c.moveTo(rA,sy);
+  const coils=8;for(let i=1;i<=coils*2;i++)c.lineTo(rA+sL*i/(coils*2),sy+(i%2?-7:7));c.stroke();
+  if(v.phase==='idle'){c.fillStyle='#C3473E';WMD.rr(c,rA+2,sy-16,sL-4,5,2);c.fill();WMD.pill(c,C,sy-30,'🔒 نابض مضغوط','#5D6873')}
+  n3Cart(c,rA-N3_CW,G,'#C3473E',v.mA,'الحمراء',v.F,-1);n3Cart(c,lB,G,'#2E7DB5',v.mB,'الزرقاء',v.F,1);
+  // القوتان المتساويتان المتعاكستان أثناء الدفع
+  if(v.F>.2){const L=30+v.F*7,ay=G-24;WMD.arrow(c,rA-N3_CW-4,ay,rA-N3_CW-4-L,ay,'#C3473E');n3Lbl(c,rA-N3_CW-4-L-6,ay+5,`ق = ${fx1(v.F)} N`,'#C3473E','right');
+    WMD.arrow(c,lB+N3_CW+4,ay,lB+N3_CW+4+L,ay,'#2E7DB5');n3Lbl(c,lB+N3_CW+4+L+6,ay+5,`ق = ${fx1(v.F)} N`,'#2E7DB5','left')}
+  // المسافتان بعد الانطلاق
+  if(v.phase==='slide'||v.phase==='done'){const a0=C-gap0/2-(gap1-gap0)*v.mB/mT-N3_CW,b0=C+gap0/2+(gap1-gap0)*v.mA/mT;
+    c.save();c.setLineDash([5,4]);c.lineWidth=1.5;c.globalAlpha=.55;c.strokeStyle='#C3473E';WMD.rr(c,a0,G-44,N3_CW,32,6);c.stroke();c.strokeStyle='#2E7DB5';WMD.rr(c,b0,G-44,N3_CW,32,6);c.stroke();
+      c.beginPath();c.moveTo(a0,G-50);c.lineTo(a0,G+62);c.moveTo(b0,G-50);c.lineTo(b0,G+62);c.stroke();c.restore();
+    c.fillStyle='#5D6873';c.font='11px system-ui,sans-serif';c.textAlign='center';c.fillText('موضع البداية',a0+N3_CW/2,G-50);c.fillText('موضع البداية',b0+N3_CW/2,G-50);
+    if(v.dA>.01)WMD.dim(c,a0,G+56,a0-v.dA*PX,G+56,'#C3473E',`ف = ${fx2(v.dA)} m`);
+    if(v.dB>.01)WMD.dim(c,b0,G+56,b0+v.dB*PX,G+56,'#2E7DB5',`ف = ${fx2(v.dB)} m`)}
+  WMD.hud(c,W-292,10,[['القوة على الحمراء',`${fx1(v.F)} N`,'#FFB4A8'],['القوة على الزرقاء',`${fx1(v.F)} N`,'#A8D8FF'],['الزمن بعد الانطلاق',`${fx2(v.tm)} s`,'#9BE6BF']]);
+  if(v.phase==='done')WMD.pill(c,250,28,`⏱ توقّف الزمن عند ${fx2(N3.T)} s — قِس المسافتين`,'#1E8A5C');
+}
+function n3CtMount(id){Object.assign(n3ct,{cv:id,phase:'idle',sep:0,dA:0,dB:0,tm:0,F:0,onEnd:null});WMSIM.mount($(id),800,270,n3CtDraw,null);setTimeout(()=>frFollowEl(id,560),0)}
+function n3CtSet(mA,mB){if(n3ct.phase==='push'||n3ct.phase==='slide')return;Object.assign(n3ct,{mA,mB,phase:'idle',sep:0,dA:0,dB:0,tm:0,F:0})}
+function n3CtRelease(onEnd){const v=n3ct;Object.assign(v,{phase:'push',sep:0,dA:0,dB:0,tm:0,F:0});
+  WMSIM.animate(450,k=>{v.sep=k;v.F=N3.Fs*Math.min(1,Math.sin(Math.PI*k)*1.6)},()=>{v.F=0;v.sep=1;v.phase='slide';
+    WMSIM.animate(1600,k=>{v.tm=N3.T*k;v.dA=n3d(v.mA)*k;v.dB=n3d(v.mB)*k},()=>{v.tm=N3.T;v.dA=n3d(v.mA);v.dB=n3d(v.mB);v.phase='done';frFollowEl(v.cv,400);onEnd&&onEnd()},true)});
+}
+
+/* ---- شاشة التجربة ---- */
+function renderN3(){
+  const r=APP.run;
+  if(!r.n3) r.n3={pred:null,rows:[0,1,2].map(()=>({F:null,rec:[],done:false,ok:false})),runs:[],carts:[0,1].map(()=>({mA:null,mB:null,calc:{a:[],b:[]},done:false,recA:false,recB:false}))};
+  r.n3F=r.n3F||10;r.n3mA=r.n3mA||1;r.n3mB=r.n3mB||1;
+  if(r.step==='safety') r.step='predict';
+  const rec=(id,unit)=>`<span style="display:inline-flex;gap:6px;align-items:center"><input type="text" inputmode="decimal" autocomplete="off" class="frin" id="${id}" disabled placeholder="٠"> ${unit} <button class="btn ghost sm-btn" id="${id}r" disabled>سجّل</button><span id="${id}o"></span></span>`;
+  app.innerHTML=`<div id="cyc"></div>
+  <section class="bench">${inGuideBox()}
+    <h3 class="inh">الجزء الأول: ميزانان نابضيان متصلان</h3>
+    <div class="frbar"><div class="seg" role="group" aria-label="قوة السحب"><span>اسحب بقوة:</span>${wkChips('nf',N3.forces,r.n3F,'N')}</div>
+      <button class="btn ghost" id="n3Go" title="أو امسك يد الشخص في الرسم واسحب بنفسك">▶ اسحب تلقائيًا</button></div>
+    <p class="note" style="margin:0 2px 6px">✋ امسك يد الشخص في الرسم واسحب الميزان (ب) نحو اليمين، وراقب قراءة الميزان (أ) المثبت في الجدار.</p>
+    <div class="beakerzone frzone"><div class="frscroll" dir="ltr"><canvas id="n3A" aria-label="ميزانان نابضيان متصلان: أحدهما مثبت في جدار والآخر يسحبه شخص"></canvas></div></div><p class="swipe-hint">↔ اسحب الرسم يمينًا ويسارًا لرؤيته كاملًا</p>
+    <div class="tablewrap" style="margin-top:12px"><table class="frtab"><thead><tr><th>السحبة</th><th>قوة سحبك على الميزان (ب)</th><th>قراءة الميزان (أ) في الجدار</th></tr></thead><tbody>
+    ${[0,1,2].map(i=>`<tr><td><b>${i+1}</b><div class="note" style="margin:0;font-size:.78rem">${i?'اختر قوة مختلفة':'اختر أي قوة'}</div></td><td id="nF${i}">—</td><td>${rec('nr'+i,'N')}</td></tr>`).join('')}
+    </tbody></table></div>
+    <div id="n3PartB" class="hide-b">
+      <h3 class="inh" style="margin-top:16px">الجزء الثاني: عربتان بينهما نابض مضغوط</h3>
+      <div class="frbar"><div class="seg" role="group" aria-label="كتلة العربة الحمراء"><span>🟥 الحمراء:</span>${wkChips('ma',N3.masses,r.n3mA,'kg')}</div>
+        <div class="seg" role="group" aria-label="كتلة العربة الزرقاء"><span>🟦 الزرقاء:</span>${wkChips('mb',N3.masses,r.n3mB,'kg')}</div>
+        <button class="btn amber" id="n3Rel">🔓 أطلق النابض</button></div>
+      <div class="beakerzone frzone"><div class="frscroll" dir="ltr"><canvas id="n3B" aria-label="عربتان بينهما نابض مضغوط على مسار"></canvas></div></div><p class="swipe-hint">↔ اسحب الرسم يمينًا ويسارًا لرؤيته كاملًا</p>
+      <div class="tablewrap" style="margin-top:12px"><table class="frtab"><thead><tr><th>المحاولة</th><th>الكتلتان</th><th>القوة على كل عربة</th><th>سرعة الحمراء = ف ÷ ز</th><th>سرعة الزرقاء = ف ÷ ز</th></tr></thead><tbody>
+      ${[0,1].map(i=>`<tr><td><b>${['أ','ب'][i]}</b><div class="note" style="margin:0;font-size:.78rem">${['كتلتان متساويتان','كتلتان مختلفتان'][i]}</div></td><td id="nm${i}">—</td><td id="nfs${i}">—</td>
+        <td>${rec('nva'+i,'m/s')}</td><td>${rec('nvb'+i,'m/s')}</td></tr>`).join('')}
+      </tbody></table></div>
+    </div>
+  </section>
+  <div id="obsPanel" class="frobs"></div>
+  <div class="panel safety" style="margin-top:12px"><h3>قواعد السلامة</h3><ul>${NEWTON3.safety.map(x=>`<li>${x}</li>`).join('')}</ul></div>`;
+  n3ScMount('#n3A');N3H.grab=()=>n3Pull(false);
+  $$('[data-nf]').forEach(b=>b.onclick=()=>{r.n3F=+b.dataset.nf;$$('[data-nf]').forEach(x=>x.setAttribute('aria-pressed',x===b?'true':'false'))});
+  const mSel=(attr,key)=>$$(`[data-${attr}]`).forEach(b=>b.onclick=()=>{if(n3ct.phase==='push'||n3ct.phase==='slide')return;r[key]=+b.dataset[attr];$$(`[data-${attr}]`).forEach(x=>x.setAttribute('aria-pressed',x===b?'true':'false'));n3CtSet(r.n3mA,r.n3mB)});
+  mSel('ma','n3mA');mSel('mb','n3mB');
+  $$('.frin').forEach(x=>x.addEventListener('input',()=>{const v=arNum(x.value.replace(/[,،]/g,'.'));if(v!==x.value)x.value=v}));
+  $('#n3Go').onclick=()=>n3Pull(true);
+  [0,1,2].forEach(i=>{$('#nr'+i+'r').onclick=()=>n3RecRow(i);$('#nr'+i).addEventListener('keydown',e=>{if(e.key==='Enter')n3RecRow(i)})});
+  [0,1].forEach(i=>['a','b'].forEach(s=>{const id=`nv${s}${i}`;$('#'+id+'r').onclick=()=>n3RecV(i,s);$('#'+id).addEventListener('keydown',e=>{if(e.key==='Enter')n3RecV(i,s)})}));
+  $('#n3Rel').onclick=n3Release;
+  n3Guide();
+}
+function n3Pull(auto){
+  const r=APP.run,x=r.n3;if(r.step==='predict'){note('اختر توقعك أولًا.');return false}if(r.step!=='pull'||WMSIM.tweening()||n3sc.active)return false;
+  const i=x.rows.findIndex(w=>!w.ok);if(i<0)return false;if(x.rows[i].done){note('سجّل قراءة الميزان (أ) في الجدول أولًا.');return false}
+  const F=r.n3F;if(x.rows.some((w,j)=>j<i&&w.F===F)){note(`سحبت بقوة ${F} N من قبل. اختر قوة مختلفة لتقارن.`);return false}
+  const w=x.rows[i];Object.assign(w,{F,rec:[],done:false});$('#n3Go').disabled=true;$('#nF'+i).textContent=`${F} N`;
+  n3ScStart(F,auto,()=>{$('#n3Go').disabled=false;w.done=true;$('#nr'+i).disabled=false;$('#nr'+i+'r').disabled=false;$('#nr'+i).focus();n3Guide()});
+  return true;
+}
+function n3RecRow(i){
+  const r=APP.run,w=r.n3.rows[i];if(!w.done||w.ok)return;
+  const v=parseNum($('#nr'+i).value);if(!isFinite(v)||v<0)return note('اكتب قراءة الميزان (أ) بالنيوتن، مثل ٢٠');
+  w.rec.push(Math.round(v*10)/10);
+  const fin=t=>{w.ok=true;$('#nr'+i+'o').textContent=t;$('#nr'+i).disabled=true;$('#nr'+i+'r').disabled=true};
+  if(Math.abs(v-w.F)<.05)fin('✓');
+  else if(w.rec.length<3){r.log.push(`قراءة غير دقيقة للميزان (أ): كتب ${v} N والسحب ${w.F} N`);note('انظر جيدًا إلى مؤشر الميزان (أ) القريب من الجدار في الرسم، واقرأ القيمة المكتوبة فوقه.',true)}
+  else{$('#nr'+i).value=arNum(String(w.F));fin(`الصحيح ${w.F}`)}
+  n3Guide();
+}
+function n3Release(){
+  const r=APP.run,x=r.n3;if(r.step!=='carts'||WMSIM.tweening())return;
+  const i=x.carts.findIndex(k=>!(k.recA&&k.recB));if(i<0)return;const k=x.carts[i];
+  if(k.done)return note('سجّل سرعتي العربتين في الجدول أولًا.');
+  const mA=r.n3mA,mB=r.n3mB,ok=i===0?mA===mB:mA!==mB;x.runs.push({row:i,mA,mB,ok});
+  if(!ok){r.mist.exec++;r.log.push(`محاولة بكتلتين غير مناسبتين (${kg(mA)} و${kg(mB)} kg)`);
+    note(i===0?'في المحاولة (أ) اجعل الكتلتين متساويتين، حتى نعرف ماذا يحدث عندما لا يختلف شيء بين العربتين.':'في المحاولة (ب) اختر كتلتين مختلفتين، وقارن بالمحاولة (أ).',true);return}
+  Object.assign(k,{mA,mB,calc:{a:[],b:[]}});$('#n3Rel').disabled=true;$$('[data-ma],[data-mb]').forEach(b=>b.disabled=true);
+  $('#nm'+i).textContent=`${kg(mA)} kg و${kg(mB)} kg`;n3CtSet(mA,mB);
+  n3CtRelease(()=>{k.done=true;$('#nfs'+i).textContent=`${N3.Fs} N و${N3.Fs} N`;['a','b'].forEach(s=>{$(`#nv${s}${i}`).disabled=false;$(`#nv${s}${i}r`).disabled=false});$(`#nva${i}`).focus();n3Guide()});
+}
+function n3RecV(i,s){
+  const r=APP.run,k=r.n3.carts[i],flag=s==='a'?'recA':'recB',m=s==='a'?k.mA:k.mB,id=`nv${s}${i}`;if(!k.done||k[flag])return;
+  const v=parseNum($('#'+id).value);if(!isFinite(v)||v<0)return note('اكتب السرعة بالمتر لكل ثانية، مثل ٠٫٩');
+  k.calc[s].push(Math.round(v*100)/100);const t=n3v(m);
+  const fin=tx=>{k[flag]=true;$('#'+id+'o').textContent=tx;$('#'+id).disabled=true;$('#'+id+'r').disabled=true};
+  if(Math.abs(v-t)<=.05)fin('✓');
+  else if(k.calc[s].length<3){r.log.push(`حساب سرعة غير دقيق (${kg(m)} kg): ${v}`);note(`راجع الحساب: السرعة = المسافة ÷ الزمن = ${fx2(n3d(m))} ÷ ${fx2(N3.T)}.`,true)}
+  else{$('#'+id).value=arNum(fx2(t));fin(`الصحيح ${fx2(t)}`)}
+  if(k.recA&&k.recB){$$('[data-ma],[data-mb]').forEach(b=>b.disabled=false);$('#n3Rel').disabled=false}
+  n3Guide();
+}
+function n3ShowB(){const box=$('#n3PartB');if(!box||box.dataset.on)return;box.dataset.on='1';box.classList.remove('hide-b');$('#n3Go').disabled=true;$$('[data-nf]').forEach(b=>b.disabled=true);
+  n3CtMount('#n3B');n3CtSet(APP.run.n3mA,APP.run.n3mB);box.scrollIntoView({behavior:'smooth',block:'nearest'})}
+function n3Guide(){
+  const r=APP.run,x=r.n3,t=$('#gtext'),act=$('#gact');if(!t)return;act.innerHTML='';
+  const cyc=$('#cyc');if(cyc)cyc.innerHTML=cycleHTML(r.step==='predict'?0:r.step==='observe'?2:1);
+  if(r.step==='predict'){
+    t.textContent='قبل أن تجرّب: إذا سحبت الميزان (ب) بقوة 20 N، فإن الميزان (أ) المثبت في الجدار يقرأ…';
+    act.innerHTML=[['less','أقل من 20 N'],['equal','20 N تمامًا'],['more','أكثر من 20 N'],['zero','صفرًا؛ الجدار لا يسحب']].map(([k,l])=>`<button class="btn amber" data-pred="${k}" style="padding:7px 14px">${l}</button>`).join('');
+    $$('[data-pred]',act).forEach(b=>b.onclick=()=>{x.pred=b.dataset.pred;r.step='pull';note('سجّلنا توقعك. جرّب الآن وتحقق منه.');n3Guide()});return;
+  }
+  if(r.step==='pull'){
+    const i=x.rows.findIndex(w=>!w.ok);
+    if(i<0){r.step='carts';n3ShowB();return n3Guide()}
+    if(x.rows[i].done){t.textContent=bidi(`اقرأ الميزان (أ) في الرسم واكتب قراءته في السحبة ${i+1}.`);return}
+    t.textContent=bidi(i===0?'اختر قوة، ثم اسحب الميزان (ب) وراقب الميزانين معًا.':`السحبة ${i+1}: اختر قوة مختلفة عن السابقة، واسحب من جديد.`);return;
+  }
+  if(r.step==='carts'){
+    const i=x.carts.findIndex(k=>!(k.recA&&k.recB));
+    if(i<0){t.textContent='أكملت الجزأين. قارن الجدولين، ثم سجّل ملاحظاتك.';
+      act.innerHTML='<button class="btn amber" id="n3ObsGo">سجّل ملاحظاتي</button>';$('#n3ObsGo').onclick=()=>{r.step='observe';n3Guide();wmObs(N3_OBS,N3_OBS_SET,'newton3')};return}
+    const k=x.carts[i];
+    if(k.done){t.textContent=bidi('احسب سرعة كل عربة: السرعة = المسافة على المسطرة ÷ الزمن (0.5 s)، واكتبها في الجدول.');return}
+    t.textContent=bidi(i===0?'المحاولة (أ): اجعل كتلتي العربتين متساويتين، ثم أطلق النابض وراقب حسّاسَي القوة.':'المحاولة (ب): اختر كتلتين مختلفتين، ثم أطلق النابض. هل ستختلف القوتان؟');return;
+  }
+  if(r.step==='observe')t.textContent='ماذا لاحظت؟ اختر ملاحظاتك تحت الجدول.';
+}
+/* ---- التحدي العملي ---- */
+function renderN3Chal(){
+  const r=APP.run;r.chal=r.chal||[];r.chalDone=false;r.n3mA=r.n3mA||1;r.n3mB=r.n3mB||1;
+  app.innerHTML=`${cycleHTML(4)}<section class="bench">
+    <div class="guide" role="status" aria-live="polite"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 29V4M8 5h16l-5 5 5 5H8"/></svg>
+      <div class="gt"><span class="who">التحدي العملي</span><p id="gtext">اجعل العربة الحمراء تنطلق بسرعة تساوي ثلاثة أضعاف سرعة العربة الزرقاء. اختر الكتلتين ثم أطلق النابض.</p><div class="gact" id="gact"></div></div></div>
+    <div class="gnote" id="gnote" role="alert"></div>
+    <div class="frbar"><div class="seg"><span>🟥 الحمراء:</span>${wkChips('ma',N3.masses,r.n3mA,'kg')}</div><div class="seg"><span>🟦 الزرقاء:</span>${wkChips('mb',N3.masses,r.n3mB,'kg')}</div><button class="btn amber" id="chGo">🔓 أطلق النابض</button></div>
+    <div class="beakerzone frzone"><div class="frscroll" dir="ltr"><canvas id="n3C"></canvas></div></div><p class="swipe-hint">↔ اسحب الرسم يمينًا ويسارًا لرؤيته كاملًا</p>
+  </section>`;
+  n3CtMount('#n3C');n3CtSet(r.n3mA,r.n3mB);
+  const mSel=(attr,key)=>$$(`[data-${attr}]`).forEach(b=>b.onclick=()=>{if(n3ct.phase==='push'||n3ct.phase==='slide')return;r[key]=+b.dataset[attr];$$(`[data-${attr}]`).forEach(x=>x.setAttribute('aria-pressed',x===b?'true':'false'));n3CtSet(r.n3mA,r.n3mB)});
+  mSel('ma','n3mA');mSel('mb','n3mB');
+  $('#chGo').onclick=()=>{if(r.chalDone||WMSIM.tweening())return;const mA=r.n3mA,mB=r.n3mB;r.chal.push([mA,mB]);$('#chGo').disabled=true;n3CtSet(mA,mB);
+    n3CtRelease(()=>{$('#chGo').disabled=false;const vA=n3v(mA),vB=n3v(mB),t=$('#gtext'),act=$('#gact');
+      if(Math.abs(mB/mA-3)<1e-9){r.chalDone=true;t.textContent=bidi(`أحسنت! الحمراء ${fx2(vA)} m/s والزرقاء ${fx2(vB)} m/s: ثلاثة أضعاف. القوتان متساويتان، والكتلة الأصغر ثلاث مرات تكتسب سرعة أكبر ثلاث مرات.`);
+        act.innerHTML='<button class="btn amber" id="toLearn">إلى الخلاصة</button>';$('#toLearn').onclick=()=>go('learned');return}
+      const ratio=vA/vB;t.textContent=bidi(`الحمراء ${fx2(vA)} m/s والزرقاء ${fx2(vB)} m/s: ${Math.abs(ratio-1)<1e-9?'السرعتان متساويتان':ratio>1?`الحمراء أسرع بـ ${fx1(ratio)} مرة`:`الزرقاء أسرع بـ ${fx1(1/ratio)} مرة`}، والمطلوب أن تكون الحمراء أسرع بثلاث مرات.${r.chal.length>=3?' تلميح: كلما زادت الكتلة قلت السرعة؛ أي كتلتين إحداهما ثلاثة أضعاف الأخرى؟':''}`);
+      if(r.chal.length>=4){act.innerHTML='<button class="btn" id="skipCh" style="background:transparent;border:1px solid currentColor;color:inherit;padding:6px 12px">تخطَّ التحدي</button>';
+        $('#skipCh').onclick=()=>{r.log.push('تخطى التحدي العملي');go('learned')}}})};
+}
+function renderN3Learned(){
+  const r=APP.run,L=NEWTON3.learned(),x=r.n3;
+  const predName={less:'أقل من 20 N',equal:'20 N تمامًا',more:'أكثر من 20 N',zero:'صفرًا'}[x.pred]||'—';
+  const mine=r.obs.map(o=>`${N3_OBS_SET.ok.includes(o)||N3_OBS_SET.neutral.includes(o)?'✓':'✗'} ${N3_OBS[o]}`).join('، ');
+  app.innerHTML=`${cycleHTML(5)}<article class="learn">
+    <div class="lead"><h2>🎓 ماذا تعلمت من التجربة؟</h2><p>تعلمت أن ${L.lead}</p></div>
+    <section><h3>🔎 ماذا لاحظت؟</h3>
+      <p>توقعت أن يقرأ الميزان (أ) «${predName}». ${x.pred==='equal'?'وتحقق توقعك.':'والنتيجة أنه قرأ القيمة نفسها التي سحبت بها في كل مرة. التجربة هي التي تحسم.'}</p>
+      <div class="tablewrap"><table><thead><tr><th>السحبة</th><th>الميزان (ب)</th><th>الميزان (أ)</th></tr></thead><tbody>
+      ${x.rows.map((w,i)=>`<tr><td>${i+1}</td><td class="num">${w.F} N</td><td class="num">${w.F} N</td></tr>`).join('')}</tbody></table></div>
+      <div class="tablewrap" style="margin-top:8px"><table><thead><tr><th>العربتان</th><th>القوة على كل منهما</th><th>سرعة الحمراء</th><th>سرعة الزرقاء</th></tr></thead><tbody>
+      ${x.carts.map(k=>`<tr><td class="num">${kg(k.mA)} kg و${kg(k.mB)} kg</td><td class="num">${N3.Fs} N و${N3.Fs} N</td><td class="num">${fx2(n3v(k.mA))} m/s</td><td class="num">${fx2(n3v(k.mB))} m/s</td></tr>`).join('')}</tbody></table></div>
+      ${mine?`<p class="note" style="margin-top:8px">ملاحظاتك: ${mine}.</p>`:''}</section>
+    <section><h3>🧠 ماذا حدث؟</h3><p>${bidi(L.happened)}</p></section>
+    <section><h3>💡 لماذا حدث ذلك؟</h3><p>${bidi(L.why)}</p></section>
+    <section><h3>🏠 وفي الحياة</h3><p>عندما تمشي تدفع قدمك الأرض إلى الخلف فتدفعك الأرض إلى الأمام. والصاروخ يدفع الغازات إلى أسفل فتدفعه إلى أعلى، وعند القفز من قارب صغير إلى الرصيف يندفع القارب إلى الخلف.</p></section>
+    <div class="concept"><h3>🎯 المفهوم الذي تعلمته</h3><p>${L.concept}</p></div>
+    <div class="actions"><button class="btn" id="toApply">اختبر فهمك في موقف جديد</button></div>
+  </article>`;
+  $('#toApply').onclick=()=>go('apply');
+}
+
 /* =========================================================
    🔗 الربط مع مساعد المعلم (بوابة الطالب + الـ Worker)
    ========================================================= */
@@ -3364,7 +3677,7 @@ async function portalBoot(){
   const closed=PORTAL.graded&&s.due&&s.due<today&&!(s.extra>0);
   if(closed)PORTAL.graded=false;
   const head=PORTAL.graded
-    ?`<div class="lead"><h2>🔬 ${esc(s.title||'تجربة المختبر')}</h2><p>${PORTAL.cfg.topic==='friction'?'تجربة اليوم: أثر خشونة السطح في حركة الأجسام.':PORTAL.cfg.topic==='work'?'تجربة اليوم: الشغل، متى تنجزه وكيف تحسبه.':PORTAL.cfg.topic==='machines'?'تجربة اليوم: الآلات البسيطة، الرافعة والسطح المائل.':PORTAL.cfg.topic==='inertia'?'تجربة اليوم: القصور الذاتي، من حزام الأمان إلى أثر الكتلة.':pr?`تجربة اليوم: ${n(pr[0])} و${n(pr[1])}.`:'اختر بنفسك مادتين واكتشف ما يحدث.'} هذه محاولة مقيَّمة ${s.extra>0?'(سمح لك معلمك بمحاولة إضافية)':'واحدة'}، ودرجتك من ${s.mx}.</p></div>
+    ?`<div class="lead"><h2>🔬 ${esc(s.title||'تجربة المختبر')}</h2><p>${PORTAL.cfg.topic==='friction'?'تجربة اليوم: أثر خشونة السطح في حركة الأجسام.':PORTAL.cfg.topic==='work'?'تجربة اليوم: الشغل، متى تنجزه وكيف تحسبه.':PORTAL.cfg.topic==='machines'?'تجربة اليوم: الآلات البسيطة، الرافعة والسطح المائل.':PORTAL.cfg.topic==='newton3'?'تجربة اليوم: قانون نيوتن الثالث، الفعل ورد الفعل.':PORTAL.cfg.topic==='inertia'?'تجربة اليوم: القصور الذاتي، من حزام الأمان إلى أثر الكتلة.':pr?`تجربة اليوم: ${n(pr[0])} و${n(pr[1])}.`:'اختر بنفسك مادتين واكتشف ما يحدث.'} هذه محاولة مقيَّمة ${s.extra>0?'(سمح لك معلمك بمحاولة إضافية)':'واحدة'}، ودرجتك من ${s.mx}.</p></div>
       <section><h3>قبل أن تبدأ</h3><p>تُحسب درجتك من: السلامة، وتنفيذ الخطوات، ودقة ملاحظتك، وإجاباتك، والفصل العملي، والتطبيق. الخطأ لا يُنهي التجربة؛ ستحصل على تلميحات.</p></section>`
     :`<div class="lead"><h2>🔬 ${esc(s.title||'تجربة المختبر')}</h2><p>${closed?'انتهى موعد هذه التجربة.':`سلّمت هذه التجربة${s.score!=null?` ونتيجتك ${s.score} من 100`:''}.`} يمكنك التدريب بحرية${PORTAL.cfg.topic!=='mixtures'?'':' على أي مادتين'}، ولن تُحتسب درجة.</p></div>`;
   portalScreen(`${head}<div class="actions"><button class="btn amber" id="pgo">${PORTAL.graded?'ابدأ التجربة':'ابدأ التدريب الحر'}</button><a class="btn ghost" href="../">العودة لبوابة الطالب</a></div>`);
