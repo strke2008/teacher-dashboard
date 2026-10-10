@@ -2843,6 +2843,8 @@ const PLAN_SUM_TEST={
   need:p=>p.status!=='done'&&p.timing&&p.timing.expired,
   soon:p=>p.status!=='done'&&p.timing&&!p.timing.expired&&p.timing.left!=null&&p.timing.left<=7,
   improved:p=>p.verdict==='تحسّن',
+  declined:p=>p.verdict==='تراجع',
+  flat:p=>p.verdict==='بلا فرق يُعتد به',
   pending:p=>p.gain==null
 };
 function planSumFilter(k){ PLAN_SUM_F=(PLAN_SUM_F===k?'':k); renderPlans(false); }
@@ -2876,9 +2878,10 @@ async function renderPlans(force=false){
   const need=rows.filter(p=>p.status!=='done'&&p.timing&&p.timing.expired).length;
   const soon=rows.filter(p=>p.status!=='done'&&p.timing&&!p.timing.expired&&p.timing.left!=null&&p.timing.left<=7).length;
   const pending=rows.filter(p=>p.gain==null).length;
+  const declined=rows.filter(PLAN_SUM_TEST.declined).length, flat=rows.filter(PLAN_SUM_TEST.flat).length;
   // 🔎 الأرقام أزرار فرز: الضغط يعرض تلك الخطط فقط، والضغط ثانية (أو على «خطة») يعيد الكل
-  const F=PLAN_SUM_F, chip=(k,n,label,extra='')=>`<button type="button" class="${k==='need'?'need ':''}${F===k?'on':''}" ${n||k===''?'':'disabled'} aria-pressed="${F===k}" onclick="planSumFilter('${k}')"><b>${n}</b>${label}${extra}</button>`;
-  state.innerHTML=`<div class="plan-sum">${chip('',rows.length,'خطة')}${need||F==='need'?chip('need',need,'تحتاج قرارك'):''}${soon||F==='soon'?chip('soon',soon,'تنتهي خلال أسبوع'):''}${chip('improved',improved,'تحسّن',sure!==improved?` (${sure} مؤكد)`:'')}${pending||F==='pending'?chip('pending',pending,'لم تُقَس بعد'):''}</div>`;
+  const F=PLAN_SUM_F, chip=(k,n,label,extra='')=>`<button type="button" class="${k==='need'?'need ':k==='declined'?'down ':''}${F===k?'on':''}" ${n||k===''?'':'disabled'} aria-pressed="${F===k}" onclick="planSumFilter('${k}')"><b>${n}</b>${label}${extra}</button>`;
+  state.innerHTML=`<div class="plan-sum">${chip('',rows.length,'خطة')}${need||F==='need'?chip('need',need,'تحتاج قرارك'):''}${soon||F==='soon'?chip('soon',soon,'تنتهي خلال أسبوع'):''}${chip('improved',improved,'تحسّن',sure!==improved?` (${sure} مؤكد)`:'')}${declined||F==='declined'?chip('declined',declined,'تراجع'):''}${flat||F==='flat'?chip('flat',flat,'بلا فرق'):''}${pending||F==='pending'?chip('pending',pending,'لم تُقَس بعد'):''}</div>`;
   renderPlanGroups();
   renderPlanCandidates();
   const shown=F?rows.filter(PLAN_SUM_TEST[F]||(()=>true)):rows;

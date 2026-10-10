@@ -1868,3 +1868,4 @@ thead .madr-name{background:var(--ui-surface-2,#F7FAFD)}
 .plan-sum button.on{background:#1F2D45;color:#fff;border-color:#1F2D45}
 .plan-sum button.need:not(.on){border-color:#E9B949;background:rgba(233,185,73,.14)}
 .plan-sum button:disabled{opacity:.55;cursor:default}
+.plan-sum button.down:not(.on){border-color:#E4A3A3;background:rgba(214,69,91,.08);color:#A3283C}
