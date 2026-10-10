@@ -1510,6 +1510,7 @@ function resetGateToNameForm(){
   try{ ptReset(); }catch(e){}
   { const sr=document.getElementById('space-review'); if(sr) sr.innerHTML=''; const sa=document.getElementById('space-ann'); if(sa) sa.innerHTML=''; const sp=document.getElementById('space-plan'); if(sp) sp.innerHTML=''; }
   const gpin = $('gate-pin'); if(gpin) gpin.classList.add('hide');
+  { const gs=$('gate-store'); if(gs) gs.classList.add('hide'); }   // 🛒 المتجر لا يظهر قبل الدخول
 
   const storeBox = $('gate-store-box');
   const storeToggle = $('gate-store-toggle');
@@ -2082,6 +2083,7 @@ async function loadStudentSpace(nm, rows){
   if(!box) return;
   box.classList.remove('hide');
   { const mr=$('my-report-panel'); if(mr) mr.classList.remove('hide'); }   // 📄 «تقريري» بعد الدخول فقط
+  { const gs=$('gate-store'); if(gs) gs.classList.remove('hide'); }        // 🛒 المتجر بعد الدخول فقط
   $('space-greeting').textContent = `أهلاً ${nm} 👋`;
   try{ ptOnLogin(); }catch(e){}
   try{ annPortalLoad(); }catch(e){}

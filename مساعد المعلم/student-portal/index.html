@@ -19,7 +19,7 @@ try{var P=JSON.parse(localStorage.getItem('pt_last')||'null');if(P&&P.t){var R=d
 var C={galaxy:'#0D1331',spaceweek:'#0A1638',saudi:'#00653A',gold:'#7A5A00',diamond:'#1E3A6E'}[P.t];var M=document.querySelector('meta[name="theme-color"]');if(C&&M)M.content=C;
 if(P.t==='saudi'){var L=document.createElement('link');L.rel='preload';L.as='image';L.href='themes/saudi96.webp';document.head.appendChild(L);}}}catch(e){}</script>
 <link rel="stylesheet" href="app.css?v=3865b75f">
-<script src="js/01.js?v=8f477900" defer></script>
+<script src="js/01.js?v=b5861f92" defer></script>
 <script src="js/02.js?v=a96e57d9" defer></script>
 <script src="js/03.js?v=db197a94" defer></script>
 <script src="js/04.js?v=ec61937b" defer></script>
@@ -155,7 +155,7 @@ if(P.t==='saudi'){var L=document.createElement('link');L.rel='preload';L.as='ima
 
     <div id="gate-bal"></div>
 
-    <div id="gate-store" class="sheet" style="margin:.8rem 0">
+    <div id="gate-store" class="sheet hide" style="margin:.8rem 0">
       <div class="center">
         <h3>🛒 متجر النشاطات</h3>
         <p class="muted" id="gate-store-status" style="margin:.25rem 0 .7rem">
