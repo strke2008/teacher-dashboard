@@ -1861,3 +1861,10 @@ thead .madr-name{background:var(--ui-surface-2,#F7FAFD)}
 .ar-rec.escalated{grid-template-columns:1fr auto auto auto}
 .ar-plan-btn{white-space:nowrap}
 @media (max-width:640px){.ar-rec.escalated{grid-template-columns:1fr auto}.ar-rec.escalated .ar-plan-btn{grid-column:1/-1;justify-self:stretch}}
+/* 🔎 أرقام ملخص الخطط أزرار فرز */
+.plan-sum button{background:var(--ui-surface-2);border:1px solid var(--ui-border);border-radius:10px;padding:.35rem .65rem;font:inherit;font-size:.82rem;color:inherit;cursor:pointer;transition:background .15s,border-color .15s}
+.plan-sum button b{font-size:1rem;margin-inline-end:.2rem}
+.plan-sum button:hover:not(:disabled){border-color:var(--ui-ink,#1F2D45)}
+.plan-sum button.on{background:#1F2D45;color:#fff;border-color:#1F2D45}
+.plan-sum button.need:not(.on){border-color:#E9B949;background:rgba(233,185,73,.14)}
+.plan-sum button:disabled{opacity:.55;cursor:default}

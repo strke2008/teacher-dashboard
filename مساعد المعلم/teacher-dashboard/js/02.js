@@ -2838,6 +2838,14 @@ function planFromCandidate(sid,reason){
   showDiagnosis(sid,true);
   const rs=document.getElementById('pf-reason'); if(rs&&!rs.value) rs.value=reason||'';
 }
+let PLAN_SUM_F='';
+const PLAN_SUM_TEST={
+  need:p=>p.status!=='done'&&p.timing&&p.timing.expired,
+  soon:p=>p.status!=='done'&&p.timing&&!p.timing.expired&&p.timing.left!=null&&p.timing.left<=7,
+  improved:p=>p.verdict==='تحسّن',
+  pending:p=>p.gain==null
+};
+function planSumFilter(k){ PLAN_SUM_F=(PLAN_SUM_F===k?'':k); renderPlans(false); }
 function planFiltered(){
   const cls=document.getElementById('plan-class')?.value||'';
   const st=document.getElementById('plan-status')?.value;
@@ -2868,10 +2876,13 @@ async function renderPlans(force=false){
   const need=rows.filter(p=>p.status!=='done'&&p.timing&&p.timing.expired).length;
   const soon=rows.filter(p=>p.status!=='done'&&p.timing&&!p.timing.expired&&p.timing.left!=null&&p.timing.left<=7).length;
   const pending=rows.filter(p=>p.gain==null).length;
-  state.innerHTML=`<div class="plan-sum"><span><b>${rows.length}</b>خطة</span>${need?`<span class="need"><b>${need}</b>تحتاج قرارك</span>`:''}${soon?`<span><b>${soon}</b>تنتهي خلال أسبوع</span>`:''}<span><b>${improved}</b>تحسّن${sure!==improved?` (${sure} مؤكد)`:''}</span>${pending?`<span><b>${pending}</b>لم تُقَس بعد</span>`:''}</div>`;
+  // 🔎 الأرقام أزرار فرز: الضغط يعرض تلك الخطط فقط، والضغط ثانية (أو على «خطة») يعيد الكل
+  const F=PLAN_SUM_F, chip=(k,n,label,extra='')=>`<button type="button" class="${k==='need'?'need ':''}${F===k?'on':''}" ${n||k===''?'':'disabled'} aria-pressed="${F===k}" onclick="planSumFilter('${k}')"><b>${n}</b>${label}${extra}</button>`;
+  state.innerHTML=`<div class="plan-sum">${chip('',rows.length,'خطة')}${need||F==='need'?chip('need',need,'تحتاج قرارك'):''}${soon||F==='soon'?chip('soon',soon,'تنتهي خلال أسبوع'):''}${chip('improved',improved,'تحسّن',sure!==improved?` (${sure} مؤكد)`:'')}${pending||F==='pending'?chip('pending',pending,'لم تُقَس بعد'):''}</div>`;
   renderPlanGroups();
   renderPlanCandidates();
-  list.innerHTML=rows.map(planCard).join('')||'<div class="muted" style="padding:1.5rem;text-align:center">لا توجد خطط. ابدأ بـ«خطة جديدة» أو من قائمة المرشحين.</div>';
+  const shown=F?rows.filter(PLAN_SUM_TEST[F]||(()=>true)):rows;
+  list.innerHTML=(F&&!shown.length?'<div class="muted" style="padding:1.2rem;text-align:center">لا خطط في هذا الفرز.</div>':'')+(shown.map(planCard).join('')||(F?'':'<div class="muted" style="padding:1.5rem;text-align:center">لا توجد خطط. ابدأ بـ«خطة جديدة» أو من قائمة المرشحين.</div>'));
 }
 /* id: طباعة خطة واحدة فقط؛ بدونه تُطبع الخطط الظاهرة حسب الفلاتر */
 function printPlans(id){
