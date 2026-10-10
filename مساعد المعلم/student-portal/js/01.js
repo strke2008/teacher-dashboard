@@ -2065,7 +2065,7 @@ async function showDirectMessages(nm){
   if(serverDeleted){
     localDeleted.forEach(k=>{ if(!serverDeleted.has(k)) dismissNoticeServer(nm,k).catch(()=>{}); serverDeleted.add(k); });
   }
-  const directVisible=msgs.filter(m=>!deleted.has(`msg:${m.id}`) && m.type!=='weekly' && msgActive(m));
+  const directVisible=msgs.filter(m=>!deleted.has(`msg:${m.id}`) && m.type!=='weekly' && m.type!=='srep' && msgActive(m));   // التقريران مكانهما «تقريري»
   if(!directVisible.length){ box.classList.add('hide'); box.innerHTML=''; return; }
   const seen = new Set(seenMsgIds());
   const sorted = directVisible.slice().sort((a,b)=>msgTime(b)-msgTime(a));
@@ -2221,7 +2221,8 @@ async function loadStudentSpace(nm, rows){
         priority: MSG_RANK[m.priority]!==undefined ? m.priority : 'normal'
       });
     });
-    markMsgsSeen(msgs.filter(m=>m.type!=='weekly').map(m=>m.id));
+    // التقريران (الأسبوعي والفترة) لا يُعلَّمان «مقروءين» هنا: يبقى تنبيه «تقريري» حتى يفتحهما الطالب فعلًا
+    markMsgsSeen(msgs.filter(m=>m.type!=='weekly' && m.type!=='srep').map(m=>m.id));
   }
   notices.sort((a,b)=>(a.id&&b.id) ? msgOrder(a,b) : (a.id?-1:b.id?1:(MSG_RANK[a.priority]??2)-(MSG_RANK[b.priority]??2)));
   // الرسائل لا تُزاحَم: تُعرض كاملة، ثم تنبيهات الأنشطة بعدها
