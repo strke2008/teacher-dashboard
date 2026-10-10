@@ -7801,6 +7801,13 @@ async function pullResults(id, silent){
       }else if(!Array.isArray(cur.ans) && Array.isArray(row.ans)){
         cur.ans = row.ans; added++;
       }
+      // 📁 مراجعة المشروع (قبول/رفض) تتغيّر على الخادم دون تسليم جديد — نحدّثها حتى لا تبقى «بانتظار المراجعة»
+      if(h.kind==='files' && Number(row.at||0)===curAt){
+        const rs=String(row.reviewStatus||'pending').toLowerCase(), ra=Number(row.reviewedAt)||0;
+        if(liveReviewNewer(cur, row)){
+          cur.reviewStatus=rs; cur.reviewReason=row.reviewReason||''; cur.reviewedAt=ra; cur.resubmitUntil=Number(row.resubmitUntil)||0;
+        }
+      }
       return;
     }
 
@@ -11208,6 +11215,12 @@ function liveBuildLocalSubmission(hw, row){
   };
 }
 
+/* مراجعة الخادم أحدث من المحلية؟ (وقت مراجعة أحدث، أو الوقت نفسه بحالة مختلفة) */
+function liveReviewNewer(prev, row){
+  const pa=Number(prev&&prev.reviewedAt)||0, ra=Number(row&&row.reviewedAt)||0;
+  const ps=String(prev&&prev.reviewStatus||'pending').toLowerCase(), rs=String(row&&row.reviewStatus||'pending').toLowerCase();
+  return ra>pa || (ra===pa && rs!==ps);
+}
 function addLiveRowToLocal(hw, row){
   const name = String(row?.name || '').trim();
   const student = STUDENTS.find(
@@ -11233,6 +11246,13 @@ function addLiveRowToLocal(hw, row){
     files:Array.isArray(row?.files) ? row.files : [],
     at:serverAt
   };
+  // 📁 مراجعة المشروع (قبول/رفض) تأتي مع صف الخادم — بدونها يبقى المرفوض «بانتظار المراجعة»
+  if(hw.kind==='files'){
+    next.reviewStatus=String(row?.reviewStatus||'pending').toLowerCase();
+    next.reviewReason=row?.reviewReason||'';
+    next.reviewedAt=Number(row?.reviewedAt)||0;
+    next.resubmitUntil=Number(row?.resubmitUntil)||0;
+  }
 
   const previous = hw.subs[student.id];
 
@@ -11253,8 +11273,11 @@ function addLiveRowToLocal(hw, row){
     previous.correct !== next.correct ||
     previous.total !== next.total ||
     previous.pts !== next.pts ||
-    String(previous.d || '') !== String(next.d || '')
+    String(previous.d || '') !== String(next.d || '') ||
+    (hw.kind==='files' && liveReviewNewer(previous, next))
   )){
+    // لا نرجع مراجعةً أحدث إلى نسخة أقدم (الخادم قد يعيد النسخة السابقة لثوانٍ بعد القبول/الرفض)
+    if(hw.kind==='files' && !liveReviewNewer(previous, next)){ ['reviewStatus','reviewReason','reviewedAt','resubmitUntil'].forEach(k=>delete next[k]); }
     hw.subs[student.id] = {
       ...previous,
       ...next,
