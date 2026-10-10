@@ -1857,3 +1857,7 @@ thead .madr-name{background:var(--ui-surface-2,#F7FAFD)}
 .askc-b{display:flex;flex-wrap:wrap;gap:.35rem}
 .askc textarea{width:100%;box-sizing:border-box}
 
+/* ＋ خطة له — في صفوف «يحتاج تدخلك» */
+.ar-rec.escalated{grid-template-columns:1fr auto auto auto}
+.ar-plan-btn{white-space:nowrap}
+@media (max-width:640px){.ar-rec.escalated{grid-template-columns:1fr auto}.ar-rec.escalated .ar-plan-btn{grid-column:1/-1;justify-self:stretch}}

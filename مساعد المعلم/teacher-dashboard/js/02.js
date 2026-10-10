@@ -1145,12 +1145,34 @@ async function renderAutoRem(){
     return `<div class="ar-rec ${x.status}"><div class="ar-rec-t"><b>${planEsc(x.name)}</b><small>${planEsc(x.cls||'')}</small>
       <span>${x.kind==='exam'?'📝':'✏️'} ${planEsc(x.reason||x.srcTitle||'')}${x.fallback?' · بلا أسئلة بديلة':''}</span></div>
       <div class="ar-rec-m"><span>قبل ${x.before!=null?x.before+'%':'—'}</span>${tries?`<span>${tries}</span>`:''}</div>
-      <span class="ar-pill ${x.status==='mastered'?'ok':x.status==='escalated'?'bad':''}">${s[0]} ${s[1]}</span></div>`};
+      <span class="ar-pill ${x.status==='mastered'?'ok':x.status==='escalated'?'bad':''}">${s[0]} ${s[1]}</span>${x.status==='escalated'?remPlanBtn(x):''}</div>`};
   const escL=rows.filter(x=>x.status==='escalated');
   const e=document.getElementById('auto-rem-esc');
-  if(e)e.innerHTML=escL.length?`<div class="ar-escal"><div class="ar-escal-h">🔴 ${escL.length} ${escL.length===1?'طالب يحتاج':'طلاب يحتاجون'} تدخلك — أخفق في المهمة العلاجية مرتين. أنشئ له خطة من «＋ خطة جديدة» أو تحدّث معه.</div>${escL.map(line).join('')}</div>`:'';
+  if(e)e.innerHTML=escL.length?`<div class="ar-escal"><div class="ar-escal-h">🔴 ${escL.length} ${escL.length===1?'طالب يحتاج':'طلاب يحتاجون'} تدخلك — أخفق في المهمة العلاجية مرتين. اضغط «＋ خطة له» فتُبنى خطته من إخفاقه، أو تحدّث معه.</div>${escL.map(line).join('')}</div>`:'';
   const body=document.getElementById('auto-rem-body');
   if(body)body.innerHTML=rows.length?rows.filter(x=>x.status!=='escalated').slice(0,30).map(line).join('')||'<div class="ar-empty">لا مهام أخرى.</div>':'<div class="ar-empty">لم تُفتح مهام علاجية بعد. ستظهر هنا تلقائيًا عند أول إخفاق.</div>';
+}
+
+/* ＋ خطة له: من «يحتاج تدخلك» مباشرة — يفتح نموذج الخطة على الطالب، بتشخيصه (المهارات والإجراءات)
+   وسبب الإخفاق في المهمة العلاجية. إن كانت له خطة قائمة نفتحها بدل إنشاء خطة مكررة. */
+function remActivePlan(sid){ return ((PLAN_DATA&&PLAN_DATA.plans)||[]).find(p=>p&&p.status!=='done'&&(String(p.studentId)===String(sid)||(p.group&&(p.members||[]).some(m=>String(m.studentId)===String(sid))))); }
+function remPlanBtn(x){
+  const pl=remActivePlan(x.sid);
+  return pl?`<button type="button" class="btn ghost sm ar-plan-btn" onclick="openPlanForm('${planEsc(pl.id)}')" title="له خطة قائمة — افتحها وحدّثها">📋 فتح خطته</button>`
+           :`<button type="button" class="btn tick sm ar-plan-btn" onclick="remPlanFor('${planEsc(x.id)}')" title="خطة علاجية حسب إخفاقه">＋ خطة له</button>`;
+}
+function remPlanFor(remId){
+  const x=(REM_ROWS||[]).find(r=>String(r.id)===String(remId)); if(!x) return;
+  if(!(STUDENTS||[]).some(s=>String(s.id)===String(x.sid))){ toast('الطالب غير موجود في الكشف الحالي','bad'); return; }
+  const pl=remActivePlan(x.sid); if(pl){ openPlanForm(pl.id); toast('له خطة قائمة — حدّثها بدل إنشاء خطة جديدة'); return; }
+  openPlanForm('');
+  const sel=document.getElementById('pf-student'); if(!sel) return;
+  sel.value=String(x.sid); showDiagnosis(sel.value,true);
+  const tries=(x.attempts||[]).map((a,i)=>a.rate!=null?`م${i+1} ${a.rate}%`:`م${i+1} لم يحل`).join(' · ');
+  const why=`أخفق مرتين في المهمة العلاجية لـ«${x.srcTitle||x.reason||'النشاط'}» (قبل ${x.before!=null?x.before+'%':'—'}${tries?' · '+tries:''})`;
+  const rs=document.getElementById('pf-reason'); if(rs) rs.value=why+(rs.value?' — '+rs.value:'');
+  const act=`جلسة فردية قصيرة لمراجعة أخطائه في «${x.srcTitle||'النشاط'}» قبل أي مهمة جديدة`;
+  window._pfActions=[act,...(window._pfActions||[]).filter(a=>a!==act)]; renderPlanActions();
 }
 
 /* ═══ 🩹 ربط الخطة العلاجية بمهمة للطالب ═══
