@@ -247,7 +247,9 @@ async function srepOpen(){
     <textarea class="inp" id="srep-note" maxlength="400" rows="2" placeholder="مثال: أداء جيد، ركّز على مراجعة وحدة الحركة">${esc(SREPD.note)}</textarea>
     <div class="srepd-list">${list.map(s=>`<div class="srepd-row"><span class="srepd-n">${esc(s.name)}<small>${esc(s.cls||'')}</small></span>
         <span class="srepd-st ${SREPD.sent[s.id]?'on':''}">${SREPD.sent[s.id]?'أُرسل '+esc(fmtDate(SREPD.sent[s.id])):'لم يُرسل'}</span>
-        <button class="btn ghost sm" type="button" onclick="srepPreview('${esc(s.id)}')">👁️ معاينة</button></div>`).join('')||'<div class="feature-empty">لا طلاب في هذا الفصل.</div>'}</div>
+        <span class="srepd-acts"><button class="btn ghost sm" type="button" onclick="srepPreview('${esc(s.id)}')">👁️ معاينة</button>
+        <button class="btn ${SREPD.sent[s.id]?'ghost':'tick'} sm" type="button" onclick="srepSendOne('${esc(s.id)}')" title="${SREPD.sent[s.id]?'أعد إرسال تقريره بالدرجات الحالية':'أرسل تقريره وحده'}">${SREPD.sent[s.id]?'↻ تحديث':'📤 إرسال'}</button>
+        ${SREPD.sent[s.id]?`<button class="btn ghost sm" type="button" onclick="srepWithdrawOne('${esc(s.id)}')" title="اسحب تقريره من بوابته">سحب</button>`:''}</span></div>`).join('')||'<div class="feature-empty">لا طلاب في هذا الفصل.</div>'}</div>
     <div class="modal-foot">
       <button class="btn tick" type="button" onclick="srepSend()" ${list.length?'':'disabled'}>📤 إرسال لـ ${list.length} طالب</button>
       ${sentN?`<button class="btn ghost" type="button" onclick="srepWithdraw()">سحب المُرسل (${sentN})</button>`:''}
@@ -283,6 +285,26 @@ async function srepSend(){
     if(j.sent) srepKeep(j.sent); else { const now=Date.now(), st={...SREPD.sent}; list.forEach(s=>{ st[s.id]=now; }); srepKeep(st); }
     toast(`📤 أُرسل ${j.published} تقرير`,'good'); srepOpen();
   }catch(e){ toast(e.message==='no_students'?'الطلاب غير موجودين على الخادم — زامن الطلاب أولًا':'تعذّر الإرسال','bad'); }
+}
+/* 📤 طالب واحد: إرسال تقريره أو تحديثه أو سحبه دون بقية الفصل */
+async function srepSendOne(sid){
+  SREPD.note=(document.getElementById('srep-note')||{}).value||SREPD.note||'';
+  const s=srepRoster().find(x=>String(x.id)===String(sid)); if(!s) return;
+  const upd=!!SREPD.sent[s.id];
+  if(!(await askConfirm(`${upd?'يُستبدل تقرير':'يُرسل تقرير'} ${s.name} في بوابته بالدرجات الحالية${SREPD.note?'، مع ملاحظة الدفعة':''}.`,{title:upd?'تحديث تقريره؟':'إرسال تقريره؟',yes:upd?'حدّث':'أرسل',no:'إلغاء'}))) return;
+  try{
+    const j=await healthApi('/student-report/publish',{semester:SREPD.sem,period:SREPD.per,sids:[String(s.id)],note:SREPD.note,acts:srepActsFor([s])});
+    if(j.sent) srepKeep(j.sent); else { const st={...SREPD.sent}; st[s.id]=Date.now(); srepKeep(st); }
+    toast(`📤 ${upd?'حُدّث':'أُرسل'} تقرير ${s.name}`,'good'); srepOpen();
+  }catch(e){ toast(e.message==='no_students'?'الطالب غير موجود على الخادم — زامن الطلاب أولًا':'تعذّر الإرسال','bad'); }
+}
+async function srepWithdrawOne(sid){
+  const s=srepRoster().find(x=>String(x.id)===String(sid)); if(!s) return;
+  if(!(await askConfirm(`يُحذف تقرير ${s.name} من بوابته لهذه الفترة.`,{title:'سحب تقريره؟',yes:'اسحب',no:'إلغاء',danger:true}))) return;
+  try{ const j=await healthApi('/student-report/unpublish',{semester:SREPD.sem,period:SREPD.per,sids:[String(s.id)]});
+    if(j.sent) srepKeep(j.sent); else { const st={...SREPD.sent}; delete st[s.id]; srepKeep(st); }
+    toast(`سُحب تقرير ${s.name}`,'good'); srepOpen(); }
+  catch(_){ toast('تعذّر السحب','bad'); }
 }
 async function srepWithdraw(){
   const ids=srepRoster().filter(s=>SREPD.sent[s.id]).map(s=>String(s.id));
