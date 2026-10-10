@@ -8,9 +8,20 @@ function nsList(){
 /* ═══ 💬 رسائل الطلاب: سؤال أو مشكلة من «راسل معلمك» في البوابة، والرد يصل الطالب في تنبيهاته ═══ */
 let ASKS=null, ASK_CATS={activity:'سؤال عن نشاط',tech:'مشكلة في البوابة',grade:'درجة أو تصحيح',lesson:'استفسار عن الدرس',other:'أخرى'};
 const ASK_QUICK=['تم حل المشكلة — جرّب الآن ✅','سأشرحها لك في الحصة القادمة إن شاء الله','راجع شرح الدرس في الكتاب ثم أعد المحاولة','فتحت لك محاولة إضافية في النشاط','راجعت درجتك وهي صحيحة','أحسنت على سؤالك 👏 — '];
+const ASK_PUSHED=new Map();
+/* ⚡ سؤال طالب وصل داخل الإشعار: يظهر في «رسائل الطلاب» فورًا */
+function askApplyPush(item){
+  if(!item||!item.id) return;
+  ASK_PUSHED.set(item.id,{at:Date.now(),item});
+  if(!Array.isArray(ASKS)) ASKS=[];
+  if(!ASKS.some(x=>x.id===item.id)) ASKS.unshift(item);
+  try{ thDraw(); }catch(e){} if(document.getElementById('ask-inbox')) try{ asksOpen(true); }catch(e){}
+}
 async function asksLoad(){
   try{ const r=await fetch(getApi().replace(/\/+$/,'')+'/asks?t='+encodeURIComponent(getTok()),{cache:'no-store'}); const j=await r.json();
-    if(j&&j.ok){ ASKS=j.rows||[]; if(j.cats) ASK_CATS=j.cats; try{ thDraw(); }catch(e){} if(document.getElementById('ask-inbox')) asksOpen(true); } }catch(e){}
+    if(j&&j.ok){ ASKS=j.rows||[]; if(j.cats) ASK_CATS=j.cats;
+      // سؤال وصل بالإشعار قبل أن يظهر في رد الخادم (نسخة قديمة لدقيقة): يبقى ظاهرًا دقيقتين
+      ASK_PUSHED.forEach((v,id)=>{ if(Date.now()-v.at>120000||ASKS.some(x=>x.id===id)) ASK_PUSHED.delete(id); else ASKS.unshift(v.item); }); try{ thDraw(); }catch(e){} if(document.getElementById('ask-inbox')) asksOpen(true); } }catch(e){}
 }
 function askAgo(t){ const m=Math.round((Date.now()-t)/60000); return m<1?'الآن':m<60?`قبل ${m} د`:m<1440?`قبل ${Math.round(m/60)} س`:`قبل ${Math.round(m/1440)} يوم`; }
 function asksOpen(keep){

@@ -211,7 +211,10 @@ if('serviceWorker' in navigator){
   navigator.serviceWorker.addEventListener('message', ev=>{
     if(ev.data && ev.data.type==='push-open') openSubmissionFromPush(ev.data.data);
     // 🔔 إشعار تسليم وصل الآن واللوحة مفتوحة ⇒ أظهره فورًا
-    if(ev.data && ev.data.type==='push-sub' && ev.data.data && ev.data.data.hw){ try{ liveCheckOne(String(ev.data.data.hw)); }catch(e){} }
+    if(ev.data && ev.data.type==='push-sub' && ev.data.data){ const d=ev.data.data;
+      // ⚡ البيانات في الإشعار نفسه تُعرض فورًا؛ ثم مزامنة للتأكيد (قد يعيد الخادم نسخة قديمة لدقيقة — لا تمحو ما عُرض)
+      if(d.type==='ask'){ try{ askApplyPush(d.item); }catch(e){} }
+      else if(d.hw){ try{ liveApplyPushRow(d); }catch(e){} try{ liveCheckOne(String(d.hw)); }catch(e){} } }
     // ⚡ اللوحة تُفتح من النسخة المحفوظة على الجهاز؛ إن وُجد إصدار أحدث نعرض زر تحديث بدل إعادة تحميل مفاجئة
     if(ev.data && ev.data.type==='dash-update' && !document.getElementById('dash-upd')){
       const b=document.createElement('div'); b.id='dash-upd';

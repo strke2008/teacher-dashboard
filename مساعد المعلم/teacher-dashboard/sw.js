@@ -84,7 +84,7 @@ self.addEventListener('push', event => {
   event.waitUntil((async () => {
     await self.registration.showNotification(title, options);
     // ⚡ اللوحة مفتوحة؟ نخبرها فورًا لتجلب التسليم بدل انتظار الفحص الدوري
-    if (msg.data && msg.data.type === 'submission') {
+    if (msg.data && (msg.data.type === 'submission' || msg.data.type === 'ask')) {   // التسليم والسؤال يصلان ببياناتهما
       const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
       for (const c of all) c.postMessage({ type: 'push-sub', data: msg.data });
     }

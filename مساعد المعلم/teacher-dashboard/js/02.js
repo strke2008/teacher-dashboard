@@ -11361,6 +11361,20 @@ function liveSubmissionId(hw, row){
   return `${hw.id}|student:${name}|time:${time}|score:${correct}/${total}`;
 }
 
+/* ⚡ صف تسليم وصل داخل الإشعار: يُضاف للوحة فورًا بالمنطق نفسه للفحص الدوري (المحاولة الإضافية تُخصم مرة واحدة) */
+function liveApplyPushRow(d){
+  const row=d&&d.row; if(!row) return false;
+  const h=HW.find(x=>x&&(String(x.sid)===String(d.hw)||String(x.id)===String(d.hw))); if(!h) return false;
+  const st=(STUDENTS||[]).find(s=>String(s.id)===String(row.sid))||(STUDENTS||[]).find(s=>String(s.name||'').trim()===String(row.name||'').trim()); if(!st) return false;
+  const r={...row,name:st.name}, key=liveRowKey(h,r), ex=h.subs&&h.subs[st.id];
+  const isNew=!liveKnownSubs.has(key)&&!(ex&&Number(ex.at)>=Number(r.at));
+  if(isNew&&h.extraAttempts&&Number(h.extraAttempts[st.id]||0)>0){ h.extraAttempts[st.id]=Math.max(0,Number(h.extraAttempts[st.id])-1); if(h.extraAttempts[st.id]===0) delete h.extraAttempts[st.id]; }
+  liveKnownSubs.add(key); liveSaveKnown();
+  if(!addLiveRowToLocal(h,r)) return false;
+  save(K.hw,HW);
+  try{ renderDashboard(); }catch(e){} try{ renderHw(); }catch(e){} try{ renderStudentsCenter(); }catch(e){}
+  return true;
+}
 function liveRowKey(hw, row){
   return liveSubmissionId(hw, row);
 }

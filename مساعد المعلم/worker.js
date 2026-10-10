@@ -3283,6 +3283,11 @@ function notifyTeacherOfSubmission(env, ctx, info) {
       body: [line1, line2].filter(Boolean).join('\n'),
       tag: `sub-${eventId.slice(0, 16)}`,
       data: { type: 'submission', hw: hwId, sid, at: record.at, kind,
+              // ⚡ صف التسليم نفسه: تعرضه اللوحة فور وصول الإشعار، بدل جلبه من الخادم (قد يعيد نسخة قديمة لدقيقة)
+              ...(Number(record.total) > 0 || Array.isArray(record.files) ? { row: { sid, name, at: record.at,
+                correct: Number(record.correct) || 0, total: Math.max(1, Number(record.total) || 1), d: String(record.d || '').slice(0, 200),
+                files: (Array.isArray(record.files) ? record.files : []).slice(0, 6).map(f => ({ name: String(f && f.name || '').slice(0, 80), key: String(f && f.key || '').slice(0, 160), size: Number(f && f.size) || 0, type: String(f && f.type || '').slice(0, 60) })),
+                ...(kind === 'files' ? { reviewStatus: 'pending', fileSubmission: true } : {}) } } : {}),
               url: `./?open=submission&hw=${encodeURIComponent(hwId)}&sid=${encodeURIComponent(sid)}&at=${record.at}` }
     }, eventId, subs);
   })().catch(() => {});
@@ -5000,7 +5005,7 @@ export default {
         if (!pushConfigured(env)) return; const subs = await pushListSubs(env); if (!subs.length) return;
         const eventId = (await sha256Hex(`ask|${q.id}`)).slice(0, 32); if (!(await pushClaimEvent(env, eventId))) return;
         await pushDeliver(env, { title: `💬 ${q.name}: ${ASK.cats[cat]}`, body: [q.cls, hwTitle ? `«${hwTitle}»` : '', text.slice(0, 120)].filter(Boolean).join(' • '),
-          tag: `ask-${q.id}`, data: { type: 'ask', id: q.id, url: './?open=asks' } }, eventId, subs);
+          tag: `ask-${q.id}`, data: { type: 'ask', id: q.id, url: './?open=asks', item: { ...q, text: q.text.slice(0, 500) } } }, eventId, subs);   // ⚡ السؤال نفسه يصل مع الإشعار
       })().catch(() => {});
       if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(task);
       await bumpRev(env);   // ⚡ تعرف اللوحة بالتغيير فورًا
@@ -5955,7 +5960,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
 
       // 🔔 بعد نجاح الحفظ فقط: الدرجة من التصحيح على الخادم، والاسم والنشاط من السجلات
       if (!activity.personalRemedial) notifyTeacherOfSubmission(env, ctx, { hwId: hw, activity, st,
-        record: { at: submittedAt, correct, total, name: st.name }, resubmitted: wasResubmission });
+        record: { at: submittedAt, correct, total, name: st.name, d: String(d || '').slice(0, 200) }, resubmitted: wasResubmission });
 
       await bumpRev(env);   // ⚡ تعرف اللوحة بالتسليم فورًا
       return json({ ok: true, pts: prev + gain, gain, mult, remedial });
