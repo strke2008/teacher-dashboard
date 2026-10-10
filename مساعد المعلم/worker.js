@@ -4492,7 +4492,7 @@ export default {
           data: { type: 'report', semester, period, url: './?open=report&tab=period' } });
         if (fresh.size) notifyStudents(env, ctx, fresh, msg(false), (await sha256Hex(`srep|${semester}|${period}|${now}|new`)).slice(0, 32));
         if (updated.size) notifyStudents(env, ctx, updated, msg(true), (await sha256Hex(`srep|${semester}|${period}|${now}|upd`)).slice(0, 32));
-        return json({ ok: true, published: targets.length });
+        return json({ ok: true, published: targets.length, sent: status });   // الحالة الجديدة مباشرة: قراءتها بعد الكتابة قد تعيد نسخة قديمة لدقيقة
       }
       if (url.pathname === '/student-report/unpublish') {
         const status = await readJ(statusKey, {});
@@ -4504,7 +4504,7 @@ export default {
           delete status[sid];
         }
         await env.HW.put(statusKey, JSON.stringify(status));
-        return json({ ok: true, removed: ids.length });
+        return json({ ok: true, removed: ids.length, sent: status });
       }
       return json({ ok: false, error: 'not found' }, 404);
     }

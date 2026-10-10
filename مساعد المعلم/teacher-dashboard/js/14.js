@@ -228,12 +228,16 @@ function srpPrint(r){
 }
 
 /* 📤 تقارير الطلاب — من الكشف الشامل: معاينة، إرسال لبوابة الطالب، سحب */
-const SREPD={ sem:1, per:1, cls:'', sent:{}, note:'' };
+const SREPD={ sem:1, per:1, cls:'', sent:{}, note:'', fresh:null };
+/* حالة الإرسال بعد الإرسال/السحب مباشرة: الخادم قد يعيد النسخة السابقة لدقيقة تقريبًا، فنعتمد آخر حالة أعادها هو نفسه */
+function srepKeep(sent){ SREPD.sent=sent||{}; SREPD.fresh={ key:`${SREPD.sem}:${SREPD.per}`, at:Date.now(), sent:SREPD.sent }; }
 function srepSel(){ SREPD.sem=Number((document.getElementById('comp-semester')||{}).value)===2?2:1; SREPD.per=Number((document.getElementById('comp-period')||{}).value)===2?2:1; SREPD.cls=(document.getElementById('comp-class')||{}).value||''; }
 function srepRoster(){ return STUDENTS.filter(s=>!SREPD.cls||String(s.cls||'')===SREPD.cls).sort((a,b)=>String(a.name).localeCompare(String(b.name),'ar')); }
 async function srepOpen(){
   srepSel();
-  try{ SREPD.sent=(await healthApi('/student-report/status',{semester:SREPD.sem,period:SREPD.per})).sent||{}; }
+  const fr=SREPD.fresh, useFresh=fr&&fr.key===`${SREPD.sem}:${SREPD.per}`&&Date.now()-fr.at<90000;
+  if(useFresh) SREPD.sent=fr.sent;
+  else try{ SREPD.sent=(await healthApi('/student-report/status',{semester:SREPD.sem,period:SREPD.per})).sent||{}; }
   catch(e){ toast(e.status===404?'انشر آخر نسخة من الخادم لتفعيل التقارير':'تعذّر تحميل حالة التقارير','bad'); return; }
   const list=srepRoster(), sentN=list.filter(s=>SREPD.sent[s.id]).length;
   const lbl=`${SREPD.sem===2?'الفصل الدراسي الثاني':'الفصل الدراسي الأول'} — ${SREPD.per===2?'الفترة الثانية':'الفترة الأولى'}`;
@@ -276,13 +280,16 @@ async function srepSend(){
   if(!(await askConfirm(`يُرسل تقرير الفترة إلى بوابة ${list.length} طالب${list.some(s=>SREPD.sent[s.id])?'، ويستبدل التقارير المرسلة سابقًا لهذه الفترة':''}. يراه كل طالب برمزه فقط.`,{title:'إرسال التقارير؟',yes:'أرسل',no:'إلغاء'}))) return;
   try{
     const j=await healthApi('/student-report/publish',{semester:SREPD.sem,period:SREPD.per,sids:list.map(s=>String(s.id)),note:SREPD.note,acts:srepActsFor(list)});
+    if(j.sent) srepKeep(j.sent); else { const now=Date.now(), st={...SREPD.sent}; list.forEach(s=>{ st[s.id]=now; }); srepKeep(st); }
     toast(`📤 أُرسل ${j.published} تقرير`,'good'); srepOpen();
   }catch(e){ toast(e.message==='no_students'?'الطلاب غير موجودين على الخادم — زامن الطلاب أولًا':'تعذّر الإرسال','bad'); }
 }
 async function srepWithdraw(){
   const ids=srepRoster().filter(s=>SREPD.sent[s.id]).map(s=>String(s.id));
   if(!(await askConfirm(`تُحذف ${ids.length} تقارير من بوابة الطلاب لهذه الفترة.`,{title:'سحب التقارير؟',yes:'اسحب',no:'إلغاء',danger:true}))) return;
-  try{ await healthApi('/student-report/unpublish',{semester:SREPD.sem,period:SREPD.per,sids:ids}); toast('سُحبت التقارير','good'); srepOpen(); }
+  try{ const j=await healthApi('/student-report/unpublish',{semester:SREPD.sem,period:SREPD.per,sids:ids});
+    if(j.sent) srepKeep(j.sent); else { const st={...SREPD.sent}; ids.forEach(id=>{ delete st[id]; }); srepKeep(st); }
+    toast(`سُحبت ${ids.length} تقارير من بوابة الطلاب`,'good'); srepOpen(); }
   catch(_){ toast('تعذّر السحب','bad'); }
 }
 
