@@ -2084,6 +2084,7 @@ async function loadStudentSpace(nm, rows){
   box.classList.remove('hide');
   { const mr=$('my-report-panel'); if(mr) mr.classList.remove('hide'); }   // 📄 «تقريري» بعد الدخول فقط
   { const gs=$('gate-store'); if(gs) gs.classList.remove('hide'); }        // 🛒 المتجر بعد الدخول فقط
+  { const aa=$('all-activities-panel'); if(aa) aa.classList.remove('hide'); }   // 📚 «جميع أنشطتي» بعد الدخول فقط
   $('space-greeting').textContent = `أهلاً ${nm} 👋`;
   try{ ptOnLogin(); }catch(e){}
   try{ annPortalLoad(); }catch(e){}
