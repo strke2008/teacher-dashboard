@@ -256,6 +256,8 @@ th{font-family:var(--display);font-weight:600;background:var(--bench)}
 /* 📱 المرشد على الجوال (تجارب الفيزياء): شريط ثابت أسفل الشاشة يبقى أمام الطالب أينما مرّر،
    ويتمدد ويومض عند كل توجيه جديد؛ والتنبيهات تظهر فوقه مباشرة */
 .gtog{display:none}
+/* 📱 منع التكبير التلقائي في الآيفون عند الكتابة: سفاري يكبّر الشاشة إن كان خط الخانة أصغر من 16px */
+@media (hover:none) and (pointer:coarse),(max-width:760px){input,select,textarea,.frin{font-size:16px!important}}
 @media (max-width:760px){
   body.has-gdock{padding-bottom:calc(var(--gdock,96px) + 26px)}
   .bench:not(.stick)>.guide{position:fixed;inset-inline:8px;bottom:calc(8px + env(safe-area-inset-bottom,0px));z-index:40;max-height:44vh;overflow:auto;
