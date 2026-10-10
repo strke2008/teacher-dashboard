@@ -1929,3 +1929,8 @@ thead .madr-name{background:var(--ui-surface-2,#F7FAFD)}
 .drl .drl-o i{font-style:normal;display:inline-grid;place-items:center;width:20px;height:20px;border:1.4px solid #1F2D45;border-radius:50%;font-size:.72rem;font-weight:800;margin-inline-end:.4rem}
 .drl .drl-tf{display:flex;gap:2.5rem;margin:.35rem 2rem 0 0;font-size:.9rem;font-weight:600}
 .drl .drl-f{margin:.45rem 2rem 0 0;font-size:.9rem;color:#5B6B7F}
+/* 📦 عدّاد إرسال تقارير الطلاب */
+.srepd-prog{display:grid;gap:.5rem;justify-items:center;padding:1rem .2rem .4rem;text-align:center}
+.srepd-bar{width:100%;height:12px;border-radius:99px;background:var(--ui-surface,#EEF3F8);border:1px solid var(--ui-border,#D5E0EC);overflow:hidden}
+.srepd-bar i{display:block;height:100%;background:var(--tick,#1E9E62);border-radius:inherit;transition:width .3s}
+.srepd-cnt{font-size:1.6rem;font-variant-numeric:tabular-nums}.srepd-prog small{color:var(--ink-soft)}

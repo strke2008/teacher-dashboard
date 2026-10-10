@@ -4436,6 +4436,16 @@ export default {
       const semester = Number(b.semester) === 2 ? 2 : 1, period = Number(b.period) === 2 ? 2 : 1;
       const statusKey = `srep:status:${semester}:${period}`;
       const readJ = async (k, d) => { try { return JSON.parse(await env.HW.get(k) || 'null') ?? d; } catch { return d; } };
+      // 📦 الإرسال على دفعات: اللوحة تمرر آخر حالة أعادها الخادم (base)، لأن قراءة المفتاح بعد كتابته قد تعيد نسخة قديمة لدقيقة فتمحو الدفعة السابقة
+      const readStatus = async () => {
+        const base = b.base;
+        if (base && typeof base === 'object' && !Array.isArray(base)) {
+          const out = {};
+          for (const [k, v] of Object.entries(base).slice(0, 3000)) { const n = Number(v); if (n > 0) out[String(k).slice(0, 80)] = n; }
+          return out;
+        }
+        return readJ(statusKey, {});
+      };
 
       if (url.pathname === '/student-report/mine') {
         const auth = await requireStudentSession(env, b);
@@ -4462,8 +4472,8 @@ export default {
         const cls = String(b.cls || '');
         const targets = grades.students.filter(g => (!want || want.has(g.id)) && (!cls || g.cls === cls));
         if (!targets.length) return json({ ok: false, error: 'no_students' }, 400);
-        if (targets.length > 400) return json({ ok: false, error: 'too_many' }, 400);
-        const status = await readJ(statusKey, {});
+        if (targets.length > 60) return json({ ok: false, error: 'too_many' }, 400);   // ~8 عمليات تخزين لكل طالب؛ حد Cloudflare ألف عملية للطلب الواحد
+        const status = await readStatus();
         const now = Date.now();
         const fresh = new Set(), updated = new Set();                       // 🔔 لإشعار الطلاب بعد الحفظ
         for (const g of targets) {
@@ -4500,8 +4510,9 @@ export default {
         return json({ ok: true, published: targets.length, sent: status });   // الحالة الجديدة مباشرة: قراءتها بعد الكتابة قد تعيد نسخة قديمة لدقيقة
       }
       if (url.pathname === '/student-report/unpublish') {
-        const status = await readJ(statusKey, {});
+        const status = await readStatus();
         const ids = b.all === true ? Object.keys(status) : (Array.isArray(b.sids) ? b.sids.map(String) : []);
+        if (ids.length > 300) return json({ ok: false, error: 'too_many' }, 400);           // 3 عمليات لكل طالب
         for (const sid of ids) {
           await env.HW.delete(`srep:${semester}:${period}:${sid}`);
           const idx = (await readJ(`srep:idx:${sid}`, [])).filter(x => !(x.semester === semester && x.period === period));

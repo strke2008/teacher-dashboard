@@ -276,15 +276,40 @@ async function srepPreview(sid){
         <button class="btn tick sm" type="button" onclick="srpPrint(window.__srepPreview)">🖨️ طباعة</button></div>${srxHTML(j.report)}`);
   }catch(_){ toast('تعذّرت المعاينة','bad'); }
 }
+/* 📦 الإرسال/السحب على دفعات صغيرة مع عدّاد حي: الطلب الواحد لكل الفصل يتجاوز حد عمليات Cloudflare
+   فتسقط رسائل البوابة لآخر الطلاب، ولا يظهر للمعلم شيء حتى ينتهي. كل دفعة تحمل آخر حالة أعادها الخادم */
+const SREP_CHUNK=10;
+function srepProg(kind,done,total,okN){
+  const pct=total?Math.round(done/total*100):0;
+  openModal(`<h2>${kind==='pub'?'📤 جارٍ إرسال التقارير':'جارٍ سحب التقارير'}</h2>
+    <div class="srepd-prog"><div class="srepd-bar"><i style="width:${pct}%"></i></div>
+    <b class="srepd-cnt">${okN} / ${total}</b><small>${kind==='pub'?'وصل لبوابة':'سُحب من بوابة'} ${okN} طالب — لا تغلق الصفحة حتى ينتهي</small></div>`);
+}
+async function srepBatch(kind,ids,extra){
+  let sent={...SREPD.sent}, ok=0, fail=null;
+  srepProg(kind,0,ids.length,0);
+  for(let i=0;i<ids.length;i+=SREP_CHUNK){
+    const part=ids.slice(i,i+SREP_CHUNK);
+    try{
+      const j=await healthApi(kind==='pub'?'/student-report/publish':'/student-report/unpublish',
+        {semester:SREPD.sem,period:SREPD.per,sids:part,base:sent,...(extra?extra(part):{})});
+      if(j.sent) sent=j.sent; else { const now=Date.now(); part.forEach(id=>{ if(kind==='pub') sent[id]=now; else delete sent[id]; }); }
+      ok+=part.length;
+    }catch(e){ fail=e; break; }
+    srepKeep(sent); srepProg(kind,Math.min(i+SREP_CHUNK,ids.length),ids.length,ok);
+  }
+  srepKeep(sent);
+  return {ok,fail};
+}
 async function srepSend(){
   SREPD.note=(document.getElementById('srep-note')||{}).value||'';
   const list=srepRoster();
   if(!(await askConfirm(`يُرسل تقرير الفترة إلى بوابة ${list.length} طالب${list.some(s=>SREPD.sent[s.id])?'، ويستبدل التقارير المرسلة سابقًا لهذه الفترة':''}. يراه كل طالب برمزه فقط.`,{title:'إرسال التقارير؟',yes:'أرسل',no:'إلغاء'}))) return;
-  try{
-    const j=await healthApi('/student-report/publish',{semester:SREPD.sem,period:SREPD.per,sids:list.map(s=>String(s.id)),note:SREPD.note,acts:srepActsFor(list)});
-    if(j.sent) srepKeep(j.sent); else { const now=Date.now(), st={...SREPD.sent}; list.forEach(s=>{ st[s.id]=now; }); srepKeep(st); }
-    toast(`📤 أُرسل ${j.published} تقرير`,'good'); srepOpen();
-  }catch(e){ toast(e.message==='no_students'?'الطلاب غير موجودين على الخادم — زامن الطلاب أولًا':'تعذّر الإرسال','bad'); }
+  const byId=new Map(list.map(s=>[String(s.id),s]));
+  const {ok,fail}=await srepBatch('pub',list.map(s=>String(s.id)),part=>({note:SREPD.note,acts:srepActsFor(part.map(id=>byId.get(id)))}));
+  if(fail) toast(fail.message==='no_students'?'الطلاب غير موجودين على الخادم — زامن الطلاب أولًا':`أُرسل ${ok} من ${list.length} — توقف الإرسال، اضغط «إرسال» للمتابعة`,'bad');
+  else toast(`📤 وصل التقرير لبوابة ${ok} طالب`,'good');
+  srepOpen();
 }
 /* 📤 طالب واحد: إرسال تقريره أو تحديثه أو سحبه دون بقية الفصل */
 async function srepSendOne(sid){
@@ -293,7 +318,7 @@ async function srepSendOne(sid){
   const upd=!!SREPD.sent[s.id];
   if(!(await askConfirm(`${upd?'يُستبدل تقرير':'يُرسل تقرير'} ${s.name} في بوابته بالدرجات الحالية${SREPD.note?'، مع ملاحظة الدفعة':''}.`,{title:upd?'تحديث تقريره؟':'إرسال تقريره؟',yes:upd?'حدّث':'أرسل',no:'إلغاء'}))) return;
   try{
-    const j=await healthApi('/student-report/publish',{semester:SREPD.sem,period:SREPD.per,sids:[String(s.id)],note:SREPD.note,acts:srepActsFor([s])});
+    const j=await healthApi('/student-report/publish',{semester:SREPD.sem,period:SREPD.per,sids:[String(s.id)],base:SREPD.sent,note:SREPD.note,acts:srepActsFor([s])});
     if(j.sent) srepKeep(j.sent); else { const st={...SREPD.sent}; st[s.id]=Date.now(); srepKeep(st); }
     toast(`📤 ${upd?'حُدّث':'أُرسل'} تقرير ${s.name}`,'good'); srepOpen();
   }catch(e){ toast(e.message==='no_students'?'الطالب غير موجود على الخادم — زامن الطلاب أولًا':'تعذّر الإرسال','bad'); }
@@ -301,7 +326,7 @@ async function srepSendOne(sid){
 async function srepWithdrawOne(sid){
   const s=srepRoster().find(x=>String(x.id)===String(sid)); if(!s) return;
   if(!(await askConfirm(`يُحذف تقرير ${s.name} من بوابته لهذه الفترة.`,{title:'سحب تقريره؟',yes:'اسحب',no:'إلغاء',danger:true}))) return;
-  try{ const j=await healthApi('/student-report/unpublish',{semester:SREPD.sem,period:SREPD.per,sids:[String(s.id)]});
+  try{ const j=await healthApi('/student-report/unpublish',{semester:SREPD.sem,period:SREPD.per,sids:[String(s.id)],base:SREPD.sent});
     if(j.sent) srepKeep(j.sent); else { const st={...SREPD.sent}; delete st[s.id]; srepKeep(st); }
     toast(`سُحب تقرير ${s.name}`,'good'); srepOpen(); }
   catch(_){ toast('تعذّر السحب','bad'); }
@@ -309,9 +334,9 @@ async function srepWithdrawOne(sid){
 async function srepWithdraw(){
   const ids=srepRoster().filter(s=>SREPD.sent[s.id]).map(s=>String(s.id));
   if(!(await askConfirm(`تُحذف ${ids.length} تقارير من بوابة الطلاب لهذه الفترة.`,{title:'سحب التقارير؟',yes:'اسحب',no:'إلغاء',danger:true}))) return;
-  try{ const j=await healthApi('/student-report/unpublish',{semester:SREPD.sem,period:SREPD.per,sids:ids});
-    if(j.sent) srepKeep(j.sent); else { const st={...SREPD.sent}; ids.forEach(id=>{ delete st[id]; }); srepKeep(st); }
-    toast(`سُحبت ${ids.length} تقارير من بوابة الطلاب`,'good'); srepOpen(); }
-  catch(_){ toast('تعذّر السحب','bad'); }
+  const {ok,fail}=await srepBatch('del',ids);
+  if(fail) toast(`سُحب ${ok} من ${ids.length} — توقف السحب، أعد المحاولة للباقي`,'bad');
+  else toast(`سُحبت ${ok} تقارير من بوابة الطلاب`,'good');
+  srepOpen();
 }
 
