@@ -2810,6 +2810,7 @@ function planCard(p){
     <div class="pc-btns">
       <button class="btn ghost sm pc-ic" onclick="openPlanForm('${id}')" title="تعديل الخطة" aria-label="تعديل الخطة">✏️</button>
       <button class="btn ghost sm pc-ic" onclick="printPlans('${id}')" title="طباعة الخطة" aria-label="طباعة الخطة">🖨️</button>
+      <button class="btn ghost sm pc-ic" onclick="planDrillOpen('${id}')" title="ورقة تدريب مطبوعة على مهارة من الخطة (من أسئلة أنشطتك)" aria-label="ورقة تدريب">📝</button>
       <button class="btn ghost sm pc-ic" onclick="printPlanSheet('${id}')" title="ورقة الطالب: المطلوب منه مع مربعات «تمّ» — مستند تنفيذ الخطة" aria-label="ورقة الطالب">📄</button>
       <button class="btn ghost sm pc-ic" onclick="planParentMsg('${id}')" title="رسالة لولي الأمر" aria-label="رسالة لولي الأمر">✉️</button>
       ${done?`<button class="btn ghost sm pc-ic" onclick="closePlan('${id}','active')" title="إعادة فتح الخطة" aria-label="إعادة فتح الخطة">↺</button>`
@@ -2961,6 +2962,80 @@ function printPlanSheet(id){
   const who=p.group&&Array.isArray(p.members)&&p.members.length?p.members.map(m=>({name:m.name,cls:m.cls||p.cls})):[{name:p.name,cls:p.cls}];
   box.innerHTML=who.map(w=>pshPage(p,w)).join('');
   unifiedA4Print({bodyClass:'printing-plans',title:`خطتي العلاجية — ${p.name||''}`,selector:'#plan-print',orientation:'portrait',margin:'8mm'});
+}
+/* 📝 ورقة تدريب علاجية مطبوعة على مهارة من الخطة — من أسئلة أنشطتك المصنّفة بهذه المهارة.
+   الأولوية: سؤال «بديل» (توأم) لسؤال أخطأ فيه الطالب ← بديل لأي سؤال ← سؤال أخطأ فيه ← غيره.
+   البدائل أسئلة جديدة بالفكرة نفسها، فلا يعيد الطالب حفظ ما رآه. وصفحة مستقلة بالإجابات للمعلم. */
+const DRILL={plan:null,skill:'',n:5,key:true,cache:null};
+async function drillPool(p,skill){
+  const api=getApi().replace(/\/+$/,''), tok=encodeURIComponent(getTok());
+  if(!DRILL.cache){ const j=await (await fetch(`${api}/skills-maps?t=${tok}`)).json(); if(!j||!j.ok) throw new Error('maps'); DRILL.cache={maps:j.maps||{},twins:{}}; }
+  const M=DRILL.cache.maps, sids=(p.group?(p.members||[]).map(m=>String(m.studentId)):[String(p.studentId)]);
+  const hits=[]; (HW||[]).forEach(h=>{ const m=h&&h.sid&&M[h.sid]; if(!m) return;
+    Object.entries(m).forEach(([i,sk])=>{ if(String(sk).trim()!==skill) return; const q=(h.qs||[])[+i]; if(!q||!['q','tf','f',undefined].includes(q.t)) return;
+      const wrong=sids.some(sid=>{const d=String(h.subs&&h.subs[sid]&&h.subs[sid].d||''); return d.length>+i&&d[+i]==='0'}); hits.push({h,i:+i,q,wrong}); }); });
+  const need=[...new Set(hits.map(x=>x.h.sid))].filter(sid=>!(sid in DRILL.cache.twins));
+  await Promise.all(need.map(async sid=>{ try{ const j=await (await fetch(`${api}/twins?hw=${encodeURIComponent(sid)}&t=${tok}`)).json(); DRILL.cache.twins[sid]=(j&&j.twins&&j.twins.items)||[]; }catch(e){ DRILL.cache.twins[sid]=[]; } }));
+  const norm=x=>({t:x.t==='tf'?'tf':x.t==='f'?'f':'q',q:String(x.q||'').trim(),o:Array.isArray(x.o)?x.o.map(v=>String(v||'').trim()).filter(Boolean):[],a:x.a});
+  const out=[], seen=new Set(), add=(x,src,tier)=>{const n=norm(x); if(!n.q) return; if(n.t==='q'&&(n.o.length<2||!(Number(n.a)>=0&&Number(n.a)<n.o.length))) return; const k=rdNormAr?rdNormAr(n.q):n.q; if(seen.has(k)) return; seen.add(k); out.push({...n,src,tier,r:Math.random()});};
+  hits.forEach(x=>{ (DRILL.cache.twins[x.h.sid]||[]).filter(t=>t.i===x.i).forEach(t=>(t.alts||[]).forEach(a=>add(a,x.h.title,x.wrong?0:1))); });
+  hits.forEach(x=>add(x.q,x.h.title,x.wrong?2:3));
+  return out.sort((a,b)=>a.tier-b.tier||a.r-b.r);
+}
+async function planDrillOpen(id){
+  const p=(PLAN_DATA&&PLAN_DATA.plans||[]).find(x=>x.id===id); if(!p) return;
+  const sk=(Array.isArray(p.skills)?p.skills:[]).filter(Boolean);
+  if(!sk.length){ toast('حدّد مهارة مستهدفة في الخطة أولًا (✏️ تعديل) — الورقة تُبنى من أسئلة هذه المهارة','bad'); return; }
+  DRILL.plan=id; if(!sk.includes(DRILL.skill)) DRILL.skill=sk[0];
+  openModal(`<h2>📝 ورقة تدريب — ${planEsc(p.name)}</h2>
+    <p class="muted" style="font-size:.84rem;margin:.2rem 0 .7rem">أسئلة مطبوعة على مهارة واحدة من أنشطتك المصنّفة: البديلة أولًا (أسئلة جديدة بالفكرة نفسها) ومما أخطأ فيه الطالب، وصفحة إجابات لك.</p>
+    <label style="font-weight:700;font-size:.85rem">المهارة</label>
+    <div class="drill-sk">${sk.map(s=>`<button type="button" class="btn ${s===DRILL.skill?'tick':'ghost'} sm" onclick="DRILL.skill=${planEsc(JSON.stringify(s))};planDrillOpen('${planEsc(id)}')">🎯 ${planEsc(s)}</button>`).join('')}</div>
+    <div class="row" style="gap:.6rem;align-items:center;margin-top:.7rem;flex-wrap:wrap"><label style="font-weight:700;font-size:.85rem">عدد الأسئلة</label>
+      ${[5,8,10].map(n=>`<button type="button" class="btn ${DRILL.n===n?'tick':'ghost'} sm" onclick="DRILL.n=${n};planDrillOpen('${planEsc(id)}')">${n}</button>`).join('')}
+      <label style="display:flex;gap:.35rem;align-items:center;font-size:.85rem;margin-inline-start:auto"><input type="checkbox" id="drill-key" ${DRILL.key?'checked':''} onchange="DRILL.key=this.checked"> صفحة الإجابات للمعلم</label></div>
+    <div id="drill-avail" class="muted" style="font-size:.84rem;margin-top:.7rem">⏳ جارٍ جمع أسئلة «${planEsc(DRILL.skill)}»…</div>
+    <div class="modal-foot"><button class="btn tick" id="drill-go" type="button" disabled onclick="planDrillPrint()">🖨️ اطبع ورقة التدريب</button><button class="btn ghost" type="button" onclick="closeModal()">إغلاق</button></div>`);
+  try{ const pool=await drillPool(p,DRILL.skill); DRILL.pool=pool;
+    const el=document.getElementById('drill-avail'), go=document.getElementById('drill-go'); if(!el) return;
+    const tw=pool.filter(x=>x.tier<2).length, wr=pool.filter(x=>x.tier===0||x.tier===2).length;
+    if(!pool.length){ el.innerHTML='⚠️ لا أسئلة مصنّفة بهذه المهارة في أنشطتك المنشورة بعد. صنّف مهارات الأسئلة من «🤖 العلاج التلقائي ← تصنيف مهارات الأسئلة»، أو انشر نشاطًا عليها.'; return; }
+    const qn=n=>n===1?'سؤال واحد':n===2?'سؤالان':n<=10?n+' أسئلة':n+' سؤالًا';
+    el.innerHTML=`✓ متاح <b>${qn(pool.length)}</b> (${tw} بديل جديد${wr?` · ${wr} مرتبط بما أخطأ فيه`:''}) — ستُطبع <b>${Math.min(DRILL.n,pool.length)}</b>${pool.length<DRILL.n?' (كل المتاح)':''}.`;
+    if(go) go.disabled=false;
+  }catch(e){ const el=document.getElementById('drill-avail'); if(el) el.textContent='تعذّر الاتصال بالخادم — حاول مرة أخرى.'; }
+}
+function drillPage(p,who,qs,skill){
+  const E=planEsc, L=['أ','ب','ج','د','هـ','و'], d=new Date(), ymd=`${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
+  const body=qs.map((x,k)=>`<div class="drl-q"><div class="drl-qt"><b>${k+1}</b><span>${E(x.q)}</span></div>
+    ${x.t==='tf'?'<div class="drl-tf"><span>( &nbsp; ) صح</span><span>( &nbsp; ) خطأ</span></div>'
+     :x.t==='f'?'<div class="drl-f">الإجابة: ...............................................................</div>'
+     :`<div class="drl-o ${x.o.some(o=>o.length>28)?'one':''}">${x.o.map((o,i)=>`<span><i>${L[i]}</i>${E(o)}</span>`).join('')}</div>`}</div>`).join('');
+  return `<div class="rep-page plan-doc drl">${repHead('ورقة تدريب علاجية',`تدريب على «${skill}»`)}
+    <div class="rep-in">
+      <div class="rep-info"><div>اسم الطالب<b>${E(who.name||'')}</b></div><div>الصف<b>${E(who.cls||p.cls||'')}</b></div><div>التاريخ<b>${ymd}</b></div><div>الدرجة<b>........ / ${qs.length}</b></div></div>
+      <div class="drl-ins">✏️ أجب عن الأسئلة التالية: ضع دائرة حول رمز الإجابة الصحيحة، أو علامة ( ✓ ) أمام «صح» أو «خطأ». حاول وحدك أولًا، ثم صحّحها مع معلمك.</div>
+      <div class="rep-box drl-box">${body}</div>
+      <div class="plan-sign"><div>الطالب<b>${E(who.name||'')}</b><span>التوقيع: ....................</span></div><div>صحّحها مع المعلم<b>&nbsp;</b><span>التاريخ: ..../..../........</span></div><div>معلم المادة<b>${E(rcGet('teacher')||'')}</b><span>التوقيع: ....................</span></div></div>
+    </div></div>`;
+}
+function drillKeyPage(p,qs,skill){
+  const E=planEsc, L=['أ','ب','ج','د','هـ','و'];
+  return `<div class="rep-page plan-doc drl">${repHead('للمعلم — لا تُعطى للطالب','مفتاح إجابات ورقة التدريب')}
+    <div class="rep-in"><div class="drl-ins">«${E(skill)}» · ${E(p.name||'')} · ${qs.length} أسئلة</div>
+      <div class="rep-box"><table class="rt"><thead><tr><th>م</th><th style="text-align:start">السؤال</th><th>الإجابة</th><th>من نشاط</th></tr></thead><tbody>
+      ${qs.map((x,k)=>`<tr><td>${k+1}</td><td style="text-align:start">${E(x.q.length>90?x.q.slice(0,90)+'…':x.q)}</td><td><b>${x.t==='tf'?(x.a===true||x.a==='true'?'صح':'خطأ'):x.t==='f'?E(x.a):`${L[+x.a]}) ${E(x.o[+x.a]||'')}`}</b></td><td class="muted">${E(x.src||'')}${x.tier<2?' · بديل':''}</td></tr>`).join('')}
+      </tbody></table></div></div></div>`;
+}
+function planDrillPrint(){
+  const p=(PLAN_DATA&&PLAN_DATA.plans||[]).find(x=>x.id===DRILL.plan); if(!p||!DRILL.pool||!DRILL.pool.length) return;
+  const qs=DRILL.pool.slice(0,DRILL.n);
+  ensureLogo();
+  let box=document.getElementById('plan-print'); if(!box){ box=document.createElement('div'); box.id='plan-print'; box.className='rep'; document.body.appendChild(box); }
+  const who=p.group&&Array.isArray(p.members)&&p.members.length?p.members.map(m=>({name:m.name,cls:m.cls||p.cls})):[{name:p.name,cls:p.cls}];
+  box.innerHTML=who.map(w=>drillPage(p,w,qs,DRILL.skill)).join('')+(DRILL.key?drillKeyPage(p,qs,DRILL.skill):'');
+  closeModal();
+  unifiedA4Print({bodyClass:'printing-plans',title:`ورقة تدريب — ${DRILL.skill}`,selector:'#plan-print',orientation:'portrait',margin:'8mm'});
 }
 /* id: طباعة خطة واحدة فقط؛ بدونه تُطبع الخطط الظاهرة حسب الفلاتر */
 function printPlans(id){

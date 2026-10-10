@@ -6049,6 +6049,14 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       await env.HW.put(`skills:${hw}`, JSON.stringify({ at: Date.now(), hash: String(b.hash || '').slice(0, 40), map }));
       return json({ ok: true, n: Object.keys(map).length });
     }
+    // 📝 خرائط مهارات الأسئلة لكل الأنشطة دفعة واحدة (رقم السؤال ← المهارة) — لبناء ورقة تدريب علاجية على مهارة
+    if (url.pathname === '/skills-maps' && request.method === 'GET') {
+      if (!env.TEACHER_TOKEN || url.searchParams.get('t') !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
+      const keys = await listAllKeys(env, 'skills:'), maps = {};
+      const raws = await inBatches(keys, 25, k => env.HW.get(k));
+      keys.forEach((k, i) => { try { const o = JSON.parse(raws[i]); if (o && o.map) maps[k.slice(7)] = o.map; } catch {} });
+      return json({ ok: true, maps });
+    }
     if (url.pathname === '/skills-list' && request.method === 'GET') {
       if (!env.TEACHER_TOKEN || url.searchParams.get('t') !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
       const keys = await listAllKeys(env, 'skills:');
