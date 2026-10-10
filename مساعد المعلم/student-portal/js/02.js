@@ -13,6 +13,7 @@ const PT={
   CARDS:{soft:'ناعمة',glass:'زجاجية',outline:'محددة',bold:'بارزة'},
   BTN:{round:'مستديرة',pill:'كبسولة',sharp:'حادة',gradient:'متدرّجة'},
   FRAME:{none:'بلا إطار',gold:'ذهبي',fire:'ناري',rainbow:'قوس قزح'},
+  NC:{rainbow:'قوس قزح',gold:'ذهبي',fire:'ناري',ocean:'محيطي',emerald:'زمردي',royal:'ملكي',off:'عادي (بلا لون)'},
   HEX:{navy:'#16233A',teal:'#0E8C8F',violet:'#6A47E8',rose:'#D63B72',orange:'#DD640C',emerald:'#11935A',sky:'#1976D2',gold:'#A97C08'}
 };
 const PT_LOCKED=['gold','diamond','saudi','spaceweek'];   // ✨ مظاهر حصرية: تُفتح بشرائها من المتجر
@@ -25,14 +26,19 @@ function ptClean(o){
   let av={t:'e',v:0};
   if(o.av&&o.av.t==='i'&&/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(String(o.av.v||''))&&String(o.av.v).length<=70000)av={t:'i',v:String(o.av.v)};
   else if(o.av&&o.av.t==='e'){const n=parseInt(o.av.v,10);if(n>=0&&n<PT.AV.length)av={t:'e',v:n}}
-  return {av,accent:pick(o.accent,PT.ACC,'navy'),theme:pick(o.theme,PT.TH,'classic'),cards:pick(o.cards,PT.CARDS,'soft'),btn:pick(o.btn,PT.BTN,'round'),frame:pick(o.frame,PT.FRAME,'none')};
+  return {av,accent:pick(o.accent,PT.ACC,'navy'),theme:pick(o.theme,PT.TH,'classic'),cards:pick(o.cards,PT.CARDS,'soft'),btn:pick(o.btn,PT.BTN,'round'),frame:pick(o.frame,PT.FRAME,'none'),nc:pick(o.nc,PT.NC,'rainbow')};
 }
 function ptAvatarHTML(av){
   if(av&&av.t==='i'&&av.v)return `<img src="${av.v}" alt="صورتي">`;
   return (av&&PT.AV[av.v])||'🎓';
 }
+/* 🌈 الاسم الملوّن: لمن اشترى البطاقة، باللون الذي اختاره (أو بلا لون إن اختار «عادي») */
+function nmStyle(){ const own=typeof MYPERKS!=='undefined'&&MYPERKS&&MYPERKS.namecolor>0; const nc=(PT_CUR&&PT_CUR.nc)||'rainbow'; return own&&nc!=='off'?nc:''; }
+function nmApply(){ const v=nmStyle(), r=document.documentElement; if(v) r.setAttribute('data-nm-glow',v); else r.removeAttribute('data-nm-glow'); }
+/* صنف الاسم في الصدارة والمسابقات (الخادم يعيد اسم اللون، والقديم يعيد true = قوس قزح) */
+function nmCls(g){ return g ? 'nm-glow'+(typeof g==='string'&&g!=='rainbow'?' nm-'+g:'') : ''; }
 function ptApply(p){
-  const r=document.documentElement;PT_CUR=p||null;
+  const r=document.documentElement;PT_CUR=p||null; try{ nmApply(); }catch(e){}
   // ⚡ آخر مظهر يُحفظ على الجهاز ليُطبَّق في أول لحظة عند الفتح التالي (قبل تحميل البرمجة والاتصال بالخادم)
   try{ if(p) localStorage.setItem('pt_last',JSON.stringify({a:p.accent,t:p.theme,c:p.cards,b:p.btn,f:p.frame||'none'})); else localStorage.removeItem('pt_last'); }catch(e){}
   const meta=document.querySelector('meta[name="theme-color"]');
@@ -63,7 +69,8 @@ function ptReset(){ptApply(null)}
 /* ── لوحة «إعداداتي» ── */
 function ptOpen(){
   if(document.getElementById('pt-ov'))return;
-  let d=JSON.parse(JSON.stringify(PT_CUR||PT_DEF)); if(!d.frame) d.frame='none';
+  let d=JSON.parse(JSON.stringify(PT_CUR||PT_DEF)); if(!d.frame) d.frame='none'; if(!d.nc) d.nc='rainbow';
+  const ncOwn=MYPERKS.namecolor>0;
   const nm=String(myName||lockedName()||'').trim().split(/\s+/)[0]||'';
   const ov=document.createElement('div');ov.className='pt-overlay';ov.id='pt-ov';
   ov.innerHTML=`<div class="pt-panel" role="dialog" aria-modal="true" aria-labelledby="pt-title" tabindex="-1">
@@ -71,7 +78,7 @@ function ptOpen(){
     <div class="pt-body">
       <div class="pt-pv-wrap"><h3>👀 معاينة مباشرة</h3>
         <div class="pt-preview" id="pt-pv">
-          <div class="pv-head"><div class="pt-av" id="pv-av"></div><div style="min-width:0"><b>أهلاً ${esc(nm)} 👋</b><span>هكذا ستبدو بوابتك</span></div></div>
+          <div class="pv-head"><div class="pt-av" id="pv-av"></div><div style="min-width:0"><b>أهلاً <span id="pv-nm">${esc(nm)}</span> 👋</b><span>هكذا ستبدو بوابتك</span></div></div>
           <div class="pv-card"><b>🎯 مهمتك الآن</b><p>تجربة قوة الاحتكاك في المختبر الافتراضي</p><button class="pv-btn" type="button">🚀 ابدأ الآن</button></div>
           <div class="pv-card"><div class="pv-row"><b>📚 إنجازي</b><span class="pv-chip">٦٢٪</span></div><span class="pv-bar"><i></i></span></div>
         </div></div>
@@ -84,6 +91,8 @@ function ptOpen(){
           <div class="pt-up"><label>📷 رفع صورة<input type="file" id="pt-file" accept="image/*" hidden></label><span id="pt-upnote" class="muted" style="font-size:.76rem;align-self:center"></span></div></section>
         <section class="pt-sec"><h3>🖼️ إطار الصورة</h3><p class="pt-hint">${MYPERKS.frame>0?'إطار متحرك حول صورتك الرمزية.':'🔒 يُفتح ببطاقة «إطار الصورة» من المتجر.'}</p>
           <div class="pt-grid pt-fr-grid">${Object.entries(PT.FRAME).map(([k,t])=>{ const lock=k!=='none'&&!(MYPERKS.frame>0); return `<button type="button" class="pt-fr${lock?' pt-lock':''}" data-v="${k}" ${lock?'data-lockf="1"':'data-g="frame"'}><span class="pt-av pt-fr-demo" data-fr="${k}">🙂</span>${t}${lock?'<small>🔒</small>':''}</button>`; }).join('')}</div></section>
+        <section class="pt-sec"><h3>🌈 لون اسمك</h3><p class="pt-hint">${ncOwn?'يظهر اسمك بهذا اللون في الصدارة ونتائج المسابقات وترحيب صفحتك. اختر «عادي» لإيقافه.':'🔒 يُفتح ببطاقة «اسم ملوّن» من المتجر.'}</p>
+          <div class="pt-grid pt-nc-grid">${Object.entries(PT.NC).map(([k,t])=>{ const lock=!ncOwn&&k!=='off'; return `<button type="button" class="pt-nc${lock?' pt-lock':''}" data-v="${k}" ${lock?'data-locknc="1"':'data-g="nc"'}><b class="${k==='off'?'':nmCls(k)}">${esc(nm||'اسمك')}</b><small>${t}${lock?' 🔒':''}</small></button>`; }).join('')}</div></section>
         <section class="pt-sec"><h3>🎨 اللون الأساسي</h3><p class="pt-hint">لون الأزرار والترويسة وشريط التقدم.</p>
           <div class="pt-grid pt-sw-grid">${Object.entries(PT.ACC).map(([k,t])=>`<button type="button" class="pt-sw" data-v="${k}" data-g="accent"><i></i>${t}</button>`).join('')}</div></section>
         <section class="pt-sec"><h3>🖼️ الثيم والخلفية</h3><p class="pt-hint">خلفية بوابتك كلها.</p>
@@ -104,12 +113,14 @@ function ptOpen(){
     Object.assign(pv.dataset,{ptAccent:d.accent,ptTheme:d.theme,ptCards:d.cards,ptBtn:d.btn,ptFrame:d.frame||'none'});
     panel.dataset.ptAccent=d.accent;
     document.getElementById('pv-av').innerHTML=ptAvatarHTML(d.av);
+    { const nb=document.getElementById('pv-nm'); if(nb) nb.className=ncOwn&&d.nc!=='off'?'pv-nm-on':''; pv.dataset.nc=d.nc; }
     ov.querySelectorAll('[data-g]').forEach(b=>b.setAttribute('aria-pressed',String(d[b.dataset.g]===b.dataset.v)));
     ov.querySelectorAll('[data-av]').forEach(b=>b.setAttribute('aria-pressed',String(d.av.t==='e'&&String(d.av.v)===b.dataset.av)));
   };
   ov.querySelectorAll('[data-g]').forEach(b=>b.onclick=()=>{d[b.dataset.g]=b.dataset.v;sync()});
   ov.querySelectorAll('[data-lock]').forEach(b=>b.onclick=()=>toast('✨ مظهر حصري — اشترِه من «متجر النشاطات» ثم اختره هنا'));
   ov.querySelectorAll('[data-lockf]').forEach(b=>b.onclick=()=>toast('🖼️ الإطارات تُفتح ببطاقة «إطار الصورة» من «متجر النشاطات»'));
+  ov.querySelectorAll('[data-locknc]').forEach(b=>b.onclick=()=>toast('🌈 ألوان الاسم تُفتح ببطاقة «اسم ملوّن» من «متجر النشاطات»'));
   ov.querySelectorAll('[data-lockav]').forEach(b=>b.onclick=()=>toast('✨ رمز حصري — اشترِ بطاقة «رموز حصرية» من «متجر النشاطات»'));
   ov.querySelectorAll('[data-av]').forEach(b=>b.onclick=()=>{d.av={t:'e',v:+b.dataset.av};document.getElementById('pt-upnote').textContent='';sync()});
   document.getElementById('pt-file').onchange=e=>{

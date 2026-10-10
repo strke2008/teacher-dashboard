@@ -3086,7 +3086,7 @@ function renderStudentMemoryDone(){
    وكان تحديث موضع واحد يترك الباقي بأرقام قديمة حتى تحديث الصفحة. */
 function syncBalanceUI(){
   const v = MYPTS;
-  try{ document.documentElement.toggleAttribute('data-nm-glow', !!(MYPERKS && MYPERKS.namecolor > 0)); }catch(e){}
+  try{ nmApply(); }catch(e){}
   try{ const pb=$('pre-bal'); if(pb) pb.textContent = v + ' 📖'; }catch(e){}
   try{
     const gb=$('gate-bal'); const el=gb && gb.querySelector('.bal');
@@ -4374,7 +4374,7 @@ async function gateLoad(nm, opts){
 
       MYPTS = studentData.pts;
       MYPERKS = studentData.perks;
-      try{ document.documentElement.toggleAttribute('data-nm-glow', !!(MYPERKS && MYPERKS.namecolor > 0)); }catch(e){}
+      try{ nmApply(); }catch(e){}
       MYTITLE = m.title || '';
 
       $('gate-bal').innerHTML = `
@@ -4423,7 +4423,7 @@ async function gateLoad(nm, opts){
             <div style="display:flex;gap:.5rem;align-items:center;padding:.28rem 0;
               ${r.name===nm?'font-weight:700;color:var(--tick)':''}">
               <span>${medal[i]||''}</span>
-              <span style="flex:1"><span class="${r.glow?'nm-glow':''}">${esc(r.name)}</span>${r.title?` <span style="font-size:.88rem" title="لقب">${titleLabel(r.title)}</span>`:''}</span>
+              <span style="flex:1"><span class="${nmCls(r.glow)}">${esc(r.name)}</span>${r.title?` <span style="font-size:.88rem" title="لقب">${titleLabel(r.title)}</span>`:''}</span>
               <span class="muted">${r.pts}${r.max?'<span style="opacity:.7">/'+r.max+'</span>':''}</span>
             </div>
           `).join('')}
@@ -6871,8 +6871,8 @@ function liveRender(extra){
     body = `<div class="live-res-wrap">
       <h2 style="text-align:center">🏁 النتائج النهائية</h2>${bossEnd}
       ${me ? `<div class="live-me">مركزك <b>${me.rank}</b> من ${B.length} · ${me.score} نقطة · ${me.correct} / ${s.results.n} صحيحة${me.prize ? `<br>🎁 <b>+${me.prize}</b> نقطة أُضيفت لرصيدك` : ''}</div>` : ''}
-      <div class="live-podium">${B.slice(0, 3).map((x, i) => `<div class="p${i + 1}${x.me ? ' me' : ''}"><span>${medal[i]}</span><b class="${x.glow?'nm-glow':''}">${esc(x.name)}</b><small>${x.score} نقطة${x.prize ? ` · 🎁 ${x.prize}` : ''}</small></div>`).join('')}</div>
-      <ol class="live-board" start="4">${B.slice(3).map(x => `<li class="${x.me ? 'me' : ''}"><span class="${x.glow?'nm-glow':''}">${esc(x.name)}</span><b>${x.score}</b></li>`).join('')}</ol>
+      <div class="live-podium">${B.slice(0, 3).map((x, i) => `<div class="p${i + 1}${x.me ? ' me' : ''}"><span>${medal[i]}</span><b class="${nmCls(x.glow)}">${esc(x.name)}</b><small>${x.score} نقطة${x.prize ? ` · 🎁 ${x.prize}` : ''}</small></div>`).join('')}</div>
+      <ol class="live-board" start="4">${B.slice(3).map(x => `<li class="${x.me ? 'me' : ''}"><span class="${nmCls(x.glow)}">${esc(x.name)}</span><b>${x.score}</b></li>`).join('')}</ol>
       ${liveNextPromo(g.id)}
       <button class="btn" style="width:100%;margin-top:.8rem" onclick="liveCloseRoom()">رجوع</button>
     </div>`;

@@ -1062,7 +1062,25 @@ html[data-pt-frame="rainbow"] .student-space-head .avatar,.pt-fr-demo[data-fr="r
 .nm-glow{background:linear-gradient(90deg,#E63957,#E08A00,#119C8F,#6247E8,#E63957);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent!important;-webkit-text-fill-color:transparent;font-weight:900;animation:nmShift 4s linear infinite}
 html[data-nm-glow] #space-greeting{background:linear-gradient(90deg,#FFE066,#FFB3C6,#A0F0FF,#C8FFB0,#FFE066);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent!important;-webkit-text-fill-color:transparent;font-weight:900;animation:nmShift 4s linear infinite}
 @keyframes nmShift{to{background-position:200% 0}}
-@media (prefers-reduced-motion:reduce){.nm-glow,html[data-nm-glow] #space-greeting,html[data-pt-frame] .student-space-head .avatar,.pt-fr-demo{animation:none!important}}
+/* 🌈 ألوان الاسم التي يختارها الطالب من «إعداداتي» */
+.nm-glow.nm-gold{background-image:linear-gradient(90deg,#9A6B00,#E0A800,#7A5200,#D4A017,#9A6B00)}
+html[data-nm-glow="gold"] #space-greeting,#pt-pv[data-nc="gold"] .pv-nm-on{background-image:linear-gradient(90deg,#FFE58A,#FFC83D,#FFF3C4,#FFD966,#FFE58A)}
+.nm-glow.nm-fire{background-image:linear-gradient(90deg,#D62D20,#F07800,#C2185B,#E85D04,#D62D20)}
+html[data-nm-glow="fire"] #space-greeting,#pt-pv[data-nc="fire"] .pv-nm-on{background-image:linear-gradient(90deg,#FFB199,#FFD36E,#FF8FA3,#FFC07A,#FFB199)}
+.nm-glow.nm-ocean{background-image:linear-gradient(90deg,#0369A1,#0891B2,#1E40AF,#0EA5E9,#0369A1)}
+html[data-nm-glow="ocean"] #space-greeting,#pt-pv[data-nc="ocean"] .pv-nm-on{background-image:linear-gradient(90deg,#A5F3FC,#7DD3FC,#C7D2FE,#BAE6FD,#A5F3FC)}
+.nm-glow.nm-emerald{background-image:linear-gradient(90deg,#047857,#0E9F6E,#15803D,#059669,#047857)}
+html[data-nm-glow="emerald"] #space-greeting,#pt-pv[data-nc="emerald"] .pv-nm-on{background-image:linear-gradient(90deg,#A7F3D0,#6EE7B7,#D9F99D,#99F6E4,#A7F3D0)}
+.nm-glow.nm-royal{background-image:linear-gradient(90deg,#6D28D9,#C026D3,#4338CA,#DB2777,#6D28D9)}
+html[data-nm-glow="royal"] #space-greeting,#pt-pv[data-nc="royal"] .pv-nm-on{background-image:linear-gradient(90deg,#DDD6FE,#F9A8D4,#C7D2FE,#F5D0FE,#DDD6FE)}
+#pt-pv .pv-nm-on{background:linear-gradient(90deg,#FFE066,#FFB3C6,#A0F0FF,#C8FFB0,#FFE066);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;font-weight:900;animation:nmShift 4s linear infinite}
+.pt-nc-grid{grid-template-columns:repeat(auto-fill,minmax(118px,1fr))}
+.pt-nc{display:grid;gap:.15rem;justify-items:center;padding:.55rem .4rem;border:2px solid var(--ui-border,#e5e7eb);border-radius:12px;background:var(--ui-surface,#fff);cursor:pointer;font:inherit;color:inherit}
+.pt-nc b{font-size:.95rem;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pt-nc small{font-size:.7rem;color:var(--ui-muted,#5B6B7F)}
+.pt-nc[aria-pressed="true"]{border-color:var(--acc,#6A47E8);box-shadow:0 0 0 3px var(--acc-soft,rgba(106,71,232,.18))}
+.pt-nc.pt-lock{opacity:.7}
+@media (prefers-reduced-motion:reduce){.nm-glow,html[data-nm-glow] #space-greeting,#pt-pv .pv-nm-on,html[data-pt-frame] .student-space-head .avatar,.pt-fr-demo{animation:none!important}}
 html[data-pt-theme] body{background-attachment:fixed}
 @media(hover:none){html[data-pt-theme] body{background-attachment:scroll}}
 /* البطاقات والأزرار والترويسة بلون الطالب */

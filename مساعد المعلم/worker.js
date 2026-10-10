@@ -173,6 +173,14 @@ async function dropLegacy(env, prefix, st) {
 async function readBal(env, st) {
   return parseInt((await readByIdentity(env, 'bal:', st)).value, 10) || 0;
 }
+/* 🌈 لون اسم الطالب في الصدارة والمسابقات: '' = بلا لون (لم يشترِ البطاقة أو اختار «عادي») */
+const NAME_COLORS = ['rainbow', 'gold', 'fire', 'ocean', 'emerald', 'royal', 'off'];
+async function nameGlow(env, st) {
+  const o = await readOwn(env, st); if (!(o && o.namecolor > 0)) return '';
+  let nc = 'rainbow';
+  if (st && st.id) { try { const p = JSON.parse(await env.HW.get(`prefs:${st.id}`) || 'null'); if (p && NAME_COLORS.includes(p.nc)) nc = p.nc; } catch {} }
+  return nc === 'off' ? '' : nc;
+}
 async function readOwn(env, st) {
   const raw = (await readByIdentity(env, 'own:', st)).value;
   try { const o = raw ? JSON.parse(raw) : {}; return (o && typeof o === 'object') ? o : {}; }
@@ -272,6 +280,7 @@ function cleanStudentPrefs(o) {
     out.av = { t: 'e', v: Number.isInteger(n) && n >= 0 && n < 30 ? n : 0 };   // 18–29: رموز حصرية من المتجر
   }
   const fr = String(o.frame || 'none'); out.frame = ['none', 'gold', 'fire', 'rainbow'].includes(fr) ? fr : 'none';
+  const nc = String(o.nc || 'rainbow'); out.nc = NAME_COLORS.includes(nc) ? nc : 'rainbow';   // 🌈 لون الاسم (لمن اشترى «اسم ملوّن»)
   return out;
 }
 async function requireStudentSession(env, b) {
@@ -3724,7 +3733,7 @@ async function liveFinalize(env, g, now) {
     'FROM live_players p LEFT JOIN live_answers a ON a.game = p.game AND a.sid = p.sid WHERE p.game = ?1 GROUP BY p.sid ORDER BY score DESC, ms ASC, p.joined_at ASC'
   ).bind(g.id).all()).results || [];
   const prizes = (g.cfgObj && g.cfgObj.prizes) || [];
-  const glow = await Promise.all(rows.map(r => readOwn(env, { id: String(r.sid), name: r.name }).then(o => !!(o && o.namecolor > 0)).catch(() => false)));
+  const glow = await Promise.all(rows.map(r => nameGlow(env, { id: String(r.sid), name: r.name }).catch(() => '')));
   const board = rows.map((r, i) => ({ rank: i + 1, sid: r.sid, name: r.name, cls: r.cls, score: r.score, correct: r.correct, answered: r.answered, prize: Number(prizes[i]) || 0, glow: glow[i] }));
   const res = { at: now, board };
   await env.DB.prepare('UPDATE live_games SET results = ?2 WHERE id = ?1 AND results IS NULL').bind(g.id, JSON.stringify(res)).run();
@@ -4118,7 +4127,7 @@ async function handleLive(url, request, env, ctx) {
     if (ph.status === 'FINISHED') {
       const res = await liveFinalize(env, g, now);
       ctx && ctx.waitUntil && ctx.waitUntil(livePayPrizes(env, g, res).catch(() => {}));
-      out.results = { board: res.board.map(r => ({ rank: r.rank, name: r.name, score: r.score, correct: r.correct, prize: r.prize, me: r.sid === st.id, glow: !!r.glow })), n: g.n };
+      out.results = { board: res.board.map(r => ({ rank: r.rank, name: r.name, score: r.score, correct: r.correct, prize: r.prize, me: r.sid === st.id, glow: r.glow || '' })), n: g.n };
       if (g.cfgObj.skin === 'boss') out.boss = await liveBossState(env, g);
     }
     return json(out);
@@ -5571,7 +5580,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       const ttls = await Promise.all(head.map(r =>
         readByIdentity(env, 'ttl:', mateSt.get(r.nm) || { id: '', name: r.nm }, { migrate: false })
           .then(x => x.value)));
-      const glows = await Promise.all(head.map(r => readOwn(env, mateSt.get(r.nm) || { id: '', name: r.nm }).then(o => !!(o && o.namecolor > 0)).catch(() => false)));
+      const glows = await Promise.all(head.map(r => nameGlow(env, mateSt.get(r.nm) || { id: '', name: r.nm }).catch(() => '')));
       const top = head.map((r, i) =>
         ({ rank: i + 1, name: r.nm, pts: r.pts, max: r.max, pct: r.pct, title: ttls[i] || '', glow: glows[i] }));
 
