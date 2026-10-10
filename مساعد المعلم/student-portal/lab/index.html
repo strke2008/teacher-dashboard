@@ -256,6 +256,13 @@ th{font-family:var(--display);font-weight:600;background:var(--bench)}
 /* 📱 المرشد على الجوال (تجارب الفيزياء): شريط ثابت أسفل الشاشة يبقى أمام الطالب أينما مرّر،
    ويتمدد ويومض عند كل توجيه جديد؛ والتنبيهات تظهر فوقه مباشرة */
 .gtog{display:none}
+/* 🧭 «خذني للخطوة»: زر في المرشد، وإطار برتقالي يومض حول مكان الخطوة */
+.guide.gclick{cursor:pointer}
+.ggo{margin-top:8px;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.12);color:inherit;border-radius:999px;padding:4px 12px;font:inherit;font-size:.82rem;font-weight:600;cursor:pointer}
+.ggo:hover{background:rgba(255,255,255,.22)}
+.gtarget{outline:3px solid #D98E1F;outline-offset:4px;border-radius:12px;animation:gtPulse 1.2s ease-out 2;scroll-margin:90px}
+tr.gtarget{outline:none;animation:none}tr.gtarget>td{background:rgba(217,142,31,.16);transition:background .3s}
+@keyframes gtPulse{0%{box-shadow:0 0 0 0 rgba(217,142,31,.75)}100%{box-shadow:0 0 0 14px rgba(217,142,31,0)}}
 /* 📱 منع التكبير التلقائي في الآيفون عند الكتابة: سفاري يكبّر الشاشة إن كان خط الخانة أصغر من 16px */
 @media (hover:none) and (pointer:coarse),(max-width:760px){input,select,textarea,.frin{font-size:16px!important}}
 @media (max-width:760px){
@@ -3768,25 +3775,57 @@ async function renderPortalResult(r,sc,L){
   conv(document.body);cardify(document.body);
 })();
 
-/* 📱 المرشد على الجوال: يلتصق أسفل الشاشة (CSS)، ويتمدد ويومض كلما تغيّر توجيهه حتى يعرف الطالب خطوته التالية */
+/* 🧭 المرشد: الضغط عليه (أو على «📍 خذني للخطوة») يأخذ الطالب إلى مكان الخطوة الحالية ويُبرزه.
+   وعلى الجوال يلتصق أسفل الشاشة (CSS)، ويتمدد ويومض كلما تغيّر توجيهه حتى يعرف الطالب خطوته التالية */
+function guideTarget(){
+  const vis=e=>e&&e.offsetParent!==null&&e.getClientRects().length;
+  const r=APP.run;
+  // المخاليط: الرفوف والبيكر حسب الخطوة
+  if(r&&$('#app .bench.stick')){const m={safety:'#tools',choose:'#shelf',addFirst:'#shelf',addSecond:'#shelf',stir:'#tools',watch:'#bz',stirring:'#bz',observe:'#obsPanel'}[r.step];
+    const e=m&&$(m);if(vis(e))return {el:e.closest('.panel')||e}}
+  // خانة تنتظر أن يكتب فيها الطالب
+  const inp=$$('#app .frin').find(x=>!x.disabled&&vis(x));if(inp)return {el:inp.closest('tr')||inp,focus:inp};
+  // الملاحظات
+  const ob=$('#obsPanel .obs');if(vis(ob))return {el:ob};
+  // آخر شريط تحكم ظاهر فيه زر أو خيار متاح (القوة، المسافة، الكتلة، زر التشغيل)
+  const bars=$$('#app .frbar').filter(b=>vis(b)&&$$('button,input,select',b).some(x=>!x.disabled));
+  if(bars.length)return {el:bars[bars.length-1]};
+  const cv=$$('#app .frzone').filter(vis).pop();if(cv)return {el:cv};
+  const sd=$('#app .side .panel');if(vis(sd))return {el:sd};
+  return null;
+}
+function guideGo(){
+  const t=guideTarget();if(!t)return false;const el=t.el;
+  el.scrollIntoView({behavior:'smooth',block:'center'});
+  el.classList.remove('gtarget');void el.offsetWidth;el.classList.add('gtarget');clearTimeout(el._gt);el._gt=setTimeout(()=>el.classList.remove('gtarget'),2600);
+  if(t.focus)setTimeout(()=>{try{t.focus.focus({preventScroll:true})}catch(e){}},450);
+  return true;
+}
 (function(){
   const mq=matchMedia('(max-width:760px)'),root=document.documentElement;let cur=null,ro=null,mo=null;
-  const setH=()=>{if(cur)root.style.setProperty('--gdock',cur.offsetHeight+'px')};
+  const setH=()=>{if(cur&&mq.matches)root.style.setProperty('--gdock',cur.offsetHeight+'px')};
   const key=g=>((g.querySelector('#gtext')||{}).textContent||'')+'|'+((g.querySelector('#gact')||{}).textContent||'');
   function detach(){ro&&ro.disconnect();mo&&mo.disconnect();ro=mo=null;cur=null;document.body.classList.remove('has-gdock')}
   function attach(g){
-    if(cur===g)return;detach();cur=g;if(!mq.matches)return;
-    document.body.classList.add('has-gdock');
-    const b=document.createElement('button');b.type='button';b.className='gtog';b.setAttribute('aria-label','تصغير المرشد أو إظهاره');b.textContent='⌄';
-    const open=v=>{g.classList.toggle('gmin',!v);b.textContent=v?'⌄':'⌃';setH()};
-    b.onclick=e=>{e.stopPropagation();open(g.classList.contains('gmin'))};g.appendChild(b);
-    g.addEventListener('click',e=>{if(g.classList.contains('gmin')&&!e.target.closest('.gtog'))open(true)});
-    ro=new ResizeObserver(setH);ro.observe(g);
+    if(cur===g)return;detach();cur=g;
+    const dock=mq.matches&&!g.closest('.bench.stick');
+    // زر «خذني للخطوة» + الضغط على نص المرشد
+    const gt=g.querySelector('.gt');
+    if(gt&&!g.querySelector('.ggo')){const go=document.createElement('button');go.type='button';go.className='ggo';go.textContent='📍 خذني للخطوة';
+      go.onclick=e=>{e.stopPropagation();if(!guideGo())note('أكمل ما في المرشد هنا أولًا.')};gt.appendChild(go)}
+    g.classList.add('gclick');
+    let b=null;const open=v=>{g.classList.toggle('gmin',!v);if(b)b.textContent=v?'⌄':'⌃';setH()};
+    if(dock){document.body.classList.add('has-gdock');
+      b=document.createElement('button');b.type='button';b.className='gtog';b.setAttribute('aria-label','تصغير المرشد أو إظهاره');b.textContent='⌄';
+      b.onclick=e=>{e.stopPropagation();open(g.classList.contains('gmin'))};g.appendChild(b);
+      ro=new ResizeObserver(setH);ro.observe(g)}
+    g.addEventListener('click',e=>{if(e.target.closest('button,a,input,select'))return;
+      if(g.classList.contains('gmin')){open(true);return}guideGo()});
     let last=key(g);
-    mo=new MutationObserver(()=>{const k=key(g);if(k===last)return;last=k;open(true);g.classList.remove('gnew');void g.offsetWidth;g.classList.add('gnew');g.scrollTop=0});
+    mo=new MutationObserver(()=>{const k=key(g);if(k===last)return;last=k;if(!dock)return;open(true);g.classList.remove('gnew');void g.offsetWidth;g.classList.add('gnew');g.scrollTop=0});
     mo.observe(g,{subtree:true,childList:true,characterData:true});setH();
   }
-  function scan(){const g=document.querySelector('#app .bench:not(.stick)>.guide');if(g)attach(g);else detach()}
+  function scan(){const g=document.querySelector('#app .bench>.guide');if(g)attach(g);else detach()}
   new MutationObserver(scan).observe(app,{childList:true});
   (mq.addEventListener?mq.addEventListener('change',()=>{detach();scan()}):mq.addListener(()=>{detach();scan()}));
   scan();
