@@ -2707,7 +2707,7 @@ async function deletePlan(id){
 async function togglePlanAction(id,i){
   const all=(PLAN_DATA&&PLAN_DATA.plans||[]).map(planRaw);
   const p=all.find(x=>x.id===id); if(!p||!p.actions[i]) return;
-  p.actions[i].done=!p.actions[i].done;
+  p.actions[i].done=!p.actions[i].done; p.actions[i].doneAt=p.actions[i].done?Date.now():0;   // تاريخ التنفيذ يُطبع في ورقة الطالب
   try{ await savePlans(all); renderPlans(true) }catch(e){ toast('تعذّر التحديث','bad') }
 }
 async function closePlan(id,status){
@@ -2810,6 +2810,7 @@ function planCard(p){
     <div class="pc-btns">
       <button class="btn ghost sm pc-ic" onclick="openPlanForm('${id}')" title="تعديل الخطة" aria-label="تعديل الخطة">✏️</button>
       <button class="btn ghost sm pc-ic" onclick="printPlans('${id}')" title="طباعة الخطة" aria-label="طباعة الخطة">🖨️</button>
+      <button class="btn ghost sm pc-ic" onclick="printPlanSheet('${id}')" title="ورقة الطالب: المطلوب منه مع مربعات «تمّ» — مستند تنفيذ الخطة" aria-label="ورقة الطالب">📄</button>
       <button class="btn ghost sm pc-ic" onclick="planParentMsg('${id}')" title="رسالة لولي الأمر" aria-label="رسالة لولي الأمر">✉️</button>
       ${done?`<button class="btn ghost sm pc-ic" onclick="closePlan('${id}','active')" title="إعادة فتح الخطة" aria-label="إعادة فتح الخطة">↺</button>`
         :`<button class="btn ghost sm pc-ic" onclick="planSendRemedial('${id}')" title="${p.group?'أرسل لهم مهمة علاجية':'أرسل له مهمة علاجية'}" aria-label="أرسل مهمة علاجية">🩹</button>`}
@@ -2886,6 +2887,80 @@ async function renderPlans(force=false){
   renderPlanCandidates();
   const shown=F?rows.filter(PLAN_SUM_TEST[F]||(()=>true)):rows;
   list.innerHTML=(F&&!shown.length?'<div class="muted" style="padding:1.2rem;text-align:center">لا خطط في هذا الفرز.</div>':'')+(shown.map(planCard).join('')||(F?'':'<div class="muted" style="padding:1.5rem;text-align:center">لا توجد خطط. ابدأ بـ«خطة جديدة» أو من قائمة المرشحين.</div>'));
+}
+/* 📄 ورقة «خطتي العلاجية» للطالب — ما المطلوب منه، بلغته هو، ومربعات «تمّ» يؤشّر عليها المعلم.
+   تُطبع نسختين (للطالب ولملف المعلم) فتكون مستندًا يثبت تنفيذ الخطة. المنفَّذ من الإجراءات يُطبع ✓ بتاريخه،
+   فطباعتها في نهاية الخطة تُخرج سجل التنفيذ مكتملًا. الخطة الجماعية: ورقة لكل طالب. */
+const PSH_TEACHER_ONLY=/ولي الأمر|إجلاسه|إسناده إلى زميل|التحقق من تسليمه|مقابلة فردية قصيرة لمعرفة|ثقته بنفسه/;
+function pshTask(text){
+  const t=String(text||'').trim(), q=(t.match(/«[^»]+»/)||[''])[0];
+  const R=[
+    [/^تأسيس «/,()=>[`احضر جلسة شرح لمهارة ${q} من البداية بأمثلة جديدة مع معلمك`,'في الفصل']],
+    [/^تدريب متدرّج على «/,()=>[`تدرّب على ${q} خطوة خطوة من السهل إلى الأصعب، ويتحقق معلمك بعد كل خطوة`,'في الفصل']],
+    [/^دعم «/,()=>[`راجع أخطاءك في ${q} مع معلمك، ثم حلّ مثالًا معه`,'في الفصل']],
+    [/^ورقة تدريب قصيرة على «/,()=>[`أكمل ورقة تدريب قصيرة على ${q} (5 أسئلة) وصحّحها مع معلمك`,'ورقة']],
+    [/^حل المهمة العلاجية المرسلة/,()=>['حلّ المهمة العلاجية المرسلة إلى بوابتك (أسئلة من أخطائك أنت)','البوابة']],
+    [/^إعادة حل/,()=>[t.replace(/^إعادة حل/,'أعد حلّ').replace(/أخطائه/g,'أخطائك'),'البوابة']],
+    [/^جلسة فردية قصيرة لمراجعة أخطائه/,()=>[`احضر جلسة فردية قصيرة مع معلمك لمراجعة أخطائك في ${q||'النشاط'}`,'في الفصل']],
+    [/^مراجعة المفاهيم الأساسية/,()=>['راجع المفاهيم الأساسية للوحدة مع معلمك (10 دقائق أسبوعيًا)','في الفصل']],
+    [/^إعادة حل الأنشطة التي أخطأ فيها/,()=>['أعد حل الأنشطة التي أخطأت فيها بعد أن يشرحها لك معلمك','البوابة']],
+    [/^تكليف بورقة تدريب إضافية/,()=>['أكمل ورقة تدريب إضافية كل أسبوع وسلّمها لمعلمك','ورقة']],
+    [/^تجزئة المهمة/,()=>['نفّذ المهمة على خطوات صغيرة، واعرض كل خطوة على معلمك قبل التالية','في الفصل']],
+    [/^تكليفه بتلخيص الدرس/,()=>['لخّص الدرس شفهيًا لمعلمك في نهاية الحصة','في الفصل']],
+    [/^تعويض ما فاته/,()=>['احضر حصة إضافية قصيرة لتعويض ما فاتك من دروس هذه المهارات','في الفصل']],
+    [/^تدريبه على أسئلة بنمط الاختبار/,()=>['تدرّب على أسئلة بنمط الاختبار في هذه المهارات','ورقة']],
+  ];
+  for(const [re,f] of R) if(re.test(t)) return f();
+  // صياغة عامة: من الغائب إلى المخاطَب
+  return [t.replace(/أخطائه/g,'أخطائك').replace(/\bمعه\b/g,'معك').replace(/\bله\b/g,'لك').replace(/مستواه/g,'مستواك'),'في الفصل'];
+}
+function pshDate(ms){ const d=new Date(ms); return `${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`; }
+function pshPage(p,who){
+  const E=planEsc, start=Date.parse(String(p.startDate||'')+'T00:00:00')||Date.now();
+  const dur=Number(p.durationDays)||Math.max(7,Math.round(((Date.parse(String(p.endDate||'')+'T00:00:00')||start+14*864e5)-start)/864e5))||14;
+  const end=Date.parse(String(p.endDate||'')+'T00:00:00')||start+dur*864e5;
+  const ymd=ms=>{const d=new Date(ms);return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`};
+  const acts=(p.actions||[]).filter(a=>a&&a.text);
+  const mine=acts.filter(a=>!PSH_TEACHER_ONLY.test(a.text)), teach=acts.filter(a=>PSH_TEACHER_ONLY.test(a.text));
+  const n=mine.length+1, due=i=>pshDate(start+Math.round((i+1)*(end-start)/n));
+  const goals=planGoalRows(p);
+  const first=String(who.name||'').trim().split(/\s+/)[0]||'';
+  const done=p.status==='done';
+  const rows=mine.map((a,i)=>{const [tx,tag]=pshTask(a.text);return `<tr><td class="n">${i+1}</td><td>${E(tx)} <span class="psh-tag">${tag}</span></td><td class="d">${due(i)}</td>
+      <td class="c">${a.done?'<span class="psh-box on">✓</span>':'<span class="psh-box"></span>'}</td><td class="d">${a.done&&a.doneAt?pshDate(a.doneAt):'..../....'}</td></tr>`}).join('');
+  const verify=`<tr><td class="n">${n}</td><td>${goals.length?'اختبار قصير للتحقق من وصولك إلى الهدف في '+(goals.length===1?'المهارة':'المهارات'):'اختبار قصير للتحقق من تحسّن مستواك'} <span class="psh-tag">تحقق</span></td><td class="d">${pshDate(end)}</td>
+      <td class="c">${done?'<span class="psh-box on">✓</span>':'<span class="psh-box"></span>'}</td><td class="d">..../....</td></tr>`;
+  const bar=(v,c)=>`<span class="psh-bar"><i style="width:${Math.max(3,v==null?0:v)}%;background:${c}"></i><u></u></span>`;
+  return `<div class="rep-page plan-doc psh">${repHead('ورقة الطالب — تُحفظ في ملف الإنجاز','خطتي العلاجية')}
+    <div class="rep-in">
+      <div class="rep-info psh-info"><div>اسم الطالب<b>${E(who.name||'')}</b></div><div>الصف<b>${E(who.cls||p.cls||'')}</b></div>
+        <div>مدة الخطة · حالتها<b>${dur===7?'أسبوع':dur===14?'أسبوعان':dur===21?'ثلاثة أسابيع':dur===28?'أربعة أسابيع':dur+' يومًا'} · <span class="psh-stv">${done?'منتهية':'جارية'} (ج${E(p.round||1)})</span></b></div><div>من — إلى<b>${ymd(start)} — ${ymd(end)}</b></div></div>
+      <div class="rep-sec">① لماذا هذه الخطة؟</div>
+      <div class="rep-box psh-why">عزيزي ${E(first)}، ${goals.length?`أظهرت إجاباتك في الأنشطة والاختبارات أنك تحتاج دعمًا في ${goals.length===1?'المهارة التالية':'المهارات التالية'}. هذه الخطة صُمّمت لك وحدك لتصل إلى <b>${SKILL_TARGET_UI}%</b> في كل مهارة — ومعلمك معك خطوة بخطوة.`
+          :`هذه الخطة صُمّمت لك وحدك لتحسين مستواك${p.reason?`: ${E(String(p.reason).split(' — ')[0])}`:''} — ومعلمك معك خطوة بخطوة.`}
+        ${goals.length?`${goals.map(g=>{const now=g.after!=null?g.after:g.before;const c=now==null?'#9AA6B2':now>=SKILL_TARGET_UI?'#1B9C6B':now>=40?'#E0A100':'#D6455B';
+            return `<div class="psh-sk"><span>🎯 ${E(g.skill)}</span>${bar(now,c)}<em>الآن ${now==null?'—':now+'%'}</em><em class="t">الهدف ${SKILL_TARGET_UI}%</em></div>`}).join('')}`:''}</div>
+      <div class="rep-sec">② المطلوب منك — نفّذها بالترتيب، ويؤشّر معلمك على كل ما تُنجزه</div>
+      <div class="rep-box"><table class="rt psh-t"><thead><tr><th>م</th><th style="text-align:start">المهمة</th><th>آخر موعد</th><th>تمّ ✓</th><th>تاريخ الإنجاز</th></tr></thead><tbody>${rows}${verify}</tbody></table>
+        ${teach.length?`<div class="psh-teach"><b>وسيقوم معلمك بـ:</b> ${teach.map(a=>E(a.text)).join(' · ')}</div>`:''}</div>
+      <div class="rep-sec">③ كيف أعرف أني نجحت؟</div>
+      <div class="psh-goal"><div><b>✅ تنجح الخطة</b> عندما تصل إلى ${SKILL_TARGET_UI}% فأكثر${goals.length?' في كل مهارة':''}، فتُغلق ويُسجَّل ذلك في ملفك.</div>
+        <div><b>🔁 إن لم تصل بعد</b> نراجع معًا ما صعب عليك ونبدأ جولة ثانية بأساليب مختلفة — لا عقوبة، بل فرصة.</div></div>
+      <div class="psh-tip">💡 ابدأ بالمهمة الأولى اليوم، واسأل معلمك عن أي سؤال قبل أن تنتقل للتالي.</div>
+      <div class="rep-sec">④ متابعة المعلم</div>
+      <div class="rep-box"><table class="rt psh-f"><thead><tr><th style="width:18%">التاريخ</th><th>ما تمّ / ملاحظة المعلم</th><th style="width:20%">توقيع المعلم</th></tr></thead><tbody><tr><td>&nbsp;</td><td></td><td></td></tr><tr><td>&nbsp;</td><td></td><td></td></tr></tbody></table></div>
+      <div class="plan-sign"><div>الطالب<b>${E(who.name||'')}</b><span>التوقيع: ....................</span></div>
+        <div>ولي الأمر — اطّلعت<b>&nbsp;</b><span>الاسم والتوقيع: ....................</span></div>
+        <div>معلم المادة<b>${E(rcGet('teacher')||'')}</b><span>التوقيع: ....................</span></div></div>
+    </div></div>`;
+}
+function printPlanSheet(id){
+  const p=(PLAN_DATA&&PLAN_DATA.plans||[]).find(x=>x.id===id); if(!p){ toast('الخطة غير موجودة','bad'); return; }
+  ensureLogo();
+  let box=document.getElementById('plan-print'); if(!box){ box=document.createElement('div'); box.id='plan-print'; box.className='rep'; document.body.appendChild(box); }
+  const who=p.group&&Array.isArray(p.members)&&p.members.length?p.members.map(m=>({name:m.name,cls:m.cls||p.cls})):[{name:p.name,cls:p.cls}];
+  box.innerHTML=who.map(w=>pshPage(p,w)).join('');
+  unifiedA4Print({bodyClass:'printing-plans',title:`خطتي العلاجية — ${p.name||''}`,selector:'#plan-print',orientation:'portrait',margin:'8mm'});
 }
 /* id: طباعة خطة واحدة فقط؛ بدونه تُطبع الخطط الظاهرة حسب الفلاتر */
 function printPlans(id){

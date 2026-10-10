@@ -2717,7 +2717,7 @@ function planApplyPatch(plan, patch) {
   out.history = hist;
   const acts = (Array.isArray(plan.actions) ? plan.actions : []).map(a => ({ ...a }));
   for (const t of (patch.addActions || [])) if (!acts.some(a => a.text === t)) acts.push({ text: t, done: false });
-  for (const a of acts) if ((patch.doneActions || []).some(t => a.text === t || (t === PLAN_REDO_PREFIX && String(a.text).startsWith(PLAN_REDO_PREFIX)))) a.done = true;
+  for (const a of acts) if ((patch.doneActions || []).some(t => a.text === t || (t === PLAN_REDO_PREFIX && String(a.text).startsWith(PLAN_REDO_PREFIX)))) { if (!a.done) a.doneAt = Number(patch.at) || Date.now(); a.done = true; }   // تاريخ التنفيذ يُطبع في ورقة الطالب
   out.actions = acts; out.autoApplied = true;
   return out;
 }

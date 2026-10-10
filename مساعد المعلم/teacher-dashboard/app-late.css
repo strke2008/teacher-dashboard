@@ -1872,3 +1872,47 @@ thead .madr-name{background:var(--ui-surface-2,#F7FAFD)}
 /* 📤 إرسال/تحديث/سحب تقرير طالب واحد */
 .srepd-acts{display:inline-flex;gap:.3rem;flex-wrap:nowrap}
 @media (max-width:640px){.srepd-row{grid-template-columns:1fr auto}.srepd-acts{grid-column:1/-1;justify-content:flex-end}}
+/* 📄 ورقة «خطتي العلاجية» للطالب */
+.psh .psh-st{display:inline-block;margin:0 0 .45rem;border:1.6px dashed #1B9C6B;color:#1B7A55;border-radius:8px;padding:.1rem .6rem;font-weight:800;font-size:.8rem}
+.psh .psh-why{font-size:.86rem;line-height:1.85;padding:.55rem .7rem}
+.psh .psh-sk{display:grid;grid-template-columns:1.6fr 1fr 52px 52px;gap:.5rem;align-items:center;padding:.3rem 0;border-bottom:1px dashed #D6DEE8;font-size:.84rem}
+.psh .psh-sk:last-child{border-bottom:0}.psh .psh-hd{font-size:.72rem;color:#5B6B7F;font-weight:700;margin-top:.35rem}
+.psh .psh-sk em{font-style:normal;font-weight:800;text-align:center}.psh .psh-sk em.t{color:#1B9C6B}
+.psh .psh-bar{height:9px;border-radius:9px;background:#E6EBF1;position:relative;overflow:hidden;display:block}
+.psh .psh-bar i{position:absolute;inset-block:0;inset-inline-start:0;border-radius:9px}
+.psh .psh-bar u{position:absolute;inset-block:-2px;inset-inline-start:80%;width:2px;background:#1B9C6B}
+.psh .psh-t td{vertical-align:top;font-size:.84rem;text-align:start}
+.psh .psh-t td.n{text-align:center;width:24px;font-weight:800}.psh .psh-t td.c{text-align:center;width:62px}.psh .psh-t td.d{text-align:center;width:70px;color:#5B6B7F;white-space:nowrap}
+.psh .psh-box{display:inline-grid;place-items:center;width:17px;height:17px;border:1.6px solid #1F2D45;border-radius:4px;font-size:.8rem;font-weight:900;line-height:1}
+.psh .psh-box.on{background:#1B9C6B;border-color:#1B9C6B;color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.psh .psh-tag{font-size:.68rem;background:#EEF4FF;color:#2B5BB5;border-radius:6px;padding:0 .4rem;margin-inline-start:.25rem;white-space:nowrap;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.psh .psh-teach{font-size:.78rem;color:#5B6B7F;margin-top:.4rem;line-height:1.7}
+.psh .psh-goal{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
+.psh .psh-goal div{border:1.5px solid #1B9C6B;border-radius:10px;padding:.45rem .6rem;font-size:.84rem;line-height:1.7;background:#F1FAF6;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.psh .psh-goal b{color:#1B7A55}
+.psh .psh-tip{margin-top:.45rem;border-inline-start:4px solid #E0A100;background:#FFF8E6;border-radius:8px;padding:.4rem .6rem;font-size:.82rem;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.psh .psh-f td{height:26px}
+/* ورقة واحدة A4: ضغط المسافات */
+.psh .rep-in{padding-top:.35rem!important}
+.psh .rep-info{margin-bottom:.4rem!important}.psh .rep-info>div{padding:.25rem .45rem!important}
+.psh .rep-sec{margin-top:.45rem!important;margin-bottom:.25rem!important}
+.psh .rep-box{padding:.4rem .55rem!important;margin-bottom:.2rem!important}
+.psh .psh-why{line-height:1.65}
+.psh .psh-sk{padding:.18rem 0}
+.psh .psh-t td{padding:.28rem .4rem!important;line-height:1.5}
+.psh .psh-f td{height:22px;padding:0!important}
+.psh .psh-goal div{padding:.32rem .55rem;line-height:1.55}
+.psh .psh-tip{margin-top:.3rem;padding:.3rem .55rem}
+.psh .plan-sign{margin-top:.5rem!important}
+.psh{font-size:.95em}
+.plan-doc.psh .plan-sign,body.printing-plans .plan-doc.psh .plan-sign{margin-top:.45rem!important;gap:.6rem;font-size:.78rem}
+.plan-doc.psh .plan-sign div{padding-top:.25rem;gap:.15rem}
+.psh .psh-t td,.psh .psh-sk{font-size:.8rem}
+.psh .psh-why,.psh .psh-goal div{font-size:.8rem}
+.psh .psh-tip{font-size:.78rem}
+
+.psh .psh-stv{color:#1B7A55}
+.psh .psh-sk{grid-template-columns:1.5fr 1fr 66px 74px}
+.psh .psh-sk em{font-size:.78rem}
+.psh .psh-goal{grid-template-columns:1fr 1fr}
+.psh .psh-goal{margin-top:.75rem}
