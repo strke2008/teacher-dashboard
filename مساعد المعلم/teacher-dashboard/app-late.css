@@ -1934,3 +1934,5 @@ thead .madr-name{background:var(--ui-surface-2,#F7FAFD)}
 .srepd-bar{width:100%;height:12px;border-radius:99px;background:var(--ui-surface,#EEF3F8);border:1px solid var(--ui-border,#D5E0EC);overflow:hidden}
 .srepd-bar i{display:block;height:100%;background:var(--tick,#1E9E62);border-radius:inherit;transition:width .3s}
 .srepd-cnt{font-size:1.6rem;font-variant-numeric:tabular-nums}.srepd-prog small{color:var(--ink-soft)}
+/* 📚 قائمة المشاريع الجاهزة في نموذج «تسليم ملفات» */
+.proj-tpl-pick{margin-top:.45rem;font-weight:700}
