@@ -1649,3 +1649,11 @@ html[data-pt] body,html[data-pt] .sheet,html[data-pt] .btn,html[data-pt] .studen
 .game-card-focus{outline:3px solid var(--tick);outline-offset:3px;animation:gcFocus 1.2s ease-in-out 2}
 @keyframes gcFocus{50%{outline-color:rgba(27,156,107,.25)}}
 @media (prefers-reduced-motion:reduce){.game-card-focus{animation:none}}
+
+/* 🖼️ الرسم التوضيحي للمشروع فوق «المطلوب» — يُكبَّر بالضغط */
+.brief-ill{display:block;width:100%;padding:.5rem;border:0;border-bottom:1px solid rgba(0,0,0,.06);background:#F7FAFC;cursor:zoom-in;position:relative}
+.brief-ill img{display:block;width:100%;height:auto;border-radius:10px}
+.brief-ill span{position:absolute;left:.9rem;bottom:.9rem;font-size:.7rem;font-weight:700;color:#1F2A37;background:rgba(255,255,255,.88);border-radius:999px;padding:.1rem .55rem}
+.brief-ill.zoom{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(15,23,32,.9);padding:max(12px,env(safe-area-inset-top)) 8px;cursor:zoom-out;border:0}
+.brief-ill.zoom img{max-height:100%;width:auto;max-width:100%;background:#F7FAFC}
+.brief-ill.zoom span{display:none}

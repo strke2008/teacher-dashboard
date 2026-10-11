@@ -856,9 +856,12 @@ function removeSelectedFile(i){ selectedFiles.splice(i,1); renderSelectedFiles()
 function renderBrief(){
   const box=$('brief-box'); if(!box) return;
   const br=String(HW.br||'').trim(), dv=String(HW.dv||'').trim(), ac=String(HW.ac||'').trim();
-  if(!br && !dv && !ac){ box.innerHTML=''; box.style.display='none'; return; }
+  /* 🖼️ رسم توضيحي من المعلم (SVG داخل النشاط) يُعرض صورةً فقط — <img> لا يشغّل أي نص برمجي */
+  const il=typeof HW.il==='string' && /^<svg[\s>]/.test(HW.il) && HW.il.length<60000 ? HW.il : '';
+  if(!br && !dv && !ac && !il){ box.innerHTML=''; box.style.display='none'; return; }
   box.style.display='';
   box.innerHTML=`
+    ${il?`<button type="button" class="brief-ill" onclick="this.classList.toggle('zoom')" aria-label="الرسم التوضيحي — اضغط للتكبير"><img src="data:image/svg+xml;charset=utf-8,${encodeURIComponent(il)}" alt="رسم توضيحي للمشروع"><span>🔍 اضغط للتكبير</span></button>`:''}
     ${br?`<div class="brief-row"><span class="brief-k">📋 المطلوب</span><p>${esc(br)}</p></div>`:''}
     ${dv?`<div class="brief-row"><span class="brief-k">📎 تُسلّم</span><p>${esc(dv)}</p></div>`:''}
     ${ac?`<div class="brief-row ok"><span class="brief-k">✅ يُقبل إذا</span><p>${esc(ac)}</p></div>`:''}`;
