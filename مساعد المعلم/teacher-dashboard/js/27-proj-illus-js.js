@@ -183,4 +183,4 @@ const PROJ_ILLUS = (() => {
 
 /* 🖼️ صور جاهزة تحلّ محلّ الرسم لبعض المشاريع: ملف بالاسم نفسه في projects/ داخل اللوحة وبوابة الطالب.
    النشاط يحمل اسم الملف فقط (ilu) لا الصورة نفسها. ?v= يتغيّر عند استبدال الصورة. */
-const PROJ_ILLUS_IMG = { bridge: 'bridge.webp?v=2bc82841' };
+const PROJ_ILLUS_IMG = { bridge: 'bridge.webp?v=2bc82841', balloon: 'balloon.webp?v=42ca3485', filter: 'filter.webp?v=22ca0912' };
