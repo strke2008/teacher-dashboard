@@ -2582,9 +2582,30 @@ function planGapProfile(){
     prof.forEach(x=>{const o=by.get(x.skill)||{skill:x.skill,rates:[],total:0,diag:0,acts:0,miss:0};o.rates.push(x.rate);o.total+=x.total||0;o.diag+=x.diag||0;o.acts+=x.acts!=null?x.acts:(x.total||0);if(x.rate<SKILL_GAP_UI)o.miss++;by.set(x.skill,o)})});
   return {grp,n:ids.filter(Boolean).length,rows:[...by.values()].map(o=>({...o,rate:Math.round(o.rates.reduce((t,v)=>t+v,0)/o.rates.length)})).sort((a,b)=>a.rate-b.rate)};
 }
+/* 📈 «بعد الخطة» لكل مهارة (عند فتح خطة قائمة): نتيجة المهمة العلاجية (آخر محاولة محلولة)
+   ونتيجة الأنشطة الجديدة منذ بدء الخطة. «الإتقان» في الجدول يبقى مجمل الفترة من الأنشطة والتشخيصي
+   — المهمة العلاجية لا تدخل فيه — فقد يبقى أحمر رغم حل الطالب مهمته. */
+function planAfterMap(){
+  const out=new Map(), p=planEditId&&(PLAN_DATA&&PLAN_DATA.plans||[]).find(x=>x.id===planEditId); if(!p) return out;
+  const ids=new Set(planMemberIds(p));
+  const get=k=>out.get(k)||(out.set(k,{ac:0,at:0,rc:0,rt:0}),out.get(k));
+  (p.members||[]).forEach(m=>{ ((m.skill&&m.skill.items)||[]).forEach(it=>{ if(it.after&&it.after.total){ const o=get(it.skill); o.ac+=it.after.correct; o.at+=it.after.total; } }); });
+  (REM_ROWS||[]).filter(x=>x.planId===p.id&&ids.has(String(x.sid))).forEach(x=>{
+    const done=(x.attempts||[]).filter(a=>a&&a.rate!=null).sort((a,b)=>(b.doneAt||0)-(a.doneAt||0))[0]; if(!done) return;
+    if(done.skills) Object.entries(done.skills).forEach(([k,v])=>{ if(v&&v.t){ const o=get(k); o.rc+=v.c; o.rt+=v.t; } });
+    else (p.skills||[]).forEach(k=>{ if(String(x.srcTitle||'').includes(k)){ const o=get(k); o.rc+=Math.round(done.rate/100*(done.n||5)); o.rt+=done.n||5; } });
+  });
+  return out;
+}
+function planAfterCell(a){
+  if(!a||(!a.at&&!a.rt)) return '<span class="muted">—</span>';
+  const pc=(c,t)=>Math.round(c/t*100), tag=r=>r>=SKILL_TARGET_UI?'ok':r>=SKILL_GAP_UI?'':'bad';
+  return [a.rt?`<span class="sk-after ${tag(pc(a.rc,a.rt))}" title="نتيجة المهمة العلاجية (${a.rc} من ${a.rt})">🩹 ${pc(a.rc,a.rt)}%</span>`:'',
+          a.at?`<span class="sk-after ${a.at>=2?tag(pc(a.ac,a.at)):''}" title="الأنشطة منذ بدء الخطة (${a.ac} من ${a.at})">✏️ ${pc(a.ac,a.at)}%</span>`:''].filter(Boolean).join(' ');
+}
 function renderPlanSkills(){
   const box=document.getElementById('pf-skills-box'); if(!box) return;
-  const G=planGapProfile(), rows=G.rows;
+  const G=planGapProfile(), rows=G.rows, AF=planAfterMap(), hasAf=AF.size>0;
   const chosen=window._pfSkills=(window._pfSkills||[]).slice(0,PLAN_SKILL_MAX);
   const rate=new Map(rows.map(r=>[r.skill,r.rate]));
   const elig=(typeof HW!=='undefined'?HW:[]).filter(skillEligible), need=elig.filter(skillNeeded).length;
@@ -2594,17 +2615,18 @@ function renderPlanSkills(){
   const manual=chosen.filter(k=>!rate.has(k));
   const src=r=>[r.diag?`🔍 تشخيصي ${r.diag}`:'',r.acts?`✏️ أنشطة ${r.acts}`:''].filter(Boolean).join(' · ');
   const row=r=>{const b=skBand(r.rate);return `<tr class="${chosen.includes(r.skill)?'on':''}"><td><input type="checkbox" class="pf-skill" value="${planEsc(r.skill)}" ${chosen.includes(r.skill)?'checked':''} onchange="planSkillToggle(this)" aria-label="${planEsc(r.skill)}"></td>
-    <td class="sk-n">${planEsc(r.skill)}</td><td><b>${r.rate}%</b></td><td><span class="chip ${b.c}">${b.n}</span>${G.grp&&r.miss?` <small class="muted">${r.miss} من ${G.n}</small>`:''}</td><td class="muted sk-src">${src(r)} سؤالًا</td></tr>`};
+    <td class="sk-n">${planEsc(r.skill)}</td><td><b>${r.rate}%</b></td><td><span class="chip ${b.c}">${b.n}</span>${G.grp&&r.miss?` <small class="muted">${r.miss} من ${G.n}</small>`:''}</td>${hasAf?`<td class="sk-af">${planAfterCell(AF.get(r.skill))}</td>`:''}<td class="muted sk-src">${src(r)} سؤالًا</td></tr>`};
   box.innerHTML=`<div class="dx-box pf-gap">
     <div class="row" style="justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap">
       <b>① تحديد الفجوات في المهارات ${G.grp?`<span class="muted" style="font-weight:400;font-size:.78rem">(متوسط ${G.n} طلاب)</span>`:''}</b>
       <span class="chip ${chosen.length?'tick':'warn'}">${chosen.length}/${PLAN_SKILL_MAX} مهارة مستهدفة</span>
     </div>
     <div class="muted" style="font-size:.78rem;margin-top:.3rem;line-height:1.7">من إجاباته في <b>الاختبار التشخيصي</b> (لكل سؤال مهارته) و<b>الأنشطة</b> (تصنَّف أسئلتها بالذكاء الاصطناعي). ما دون ${SKILL_GAP_UI}% <b>مهارة مفقودة</b> تُحدَّد تلقائيًا، والخطة تُبنى عليها: هدف وإجراءات ومهمة علاجية وقياس لكل مهارة.</div>
-    ${rows.length?`<div class="sk-wrap"><table class="sk-t"><thead><tr><th></th><th>المهارة</th><th>الإتقان</th><th>المستوى</th><th>المصدر</th></tr></thead><tbody>
-      ${gaps.map(row).join('')||`<tr><td colspan="5" class="muted" style="text-align:center">لا مهارة دون ${SKILL_GAP_UI}% — لا توجد فجوة مهارية ظاهرة.</td></tr>`}
-      ${manual.map(k=>`<tr class="on"><td><input type="checkbox" class="pf-skill" value="${planEsc(k)}" checked onchange="planSkillToggle(this)"></td><td class="sk-n">${planEsc(k)}</td><td>—</td><td><span class="chip ghost">أضفتها يدويًا</span></td><td class="muted sk-src">${knownSkillNames().includes(k)?'تُقاس من الأسئلة القادمة':'✍️ لا تطابق اسم مهارة مصنّفة — لن تُقاس'}</td></tr>`).join('')}
+    ${rows.length?`<div class="sk-wrap"><table class="sk-t"><thead><tr><th></th><th>المهارة</th><th>الإتقان</th><th>المستوى</th>${hasAf?'<th title="بعد بدء الخطة">بعد الخطة</th>':''}<th>المصدر</th></tr></thead><tbody>
+      ${gaps.map(row).join('')||`<tr><td colspan="${hasAf?6:5}" class="muted" style="text-align:center">لا مهارة دون ${SKILL_GAP_UI}% — لا توجد فجوة مهارية ظاهرة.</td></tr>`}
+      ${manual.map(k=>`<tr class="on"><td><input type="checkbox" class="pf-skill" value="${planEsc(k)}" checked onchange="planSkillToggle(this)"></td><td class="sk-n">${planEsc(k)}</td><td>—</td><td><span class="chip ghost">أضفتها يدويًا</span></td>${hasAf?`<td class="sk-af">${planAfterCell(AF.get(k))}</td>`:''}<td class="muted sk-src">${knownSkillNames().includes(k)?'تُقاس من الأسئلة القادمة':'✍️ لا تطابق اسم مهارة مصنّفة — لن تُقاس'}</td></tr>`).join('')}
     </tbody></table></div>
+    ${hasAf?`<div class="sk-af-note">ℹ️ <b>«الإتقان»</b> مجمل الفترة من الأنشطة والتشخيصي، ولا تدخل فيه المهمة العلاجية — فقد يبقى أحمر بعد حلّها. التحسّن يظهر في <b>«بعد الخطة»</b>: 🩹 نتيجة المهمة العلاجية · ✏️ الأنشطة منذ بدء الخطة. الخطة تنجح حين تبلغ كل مهارة ${SKILL_TARGET_UI}% في <b>الأنشطة الجديدة</b>؛ فأرسل نشاطًا يقيس هذه المهارات لتأكيد الإتقان.</div>`:''}
     ${rest.length?`<details class="sk-more"><summary>مهارات أخرى أعلى من ${SKILL_GAP_UI}% <span class="chip ghost">${rest.length}</span></summary><table class="sk-t"><tbody>${rest.map(row).join('')}</tbody></table></details>`:''}`
     :`<div class="sk-none">⚠️ <b>لم تُحدَّد فجوات مهارية لهذا ${G.grp?'المجموعة':'الطالب'} بعد.</b> لتحديدها:
         <ul><li>أرسل <b>🔍 اختبارًا تشخيصيًا</b> للفصل — كل سؤال فيه مرتبط بمهارة${diagN?` (لديك ${diagN} اختبار)`:''}.</li>

@@ -6148,3 +6148,10 @@ button.pill.hw-gr{cursor:pointer}
 .rem-due.late{color:var(--pen);font-weight:700}
 .rem-ext{padding:.2rem .6rem!important;font-size:.76rem!important;min-height:0!important}
 @media (max-width:640px){ .ar-rec{grid-template-columns:1fr auto} .ar-rec .rem-due-box{grid-column:1/-1} }
+
+/* 📈 «بعد الخطة» في جدول الفجوات */
+.sk-after{display:inline-block;padding:.05rem .45rem;border-radius:999px;font-size:.76rem;font-weight:700;white-space:nowrap;background:rgba(200,138,46,.13);color:#A66F0A}
+.sk-after.ok{background:rgba(27,156,107,.14);color:var(--tick)}
+.sk-after.bad{background:rgba(214,69,91,.12);color:var(--pen)}
+.sk-af{white-space:nowrap}
+.sk-af-note{margin-top:.45rem;padding:.5rem .65rem;border-radius:10px;background:rgba(46,107,184,.07);font-size:.78rem;line-height:1.8;color:var(--ink-soft)}
