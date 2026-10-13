@@ -1973,3 +1973,26 @@ details.ar-escal>summary.ar-escal-h::-webkit-details-marker{display:none}
 .ar-escal-tg::before{content:'عرض الأسماء ▾'}
 details.ar-escal[open] .ar-escal-tg::before{content:'إخفاء ▴'}
 details.ar-escal:not([open]){gap:0}
+/* 🗂️ ملف الطالب: شريط تبويبات بخط سفلي (يُسحب أفقيًا على الجوال) + صف إجراءات سريعة */
+.pf-nav{position:relative;margin:.35rem 0 .2rem;border-bottom:1px solid var(--ui-border,#D5E0EC)}
+.pf-tabs{display:flex;align-items:stretch;gap:.15rem;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity}
+.pf-tabs::-webkit-scrollbar{display:none}
+.pf-tab{flex:none;display:inline-flex;align-items:center;gap:.35rem;padding:.6rem .8rem .55rem;border:0;background:none;cursor:pointer;font:inherit;font-size:.86rem;font-weight:600;color:var(--ink-soft,#5B6B7F);border-bottom:3px solid transparent;margin-bottom:-1px;white-space:nowrap;scroll-snap-align:start;border-radius:8px 8px 0 0;transition:color .15s,background .15s}
+.pf-tab:hover{color:var(--ink,#1F2A37);background:rgba(31,45,69,.05)}
+.pf-tab.on{color:var(--ink,#1F2A37);font-weight:800;border-bottom-color:var(--ink,#1F2D45)}
+.pf-tab:focus-visible{outline:2px solid #2E6BB8;outline-offset:-2px}
+.pf-ti{font-size:.95rem;line-height:1}
+.pf-sep{flex:none;align-self:center;margin:0 .45rem;padding-inline-start:.7rem;border-inline-start:1px solid var(--ui-border,#D5E0EC);font-size:.7rem;font-weight:700;color:var(--ink-soft,#8A97A8);letter-spacing:.02em;white-space:nowrap}
+.pf-acts{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem;margin:.65rem 0 .9rem}
+.pf-act{border:1px solid var(--ui-border,#D5E0EC);background:var(--ui-surface,#FFFFFF);color:var(--ink,#1F2A37);border-radius:999px;padding:.3rem .8rem;font:inherit;font-size:.8rem;font-weight:600;cursor:pointer;white-space:nowrap}
+.pf-act:hover{border-color:var(--ink,#1F2D45)}
+.pf-print{margin-inline-start:auto}
+@media (max-width:640px){.pf-print{margin-inline-start:0;width:100%}.pf-print .btn{width:100%}.pf-sep{margin:0 .25rem;padding-inline-start:.45rem}}
+/* الجوال: اسم الطالب بعرض كامل، والرقم السري في سطر مستقل، وتلميح أن التبويبات تُسحب */
+@media (max-width:640px){
+  .ct-tools #ct-pf-sel{flex:1 1 100% !important;min-width:0 !important;order:1}
+  .ct-tools > button{order:2}
+  .ct-tools .pf-pin{order:3;margin-inline-start:auto}
+  .pf-nav::after{content:'';position:absolute;inset-block:0 1px;inset-inline-end:0;width:28px;pointer-events:none;background:linear-gradient(to left,var(--paper-2,#F7FAFD),transparent)}
+  .pf-tab{padding:.55rem .65rem .5rem;font-size:.84rem}
+}

@@ -2267,13 +2267,22 @@ async function ctProfile(box,force){
       ${sid?`<button class="btn ghost sm" title="الطالب السابق" onclick="ctPfStep(-1)">→</button><button class="btn ghost sm" title="الطالب التالي" onclick="ctPfStep(1)">←</button>`:''}
       ${sid&&typeof pfPinChip==='function'?pfPinChip(sid):''}</div>`;
   if(!sid){ box.innerHTML=head+'<div class="muted">لا طلاب في هذا الفصل.</div>'; return; }
-  const bar=`<div class="sf-bar no-print"><span class="ct-seg sf-subs">${CT_PF_SUBS.map(([k,l])=>`<button type="button" class="${k===sub?'on':''}" onclick="window._ctPfSub='${k}';renderClassTools()">${l}</button>`).join('')}</span>
-      <span class="sf-acts"><button class="btn ghost sm" onclick="openStudentForm('${esc(sid)}')">✏️ تعديل البيانات</button>
-      <button class="btn ghost sm" onclick="openStudentReminder('${esc(sid)}')">📨 تذكير</button>
-      <button class="btn ghost sm" onclick="bhvOpen('${esc(sid)}')">🌟 سلوك</button>
-      <button class="btn ghost sm" onclick="pmsgOpen('${esc(sid)}')">💬 ولي الأمر</button>
-      <button class="btn ghost sm" onclick="openAddStudentPoints('${esc(sid)}')">＋ نقاط</button>${printBtn}</span></div>`;
+  /* 🗂️ تبويبات ملف الطالب: متابعة يومية أولًا، ثم التقارير — أسماء قصيرة، وشريط يُسحب أفقيًا على الجوال */
+  const PF_ORDER=[['overview','📊','نظرة شاملة'],['acts','📚','الأنشطة'],['points','🪙','سجل النقاط'],['timeline','🕓','الخط الزمني'],['contacts','📞','التواصل'],['|','','التقارير'],['report','📄','تقرير الأنشطة'],['period','📤','تقرير الفترة']];
+  const have=new Set(CT_PF_SUBS.map(x=>x[0])), extra=CT_PF_SUBS.filter(x=>!PF_ORDER.some(o=>o[0]===x[0]));
+  const tabBtn=(k,ic,l)=>`<button type="button" role="tab" aria-selected="${k===sub}" class="pf-tab${k===sub?' on':''}" data-k="${k}" onclick="window._ctPfSub='${k}';renderClassTools()"><span class="pf-ti">${ic}</span>${l}</button>`;
+  const tabs=PF_ORDER.filter(o=>o[0]==='|'||have.has(o[0])).map(([k,ic,l])=>k==='|'?`<span class="pf-sep" aria-hidden="true">${l}</span>`:tabBtn(k,ic,l)).join('')
+    +extra.map(([k,l])=>tabBtn(k,'',l)).join('');
+  const bar=`<div class="pf-nav no-print"><nav class="pf-tabs" role="tablist" aria-label="أقسام ملف الطالب">${tabs}</nav></div>
+    <div class="pf-acts no-print">
+      <button class="pf-act" onclick="openAddStudentPoints('${esc(sid)}')">＋ نقاط</button>
+      <button class="pf-act" onclick="bhvOpen('${esc(sid)}')">🌟 سلوك</button>
+      <button class="pf-act" onclick="pmsgOpen('${esc(sid)}')">💬 ولي الأمر</button>
+      <button class="pf-act" onclick="openStudentReminder('${esc(sid)}')">📨 تذكير</button>
+      <button class="pf-act" onclick="openStudentForm('${esc(sid)}')">✏️ تعديل البيانات</button>
+      ${printBtn?`<span class="pf-print">${printBtn}</span>`:''}</div>`;
   box.innerHTML=head+bar+`<div id="ct-pf" class="sf-body"></div>`;
+  try{ const on=box.querySelector('.pf-tab.on'); if(on) on.scrollIntoView({block:'nearest',inline:'nearest'}); }catch(e){}   // التبويب المختار ظاهر على الجوال
   const el=document.getElementById('ct-pf');
   if(sub==='overview') el.innerHTML=(off?'<div class="ct-warn">تعذّر الاتصال بالخادم — المستوى والحضور والسلوك تحتاج الخادم. تبويب «الأنشطة والإجراءات» يعمل من بيانات هذا الجهاز.</div>':'')+ctProfileBody(sid);
   else if(sub==='acts'){ el.classList.add('sf-embed'); sfEmbed(el,()=>_legacyStudentProfile(sid)); }
