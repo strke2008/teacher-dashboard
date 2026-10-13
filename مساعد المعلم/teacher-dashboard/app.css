@@ -6155,3 +6155,4 @@ button.pill.hw-gr{cursor:pointer}
 .sk-after.bad{background:rgba(214,69,91,.12);color:var(--pen)}
 .sk-af{white-space:nowrap}
 .sk-af-note{margin-top:.45rem;padding:.5rem .65rem;border-radius:10px;background:rgba(46,107,184,.07);font-size:.78rem;line-height:1.8;color:var(--ink-soft)}
+.pc-goal.rem{border-style:dashed;border-color:#1E8A5C;color:#1E8A5C}.pc-goal.rem.no{border-color:#C88A2E;color:inherit}

@@ -1299,7 +1299,7 @@ async function planSyncRemActions(){
     if(solved)acts.forEach((a,k)=>{if(String(a.text).startsWith('إعادة حل')&&!a.done){acts[k]={...a,done:true};changed=true}});
     return {...pl,actions:acts};});
   if(changed){try{await savePlans(plans);renderPlans(true)}catch(e){}}
-  (PLAN_DATA&&PLAN_DATA.plans||[]).forEach(p=>{const el=document.getElementById('plan-rem-'+p.id);if(el)el.innerHTML=planRemHTML(p)});
+  (PLAN_DATA&&PLAN_DATA.plans||[]).forEach(p=>{const el=document.getElementById('plan-rem-'+p.id);if(el)el.innerHTML=planRemHTML(p);const g=document.getElementById('plan-goals-'+p.id);if(g)g.innerHTML=planGoalChips(p)});
 }
 
 /* ═══ ⏰ مدة الخطة والقرار بعد انتهائها ═══ */
@@ -2871,7 +2871,12 @@ function planGoalRows(p){
   return ks.map(k=>{const x=it.find(y=>y.skill===k)||{};const b=x.before?x.before.rate:null,a=x.after&&x.after.total>=2?x.after.rate:null;
     return {skill:k,before:b,after:a,beforeX:x.before,afterX:x.after,gain:x.gain,met:a!=null&&a>=SKILL_TARGET_UI}});
 }
-function planGoalChips(p){const n=m=>m?` (${m.correct} من ${m.total})`:'';return planGoalRows(p).map(g=>`<span class="pc-goal ${g.met?'ok':g.after!=null?'no':''}" title="الهدف ${SKILL_TARGET_UI}% · قبل ${g.before!=null?g.before+'%'+n(g.beforeX):'لا قياس'} · بعد ${g.after!=null?g.after+'%'+n(g.afterX):'لم يُقَس بعد'}${g.gain!=null?` · الفرق ${planSigned(g.gain)}`:''}">${g.met?'✓ ':'🎯 '}${planEsc(g.skill)} <b>${g.before!=null?g.before+'%':'—'} ← ${g.after!=null?g.after+'%':'…'}</b></span>`).join('')}
+/* بعد الخطة لكل مهارة: الأنشطة الجديدة أولًا (الحكم الرسمي)، وإلا نتيجة المهمة العلاجية 🩹 (متوسط الأعضاء في الخطة الجماعية) */
+function planRemAvg(p){const ids=planMemberIds(p).filter(Boolean),acc={};ids.forEach(id=>{const b=planRemSkillsFor(p,id);Object.entries(b).forEach(([k,v])=>{(acc[k]=acc[k]||[]).push(v)})});
+  const out={};Object.entries(acc).forEach(([k,a])=>{out[k]=Math.round(a.reduce((t,v)=>t+v,0)/a.length)});return out}
+function planGoalChips(p){const n=m=>m?` (${m.correct} من ${m.total})`:'',rem=planRemAvg(p);return planGoalRows(p).map(g=>{const r=g.after==null&&rem[g.skill]!=null?rem[g.skill]:null;
+  const cls=g.met?'ok':g.after!=null?'no':r!=null?(r>=SKILL_TARGET_UI?'rem':'rem no'):'';
+  return `<span class="pc-goal ${cls}" title="الهدف ${SKILL_TARGET_UI}% · قبل ${g.before!=null?g.before+'%'+n(g.beforeX):'لا قياس'} · بعد ${g.after!=null?g.after+'%'+n(g.afterX):'لم يُقَس بنشاط جديد بعد'}${r!=null?` · 🩹 المهمة العلاجية ${r}% — يتأكد الإتقان بنشاط جديد`:''}${g.gain!=null?` · الفرق ${planSigned(g.gain)}`:''}">${g.met?'✓ ':'🎯 '}${planEsc(g.skill)} <b>${g.before!=null?g.before+'%':'—'} ← ${g.after!=null?g.after+'%':r!=null?'🩹 '+r+'%':'…'}</b></span>`}).join('')}
 /* 🗂️ البطاقة المختصرة: ما يحتاجه المعلم في نظرة (النتيجة، الثقة، التقدم، المطلوب منه)،
    والتفاصيل والأدلة في قسم قابل للطي يُحفظ فتحه بين التحديثات. */
 window._planOpen=window._planOpen||new Set();
@@ -2889,7 +2894,7 @@ function planCard(p){
     <div class="pc-top">
       <div class="pc-who"><b>${planEsc(p.name)}</b> <span class="muted">${planEsc(p.cls)}</span>
         <div class="pc-why">${planEsc(String(p.reason||'بلا سبب محدد').split(' — ')[0])}${skills.length?'':(p.mainBy&&p.mainBy!=='academic'?'':' · <span style="color:#B26A00">⚠️ بلا مهارة محددة</span>')}</div>
-        ${skills.length?`<div class="pc-goals" title="هدف كل مهارة: ${SKILL_TARGET_UI}% فأكثر">${planGoalChips(p)}</div>`:''}</div>
+        ${skills.length?`<div class="pc-goals" id="plan-goals-${id}" title="هدف كل مهارة: ${SKILL_TARGET_UI}% فأكثر">${planGoalChips(p)}</div>`:''}</div>
       <div class="pc-badges">${planBadge(p.verdict)}${conf}</div>
     </div>
     <div class="pc-mid">
