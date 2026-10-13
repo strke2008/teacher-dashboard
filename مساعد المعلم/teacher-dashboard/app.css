@@ -6172,3 +6172,4 @@ button.pill.hw-gr{cursor:pointer}
 .pl-next{margin-top:.35rem;padding:.45rem .6rem;border-radius:10px;background:rgba(200,138,46,.1);font-size:.8rem}
 .pc-basis{margin:.35rem 0 0;padding:.4rem .6rem;border-radius:10px;background:rgba(46,107,184,.07);font-size:.76rem;color:var(--ink-soft);line-height:1.7}
 @media (max-width:640px){ .pl-ev li{grid-template-columns:64px 20px 1fr} }
+.pl-cmp td.pl-src{font-size:.74rem;color:var(--ink-soft);line-height:1.6}

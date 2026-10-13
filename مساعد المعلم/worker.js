@@ -1258,13 +1258,20 @@ function memberReport(sid, plan, students, assignments, data_ref) {
   if (targets.length && data_ref) {
     const skFn = (f, t) => skillAgg(skillWindow(data_ref, assignments, sid, f, t, targets, cut));
     const sbase = planBaseline(skFn, start), sb = sbase.win;
-    const sa = skFn(start, to);
     // نتيجة كل مهارة على حدة: يرى المعلم والمشرف ما تحسّن وما لم يتحسّن
     const wb = skillWindow(data_ref, assignments, sid, sbase.from, start ? prevDay(start) : '', targets, cut);
     const wa = skillWindow(data_ref, assignments, sid, start, to, targets, cut);
     const one = v => v && v.t ? { rate: Math.round((v.c / v.t) * 100), correct: v.c, total: v.t } : null;
-    const items = targets.map(k => { const b = one(wb[k]), a = one(wa[k]);
-      return { skill: k, before: b, after: a, gain: b && a && b.total >= 2 && a.total >= 2 ? a.rate - b.rate : null }; });
+    // 🩹 القياس البعدي = الأنشطة بعد البدء + أسئلة المهمة العلاجية البديلة (أسئلة جديدة موازية على المهارة نفسها).
+    // السؤال الأصلي المعاد بخيارات مرتبة من جديد لا يُحتسب: يقيس التذكّر لا الفهم.
+    const rem = (data_ref.__planRem && data_ref.__planRem[plan.id] && data_ref.__planRem[plan.id][String(sid)]) || {};
+    const comb = {};
+    for (const k of targets) { const x = wa[k] || { c: 0, t: 0 }, r = rem[k] && rem[k].t ? rem[k] : { c: 0, t: 0 };
+      if (x.t + r.t) comb[k] = { c: x.c + r.c, t: x.t + r.t }; }
+    const items = targets.map(k => { const b = one(wb[k]), a = one(comb[k]);
+      return { skill: k, before: b, after: a, afterAct: one(wa[k]), afterRem: one(rem[k] && rem[k].t ? rem[k] : null), remRepeat: (rem[k] && rem[k].fb) || 0,
+               gain: b && a && b.total >= 2 && a.total >= 2 ? a.rate - b.rate : null }; });
+    const sa = skillAgg(comb);
     skill = { targets, before: sb, after: sa, items, baseFrom: sbase.from };
     // 🎯 القياس على المهارات المستهدفة نفسها متى توفّر في الجهتين (3 أسئلة فأكثر)
     if (sb.measured && sa.measured) { basis = 'skills'; baseFrom = sbase.from; before.rate = sb.rate; before.correct = sb.correct; before.total = sb.total;
@@ -2573,6 +2580,32 @@ function remShuffleQ(q, seed) {
 }
 /* 🤖 مفتاح المعلم العام: إيقافه يمنع فتح أي مهمة علاجية جديدة (الحالية تُكمَل كما هي) */
 async function remEnabled(env) { try { const c = JSON.parse(await env.HW.get('remcfg') || '{}'); return c.enabled !== false; } catch { return true; } }
+/* 🩹 نتائج المهام العلاجية لكل خطة (للقياس البعدي): plan.id → sid → مهارة → {c,t} من الأسئلة البديلة الموازية فقط،
+   في آخر محاولة محلولة شملت المهارة · و{fb} عدد ما حُلّ من أسئلة أصلية معادة (تُعرض ولا تُحتسب). */
+async function attachPlanRem(env, data) {
+  try {
+    const plans = (Array.isArray(data && data.plans) ? data.plans : []).filter(p => p && p.id).slice(-80);
+    const sids = new Set();
+    plans.forEach(p => ((Array.isArray(p.studentIds) && p.studentIds.length) ? p.studentIds : [p.studentId]).forEach(x => x && sids.add(String(x))));
+    const out = {};
+    await inBatches([...sids], 10, async sid => {
+      const idx = (await remIndex(env, sid)).filter(x => x && String(x.src || '').startsWith('plan:'));
+      for (const e of idx) {
+        let r = null; try { r = JSON.parse(await env.HW.get(`rem:${e.id}`)); } catch {}
+        if (!r || !r.planId) continue;
+        const by = ((out[r.planId] = out[r.planId] || {})[sid] = (out[r.planId] || {})[sid] || {});
+        const done = (r.attempts || []).filter(a => a && a.rate != null).sort((a, b) => (Number(a.doneAt) || 0) - (Number(b.doneAt) || 0));
+        for (const a of done) {   // الأحدث يغلب: مستواه الآن لا متوسط محاولاته
+          const P = a.skillsP || (a.skills && !r.fallback ? a.skills : null);
+          if (P) for (const [k, v] of Object.entries(P)) if (v && v.t) by[k] = { c: v.c, t: v.t, at: Number(a.doneAt) || 0, fb: (by[k] && by[k].fb) || 0 };
+          if (a.skills) for (const [k, v] of Object.entries(a.skills)) { const pv = P && P[k] ? P[k].t : 0; if (v && v.t > pv) { by[k] = by[k] || { c: 0, t: 0, at: 0, fb: 0 }; by[k].fb = (v.t - pv); } }
+        }
+      }
+    });
+    Object.defineProperty(data, '__planRem', { value: out, enumerable: false, configurable: true });   // لا يُحفظ مع الكشف
+  } catch {}
+  return data;
+}
 async function remIndex(env, sid) { try { return JSON.parse(await env.HW.get(`remidx:${sid}`)) || []; } catch { return []; } }
 async function remSaveIndex(env, sid, arr) { await env.HW.put(`remidx:${sid}`, JSON.stringify(arr.slice(-60))); }
 const remOpen = arr => arr.filter(x => x && (x.status === 'open' || x.status === 'retry')).length;
@@ -2588,7 +2621,8 @@ async function remQuestionsFor(env, hwId, questions, wrongIdx) {
       q2.push({ ...(it.alts[1] || it.alts[0]), ...(it.tip ? { tip: it.tip } : {}) });
     } else {
       const a = remShuffleQ(questions[i], i + 3), b = remShuffleQ(questions[i], i + 11);
-      if (a) { q1.push(a); q2.push(b || a); fallback = true; }
+      // _fb: السؤال الأصلي نفسه بترتيب خيارات مختلف — تدريب، لا يصلح دليلَ إتقان
+      if (a) { q1.push({ ...a, _fb: 1 }); q2.push({ ...(b || a), _fb: 1 }); fallback = true; }
     }
   }
   return { q1, q2, fallback };
@@ -2598,12 +2632,14 @@ async function remCreate(env, o) {
   if (!o.force && remOpen(idx) >= REM.maxOpen) return null;        // force: إرسال المعلم من الخطة لا يخضع للحد
   if (idx.some(x => x && x.src === o.src)) return null;            // علاج واحد لكل مصدر
   let { q1, q2 } = o;
-  if (q1.length < REM.minQ) { q1 = q1.concat(q2).slice(0, REM.maxQ); q2 = q2.concat(o.q1).slice(0, REM.maxQ); }
+  const QMAX = Math.max(REM.maxQ, Math.min(12, Number(o.maxQ) || REM.maxQ));   // خطة المهارات: حتى 3 أسئلة لكل مهارة
+  if (q1.length < REM.minQ) { q1 = q1.concat(q2).slice(0, QMAX); q2 = q2.concat(o.q1).slice(0, QMAX); }
   // 🏷️ مهارة كل سؤال (_sk) تُحفظ بجانبه، فتُحسب نتيجة المهمة لكل مهارة عند التسليم
-  const clean = arr => arr.slice(0, REM.maxQ).map(x => ({ q: remCleanQ(x), sk: String((x && x._sk) || '') })).filter(x => x.q);
+  const clean = arr => arr.slice(0, QMAX).map(x => ({ q: remCleanQ(x), sk: String((x && x._sk) || ''), fb: x && x._fb ? 1 : 0 })).filter(x => x.q);
   const c1 = clean(q1), c2 = clean(q2);
   q1 = c1.map(x => x.q); q2 = c2.map(x => x.q);
   const sk1 = c1.some(x => x.sk) ? c1.map(x => x.sk) : null, sk2 = c2.some(x => x.sk) ? c2.map(x => x.sk) : null;
+  const fb1 = c1.map(x => x.fb), fb2 = c2.map(x => x.fb);   // لكل سؤال: 1 = السؤال الأصلي نفسه · 0 = سؤال بديل موازٍ
   if (!q1.length) return null;
   const remId = 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   const hwId = `R${remId}_1`;
@@ -2615,12 +2651,12 @@ async function remCreate(env, o) {
   await env.HW.put(`hw:${hwId}`, JSON.stringify(payload), { expirationTtl: REM.ttl });
   const rec = { id: remId, sid: o.st.id, name: o.st.name, cls: o.cls || '', src: o.src, srcTitle: o.srcTitle, kind: o.kind, planId: o.planId || '',
     reason: o.reason, before: o.before, status: 'open', fallback: !!o.fallback, createdAt: now, updatedAt: now,
-    attempts: [{ hw: hwId, at: now, n: q1.length, due, ...(sk1 ? { sk: sk1 } : {}) }], q2, ...(sk2 ? { q2sk: sk2 } : {}) };
+    attempts: [{ hw: hwId, at: now, n: q1.length, due, fb: fb1, ...(sk1 ? { sk: sk1 } : {}) }], q2, q2fb: fb2, ...(sk2 ? { q2sk: sk2 } : {}) };
   await env.HW.put(`rem:${remId}`, JSON.stringify(rec), { expirationTtl: REM.ttl * 2 });
   idx.push({ id: remId, src: o.src, status: 'open', at: now });
   await remSaveIndex(env, o.st.id, idx);
   try { const rev = parseInt(await env.HW.get('meta:rev'), 10) || 0; await env.HW.put('meta:rev', String(rev + 1)); } catch {}
-  return { id: remId, hw: hwId, title: payload.t };
+  return { id: remId, hw: hwId, title: payload.t, fb: fb1.some(Boolean) ? 1 : 0 };
 }
 /* بعد كل تسليم: إمّا يفتح علاجًا (إخفاق في نشاط)، أو يحسم علاجًا قائمًا (تسليم مهمة علاجية) */
 async function remedialAfterSubmit(env, hw, activity, st, d, correct, total, questions) {
@@ -2630,7 +2666,12 @@ async function remedialAfterSubmit(env, hw, activity, st, d, correct, total, que
     let rec = null; try { rec = JSON.parse(await env.HW.get(`rem:${activity.remId}`)); } catch {}
     if (!rec) return null;
     const a = (rec.attempts || []).find(x => x.hw === hw); if (a) { a.rate = rate; a.doneAt = Date.now();
-      if (Array.isArray(a.sk)) { const by = {}; String(d || '').split('').forEach((c, i) => { const k = a.sk[i]; if (!k) return; const o = by[k] || (by[k] = { c: 0, t: 0 }); o.t++; if (c === '1') o.c++; }); a.skills = by; } }
+      if (Array.isArray(a.sk)) { const by = {}, byP = {}; String(d || '').split('').forEach((c, i) => { const k = a.sk[i]; if (!k) return;
+          const o = by[k] || (by[k] = { c: 0, t: 0 }); o.t++; if (c === '1') o.c++;
+          // ✅ دليل إتقان: السؤال البديل الموازي فقط (سؤال جديد على المهارة نفسها)، لا السؤال الأصلي المعاد
+          const parallel = Array.isArray(a.fb) ? !a.fb[i] : !rec.fallback;
+          if (parallel) { const p = byP[k] || (byP[k] = { c: 0, t: 0 }); p.t++; if (c === '1') p.c++; } });
+        a.skills = by; a.skillsP = byP; } }
     rec.after = rate; rec.updatedAt = Date.now();
     if (rate >= REM.master) rec.status = 'mastered';
     else if ((Number(activity.attempt) || 1) < 2 && Array.isArray(rec.q2) && rec.q2.length) {
@@ -2638,7 +2679,7 @@ async function remedialAfterSubmit(env, hw, activity, st, d, correct, total, que
       const p2 = { ...activity, id: hw2, q: rec.q2, attempt: 2, at: now, t: activity.t + ' (محاولة ثانية)',
         d: new Date(now + 3 * 3600000 + REM.days * 86400000).toISOString().slice(0, 10) };
       await env.HW.put(`hw:${hw2}`, JSON.stringify(p2), { expirationTtl: REM.ttl });
-      rec.attempts.push({ hw: hw2, at: now, n: rec.q2.length, due: p2.d, ...(Array.isArray(rec.q2sk) ? { sk: rec.q2sk } : {}) }); rec.status = 'retry';
+      rec.attempts.push({ hw: hw2, at: now, n: rec.q2.length, due: p2.d, ...(Array.isArray(rec.q2fb) ? { fb: rec.q2fb } : {}), ...(Array.isArray(rec.q2sk) ? { sk: rec.q2sk } : {}) }); rec.status = 'retry';
     } else rec.status = 'escalated';
     await env.HW.put(`rem:${rec.id}`, JSON.stringify(rec), { expirationTtl: REM.ttl * 2 });
     // ✔ مهمة خطة علاجية حُلّت ← يُعلَّم إجراءا «حل المهمة» و«إعادة حل الأنشطة» تلقائيًا
@@ -2789,8 +2830,9 @@ async function planRemedialSend(env, planId, sids, round, state) {
         String(sub.d).split('').forEach((c, i) => { const k = sk[i]; if (!per[k]) return; agg.t++; if (c === '1') agg.c++; else if (c === '0') per[k].push({ h, i }); });
       }
       const picks = [];
-      for (let r = 0; picks.length < REM.maxQ && targets.some(k => per[k].length > r); r++)
-        for (const k of targets) if (per[k][r] && picks.length < REM.maxQ) picks.push({ ...per[k][r], k });
+      const QMAX = Math.min(12, Math.max(REM.maxQ, targets.length * 3));   // حتى 3 أسئلة لكل مهارة: سؤال واحد لا يكفي للحكم
+      for (let r = 0; r < 3 && picks.length < QMAX && targets.some(k => per[k].length > r); r++)
+        for (const k of targets) if (per[k][r] && picks.length < QMAX) picks.push({ ...per[k][r], k });
       if (!picks.length) { results.push({ sid, name: st.name, ok: false, reason: `لا أخطاء مسجّلة له في المهارات المستهدفة (${targets.join('، ')}) — تُبنى المهمة بعد أول نشاط يُخطئ فيه عليها` }); continue; }
       let q1 = [], q2 = [], fallback = false;
       for (const p of picks) {
@@ -2799,10 +2841,10 @@ async function planRemedialSend(env, planId, sids, round, state) {
         q1 = q1.concat(r.q1); q2 = q2.concat(r.q2); fallback = fallback || r.fallback;
       }
       const titles = targets.filter(k => picks.some(p => p.k === k)).join(' و');
-      const made = await remCreate(env, { st, cls: st.cls, src: round > 1 ? `plan:${planId}:${round}` : `plan:${planId}`, srcTitle: titles, kind: 'plan', planId, force: true,
-        reason: `خطة علاجية للمهارات: ${titles}`, before: agg.t ? Math.round(agg.c / agg.t * 100) : 0, q1: q1.slice(0, REM.maxQ), q2: q2.slice(0, REM.maxQ), fallback,
+      const made = await remCreate(env, { st, cls: st.cls, src: round > 1 ? `plan:${planId}:${round}` : `plan:${planId}`, srcTitle: titles, kind: 'plan', planId, force: true, maxQ: QMAX,
+        reason: `خطة علاجية للمهارات: ${titles}`, before: agg.t ? Math.round(agg.c / agg.t * 100) : 0, q1: q1.slice(0, QMAX), q2: q2.slice(0, QMAX), fallback,
         title: `🩹 خطتك العلاجية: ${titles}`.slice(0, 120), api: '' });
-      results.push(made ? { sid, name: st.name, ok: true, title: made.title } : { sid, name: st.name, ok: false, reason: 'أُرسلت له مهمة من هذه الخطة سابقًا' });
+      results.push(made ? { sid, name: st.name, ok: true, title: made.title, fb: made.fb } : { sid, name: st.name, ok: false, reason: 'أُرسلت له مهمة من هذه الخطة سابقًا' });
       continue;
     }
     // خطة بلا مهارات محددة (نمط فقط): من أخطائه في أضعف نشاطين
@@ -2818,7 +2860,7 @@ async function planRemedialSend(env, planId, sids, round, state) {
     const made = await remCreate(env, { st, cls: st.cls, src: round > 1 ? `plan:${planId}:${round}` : `plan:${planId}`, srcTitle: titles, kind: 'plan', planId, force: true,
       reason: `خطة علاجية: ${titles}`, before: rate, q1: q1.slice(0, REM.maxQ), q2: q2.slice(0, REM.maxQ), fallback,
       title: `🩹 خطتك العلاجية: ${titles}`.slice(0, 120), api: '' });
-    results.push(made ? { sid, name: st.name, ok: true, title: made.title } : { sid, name: st.name, ok: false, reason: 'أُرسلت له مهمة من هذه الخطة سابقًا' });
+    results.push(made ? { sid, name: st.name, ok: true, title: made.title, fb: made.fb } : { sid, name: st.name, ok: false, reason: 'أُرسلت له مهمة من هذه الخطة سابقًا' });
   }
   return results;
 }
@@ -2826,7 +2868,7 @@ async function planRemedialSend(env, planId, sids, round, state) {
 async function planTick(env) {
   if (await env.HW.get('plantick')) return;
   await env.HW.put('plantick', '1', { expirationTtl: 3 * 3600 });
-  const data = await loadClassroom(env);
+  const data = await attachPlanRem(env, await loadClassroom(env));
   const plans = (Array.isArray(data.plans) ? data.plans : []).filter(p => p && p.id && (p.status || 'active') !== 'done');
   if (!plans.length) return;
   let state = {}; try { state = JSON.parse(await env.HW.get('tstate:main')) || {}; } catch {}
@@ -6150,7 +6192,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
     if (url.pathname === '/my-plan' && request.method === 'GET') {
       const st = await resolveStudent(env, { id: String(url.searchParams.get('sid') || '').slice(0, 40), name: String(url.searchParams.get('name') || '').slice(0, 80) });
       if (!st.known) return json({ ok: false, error: 'student not recognized' }, 403);
-      const data = await loadClassroom(env);
+      const data = await attachPlanRem(env, await loadClassroom(env));
       let state = {}; try { state = JSON.parse(await env.HW.get('tstate:main')) || {}; } catch {}
       const students = (state.students || []).filter(x => x && x.name), assignments = state.assignments || [];
       const mine = (Array.isArray(data.plans) ? data.plans : []).filter(p => p && (p.status || 'active') !== 'done' &&
@@ -6948,7 +6990,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
     if (url.pathname === '/grades' && request.method === 'GET') {
       const token = url.searchParams.get('t') || '';
       if (!env.TEACHER_TOKEN || token !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
-      let data = await attachMadrasati(env, await loadClassroom(env));
+      let data = await attachPlanRem(env, await attachMadrasati(env, await loadClassroom(env)));
       let students = [];
       try {
         const st = await env.HW.get('tstate:main');
@@ -6981,7 +7023,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       if (!env.TEACHER_TOKEN || token !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
       let data = {};
       let state = {};
-      data = await attachMadrasati(env, await loadClassroom(env));
+      data = await attachPlanRem(env, await attachMadrasati(env, await loadClassroom(env)));
       try { const raw = await env.HW.get('tstate:main'); if (raw) state = JSON.parse(raw) || {}; } catch { state = {}; }
       const students = Array.isArray(state.students) ? state.students.filter(x => x && x.name) : [];
       const assignments = Array.isArray(state.assignments) ? state.assignments : [];

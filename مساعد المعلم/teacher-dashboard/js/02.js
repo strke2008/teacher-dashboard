@@ -1283,6 +1283,7 @@ async function planSendRemedialGo(id){
     if(raw&&!(raw.actions||[]).some(a=>a.text===PLAN_REM_ACTION)){const plans=(window._classroomData.plans||[]).map(x=>x.id===id?{...x,actions:[...(x.actions||[]),{text:PLAN_REM_ACTION,done:false}]}:x);await savePlans(plans)}}catch(e){}}
   openModal(`<h2>${ok.length?'✅ أُرسلت المهمة':'لم تُرسل أي مهمة'}</h2>
     ${ok.length?`<p style="font-size:.9rem">وصلت ${ok.length===1?'لـ':'إلى'} ${ok.map(x=>planEsc(x.name)).join('، ')} في «🎯 طوّر مستواك».</p>`:''}
+    ${ok.some(x=>x.fb)?`<p class="plan-warn" style="font-size:.84rem">⚠️ ${ok.filter(x=>x.fb).map(x=>planEsc(x.name)).join('، ')}: بعض الأسئلة هي السؤال الأصلي نفسه بخيارات مرتبة من جديد (لا توجد له أسئلة بديلة) — تدريب مفيد، لكنها <b>لا تُحتسب في قياس الأثر</b>. جهّز «🧩 الأسئلة البديلة» لأنشطة هذه المهارات قبل المهمة القادمة.</p>`:''}
     ${bad.length?`<ul style="font-size:.85rem;color:var(--ink-soft)">${bad.map(x=>`<li>${planEsc(x.name||x.sid)}: ${planEsc(x.reason)}</li>`).join('')}</ul>`:''}
     <div class="modal-foot"><button class="btn" onclick="closeModal()">تم</button></div>`);
   await renderAutoRem();renderPlans(true);
@@ -2626,7 +2627,7 @@ function renderPlanSkills(){
       ${gaps.map(row).join('')||`<tr><td colspan="${hasAf?6:5}" class="muted" style="text-align:center">لا مهارة دون ${SKILL_GAP_UI}% — لا توجد فجوة مهارية ظاهرة.</td></tr>`}
       ${manual.map(k=>`<tr class="on"><td><input type="checkbox" class="pf-skill" value="${planEsc(k)}" checked onchange="planSkillToggle(this)"></td><td class="sk-n">${planEsc(k)}</td><td>—</td><td><span class="chip ghost">أضفتها يدويًا</span></td>${hasAf?`<td class="sk-af">${planAfterCell(AF.get(k))}</td>`:''}<td class="muted sk-src">${knownSkillNames().includes(k)?'تُقاس من الأسئلة القادمة':'✍️ لا تطابق اسم مهارة مصنّفة — لن تُقاس'}</td></tr>`).join('')}
     </tbody></table></div>
-    ${hasAf?`<div class="sk-af-note">ℹ️ <b>«الإتقان»</b> مجمل الفترة من الأنشطة والتشخيصي، ولا تدخل فيه المهمة العلاجية — فقد يبقى أحمر بعد حلّها. التحسّن يظهر في <b>«بعد الخطة»</b>: 🩹 نتيجة المهمة العلاجية · ✏️ الأنشطة منذ بدء الخطة. الخطة تنجح حين تبلغ كل مهارة ${SKILL_TARGET_UI}% في <b>الأنشطة الجديدة</b>؛ فأرسل نشاطًا يقيس هذه المهارات لتأكيد الإتقان.</div>`:''}
+    ${hasAf?`<div class="sk-af-note">ℹ️ <b>«الإتقان»</b> تشخيص الفترة من الأنشطة والتشخيصي، ولا تدخل فيه المهمة العلاجية — فيبقى كما شُخّص. التحسّن يظهر في <b>«بعد الخطة»</b>: 🩹 المهمة العلاجية · ✏️ الأنشطة منذ البدء. الخطة تنجح حين تبلغ كل مهارة ${SKILL_TARGET_UI}% في الأسئلة الجديدة بعد البدء (الأنشطة + الأسئلة البديلة في المهمة؛ السؤال الأصلي المعاد لا يُحتسب).</div>`:''}
     ${rest.length?`<details class="sk-more"><summary>مهارات أخرى أعلى من ${SKILL_GAP_UI}% <span class="chip ghost">${rest.length}</span></summary><table class="sk-t"><tbody>${rest.map(row).join('')}</tbody></table></details>`:''}`
     :`<div class="sk-none">⚠️ <b>لم تُحدَّد فجوات مهارية لهذا ${G.grp?'المجموعة':'الطالب'} بعد.</b> لتحديدها:
         <ul><li>أرسل <b>🔍 اختبارًا تشخيصيًا</b> للفصل — كل سؤال فيه مرتبط بمهارة${diagN?` (لديك ${diagN} اختبار)`:''}.</li>
@@ -2894,7 +2895,8 @@ function planMemberSkill(p,sid){
   const it=m&&m.skill&&Array.isArray(m.skill.items)?m.skill.items:[];
   const rem=planRemSkillsFor(p,sid);
   return (Array.isArray(p.skills)?p.skills:[]).map(k=>{const x=it.find(y=>y.skill===k)||{};
-    return {skill:k,before:x.before||null,after:x.after&&x.after.total?x.after:null,rem:rem[k]!=null?rem[k]:null};});
+    return {skill:k,before:x.before||null,after:x.after&&x.after.total?x.after:null,rem:rem[k]!=null?rem[k]:null,
+      act:x.afterAct||null,remP:x.afterRem||null,rep:Number(x.remRepeat)||0,srv:'afterAct' in x};});
 }
 function planEvents(p){
   const ev=[], ids=planMemberIds(p).filter(Boolean), grp=!!p.group, nm=sid=>{const s=(STUDENTS||[]).find(x=>String(x.id)===String(sid));return s?String(s.name).split(/\s+/).slice(0,2).join(' '):'';};
@@ -2927,15 +2929,22 @@ function planEvents(p){
 function planCompareHTML(p){
   const ks=Array.isArray(p.skills)?p.skills:[]; if(!ks.length) return '';
   const ids=planMemberIds(p).filter(Boolean);
+  const pc=m=>m&&m.total?m.rate:null;
   const cell=(v,x)=>v==null?'<span class="muted">—</span>':`<b class="${v>=SKILL_TARGET_UI?'up':v<SKILL_GAP_UI?'down':''}">${v}%</b>${x?` <small class="muted">${x}</small>`:''}`;
   const rows=ids.flatMap(sid=>planMemberSkill(p,sid).map(r=>{
     const b=r.before&&r.before.total?r.before:null, a=r.after;
+    // الخادم القديم: «بعد» من الأنشطة وحدها، والمهمة من سجلها
+    const act=r.srv?r.act:a, remP=r.srv?r.remP:null;
+    const src=[act?`✏️ أنشطة ${act.correct}/${act.total}`:'',remP?`🩹 أسئلة بديلة ${remP.correct}/${remP.total}`:'',r.rep?`🔁 ${r.rep===1?'سؤال أصلي معاد':r.rep===2?'سؤالان أصليان معادان':r.rep+' أسئلة أصلية معادة'} (لا تُحتسب)`:'',
+      !r.srv&&r.rem!=null?`🩹 المهمة ${r.rem}%`:''].filter(Boolean).join('<br>');
     const res=a&&a.total>=2?(a.rate>=SKILL_TARGET_UI?'<span class="chip tick">✓ بلغ الهدف</span>':b&&a.rate-b.rate>=5?'<span class="chip warn">تحسّن ولم يبلغ الهدف</span>':'<span class="chip bad">لم يتحسّن بعد</span>')
-      :r.rem!=null?(r.rem>=SKILL_TARGET_UI?'<span class="chip ghost">🩹 أتقن المهمة — بانتظار نشاط يؤكد</span>':'<span class="chip ghost">🩹 لم يتقن المهمة</span>'):'<span class="chip ghost">لم يُقَس بعد</span>';
+      :a&&a.total===1?'<span class="chip ghost">سؤال واحد — لا يكفي للحكم</span>'
+      :r.rep?'<span class="chip ghost">🔁 أسئلة معادة فقط — جهّز الأسئلة البديلة</span>'
+      :'<span class="chip ghost">لم يُقَس بعد</span>';
     const s=(STUDENTS||[]).find(x=>String(x.id)===String(sid));
-    return `<tr>${p.group?`<td>${planEsc(s?String(s.name).split(/\s+/).slice(0,2).join(' '):'')}</td>`:''}<td class="sk-n">${planEsc(r.skill)}</td><td>${cell(b&&b.rate,b?`${b.correct}/${b.total}`:'')}</td><td>${cell(r.rem)}</td><td>${cell(a&&a.rate,a?`${a.correct}/${a.total}`:'')}</td><td>${res}</td></tr>`;}));
-  return `<div class="pl-cmp"><table><thead><tr>${p.group?'<th>الطالب</th>':''}<th>المهارة</th><th>قبل الخطة</th><th>🩹 المهمة العلاجية</th><th>✏️ الأنشطة بعد البدء</th><th>النتيجة (الهدف ${SKILL_TARGET_UI}%)</th></tr></thead><tbody>${rows.join('')}</tbody></table>
-    <div class="muted" style="font-size:.74rem;margin-top:.3rem">«قبل» من إجاباته قبل البدء · 🩹 تدريب من أخطائه نفسها (دليل تنفيذ، لا يُحكم به وحده) · ✏️ أسئلة المهارة في الأنشطة العادية بعد البدء (سؤالان فأكثر) — هي أساس الحكم.</div></div>`;
+    return `<tr>${p.group?`<td>${planEsc(s?String(s.name).split(/\s+/).slice(0,2).join(' '):'')}</td>`:''}<td class="sk-n">${planEsc(r.skill)}</td><td>${cell(pc(b),b?`${b.correct}/${b.total}`:'')}</td><td>${cell(pc(a),a?`${a.correct}/${a.total}`:'')}</td><td class="pl-src">${src||'<span class="muted">—</span>'}</td><td>${res}</td></tr>`;}));
+  return `<div class="pl-cmp"><table><thead><tr>${p.group?'<th>الطالب</th>':''}<th>المهارة</th><th>قبل الخطة</th><th>بعد الخطة</th><th>مصدر القياس البعدي</th><th>النتيجة (الهدف ${SKILL_TARGET_UI}%)</th></tr></thead><tbody>${rows.join('')}</tbody></table>
+    <div class="muted" style="font-size:.74rem;margin-top:.3rem;line-height:1.7">«قبل» من إجاباته قبل البدء. «بعد» من كل سؤال جديد على المهارة بعد البدء: ✏️ الأنشطة العادية و🩹 <b>الأسئلة البديلة</b> في المهمة العلاجية (صياغة وأرقام جديدة للمهارة نفسها). 🔁 السؤال الأصلي المعاد بخيارات مرتبة من جديد <b>لا يُحتسب</b>: يقيس التذكّر لا الفهم. يُحكم من سؤالين فأكثر لكل مهارة.</div></div>`;
 }
 function planTimelineHTML(p){
   const ev=planEvents(p), cmp=planCompareHTML(p);
@@ -2943,7 +2952,7 @@ function planTimelineHTML(p){
   const meas=ev.filter(e=>e.k==='meas').length, next=p.status==='done'?''
     :!(REM_ROWS||[]).some(x=>x.planId===p.id)?'🩹 أرسل له المهمة العلاجية (زر 🩹 أسفل البطاقة) — أول تدريب من أخطائه.'
     :(REM_ROWS||[]).some(x=>x.planId===p.id&&(x.status==='open'||x.status==='retry'))?'⏳ بانتظار حلّه للمهمة العلاجية في بوابته.'
-    :!meas?'✏️ أرسل نشاطًا عاديًا فيه أسئلة على مهارات الخطة — بدونه لا يُقاس الأثر.'
+    :!meas&&!(p.after&&p.after.measured&&p.basis==='skills')?'🩹 المهمة العلاجية لم تكفِ للقياس (أسئلة معادة أو قليلة) — جهّز الأسئلة البديلة ثم أرسل مهمة جديدة، أو اطبع ورقة تدريب 📝 وأدخل نتيجتها في نشاط.'
     :p.timing&&p.timing.skillsLeft&&p.timing.skillsLeft.length?`🎯 لم تبلغ الهدف بعد: ${p.timing.skillsLeft.map(x=>'«'+planEsc(x.skill)+'»').join('، ')} — نشاط آخر عليها.`:'';
   return `<div class="pl-tl"><div class="pc-sub">📈 مسار الخطة — ما تغيّر بعد كل خطوة</div>
     ${cmp}
@@ -3316,7 +3325,7 @@ async function printPlans(id){
       ${p.caution?`<div class="plan-warn">⚠️ ${planEsc(p.caution)}</div>`:''}
       ${ex&&ex.undated?`<div class="plan-note">بعض درجات الاختبارات بلا تاريخ اختبار، فحُسبت بتاريخ رصدها.</div>`:''}
       <div class="plan-note"><b>منهجية القياس:</b> النسب من إجابات الطالب الفعلية المسجّلة آليًا لا من التقدير. خط الأساس آخر 30 يومًا قبل الخطة (أو كل ما قبلها إن قلّ عن 10 أسئلة).
-        الأنشطة العلاجية مستبعدة من القياس لأن أسئلتها مأخوذة من أخطائه فهي تدريب لا دليل فهم. ${p.basis==='skills'?'القياس على أسئلة المهارات المستهدفة وحدها. ':''}
+        في المهارات المستهدفة يُحتسب بعد البدء كل سؤال جديد على المهارة: الأنشطة العادية والأسئلة البديلة في المهمة العلاجية (صياغة جديدة موازية)، أما السؤال الأصلي المعاد بخيارات مرتبة من جديد فلا يُحتسب لأنه يقيس التذكّر لا الفهم. ${p.basis==='skills'?'القياس على أسئلة المهارات المستهدفة وحدها. ':''}
         يُحكم بالتحسّن عند فرق 5 نقاط فأكثر، ويُبيَّن هل الفرق أكبر من هامش الصدفة لعدد الأسئلة، ويُقارَن بتغيّر زملائه في الفصل خلال الفترة نفسها.
         ${p.mainBy&&p.mainBy!=='academic'?`الحكم على هذه الخطة بمؤشر «${planEsc(p.measureLabel)}» لأنه سبب إنشائها، وبقية العناصر أدلة مساندة. `:''}الواجبات والمشاركة والحضور والسلوك من سجلات المعلم اليومية؛ الغياب بعذر والواجب «معذور» لا يُحسبان على الطالب.</div></div>
       ${(()=>{const tl=planTimelineHTML(p);return tl?`<div class="rep-sec">مسار الخطة — المقارنة قبل وبعد لكل مهارة، وما تغيّر بعد كل خطوة</div><div class="rep-box">${tl}</div>`:''})()}
