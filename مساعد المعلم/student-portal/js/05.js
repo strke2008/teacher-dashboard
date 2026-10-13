@@ -217,13 +217,15 @@ async function myPlanLoad(){
     return `<section class="mp-card">
       <div class="mp-h"><span class="mp-ic">🎯</span><div style="flex:1"><b>خطتي العلاجية</b><small>${left}</small></div>${hideBtn}</div>
       ${p.skills&&p.skills.length?`<div class="mp-goal"><span>هدفي: أن أتقن كل مهارة بنسبة ${p.skillTarget||80}%</span></div>
-      <div class="mp-sks">${p.skills.map(k=>{const T=p.skillTarget||80,pend=(p.tasks||[]).some(t=>t.status==='open'||t.status==='retry');
+      <div class="mp-sks">${p.skills.slice().sort((a,b)=>(a.pre&&a.now==null?1:0)-(b.pre&&b.now==null?1:0)).map(k=>{const T=p.skillTarget||80,pend=(p.tasks||[]).some(t=>t.status==='open'||t.status==='retry');
+        // ✅ متقنة قبل الخطة: ليست هدفًا عليه — سطر هادئ بلا شريط فارغ
+        if(k.pre&&k.now==null) return `<div class="mp-sk ok pre"><div class="mp-skh"><b>✅ ${esc(k.skill)}</b><small>متقنة قبل الخطة (${k.before}%)</small></div></div>`;
         // المقياس الرسمي: النشاط العادي بعد بدء الخطة؛ وحتى يأتي تظهر نتيجة المهمة العلاجية مؤقتًا
         const v=k.now!=null?k.now:k.rem!=null?k.rem:null, ok=v!=null&&v>=T, prov=k.now==null&&k.rem!=null, w=v==null?0:Math.max(4,Math.min(100,Math.round(v/T*100)));
         const was=k.before!=null?`كنت ${k.before}% ← `:'';
         const txt=k.now!=null?(ok?`أتقنتها ${k.now}%`:`${was}الآن ${k.now}%`)
           :prov?(ok?`${was}${k.rem}% في مهمتك العلاجية · يتأكد إتقانك في نشاطك القادم`:`${was}${k.rem}% في مهمتك العلاجية`)
-          :(k.before!=null?`كنت ${k.before}% · `:'')+(pend?'حلّ مهمتك ليظهر تقدّمك':'حلّ نشاطك القادم ليظهر تقدّمك');
+          :(k.before!=null?`كنت ${k.before}% · `:'')+(pend?'حلّ مهمتك ليظهر تقدّمك':p.taskDone?'✓ أنجزت مهمتك — نشاطك القادم يقيس تقدّمك':'حلّ نشاطك القادم ليظهر تقدّمك');
         return `<div class="mp-sk ${ok?(prov?'prov':'ok'):''}"><div class="mp-skh"><b>${ok?(prov?'🌟':'✅'):'🎯'} ${esc(k.skill)}</b><small>${txt}</small></div>
           <div class="mp-bar ${prov?'prov':''}"><i style="width:${w}%"></i><em style="inset-inline-start:100%"></em></div></div>`}).join('')}</div>`
       :`<div class="mp-goal">${p.goal&&p.goal.length?`<span>هدفي: إتقان</span>${p.goal.map(g=>`<span class="mp-chip">${esc(g)}</span>`).join('')}`:`<span>${esc(p.reason||'تحسين مستواي')}</span>`}</div>

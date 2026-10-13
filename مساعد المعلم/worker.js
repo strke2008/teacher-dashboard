@@ -6150,9 +6150,12 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         const m = memberReport(st.id, p, students, assignments, data), t = planTiming(p, m.gain, m.after && m.after.rate, !!(m.after && m.after.measured));
         // 🎯 حقق الطالب هدف الخطة ← لا داعي لبقائها في صفحته (تبقى عند المعلم ليتخذ قراره)
         // خطة المهارات: تُعدّ محققة حين تبلغ كل مهارة الهدف، لا المتوسط وحده
-        const skItems = m.skill && Array.isArray(m.skill.items) ? m.skill.items.map(x => ({ skill: x.skill, before: x.before ? x.before.rate : null,
-          now: x.after && x.after.total >= 2 ? x.after.rate : null })) : [];
-        const allMet = skItems.length ? skItems.every(x => x.now != null && x.now >= SKILL_TARGET) : (m.after && m.after.measured && m.after.rate != null && m.after.rate >= PLAN.target);
+        // «كنت» من سؤالين فأكثر فقط (مثل «الآن»): سؤال واحد صحيح كان يظهر «كنت 100%» في مهارة علاجية
+        // pre: مهارة كان متقنًا لها قبل الخطة (خطة جماعية تشمل مهارات لم يخفق فيها) — لا تُعرض عليه هدفًا
+        const skItems = m.skill && Array.isArray(m.skill.items) ? m.skill.items.map(x => { const b = x.before && x.before.total >= 2 ? x.before.rate : null;
+          return { skill: x.skill, before: b, pre: b != null && b >= SKILL_TARGET, now: x.after && x.after.total >= 2 ? x.after.rate : null }; }) : [];
+        const metOne = x => (x.now != null && x.now >= SKILL_TARGET) || (x.now == null && x.pre);
+        const allMet = skItems.length ? skItems.every(metOne) : (m.after && m.after.measured && m.after.rate != null && m.after.rate >= PLAN.target);
         if (allMet) continue;
         const tasks = [], remBy = {}; let masteredAt = 0;
         for (const x of idx.filter(x => x && String(x.src || '').startsWith(`plan:${p.id}`))) { try { const r = JSON.parse(await env.HW.get(`rem:${x.id}`)); if (!r) continue;
@@ -6168,12 +6171,12 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         // 🌟 أتقن كل مهارات الخطة في مهمته ولا مهمة مفتوحة ← سطر تهنئة واحد، ثم تختفي من صفحته بعد 3 أيام
         // (تبقى الخطة عند المعلم مفتوحة حتى يقرر) — حتى لا تزدحم صفحة الطالب
         const open = tasks.some(x => x.status === 'open' || x.status === 'retry');
-        const remAll = !open && masteredAt > 0 && (skItems.length ? skItems.every(x => (x.now != null ? x.now : x.rem) >= SKILL_TARGET) : true);
+        const remAll = !open && masteredAt > 0 && (skItems.length ? skItems.every(x => metOne(x) || (x.now == null && x.rem != null && x.rem >= SKILL_TARGET)) : true);
         if (remAll && Date.now() - masteredAt > 3 * 86400000) continue;
         rows.push({ id: p.id, goal: (Array.isArray(p.skills) && p.skills.length) ? p.skills.slice(0, 4) : [], reason: String(p.reason || '').split(' — ')[0].slice(0, 80),
           start: p.startDate || '', due: t.due, left: t.left, target: PLAN.target,
           before: m.before && m.before.measured ? m.before.rate : null, now: m.after && m.after.measured ? m.after.rate : null, basis: m.basis, tasks,
-          skills: skItems, skillTarget: SKILL_TARGET, doneAll: remAll });
+          skills: skItems, skillTarget: SKILL_TARGET, doneAll: remAll, taskDone: masteredAt > 0 && !open });
       }
       return json({ ok: true, rows });
     }

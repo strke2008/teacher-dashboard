@@ -1659,3 +1659,5 @@ html[data-pt] body,html[data-pt] .sheet,html[data-pt] .btn,html[data-pt] .studen
 .brief-ill.zoom img{width:max(100%,900px);max-width:none;height:auto;margin:auto;background:#F7FAFC}
 @media (min-width:900px){.brief-ill.zoom{display:flex;align-items:center;justify-content:center}.brief-ill.zoom img{width:auto;max-width:100%;max-height:100%}}
 .brief-ill.zoom span{display:none}
+/* ✅ مهارة متقنة قبل الخطة: سطر هادئ بلا شريط */
+.mp-sk.pre{opacity:.8}.mp-sk.pre .mp-skh{margin:0}
