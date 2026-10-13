@@ -275,7 +275,7 @@ async function srepPreview(sid){
     window.__srepPreview=j.report;
     openModal(`<div class="srepd-prev-bar"><button class="btn ghost sm" type="button" onclick="srepOpen()">→ رجوع</button>
         <span style="color:var(--ink-soft);font-size:.82rem">معاينة — هكذا يراه الطالب${SREPD.sent[sid]?' (المُرسل له نسخة سابقة حتى تعيد الإرسال)':''}</span>
-        <button class="btn tick sm" type="button" onclick="srpPrint(window.__srepPreview)">🖨️ طباعة</button></div>${srxHTML(j.report)}`);
+        <button class="btn ghost sm" type="button" onclick="srpPrint(window.__srepPreview)">🖨️ طباعة</button><button class="btn tick sm" type="button" onclick="reportShare(window.__srepPreview)" title="ملف PDF يُرسل بواتساب لولي الأمر أو المرشد">📤 مشاركة PDF</button></div>${srxHTML(j.report)}`);
   }catch(_){ toast('تعذّرت المعاينة','bad'); }
 }
 /* 📦 الإرسال/السحب على دفعات صغيرة مع عدّاد حي: الطلب الواحد لكل الفصل يتجاوز حد عمليات Cloudflare

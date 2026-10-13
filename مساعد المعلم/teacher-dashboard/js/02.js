@@ -2384,7 +2384,7 @@ async function ctProfile(box,force){
   const sub=CT_PF_SUBS.some(x=>x[0]===window._ctPfSub)?window._ctPfSub:'overview';
   const printBtn={overview:`<button class="btn sm" onclick="ctProfilePrint()">🖨️ طباعة الملف الشامل</button>`,
     report:`<button class="btn sm" onclick="printStudentReport('${esc(sid)}')">🖨️ طباعة تقرير الأنشطة</button>`,
-    period:`<button class="btn sm" onclick="window.__srepPreview&&srpPrint(window.__srepPreview)">🖨️ طباعة تقرير الفترة</button>`}[sub]||'';
+    period:`<button class="btn sm" onclick="window.__srepPreview&&srpPrint(window.__srepPreview)">🖨️ طباعة تقرير الفترة</button> <button class="btn tick sm" onclick="reportShare(window.__srepPreview)" title="ملف PDF يُرسل بواتساب لولي الأمر أو المرشد">📤 مشاركة PDF</button>`}[sub]||'';
   const head=`<div class="row ct-tools no-print">${ctClassSel('ct-pf-cls',cls,"window._ctPfCls=this.value;window._ctPfSid='';renderClassTools()",false)}
       <select class="inp" id="ct-pf-sel" style="flex:1;min-width:200px" onchange="window._ctPfSid=this.value;renderClassTools()">${roster.map(s=>`<option value="${esc(s.id)}" ${String(s.id)===sid?'selected':''}>${esc(s.name)}</option>`).join('')}</select>
       ${sid?`<button class="btn ghost sm" title="الطالب السابق" onclick="ctPfStep(-1)">→</button><button class="btn ghost sm" title="الطالب التالي" onclick="ctPfStep(1)">←</button>`:''}
