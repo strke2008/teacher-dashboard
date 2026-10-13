@@ -673,6 +673,16 @@ const GDAY = 86400000;
 const HW_SPLIT = { classMax: 5, madMax: 5 };   // كل واجب لم يُسلَّم/لم يُحل −0.5: واجب الفصل بعد أسبوع سماح، ومدرستي عند إغلاقه في المنصة
 const MAD_FORGIVE_PRICE = 500;   // 🧽 بطاقة مسح خصم واجب مدرستي
 const HW_FORGIVE_PRICE = 500;    // 📘 بطاقة مسح خصم واجب الفصل
+/* 🏷️ تخفيض المتجر (مناسبة): نسبة من 5% إلى 90% على كل البطاقات، حتى وقت محدد اختياري.
+   الخادم وحده يحسب السعر المخفّض عند الشراء — البوابة تعرضه فقط. */
+async function storeSaleGet(env) {
+  try { const s = JSON.parse(await env.HW.get('cfg:sale') || 'null');
+    if (!s || !(s.pct >= 5 && s.pct <= 90)) return null;
+    if (s.until && Date.now() > Number(s.until)) return null;
+    return { pct: Number(s.pct), title: String(s.title || ''), until: Number(s.until) || 0 };
+  } catch { return null; }
+}
+const salePx = (base, sale) => sale ? Math.max(1, Math.round(Number(base) * (100 - sale.pct) / 100)) : Number(base);
 const ksaDay = ts => new Date(Number(ts) + 3 * 3600000).toISOString().slice(0, 10);
 const gToday = () => new Date(Date.now() + 3 * 3600000).toISOString().slice(0, 10);   // اليوم بتوقيت السعودية
 const gClamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -6514,17 +6524,36 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       // 🪪 هل ما زال هذا الطالب في الكشف؟ المتصفح يحفظ آخر دخول، فطالب حُذف
       // كان يعود فيرى اسمه وبياناته. الخادم وحده يعرف الكشف الحالي، فليقل.
       return json({ ok: true, name: st.name || name, sid: st.id, pts: bal, perks: own ? JSON.parse(own) : {}, extra,
-                    submitted, title: myTitle || '', known: !!st.known, ambiguous: !!st.ambiguous });
+                    submitted, title: myTitle || '', known: !!st.known, ambiguous: !!st.ambiguous, sale: await storeSaleGet(env) });
     }
 
     // ── الطالب يشتري بطاقة ──
     // ── 🎓 شراء بطاقة رفع الاختبار: خصم النقاط ورفع الدرجة تحت قفل الطالب ──
+    // ── 🏷️ تخفيض المتجر: يقرؤه الجميع، ويضبطه المعلم (pct=0 يوقفه) ──
+    if (url.pathname === '/store-sale') {
+      if (request.method === 'POST') {
+        let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
+        if (!env.TEACHER_TOKEN || b.t !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
+        const pct = Math.round(Number(b.pct) || 0);
+        if (!pct) await env.HW.delete('cfg:sale');
+        else {
+          if (pct < 5 || pct > 90) return json({ ok: false, error: 'bad_pct' }, 400);
+          const until = Number(b.until) || 0;
+          if (until && until <= Date.now()) return json({ ok: false, error: 'past' }, 400);
+          await env.HW.put('cfg:sale', JSON.stringify({ pct, title: String(b.title || '').replace(/[<>]/g, '').slice(0, 60), until, at: Date.now() }));
+        }
+        await bumpRev(env);
+      }
+      return json({ ok: true, sale: await storeSaleGet(env) });
+    }
+
     if (url.pathname === '/buy-exam-bonus' && request.method === 'POST') {
       let b; try { b = await request.json(); } catch { return json({ error:'bad json' },400); }
       const card=String(b.card||'').replace(/[^a-z0-9_]/gi,'').slice(0,24);
       const CARD={exam05:{price:250,add:.5},exam1:{price:450,add:1},exam2:{price:750,add:2},exam3:{price:1000,add:3}};
-      const cfg=CARD[card];
-      if(!cfg) return json({ok:false,error:'missing fields'},400);
+      const cfg0=CARD[card];
+      if(!cfg0) return json({ok:false,error:'missing fields'},400);
+      const cfg={...cfg0,price:salePx(cfg0.price,await storeSaleGet(env))};   // 🏷️ تخفيض المتجر
       const auth=await requireStudentSession(env,b); if(auth.res) return auth.res;
       const st=auth.st;
       return studentLocked(env,st,async()=>{
@@ -6588,7 +6617,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
     if (url.pathname === '/mad-forgive' && request.method === 'POST') {
       let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
       const auth = await requireStudentSession(env, b); if (auth.res) return auth.res;
-      const st = auth.st, sid = String(st.id || '');
+      const st = auth.st, sid = String(st.id || ''), madP = salePx(MAD_FORGIVE_PRICE, await storeSaleGet(env));
       const eligible = async () => {
         const data = await attachMadrasati(env, await loadClassroom(env));
         const ctx = data.__mad;
@@ -6605,7 +6634,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       };
       if (b.op !== 'use') {
         const e = await eligible(), own = await readOwn(env, st);
-        return json({ ok: true, price: MAD_FORGIVE_PRICE, owned: own.madforgive || 0, pts: await readBal(env, st), ...e });
+        return json({ ok: true, price: madP, owned: own.madforgive || 0, pts: await readBal(env, st), ...e });
       }
       const key = String(b.key || '').toUpperCase();
       if (!/^[0-9A-F]{24,64}$/.test(key)) return json({ ok: false, error: 'bad_key' }, 400);
@@ -6615,7 +6644,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         if (!it) return json({ ok: false, error: e.forgiven.some(x => x.key === key) ? 'already' : (e.linked && !e.open) ? 'period_closed' : 'not_missed', pts: await readBal(env, st) }, 200);
         const own = await readOwn(env, st), bal = await readBal(env, st);
         const useOwned = (own.madforgive || 0) > 0;
-        if (!useOwned && bal < MAD_FORGIVE_PRICE) return json({ ok: false, error: 'low', pts: bal }, 200);
+        if (!useOwned && bal < madP) return json({ ok: false, error: 'low', pts: bal }, 200);
         await withLock(env, 'mad:forgiven', async () => {
           const f = await madForgivenRead(env);
           (f[sid] = f[sid] || {})[key] = { at: Date.now(), title: it.title };
@@ -6623,11 +6652,11 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         });
         let pts = bal;
         if (useOwned) { own.madforgive--; if (own.madforgive <= 0) delete own.madforgive; await writeOwn(env, st, own); }
-        else { pts = bal - MAD_FORGIVE_PRICE; await env.HW.put(identityKey('bal:', st), String(pts)); await dropLegacy(env, 'bal:', st);
-          await plogAdd(env, st, { k: 'shop', gain: -MAD_FORGIVE_PRICE, bal: pts, why: 'بطاقة مسح واجب مدرستي' }); }
+        else { pts = bal - madP; await env.HW.put(identityKey('bal:', st), String(pts)); await dropLegacy(env, 'bal:', st);
+          await plogAdd(env, st, { k: 'shop', gain: -madP, bal: pts, why: 'بطاقة مسح واجب مدرستي' }); }
         await bumpRev(env);
         const at = Date.now();
-        const log = { name: st.name, sid, card: 'madforgive', price: useOwned ? 0 : MAD_FORGIVE_PRICE, kind: 'purchase', at, hwTitle: it.title, madKey: key };
+        const log = { name: st.name, sid, card: 'madforgive', price: useOwned ? 0 : madP, kind: 'purchase', at, hwTitle: it.title, madKey: key };
         await env.HW.put(`req:${at}:${st.name}`, JSON.stringify(log), { expirationTtl: 60 * 60 * 24 * 120 });
         await env.HW.put(`shoplog:${at}:${sid}:${Math.random().toString(36).slice(2, 8)}`, JSON.stringify(log), { expirationTtl: 60 * 60 * 24 * 365 });
         return json({ ok: true, pts, perks: own, erased: it });
@@ -6639,7 +6668,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
     if (url.pathname === '/hw-forgive' && request.method === 'POST') {
       let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
       const auth = await requireStudentSession(env, b); if (auth.res) return auth.res;
-      const st = auth.st, sid = String(st.id || '');
+      const st = auth.st, sid = String(st.id || ''), hwP = salePx(HW_FORGIVE_PRICE, await storeSaleGet(env));
       const eligible = async () => {
         const data = await loadClassroom(env);
         const academic = academicNormalize(data);
@@ -6658,7 +6687,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       };
       if (b.op !== 'use') {
         const e = await eligible(), own = await readOwn(env, st);
-        return json({ ok: true, price: HW_FORGIVE_PRICE, owned: own.hwforgive || 0, pts: await readBal(env, st), ...e });
+        return json({ ok: true, price: hwP, owned: own.hwforgive || 0, pts: await readBal(env, st), ...e });
       }
       const key = String(b.key || '');
       if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) return json({ ok: false, error: 'bad_key' }, 400);
@@ -6668,7 +6697,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         if (!it) return json({ ok: false, error: e.forgiven.some(x => x.key === key) ? 'already' : !e.open ? 'period_closed' : 'not_missed', pts: await readBal(env, st) }, 200);
         const own = await readOwn(env, st), bal = await readBal(env, st);
         const useOwned = (own.hwforgive || 0) > 0;
-        if (!useOwned && bal < HW_FORGIVE_PRICE) return json({ ok: false, error: 'low', pts: bal }, 200);
+        if (!useOwned && bal < hwP) return json({ ok: false, error: 'low', pts: bal }, 200);
         await withLock(env, 'hw:forgiven', async () => {
           const f = await hwForgivenRead(env);
           (f[sid] = f[sid] || {})[key] = { at: Date.now() };
@@ -6676,11 +6705,11 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         });
         let pts = bal;
         if (useOwned) { own.hwforgive--; if (own.hwforgive <= 0) delete own.hwforgive; await writeOwn(env, st, own); }
-        else { pts = bal - HW_FORGIVE_PRICE; await env.HW.put(identityKey('bal:', st), String(pts)); await dropLegacy(env, 'bal:', st);
-          await plogAdd(env, st, { k: 'shop', gain: -HW_FORGIVE_PRICE, bal: pts, why: 'بطاقة مسح واجب' }); }
+        else { pts = bal - hwP; await env.HW.put(identityKey('bal:', st), String(pts)); await dropLegacy(env, 'bal:', st);
+          await plogAdd(env, st, { k: 'shop', gain: -hwP, bal: pts, why: 'بطاقة مسح واجب' }); }
         await bumpRev(env);
         const at = Date.now();
-        const log = { name: st.name, sid, card: 'hwforgive', price: useOwned ? 0 : HW_FORGIVE_PRICE, kind: 'purchase', at, hwTitle: it.title, hwDate: key };
+        const log = { name: st.name, sid, card: 'hwforgive', price: useOwned ? 0 : hwP, kind: 'purchase', at, hwTitle: it.title, hwDate: key };
         await env.HW.put(`req:${at}:${st.name}`, JSON.stringify(log), { expirationTtl: 60 * 60 * 24 * 120 });
         await env.HW.put(`shoplog:${at}:${sid}:${Math.random().toString(36).slice(2, 8)}`, JSON.stringify(log), { expirationTtl: 60 * 60 * 24 * 365 });
         return json({ ok: true, pts, perks: own, erased: it });
@@ -6693,7 +6722,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       const card = String(b.card || '').replace(/[^a-z0-9_]/gi, '').slice(0, 24);
       // 💰 السعر يُحسم في الخادم، لا من المتصفح.
       const STORE_PRICES={exam3:1000,exam2:750,exam1:450,exam05:250,thanks:300,theme_gold:250,theme_diamond:250,theme_saudi:250,theme_spaceweek:250,frame:200,namecolor:300,title:200,dbl:150,retry:80,early:60,ticket:50,hint:30,fifty:40,madforgive:MAD_FORGIVE_PRICE,hwforgive:HW_FORGIVE_PRICE,avatars:250,cert:600};
-      const price=Number(STORE_PRICES[card]||0);
+      const price=salePx(Number(STORE_PRICES[card]||0),await storeSaleGet(env));   // 🏷️ تخفيض المتجر
       if(['exam05','exam1','exam2','exam3'].includes(card)) return json({ok:false,error:'exam_direct'},400);
       // 🧽 بطاقة مسح خصم مدرستي تُشترى وتُستخدم معًا على واجب بعينه من /mad-forgive — لا تُشترى فارغة
       if(card==='madforgive') return json({ok:false,error:'mad_direct'},400);

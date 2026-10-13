@@ -562,7 +562,7 @@ document.querySelectorAll('.tab,.mobile-nav button[data-tab]').forEach(t => t.on
   if (t.dataset.tab === 'reports') { __reportsHubActive=true; kashfGo(null); }
   if (t.dataset.tab === 'projects') { loadProjects(false); }
   if (t.dataset.tab === 'madrasati') { madLoad(false); madBridgeInit(false); }
-  if (t.dataset.tab === 'exam-shop') { loadExamShopPolicy(false); }
+  if (t.dataset.tab === 'exam-shop') { loadExamShopPolicy(false); if(typeof saleLoad==='function') saleLoad(); }
   if (t.dataset.tab === 'plans') { renderPlans(true); }
   if (t.dataset.tab === 'classtools') { CT_VIEW = t.dataset.view || ''; renderClassTools(true); }
   if (t.dataset.tab === 'exam') { examInit(); }

@@ -22,7 +22,7 @@
 <meta content="root-cause-sync-v2" name="sync-fix-version"/>
 <link rel="stylesheet" href="app.css?v=0a05a8c7">
 <script src="js/01-right-sidebar-navigation-js.js?v=41ea29b3" defer></script>
-<script src="js/02.js?v=009a0de5" defer></script>
+<script src="js/02.js?v=3440c576" defer></script>
 <script src="js/03-projects-students-logic-v13.js?v=51fc7d5e" defer></script>
 <script src="js/04.js?v=88f51ee5" defer></script>
 <script src="js/05.js?v=5e4e4410" defer></script>
@@ -50,6 +50,7 @@
 <script src="js/27-proj-illus-js.js?v=d2f03a2d" defer></script>
 <script src="js/28-proj-download-js.js?v=56d82819" defer></script>
 <script src="js/29-student-points-js.js?v=9e320765" defer></script>
+<script src="js/30-store-sale-js.js?v=9c09c073" defer></script>
 <style id="comprehensive-print-identical-all-devices">
 /* 🖨️ الكشف الشامل: نفس التخطيط الفيزيائي على الجوال والكمبيوتر.
    هذه القواعد تأتي في آخر الرأس لتتغلب على أي قواعد شاشة سابقة. */
@@ -474,7 +475,7 @@
 .exam-shop-status.open{background:#E4F4EC;color:#167852}.exam-shop-status.closed{background:#FFF1F2;color:#9F2538}
 @media screen and (max-width:600px){.exam-shop-kpis{grid-template-columns:1fr 1fr}.exam-shop-student{grid-template-columns:1fr 105px}.exam-shop-student small{grid-column:1}.exam-shop-student .exam-shop-used{display:none}}
 </style>
-<link rel="stylesheet" id="late-css" href="app-late.css?v=3bfcc613">
+<link rel="stylesheet" id="late-css" href="app-late.css?v=8fa98b1c">
 </head>
 <body>
 <header class="masthead">
@@ -1313,6 +1314,19 @@
 </div>
 <div class="exam-shop-control">
   <div id="exam-shop-status" class="exam-shop-status">جارٍ تحميل الإعدادات…</div>
+  <div class="sheet sale-sheet" id="store-sale-card">
+    <div class="sheet-head"><div><h3>🏷️ تخفيضات المتجر</h3><span class="sub">خصم بنسبة على كل بطاقات المتجر لمناسبة (يوم وطني، عيد، تكريم…). يرى الطلاب السعر القديم مشطوبًا والجديد بجانبه.</span></div></div>
+    <div id="sale-status" class="sale-status">جارٍ التحميل…</div>
+    <div class="grid2">
+      <div class="field"><label>نسبة الخصم</label>
+        <div class="sale-pcts" id="sale-pcts"></div>
+        <input class="inp" id="sale-pct" type="number" min="5" max="90" step="5" value="10" inputmode="numeric" oninput="salePreview()"><small class="muted">من 5% إلى 90%</small></div>
+      <div class="field"><label>اسم المناسبة <small class="muted">(اختياري)</small></label><input class="inp" id="sale-title" maxlength="60" placeholder="مثال: تخفيضات اليوم الوطني" oninput="salePreview()"></div>
+      <div class="field"><label>ينتهي التخفيض</label><input class="inp" id="sale-until" type="datetime-local" oninput="salePreview()"><small class="muted">اتركه فارغًا ليستمر حتى توقفه بنفسك.</small></div>
+      <div class="field"><label>معاينة الأسعار</label><div id="sale-preview" class="sale-preview"></div></div>
+    </div>
+    <div class="row" style="gap:.5rem;justify-content:flex-end;flex-wrap:wrap"><button class="btn tick" type="button" onclick="saleSave()">🏷️ تفعيل التخفيض</button><button class="btn ghost" type="button" id="sale-stop" onclick="saleStop()">إيقاف التخفيض</button></div>
+  </div>
   <div class="sheet">
     <div class="sheet-head"><h3>إعداد الإتاحة العامة</h3><span class="muted">السقف الأقصى 20 درجة لكل طالب</span></div>
     <div class="grid2">

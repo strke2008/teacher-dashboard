@@ -1662,3 +1662,7 @@ html[data-pt] body,html[data-pt] .sheet,html[data-pt] .btn,html[data-pt] .studen
 /* ✅ مهارة متقنة قبل الخطة: سطر هادئ بلا شريط */
 .mp-sk.pre{opacity:.8}.mp-sk.pre .mp-skh{margin:0}
 .mp-sk.na{background:transparent;border:1px dashed var(--rule,#DCE5F0)}
+/* 🏷️ تخفيض المتجر */
+.sale-banner{display:grid;gap:.15rem;text-align:center;margin:0 0 .8rem;padding:.65rem .8rem;border-radius:12px;background:linear-gradient(135deg,#FFF4D6,#FFE3E3);border:1px solid #F4C27A;color:#7A3E00}
+.sale-banner b{font-size:.92rem}.sale-banner small{font-size:.76rem;color:#8A5A1E}
+.shop button .p .p-old{opacity:.6;font-weight:500;margin-inline-end:.2rem}

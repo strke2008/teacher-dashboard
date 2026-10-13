@@ -21,6 +21,10 @@ try{
 const $ = id => document.getElementById(id);
 let idx=0, ans=[], me=-1, myName='', built=[];
 let MYPTS = 0, MYPERKS = {};
+/* 🏷️ تخفيض المتجر من الخادم (/me): للعرض فقط — الخادم يحسب السعر نفسه عند الشراء */
+let STORE_SALE = null;
+function cardPrice(c){ const p = Number(c && c.price) || 0; return STORE_SALE && STORE_SALE.pct ? Math.max(1, Math.round(p * (100 - STORE_SALE.pct) / 100)) : p; }
+function saleUntilText(t){ try{ return new Date(t).toLocaleString('ar-SA-u-ca-gregory-nu-latn', { weekday:'long', day:'numeric', month:'long', hour:'numeric', minute:'2-digit' }); }catch(e){ return ''; } }
 let hintUsed = {};
 
 updateActivityHomeButton();
@@ -545,7 +549,7 @@ async function beginWith(i){
       if(j){
         // 🔒 القفل الحقيقي من الخادم — لا يتجاوزه تغيير الجهاز، ولا تحجب علامة محلية ما لم يستلمه الخادم
         if(j.submitted) markDone(myName); else clearDone(myName);
-        MYPTS = j.pts || MYPTS; MYPERKS = j.perks || MYPERKS;
+        MYPTS = j.pts || MYPTS; MYPERKS = j.perks || MYPERKS; if('sale' in j) STORE_SALE = j.sale || null;
       }
     }
   }catch(e){}
@@ -6067,7 +6071,7 @@ async function buyExamBonusDirect(card, target){
     return;
   }
   const after=Math.min(20,Number(ex.score)+Number(card.examBonus));
-  const ok=await ask({icon:card.ic,title:'شراء ورفع الدرجة مباشرة',msg:`${card.name}\n\nدرجتك الحالية: ${ex.score}/20\nالزيادة: +${card.examBonus}\nستصبح: ${String(after).replace(/\.00$/,'')}/20\n\nالسعر: ${card.price} نقطة\nرصيدك بعد الشراء: ${MYPTS-card.price} نقطة`,yes:'شراء وإضافة الدرجة',no:'إلغاء'});
+  const ok=await ask({icon:card.ic,title:'شراء ورفع الدرجة مباشرة',msg:`${card.name}\n\nدرجتك الحالية: ${ex.score}/20\nالزيادة: +${card.examBonus}\nستصبح: ${String(after).replace(/\.00$/,'')}/20\n\nالسعر: ${cardPrice(card)} نقطة${cardPrice(card)<card.price?` (بدل ${card.price})`:''}\nرصيدك بعد الشراء: ${MYPTS-cardPrice(card)} نقطة`,yes:'شراء وإضافة الدرجة',no:'إلغاء'});
   if(!ok) return;
   const api=((HW&&HW.api)||API||'').replace(/\/+$/,'');
   try{
@@ -6083,7 +6087,7 @@ async function buyExamBonusDirect(card, target){
       MYPTS=Number(j.pts??MYPTS); syncBalanceUI(); renderStore(target); return;
     }
     MYPTS=Number(j.pts??MYPTS); MYPERKS=j.perks||MYPERKS; syncBalanceUI();
-    await note(`تم شراء البطاقة بـ ${card.price} نقطة.\nتمت إضافة +${j.added} درجة مباشرة إلى درجة الاختبارات.\nدرجتك الآن: ${j.score}/20\nالمتبقي من سقف الرفع: ${j.remaining} درجة.`,`تمت ترقية درجة الاختبار 🎓`,card.ic);
+    await note(`تم شراء البطاقة بـ ${cardPrice(card)} نقطة.\nتمت إضافة +${j.added} درجة مباشرة إلى درجة الاختبارات.\nدرجتك الآن: ${j.score}/20\nالمتبقي من سقف الرفع: ${j.remaining} درجة.`,`تمت ترقية درجة الاختبار 🎓`,card.ic);
     if(target==='pre-store') await loadStore(true); else renderStore(target);
   }catch(e){ toast('تعذّر الاتصال — لم يتم خصم النقاط ولم تُرفع الدرجة','bad'); }
 }
@@ -6095,7 +6099,7 @@ async function loadStore(pre){
     const r = await fetch(api + '/me?name=' + encodeURIComponent(myName) + idQS());
     const j = await r.json();
     if(!j.ok) return;
-    MYPTS = j.pts || 0; MYPERKS = j.perks || {}; MYTITLE = j.title || MYTITLE;
+    MYPTS = j.pts || 0; MYPERKS = j.perks || {}; MYTITLE = j.title || MYTITLE; STORE_SALE = j.sale || null;
   }catch(e){}
   try{ await fetchExamBonusOptions(); }catch(e){}
   if(pre){
@@ -6133,17 +6137,19 @@ function renderStore(target){
   const cardBtn=c=>{
           const remainingEnough=!c.examBonus || examRemaining>=Number(c.examBonus);
           const ownedOnce = c.once && MYPERKS[c.id] > 0;
-          const can = !ownedOnce && (MYPTS >= c.price || (c.mad && MYPERKS[c.id] > 0)) && (!c.examBonus || (examAvailable && remainingEnough));
+          const pr = cardPrice(c);
+          const can = !ownedOnce && (MYPTS >= pr || (c.mad && MYPERKS[c.id] > 0)) && (!c.examBonus || (examAvailable && remainingEnough));
           const examLine=c.examBonus ? (!examKnown ? '⏳ جارٍ التحقق…' : (examRemaining<=0 && EXAM_SHOP_HAS_SCORE) ? 'استخدمت كامل الحد' : remainingEnough && examAvailable ? `المتاح لك الآن ${String(examRemaining).replace(/\.0$/,'')} درجة` : (examAvailable ? `المتبقي ${String(examRemaining).replace(/\.0$/,'')} درجة · البطاقة تحتاج ${c.examBonus}` : 'غير متاح حاليًا')) : '';
-          return `<button data-c="${c.id}" data-p="${c.price}" ${can?'':'disabled'}>
+          return `<button data-c="${c.id}" data-p="${pr}" ${can?'':'disabled'}>
             ${c.ic} ${esc(c.shop||c.name)}
             <span style="display:block;font-size:.74rem;font-weight:500;color:var(--ink-soft);line-height:1.4;margin-top:.15rem">${esc(c.d||'')}</span>
             ${c.examBonus?`<span style="display:block;font-size:.7rem;font-weight:800;margin-top:.2rem">${esc(examLine)}</span>`:''}
-            <span class="p">${ownedOnce ? '✓ تملكه' : c.price + ' نقطة'}</span></button>`;
+            <span class="p">${ownedOnce ? '✓ تملكه' : (pr < c.price ? `<s class="p-old">${c.price}</s> ` : '') + pr + ' نقطة'}</span></button>`;
         };
   box.innerHTML = `
     <div class="sheet" style="margin-top:1.2rem">
       ${examCards.length?`<div style="margin-bottom:.7rem;padding:.65rem .75rem;border-radius:10px;background:${!examKnown?'#EEF2F7':examAvailable?'#E4F4EC':'#FFF1F2'};font-size:.8rem;line-height:1.6">${esc(examNotice)}${examKnown?`<br><b>المتبقي لك: ${String(examRemaining).replace(/\.0$/,'')} درجة</b>`:''}</div>`:''}
+      ${STORE_SALE && STORE_SALE.pct ? `<div class="sale-banner"><b>🏷️ ${esc(STORE_SALE.title || 'تخفيضات المتجر')} — خصم ${STORE_SALE.pct}% على كل البطاقات</b>${STORE_SALE.until ? `<small>حتى ${esc(saleUntilText(STORE_SALE.until))}</small>` : ''}</div>` : ''}
       <div class="center">
         <div class="muted" style="font-size:.85rem">رصيدك من نقاط النشاط</div>
         <div class="bal">${MYPTS} 📖</div>

@@ -2001,3 +2001,13 @@ details.ar-escal:not([open]){gap:0}
   .pf-tab.on:hover{background:var(--ink,#1F2D45)}
   .pf-sep{flex:1 1 100%;margin:.25rem 0 0;padding:0;border:0;font-size:.72rem}
 }
+/* 🏷️ تخفيضات المتجر */
+.sale-sheet{margin-bottom:1rem}
+.sale-status{margin:.2rem 0 .8rem;padding:.55rem .75rem;border-radius:10px;background:var(--ui-surface,#F4F7FB);border:1px solid var(--ui-border,#D5E0EC);font-size:.86rem}
+.sale-status.on{background:#FFF4D6;border-color:#F4C27A;color:#7A3E00}
+.sale-pcts{display:flex;gap:.3rem;flex-wrap:wrap;margin-bottom:.35rem}
+.sale-pcts button{border:1px solid var(--ui-border,#D5E0EC);background:var(--ui-surface,#fff);color:var(--ink);border-radius:999px;padding:.2rem .65rem;font:inherit;font-size:.8rem;font-weight:700;cursor:pointer}
+.sale-pcts button.on{background:#C2410C;border-color:#C2410C;color:#fff}
+.sale-preview{display:grid;gap:.25rem;font-size:.82rem}
+.sale-preview span{display:flex;justify-content:space-between;gap:.5rem;padding:.2rem .5rem;border-radius:8px;background:var(--ui-surface,#F7FAFD)}
+.sale-preview s{opacity:.55;font-weight:500;margin-inline-end:.25rem}
