@@ -1206,7 +1206,8 @@ async function promptStorePin(){
   return await new Promise(resolve=>{
     const box = document.createElement('div');
     box.id = 'store-pin';
-    box.style.cssText = 'position:fixed;inset:0;z-index:70;background:rgba(22,35,58,.55);display:flex;align-items:center;justify-content:center;padding:1rem';
+    /* فوق غرفة المسابقة المباشرة (z-index 2000): كان الطلب يظهر خلفها، فتتجمّد المسابقة عند الطالب بانتظار رمز لا يراه */
+    box.style.cssText = 'position:fixed;inset:0;z-index:3000;background:rgba(22,35,58,.55);display:flex;align-items:center;justify-content:center;padding:1rem';
     box.innerHTML = `
       <div class="sheet" style="max-width:360px;width:100%;text-align:center">
         <h3 style="margin:.2rem 0 .3rem">${isNew ? '🔐 اختر رمزك السري' : '🔐 أدخل رمزك السري'}</h3>
@@ -6781,7 +6782,7 @@ function liveOpenRoom(id){
   let el = $('live-room');
   if(!el){ el = document.createElement('div'); el.id = 'live-room'; el.className = 'live-room'; document.body.appendChild(el); }
   el.classList.remove('hide'); document.body.classList.add('live-open');
-  LIVE.cur = id; LIVE.st = null; LIVE.lastHtml = '';           // كل كتابة مباشرة تُسقط «آخر رسم» — وإلا لا يُرسم ما يطابقه
+  LIVE.cur = id; LIVE.st = null; LIVE.lastHtml = ''; LIVE.done = false; LIVE.busy = false;   // كل كتابة مباشرة تُسقط «آخر رسم» — وإلا لا يُرسم ما يطابقه
   el.innerHTML = '<div class="live-wrap"><p class="muted" style="text-align:center;margin-top:30vh">⏳ جارٍ الاتصال…</p></div>';
   livePoll(); liveStartTick();
 }
@@ -6790,19 +6791,40 @@ function liveCloseRoom(){
   const el = $('live-room'); if(el) el.classList.add('hide'); document.body.classList.remove('live-open');
   liveLoadOpen();
 }
+/* ⏱️ طلب المسابقة بمهلة: الشبكة الضعيفة كانت تُبقي الطلب معلّقًا بلا نهاية، فيتوقف التحديث
+   (أو يبقى زر الإجابة مقفلًا) حتى آخر المسابقة. لا تُحتسب المهلة ما دام طلب الرمز السري ظاهرًا. */
+function livePinOpen(){ return !!document.getElementById('store-pin'); }
+function liveFetch(path, body, ms){
+  const ctl = typeof AbortController === 'function' ? new AbortController() : null;
+  let t = 0; const arm = () => { t = setTimeout(() => { if(livePinOpen()) arm(); else if(ctl) ctl.abort(); }, ms); };
+  if(ctl) arm();
+  return storeFetch(liveApi() + path, { body: JSON.stringify(body), ...(ctl ? { signal: ctl.signal } : {}) }).finally(() => clearTimeout(t));
+}
+/* 🐕 حارس: إن توقف التحديث لأي سبب (طلب عالق، مؤقت أوقفه الجوال في الخلفية) يُستأنف تلقائيًا */
+function liveWatchStart(){
+  if(LIVE.watch) return;
+  LIVE.watch = setInterval(() => {
+    if(!LIVE.cur){ clearInterval(LIVE.watch); LIVE.watch = 0; return; }
+    if(livePinOpen() || LIVE.done) return;
+    if(Date.now() - (LIVE.pollAt || 0) > 12000) livePoll();
+  }, 3000);
+}
+document.addEventListener('visibilitychange', () => { if(!document.hidden && LIVE.cur && !livePinOpen() && !LIVE.done) livePoll(); });
 async function livePoll(){
   clearTimeout(LIVE.poll); const id = LIVE.cur; if(!id) return;
+  LIVE.pollAt = Date.now(); liveWatchStart();
   let j = null, err = '';
   try{
     const t0 = Date.now();
-    const r = await storeFetch(liveApi() + '/live/state', { body: JSON.stringify({ game: id }) });
+    const r = await liveFetch('/live/state', { game: id }, 8000);
     j = await r.json().catch(() => null);
     if(r.status === 401){ err = 'auth'; } else if(j && j.ok){ liveSync(j.now, t0); } else err = (j && j.error) || 'net';
   }catch(e){ err = 'net'; }
   if(id !== LIVE.cur) return;
-  if(err === 'auth'){ liveRender({ authNeeded: true }); return; }                        // لا نطلب الرمز كل ثانية
+  LIVE.pollAt = Date.now();
+  if(err === 'auth'){ LIVE.done = true; liveRender({ authNeeded: true }); return; }                        // لا نطلب الرمز كل ثانية
   if(err){ LIVE.offline = true; liveRender(); LIVE.poll = setTimeout(livePoll, 2000); return; }
-  LIVE.offline = false; LIVE.st = j;
+  LIVE.offline = false; LIVE.st = j; LIVE.done = false;
   if(j.phase && j.phase.status === 'LIVE' && j.question){ const k = j.question.i; if(j.my && j.my.answered && LIVE.mine[k] === undefined) LIVE.mine[k] = -1; }
   liveRender();
   // الطلب التالي: عند حد المرحلة القادمة، أو بعد 4 ث على الأكثر
@@ -6811,7 +6833,7 @@ async function livePoll(){
   if(ph.status === 'REGISTRATION') next = Math.min(4000, Math.max(300, j.game.regClose - now + 200));
   else if(ph.status === 'WAITING') next = Math.min(4000, Math.max(250, j.game.startAt - now + 200));
   else if(ph.status === 'LIVE') next = Math.min(j.game && j.game.skin === 'boss' && ph.phase === 'question' ? 1500 : 4000, Math.max(250, (ph.phase === 'question' ? ph.qEnd : ph.nextAt) - now + 200));   // الوحش: ضربات الزملاء لحظيًا
-  else if(ph.status === 'FINISHED' || ph.status === 'CANCELLED') { next = 0; if(ph.status === 'FINISHED') setTimeout(() => { try{ gateLoad(myName, { restored: true }); }catch(e){} }, 3000); }
+  else if(ph.status === 'FINISHED' || ph.status === 'CANCELLED') { next = 0; LIVE.done = true; if(ph.status === 'FINISHED') setTimeout(() => { try{ gateLoad(myName, { restored: true }); }catch(e){} }, 3000); }
   if(next) LIVE.poll = setTimeout(livePoll, next);
 }
 async function liveAnswer(choice){
@@ -6819,9 +6841,9 @@ async function liveAnswer(choice){
   const q = s.question.i; if(LIVE.mine[q] !== undefined || (s.my && s.my.answered)) return;
   LIVE.busy = true; LIVE.mine[q] = choice; liveRender();
   let j = {};
-  try{ const r = await storeFetch(liveApi() + '/live/answer', { body: JSON.stringify({ game: LIVE.cur, q, choice }) }); j = await r.json().catch(() => ({})); }
+  try{ const r = await liveFetch('/live/answer', { game: LIVE.cur, q, choice }, 7000); j = await r.json().catch(() => ({})); }
   catch(e){ j = { error: 'net' }; }
-  LIVE.busy = false;
+  finally{ LIVE.busy = false; }
   if(j.ok || j.error === 'already_answered'){ if(s.my) s.my.answered = true; }
   else { delete LIVE.mine[q]; if(LIVE_RK.q === q && j.error !== 'closed') LIVE_RK.answered = false;
     if(LIVE_ARC.q === q && j.error !== 'closed'){ LIVE_ARC.q = -1; LIVE.lastHtml = ''; setTimeout(liveRender, 50); }   // فشل الإرسال: لعبة جديدة للمحاولة
@@ -6832,7 +6854,7 @@ function liveRender(extra){
   const el = $('live-room'); if(!el || !LIVE.cur) return;
   const s = LIVE.st, now = liveNow();
   const top = `<div class="live-top"><button class="live-x" onclick="liveCloseRoom()" aria-label="إغلاق">✕</button><b>${esc((s && s.game && s.game.title) || 'المسابقة')}</b>${LIVE.offline ? '<span class="live-net">🟡 إعادة الاتصال…</span>' : ''}</div>`;
-  if(extra && extra.authNeeded){ LIVE.lastHtml = ''; el.innerHTML = `<div class="live-wrap">${top}<div class="live-center"><p>🔐 أدخل رمزك للمتابعة في المسابقة</p><button class="btn tick" onclick="livePoll()">إدخال الرمز</button></div></div>`; return; }
+  if(extra && extra.authNeeded){ LIVE.lastHtml = ''; el.innerHTML = `<div class="live-wrap">${top}<div class="live-center"><p>🔐 أدخل رمزك للمتابعة في المسابقة</p><button class="btn tick" onclick="LIVE.done=false;livePoll()">إدخال الرمز</button></div></div>`; return; }
   if(!s){ return; }
   const ph = s.phase || {}, g = s.game || {};
   let body = '';
