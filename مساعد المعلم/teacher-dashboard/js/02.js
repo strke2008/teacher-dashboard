@@ -1299,7 +1299,7 @@ async function planSyncRemActions(){
     if(solved)acts.forEach((a,k)=>{if(String(a.text).startsWith('إعادة حل')&&!a.done){acts[k]={...a,done:true};changed=true}});
     return {...pl,actions:acts};});
   if(changed){try{await savePlans(plans);renderPlans(true)}catch(e){}}
-  (PLAN_DATA&&PLAN_DATA.plans||[]).forEach(p=>{const el=document.getElementById('plan-rem-'+p.id);if(el)el.innerHTML=planRemHTML(p);const g=document.getElementById('plan-goals-'+p.id);if(g)g.innerHTML=planGoalChips(p)});
+  (PLAN_DATA&&PLAN_DATA.plans||[]).forEach(p=>{const el=document.getElementById('plan-rem-'+p.id);if(el)el.innerHTML=planRemHTML(p);const g=document.getElementById('plan-goals-'+p.id);if(g)g.innerHTML=planGoalChips(p);const tl=document.getElementById('plan-tl-'+p.id);if(tl)tl.innerHTML=planTimelineHTML(p)});
 }
 
 /* ═══ ⏰ مدة الخطة والقرار بعد انتهائها ═══ */
@@ -2824,7 +2824,18 @@ async function togglePlanAction(id,i){
 async function closePlan(id,status){
   const all=(PLAN_DATA&&PLAN_DATA.plans||[]).map(planRaw);
   const p=all.find(x=>x.id===id); if(!p) return;
-  p.status=status; if(status==='done'&&!p.endDate) p.endDate=new Date().toISOString().slice(0,10);
+  const live=(PLAN_DATA.plans||[]).find(x=>x.id===id)||{};
+  if(status==='done'){
+    // 🏁 الإنهاء اليدوي يحفظ النتيجة لحظتها (قبل ← بعد) — كانت تُغلق «منتهية» بلا نتيجة ولا أثر في سجلها
+    const today=new Date().toISOString().slice(0,10), left=(live.timing&&live.timing.skillsLeft)||[];
+    const met=live.verdict==='تحسّن'&&!left.length&&live.after&&live.after.measured&&live.after.rate>=SKILL_TARGET_UI;
+    const outcome=met?'نجحت الخطة':live.verdict==='تحسّن'?'أُنهيت بتحسّن دون بلوغ الهدف':live.after&&live.after.measured?`أُنهيت — ${live.verdict||'بلا فرق'}`:'أُنهيت قبل قياس أثرها';
+    const sum=`${live.before&&live.before.measured?live.before.rate+'%':'—'} ← ${live.after&&live.after.measured?live.after.rate+'%':'—'}${live.gain!=null?` (${planSigned(live.gain)})`:''}`;
+    if(!(await askConfirm(`النتيجة الآن: ${sum}\n${live.verdict||''}${left.length?`\nلم تبلغ الهدف: ${left.map(x=>x.skill).join('، ')}`:''}\n\nتُحفظ «${outcome}» في سجل الخطة.`,{title:'إنهاء الخطة؟',yes:'✔ إنهاء',no:'إلغاء'}))) return;
+    p.outcome=p.outcome||outcome; if(!p.endDate) p.endDate=today;
+    p.history=[...(p.history||[]),{at:today,decision:'manual_close',label:'أنهاها المعلم',verdict:live.verdict,gain:live.gain,after:live.after&&live.after.measured?live.after.rate:null,round:(live.timing&&live.timing.round)||1}];
+  } else { delete p.outcome; p.endDate=undefined; }
+  p.status=status;
   try{ await savePlans(all); renderPlans(true); toast(status==='done'?'أُنهيت الخطة':'أُعيد فتح الخطة') }catch(e){ toast('تعذّر التحديث','bad') }
 }
 /* 📝 الاختبارات: قياس مستقل بجانب الأنشطة */
@@ -2853,7 +2864,9 @@ function planEvidenceHTML(p){
 }
 /* 🧭 المؤشرات الانضباطية (من الخادم): الواجبات، المشاركة، الحضور، السلوك — قبل وبعد */
 const PLAN_MEASURE_ICON={academic:'📘',hw:'📚',att:'🗓️',beh:'🙂',part:'🙋'};
-function planMainLabel(p){return p.mainBy&&p.mainBy!=='academic'?`${PLAN_MEASURE_ICON[p.mainBy]||''} ${p.measureLabel||''}`:(p.basis==='skills'?'📘 المهارات المستهدفة':'📘 التحصيل')}
+function planMainLabel(p){return p.mainBy&&p.mainBy!=='academic'?`${PLAN_MEASURE_ICON[p.mainBy]||''} ${p.measureLabel||''}`:(p.basis==='skills'?'📘 المهارات المستهدفة':(Array.isArray(p.skills)&&p.skills.length?'📘 كل الأنشطة':'📘 التحصيل'))}
+/* خطة مهارات لم تُقَس مهاراتها بعد: الرقم الكبير من كل الأنشطة — يجب أن يُقال صراحة */
+function planBasisNote(p){return (!p.mainBy||p.mainBy==='academic')&&p.basis!=='skills'&&Array.isArray(p.skills)&&p.skills.length?`<div class="pc-basis">ℹ️ الرقم أعلاه من <b>كل أنشطته</b> — المهارات المستهدفة نفسها لم تُقَس بعد بأسئلة كافية (3 قبل البدء و3 بعده). نتيجة كل مهارة في الشارات أعلاه وفي «مسار الخطة».</div>`:''}
 function planConductRows(p){const c=p.conduct;if(!c)return [];return ['hw','part','att','beh'].map(k=>c[k]).filter(x=>x&&(x.before.total||x.after.total))}
 function planConductHTML(p){
   const rows=planConductRows(p); if(!rows.length&&!p.academic) return '';
@@ -2870,6 +2883,72 @@ function planGoalRows(p){
   const ks=Array.isArray(p.skills)?p.skills:[], it=planSkillRows(p);
   return ks.map(k=>{const x=it.find(y=>y.skill===k)||{};const b=x.before?x.before.rate:null,a=x.after&&x.after.total>=2?x.after.rate:null;
     return {skill:k,before:b,after:a,beforeX:x.before,afterX:x.after,gain:x.gain,met:a!=null&&a>=SKILL_TARGET_UI}});
+}
+/* ═══ 📈 مسار الخطة: ما تغيّر بعد كل خطوة، بتاريخه ═══
+   المصادر كلها فعلية: تاريخ البدء ومستواه قبله (الخادم) · المهام العلاجية ومحاولاتها ونتيجتها لكل مهارة ·
+   الإجراءات المنفّذة وتاريخ تنفيذها · الأنشطة التي حلّها بعد البدء ودرجتها · قرارات ما بعد المدة · الإغلاق. */
+function planDayMs(d){ return Date.parse(String(d||'')+'T00:00:00')||0; }
+function planTlDate(ms){ if(!ms) return ''; const d=new Date(ms); return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`; }
+function planMemberSkill(p,sid){
+  const m=(p.members||[]).find(x=>String(x.studentId)===String(sid))||(p.group?null:p);
+  const it=m&&m.skill&&Array.isArray(m.skill.items)?m.skill.items:[];
+  const rem=planRemSkillsFor(p,sid);
+  return (Array.isArray(p.skills)?p.skills:[]).map(k=>{const x=it.find(y=>y.skill===k)||{};
+    return {skill:k,before:x.before||null,after:x.after&&x.after.total?x.after:null,rem:rem[k]!=null?rem[k]:null};});
+}
+function planEvents(p){
+  const ev=[], ids=planMemberIds(p).filter(Boolean), grp=!!p.group, nm=sid=>{const s=(STUDENTS||[]).find(x=>String(x.id)===String(sid));return s?String(s.name).split(/\s+/).slice(0,2).join(' '):'';};
+  const who=sid=>grp?`<b>${planEsc(nm(sid))}</b>: `:'';
+  const start=planDayMs(p.startDate)||Number(p.createdAt)||0;
+  if(start) ev.push({at:start,k:'start',ic:'🚩',t:`بدأت الخطة${(p.skills||[]).length?` على ${p.skills.length===1?'مهارة':p.skills.length+' مهارات'}: ${p.skills.map(x=>'«'+planEsc(x)+'»').join('، ')}`:''}`,
+    d:p.before&&p.before.measured?`مستواه قبلها ${p.before.rate}% (${p.before.correct} من ${p.before.total})`:'لا قياس قبلي'});
+  (REM_ROWS||[]).filter(x=>x.planId===p.id).forEach(x=>{
+    (x.attempts||[]).forEach((a,i)=>{
+      ev.push({at:Number(a.at)||Number(x.createdAt)||0,k:'send',ic:'📤',t:`${who(x.sid)}أُرسلت ${i?'المحاولة الثانية من ':''}المهمة العلاجية (${a.n||'?'} أسئلة من أخطائه)`,d:''});
+      if(a.rate!=null){ const sk=a.skills?Object.entries(a.skills).filter(([,v])=>v&&v.t).map(([k,v])=>`«${planEsc(k)}» ${Math.round(v.c/v.t*100)}%`).join(' · '):'';
+        ev.push({at:Number(a.doneAt)||Number(x.updatedAt)||0,k:a.rate>=SKILL_TARGET_UI?'ok':'try',ic:a.rate>=SKILL_TARGET_UI?'🟢':'🟠',
+          t:`${who(x.sid)}حلّ المهمة العلاجية${x.attempts.length>1?` (م${i+1})`:''}: <b>${a.rate}%</b>${a.rate>=SKILL_TARGET_UI?' — أتقنها':i===0&&x.attempts.length>1?' — فُتحت له محاولة ثانية بأسئلة مختلفة':x.status==='escalated'?' — أخفق مرتين: يحتاج تدخلك':''}`,d:sk});
+      }
+    });
+  });
+  (p.actions||[]).forEach(a=>{ if(a&&a.done&&a.doneAt) ev.push({at:Number(a.doneAt),k:'act',ic:'✔',t:`نُفِّذ إجراء: ${planEsc(a.text)}`,d:''}); });
+  // ✏️ الأنشطة العادية التي حلّها بعد البدء — هي ما يقيس الأثر رسميًا
+  const startAt=Math.max(start,Number(p.createdAt)||0);
+  if(startAt) ids.forEach(sid=>{ const st=(STUDENTS||[]).find(x=>String(x.id)===String(sid));
+    (typeof HW!=='undefined'?HW:[]).forEach(h=>{ if(!h||h.remedial||!['normal','lab','reading'].includes(h.kind||'normal')) return;
+      const v=(h.subs||{})[String(sid)]||(st&&(h.subs||{})[String(st.name)]); if(!v||!(Number(v.at)>=startAt)) return;
+      const n=Number(v.total)||0,c=Number(v.correct)||0;
+      ev.push({at:Number(v.at),k:'meas',ic:'✏️',t:`${who(sid)}حلّ نشاط «${planEsc(h.title)}»: <b>${n?Math.round(c/n*100)+'%':'—'}</b>${n?` (${c} من ${n})`:''}`,d:'يُحتسب في قياس الأثر'}); }); });
+  (p.history||[]).forEach(x=>ev.push({at:planDayMs(x.at),k:'dec',ic:'⚖️',t:`قرار بعد انتهاء المدة: ${planEsc(x.label||'')}`,d:`الأثر وقتها: ${planEsc(x.verdict||'—')}${x.gain!=null?` (${planSigned(x.gain)})`:''}`}));
+  if(p.status==='done') ev.push({at:planDayMs(p.endDate)||Date.now(),k:'end',ic:'🏁',t:`أُغلقت الخطة: <b>${planEsc(p.outcome||'منتهية')}</b>`,d:p.after&&p.after.measured?`مستواه عند الإغلاق ${p.after.rate}%${p.gain!=null?` (${planSigned(p.gain)} نقطة)`:''}`:''});
+  return ev.filter(e=>e.at).sort((a,b)=>a.at-b.at);
+}
+/* جدول المقارنة لكل مهارة: قبل · المهمة العلاجية · الأنشطة بعد البدء — ثم الحكم */
+function planCompareHTML(p){
+  const ks=Array.isArray(p.skills)?p.skills:[]; if(!ks.length) return '';
+  const ids=planMemberIds(p).filter(Boolean);
+  const cell=(v,x)=>v==null?'<span class="muted">—</span>':`<b class="${v>=SKILL_TARGET_UI?'up':v<SKILL_GAP_UI?'down':''}">${v}%</b>${x?` <small class="muted">${x}</small>`:''}`;
+  const rows=ids.flatMap(sid=>planMemberSkill(p,sid).map(r=>{
+    const b=r.before&&r.before.total?r.before:null, a=r.after;
+    const res=a&&a.total>=2?(a.rate>=SKILL_TARGET_UI?'<span class="chip tick">✓ بلغ الهدف</span>':b&&a.rate-b.rate>=5?'<span class="chip warn">تحسّن ولم يبلغ الهدف</span>':'<span class="chip bad">لم يتحسّن بعد</span>')
+      :r.rem!=null?(r.rem>=SKILL_TARGET_UI?'<span class="chip ghost">🩹 أتقن المهمة — بانتظار نشاط يؤكد</span>':'<span class="chip ghost">🩹 لم يتقن المهمة</span>'):'<span class="chip ghost">لم يُقَس بعد</span>';
+    const s=(STUDENTS||[]).find(x=>String(x.id)===String(sid));
+    return `<tr>${p.group?`<td>${planEsc(s?String(s.name).split(/\s+/).slice(0,2).join(' '):'')}</td>`:''}<td class="sk-n">${planEsc(r.skill)}</td><td>${cell(b&&b.rate,b?`${b.correct}/${b.total}`:'')}</td><td>${cell(r.rem)}</td><td>${cell(a&&a.rate,a?`${a.correct}/${a.total}`:'')}</td><td>${res}</td></tr>`;}));
+  return `<div class="pl-cmp"><table><thead><tr>${p.group?'<th>الطالب</th>':''}<th>المهارة</th><th>قبل الخطة</th><th>🩹 المهمة العلاجية</th><th>✏️ الأنشطة بعد البدء</th><th>النتيجة (الهدف ${SKILL_TARGET_UI}%)</th></tr></thead><tbody>${rows.join('')}</tbody></table>
+    <div class="muted" style="font-size:.74rem;margin-top:.3rem">«قبل» من إجاباته قبل البدء · 🩹 تدريب من أخطائه نفسها (دليل تنفيذ، لا يُحكم به وحده) · ✏️ أسئلة المهارة في الأنشطة العادية بعد البدء (سؤالان فأكثر) — هي أساس الحكم.</div></div>`;
+}
+function planTimelineHTML(p){
+  const ev=planEvents(p), cmp=planCompareHTML(p);
+  if(!ev.length&&!cmp) return '';
+  const meas=ev.filter(e=>e.k==='meas').length, next=p.status==='done'?''
+    :!(REM_ROWS||[]).some(x=>x.planId===p.id)?'🩹 أرسل له المهمة العلاجية (زر 🩹 أسفل البطاقة) — أول تدريب من أخطائه.'
+    :(REM_ROWS||[]).some(x=>x.planId===p.id&&(x.status==='open'||x.status==='retry'))?'⏳ بانتظار حلّه للمهمة العلاجية في بوابته.'
+    :!meas?'✏️ أرسل نشاطًا عاديًا فيه أسئلة على مهارات الخطة — بدونه لا يُقاس الأثر.'
+    :p.timing&&p.timing.skillsLeft&&p.timing.skillsLeft.length?`🎯 لم تبلغ الهدف بعد: ${p.timing.skillsLeft.map(x=>'«'+planEsc(x.skill)+'»').join('، ')} — نشاط آخر عليها.`:'';
+  return `<div class="pl-tl"><div class="pc-sub">📈 مسار الخطة — ما تغيّر بعد كل خطوة</div>
+    ${cmp}
+    <ol class="pl-ev">${ev.map(e=>`<li class="${e.k}"><span class="pl-d">${planTlDate(e.at)}</span><span class="pl-i">${e.ic}</span><div>${e.t}${e.d?`<small>${e.d}</small>`:''}</div></li>`).join('')}</ol>
+    ${next?`<div class="pl-next"><b>الخطوة التالية:</b> ${next}</div>`:''}</div>`;
 }
 /* بعد الخطة لكل مهارة: الأنشطة الجديدة أولًا (الحكم الرسمي)، وإلا نتيجة المهمة العلاجية 🩹 (متوسط الأعضاء في الخطة الجماعية) */
 function planRemAvg(p){const ids=planMemberIds(p).filter(Boolean),acc={};ids.forEach(id=>{const b=planRemSkillsFor(p,id);Object.entries(b).forEach(([k,v])=>{(acc[k]=acc[k]||[]).push(v)})});
@@ -2907,11 +2986,13 @@ function planCard(p){
         <span>${when}</span>
       </div>
     </div>
+    ${planBasisNote(p)}
     ${p.caution?`<div class="pc-warn">⚠️ ${planEsc(p.caution)}</div>`:''}
     ${t.expired&&!done?planTimingHTML(p):''}
     <details class="pc-det" ${open?'open':''} ontoggle="planToggleOpen('${id}',this.open)"><summary>التفاصيل والأدلة</summary>
       <div class="pc-body">
         ${p.reason?`<div class="muted" style="font-size:.82rem">${planEsc(p.reason)}</div>`:''}
+        <div id="plan-tl-${id}">${planTimelineHTML(p)}</div>
         ${planEvidenceHTML(p)}
         ${planExamRow(p)}
         ${p.group?`<div class="mem-table">${(p.members||[]).map(m=>`<div class="mem-row"><span>${planEsc(m.name)}</span><span class="muted">قبل ${m.before.measured?m.before.rate+'%':'—'} · بعد ${m.after.measured?m.after.rate+'%':'—'}${m.exam?` · 📝 ${m.exam.before.measured?m.exam.before.rate+'%':'—'} ← ${m.exam.after.measured?m.exam.after.rate+'%':'—'}`:''}</span><span class="chip ${m.verdict==='تحسّن'?'tick':m.verdict==='تراجع'?'bad':'ghost'}">${m.gain==null?planEsc(m.verdict):(m.gain>0?'+':'')+m.gain}</span></div>`).join('')}</div>`:''}
@@ -3175,9 +3256,10 @@ function planDrillPrint(){
   unifiedA4Print({bodyClass:'printing-plans',title:`ورقة تدريب — ${DRILL.skill}`,selector:'#plan-print',orientation:'portrait',margin:'8mm'});
 }
 /* id: طباعة خطة واحدة فقط؛ بدونه تُطبع الخطط الظاهرة حسب الفلاتر */
-function printPlans(id){
+async function printPlans(id){
   const rows=id?(PLAN_DATA&&PLAN_DATA.plans||[]).filter(p=>p.id===id):planFiltered();
   if(!rows.length){ toast('لا توجد خطط للطباعة','bad'); return }
+  if(!REM_ROWS.length){ try{ const r=await fetch(getApi().replace(/\/+$/,'')+'/remedials?t='+encodeURIComponent(getTok())); const j=await r.json(); if(j&&Array.isArray(j.rows)) REM_ROWS=j.rows; }catch(e){} }
   ensureLogo();
   let box=document.getElementById('plan-print');
   if(!box){ box=document.createElement('div'); box.id='plan-print'; box.className='rep'; document.body.appendChild(box); }
@@ -3237,6 +3319,7 @@ function printPlans(id){
         الأنشطة العلاجية مستبعدة من القياس لأن أسئلتها مأخوذة من أخطائه فهي تدريب لا دليل فهم. ${p.basis==='skills'?'القياس على أسئلة المهارات المستهدفة وحدها. ':''}
         يُحكم بالتحسّن عند فرق 5 نقاط فأكثر، ويُبيَّن هل الفرق أكبر من هامش الصدفة لعدد الأسئلة، ويُقارَن بتغيّر زملائه في الفصل خلال الفترة نفسها.
         ${p.mainBy&&p.mainBy!=='academic'?`الحكم على هذه الخطة بمؤشر «${planEsc(p.measureLabel)}» لأنه سبب إنشائها، وبقية العناصر أدلة مساندة. `:''}الواجبات والمشاركة والحضور والسلوك من سجلات المعلم اليومية؛ الغياب بعذر والواجب «معذور» لا يُحسبان على الطالب.</div></div>
+      ${(()=>{const tl=planTimelineHTML(p);return tl?`<div class="rep-sec">مسار الخطة — المقارنة قبل وبعد لكل مهارة، وما تغيّر بعد كل خطوة</div><div class="rep-box">${tl}</div>`:''})()}
       ${p.group?'':`<div class="rep-sec">رابعًا: سياق التنفيذ خلال الخطة</div>
       <div class="rep-box"><table class="rt"><thead><tr><th>نسبة الحضور</th><th>أيام الغياب</th><th>واجبات مُسلّمة</th><th>واجبات غير مُسلّمة</th><th>أنشطة بعد البدء</th></tr></thead><tbody>
         <tr><td>${c.attendanceRate!=null?c.attendanceRate+'%':'—'}</td><td>${c.missedDays||0}</td><td>${c.hwDone||0}</td><td>${c.hwMissed||0}</td><td>${((p.academic?p.academic.after:p.after)||{}).acts||0}</td></tr></tbody></table></div>`}

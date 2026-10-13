@@ -6156,3 +6156,19 @@ button.pill.hw-gr{cursor:pointer}
 .sk-af{white-space:nowrap}
 .sk-af-note{margin-top:.45rem;padding:.5rem .65rem;border-radius:10px;background:rgba(46,107,184,.07);font-size:.78rem;line-height:1.8;color:var(--ink-soft)}
 .pc-goal.rem{border-style:dashed;border-color:#1E8A5C;color:#1E8A5C}.pc-goal.rem.no{border-color:#C88A2E;color:inherit}
+
+/* 📈 مسار الخطة */
+.pl-tl{margin:.2rem 0 .7rem}
+.pl-cmp{overflow-x:auto;margin:.35rem 0 .5rem}
+.pl-cmp table{width:100%;border-collapse:collapse;font-size:.8rem}
+.pl-cmp th{font-weight:600;color:var(--ink-soft);text-align:start;padding:.3rem .35rem;border-bottom:1px solid var(--ui-border);white-space:nowrap}
+.pl-cmp td{padding:.3rem .35rem;border-bottom:1px solid var(--ui-border);vertical-align:middle}
+.pl-cmp b.up{color:var(--tick)}.pl-cmp b.down{color:var(--pen)}
+.pl-ev{list-style:none;margin:.3rem 0;padding:0;border-inline-start:2px solid var(--ui-border)}
+.pl-ev li{display:grid;grid-template-columns:78px 22px 1fr;gap:.35rem;align-items:start;padding:.28rem .5rem;font-size:.8rem;position:relative}
+.pl-ev li small{display:block;color:var(--ink-soft);font-size:.74rem;margin-top:.1rem}
+.pl-ev .pl-d{color:var(--ink-soft);font-size:.74rem;white-space:nowrap;padding-top:.1rem}
+.pl-ev li.ok{background:rgba(27,156,107,.06)}.pl-ev li.meas{background:rgba(46,107,184,.06)}.pl-ev li.end{background:rgba(27,156,107,.1);font-weight:600}
+.pl-next{margin-top:.35rem;padding:.45rem .6rem;border-radius:10px;background:rgba(200,138,46,.1);font-size:.8rem}
+.pc-basis{margin:.35rem 0 0;padding:.4rem .6rem;border-radius:10px;background:rgba(46,107,184,.07);font-size:.76rem;color:var(--ink-soft);line-height:1.7}
+@media (max-width:640px){ .pl-ev li{grid-template-columns:64px 20px 1fr} }
