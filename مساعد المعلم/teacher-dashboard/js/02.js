@@ -1255,11 +1255,18 @@ function planRemHTML(p){
     return `<span class="ar-pill ${x.status==='mastered'?'ok':x.status==='escalated'?'bad':''}">${s[0]} ${p.group?planEsc(x.name)+': ':''}${s[1]}${last?' · '+last:''}</span>`};
   return `<div class="plan-rem"><b>🩹 المهمة العلاجية في البوابة:</b> ${rows.map(x=>st(x)+remDueHTML(x,p.group)).join(' ')}</div>`;
 }
-async function planSendRemedial(id){
+/* 🔁 جولة جديدة (مهمة تحقق): src = plan:<id>:<n> — الخادم يقبل مهمة واحدة لكل مصدر */
+function planNextRound(p){let n=1;planRemRows(p).forEach(x=>{const m=/^plan:[^:]+:(\d+)$/.exec(String(x.src||''));n=Math.max(n,m?+m[1]:1)});return n+1}
+async function planSendRemedial(id,verify){
   const p=(PLAN_DATA&&PLAN_DATA.plans||[]).find(x=>x.id===id);if(!p)return;
-  const ids=planMemberIds(p).filter(Boolean),sent=new Set(planRemRows(p).map(x=>String(x.sid))),todo=ids.filter(i=>!sent.has(i));
-  if(!todo.length){toast('أُرسلت المهمة لكل أعضاء هذه الخطة سابقًا');return}
-  openModal(`<h2>🩹 إرسال مهمة علاجية</h2>
+  const rows=planRemRows(p),ids=planMemberIds(p).filter(Boolean),sent=new Set(rows.map(x=>String(x.sid)));
+  const busy=new Set(rows.filter(x=>x.status==='open'||x.status==='retry').map(x=>String(x.sid)));
+  let todo=ids.filter(i=>!sent.has(i)), round=0;
+  if(!todo.length||verify){ todo=ids.filter(i=>!busy.has(i)); round=planNextRound(p);
+    if(!todo.length){toast('لديهم مهمة علاجية مفتوحة لم تُحل بعد — انتظر حلّها');return} }
+  window._planRound=round;
+  openModal(`<h2>🩹 ${round?'إرسال مهمة تحقق':'إرسال مهمة علاجية'}</h2>
+    ${round?`<p class="plan-note" style="font-size:.85rem">مهمة جديدة (الجولة ${round}) لقياس الإتقان بعد التدريس: حتى <b>3 أسئلة بديلة لكل مهارة</b> من أخطائه — صياغة جديدة لا يعرف إجابتها. نتيجتها تُحتسب في قياس الأثر وتحسم الخطة.</p>`:''}
     <p style="font-size:.9rem;line-height:1.9">سيصل ${p.group?`لكل عضو من ${todo.length} طلاب`:'للطالب'} في بوابته «🎯 طوّر مستواك» مهمة شخصية من <b>أخطائه هو</b> ${Array.isArray(p.skills)&&p.skills.length?`في المهارات المستهدفة وحدها (${p.skills.map(planEsc).join('، ')})، موزّعة بينها`:'في أضعف نشاطين له (لم تُحدَّد للخطة مهارة مفقودة)'}، بأسئلة بديلة وتذكير بالمفهوم.</p>
     <ul style="font-size:.84rem;color:var(--ink-soft);line-height:1.9;margin:.3rem 0 .6rem;padding-inline-start:1.1rem">
       <li>لا تؤثر في درجته؛ نقاط متجر فقط.</li><li>إتقان 80% يغلقها، وإلا تأتيه محاولة ثانية بأسئلة مختلفة.</li>
@@ -1269,10 +1276,12 @@ async function planSendRemedial(id){
 }
 async function planSendRemedialGo(id){
   const p=(PLAN_DATA&&PLAN_DATA.plans||[]).find(x=>x.id===id);if(!p)return;
-  const sent=new Set(planRemRows(p).map(x=>String(x.sid))),todo=planMemberIds(p).filter(i=>i&&!sent.has(i));
+  const round=window._planRound||0, rows=planRemRows(p);
+  const busy=new Set(rows.filter(x=>x.status==='open'||x.status==='retry').map(x=>String(x.sid)));
+  const sent=new Set(rows.map(x=>String(x.sid))),todo=round?planMemberIds(p).filter(i=>i&&!busy.has(i)):planMemberIds(p).filter(i=>i&&!sent.has(i));
   openModal('<h2>جارٍ الإرسال…</h2>');
   let j=null;
-  try{const r=await fetch(getApi().replace(/\/+$/,'')+'/plan-remedial',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:getTok(),planId:id,sids:todo})});j=await r.json();
+  try{const r=await fetch(getApi().replace(/\/+$/,'')+'/plan-remedial',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:getTok(),planId:id,sids:todo,...(round?{round}:{})})});j=await r.json();
     if(r.status===404||!j||(!j.ok&&/not found/i.test(String(j.error||''))))throw new Error('ارفع worker.js الأخير ثم أعد المحاولة');
     if(!j.ok)throw new Error(j.error||'تعذّر الإرسال');}
   catch(e){openModal(`<h2>تعذّر الإرسال</h2><p class="muted">${planEsc(e.message||e)}</p><div class="modal-foot"><button class="btn" onclick="closeModal()">إغلاق</button></div>`);return}
@@ -2936,10 +2945,13 @@ function planCompareHTML(p){
     // الخادم القديم: «بعد» من الأنشطة وحدها، والمهمة من سجلها
     const act=r.srv?r.act:a, remP=r.srv?r.remP:null;
     const src=[act?`✏️ أنشطة ${act.correct}/${act.total}`:'',remP?`🩹 أسئلة بديلة ${remP.correct}/${remP.total}`:'',r.rep?`🔁 ${r.rep===1?'سؤال أصلي معاد':r.rep===2?'سؤالان أصليان معادان':r.rep+' أسئلة أصلية معادة'} (لا تُحتسب)`:'',
-      !r.srv&&r.rem!=null?`🩹 المهمة ${r.rem}%`:''].filter(Boolean).join('<br>');
+      !r.srv&&r.rem!=null?`🩹 المهمة ${r.rem}%`:'',
+      r.srv&&!remP&&!r.rep&&r.rem!=null?`🩹 مهمة سابقة ${r.rem}% <span class="muted">(أُرسلت قبل التحديث: بلا تفصيل لكل سؤال — لا تُحتسب)</span>`:''].filter(Boolean).join('<br>');
+    const old=r.srv&&!remP&&!r.rep&&r.rem!=null;
     const res=a&&a.total>=2?(a.rate>=SKILL_TARGET_UI?'<span class="chip tick">✓ بلغ الهدف</span>':b&&a.rate-b.rate>=5?'<span class="chip warn">تحسّن ولم يبلغ الهدف</span>':'<span class="chip bad">لم يتحسّن بعد</span>')
       :a&&a.total===1?'<span class="chip ghost">سؤال واحد — لا يكفي للحكم</span>'
       :r.rep?'<span class="chip ghost">🔁 أسئلة معادة فقط — جهّز الأسئلة البديلة</span>'
+      :old?'<span class="chip warn">أرسل مهمة تحقق</span>'
       :'<span class="chip ghost">لم يُقَس بعد</span>';
     const s=(STUDENTS||[]).find(x=>String(x.id)===String(sid));
     return `<tr>${p.group?`<td>${planEsc(s?String(s.name).split(/\s+/).slice(0,2).join(' '):'')}</td>`:''}<td class="sk-n">${planEsc(r.skill)}</td><td>${cell(pc(b),b?`${b.correct}/${b.total}`:'')}</td><td>${cell(pc(a),a?`${a.correct}/${a.total}`:'')}</td><td class="pl-src">${src||'<span class="muted">—</span>'}</td><td>${res}</td></tr>`;}));
@@ -2952,7 +2964,7 @@ function planTimelineHTML(p){
   const meas=ev.filter(e=>e.k==='meas').length, next=p.status==='done'?''
     :!(REM_ROWS||[]).some(x=>x.planId===p.id)?'🩹 أرسل له المهمة العلاجية (زر 🩹 أسفل البطاقة) — أول تدريب من أخطائه.'
     :(REM_ROWS||[]).some(x=>x.planId===p.id&&(x.status==='open'||x.status==='retry'))?'⏳ بانتظار حلّه للمهمة العلاجية في بوابته.'
-    :!meas&&!(p.after&&p.after.measured&&p.basis==='skills')?'🩹 المهمة العلاجية لم تكفِ للقياس (أسئلة معادة أو قليلة) — جهّز الأسئلة البديلة ثم أرسل مهمة جديدة، أو اطبع ورقة تدريب 📝 وأدخل نتيجتها في نشاط.'
+    :!meas&&!(p.after&&p.after.measured&&p.basis==='skills')?`🩹 المهمة العلاجية السابقة لا تكفي للقياس — أرسل <b>مهمة تحقق</b>: حتى 3 أسئلة بديلة لكل مهارة، ونتيجتها تحسم الخطة. <button type="button" class="btn tick sm" onclick="planSendRemedial('${planEsc(p.id)}',true)">🩹 أرسل مهمة تحقق</button>`
     :p.timing&&p.timing.skillsLeft&&p.timing.skillsLeft.length?`🎯 لم تبلغ الهدف بعد: ${p.timing.skillsLeft.map(x=>'«'+planEsc(x.skill)+'»').join('، ')} — نشاط آخر عليها.`:'';
   return `<div class="pl-tl"><div class="pc-sub">📈 مسار الخطة — ما تغيّر بعد كل خطوة</div>
     ${cmp}

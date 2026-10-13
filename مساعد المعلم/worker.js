@@ -2610,15 +2610,17 @@ async function remIndex(env, sid) { try { return JSON.parse(await env.HW.get(`re
 async function remSaveIndex(env, sid, arr) { await env.HW.put(`remidx:${sid}`, JSON.stringify(arr.slice(-60))); }
 const remOpen = arr => arr.filter(x => x && (x.status === 'open' || x.status === 'retry')).length;
 /* يبني مجموعتي أسئلة (المحاولة الأولى والثانية) من أخطاء الطالب في نشاط */
-async function remQuestionsFor(env, hwId, questions, wrongIdx) {
+async function remQuestionsFor(env, hwId, questions, wrongIdx, round) {
+  const off = Math.max(0, ((parseInt(round, 10) || 1) - 1) * 2);   // جولة جديدة ← بدائل لم يرها (إن وُجدت)
   let tw = null; try { tw = JSON.parse(await env.HW.get(`twins:${hwId}`)); } catch {}
   const items = tw && Array.isArray(tw.items) ? tw.items : [];
   const q1 = [], q2 = []; let fallback = false;
   for (const i of wrongIdx) {
     const it = items.find(x => x && x.i === i);
     if (it && it.alts && it.alts.length) {
-      q1.push({ ...it.alts[0], ...(it.tip ? { tip: it.tip } : {}) });
-      q2.push({ ...(it.alts[1] || it.alts[0]), ...(it.tip ? { tip: it.tip } : {}) });
+      const L = it.alts.length;
+      q1.push({ ...it.alts[off % L], ...(it.tip ? { tip: it.tip } : {}) });
+      q2.push({ ...it.alts[(off + 1) % L], ...(it.tip ? { tip: it.tip } : {}) });
     } else {
       const a = remShuffleQ(questions[i], i + 3), b = remShuffleQ(questions[i], i + 11);
       // _fb: السؤال الأصلي نفسه بترتيب خيارات مختلف — تدريب، لا يصلح دليلَ إتقان
@@ -2836,7 +2838,7 @@ async function planRemedialSend(env, planId, sids, round, state) {
       if (!picks.length) { results.push({ sid, name: st.name, ok: false, reason: `لا أخطاء مسجّلة له في المهارات المستهدفة (${targets.join('، ')}) — تُبنى المهمة بعد أول نشاط يُخطئ فيه عليها` }); continue; }
       let q1 = [], q2 = [], fallback = false;
       for (const p of picks) {
-        const r = await remQuestionsFor(env, String(p.h.sid), Array.isArray(p.h.qs) ? p.h.qs : [], [p.i]);
+        const r = await remQuestionsFor(env, String(p.h.sid), Array.isArray(p.h.qs) ? p.h.qs : [], [p.i], round);
         r.q1.forEach(q => { q._sk = p.k; }); r.q2.forEach(q => { q._sk = p.k; });
         q1 = q1.concat(r.q1); q2 = q2.concat(r.q2); fallback = fallback || r.fallback;
       }
