@@ -4387,6 +4387,7 @@ async function gateLoad(nm, opts){
 
       MYPTS = studentData.pts;
       MYPERKS = studentData.perks;
+      STORE_SALE = m.sale || null;          // 🏷️ متجر الصفحة الرئيسية يقرأ التخفيض من هنا
       try{ nmApply(); }catch(e){}
       MYTITLE = m.title || '';
 
@@ -5091,7 +5092,7 @@ async function offerRetry(){
     const r = await fetch(api + '/me?name=' + encodeURIComponent(nm) + idQS());
     const j = await r.json();
     if(!j.ok || !(j.perks && j.perks.retry > 0)) return;
-    MYPTS = j.pts || 0; MYPERKS = j.perks;
+    MYPTS = j.pts || 0; MYPERKS = j.perks; if('sale' in j) STORE_SALE = j.sale || null;
     $('retry-box').classList.remove('hide');
     $('retry-btn').textContent = '🔁 استخدام بطاقة إعادة المحاولة ×' + j.perks.retry;
   }catch(e){}
