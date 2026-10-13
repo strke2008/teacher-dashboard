@@ -251,3 +251,26 @@ function dashShowUpdate(){
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',run,{once:true}); else setTimeout(run,0);
 })();
 
+
+/* 📱 الشريط السفلي في الجوال: سفاري iOS أحيانًا يترك العناصر الثابتة (bottom:0) مرتفعة عن أسفل الشاشة
+   — بعد إغلاق لوحة المفاتيح أو تصغير شريط العنوان — حتى تُعاد رسم الصفحة. نقيس الفجوة الفعلية
+   بين أسفل الشريط وأسفل الشاشة المرئية ونُنزله بمقدارها. لا نرفعه أبدًا (حتى لا يغطي لوحة المفاتيح). */
+(function mobileNavPin(){
+  const vv=window.visualViewport; if(!vv) return;
+  let nav=null, cur=0, raf=0;
+  const fix=()=>{ raf=0;
+    nav=nav||document.getElementById('mobile-nav'); if(!nav) return;
+    if(innerWidth>700 || vv.scale>1.05 || getComputedStyle(nav).display==='none'){ if(cur){ cur=0; nav.style.transform=''; } return; }
+    const base=nav.getBoundingClientRect().bottom-cur;              // موضعه بلا تصحيح
+    const gap=Math.round(vv.offsetTop+vv.height-base);
+    const want=gap>2?gap:0;
+    if(want!==cur){ cur=want; nav.style.transform=want?`translate3d(0,${want}px,0)`:''; }
+  };
+  const later=()=>{ if(!raf) raf=requestAnimationFrame(fix); };
+  vv.addEventListener('resize',later); vv.addEventListener('scroll',later);
+  addEventListener('scroll',later,{passive:true}); addEventListener('orientationchange',()=>setTimeout(fix,350));
+  addEventListener('focusout',()=>setTimeout(fix,300)); addEventListener('pageshow',()=>setTimeout(fix,100));
+  document.addEventListener('visibilitychange',()=>{ if(!document.hidden) setTimeout(fix,200); });
+  if('onscrollend' in window) addEventListener('scrollend',fix);
+  setTimeout(fix,500);
+})();
