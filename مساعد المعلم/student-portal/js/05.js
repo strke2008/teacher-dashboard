@@ -217,7 +217,9 @@ async function myPlanLoad(){
     return `<section class="mp-card">
       <div class="mp-h"><span class="mp-ic">🎯</span><div style="flex:1"><b>خطتي العلاجية</b><small>${left}</small></div>${hideBtn}</div>
       ${p.skills&&p.skills.length?`<div class="mp-goal"><span>هدفي: أن أتقن كل مهارة بنسبة ${p.skillTarget||80}%</span></div>
-      <div class="mp-sks">${p.skills.slice().sort((a,b)=>(a.pre&&a.now==null?1:0)-(b.pre&&b.now==null?1:0)).map(k=>{const T=p.skillTarget||80,pend=(p.tasks||[]).some(t=>t.status==='open'||t.status==='retry');
+      <div class="mp-sks">${p.skills.slice().sort((a,b)=>((a.pre&&a.now==null)||a.na?1:0)-((b.pre&&b.now==null)||b.na?1:0)).map(k=>{const T=p.skillTarget||80,pend=(p.tasks||[]).some(t=>t.status==='open'||t.status==='retry');
+        // ⚪ لم تُقس عليه قط (في خطة جماعية): ليست هدفًا عليه الآن — سطر هادئ بلا شريط
+        if(k.na) return `<div class="mp-sk pre na"><div class="mp-skh"><b>⚪ ${esc(k.skill)}</b><small>لم تظهر في أنشطتك بعد — لا يلزمك شيء الآن</small></div></div>`;
         // ✅ متقنة قبل الخطة: ليست هدفًا عليه — سطر هادئ بلا شريط فارغ
         if(k.pre&&k.now==null) return `<div class="mp-sk ok pre"><div class="mp-skh"><b>✅ ${esc(k.skill)}</b><small>متقنة قبل الخطة (${k.before}%)</small></div></div>`;
         // المقياس الرسمي: النشاط العادي بعد بدء الخطة؛ وحتى يأتي تظهر نتيجة المهمة العلاجية مؤقتًا

@@ -6155,6 +6155,9 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         const skItems = m.skill && Array.isArray(m.skill.items) ? m.skill.items.map(x => { const b = x.before && x.before.total >= 2 ? x.before.rate : null;
           return { skill: x.skill, before: b, pre: b != null && b >= SKILL_TARGET, now: x.after && x.after.total >= 2 ? x.after.rate : null }; }) : [];
         const metOne = x => (x.now != null && x.now >= SKILL_TARGET) || (x.now == null && x.pre);
+        // na: مهارة في الخطة (غالبًا جماعية) لم يُقَس عليها هذا الطالب قط — لا قبل الخطة ولا بعدها ولا في مهمته.
+        // ليست ضعفًا ثابتًا عنده، ولا شيء يقيسها، فلا تُبقي خطته معلّقة إلى الأبد
+        const naOne = x => x.now == null && x.before == null && x.rem == null;
         const allMet = skItems.length ? skItems.every(metOne) : (m.after && m.after.measured && m.after.rate != null && m.after.rate >= PLAN.target);
         if (allMet) continue;
         const tasks = [], remBy = {}; let masteredAt = 0;
@@ -6167,11 +6170,12 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
           if (done.skills) for (const [k, v] of Object.entries(done.skills)) { if (v.t) remBy[k] = Math.round(v.c / v.t * 100); }
           else for (const it of skItems) if (String(r.srcTitle || '').includes(it.skill) && remBy[it.skill] == null) remBy[it.skill] = done.rate;   // مهام قديمة بلا مهارة لكل سؤال
         } catch {} }
-        skItems.forEach(x => { if (remBy[x.skill] != null) x.rem = remBy[x.skill]; });
+        skItems.forEach(x => { if (remBy[x.skill] != null) x.rem = remBy[x.skill]; x.na = naOne(x); });
+        const judged = skItems.filter(x => !x.na);
         // 🌟 أتقن كل مهارات الخطة في مهمته ولا مهمة مفتوحة ← سطر تهنئة واحد، ثم تختفي من صفحته بعد 3 أيام
         // (تبقى الخطة عند المعلم مفتوحة حتى يقرر) — حتى لا تزدحم صفحة الطالب
         const open = tasks.some(x => x.status === 'open' || x.status === 'retry');
-        const remAll = !open && masteredAt > 0 && (skItems.length ? skItems.every(x => metOne(x) || (x.now == null && x.rem != null && x.rem >= SKILL_TARGET)) : true);
+        const remAll = !open && masteredAt > 0 && (skItems.length ? judged.every(x => metOne(x) || (x.now == null && x.rem != null && x.rem >= SKILL_TARGET)) : true);
         if (remAll && Date.now() - masteredAt > 3 * 86400000) continue;
         rows.push({ id: p.id, goal: (Array.isArray(p.skills) && p.skills.length) ? p.skills.slice(0, 4) : [], reason: String(p.reason || '').split(' — ')[0].slice(0, 80),
           start: p.startDate || '', due: t.due, left: t.left, target: PLAN.target,
