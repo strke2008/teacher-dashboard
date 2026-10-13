@@ -201,6 +201,7 @@ function renderProjects(){
       ${reviewNote}
       <div class="project-card-foot project-review-actions">
         ${actionButtons}
+        ${files.length?`<button class="btn ghost sm" type="button" onclick="projDownloadStudent(${idx})" title="تحميل ملفات هذا التسليم">⬇️ تحميل</button>`:''}
         <span class="muted project-file-count">${files.length} ${files.length===1?'ملف':'ملفات'}</span>
       </div>
     </article>`;
@@ -517,7 +518,7 @@ function openProjectViewer(index){
     const url=projectFileUrl(x.project,x.student,f);
     const isPdf=f.type==='application/pdf';
     const isVid=projectIsVideo(f);
-    return `<div class="project-view-item">${isVid?`<video src="${projectEsc(url)}" controls playsinline preload="metadata"></video>`:isPdf?`<iframe src="${projectEsc(url)}" title="${projectEsc(f.name||'PDF')}" loading="lazy"></iframe>`:`<img src="${projectEsc(url)}" alt="${projectEsc(f.name||'صورة')}" loading="lazy" onclick="openProjectImageZoom(this)" onerror="projectImageFallback(this)">`}<div class="project-view-label"><span>${isVid?'🎥':isPdf?'📄':'🖼️'} ${projectEsc(f.name||'ملف')}</span><span style="display:flex;gap:.35rem;flex-wrap:wrap;justify-content:flex-end"><a class="btn ghost sm" href="${projectEsc(url)}" target="_blank" rel="noopener">فتح</a><button class="btn pen sm" type="button" onclick="deleteProjectFile(${index},${i})">🗑️ حذف</button></span></div></div>`;
+    return `<div class="project-view-item">${isVid?`<video src="${projectEsc(url)}" controls playsinline preload="metadata"></video>`:isPdf?`<iframe src="${projectEsc(url)}" title="${projectEsc(f.name||'PDF')}" loading="lazy"></iframe>`:`<img src="${projectEsc(url)}" alt="${projectEsc(f.name||'صورة')}" loading="lazy" onclick="openProjectImageZoom(this)" onerror="projectImageFallback(this)">`}<div class="project-view-label"><span>${isVid?'🎥':isPdf?'📄':'🖼️'} ${projectEsc(f.name||'ملف')}</span><span style="display:flex;gap:.35rem;flex-wrap:wrap;justify-content:flex-end"><a class="btn ghost sm" href="${projectEsc(url)}" target="_blank" rel="noopener">فتح</a><button class="btn ghost sm" type="button" onclick="projDownloadFile(${index},${i})">⬇️ تحميل</button><button class="btn pen sm" type="button" onclick="deleteProjectFile(${index},${i})">🗑️ حذف</button></span></div></div>`;
   }).join('');
   const modal=document.getElementById('modal');
   modal.classList.add('projects-modal');
@@ -527,7 +528,7 @@ function openProjectViewer(index){
     : review.key==='rejected'
       ? `<div class="project-view-actions"><span class="pill project-review-status rejected">❌ مرفوض</span><button class="btn tick sm" type="button" onclick="reviewProject('accept',${index})">✅ قبول بعد المراجعة</button></div>`
       : `<div class="project-view-actions"><span class="pill project-review-status accepted">✅ مقبول</span></div>`;
-  modal.innerHTML=`<div class="project-view-head"><div><h2>📁 ${projectEsc(x.title)}</h2><div class="project-view-meta">${projectEsc(x.studentName)} · ${projectEsc(x.cls||'كل الفصول')} · 🕐 ${projectEsc(projectFormatDate(x.at))}</div></div><button class="btn ghost sm" onclick="closeModal();document.getElementById('modal').classList.remove('projects-modal')">إغلاق</button></div>${reviewActions}<div class="project-view-grid">${body}</div>`;
+  modal.innerHTML=`<div class="project-view-head"><div><h2>📁 ${projectEsc(x.title)}</h2><div class="project-view-meta">${projectEsc(x.studentName)} · ${projectEsc(x.cls||'كل الفصول')} · 🕐 ${projectEsc(projectFormatDate(x.at))}</div></div><span style="display:flex;gap:.35rem;flex-wrap:wrap">${files.length>1?`<button class="btn ghost sm" type="button" onclick="projDownloadStudent(${index})">⬇️ تحميل الكل (${files.length})</button>`:''}<button class="btn ghost sm" onclick="closeModal();document.getElementById('modal').classList.remove('projects-modal')">إغلاق</button></span></div>${reviewActions}<div class="project-view-grid">${body}</div>`;
   document.getElementById('veil').classList.add('on');
 }
 function projectInputBind(){

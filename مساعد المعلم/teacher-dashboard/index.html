@@ -23,7 +23,7 @@
 <link rel="stylesheet" href="app.css?v=0a05a8c7">
 <script src="js/01-right-sidebar-navigation-js.js?v=41ea29b3" defer></script>
 <script src="js/02.js?v=693ea38f" defer></script>
-<script src="js/03-projects-students-logic-v13.js?v=7d97d67f" defer></script>
+<script src="js/03-projects-students-logic-v13.js?v=51fc7d5e" defer></script>
 <script src="js/04.js?v=88f51ee5" defer></script>
 <script src="js/05.js?v=5e4e4410" defer></script>
 <script src="js/06.js?v=4e76f64a" defer></script>
@@ -48,6 +48,7 @@
 <script src="js/25-today-board-js.js?v=5dfaabcb" defer></script>
 <script src="js/26-br-v2-js.js?v=3086c154" defer></script>
 <script src="js/27-proj-illus-js.js?v=d2f03a2d" defer></script>
+<script src="js/28-proj-download-js.js?v=56d82819" defer></script>
 <style id="comprehensive-print-identical-all-devices">
 /* 🖨️ الكشف الشامل: نفس التخطيط الفيزيائي على الجوال والكمبيوتر.
    هذه القواعد تأتي في آخر الرأس لتتغلب على أي قواعد شاشة سابقة. */
@@ -472,7 +473,7 @@
 .exam-shop-status.open{background:#E4F4EC;color:#167852}.exam-shop-status.closed{background:#FFF1F2;color:#9F2538}
 @media screen and (max-width:600px){.exam-shop-kpis{grid-template-columns:1fr 1fr}.exam-shop-student{grid-template-columns:1fr 105px}.exam-shop-student small{grid-column:1}.exam-shop-student .exam-shop-used{display:none}}
 </style>
-<link rel="stylesheet" id="late-css" href="app-late.css?v=cf5c7ecb">
+<link rel="stylesheet" id="late-css" href="app-late.css?v=0154f0fd">
 </head>
 <body>
 <header class="masthead">
@@ -1383,6 +1384,7 @@
 <span class="sub">المشاريع التي سلّمها الطلاب كصور أو ملفات PDF</span>
 </div>
 <span class="spacer"></span>
+<button class="btn ghost sm" id="projects-dl-btn" onclick="projDownloadVisible()" title="تحميل ملفات المشاريع المعروضة (بعد التصفية) في ملف ZIP واحد">⬇️ تحميل المعروض</button>
 <button class="btn ghost sm" id="projects-refresh-btn" onclick="loadProjects(true)">↻ تحديث</button>
 </div>
 <div class="sheet projects-filters no-print">

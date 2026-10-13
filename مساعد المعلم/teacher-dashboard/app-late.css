@@ -1941,3 +1941,8 @@ thead .madr-name{background:var(--ui-surface-2,#F7FAFD)}
 .illus-prev{margin-top:.5rem;border:1px solid var(--ui-border,#D5E0EC);border-radius:12px;overflow:hidden;background:#F7FAFC}
 .illus-prev img{display:block;width:100%;height:auto}
 .illus-prev-bar{display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap;padding:.4rem .6rem;font-size:.78rem;color:#5B6B7F;background:var(--ui-surface,#FFFFFF)}
+/* ⬇️ عدّاد تجهيز تحميل المشاريع */
+.pdl-prog{display:grid;gap:.5rem;justify-items:center;padding:1rem .2rem .4rem;text-align:center}
+.pdl-bar{width:100%;height:12px;border-radius:99px;background:var(--ui-surface,#EEF3F8);border:1px solid var(--ui-border,#D5E0EC);overflow:hidden}
+.pdl-bar i{display:block;height:100%;background:var(--tick,#1E9E62);border-radius:inherit;transition:width .3s}
+.pdl-cnt{font-size:1.6rem;font-variant-numeric:tabular-nums}.pdl-prog small{color:var(--ink-soft)}
