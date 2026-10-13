@@ -2596,6 +2596,8 @@ async function attachPlanRem(env, data) {
     const sids = new Set();
     plans.forEach(p => ((Array.isArray(p.studentIds) && p.studentIds.length) ? p.studentIds : [p.studentId]).forEach(x => x && sids.add(String(x))));
     const out = {};
+    // 📌 نتائج محفوظة لخطط حُذفت مهامها المنتهية (لا تتغير نتيجة الخطة بعد التنظيف)
+    await inBatches(plans, 10, async p => { try { const sn = JSON.parse(await env.HW.get(`remsnap:${p.id}`)); if (sn && typeof sn === 'object') out[p.id] = sn; } catch {} });
     await inBatches([...sids], 10, async sid => {
       const idx = (await remIndex(env, sid)).filter(x => x && String(x.src || '').startsWith('plan:'));
       for (const e of idx) {
@@ -6315,6 +6317,36 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       await env.HW.put(`rem:${rec.id}`, JSON.stringify(rec), { expirationTtl: REM.ttl * 2 });
       try { const rev = parseInt(await env.HW.get('meta:rev'), 10) || 0; await env.HW.put('meta:rev', String(rev + 1)); } catch {}
       return json({ ok: true, due });
+    }
+    // ── 🧹 حذف المهام العلاجية المنتهية (أتقنها الطالب) ──
+    // لا يُحذف ما يتبع خطة مفتوحة: نتيجتها جزء من قياس الخطة. ولا «يحتاج تدخلك» (إخفاق مرتين) إلا بطلب صريح.
+    // يبقى سطر الفهرس (remidx) حتى لا يُعاد فتح علاج للمصدر نفسه تلقائيًا.
+    if (url.pathname === '/rem-clean' && request.method === 'POST') {
+      let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
+      if (!env.TEACHER_TOKEN || b.t !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
+      const withEsc = !!b.escalated;
+      const cd = await attachPlanRem(env, await loadClassroom(env));
+      const openPlans = new Set((Array.isArray(cd.plans) ? cd.plans : []).filter(p => p && p.id && (p.status || 'active') !== 'done').map(p => String(p.id)));
+      const keys = await listAllKeys(env, 'rem:');
+      // 📌 قبل الحذف: احفظ نتائج المهام لكل خطة منتهية — تقريرها وجدول «قبل/بعد» يبقيان كما هما
+      const snapDone = new Set();
+      const snapPlan = async id => { if (snapDone.has(id)) return; snapDone.add(id);
+        const v = cd.__planRem && cd.__planRem[id]; if (v && Object.keys(v).length) await env.HW.put(`remsnap:${id}`, JSON.stringify(v)); };
+      let deleted = 0, keptPlan = 0, keptEsc = 0, keptOpen = 0;
+      await inBatches(keys, 10, async k => {
+        let r = null; try { r = JSON.parse(await env.HW.get(k)); } catch {}
+        if (!r) return;
+        if (r.status === 'open' || r.status === 'retry') { keptOpen++; return; }
+        if (r.status === 'escalated' && !withEsc) { keptEsc++; return; }
+        if (r.planId && openPlans.has(String(r.planId))) { keptPlan++; return; }
+        if (r.planId) await snapPlan(String(r.planId));
+        for (const a of (r.attempts || [])) { if (!a || !a.hw) continue;
+          try { await env.HW.delete(`hw:${a.hw}`); } catch {}
+          try { for (const sk of await listAllKeys(env, `s:${a.hw}:`)) await env.HW.delete(sk); } catch {} }
+        await env.HW.delete(k); deleted++;
+      });
+      if (deleted) { try { const rev = parseInt(await env.HW.get('meta:rev'), 10) || 0; await env.HW.put('meta:rev', String(rev + 1)); } catch {} }
+      return json({ ok: true, deleted, keptPlan, keptEsc, keptOpen });
     }
     // ── 🩹 سجل العلاج التلقائي للمعلم ──
     if (url.pathname === '/remedials' && request.method === 'GET') {

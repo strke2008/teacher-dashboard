@@ -1190,7 +1190,9 @@ async function renderAutoRem(){
   const escOpen=(()=>{ try{ return localStorage.getItem('ar_escal_open')==='1'; }catch(_){ return false; } })();
   if(e)e.innerHTML=escL.length?`<details class="ar-escal" ${escOpen?'open':''} ontoggle="try{localStorage.setItem('ar_escal_open',this.open?'1':'0')}catch(_){}"><summary class="ar-escal-h"><span>🔴 ${escL.length} ${escL.length===1?'طالب يحتاج':'طلاب يحتاجون'} تدخلك — أخفق في المهمة العلاجية مرتين. اضغط «＋ خطة له» فتُبنى خطته من إخفاقه، أو تحدّث معه.</span><span class="ar-escal-tg" aria-hidden="true"></span></summary>${escL.map(line).join('')}</details>`:'';
   const body=document.getElementById('auto-rem-body');
-  if(body)body.innerHTML=rows.length?rows.filter(x=>x.status!=='escalated').slice(0,30).map(line).join('')||'<div class="ar-empty">لا مهام أخرى.</div>':'<div class="ar-empty">لم تُفتح مهام علاجية بعد. ستظهر هنا تلقائيًا عند أول إخفاق.</div>';
+  const cleanN=remCleanable(REM_ROWS).length;
+  const cleanBar=cleanN?`<div class="row" style="gap:.5rem;align-items:center;justify-content:space-between;margin-bottom:.5rem;flex-wrap:wrap"><span class="muted" style="font-size:.8rem">${cleanN} ${cleanN===1?'مهمة منتهية':'مهام منتهية'} (أتقنها الطلاب) يمكن حذفها</span><button type="button" class="btn ghost sm" onclick="remClean()">🧹 حذف المهام المنتهية</button></div>`:'';
+  if(body)body.innerHTML=cleanBar+(rows.length?rows.filter(x=>x.status!=='escalated').slice(0,30).map(line).join('')||'<div class="ar-empty">لا مهام أخرى.</div>':'<div class="ar-empty">لم تُفتح مهام علاجية بعد. ستظهر هنا تلقائيًا عند أول إخفاق.</div>');
 }
 
 /* ＋ خطة له: من «يحتاج تدخلك» مباشرة — يفتح نموذج الخطة على الطالب، بتشخيصه (المهارات والإجراءات)
@@ -1219,6 +1221,23 @@ function remPlanFor(remId){
    الخطة سجلٌّ للمعلم؛ هذا الزر يحوّلها إلى تدريب يصل للطالب في بوابته،
    من أخطائه في المهارات المستهدفة (الأنشطة والتشخيصي)، وإن لم تُحدَّد مهارة فمن أضعف نشاطين — بقرار المعلم وبلا شرط 60%. */
 let REM_ROWS=[];
+/* 🧹 المنتهية القابلة للحذف: أتقنها الطالب، ولا تتبع خطة مفتوحة (نتيجتها جزء من قياس الخطة) */
+function remOpenPlanIds(){return new Set(((PLAN_DATA&&PLAN_DATA.plans)||[]).filter(p=>p&&p.status!=='done').map(p=>String(p.id)))}
+function remCleanable(rows){const op=remOpenPlanIds();return (rows||[]).filter(x=>x&&x.status==='mastered'&&!(x.planId&&op.has(String(x.planId))))}
+async function remClean(){
+  const all=REM_ROWS||[], op=remOpenPlanIds(), can=remCleanable(all);
+  const inPlan=all.filter(x=>x.status==='mastered'&&x.planId&&op.has(String(x.planId))).length, esc=all.filter(x=>x.status==='escalated').length;
+  if(!can.length){toast('لا مهام منتهية قابلة للحذف');return}
+  const ok=await askConfirm(`تُحذف ${can.length} ${can.length===1?'مهمة علاجية أتقنها الطالب':'مهام علاجية أتقنها الطلاب'}: تختفي من بوابات الطلاب ومن هذا السجل، وتُحذف إجاباتهم فيها. نقاطهم تبقى.${inPlan?`\n\nتبقى ${inPlan} لأنها تتبع خطة مفتوحة — نتيجتها تقيس الخطة؛ تُحذف بعد إنهاء الخطة.`:''}${esc?`\nتبقى ${esc} «يحتاج تدخلك» حتى تتصرّف فيها.`:''}\nالمفتوحة التي لم تُحل لا تُحذف.`,{title:'حذف المهام العلاجية المنتهية؟',yes:'🧹 احذف',no:'إلغاء',danger:true});
+  if(!ok)return;
+  try{const r=await fetch(getApi().replace(/\/+$/,'')+'/rem-clean',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:getTok()})});
+    const j=await r.json().catch(()=>({}));
+    if(r.status===404&&!j.ok)throw new Error('ارفع worker.js الأخير');
+    if(!j.ok)throw new Error(j.error||'تعذّر الحذف');
+    toast(`🧹 حُذفت ${j.deleted} ${j.deleted===1?'مهمة':'مهام'}${j.keptPlan?` · بقيت ${j.keptPlan} لخطط مفتوحة`:''}`,'good');
+    await renderAutoRem();
+  }catch(e){toast(e.message||'تعذّر الحذف','bad')}
+}
 /* ⏰ موعد المهمة العلاجية المفتوحة (آخر محاولة لم تُحل): يُغلق بعد 7 أيام من إرسالها.
    بعد الموعد تُقفل في بوابة الطالب — زر «افتحها» يمدّدها 7 أيام أخرى. */
 function remDue(x){
