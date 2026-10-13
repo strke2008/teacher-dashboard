@@ -1148,7 +1148,9 @@ async function renderAutoRem(){
       <span class="ar-pill ${x.status==='mastered'?'ok':x.status==='escalated'?'bad':''}">${s[0]} ${s[1]}</span>${x.status==='escalated'?remPlanBtn(x):''}</div>`};
   const escL=rows.filter(x=>x.status==='escalated');
   const e=document.getElementById('auto-rem-esc');
-  if(e)e.innerHTML=escL.length?`<div class="ar-escal"><div class="ar-escal-h">🔴 ${escL.length} ${escL.length===1?'طالب يحتاج':'طلاب يحتاجون'} تدخلك — أخفق في المهمة العلاجية مرتين. اضغط «＋ خطة له» فتُبنى خطته من إخفاقه، أو تحدّث معه.</div>${escL.map(line).join('')}</div>`:'';
+  /* قابلة للطي: مطويّة افتراضيًا، ويُحفظ اختيار المعلم */
+  const escOpen=(()=>{ try{ return localStorage.getItem('ar_escal_open')==='1'; }catch(_){ return false; } })();
+  if(e)e.innerHTML=escL.length?`<details class="ar-escal" ${escOpen?'open':''} ontoggle="try{localStorage.setItem('ar_escal_open',this.open?'1':'0')}catch(_){}"><summary class="ar-escal-h"><span>🔴 ${escL.length} ${escL.length===1?'طالب يحتاج':'طلاب يحتاجون'} تدخلك — أخفق في المهمة العلاجية مرتين. اضغط «＋ خطة له» فتُبنى خطته من إخفاقه، أو تحدّث معه.</span><span class="ar-escal-tg" aria-hidden="true"></span></summary>${escL.map(line).join('')}</details>`:'';
   const body=document.getElementById('auto-rem-body');
   if(body)body.innerHTML=rows.length?rows.filter(x=>x.status!=='escalated').slice(0,30).map(line).join('')||'<div class="ar-empty">لا مهام أخرى.</div>':'<div class="ar-empty">لم تُفتح مهام علاجية بعد. ستظهر هنا تلقائيًا عند أول إخفاق.</div>';
 }

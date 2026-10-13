@@ -1966,3 +1966,10 @@ thead .madr-name{background:var(--ui-surface-2,#F7FAFD)}
 .pts-w{min-width:220px}
 tr.pts-good .pts-g{color:var(--tick,#1B9C6B)} tr.pts-bad{background:rgba(192,57,43,.06)} tr.pts-bad .pts-g{color:#C0392B} tr.pts-warn{background:rgba(201,138,46,.08)} tr.pts-warn .pts-g{color:#B54708}
 .pts-before{margin-top:.8rem}.pts-before summary{cursor:pointer;font-weight:700;font-size:.88rem;margin-bottom:.5rem}
+/* 🔴 «طلاب يحتاجون تدخلك» قابلة للطي */
+details.ar-escal>summary.ar-escal-h{display:flex;align-items:flex-start;gap:.6rem;justify-content:space-between;cursor:pointer;list-style:none;-webkit-user-select:none;user-select:none}
+details.ar-escal>summary.ar-escal-h::-webkit-details-marker{display:none}
+.ar-escal-tg{flex:none;font-size:.76rem;font-weight:800;white-space:nowrap;padding:.15rem .55rem;border-radius:999px;background:#fff;border:1px solid #F0B8C2;color:#932A3C}
+.ar-escal-tg::before{content:'عرض الأسماء ▾'}
+details.ar-escal[open] .ar-escal-tg::before{content:'إخفاء ▴'}
+details.ar-escal:not([open]){gap:0}
