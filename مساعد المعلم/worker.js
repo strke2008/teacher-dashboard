@@ -2814,13 +2814,16 @@ async function planRemedialSend(env, planId, sids, round, state) {
   const students = Array.isArray(state.students) ? state.students : [];
   const asg = (Array.isArray(state.assignments) ? state.assignments : []).filter(h => h && h.sid && (h.kind || 'normal') === 'normal' && !h.remedial && !h.noRem);
   // 🎯 المهارات المستهدفة في الخطة: المهمة تُبنى من أخطائه فيها هي أولًا، فتتوافق المهمة مع ما يُقاس
-  let targets = [], skMap = {};
+  let targets = [], skMap = {}, plan = null, cd = null;
   try {
-    const cd = await loadClassroom(env);
-    const plan = (Array.isArray(cd.plans) ? cd.plans : []).find(p => p && String(p.id) === String(planId));
+    cd = await attachPlanRem(env, await loadClassroom(env));
+    plan = (Array.isArray(cd.plans) ? cd.plans : []).find(p => p && String(p.id) === String(planId));
     targets = plan && Array.isArray(plan.skills) ? plan.skills.map(String).filter(Boolean).slice(0, 6) : [];
     skMap = cd.__skills || {};
   } catch {}
+  // ✅ ما أتقنه بعد البدء (80% فأكثر من سؤالين فأكثر) لا يُعاد عليه: المهمة لما بقي فقط
+  const metFor = sid => { try { const m = memberReport(sid, plan, students, state.assignments || [], cd);
+    return new Set(((m.skill && m.skill.items) || []).filter(x => x.after && x.after.total >= 2 && x.after.rate >= SKILL_TARGET).map(x => x.skill)); } catch { return new Set(); } };
   const skAsg = (Array.isArray(state.assignments) ? state.assignments : []).filter(h => h && h.sid && ['normal', 'diag'].includes(h.kind || 'normal') && !h.remedial);
   const skFor = h => ((h.kind || 'normal') === 'diag' ? diagSkillMap(h) : skMap[String(h.sid)]);
   const results = [];
@@ -2832,25 +2835,28 @@ async function planRemedialSend(env, planId, sids, round, state) {
       .filter(x => x.sub && Number(x.sub.total) > 0 && String(x.sub.d || '').includes('0'))
       .sort((a, b2) => a.sub.correct / a.sub.total - b2.sub.correct / b2.sub.total).slice(0, 2);
     // 🎯 خطة مبنية على مهارات: المهمة من أخطائه في هذه المهارات وحدها (الأنشطة والتشخيصي)، موزّعة بينها بالتناوب
-    if (targets.length) {
-      const per = Object.fromEntries(targets.map(k => [k, []])), agg = { c: 0, t: 0 };
+    const met = targets.length && plan ? metFor(st.id) : new Set();
+    const todoSk = targets.filter(k => !met.has(k));
+    if (targets.length && !todoSk.length) { results.push({ sid, name: st.name, ok: false, reason: `أتقن كل مهارات الخطة (${targets.join('، ')}) — لا حاجة لمهمة جديدة` }); continue; }
+    if (targets.length) { const targets_ = todoSk;
+      const per = Object.fromEntries(targets_.map(k => [k, []])), agg = { c: 0, t: 0 };
       for (const h of skAsg) {
         const sub = h.subs && h.subs[st.id], sk = skFor(h);
         if (!sub || !sk || !sub.d) continue;
         String(sub.d).split('').forEach((c, i) => { const k = sk[i]; if (!per[k]) return; agg.t++; if (c === '1') agg.c++; else if (c === '0') per[k].push({ h, i }); });
       }
       const picks = [];
-      const QMAX = Math.min(12, Math.max(REM.maxQ, targets.length * 3));   // حتى 3 أسئلة لكل مهارة: سؤال واحد لا يكفي للحكم
-      for (let r = 0; r < 3 && picks.length < QMAX && targets.some(k => per[k].length > r); r++)
-        for (const k of targets) if (per[k][r] && picks.length < QMAX) picks.push({ ...per[k][r], k });
-      if (!picks.length) { results.push({ sid, name: st.name, ok: false, reason: `لا أخطاء مسجّلة له في المهارات المستهدفة (${targets.join('، ')}) — تُبنى المهمة بعد أول نشاط يُخطئ فيه عليها` }); continue; }
+      const QMAX = Math.min(12, Math.max(REM.maxQ, targets_.length * 3));   // حتى 3 أسئلة لكل مهارة: سؤال واحد لا يكفي للحكم
+      for (let r = 0; r < 3 && picks.length < QMAX && targets_.some(k => per[k].length > r); r++)
+        for (const k of targets_) if (per[k][r] && picks.length < QMAX) picks.push({ ...per[k][r], k });
+      if (!picks.length) { results.push({ sid, name: st.name, ok: false, reason: `لا أخطاء مسجّلة له في المهارات المستهدفة (${targets_.join('، ')}) — تُبنى المهمة بعد أول نشاط يُخطئ فيه عليها` }); continue; }
       let q1 = [], q2 = [], fallback = false;
       for (const p of picks) {
         const r = await remQuestionsFor(env, String(p.h.sid), Array.isArray(p.h.qs) ? p.h.qs : [], [p.i], round);
         r.q1.forEach(q => { q._sk = p.k; }); r.q2.forEach(q => { q._sk = p.k; });
         q1 = q1.concat(r.q1); q2 = q2.concat(r.q2); fallback = fallback || r.fallback;
       }
-      const titles = targets.filter(k => picks.some(p => p.k === k)).join(' و');
+      const titles = targets_.filter(k => picks.some(p => p.k === k)).join(' و');
       const made = await remCreate(env, { st, cls: st.cls, src: round > 1 ? `plan:${planId}:${round}` : `plan:${planId}`, srcTitle: titles, kind: 'plan', planId, force: true, maxQ: QMAX,
         reason: `خطة علاجية للمهارات: ${titles}`, before: agg.t ? Math.round(agg.c / agg.t * 100) : 0, q1: q1.slice(0, QMAX), q2: q2.slice(0, QMAX), fallback,
         title: `🩹 خطتك العلاجية: ${titles}`.slice(0, 120), api: '' });
