@@ -401,12 +401,35 @@ async function myRepToggle(tab){
    فتُفتح البوابة فورًا من الجهاز، وعند وجود إصدار أحدث يظهر زر «تحديث الآن» */
 if('serviceWorker' in navigator && window.isSecureContext){
   addEventListener('load', ()=>setTimeout(()=>{ try{ spReg().catch(()=>{}); }catch(e){} }, 1500));
-  navigator.serviceWorker.addEventListener('message', ev=>{
-    if(!(ev.data && ev.data.type==='dash-update') || document.getElementById('sp-upd')) return;
+  navigator.serviceWorker.addEventListener('message', ev=>{ if(ev.data && ev.data.type==='dash-update') spShowUpdate(); });
+}
+function spShowUpdate(){
+  {
+    if(document.getElementById('sp-upd')) return;
     const b=document.createElement('div'); b.id='sp-upd';
     b.style.cssText='position:fixed;inset-inline:12px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:3000;max-width:460px;margin:auto;background:#16233A;color:#fff;border-radius:14px;padding:10px 12px;display:flex;align-items:center;gap:10px;font-weight:700;font-size:.9rem;box-shadow:0 10px 30px rgba(0,0,0,.25)';
     b.innerHTML='<span style="flex:1">🔄 نسخة أحدث من البوابة جاهزة</span><button type="button" style="font:inherit;font-weight:800;border:0;border-radius:10px;padding:7px 12px;background:#1B9C6B;color:#fff;cursor:pointer">تحديث الآن</button><button type="button" aria-label="لاحقًا" style="font:inherit;border:0;background:transparent;color:#9FB2CC;cursor:pointer;font-size:1rem">✕</button>';
     b.children[1].onclick=()=>location.reload(); b.children[2].onclick=()=>b.remove();
     document.body.appendChild(b);
-  });
+  }
 }
+/* 🔄 فحص الإصدار من الصفحة نفسها (مع العودة إليها، وكل 10 دقائق): تُقارَن أرقام إصدار الملفات (?v=) في الصفحة
+   المفتوحة بنسخة الخادم الحالية — بمعامل فريد يتجاوز أي ذاكرة مؤقتة — وإن اختلفت يظهر زر «تحديث الآن» */
+(function verWatch(){
+  const sig = html => [...String(html).matchAll(/(?:href|src)="([^"]+\?v=[0-9a-f]+)"/g)].map(m => m[1]).sort().join('|');
+  const mine = sig(document.documentElement.outerHTML);
+  if(!mine) return;
+  let last = 0;
+  const check = async () => {
+    if(document.hidden || Date.now() - last < 60000) return; last = Date.now();
+    try{
+      const r = await fetch(location.pathname + '?_sw=' + Date.now().toString(36), { cache: 'no-store', credentials: 'same-origin' });
+      if(!r.ok) return;
+      const other = sig(await r.text());
+      if(other && other !== mine) spShowUpdate();
+    }catch(e){}
+  };
+  document.addEventListener('visibilitychange', () => { if(!document.hidden) check(); });
+  setTimeout(check, 20000); setInterval(check, 600000);
+})();
+

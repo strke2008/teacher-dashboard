@@ -1,7 +1,7 @@
 /* أنشطتي — Service Worker: الإشعارات (نشاط جديد · رسالة من المعلم) + حفظ ملفات البوابة على الجهاز.
    ⚡ يحفظ ملفات الواجهة فقط (الصفحة والتنسيق والبرمجة والصور) فتُفتح البوابة فورًا ويُجلب الأحدث في الخلفية.
    الأنشطة والدرجات وبيانات الطالب لا تُحفظ إطلاقًا: تُجلب دائمًا من الخادم (نطاق آخر لا يمرّ هنا). لا يحتوي أي سر. */
-const SW_VERSION = 'student-push-v1+static-v2';
+const SW_VERSION = 'student-push-v1+static-v3';
 const API = new URL(self.location.href).searchParams.get('api') || '';
 const STATIC = 'portal-static-v1';
 const SCOPE = new URL(self.registration ? self.registration.scope : './', self.location.href);
@@ -73,10 +73,13 @@ self.addEventListener('fetch', event => {
 });
 
 
-self.addEventListener('install', () => { self.skipWaiting(); });
+/* 🔄 إصدار جديد من هذا الملف حلّ محل قديم: الصفحات المفتوحة تُبلَّغ فيظهر زر «تحديث الآن» — بلا اختصارات لوحة المفاتيح */
+let HAD_OLD = false;
+self.addEventListener('install', () => { HAD_OLD = !!(self.registration && self.registration.active); self.skipWaiting(); });
 self.addEventListener('activate', event => { event.waitUntil((async () => {
   for (const k of await caches.keys()) if (k.startsWith('portal-static-') && k !== STATIC) await caches.delete(k);
   await self.clients.claim();
+  if (HAD_OLD) await notifyUpdate();
 })()); });
 
 self.addEventListener('push', event => {

@@ -3,7 +3,7 @@
    فتُفتح اللوحة فورًا من الجهاز ويُجلب الإصدار الأحدث في الخلفية.
    بيانات الطلاب والدرجات والتسليمات لا تُحفظ إطلاقًا: تُجلب دائمًا من الخادم (نطاق آخر لا يمرّ هنا).
    لا يحتوي أي سر: المفتاح العام يُجلب من الخادم، والخاص لا يغادر Cloudflare. */
-const SW_VERSION = 'push-v1+static-v2';
+const SW_VERSION = 'push-v1+static-v3';
 const STATIC = 'dash-static-v1';
 const SCOPE = new URL(self.registration ? self.registration.scope : './', self.location.href);
 const PAGE_KEY = new URL('index.html', SCOPE).href;
@@ -74,10 +74,13 @@ self.addEventListener('fetch', event => {
 });
 const API = new URL(self.location.href).searchParams.get('api') || '';
 
-self.addEventListener('install', () => { self.skipWaiting(); });
+/* 🔄 إصدار جديد من هذا الملف حلّ محل قديم: الصفحات المفتوحة تُبلَّغ فيظهر زر «تحديث الآن» — بلا اختصارات لوحة المفاتيح */
+let HAD_OLD = false;
+self.addEventListener('install', () => { HAD_OLD = !!(self.registration && self.registration.active); self.skipWaiting(); });
 self.addEventListener('activate', event => { event.waitUntil((async () => {
   for (const k of await caches.keys()) if (k.startsWith('dash-static-') && k !== STATIC) await caches.delete(k);
   await self.clients.claim();
+  if (HAD_OLD) await notifyUpdate();
 })()); });
 
 self.addEventListener('push', event => {
