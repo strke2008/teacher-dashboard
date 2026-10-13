@@ -24,6 +24,16 @@ let MYPTS = 0, MYPERKS = {};
 /* 🏷️ تخفيض المتجر من الخادم (/me): للعرض فقط — الخادم يحسب السعر نفسه عند الشراء */
 let STORE_SALE = null;
 function cardPrice(c){ const p = Number(c && c.price) || 0; return STORE_SALE && STORE_SALE.pct ? Math.max(1, Math.round(p * (100 - STORE_SALE.pct) / 100)) : p; }
+/* المتجر يسأل الخادم عن التخفيض مباشرة عند فتحه (مستقل عن /me وأي مسار تحميل، وبلا ذاكرة مؤقتة) */
+let SALE_AT = 0, SALE_BUSY = null;
+function saleRefresh(after){
+  if(SALE_BUSY || Date.now() - SALE_AT < 30000) return;
+  const api = ((typeof HW!=='undefined' && HW && HW.api) || API || '').replace(/\/+$/,''); if(!api) return;
+  SALE_BUSY = fetch(api + '/store-sale?_=' + Date.now(), { cache: 'no-store' }).then(r => r.json()).then(j => {
+    SALE_AT = Date.now();
+    if(j && j.ok){ const before = JSON.stringify(STORE_SALE || null); STORE_SALE = j.sale || null; if(before !== JSON.stringify(STORE_SALE) && after) after(); }
+  }).catch(() => {}).finally(() => { SALE_BUSY = null; });
+}
 function saleUntilText(t){ try{ return new Date(t).toLocaleString('ar-SA-u-ca-gregory-nu-latn', { weekday:'long', day:'numeric', month:'long', hour:'numeric', minute:'2-digit' }); }catch(e){ return ''; } }
 let hintUsed = {};
 
@@ -4364,7 +4374,7 @@ async function gateLoad(nm, opts){
 
   try{
     const m = await (
-      await fetch(api + '/me?name=' + encodeURIComponent(nm) + idQS())
+      await fetch(api + '/me?name=' + encodeURIComponent(nm) + idQS() + '&_=' + Date.now(), { cache: 'no-store' })
     ).json();
 
     // 🪪 الطالب المحفوظ في هذا المتصفح لم يعد في الكشف (حذفه المعلم):
@@ -6115,6 +6125,7 @@ async function loadStore(pre){
 }
 
 function renderStore(target){
+  saleRefresh(() => renderStore(target));
   const owned = Object.keys(MYPERKS).filter(k=>MYPERKS[k]>0);
   const box = $(target || 'store-box');
   // 🚫 لا متجر داخل اختبارات القياس — لا نقاط ولا مساعدات

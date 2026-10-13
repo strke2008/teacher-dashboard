@@ -433,3 +433,44 @@ function spShowUpdate(){
   setTimeout(check, 20000); setInterval(check, 600000);
 })();
 
+
+/* 🩺 صفحة تشخيص: افتح البوابة بإضافة ?diag إلى العنوان — تُظهر إصدار هذا الجهاز وما يقوله الخادم عن التخفيض،
+   للمقارنة بين جهازين. وزر «إعادة تحميل نظيفة» يمسح النسخة المحفوظة على الجهاز ثم يعيد الفتح (بدل اختصارات لوحة المفاتيح). */
+(function portalDiag(){
+  if(!/[?&]diag\b/.test(location.search)) return;
+  const run = async () => {
+    const box = document.createElement('div');
+    box.id = 'sp-diag';
+    box.style.cssText = 'position:fixed;inset:0;z-index:4000;background:rgba(15,23,32,.6);display:flex;align-items:center;justify-content:center;padding:14px;direction:rtl';
+    const row = (k, v) => `<tr><th style="text-align:right;padding:.35rem .5rem;white-space:nowrap;color:#5B6B7F;font-weight:600">${k}</th><td style="padding:.35rem .5rem;direction:ltr;text-align:left;word-break:break-all">${v}</td></tr>`;
+    const esc2 = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+    const ver = [...document.querySelectorAll('script[src*="?v="]')].map(s => (s.getAttribute('src').match(/([\w-]+\.js)\?v=([0-9a-f]+)/) || []).slice(1).join(' ')).join('<br>');
+    const api = (typeof API === 'string' ? API : '').replace(/\/+$/, '');
+    let sale = '…', me = '…', sw = 'لا يوجد';
+    try{ const r = navigator.serviceWorker && await navigator.serviceWorker.getRegistration('./'); if(r && r.active) sw = r.active.scriptURL.split('/').pop().split('?')[0] + (navigator.serviceWorker.controller ? ' (يتحكم بالصفحة)' : ' (مثبت)'); }catch(e){}
+    try{ const j = await (await fetch(api + '/store-sale?_=' + Date.now(), { cache: 'no-store' })).json(); sale = j.ok ? (j.sale ? `مفعّل ${j.sale.pct}% — ${esc2(j.sale.title || '')}${j.sale.until ? ' · حتى ' + new Date(j.sale.until).toLocaleString('ar-SA-u-ca-gregory-nu-latn') : ''}` : 'غير مفعّل') : esc2(j.error || 'خطأ'); }
+    catch(e){ sale = 'تعذّر الاتصال: ' + esc2(e.message); }
+    try{ const nm = (typeof myName !== 'undefined' && myName) || (typeof lockedName === 'function' ? lockedName() : '') || '';
+      if(nm || (typeof mySid !== 'undefined' && mySid)){ const j = await (await fetch(api + '/me?name=' + encodeURIComponent(nm) + (typeof idQS === 'function' ? idQS() : '') + '&_=' + Date.now(), { cache: 'no-store' })).json();
+        me = j.ok ? `${esc2(j.name || '')} · رصيد ${j.pts} · التخفيض في /me: ${'sale' in j ? (j.sale ? j.sale.pct + '%' : 'لا') : '⚠️ غير موجود (الخادم قديم)'}` : esc2(j.error || 'خطأ'); }
+      else me = 'لم يسجّل طالب دخولًا على هذا الجهاز'; }catch(e){ me = 'تعذّر: ' + esc2(e.message); }
+    box.innerHTML = `<div style="background:#fff;color:#16233A;border-radius:16px;max-width:560px;width:100%;max-height:90vh;overflow:auto;padding:16px;font-size:.84rem;box-shadow:0 20px 50px rgba(0,0,0,.3)">
+      <h3 style="margin:0 0 .6rem">🩺 تشخيص البوابة على هذا الجهاز</h3>
+      <table style="width:100%;border-collapse:collapse">${row('الخادم', esc2(api))}${row('التخفيض (من الخادم)', sale)}${row('الطالب', me)}
+        ${row('في ذاكرة الصفحة', typeof STORE_SALE !== 'undefined' ? (STORE_SALE ? STORE_SALE.pct + '%' : 'لا تخفيض') : '⚠️ الصفحة قديمة (لا تعرف التخفيض)')}
+        ${row('النسخة المحفوظة (sw)', esc2(sw))}${row('إصدار الملفات', ver || '—')}${row('وقت الجهاز', new Date().toLocaleString('ar-SA-u-ca-gregory-nu-latn'))}</table>
+      <div style="display:flex;gap:.5rem;margin-top:.8rem;flex-wrap:wrap">
+        <button type="button" id="diag-clean" style="font:inherit;font-weight:800;border:0;border-radius:10px;padding:8px 12px;background:#1B9C6B;color:#fff;cursor:pointer">🧹 إعادة تحميل نظيفة</button>
+        <button type="button" id="diag-close" style="font:inherit;border:1px solid #D5E0EC;border-radius:10px;padding:8px 12px;background:#fff;cursor:pointer">إغلاق</button></div>
+      <p style="color:#5B6B7F;margin:.6rem 0 0;font-size:.76rem">«إعادة تحميل نظيفة» تمسح نسخة البوابة المحفوظة على هذا الجهاز فقط (لا تمس حسابك ولا نقاطك) ثم تعيد فتحها من الخادم.</p></div>`;
+    document.body.appendChild(box);
+    box.querySelector('#diag-close').onclick = () => box.remove();
+    box.querySelector('#diag-clean').onclick = async () => {
+      // لا نلغي تسجيل sw.js: إلغاؤه يُسقط اشتراك الإشعارات. يكفي مسح المحفوظ — بلا نسخة محفوظة تُجلب الصفحة من الخادم
+      try{ for(const k of await caches.keys()) await caches.delete(k); }catch(e){}
+      try{ const r = navigator.serviceWorker && await navigator.serviceWorker.getRegistration('./'); if(r) await r.update(); }catch(e){}
+      location.replace(location.pathname + '?_=' + Date.now());
+    };
+  };
+  if(document.readyState === 'complete') setTimeout(run, 1200); else addEventListener('load', () => setTimeout(run, 1200));
+})();
