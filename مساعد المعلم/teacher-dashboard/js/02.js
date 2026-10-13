@@ -1257,6 +1257,32 @@ function planRemHTML(p){
 }
 /* 🔁 جولة جديدة (مهمة تحقق): src = plan:<id>:<n> — الخادم يقبل مهمة واحدة لكل مصدر */
 function planNextRound(p){let n=1;planRemRows(p).forEach(x=>{const m=/^plan:[^:]+:(\d+)$/.exec(String(x.src||''));n=Math.max(n,m?+m[1]:1)});return n+1}
+/* يسأل الخادم: أي أنشطة ستُبنى منها المهمة وتنقصها أسئلة بديلة؟ ثم يجهّزها بمفتاح الذكاء الاصطناعي وينتظر انتهاءها.
+   يعيد سطرًا يُعرض في نتيجة الإرسال (أو '' إن لم يلزم شيء). */
+async function planEnsureTwins(planId,sids){
+  let need=[];
+  try{const r=await fetch(getApi().replace(/\/+$/,'')+'/plan-twins-need',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:getTok(),planId,sids})});
+    const j=await r.json();if(j&&j.ok&&Array.isArray(j.need))need=j.need}catch(e){return ''}   // خادم قديم: يُرسل كما كان
+  if(!need.length) return '';
+  const list=need.map(x=>HW.find(h=>String(h.sid)===String(x.hw))).filter(h=>h&&Array.isArray(h.qs)&&h.qs.length);
+  if(!list.length) return '';
+  if(!twinHasKey()) return `⚠️ ${list.length} ${list.length===1?'نشاط':'أنشطة'} بلا أسئلة بديلة (${list.map(h=>'«'+planEsc(h.title)+'»').join('، ')}) ولا يوجد مفتاح ذكاء اصطناعي لتجهيزها — أضفه من ⚙️ الإعدادات.`;
+  if(TWIN_BUSY){ openModal('<h2>🧩 تجهيز الأسئلة البديلة</h2><p class="muted">تجهيز آخر قيد التشغيل — ننتظره…</p>'); for(let i=0;i<480&&TWIN_BUSY;i++) await new Promise(r=>setTimeout(r,500)); }
+  // يُعاد التجهيز حتى للنشاط المجهَّز جزئيًا (سؤال لم يُولَّد له بديل)
+  list.forEach(h=>{ delete h.twinsHash; try{REM_TWINS&&REM_TWINS.delete(String(h.sid))}catch(e){} });
+  const queued=list.filter(h=>twinEligible(h)); queued.forEach(twinQueue);
+  const t0=Date.now();
+  while((TWIN_BUSY||TWIN_Q.length)&&Date.now()-t0<6*60000){
+    openModal(`<h2>🧩 تجهيز الأسئلة البديلة قبل الإرسال</h2>
+      <p style="font-size:.9rem;line-height:1.9">المهمة ستُبنى من أخطائه في ${queued.length} ${queued.length===1?'نشاط':'أنشطة'} بلا أسئلة بديلة. نجهّزها الآن بالذكاء الاصطناعي حتى تكون أسئلة المهمة <b>جديدة لم يرها</b> فتُحتسب في القياس.</p>
+      <div class="pdl-prog"><b class="pdl-cnt">${planEsc(TWIN_NOW||'…')}</b><small>نجح ${TWIN_OK} · المتبقي ${TWIN_Q.length+(TWIN_CUR?1:0)} — لا تغلق الصفحة</small></div>`);
+    await new Promise(r=>setTimeout(r,700));
+  }
+  const fail=queued.filter(h=>!twinReady(h)), skipped=list.length-queued.length;
+  return fail.length||skipped
+    ? `⚠️ جُهّزت الأسئلة البديلة لـ${queued.length-fail.length} من ${list.length} ${list.length===1?'نشاط':'أنشطة'}${TWIN_ERR?` — ${planEsc(TWIN_ERR)}`:''}`
+    : `🧩 جُهّزت الأسئلة البديلة تلقائيًا لـ${list.length} ${list.length===1?'نشاط':'أنشطة'} قبل الإرسال.`;
+}
 async function planSendRemedial(id,verify){
   const p=(PLAN_DATA&&PLAN_DATA.plans||[]).find(x=>x.id===id);if(!p)return;
   const rows=planRemRows(p),ids=planMemberIds(p).filter(Boolean),sent=new Set(rows.map(x=>String(x.sid)));
@@ -1271,7 +1297,7 @@ async function planSendRemedial(id,verify){
     <ul style="font-size:.84rem;color:var(--ink-soft);line-height:1.9;margin:.3rem 0 .6rem;padding-inline-start:1.1rem">
       <li>لا تؤثر في درجته؛ نقاط متجر فقط.</li><li>إتقان 80% يغلقها، وإلا تأتيه محاولة ثانية بأسئلة مختلفة.</li>
       <li>نتيجتها تظهر في هذه الخطة، ويُعلَّم إجراء «${PLAN_REM_ACTION}» منفَّذًا عندما يحلها.</li>
-      <li>لا تستهلك رصيد الذكاء الاصطناعي؛ تستخدم الأسئلة البديلة المجهّزة مسبقًا إن وُجدت.</li></ul>
+      <li>أسئلتها <b>بديلة جديدة</b> لا يعرف إجابتها؛ ما ينقص منها يُجهَّز تلقائيًا بالذكاء الاصطناعي قبل الإرسال (مرة واحدة لكل نشاط).</li></ul>
     <div class="modal-foot"><button class="btn ghost" onclick="closeModal()">إلغاء</button><button class="btn tick" onclick="planSendRemedialGo('${planEsc(id)}')">أرسل</button></div>`);
 }
 async function planSendRemedialGo(id){
@@ -1279,6 +1305,8 @@ async function planSendRemedialGo(id){
   const round=window._planRound||0, rows=planRemRows(p);
   const busy=new Set(rows.filter(x=>x.status==='open'||x.status==='retry').map(x=>String(x.sid)));
   const sent=new Set(rows.map(x=>String(x.sid))),todo=round?planMemberIds(p).filter(i=>i&&!busy.has(i)):planMemberIds(p).filter(i=>i&&!sent.has(i));
+  // 🧩 قبل الإرسال: جهّز الأسئلة البديلة الناقصة في الأنشطة التي ستُبنى منها المهمة — بدونها يأتيه السؤال الأصلي فلا تُحتسب
+  const twinNote=await planEnsureTwins(id,todo);
   openModal('<h2>جارٍ الإرسال…</h2>');
   let j=null;
   try{const r=await fetch(getApi().replace(/\/+$/,'')+'/plan-remedial',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:getTok(),planId:id,sids:todo,...(round?{round}:{})})});j=await r.json();
@@ -1292,6 +1320,7 @@ async function planSendRemedialGo(id){
     if(raw&&!(raw.actions||[]).some(a=>a.text===PLAN_REM_ACTION)){const plans=(window._classroomData.plans||[]).map(x=>x.id===id?{...x,actions:[...(x.actions||[]),{text:PLAN_REM_ACTION,done:false}]}:x);await savePlans(plans)}}catch(e){}}
   openModal(`<h2>${ok.length?'✅ أُرسلت المهمة':'لم تُرسل أي مهمة'}</h2>
     ${ok.length?`<p style="font-size:.9rem">وصلت ${ok.length===1?'لـ':'إلى'} ${ok.map(x=>planEsc(x.name)).join('، ')} في «🎯 طوّر مستواك».</p>`:''}
+    ${twinNote?`<p class="plan-note" style="font-size:.84rem">${twinNote}</p>`:''}
     ${ok.some(x=>x.fb)?`<p class="plan-warn" style="font-size:.84rem">⚠️ ${ok.filter(x=>x.fb).map(x=>planEsc(x.name)).join('، ')}: بعض الأسئلة هي السؤال الأصلي نفسه بخيارات مرتبة من جديد (لا توجد له أسئلة بديلة) — تدريب مفيد، لكنها <b>لا تُحتسب في قياس الأثر</b>. جهّز «🧩 الأسئلة البديلة» لأنشطة هذه المهارات قبل المهمة القادمة.</p>`:''}
     ${bad.length?`<ul style="font-size:.85rem;color:var(--ink-soft)">${bad.map(x=>`<li>${planEsc(x.name||x.sid)}: ${planEsc(x.reason)}</li>`).join('')}</ul>`:''}
     <div class="modal-foot"><button class="btn" onclick="closeModal()">تم</button></div>`);

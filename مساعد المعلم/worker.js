@@ -6096,6 +6096,40 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       return json({ ok: true, rows });
     }
     // ── 🩹 من الخطة العلاجية: المعلم يرسل مهمة علاجية لطالب/أعضاء خطة (بلا شرط 60%) ──
+    // ── 🧩 قبل إرسال مهمة الخطة: أي الأنشطة ستُبنى منها المهمة وتنقصها أسئلة بديلة (لتُجهَّز أولًا) ──
+    if (url.pathname === '/plan-twins-need' && request.method === 'POST') {
+      let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
+      if (!env.TEACHER_TOKEN || b.t !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
+      const planId = String(b.planId || '').slice(0, 40), sids = (Array.isArray(b.sids) ? b.sids : []).map(String).slice(0, 60);
+      let state = {}; try { state = JSON.parse(await env.HW.get('tstate:main')) || {}; } catch {}
+      const cd = await attachPlanRem(env, await loadClassroom(env));
+      const plan = (Array.isArray(cd.plans) ? cd.plans : []).find(p => p && String(p.id) === planId);
+      if (!plan) return json({ ok: false, error: 'plan_not_found' }, 404);
+      const targets = Array.isArray(plan.skills) ? plan.skills.map(String).filter(Boolean).slice(0, 6) : [];
+      const skMap = cd.__skills || {}, students = Array.isArray(state.students) ? state.students : [];
+      const asg = (Array.isArray(state.assignments) ? state.assignments : []).filter(h => h && h.sid && (h.kind || 'normal') === 'normal' && !h.remedial);
+      const need = new Map();   // hw sid → عدد الأسئلة التي تنقصها بدائل
+      const twinsCache = {};
+      const hasTwin = async (hw, i) => { if (!(hw in twinsCache)) { try { twinsCache[hw] = JSON.parse(await env.HW.get(`twins:${hw}`)); } catch { twinsCache[hw] = null; } }
+        const it = twinsCache[hw] && Array.isArray(twinsCache[hw].items) ? twinsCache[hw].items.find(x => x && x.i === i) : null; return !!(it && it.alts && it.alts.length); };
+      for (const sid of sids) {
+        const st = students.find(x => String(x.id) === sid); if (!st) continue;
+        if (targets.length) {
+          let met = new Set(); try { const m = memberReport(sid, plan, students, state.assignments || [], cd);
+            met = new Set(((m.skill && m.skill.items) || []).filter(x => x.after && x.after.total >= 2 && x.after.rate >= SKILL_TARGET).map(x => x.skill)); } catch {}
+          const left = targets.filter(k => !met.has(k)), cnt = Object.fromEntries(left.map(k => [k, 0]));
+          for (const h of asg) { const sub = h.subs && h.subs[sid], sk = skMap[String(h.sid)]; if (!sub || !sk || !sub.d) continue;
+            const d = String(sub.d);
+            for (let i = 0; i < d.length; i++) { const k = sk[i]; if (d[i] !== '0' || !(k in cnt) || cnt[k] >= 3) continue; cnt[k]++;
+              if (!(await hasTwin(String(h.sid), i))) need.set(String(h.sid), (need.get(String(h.sid)) || 0) + 1); } }
+        } else {   // خطة بلا مهارات: أضعف نشاطين
+          const weak = asg.map(h => ({ h, sub: h.subs && h.subs[sid] })).filter(x => x.sub && Number(x.sub.total) > 0 && String(x.sub.d || '').includes('0'))
+            .sort((a, c) => a.sub.correct / a.sub.total - c.sub.correct / c.sub.total).slice(0, 2);
+          for (const w of weak) { const d = String(w.sub.d); for (let i = 0; i < d.length; i++) if (d[i] === '0' && !(await hasTwin(String(w.h.sid), i))) need.set(String(w.h.sid), (need.get(String(w.h.sid)) || 0) + 1); }
+        }
+      }
+      return json({ ok: true, need: [...need.entries()].map(([hw, n]) => ({ hw, n })) });
+    }
     if (url.pathname === '/plan-remedial' && request.method === 'POST') {
       let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
       if (!env.TEACHER_TOKEN || b.t !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
