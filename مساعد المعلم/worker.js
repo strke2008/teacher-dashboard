@@ -2615,7 +2615,7 @@ async function remCreate(env, o) {
   await env.HW.put(`hw:${hwId}`, JSON.stringify(payload), { expirationTtl: REM.ttl });
   const rec = { id: remId, sid: o.st.id, name: o.st.name, cls: o.cls || '', src: o.src, srcTitle: o.srcTitle, kind: o.kind, planId: o.planId || '',
     reason: o.reason, before: o.before, status: 'open', fallback: !!o.fallback, createdAt: now, updatedAt: now,
-    attempts: [{ hw: hwId, at: now, n: q1.length, ...(sk1 ? { sk: sk1 } : {}) }], q2, ...(sk2 ? { q2sk: sk2 } : {}) };
+    attempts: [{ hw: hwId, at: now, n: q1.length, due, ...(sk1 ? { sk: sk1 } : {}) }], q2, ...(sk2 ? { q2sk: sk2 } : {}) };
   await env.HW.put(`rem:${remId}`, JSON.stringify(rec), { expirationTtl: REM.ttl * 2 });
   idx.push({ id: remId, src: o.src, status: 'open', at: now });
   await remSaveIndex(env, o.st.id, idx);
@@ -2638,7 +2638,7 @@ async function remedialAfterSubmit(env, hw, activity, st, d, correct, total, que
       const p2 = { ...activity, id: hw2, q: rec.q2, attempt: 2, at: now, t: activity.t + ' (محاولة ثانية)',
         d: new Date(now + 3 * 3600000 + REM.days * 86400000).toISOString().slice(0, 10) };
       await env.HW.put(`hw:${hw2}`, JSON.stringify(p2), { expirationTtl: REM.ttl });
-      rec.attempts.push({ hw: hw2, at: now, n: rec.q2.length, ...(Array.isArray(rec.q2sk) ? { sk: rec.q2sk } : {}) }); rec.status = 'retry';
+      rec.attempts.push({ hw: hw2, at: now, n: rec.q2.length, due: p2.d, ...(Array.isArray(rec.q2sk) ? { sk: rec.q2sk } : {}) }); rec.status = 'retry';
     } else rec.status = 'escalated';
     await env.HW.put(`rem:${rec.id}`, JSON.stringify(rec), { expirationTtl: REM.ttl * 2 });
     // ✔ مهمة خطة علاجية حُلّت ← يُعلَّم إجراءا «حل المهمة» و«إعادة حل الأنشطة» تلقائيًا
@@ -6203,6 +6203,26 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       const enabled = b.enabled !== false;
       await env.HW.put('remcfg', JSON.stringify({ enabled, at: Date.now() }));
       return json({ ok: true, enabled });
+    }
+    // ── ⏰ تمديد موعد مهمة علاجية لم يحلها الطالب (أو فتحها بعد أن فات موعدها) ──
+    if (url.pathname === '/rem-extend' && request.method === 'POST') {
+      let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
+      if (!env.TEACHER_TOKEN || b.t !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
+      const id = String(b.id || '').slice(0, 40), days = Math.max(1, Math.min(30, parseInt(b.days, 10) || REM.days));
+      let rec = null; try { rec = JSON.parse(await env.HW.get(`rem:${id}`)); } catch {}
+      if (!rec) return json({ ok: false, error: 'not_found' }, 404);
+      if (rec.status !== 'open' && rec.status !== 'retry') return json({ ok: false, error: 'not_open', status: rec.status }, 409);
+      const a = (rec.attempts || [])[rec.attempts.length - 1];
+      if (!a || a.rate != null) return json({ ok: false, error: 'already_done' }, 409);
+      let p = null; try { p = JSON.parse(await env.HW.get(`hw:${a.hw}`)); } catch {}
+      if (!p) return json({ ok: false, error: 'task_expired' }, 410);
+      const due = new Date(Date.now() + 3 * 3600000 + days * 86400000).toISOString().slice(0, 10);
+      p.d = due;
+      await env.HW.put(`hw:${a.hw}`, JSON.stringify(p), { expirationTtl: REM.ttl });
+      a.due = due; rec.extended = (Number(rec.extended) || 0) + 1; rec.updatedAt = Date.now();
+      await env.HW.put(`rem:${rec.id}`, JSON.stringify(rec), { expirationTtl: REM.ttl * 2 });
+      try { const rev = parseInt(await env.HW.get('meta:rev'), 10) || 0; await env.HW.put('meta:rev', String(rev + 1)); } catch {}
+      return json({ ok: true, due });
     }
     // ── 🩹 سجل العلاج التلقائي للمعلم ──
     if (url.pathname === '/remedials' && request.method === 'GET') {

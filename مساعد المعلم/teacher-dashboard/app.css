@@ -6140,3 +6140,11 @@ button.pill.hw-gr{cursor:pointer}
 .pf-gr{margin:.2rem 0 .8rem;padding:.65rem .8rem;border:1px solid var(--rule);border-radius:12px;background:rgba(46,107,184,.05)}
 .pf-gr b.pf-gr-n{color:#2E6BB8}
 .pf-gr .pf-gr-miss{margin-top:.35rem;font-size:.82rem;color:var(--pen)}
+
+/* ⏰ موعد المهمة العلاجية + فتحها للطالب */
+.ar-rec{grid-template-columns:1fr auto auto auto}
+.rem-due-box{display:inline-flex;align-items:center;gap:.4rem;flex-wrap:wrap}
+.rem-due{font-size:.78rem;color:var(--ink-soft);white-space:nowrap}
+.rem-due.late{color:var(--pen);font-weight:700}
+.rem-ext{padding:.2rem .6rem!important;font-size:.76rem!important;min-height:0!important}
+@media (max-width:640px){ .ar-rec{grid-template-columns:1fr auto} .ar-rec .rem-due-box{grid-column:1/-1} }

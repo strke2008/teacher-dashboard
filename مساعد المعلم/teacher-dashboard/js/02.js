@@ -1183,7 +1183,7 @@ async function renderAutoRem(){
     return `<div class="ar-rec ${x.status}"><div class="ar-rec-t"><b>${planEsc(x.name)}</b><small>${planEsc(x.cls||'')}</small>
       <span>${x.kind==='exam'?'📝':'✏️'} ${planEsc(x.reason||x.srcTitle||'')}${x.fallback?' · بلا أسئلة بديلة':''}</span></div>
       <div class="ar-rec-m"><span>قبل ${x.before!=null?x.before+'%':'—'}</span>${tries?`<span>${tries}</span>`:''}</div>
-      <span class="ar-pill ${x.status==='mastered'?'ok':x.status==='escalated'?'bad':''}">${s[0]} ${s[1]}</span>${x.status==='escalated'?remPlanBtn(x):''}</div>`};
+      <span class="ar-pill ${x.status==='mastered'?'ok':x.status==='escalated'?'bad':''}">${s[0]} ${s[1]}</span>${remDueHTML(x)}${x.status==='escalated'?remPlanBtn(x):''}</div>`};
   const escL=rows.filter(x=>x.status==='escalated');
   const e=document.getElementById('auto-rem-esc');
   /* قابلة للطي: مطويّة افتراضيًا، ويُحفظ اختيار المعلم */
@@ -1219,6 +1219,33 @@ function remPlanFor(remId){
    الخطة سجلٌّ للمعلم؛ هذا الزر يحوّلها إلى تدريب يصل للطالب في بوابته،
    من أخطائه في المهارات المستهدفة (الأنشطة والتشخيصي)، وإن لم تُحدَّد مهارة فمن أضعف نشاطين — بقرار المعلم وبلا شرط 60%. */
 let REM_ROWS=[];
+/* ⏰ موعد المهمة العلاجية المفتوحة (آخر محاولة لم تُحل): يُغلق بعد 7 أيام من إرسالها.
+   بعد الموعد تُقفل في بوابة الطالب — زر «افتحها» يمدّدها 7 أيام أخرى. */
+function remDue(x){
+  if(!x||(x.status!=='open'&&x.status!=='retry')) return null;
+  const a=(x.attempts||[])[(x.attempts||[]).length-1]; if(!a||a.rate!=null) return null;
+  const due=String(a.due||new Date(Number(a.at||x.createdAt||0)+3*3600000+7*86400000).toISOString().slice(0,10));
+  return { due, late: due<new Date(Date.now()+3*3600000).toISOString().slice(0,10) };
+}
+function remDueHTML(x,named){
+  const d=remDue(x); if(!d) return '';
+  const who=named?planEsc(x.name)+': ':'';
+  return `<span class="rem-due-box">${d.late
+    ? `<span class="rem-due late">⏰ ${who}فات موعدها (${planEsc(d.due)})</span><button type="button" class="btn tick sm rem-ext" onclick="remExtend('${planEsc(x.id)}')" title="تُفتح للطالب في بوابته 7 أيام">🔓 افتحها للطالب</button>`
+    : `<span class="rem-due">⏳ ${who}تُغلق ${planEsc(d.due)}</span><button type="button" class="btn ghost sm rem-ext" onclick="remExtend('${planEsc(x.id)}')" title="أضف 7 أيام من اليوم">⏰ مدّد</button>`}</span>`;
+}
+async function remExtend(id){
+  const x=(REM_ROWS||[]).find(r=>String(r.id)===String(id));
+  try{
+    const r=await fetch(getApi().replace(/\/+$/,'')+'/rem-extend',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:getTok(),id,days:7})});
+    const j=await r.json().catch(()=>({}));
+    if(r.status===404&&!j.error) throw new Error('ارفع worker.js الأخير');
+    if(!j.ok) throw new Error(j.error==='already_done'?'حلّها الطالب بالفعل':j.error==='task_expired'?'انتهت صلاحية المهمة على الخادم — أرسل له مهمة جديدة من الخطة':j.error==='not_open'?'المهمة لم تعد مفتوحة':j.error==='not_found'?'ارفع worker.js الأخير':(j.error||'تعذّر التمديد'));
+    if(x){ const a=(x.attempts||[])[(x.attempts||[]).length-1]; if(a) a.due=j.due; }
+    toast(`🔓 فُتحت المهمة${x&&x.name?' لـ'+x.name:''} حتى ${j.due}`,'good');
+    try{ renderAutoRem(); }catch(e){} try{ renderPlans(true); }catch(e){}
+  }catch(e){ toast(e.message||'تعذّر التمديد','bad'); }
+}
 const PLAN_REM_ACTION='حل المهمة العلاجية المرسلة إلى بوابة الطالب';
 function planMemberIds(p){return p.group?(p.members||[]).map(m=>String(m.studentId)):[String(p.studentId||(p.members&&p.members[0]&&p.members[0].studentId)||'')]}
 function planRemRows(p){return REM_ROWS.filter(x=>x.planId===p.id)}
@@ -1226,7 +1253,7 @@ function planRemHTML(p){
   const rows=planRemRows(p);if(!rows.length)return '';
   const st=x=>{const s=REM_ST[x.status]||['⚪',x.status];const last=(x.attempts||[]).filter(a=>a.rate!=null).map(a=>a.rate+'%').join(' ← ');
     return `<span class="ar-pill ${x.status==='mastered'?'ok':x.status==='escalated'?'bad':''}">${s[0]} ${p.group?planEsc(x.name)+': ':''}${s[1]}${last?' · '+last:''}</span>`};
-  return `<div class="plan-rem"><b>🩹 المهمة العلاجية في البوابة:</b> ${rows.map(st).join(' ')}</div>`;
+  return `<div class="plan-rem"><b>🩹 المهمة العلاجية في البوابة:</b> ${rows.map(x=>st(x)+remDueHTML(x,p.group)).join(' ')}</div>`;
 }
 async function planSendRemedial(id){
   const p=(PLAN_DATA&&PLAN_DATA.plans||[]).find(x=>x.id===id);if(!p)return;
