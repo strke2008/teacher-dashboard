@@ -3026,6 +3026,16 @@ function pshTask(text){
   // صياغة عامة: من الغائب إلى المخاطَب
   return [t.replace(/أخطائه/g,'أخطائك').replace(/\bمعه\b/g,'معك').replace(/\bله\b/g,'لك').replace(/مستواه/g,'مستواك'),'في الفصل'];
 }
+/* 🩹 نتيجة الطالب في المهام العلاجية لهذه الخطة لكل مهارة (آخر محاولة محلولة) */
+function planRemSkillsFor(p,sid){
+  const by={};
+  (REM_ROWS||[]).filter(x=>x.planId===p.id&&String(x.sid)===String(sid)).forEach(x=>{
+    const done=(x.attempts||[]).filter(a=>a&&a.rate!=null).sort((a,b)=>(b.doneAt||0)-(a.doneAt||0))[0]; if(!done) return;
+    if(done.skills) Object.entries(done.skills).forEach(([k,v])=>{ if(v&&v.t) by[k]=Math.round(v.c/v.t*100); });
+    else (p.skills||[]).forEach(k=>{ if(by[k]==null&&String(x.srcTitle||'').includes(k)) by[k]=done.rate; });
+  });
+  return by;
+}
 function pshDate(ms){ const d=new Date(ms); return `${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`; }
 function pshPage(p,who){
   const E=planEsc, start=Date.parse(String(p.startDate||'')+'T00:00:00')||Date.now();
@@ -3035,7 +3045,12 @@ function pshPage(p,who){
   const acts=(p.actions||[]).filter(a=>a&&a.text);
   const mine=acts.filter(a=>!PSH_TEACHER_ONLY.test(a.text)), teach=acts.filter(a=>PSH_TEACHER_ONLY.test(a.text));
   const n=mine.length+1, due=i=>pshDate(start+Math.round((i+1)*(end-start)/n));
-  const goals=planGoalRows(p);
+  /* 🎯 لكل مهارة: «الآن» = الأنشطة منذ بدء الخطة (سؤالان فأكثر)، وإلا نتيجة المهمة العلاجية 🩹، وإلا قياس ما قبل الخطة */
+  const mItems=who.m&&who.m.skill&&Array.isArray(who.m.skill.items)?who.m.skill.items:null;
+  const remBy=planRemSkillsFor(p,who.sid);
+  const goals=(mItems?(Array.isArray(p.skills)?p.skills:[]).map(k=>{const x=mItems.find(y=>y.skill===k)||{};
+      return {skill:k,before:x.before?x.before.rate:null,after:x.after&&x.after.total>=2?x.after.rate:null};}):planGoalRows(p))
+    .map(g=>({...g,rem:remBy[g.skill]!=null?remBy[g.skill]:null}));
   const first=String(who.name||'').trim().split(/\s+/)[0]||'';
   const done=p.status==='done';
   const rows=mine.map((a,i)=>{const [tx,tag]=pshTask(a.text);return `<tr><td class="n">${i+1}</td><td>${E(tx)} <span class="psh-tag">${tag}</span></td><td class="d">${due(i)}</td>
@@ -3050,8 +3065,10 @@ function pshPage(p,who){
       <div class="rep-sec">① لماذا هذه الخطة؟</div>
       <div class="rep-box psh-why">عزيزي ${E(first)}، ${goals.length?`أظهرت إجاباتك في الأنشطة والاختبارات أنك تحتاج دعمًا في ${goals.length===1?'المهارة التالية':'المهارات التالية'}. هذه الخطة صُمّمت لك وحدك لتصل إلى <b>${SKILL_TARGET_UI}%</b> في كل مهارة — ومعلمك معك خطوة بخطوة.`
           :`هذه الخطة صُمّمت لك وحدك لتحسين مستواك${p.reason?`: ${E(String(p.reason).split(' — ')[0])}`:''} — ومعلمك معك خطوة بخطوة.`}
-        ${goals.length?`${goals.map(g=>{const now=g.after!=null?g.after:g.before;const c=now==null?'#9AA6B2':now>=SKILL_TARGET_UI?'#1B9C6B':now>=40?'#E0A100':'#D6455B';
-            return `<div class="psh-sk"><span>🎯 ${E(g.skill)}</span>${bar(now,c)}<em>الآن ${now==null?'—':now+'%'}</em><em class="t">الهدف ${SKILL_TARGET_UI}%</em></div>`}).join('')}`:''}</div>
+        ${goals.length?`${goals.map(g=>{const fromRem=g.after==null&&g.rem!=null, now=g.after!=null?g.after:fromRem?g.rem:g.before;const c=now==null?'#9AA6B2':now>=SKILL_TARGET_UI?'#1B9C6B':now>=40?'#E0A100':'#D6455B';
+            const was=(g.after!=null||fromRem)&&g.before!=null&&g.before!==now?` <small class="w">كنت ${g.before}%</small>`:'';
+            return `<div class="psh-sk"><span>🎯 ${E(g.skill)}${was}</span>${bar(now,c)}<em>الآن ${now==null?'—':now+'%'}${fromRem?'<small title="من المهمة العلاجية">🩹</small>':''}</em><em class="t">الهدف ${SKILL_TARGET_UI}%</em></div>`}).join('')}
+          ${goals.some(g=>g.after==null&&g.rem!=null)?`<div class="psh-note">🩹 = نتيجتك في المهمة العلاجية. يتأكد معلمك من وصولك للهدف بنشاط جديد في هذه المهارات.</div>`:''}`:''}</div>
       <div class="rep-sec">② المطلوب منك — نفّذها بالترتيب، ويؤشّر معلمك على كل ما تُنجزه</div>
       <div class="rep-box"><table class="rt psh-t"><thead><tr><th>م</th><th style="text-align:start">المهمة</th><th>آخر موعد</th><th>تمّ ✓</th><th>تاريخ الإنجاز</th></tr></thead><tbody>${rows}${verify}</tbody></table>
         ${teach.length?`<div class="psh-teach"><b>وسيقوم معلمك بـ:</b> ${teach.map(a=>E(a.text)).join(' · ')}</div>`:''}</div>
@@ -3066,11 +3083,15 @@ function pshPage(p,who){
         <div>معلم المادة<b>${E(rcGet('teacher')||'')}</b><span>التوقيع: ....................</span></div></div>
     </div></div>`;
 }
-function printPlanSheet(id){
+async function printPlanSheet(id){
   const p=(PLAN_DATA&&PLAN_DATA.plans||[]).find(x=>x.id===id); if(!p){ toast('الخطة غير موجودة','bad'); return; }
+  // نتائج المهام العلاجية تظهر في الورقة — تُجلب إن لم تُحمَّل بعد
+  if(!REM_ROWS.length){ try{ const r=await fetch(getApi().replace(/\/+$/,'')+'/remedials?t='+encodeURIComponent(getTok())); const j=await r.json(); if(j&&Array.isArray(j.rows)) REM_ROWS=j.rows; }catch(e){} }
   ensureLogo();
   let box=document.getElementById('plan-print'); if(!box){ box=document.createElement('div'); box.id='plan-print'; box.className='rep'; document.body.appendChild(box); }
-  const who=p.group&&Array.isArray(p.members)&&p.members.length?p.members.map(m=>({name:m.name,cls:m.cls||p.cls})):[{name:p.name,cls:p.cls}];
+  const m0=Array.isArray(p.members)&&p.members[0];
+  const who=p.group&&Array.isArray(p.members)&&p.members.length?p.members.map(m=>({name:m.name,cls:m.cls||p.cls,sid:String(m.studentId||''),m}))
+    :[{name:p.name,cls:p.cls,sid:String(p.studentId||(m0&&m0.studentId)||''),m:m0||null}];
   box.innerHTML=who.map(w=>pshPage(p,w)).join('');
   unifiedA4Print({bodyClass:'printing-plans',title:`خطتي العلاجية — ${p.name||''}`,selector:'#plan-print',orientation:'portrait',margin:'8mm'});
 }
