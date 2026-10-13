@@ -1265,11 +1265,19 @@ function memberReport(sid, plan, students, assignments, data_ref) {
     // 🩹 القياس البعدي = الأنشطة بعد البدء + أسئلة المهمة العلاجية البديلة (أسئلة جديدة موازية على المهارة نفسها).
     // السؤال الأصلي المعاد بخيارات مرتبة من جديد لا يُحتسب: يقيس التذكّر لا الفهم.
     const rem = (data_ref.__planRem && data_ref.__planRem[plan.id] && data_ref.__planRem[plan.id][String(sid)]) || {};
-    const comb = {};
-    for (const k of targets) { const x = wa[k] || { c: 0, t: 0 }, r = rem[k] && rem[k].t ? rem[k] : { c: 0, t: 0 };
+    // ⏱️ الأحدث يغلب: نشاط حُلّ قبل مهمة التحقق في المهارة نفسها يسبق العلاج — نتيجة التحقق اللاحقة تحلّ محلّه
+    const comb = {}, act = {}, superseded = {};
+    for (const k of targets) {
+      const r = rem[k] && rem[k].t ? rem[k] : { c: 0, t: 0 };
+      let x = wa[k] || { c: 0, t: 0 };
+      if (r.t && rem[k].at) { const day = new Date(Number(rem[k].at) + 3 * 3600000).toISOString().slice(0, 10);
+        const later = skillWindow(data_ref, assignments, sid, day > start ? day : start, to, [k], cut)[k] || { c: 0, t: 0 };
+        if (later.t < x.t) superseded[k] = x.t - later.t; x = later; }
+      act[k] = x;
       if (x.t + r.t) comb[k] = { c: x.c + r.c, t: x.t + r.t }; }
     const items = targets.map(k => { const b = one(wb[k]), a = one(comb[k]);
-      return { skill: k, before: b, after: a, afterAct: one(wa[k]), afterRem: one(rem[k] && rem[k].t ? rem[k] : null), remRepeat: (rem[k] && rem[k].fb) || 0,
+      return { skill: k, before: b, after: a, afterAct: one(act[k] && act[k].t ? act[k] : null), afterRem: one(rem[k] && rem[k].t ? rem[k] : null), remRepeat: (rem[k] && rem[k].fb) || 0,
+               actSuperseded: superseded[k] || 0,
                gain: b && a && b.total >= 2 && a.total >= 2 ? a.rate - b.rate : null }; });
     const sa = skillAgg(comb);
     skill = { targets, before: sb, after: sa, items, baseFrom: sbase.from };

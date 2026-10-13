@@ -2905,7 +2905,7 @@ function planMemberSkill(p,sid){
   const rem=planRemSkillsFor(p,sid);
   return (Array.isArray(p.skills)?p.skills:[]).map(k=>{const x=it.find(y=>y.skill===k)||{};
     return {skill:k,before:x.before||null,after:x.after&&x.after.total?x.after:null,rem:rem[k]!=null?rem[k]:null,
-      act:x.afterAct||null,remP:x.afterRem||null,rep:Number(x.remRepeat)||0,srv:'afterAct' in x};});
+      act:x.afterAct||null,remP:x.afterRem||null,rep:Number(x.remRepeat)||0,sup:Number(x.actSuperseded)||0,srv:'afterAct' in x};});
 }
 function planEvents(p){
   const ev=[], ids=planMemberIds(p).filter(Boolean), grp=!!p.group, nm=sid=>{const s=(STUDENTS||[]).find(x=>String(x.id)===String(sid));return s?String(s.name).split(/\s+/).slice(0,2).join(' '):'';};
@@ -2944,11 +2944,11 @@ function planCompareHTML(p){
     const b=r.before&&r.before.total?r.before:null, a=r.after;
     // الخادم القديم: «بعد» من الأنشطة وحدها، والمهمة من سجلها
     const act=r.srv?r.act:a, remP=r.srv?r.remP:null;
-    const src=[act?`✏️ أنشطة ${act.correct}/${act.total}`:'',remP?`🩹 أسئلة بديلة ${remP.correct}/${remP.total}`:'',r.rep?`🔁 ${r.rep===1?'سؤال أصلي معاد':r.rep===2?'سؤالان أصليان معادان':r.rep+' أسئلة أصلية معادة'} (لا تُحتسب)`:'',
+    const src=[act?`✏️ أنشطة ${act.correct}/${act.total}`:'',r.sup?`<span class="muted">✏️ ${r.sup} ${r.sup===1?'سؤال':r.sup===2?'سؤالان':'أسئلة'} في أنشطة قبل مهمة التحقق — حلّت محلها النتيجة الأحدث</span>`:'',remP?`🩹 أسئلة بديلة ${remP.correct}/${remP.total}`:'',r.rep?`🔁 ${r.rep===1?'سؤال أصلي معاد':r.rep===2?'سؤالان أصليان معادان':r.rep+' أسئلة أصلية معادة'} (لا تُحتسب)`:'',
       !r.srv&&r.rem!=null?`🩹 المهمة ${r.rem}%`:'',
       r.srv&&!remP&&!r.rep&&r.rem!=null?`🩹 مهمة سابقة ${r.rem}% <span class="muted">(أُرسلت قبل التحديث: بلا تفصيل لكل سؤال — لا تُحتسب)</span>`:''].filter(Boolean).join('<br>');
     const old=r.srv&&!remP&&!r.rep&&r.rem!=null;
-    const res=a&&a.total>=2?(a.rate>=SKILL_TARGET_UI?'<span class="chip tick">✓ بلغ الهدف</span>':b&&a.rate-b.rate>=5?'<span class="chip warn">تحسّن ولم يبلغ الهدف</span>':'<span class="chip bad">لم يتحسّن بعد</span>')
+    const res=a&&a.total>=2?(a.rate>=SKILL_TARGET_UI?'<span class="chip tick">✓ بلغ الهدف</span>':!b?`<span class="chip warn">دون الهدف (${a.rate}%) — لا قياس قبلي للمقارنة</span>`:a.rate-b.rate>=5?'<span class="chip warn">تحسّن ولم يبلغ الهدف</span>':'<span class="chip bad">لم يتحسّن بعد</span>')
       :a&&a.total===1?'<span class="chip ghost">سؤال واحد — لا يكفي للحكم</span>'
       :r.rep?'<span class="chip ghost">🔁 أسئلة معادة فقط — جهّز الأسئلة البديلة</span>'
       :old?'<span class="chip warn">أرسل مهمة تحقق</span>'
