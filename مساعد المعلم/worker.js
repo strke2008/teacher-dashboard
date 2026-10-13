@@ -159,6 +159,18 @@ async function readByIdentity(env, prefix, st, opts) {
 function identityKey(prefix, st) { return `${prefix}${st.id || st.name}`; }
 /* بعد الكتابة بالمعرف: احذف نسخة الاسم القديمة.
    بدونها يبقى مفتاحان لنفس الطالب فيتباعد الرصيدان (يُكسب في أحدهما ويُنفق من الآخر). */
+/* 🪙 سجل نقاط الطالب: سطر لكل تسليم/إضافة/شراء — يرى المعلم منه لماذا حصل الطالب على كذا أو لم يحصل.
+   مفتاح واحد لكل طالب (plog:<sid>)، آخر 200 حركة، سنة. الفشل هنا لا يُفسد العملية الأصلية. */
+async function plogAdd(env, st, e) {
+  try {
+    if (!st || !st.id) return;
+    const k = `plog:${st.id}`;
+    let arr = []; try { arr = JSON.parse(await env.HW.get(k) || '[]'); } catch { arr = []; }
+    if (!Array.isArray(arr)) arr = [];
+    arr.unshift({ at: Date.now(), ...e });
+    await env.HW.put(k, JSON.stringify(arr.slice(0, 200)), { expirationTtl: 60 * 60 * 24 * 365 });
+  } catch {}
+}
 async function dropLegacy(env, prefix, st) {
   if (!st || !st.id) return;
   const keep = `${prefix}${st.id}`;
@@ -3822,7 +3834,9 @@ async function livePayPrizes(env, g, res) {
       const ins = await env.DB.prepare('INSERT INTO live_ledger (tx, game, sid, kind, amount, at, reason) VALUES (?1, ?2, ?3, \'prize\', ?4, ?5, ?6) ON CONFLICT DO NOTHING RETURNING tx')
         .bind(crypto.randomUUID(), g.id, st.id, r.prize, Date.now(), `جائزة المركز ${r.rank} — ${g.title}`).first();
       if (!ins) return { already: true };
-      await liveSetBal(env, st, (await liveBal(env, st)) + r.prize);
+      const nb = (await liveBal(env, st)) + r.prize;
+      await liveSetBal(env, st, nb);
+      await plogAdd(env, st, { k: 'live', gain: r.prize, bal: nb, why: `جائزة المركز ${r.rank} — ${g.title}`.slice(0, 80) });
       return { paid: true };
     });
     if (out && out.paid) paid++;
@@ -3865,7 +3879,9 @@ async function liveRefundChunk(env, g) {
       const ins = await env.DB.prepare("INSERT INTO live_ledger (tx, game, sid, kind, amount, at, reason) VALUES (?1, ?2, ?3, 'refund', ?4, ?5, ?6) ON CONFLICT DO NOTHING RETURNING tx")
         .bind(crypto.randomUUID(), g.id, st.id, f.amount, Date.now(), `استرداد رسوم — إلغاء ${g.title}`).first();
       if (!ins) return { already: true };
-      await liveSetBal(env, st, (await liveBal(env, st)) + f.amount);
+      const nb = (await liveBal(env, st)) + f.amount;
+      await liveSetBal(env, st, nb);
+      await plogAdd(env, st, { k: 'live', gain: f.amount, bal: nb, why: `استرداد رسوم — إلغاء ${g.title}`.slice(0, 80) });
       return { ok: true };
     });
     if (out && out.ok) refunded++;
@@ -4120,7 +4136,7 @@ async function handleLive(url, request, env, ctx) {
       const seated = r && r[0] && r[0].meta ? r[0].meta.changes > 0 : !!(await env.DB.prepare('SELECT 1 AS x FROM live_players WHERE game = ?1 AND sid = ?2').bind(g.id, st.id).first());
       if (!seated) return json({ ok: false, error: 'full' }, 409);
       const next = bal - g.fee;
-      if (g.fee > 0) await liveSetBal(env, st, next);
+      if (g.fee > 0) { await liveSetBal(env, st, next); await plogAdd(env, st, { k: 'live', gain: -g.fee, bal: next, why: `رسوم دخول — ${g.title}`.slice(0, 80) }); }
       return json({ ok: true, joined: true, tx: g.fee > 0 ? tx : '', fee: g.fee, bal: next });
     });
   }
@@ -5903,6 +5919,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
           await env.HW.delete(key);
           if (legacySubKey && legacySubKey !== key) { try { await env.HW.delete(legacySubKey); } catch {} }
         } else {
+          await plogAdd(env, st, { k: 'hw', hw, t: String(activity.t || '').slice(0, 80), dup: 1, gain: 0 });
           return json({ ok: true, already: true });
         }
       } else {
@@ -5960,6 +5977,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       const balFound = await readByIdentity(env, 'bal:', st);
       const prev = parseInt(balFound.value, 10) || 0;
       await env.HW.put(identityKey('bal:', st), String(prev + gain));
+      await plogAdd(env, st, { k: 'hw', hw, t: String(activity.t || '').slice(0, 80), c: correct, n: total, max: maxPts, pts, mult, best, gain, bal: prev + gain, re: wasResubmission ? 1 : 0 });
 
       // ابطال ذاكرة صدارة الفصل فورًا: الطالب الذي سلّم للتوّ يجب أن يرى
       // ترتيبه الجديد لا ترتيبًا عمره دقيقة. الفشل هنا غير مؤذٍ — المهلة تكفلها.
@@ -6226,6 +6244,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
           const xaFound = await readByIdentity(env, `xa:${hw}:`, st, { migrate: false });
           const xa = parseInt(xaFound.value, 10) || 0;
           if (xa <= 0) { let old = {}; try { old = JSON.parse(found.value) || {}; } catch {}
+            await plogAdd(env, st, { k: 'lab', hw, t: String(activity.t || '').slice(0, 80), dup: 1, gain: 0 });
             return json({ ok: true, already: true, score: old.lab ? old.lab.score : null }); }
           const xaKey = identityKey(`xa:${hw}:`, st);
           if (xa - 1 > 0) await env.HW.put(xaKey, String(xa - 1), { expirationTtl: 60 * 60 * 24 * 180 });
@@ -6261,6 +6280,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         const balFound = await readByIdentity(env, 'bal:', st);
         const prev = parseInt(balFound.value, 10) || 0;
         await env.HW.put(identityKey('bal:', st), String(prev + gain));
+        await plogAdd(env, st, { k: 'lab', hw, t: String(activity.t || '').slice(0, 80), score: graded.score, max: maxPts, pts, mult, best, gain, bal: prev + gain, re: found.value ? 1 : 0 });
         try { const rev = parseInt(await env.HW.get('meta:rev'), 10) || 0; await env.HW.put('meta:rev', String(rev + 1)); } catch {}
         if (myCls) { try { await env.HW.delete(`bcache:${myCls}`); } catch {} }
         notifyTeacherOfSubmission(env, ctx, { hwId: hw, activity, st,
@@ -6369,6 +6389,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         await env.HW.put(identityKey('bal:', st), String(prev + gain));
         await dropLegacy(env, 'bal:', st);
       }
+      await plogAdd(env, st, { k: 'game', hw: parentActivity, t: String(parent.t || '').slice(0, 80), score: pts, max: 50, best: baseline, gain, bal: prev + gain, re: retried ? 1 : 0 });
       try { const rev = parseInt(await env.HW.get('meta:rev'), 10) || 0; await env.HW.put('meta:rev', String(rev + 1)); } catch {}
 
       await bumpRev(env);   // ⚡ تعرف اللوحة بالتسليم فورًا
@@ -6518,6 +6539,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         const newBal=bal-cfg.price;
         await env.HW.put(identityKey('bal:',st),String(newBal));
         await dropLegacy(env,'bal:',st);
+        await plogAdd(env,st,{k:'shop',gain:-cfg.price,bal:newBal,why:`بطاقة رفع الاختبار +${cfg.add}`});
         // لا نكتب ملف الفصل كاملًا: المكافأة في مفتاحها المستقل xb:
         const entry=await addExamBonus(env,data,st.id,sem,per,cfg.add,{card,price:cfg.price});
         await bumpRev(env);
@@ -6594,7 +6616,8 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         });
         let pts = bal;
         if (useOwned) { own.madforgive--; if (own.madforgive <= 0) delete own.madforgive; await writeOwn(env, st, own); }
-        else { pts = bal - MAD_FORGIVE_PRICE; await env.HW.put(identityKey('bal:', st), String(pts)); await dropLegacy(env, 'bal:', st); }
+        else { pts = bal - MAD_FORGIVE_PRICE; await env.HW.put(identityKey('bal:', st), String(pts)); await dropLegacy(env, 'bal:', st);
+          await plogAdd(env, st, { k: 'shop', gain: -MAD_FORGIVE_PRICE, bal: pts, why: 'بطاقة مسح واجب مدرستي' }); }
         await bumpRev(env);
         const at = Date.now();
         const log = { name: st.name, sid, card: 'madforgive', price: useOwned ? 0 : MAD_FORGIVE_PRICE, kind: 'purchase', at, hwTitle: it.title, madKey: key };
@@ -6646,7 +6669,8 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         });
         let pts = bal;
         if (useOwned) { own.hwforgive--; if (own.hwforgive <= 0) delete own.hwforgive; await writeOwn(env, st, own); }
-        else { pts = bal - HW_FORGIVE_PRICE; await env.HW.put(identityKey('bal:', st), String(pts)); await dropLegacy(env, 'bal:', st); }
+        else { pts = bal - HW_FORGIVE_PRICE; await env.HW.put(identityKey('bal:', st), String(pts)); await dropLegacy(env, 'bal:', st);
+          await plogAdd(env, st, { k: 'shop', gain: -HW_FORGIVE_PRICE, bal: pts, why: 'بطاقة مسح واجب' }); }
         await bumpRev(env);
         const at = Date.now();
         const log = { name: st.name, sid, card: 'hwforgive', price: useOwned ? 0 : HW_FORGIVE_PRICE, kind: 'purchase', at, hwTitle: it.title, hwDate: key };
@@ -6677,6 +6701,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         if (bal < price) return json({ ok: false, error: 'low', pts: bal }, 200);
         await env.HW.put(identityKey('bal:', st), String(bal - price));
         await dropLegacy(env, 'bal:', st);
+        await plogAdd(env, st, { k: 'shop', gain: -price, bal: bal - price, why: `شراء من المتجر: ${({ thanks: 'شكر المعلم', theme_gold: 'مظهر ذهبي', theme_diamond: 'مظهر ماسي', theme_saudi: 'مظهر سعودي', theme_spaceweek: 'مظهر الفضاء', frame: 'إطار الصورة', namecolor: 'اسم ملوّن', title: 'لقب', dbl: 'مضاعفة النقاط', retry: 'محاولة إضافية', early: 'تسليم مبكر', ticket: 'تذكرة', hint: 'تلميح', fifty: 'حذف إجابتين', avatars: 'صور رمزية', cert: 'شهادة' })[card] || card}`.slice(0, 80) });
         const own = await readOwn(env, st);
         // الشهادة تصدر فورًا ولا تبقى بطاقة · 🎟️ التذكرة: دخولان بسعر دخول واحد (اشترِ واحدة والثانية مجانًا)
         if (card !== 'cert') { own[card] = (own[card] || 0) + (card === 'ticket' ? 2 : 1); await writeOwn(env, st, own); }
@@ -8211,6 +8236,17 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
     if (url.pathname.startsWith('/live/')) return handleLive(url, request, env, ctx);
 
     // 🎁 مكافأة جماعية: دفعة طلاب في طلب واحد (قفل لكل طالب كما في /adjust، وسجل واحد وعدّاد واحد للدفعة)
+    // ── 🪙 سجل نقاط طالب واحد (للمعلم) ──
+    if (url.pathname === '/points-log' && request.method === 'GET') {
+      if (!env.TEACHER_TOKEN || url.searchParams.get('t') !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
+      const sid = String(url.searchParams.get('sid') || '').slice(0, 40).trim();
+      if (!sid) return json({ error: 'missing sid' }, 400);
+      const st = await resolveStudent(env, { id: sid });
+      let log = []; try { log = JSON.parse(await env.HW.get(`plog:${sid}`) || '[]'); } catch {}
+      const bal = st.known ? (parseInt((await readByIdentity(env, 'bal:', st)).value, 10) || 0) : 0;
+      return json({ ok: true, bal, log: Array.isArray(log) ? log : [] });
+    }
+
     if (url.pathname === '/adjust-bulk' && request.method === 'POST') {
       let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
       if (!env.TEACHER_TOKEN || b.t !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
@@ -8230,6 +8266,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
             const next = Math.max(0, (parseInt(balFound.value, 10) || 0) + delta);
             await env.HW.put(identityKey('bal:', st), String(next));
             await dropLegacy(env, 'bal:', st);
+            await plogAdd(env, st, { k: 'bonus', gain: delta, bal: next, why: String(b.reason || 'مكافأة جماعية').slice(0, 80) });
             return { pts: next };
           });
           if (r instanceof Response) failed.push({ sid: sidIn, name, error: 'busy' });
@@ -8265,6 +8302,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       const next = Math.max(0, bal + delta);
       await env.HW.put(identityKey('bal:', st), String(next));
       await dropLegacy(env, 'bal:', st);
+      await plogAdd(env, st, { k: 'adj', gain: next - bal, bal: next, why: String(b.reason || b.note || '').slice(0, 80) });
 
       // سجل منح/خصم المعلم حتى يمكن تتبع التغييرات يدويًا.
       try {

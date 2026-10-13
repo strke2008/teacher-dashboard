@@ -2262,7 +2262,8 @@ async function ctProfile(box,force){
     period:`<button class="btn sm" onclick="window.__srepPreview&&srpPrint(window.__srepPreview)">🖨️ طباعة تقرير الفترة</button>`}[sub]||'';
   const head=`<div class="row ct-tools no-print">${ctClassSel('ct-pf-cls',cls,"window._ctPfCls=this.value;window._ctPfSid='';renderClassTools()",false)}
       <select class="inp" id="ct-pf-sel" style="flex:1;min-width:200px" onchange="window._ctPfSid=this.value;renderClassTools()">${roster.map(s=>`<option value="${esc(s.id)}" ${String(s.id)===sid?'selected':''}>${esc(s.name)}</option>`).join('')}</select>
-      ${sid?`<button class="btn ghost sm" title="الطالب السابق" onclick="ctPfStep(-1)">→</button><button class="btn ghost sm" title="الطالب التالي" onclick="ctPfStep(1)">←</button>`:''}</div>`;
+      ${sid?`<button class="btn ghost sm" title="الطالب السابق" onclick="ctPfStep(-1)">→</button><button class="btn ghost sm" title="الطالب التالي" onclick="ctPfStep(1)">←</button>`:''}
+      ${sid&&typeof pfPinChip==='function'?pfPinChip(sid):''}</div>`;
   if(!sid){ box.innerHTML=head+'<div class="muted">لا طلاب في هذا الفصل.</div>'; return; }
   const bar=`<div class="sf-bar no-print"><span class="ct-seg sf-subs">${CT_PF_SUBS.map(([k,l])=>`<button type="button" class="${k===sub?'on':''}" onclick="window._ctPfSub='${k}';renderClassTools()">${l}</button>`).join('')}</span>
       <span class="sf-acts"><button class="btn ghost sm" onclick="openStudentForm('${esc(sid)}')">✏️ تعديل البيانات</button>
@@ -2277,6 +2278,7 @@ async function ctProfile(box,force){
   else if(sub==='report'){ el.classList.add('sf-embed'); sfEmbed(el,()=>_legacyStudentReport(sid)); }
   else if(sub==='timeline') sfTimeline(el,sid);
   else if(sub==='contacts') sfContacts(el,sid);
+  else if(sub==='points' && typeof sfPoints==='function') sfPoints(el,sid);
   else sfPeriod(el,sid);
 }
 function ctPfStep(d){

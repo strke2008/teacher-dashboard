@@ -1946,3 +1946,23 @@ thead .madr-name{background:var(--ui-surface-2,#F7FAFD)}
 .pdl-bar{width:100%;height:12px;border-radius:99px;background:var(--ui-surface,#EEF3F8);border:1px solid var(--ui-border,#D5E0EC);overflow:hidden}
 .pdl-bar i{display:block;height:100%;background:var(--tick,#1E9E62);border-radius:inherit;transition:width .3s}
 .pdl-cnt{font-size:1.6rem;font-variant-numeric:tabular-nums}.pdl-prog small{color:var(--ink-soft)}
+/* 🔐 الرقم السري في رأس ملف الطالب */
+.pf-pin{display:inline-flex;align-items:center;gap:.35rem;padding:.25rem .65rem;border:1px solid var(--ui-border,#D5E0EC);border-radius:999px;background:var(--ui-surface,#F7FAFD);font-size:.85rem;white-space:nowrap}
+.pf-pin b{font-size:1.05rem;letter-spacing:.12em;font-variant-numeric:tabular-nums}
+.pf-pin-copy{border:0;background:none;cursor:pointer;color:var(--ink-soft);font-size:.9rem;padding:0 .1rem}
+/* 🪙 سجل النقاط */
+.pts-head{display:flex;gap:1rem;align-items:center;flex-wrap:wrap;margin-bottom:.2rem}
+.pts-bal{display:flex;align-items:baseline;gap:.4rem;padding:.5rem .9rem;border-radius:12px;background:rgba(201,162,39,.12);border:1px solid rgba(201,162,39,.35)}
+.pts-bal span{font-size:.8rem;color:var(--ink-soft)}.pts-bal b{font-size:1.6rem;font-variant-numeric:tabular-nums}.pts-bal small{color:var(--ink-soft)}
+.pts-sum{font-size:.88rem}.pts-zero{color:#B54708}
+.pts-wrap{overflow-x:auto;border:1px solid var(--ui-border,#D5E0EC);border-radius:12px}
+.pts-tbl{width:100%;border-collapse:collapse;font-size:.84rem;min-width:640px}
+.pts-tbl th,.pts-tbl td{padding:.45rem .6rem;border-bottom:1px solid var(--ui-border,#E4EAF1);text-align:right;vertical-align:top}
+.pts-tbl th{background:var(--ui-surface,#F4F7FB);font-size:.78rem;color:var(--ink-soft)}
+.pts-tbl td small{display:block;color:var(--ink-soft);font-size:.76rem}
+.pts-d{white-space:nowrap;color:var(--ink-soft);font-size:.78rem}
+.pts-g{font-weight:800;text-align:center!important;white-space:nowrap;font-variant-numeric:tabular-nums}
+.pts-b{text-align:center!important;font-variant-numeric:tabular-nums;color:var(--ink-soft)}
+.pts-w{min-width:220px}
+tr.pts-good .pts-g{color:var(--tick,#1B9C6B)} tr.pts-bad{background:rgba(192,57,43,.06)} tr.pts-bad .pts-g{color:#C0392B} tr.pts-warn{background:rgba(201,138,46,.08)} tr.pts-warn .pts-g{color:#B54708}
+.pts-before{margin-top:.8rem}.pts-before summary{cursor:pointer;font-weight:700;font-size:.88rem;margin-bottom:.5rem}
