@@ -7692,7 +7692,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         if (legacy) {
           const roster = await loadRoster(env);
           const sameName = roster.filter(x => String(x?.name || '').trim() === st.name).length;
-          if (sameName <= 1) { await env.HW.put(idKey, legacy); cur = legacy; }
+          if (sameName <= 1) { await env.HW.put(idKey, legacy, { metadata: { p: legacy } }); cur = legacy; }
         }
       }
       if (!cur && !idKey) cur = await env.HW.get(nmKey);
@@ -7721,7 +7721,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       }
 
       // أول تسجيل — يختار رمزه
-      await env.HW.put(key, pin);
+      await env.HW.put(key, pin, { metadata: { p: pin } });   // الرمز في وصف المفتاح: قائمة /pins تقرؤه بلا فتح كل مفتاح
       await bumpRev(env);
       return json({ ok: true, created: true, sid: st.id, name: st.name, ...(await sessionFor(pin) || {}) });
     }
@@ -7730,11 +7730,26 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
     if (url.pathname === '/pins' && request.method === 'GET') {
       const token = url.searchParams.get('t') || '';
       if (!env.TEACHER_TOKEN || token !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
-      const out = {};
-      const l = await env.HW.list({ prefix: 'pin:' });
-      for (const k of l.keys) {
-        const v = await env.HW.get(k.name);
-        if (v) out[k.name.slice(4)] = v;
+      /* ⚡ كان يفتح مفتاح كل طالب بالتتابع (173 قراءة متتالية = ثوانٍ). الآن: القائمة تعيد الرمز في
+         وصف المفتاح دفعة واحدة، والرموز القديمة بلا وصف تُقرأ بالتوازي ويُضاف لها الوصف مرة واحدة. */
+      const out = {}, missing = [];
+      let cursor;
+      do {
+        const l = await env.HW.list({ prefix: 'pin:', cursor });
+        for (const k of l.keys) {
+          const p = k.metadata && k.metadata.p;
+          if (p) out[k.name.slice(4)] = String(p); else missing.push(k.name);
+        }
+        cursor = l.list_complete ? undefined : l.cursor;
+      } while (cursor);
+      const fill = [];
+      await inBatches(missing, 25, async name => {
+        const v = await env.HW.get(name);
+        if (v) { out[name.slice(4)] = v; fill.push([name, v]); }
+      });
+      if (fill.length) {
+        const task = inBatches(fill, 25, async ([name, v]) => { try { await env.HW.put(name, v, { metadata: { p: v } }); } catch {} });
+        if (ctx && ctx.waitUntil) ctx.waitUntil(task.catch(() => {})); else await task.catch(() => {});
       }
       return json({ ok: true, pins: out });
     }
