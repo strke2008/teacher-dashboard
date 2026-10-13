@@ -3,7 +3,7 @@
    فتُفتح اللوحة فورًا من الجهاز ويُجلب الإصدار الأحدث في الخلفية.
    بيانات الطلاب والدرجات والتسليمات لا تُحفظ إطلاقًا: تُجلب دائمًا من الخادم (نطاق آخر لا يمرّ هنا).
    لا يحتوي أي سر: المفتاح العام يُجلب من الخادم، والخاص لا يغادر Cloudflare. */
-const SW_VERSION = 'push-v1+static-v1';
+const SW_VERSION = 'push-v1+static-v2';
 const STATIC = 'dash-static-v1';
 const SCOPE = new URL(self.registration ? self.registration.scope : './', self.location.href);
 const PAGE_KEY = new URL('index.html', SCOPE).href;
@@ -21,14 +21,20 @@ async function syncAssets(html){
   await Promise.all([...want].map(async u => { if (!(await cache.match(u))) { try { const r = await fetch(u, { cache: 'no-cache' }); if (r.ok) await cache.put(u, r); } catch {} } }));
   for (const req of await cache.keys()) { const u = new URL(req.url); if (u.search.includes('v=') && !want.has(req.url)) await cache.delete(req); }
 }
-async function pageFromNetwork(request, oldP){
-  const res = await fetch(request.url, { cache: 'no-cache', credentials: 'same-origin' });   // طلب «تنقّل» لا يُعاد بخيارات جديدة — نطلبه بعنوانه
+async function pageFromNetwork(request, oldP, waitUntil, servedFresh){
+  /* ?_sw= فريد يتجاوز نسخة الاستضافة المؤقتة (CDN): كانت تعيد الصفحة القديمة دقائق بعد الرفع، فلا يصل التحديث لبعض الأجهزة */
+  const fresh = new URL(request.url); fresh.searchParams.set('_sw', Date.now().toString(36));
+  const res = await fetch(fresh.href, { cache: 'no-store', credentials: 'same-origin' });   // طلب «تنقّل» لا يُعاد بخيارات جديدة — نطلبه بعنوانه
   if (res.ok && res.type === 'basic') {
-    const txt = await res.clone().text();
-    const old = await oldP;
-    const cache = await caches.open(STATIC);
-    await cache.put(PAGE_KEY, res.clone());
-    if (old !== txt) { await syncAssets(txt); if (old !== null) await notifyUpdate(); }
+    const copy = res.clone();                      // قبل أي انتظار: الصفحة تُسلَّم والحفظ يكمل في الخلفية
+    const work = (async () => {
+      const txt = await copy.text();
+      const old = await oldP;
+      const cache = await caches.open(STATIC);
+      await cache.put(PAGE_KEY, new Response(txt, { headers: { 'Content-Type': 'text/html; charset=utf-8' } }));
+      if (old !== txt) { await syncAssets(txt); if (old !== null && !(servedFresh && servedFresh())) await notifyUpdate(); }
+    })().catch(() => {});
+    if (waitUntil) waitUntil(work); else await work;
   }
   return res;
 }
@@ -42,9 +48,17 @@ self.addEventListener('fetch', event => {
     event.respondWith((async () => {
       const cached = await caches.match(PAGE_KEY);
       // نأخذ نسخة من المحفوظ قبل تسليمه للصفحة — جسم الاستجابة لا يُقرأ مرتين
-      const net = pageFromNetwork(req, cached ? cached.clone().text() : Promise.resolve(null));
-      if (cached) { event.waitUntil(net.catch(() => {})); return cached; }   // فوري من الجهاز، والتحديث في الخلفية
-      return net;
+      let fresh = false;
+      const net = pageFromNetwork(req, cached ? cached.clone().text() : Promise.resolve(null), p => { try { event.waitUntil(p); } catch {} }, () => fresh);
+      if (!cached) return net;
+      event.waitUntil(net.catch(() => {}));
+      /* 🔄 الأحدث أولًا: نسخة الخادم إن وصلت خلال 3 ث، وإلا المحفوظة على الجهاز (بلا اتصال أو شبكة بطيئة).
+         كانت المحفوظة تُعرض دائمًا والجديدة لا تظهر إلا في الفتح التالي — فيبدو أن التحديث لم يصل */
+      const timeout = new Promise(r => setTimeout(() => r(null), 3000));
+      const fromNet = net.then(r => (r && r.ok ? r : null)).catch(() => null);
+      const won = await Promise.race([fromNet, timeout]);
+      if (won) { fresh = true; return won; }        // الأحدث ظاهر الآن — لا داعي لزر «تحديث الآن»
+      return cached;
     })());
     return;
   }
