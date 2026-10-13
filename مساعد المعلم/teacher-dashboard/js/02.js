@@ -2282,7 +2282,6 @@ async function ctProfile(box,force){
       <button class="pf-act" onclick="openStudentForm('${esc(sid)}')">✏️ تعديل البيانات</button>
       ${printBtn?`<span class="pf-print">${printBtn}</span>`:''}</div>`;
   box.innerHTML=head+bar+`<div id="ct-pf" class="sf-body"></div>`;
-  try{ const on=box.querySelector('.pf-tab.on'); if(on) on.scrollIntoView({block:'nearest',inline:'nearest'}); }catch(e){}   // التبويب المختار ظاهر على الجوال
   const el=document.getElementById('ct-pf');
   if(sub==='overview') el.innerHTML=(off?'<div class="ct-warn">تعذّر الاتصال بالخادم — المستوى والحضور والسلوك تحتاج الخادم. تبويب «الأنشطة والإجراءات» يعمل من بيانات هذا الجهاز.</div>':'')+ctProfileBody(sid);
   else if(sub==='acts'){ el.classList.add('sf-embed'); sfEmbed(el,()=>_legacyStudentProfile(sid)); }

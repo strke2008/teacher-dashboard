@@ -1993,6 +1993,11 @@ details.ar-escal:not([open]){gap:0}
   .ct-tools #ct-pf-sel{flex:1 1 100% !important;min-width:0 !important;order:1}
   .ct-tools > button{order:2}
   .ct-tools .pf-pin{order:3;margin-inline-start:auto}
-  .pf-nav::after{content:'';position:absolute;inset-block:0 1px;inset-inline-end:0;width:28px;pointer-events:none;background:linear-gradient(to left,var(--paper-2,#F7FAFD),transparent)}
-  .pf-tab{padding:.55rem .65rem .5rem;font-size:.84rem}
+  /* الجوال: بلا سحب أفقي (غير موثوق مع العربية على iPhone) — التبويبات أزرار تلتف وتظهر كلها، والمختار معبّأ */
+  .pf-nav{border-bottom:0;margin:.3rem 0 0}
+  .pf-tabs{flex-wrap:wrap;overflow:visible;gap:.35rem;scroll-snap-type:none}
+  .pf-tab{padding:.4rem .7rem;font-size:.82rem;border:1px solid var(--ui-border,#D5E0EC);border-radius:999px;margin:0;background:var(--ui-surface,#FFFFFF)}
+  .pf-tab.on{background:var(--ink,#1F2D45);color:var(--paper-2,#FFFFFF);border-color:var(--ink,#1F2D45)}
+  .pf-tab.on:hover{background:var(--ink,#1F2D45)}
+  .pf-sep{flex:1 1 100%;margin:.25rem 0 0;padding:0;border:0;font-size:.72rem}
 }
