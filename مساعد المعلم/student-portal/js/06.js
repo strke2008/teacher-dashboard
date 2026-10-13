@@ -442,7 +442,7 @@ function spShowUpdate(){
     const box = document.createElement('div');
     box.id = 'sp-diag';
     box.style.cssText = 'position:fixed;inset:0;z-index:4000;background:rgba(15,23,32,.6);display:flex;align-items:center;justify-content:center;padding:14px;direction:rtl';
-    const row = (k, v) => `<tr><th style="text-align:right;padding:.35rem .5rem;white-space:nowrap;color:#5B6B7F;font-weight:600">${k}</th><td style="padding:.35rem .5rem;direction:ltr;text-align:left;word-break:break-all">${v}</td></tr>`;
+    const row = (k, v) => `<tr><th style="text-align:right;padding:.35rem .5rem;white-space:nowrap;color:#5B6B7F;font-weight:600">${k}</th><td style="padding:.35rem .5rem;unicode-bidi:plaintext;text-align:start;word-break:break-all">${v}</td></tr>`;
     const esc2 = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
     const ver = [...document.querySelectorAll('script[src*="?v="]')].map(s => (s.getAttribute('src').match(/([\w-]+\.js)\?v=([0-9a-f]+)/) || []).slice(1).join(' ')).join('<br>');
     const api = (typeof API === 'string' ? API : '').replace(/\/+$/, '');
