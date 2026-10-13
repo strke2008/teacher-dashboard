@@ -2678,6 +2678,13 @@ function isGameRow(h){ return playableGames(h).length>0; }
 const GATE_DAY=864e5;
 function gateTs(h){ return Number(h.at)||(h.due?Date.parse(h.due+'T00:00:00')-7*GATE_DAY:0); }
 function gateIsNew(h){ const a=Number(h.at)||0; return !h.done && a>0 && Date.now()-a<3*GATE_DAY; }
+/* 📊 هل يدخل النشاط في درجة الأنشطة؟ الخادم يرسل gr، والقديم يُستنتج من النوع */
+function gateCounts(h){ return h.gr != null ? !!Number(h.gr) : ['normal','reading','lab'].includes(String(h.kind||'normal')); }
+function gateGradeTag(h){
+  return gateCounts(h)
+    ? '<span class="hw-gr on" title="تسليمه يُحتسب في درجة الأنشطة">📊 يدخل في درجتك</span>'
+    : '<span class="hw-gr" title="للتدريب — لا يؤثر على درجة الأنشطة">🎯 تدريب — بلا درجة</span>';
+}
 function gatePubLabel(h){
   const a=Number(h.at)||0; if(!a) return '';
   const d0=new Date(); d0.setHours(0,0,0,0); const d=new Date(a); d.setHours(0,0,0,0);
@@ -4628,6 +4635,7 @@ async function gateLoad(nm, opts){
           ${late && !canTeacherRetry && !canRetry ? 'disabled' : ''}>
           ${tag}
           <b>${kicon ? kicon + ' ' : ''}${esc(h.t)}${gateIsNew(h) ? ' <span class="hw-new">🆕 جديد</span>' : ''}</b>
+          ${gateGradeTag(h)}
           <span class="hw-meta">${gatePubLabel(h)}
             ${h.kind==='files' ? '📎 تسليم صور أو PDF أو فيديو' : `${h.n} مهمة${h.kind === 'style' ? ' · اختبار أنماط تعلّم'
                        : h.kind === 'diag' ? ' · اختبار تشخيصي'

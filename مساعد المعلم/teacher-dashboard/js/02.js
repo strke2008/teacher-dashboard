@@ -775,10 +775,48 @@ async function runDashboardAcademicAction(){
   if(semester===2 && sem.status!=='closed' && active===2) return finishYearFromDashboard('archive');
 }
 
-function compActivitiesForStudent(s){
+/* 📊 ما يدخل في «درجة الأنشطة»: النشاط العادي والفهم القرائي والمختبر — إلا ما جعله المعلم «تدريبًا بلا درجة».
+   الدرجة على التسليم: (ما سلّمه ÷ المطلوب منه) × 10، ولكل فترة أنشطتها حسب وقت نشر النشاط. */
+const GRADE_KINDS=['normal','reading','lab'];
+function hwCounts(h){ return !!h && GRADE_KINDS.includes(h.kind||'normal') && !h.noGrade; }
+function hwAssignedAt(h){
+  const t=Number(h&&(h.firstPub||h.at))||0; if(t) return t;
+  const m=/^s([0-9a-z]{8,9})/.exec(String(h&&h.id||'')); const x=m?parseInt(m[1],36):0;   // uid() يبدأ بوقت الإنشاء
+  return (x>1.5e12&&x<4e12)?x:(Number(h&&h.publishedAt)||0);
+}
+function hwInTerm(h,term){
+  if(!term) return true;
+  const t=hwAssignedAt(h); if(!t) return true;
+  if(term.startAt&&t<term.startAt) return false;
+  if(term.endAt&&t>=term.endAt) return false;
+  if(term.explicit){ const d=new Date(t+3*3600000).toISOString().slice(0,10);   // يوم النشر بتوقيت السعودية
+    if(term.start&&d<term.start) return false; if(term.end&&d>term.end) return false; }
+  return true;
+}
+/* حدود الفترة من درجات الخادم المحمّلة (إن وُجدت) */
+function compTermFor(semester,period){
+  const k=`${Number(semester)===2?2:1}:${Number(period)===2?2:1}`;
+  try{ const g=COMP_GRADES_CACHE.get(k); if(g&&g.term) return g.term; }catch(e){}
+  try{ const b=REPORT_BUNDLE_CACHE.get(k); if(b&&b.grades&&b.grades.term) return b.grades.term; }catch(e){}
+  return null;
+}
+/* شارة على بطاقة النشاط: هل يدخل درجة الأنشطة؟ (اضغطها للتبديل في الأنواع القابلة للاحتساب) */
+function hwGradePill(h){
+  if(!GRADE_KINDS.includes(h.kind||'normal')) return '<span class="pill hw-gr" title="هذا النوع لا يدخل درجة الأنشطة">🎯 تدريب</span>';
+  const on=hwCounts(h);
+  return `<button type="button" class="pill hw-gr${on?' on':''}" onclick="hwToggleGrade('${h.id}')" title="${on?'يدخل في درجة الأنشطة — اضغط لجعله تدريبًا بلا درجة':'تدريب بلا درجة — اضغط ليدخل في درجة الأنشطة'}">${on?'📊 يدخل في الدرجة':'🎯 تدريب بلا درجة'}</button>`;
+}
+function hwToggleGrade(id){
+  const h=HW.find(x=>x.id===id); if(!h) return;
+  h.noGrade=!h.noGrade; if(h.published) h.dirty=true;
+  save(K.hw,HW); renderHw();
+  toast((h.noGrade?'🎯 صار تدريبًا — لا يدخل درجة الأنشطة':'📊 صار يدخل في درجة الأنشطة')+(h.published?' · أعد نشره ليظهر للطلاب':''),'good');
+}
+function compActivitiesForStudent(s,term){
   const cls=String(s.cls||s.className||s.class||'').trim();
   return (Array.isArray(HW)?HW:[]).filter(h=>{
-    if(!h || (h.kind||'normal')!=='normal') return false;
+    if(!hwCounts(h)) return false;
+    if(!hwInTerm(h,term)) return false;
     if(!h.sid && !h.published && !(Array.isArray(h.s)&&h.s.length)) return false;
     if(cls && !hwFor(h, cls)) return false;
     if(Array.isArray(h.s) && h.s.length){
@@ -2284,7 +2322,7 @@ async function ctProfile(box,force){
   box.innerHTML=head+bar+`<div id="ct-pf" class="sf-body"></div>`;
   const el=document.getElementById('ct-pf');
   if(sub==='overview') el.innerHTML=(off?'<div class="ct-warn">تعذّر الاتصال بالخادم — المستوى والحضور والسلوك تحتاج الخادم. تبويب «الأنشطة والإجراءات» يعمل من بيانات هذا الجهاز.</div>':'')+ctProfileBody(sid);
-  else if(sub==='acts'){ el.classList.add('sf-embed'); sfEmbed(el,()=>_legacyStudentProfile(sid)); }
+  else if(sub==='acts'){ el.classList.add('sf-embed'); sfEmbed(el,()=>_legacyStudentProfile(sid)); el.insertAdjacentHTML('afterbegin',pfGradeBox(sid)); }
   else if(sub==='report'){ el.classList.add('sf-embed'); sfEmbed(el,()=>_legacyStudentReport(sid)); }
   else if(sub==='timeline') sfTimeline(el,sid);
   else if(sub==='contacts') sfContacts(el,sid);
@@ -2296,6 +2334,17 @@ function ctPfStep(d){
   const n=r[(i+d+r.length)%r.length]; if(n){ window._ctPfSid=String(n.id); renderClassTools(); }
 }
 /* يعرض محتوى نافذة قديمة داخل الصفحة: نلتقط ما كانت سترسله إلى النافذة ونضعه هنا */
+/* 📊 درجة الأنشطة في ملف الطالب: سلّم كم من الأنشطة المحسوبة في الفترة الحالية، وما الناقص */
+function pfGradeBox(sid){
+  const s=(STUDENTS||[]).find(x=>String(x.id)===String(sid)); if(!s) return '';
+  const {sem,per}=ctSem(), term=compTermFor(sem,per);
+  const acts=compActivitiesForStudent(s,term), done=compSubmissionCount(acts,s);
+  const score=acts.length?Math.round(done/acts.length*100)/10:10;
+  const miss=acts.filter(h=>{ const v=h.subs||{}; return !v[String(s.id)]&&!v[String(s.name||'')]; });
+  return `<div class="pf-gr">📊 <b>درجة الأنشطة${term?` — ${per===2?'الفترة الثانية':'الفترة الأولى'}`:''}:</b>
+    سلّم <b class="pf-gr-n">${done}</b> من <b class="pf-gr-n">${acts.length}</b> من الأنشطة المحسوبة · الدرجة <b>${score} / 10</b>
+    ${miss.length?`<div class="pf-gr-miss">لم يسلّم: ${miss.map(h=>'«'+esc(h.title)+'»').join('، ')}</div>`:acts.length?'<div class="muted" style="font-size:.8rem;margin-top:.3rem">✓ سلّم كل الأنشطة المحسوبة</div>':''}</div>`;
+}
 function sfEmbed(el,fn){
   const orig=window.openModal; let got=false;
   window.openModal=h=>{ got=true; el.innerHTML=h; };
@@ -2306,8 +2355,9 @@ function sfEmbed(el,fn){
 async function sfPeriod(el,sid){
   const {sem,per}=ctSem(), s=(STUDENTS||[]).find(x=>String(x.id)===String(sid));
   el.innerHTML='<div class="muted" style="padding:1rem">⏳ جارٍ إعداد تقرير الفترة…</div>'; window.__srepPreview=null;
+  try{ if(!compTermFor(sem,per)) await loadServerGrades(false,sem,per); }catch(e){}
   try{
-    const j=await healthApi('/student-report/preview',{semester:sem,period:per,sid,note:'',acts:srepActsFor(s?[s]:[])});
+    const j=await healthApi('/student-report/preview',{semester:sem,period:per,sid,note:'',acts:srepActsFor(s?[s]:[],sem,per)});
     if(String(window._ctPfSid)!==String(sid)) return;
     window.__srepPreview=j.report;
     el.innerHTML=`<div class="muted no-print" style="font-size:.8rem;margin-bottom:.5rem">هكذا يظهر التقرير للطالب في بوابته. الإرسال لكل الفصل من «الكشوف ← 📤 تقارير الطلاب».</div>${srxHTML(j.report)}`;
@@ -3183,7 +3233,7 @@ async function renderComprehensive(force=false){
       const exam=g?g.exam:{score:null,measured:false,max:20};
       const examScore=exam.score==null?0:Number(exam.score)||0;
       const bScore=b.score==null?0:b.score, bNeg=b.neg||0, bPos=b.pos||0;
-      const acts=compActivitiesForStudent(s);
+      const acts=compActivitiesForStudent(s,G.term);
       const submitted=compSubmissionCount(acts,s);
       // لا أنشطة مطلوبة = لا بيانات، لا رسوب. (كان يعطي 0.0/10 صامتًا)
       const aScore=acts.length?Math.round(submitted/acts.length*100)/10:(G.rules&&G.rules.max)||10;
@@ -3540,7 +3590,7 @@ async function renderCompAnalysis(force=false){
     if(!g){ unsynced.push(String(s.name||'')); continue; }   // كما في الكشف: لا يُحسب بأصفار
     const p=g.participation?.score??0, h=g.homework?.score??0, b=g.behavior?.score??0;
     const exam=(g.exam&&g.exam.score!=null)?Number(g.exam.score):0;
-    const acts=compActivitiesForStudent(s);
+    const acts=compActivitiesForStudent(s,G.term);
     const sub=compSubmissionCount(acts,s);
     const a=acts.length?Math.round(sub/acts.length*100)/10:MAX;
     const total=Math.round((p+h+b+a+exam)*10)/10;
@@ -7052,6 +7102,7 @@ function renderHw() {
                 : (h.kind==='games' || h.kind==='game')
                   ? `<span class="pill" style="background:rgba(200,138,46,.14);color:#A66F0A">🎮 ألعاب</span>`
                   : `<span class="pill" style="background:rgba(46,107,184,.14);color:#2E6BB8">📎 تسليم ملفات</span>`}
+        ${hwGradePill(h)}
         ${isFiles
           ? (!h.published ? '<span class="pill due">📤 لم يُنشر</span>'
              : h.dirty ? '<span class="pill" style="background:rgba(200,138,46,.16);color:#C88A2E">🔄 تعديل غير منشور</span>'
@@ -7208,6 +7259,10 @@ function openHwForm(id) {
         <span style="font-size:.76rem;color:var(--ink-soft);margin-top:.2rem;display:block">
           عملة الطالب في المتجر</span></div>
     </div>
+    <label id="h-grade-wrap" class="row" style="gap:.5rem;margin-top:.65rem;padding:.65rem .75rem;border:1px solid var(--rule);border-radius:10px;background:rgba(46,107,184,.05);cursor:pointer">
+      <input type="checkbox" id="h-grade" ${h && h.noGrade ? '' : 'checked'}>
+      <span><b>📊 يدخل في درجة الأنشطة</b><br><small style="color:var(--ink-soft)">الدرجة = ما سلّمه الطالب ÷ الأنشطة المطلوبة منه في الفترة × 10. أزل العلامة ليصبح النشاط «🎯 تدريبًا» بلا درجة (تبقى نقاط المتجر).</small></span>
+    </label>
     <div class="modal-foot">
       <button class="btn ghost" onclick="closeModal()">إلغاء</button>
       <button class="btn" onclick="saveHw('${id || ''}')">حفظ</button>
@@ -7219,13 +7274,13 @@ function openHwForm(id) {
 
 /* 🔍 أنواع النشاط: التشخيصي وأنماط التعلّم بلا نقاط */
 const KIND_NOTE = {
-  normal: 'يُحتسب في كشف الدرجات ويمنح نقاط المتجر.',
-  diag:   'لقياس المستوى قبل التدريس — لا نقاط ولا يدخل كشف الدرجات، وتظهر نتيجته كمؤشر في ملف الطالب.',
-  style:  'لا إجابة صحيحة — كل خيار يُصنّف نمط تعلّم، والنتيجة نمط الطالب الغالب.',
-  reading:'نص علمي مع أسئلة موزعة على مراحل الفهم القرائي، ويُحتسب في كشف الدرجات.',
+  normal: '📊 يدخل في درجة الأنشطة ويمنح نقاط المتجر.',
+  diag:   'لقياس المستوى قبل التدريس — لا نقاط ولا يدخل درجة الأنشطة، وتظهر نتيجته كمؤشر في ملف الطالب.',
+  style:  'لا إجابة صحيحة — كل خيار يُصنّف نمط تعلّم، والنتيجة نمط الطالب الغالب. لا يدخل درجة الأنشطة.',
+  reading:'نص علمي مع أسئلة موزعة على مراحل الفهم القرائي. 📊 يدخل في درجة الأنشطة.',
   files:  'يرفع الطالب صور تنفيذ المشروع أو ملف PDF. لا يدخل ضمن الأنشطة، ويمكن تأكيد احتسابه ضمن درجات المشاريع.',
-  lab:    'تجربة في المختبر الافتراضي: يخلط الطالب ويلاحظ ويجيب ويفصل عمليًا. يصحّحها الخادم وتُحتسب كدرجة نشاط مع نقاط المتجر. تظهر للطالب في «طبّق وجرّب».',
-  games:  'نشاط تفاعلي مستقل. اختر 🎴 كشف الكلمات أو 🔐 افتح القفل، ويمكن توليد محتوى اللعبة بالذكاء الاصطناعي.'
+  lab:    'تجربة في المختبر الافتراضي: يخلط الطالب ويلاحظ ويجيب ويفصل عمليًا. يصحّحها الخادم. 📊 تدخل في درجة الأنشطة مع نقاط المتجر. تظهر للطالب في «طبّق وجرّب».',
+  games:  'نشاط تفاعلي مستقل — تدريب لا يدخل درجة الأنشطة. اختر 🎴 كشف الكلمات أو 🔐 افتح القفل، ويمكن توليد محتوى اللعبة بالذكاء الاصطناعي.'
 };
 const HW_KINDS=[
   {v:'normal', ic:'📝', t:'نشاط عادي',   d:'أسئلة بدرجة ونقاط'},
@@ -7278,6 +7333,8 @@ function hwKindChanged(){
   const box = document.getElementById('h-scores');
   const note = document.getElementById('h-kind-note');
   if(box) box.style.display = (k === 'normal' || k === 'reading' || k === 'lab') ? '' : 'none';
+  const gw = document.getElementById('h-grade-wrap');
+  if(gw) gw.style.display = GRADE_KINDS.includes(k) ? '' : 'none';
   const lw = document.getElementById('h-lab-wrap');
   if(lw) lw.style.display = (k === 'lab') ? '' : 'none';
   if(k === 'lab') labTopicChanged();
@@ -7443,6 +7500,7 @@ function saveHw(id) {
     lab = { topic:(document.getElementById('h-lab-topic')||{}).value||'mixtures', pair: la ? [la, lb] : null };
   }
   const projectGraded = kind==='files' ? !!document.getElementById('h-project-grade')?.checked : false;
+  const noGrade = GRADE_KINDS.includes(kind) && !document.getElementById('h-grade')?.checked;
   // 📋 وصف المهمة — لنشاط الملفات فقط، والأنشطة القديمة تبقى كما هي
   const brief   = kind==='files' ? (document.getElementById('h-brief')?.value||'').trim()   : '';
   const illus   = kind==='files' ? (document.getElementById('h-illus')?.value||'') : '';
@@ -7462,14 +7520,14 @@ function saveHw(id) {
   if (kind==='reading' && !reading.stages.length) { toast('اختر مرحلة واحدة على الأقل', 'bad'); return; }
   if (id) {
     const h = HW.find(x => x.id === id);
-    Object.assign(h, { title, cls, clsList, due, pts, max, kind, projectGraded, brief, illus, deliver, accept, reading, lab });
+    Object.assign(h, { title, cls, clsList, due, pts, max, kind, noGrade, projectGraded, brief, illus, deliver, accept, reading, lab });
     if(kind==='reading' && Array.isArray(window.__readingAIQs)){
       h.qs = window.__readingAIQs.map(q=>JSON.parse(JSON.stringify(q)));
       delete window.__readingAIQs; delete window.__readingAIMeta;
     }
     if(h.published) h.dirty = true;
   } else {
-    const newH = { id: uid(), title, cls, clsList, due, pts, max, kind, projectGraded, brief, illus, deliver, accept, reading, lab, subs: {}, at: Date.now() };
+    const newH = { id: uid(), title, cls, clsList, due, pts, max, kind, noGrade, projectGraded, brief, illus, deliver, accept, reading, lab, subs: {}, at: Date.now() };
     if(kind==='games') newH.game = {type:'memory', data:[]};
     if(kind==='reading' && Array.isArray(window.__readingDemoQs)){ newH.qs = window.__readingDemoQs.map(q=>JSON.parse(JSON.stringify(q))); delete window.__readingDemoQs; }
     if(kind==='reading' && Array.isArray(window.__readingAIQs)){ newH.qs = window.__readingAIQs.map(q=>JSON.parse(JSON.stringify(q))); delete window.__readingAIQs; delete window.__readingAIMeta; }
@@ -10015,7 +10073,9 @@ function buildPublishPayload(h){
     /* 🔬 إعداد المختبر: الموضوع والمادتان (أو اختيار حر) — التصحيح في الـ Worker */
     lab:h.kind==='lab' ? (h.lab||{topic:'mixtures',pair:null}) : null,
     /* 🩹 أوقف المعلم العلاج التلقائي لهذا النشاط */
-    nr:h.noRem ? 1 : 0
+    nr:h.noRem ? 1 : 0,
+    /* 📊 يدخل في درجة الأنشطة؟ تعرضه البوابة شارةً على النشاط */
+    ng:hwCounts(h) ? 0 : 1
   };
 }
 
@@ -10040,7 +10100,7 @@ async function publishHwSilently(h){
   let j=null; try{ j=await r.json(); }catch(e){}
   if(r.status===401) throw new Error('unauthorized');
   if(!r.ok || !j || !j.ok) throw new Error('publish');
-  h.published=true; delete h.dirty; h.publishedAt=Date.now();
+  h.published=true; delete h.dirty; h.publishedAt=Date.now(); if(!h.firstPub) h.firstPub=h.publishedAt;
   try{if(REM_ON&&twinAuto())twinQueue(h)}catch(e){}
   try{skillQueue(h)}catch(e){}
   return payload;
@@ -10205,6 +10265,7 @@ async function openLink(id){
     h.published = true;
     delete h.dirty;
     h.publishedAt = Date.now();
+    if(!h.firstPub) h.firstPub = h.publishedAt;
     save(K.hw, HW);
     try{ if(REM_ON&&twinAuto()) twinQueue(h); }catch(e){}
     try{ skillQueue(h); }catch(e){}

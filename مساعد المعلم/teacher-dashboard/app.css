@@ -6130,3 +6130,13 @@ body{
 .ann-edit{display:flex;flex-wrap:wrap;gap:.5rem;align-items:flex-end;margin-top:.5rem}.ann-edit.hide{display:none}
 @media (max-width:640px){.ann-row{flex-wrap:wrap}.ann-acts{flex-direction:row;flex-wrap:wrap}}
 
+
+/* 📊 يدخل في درجة الأنشطة / 🎯 تدريب */
+.pill.hw-gr{background:#EFF3F8;color:var(--ink-soft);border:1px dashed rgba(91,107,127,.35);font:inherit;font-size:.78rem;cursor:default}
+button.pill.hw-gr{cursor:pointer}
+.pill.hw-gr.on{background:rgba(46,107,184,.12);color:#2E6BB8;border:1px solid rgba(46,107,184,.3);font-weight:700}
+:root[data-ui-theme="dark"] .pill.hw-gr{background:rgba(255,255,255,.06);color:#A9B6C6}
+:root[data-ui-theme="dark"] .pill.hw-gr.on{background:rgba(110,160,230,.18);color:#9CC2F5}
+.pf-gr{margin:.2rem 0 .8rem;padding:.65rem .8rem;border:1px solid var(--rule);border-radius:12px;background:rgba(46,107,184,.05)}
+.pf-gr b.pf-gr-n{color:#2E6BB8}
+.pf-gr .pf-gr-miss{margin-top:.35rem;font-size:.82rem;color:var(--pen)}

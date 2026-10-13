@@ -239,6 +239,8 @@ async function srepOpen(){
   if(useFresh) SREPD.sent=fr.sent;
   else try{ SREPD.sent=(await healthApi('/student-report/status',{semester:SREPD.sem,period:SREPD.per})).sent||{}; }
   catch(e){ toast(e.status===404?'انشر آخر نسخة من الخادم لتفعيل التقارير':'تعذّر تحميل حالة التقارير','bad'); return; }
+  // 📊 حدود الفترة لدرجة الأنشطة (نفس الكشف): تُقرأ من درجات الخادم المحمّلة
+  try{ if(!compTermFor(SREPD.sem,SREPD.per)) await loadServerGrades(false,SREPD.sem,SREPD.per); }catch(e){}
   const list=srepRoster(), sentN=list.filter(s=>SREPD.sent[s.id]).length;
   const lbl=`${SREPD.sem===2?'الفصل الدراسي الثاني':'الفصل الدراسي الأول'} — ${SREPD.per===2?'الفترة الثانية':'الفترة الأولى'}`;
   openModal(`<h2>📤 تقارير الطلاب</h2>
@@ -257,10 +259,10 @@ async function srepOpen(){
     </div>`);
 }
 /* 🧩 درجة الأنشطة للتقرير = عمود «الأنشطة» في الكشف حرفيًا: نفس الدالتين ونفس المعادلة */
-function srepActsFor(list){
-  const out={};
+function srepActsFor(list,sem=SREPD.sem,per=SREPD.per){
+  const out={}, term=compTermFor(sem,per);
   for(const s of (list||[])){
-    const acts=compActivitiesForStudent(s), done=compSubmissionCount(acts,s);
+    const acts=compActivitiesForStudent(s,term), done=compSubmissionCount(acts,s);
     out[String(s.id)]={ n:acts.length, done, score:acts.length?Math.round(done/acts.length*100)/10:10 };
   }
   return out;
