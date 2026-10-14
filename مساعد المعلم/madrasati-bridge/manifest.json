@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "المعلم الذكي — جسر مدرستي",
   "short_name": "جسر مدرستي",
-  "version": "0.16.4",
+  "version": "0.16.5",
   "description": "سحب الواجبات من منصة مدرستي وعرضها حسب الأسابيع ونقل نتائج الطلاب إلى مساعد المعلم.",
   "default_locale": "ar",
   "permissions": [
@@ -14,7 +14,8 @@
     "https://*.pages.dev/*",
     "http://localhost/*",
     "http://127.0.0.1/*",
-    "https://schools.madrasati.sa/*"
+    "https://schools.madrasati.sa/*",
+    "https://noor.moe.gov.sa/*"
   ],
   "background": {
     "service_worker": "src/background.js"
@@ -61,6 +62,17 @@
       ],
       "run_at": "document_start",
       "all_frames": false
+    },
+    {
+      "matches": [
+        "https://noor.moe.gov.sa/*"
+      ],
+      "js": [
+        "src/utils.js",
+        "src/noor-content.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": true
     }
   ],
   "icons": {

@@ -22,7 +22,7 @@
 <meta content="root-cause-sync-v2" name="sync-fix-version"/>
 <link rel="stylesheet" href="app.css?v=caf855e9">
 <script src="js/01-right-sidebar-navigation-js.js?v=41ea29b3" defer></script>
-<script src="js/02.js?v=c42e025a" defer></script>
+<script src="js/02.js?v=38594eec" defer></script>
 <script src="js/03-projects-students-logic-v13.js?v=51fc7d5e" defer></script>
 <script src="js/04.js?v=88f51ee5" defer></script>
 <script src="js/05.js?v=5e4e4410" defer></script>
@@ -51,6 +51,7 @@
 <script src="js/28-proj-download-js.js?v=56d82819" defer></script>
 <script src="js/29-student-points-js.js?v=9e320765" defer></script>
 <script src="js/30-store-sale-js.js?v=9c09c073" defer></script>
+<script src="js/30-noor-export-js.js?v=1b75afe7" defer></script>
 <script src="js/31-report-share-js.js?v=7ba8f6cd" defer></script>
 <style id="comprehensive-print-identical-all-devices">
 /* 🖨️ الكشف الشامل: نفس التخطيط الفيزيائي على الجوال والكمبيوتر.
@@ -477,7 +478,7 @@
 .exam-shop-status.open{background:#E4F4EC;color:#167852}.exam-shop-status.closed{background:#FFF1F2;color:#9F2538}
 @media screen and (max-width:600px){.exam-shop-kpis{grid-template-columns:1fr 1fr}.exam-shop-student{grid-template-columns:1fr 105px}.exam-shop-student small{grid-column:1}.exam-shop-student .exam-shop-used{display:none}}
 </style>
-<link rel="stylesheet" id="late-css" href="app-late.css?v=7b36d277">
+<link rel="stylesheet" id="late-css" href="app-late.css?v=f2e01fea">
 </head>
 <body>
 <header class="masthead">
@@ -832,6 +833,7 @@
 <span class="sub">الكشف النهائي لكل فترة من 60 درجة: أعمال السنة 40 + الاختبار 20 · إغلاق الفترات وإنهاء السنة من ⚙️ الإعدادات ← 📅 السنة الدراسية</span>
 </div>
 <span class="spacer"></span>
+<button class="btn sm" onclick="noorExportOpen()" title="تصدير درجات الكشف الشامل (أعمال السنة 40 + الاختبار 20) مع جبر الكسر إلى نظام نور">🏛️ تصدير لنظام نور</button>
 <button class="btn ghost sm" onclick="renderComprehensive(true)">🔄 تحديث</button>
 <button class="btn tick sm" onclick="printComprehensive()">🖨️ طباعة</button>
 <button class="btn sm" onclick="srepOpen()" title="معاينة وإرسال تقرير الفترة إلى بوابة كل طالب">📤 إرسال للطلاب</button>
@@ -864,6 +866,7 @@
 <span class="sub">أين يقف الفصل في أعمال السنة، وأي عنصر يسحب الدرجة لأسفل</span>
 </div>
 <span class="spacer"></span>
+<button class="btn sm" onclick="noorExportOpen()" title="تصدير درجات الكشف الشامل (أعمال السنة 40 + الاختبار 20) مع جبر الكسر إلى نظام نور">🏛️ تصدير لنظام نور</button>
 <div aria-label="طريقة عرض التقرير" class="report-mode-toggle" id="ca-modebar" role="tablist">
 <button class="an-mode" data-ca="1" data-m="brief" onclick="setCaMode('brief')">مختصر</button>
 <button class="an-mode" data-ca="1" data-m="full" onclick="setCaMode('full')">مفصّل</button>

@@ -459,7 +459,7 @@ function toast(msg, kind) {
 }
 function openModal(html) {
   const modal = document.getElementById('modal');
-  modal.classList.remove('activity-report-modal');
+  modal.classList.remove('activity-report-modal','noor-exp-modal');
   modal.innerHTML = html;
   /* زر إغلاق موحد للجوال: لا نعتمد على وجود زر في نهاية المحتوى. */
   if (!modal.querySelector('.modal-mobile-close')) {

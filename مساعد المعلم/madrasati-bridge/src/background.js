@@ -105,6 +105,37 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
         .catch(e => reply({ok:false,error:String(e&&e.message||e)}));
       return true;
     }
+    // 🏛️ نظام نور: يحفظ الكشف المصدَّر، ويطلب من أي تبويب نور مفتوح تعبئته فورًا
+    if (action === 'noorPushGrades') {
+      (async () => {
+        try {
+          const rows = Array.isArray(p.rows) ? p.rows.slice(0, 400) : [];
+          if (!rows.length) { reply({ ok: false, error: 'لا درجات في الكشف المرسل' }); return; }
+          const sheet = { ...p, rows, at: Date.now() };
+          await chrome.storage.local.set({ mb_noor_grades: sheet });
+          const tabs = await chrome.tabs.query({ url: 'https://noor.moe.gov.sa/*' });
+          if (!tabs.length) { reply({ ok: true, saved: rows.length, tabs: 0, filled: 0 }); return; }
+          let filled = 0, unmatched = null, tried = 0;
+          for (const t of tabs) {
+            const r = await new Promise(res => chrome.tabs.sendMessage(t.id, { type: 'mb:noorFill', payload: sheet }, x => { void chrome.runtime.lastError; res(x || null); }));
+            tried++;
+            if (r && r.filled) { filled += r.filled; unmatched = r.unmatched || unmatched; }
+          }
+          reply({ ok: true, saved: rows.length, tabs: tried, filled, unmatched });
+        } catch (e) { reply({ ok: false, error: String(e && e.message || e) }); }
+      })();
+      return true;
+    }
+    if (action === 'noorStatus') {
+      (async () => {
+        try {
+          const x = (await chrome.storage.local.get('mb_noor_grades')).mb_noor_grades || null;
+          const tabs = await chrome.tabs.query({ url: 'https://noor.moe.gov.sa/*' });
+          reply({ ok: true, saved: x ? (x.rows || []).length : 0, at: x ? x.at : 0, tabs: tabs.length });
+        } catch (e) { reply({ ok: false, error: String(e && e.message || e) }); }
+      })();
+      return true;
+    }
     reply({ok:false,error:'إجراء غير معروف'}); return;
   }
   if (msg && msg.type === 'mb:dashboardPull') {

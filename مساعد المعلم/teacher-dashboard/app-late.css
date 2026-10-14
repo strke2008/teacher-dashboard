@@ -2016,3 +2016,35 @@ details.ar-escal:not([open]){gap:0}
 .psh .psh-sk small.w{font-weight:600;color:#7A8796;font-size:.72rem;margin-inline-start:.35rem}
 .psh .psh-sk em small{font-size:.72rem;margin-inline-start:.15rem}
 .psh .psh-note{margin-top:.35rem;font-size:.74rem;color:#5B6B7F}
+
+/* ── 🏛️ تصدير الكشف الشامل لنظام نور ── */
+#modal.noor-exp-modal{max-width:1080px!important;width:min(96vw,1080px)!important}
+.noor-exp h2{margin:.1rem 0 .2rem}
+.noor-exp-controls{display:flex;flex-wrap:wrap;gap:.55rem;margin:.2rem 0 .7rem}
+.noor-exp-controls label{display:flex;flex-direction:column;gap:.2rem;font-size:.76rem;font-weight:700;color:var(--ink-soft);min-width:130px;flex:1 1 130px}
+.noor-exp-controls .inp{width:100%}
+.noor-exp-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:.5rem;margin:.2rem 0 .6rem}
+.noor-kpi{border:1px solid var(--ui-border,#E3E9F1);border-radius:12px;padding:.5rem .6rem;background:var(--ui-surface-2,#F6F8FC);display:flex;flex-direction:column;gap:.15rem}
+.noor-kpi span{font-size:.72rem;color:var(--ink-soft);font-weight:700}
+.noor-kpi b{font-size:1.15rem;font-variant-numeric:tabular-nums}.noor-kpi b small{font-size:.7rem;color:var(--ink-soft);margin-inline-start:.15rem}
+.noor-kpi.ok{background:rgba(27,156,107,.08);border-color:rgba(27,156,107,.3)}.noor-kpi.ok b{color:var(--tick,#1B9C6B)}
+.noor-exp-actions{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;margin:.3rem 0 .5rem}
+.noor-exp-actions.noor-auto{padding:.5rem .6rem;border-radius:12px;background:rgba(46,107,184,.06);border:1px dashed rgba(46,107,184,.3);font-size:.82rem}
+.noor-sep{width:1px;align-self:stretch;background:var(--ui-border,#E3E9F1);margin:0 .2rem}
+.noor-exp-table-wrap{max-height:52vh;overflow:auto;border:1px solid var(--ui-border,#E3E9F1);border-radius:12px}
+.noor-exp-table{width:100%;border-collapse:collapse;font-size:.82rem}
+.noor-exp-table th{position:sticky;top:0;z-index:1;background:var(--ui-surface-2,#F1F4F9);font-weight:700;color:var(--ink-soft);padding:.45rem .4rem;border-bottom:1px solid var(--ui-border,#E3E9F1);white-space:nowrap;text-align:center}
+.noor-exp-table th small{display:block;font-size:.66rem;font-weight:600;opacity:.8}
+.noor-exp-table td{padding:.35rem .4rem;border-bottom:1px solid var(--ui-border,#EEF2F7);text-align:center;font-variant-numeric:tabular-nums}
+.noor-exp-table td.nm{text-align:start;font-weight:600;min-width:180px}
+.noor-exp-table tfoot td{position:sticky;bottom:0;background:var(--ui-surface-2,#F1F4F9);font-weight:800;border-top:1px solid var(--ui-border,#E3E9F1)}
+.noor-jabr-tag{display:inline-block;margin-inline-start:.25rem;padding:.02rem .35rem;border-radius:999px;font-size:.64rem;font-weight:700;background:rgba(27,156,107,.12);color:var(--tick,#1B9C6B);white-space:nowrap}
+:root[data-ui-theme="dark"] .noor-kpi,:root[data-ui-theme="dark"] .noor-exp-table th,:root[data-ui-theme="dark"] .noor-exp-table tfoot td{background:rgba(255,255,255,.05)}
+@media (max-width:700px){
+  .noor-exp-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .noor-exp-kpis .noor-kpi:first-child{grid-column:1/-1}
+  .noor-exp-controls label{min-width:44%}
+  .noor-exp-table-wrap{max-height:48vh}
+  .noor-exp-table td.nm{min-width:140px}
+  .noor-sep{display:none}
+}
