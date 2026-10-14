@@ -1677,3 +1677,38 @@ html[data-pt] body,html[data-pt] .sheet,html[data-pt] .btn,html[data-pt] .studen
 .q-img img{max-width:100%;max-height:300px;border-radius:12px;border:1px solid var(--rule);background:#fff;padding:4px;cursor:zoom-in;transition:max-height .2s}
 .q-img img.zoom{max-height:none;cursor:zoom-out}
 .q-img.miss{padding:.55rem .7rem;border:1px dashed #E0A100;border-radius:10px;background:#FFF8E6;color:#8A6200;font-size:.82rem;font-weight:700}
+/* 🧭 نافس: تدريب ومحاكاة وخريطة النواتج */
+.opt.nf-x{opacity:.45;text-decoration:line-through}
+.opt.nf-ok,.tf button.nf-ok{border-color:var(--tick)!important;background:rgba(27,156,107,.14)!important;color:var(--tick)!important;opacity:1!important}
+.opt.nf-bad,.tf button.nf-bad{border-color:var(--pen)!important;background:rgba(214,69,91,.1)!important;color:var(--pen)!important;opacity:1!important}
+.nf-fb{margin-top:.75rem;padding:.7rem .85rem;border-radius:12px;font-size:.9rem;line-height:1.8}
+.nf-fb.ok{background:rgba(27,156,107,.1);border:1.5px solid var(--tick)}
+.nf-fb.bad{background:rgba(214,69,91,.07);border:1.5px solid var(--pen)}
+.nf-fb.try{background:#FFF7E6;border:1.5px solid #E0A100;color:#7A5212}
+.nf-fb.idle{padding:0;background:none}
+.nf-fb small{display:block;font-size:.78rem;opacity:.85}
+.nf-concept{margin-top:.35rem;font-size:.84rem;color:#2E5E8C}
+.nf-note{margin-top:.35rem;font-size:.84rem}
+.nf-cbtn{border:1.5px dashed #2E6BB8;background:rgba(46,107,184,.06);color:#2E6BB8;border-radius:99px;padding:.3rem .8rem;font:inherit;font-weight:700;font-size:.82rem;cursor:pointer}
+.nf-timer{position:sticky;top:.4rem;z-index:5;margin:0 0 .5rem;padding:.45rem .8rem;border-radius:99px;background:#16233A;color:#fff;font-weight:800;font-size:.86rem;text-align:center}
+.nf-timer.low{background:#C0392B;animation:nfPulse 1s infinite}
+@keyframes nfPulse{50%{opacity:.75}}
+.nf-card{margin-top:1rem}.nf-card h3{margin:0 0 .6rem}.nf-card h3 small{font-weight:400;font-size:.8rem;color:var(--ink-soft)}
+.nf-rows{display:grid;gap:.45rem}
+.nf-row{display:grid;grid-template-columns:1fr 90px auto;gap:.5rem;align-items:center;font-size:.86rem}
+.nf-row i{height:8px;border-radius:99px;background:var(--rule);overflow:hidden;display:block}
+.nf-row i b{display:block;height:100%;border-radius:99px}
+.nf-row b.g{background:var(--tick)}.nf-row b.y{background:#E0A100}.nf-row b.r{background:var(--pen)}
+.nf-row em{font-style:normal;font-size:.76rem;color:var(--ink-soft);white-space:nowrap}
+.nf-focus{margin:.7rem 0 .5rem;font-size:.88rem}
+.nf-acts{display:flex;flex-wrap:wrap;gap:.45rem;margin-bottom:.5rem}
+.nf-map{margin:0 0 .9rem;padding:.8rem;border-radius:14px;border:1.5px solid var(--rule);background:var(--paper,#fff)}
+.nf-map-h{display:flex;justify-content:space-between;align-items:center;gap:.5rem;margin-bottom:.55rem}
+.nf-map-h span{font-size:.8rem;color:var(--ink-soft)}
+.nf-map-l{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.45rem;margin-bottom:.5rem}
+.nf-tile{display:flex;flex-direction:column;gap:.15rem;text-align:start;padding:.5rem .6rem;border-radius:11px;border:1.5px solid;font:inherit;cursor:pointer;background:#fff}
+.nf-tile b{font-size:.82rem;line-height:1.5}.nf-tile small{font-size:.72rem;opacity:.85}.nf-tile em{font-style:normal;font-size:.72rem;font-weight:700;margin-top:.1rem}
+.nf-tile.g{border-color:var(--tick);background:rgba(27,156,107,.08);color:#0E6B48}
+.nf-tile.y{border-color:#E0A100;background:#FFF8E6;color:#7A5212}
+.nf-tile.r{border-color:var(--pen);background:rgba(214,69,91,.07);color:#9B2335}
+.nf-tile.n{border-color:var(--rule);color:var(--ink-soft)}

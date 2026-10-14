@@ -333,7 +333,8 @@ function nafsTerm(n) { NAFS.term = n === 2 ? 2 : 1; NAFS.open = ''; try { localS
 
 /* سؤال البنك ← سؤال نشاط (المهارة = ناتج التعلم المختصر، بادئة «نافس» تميّزه في التقارير) */
 function nafsToQ(q) {
-  const base = { img: nafsImg(q) || undefined, skill: 'نافس: ' + NAFS_OUT[q.o].short, nafs: q.id };
+  // nfo: نص ناتج التعلم (زر «ذكّرني بالمفهوم» في وضع التدريب) · nfn: ملاحظة الإجابة (تظهر بعد الإجابة فقط)
+  const base = { img: nafsImg(q) || undefined, skill: 'نافس: ' + NAFS_OUT[q.o].short, nafs: q.id, nfo: NAFS_OUT[q.o].text, ...(q.note ? { nfn: q.note } : {}) };
   if (q.t === 'q') return { t: 'q', q: q.q, o: q.op.slice(), a: q.a, ...base };
   if (q.t === 'tf') return { t: 'tf', q: q.q, a: !!q.a, ...base };
   return { t: 'f', q: q.q, a: String(q.a), ...base };
@@ -389,7 +390,7 @@ function nafsMakeActivity() {
   const secs = nafsPicked(), ids = new Set(secs.map(s => s.id)), qs = NAFS_BANK.filter(q => ids.has(q.s) && nafsAuto(q)).map(nafsToQ);
   if (!qs.length) return;
   const title = 'نافس — ' + (secs.length === nafsSecs().length ? `علوم ${NAFS_TERMS[NAFS.term].replace('الدراسي ', '')} (شامل)` : secs.length > 2 ? `علوم ${NAFS_TERMS[NAFS.term].replace('الدراسي ', '')} (${secs.length} أقسام)` : secs.map(s => s.title).join(' + '));
-  const h = { id: uid(), title, cls: '', clsList: [], due: '', pts: 30, max: 20, kind: 'normal', noGrade: true, nafs: secs.map(s => s.id), qs, subs: {}, at: Date.now() };
+  const h = { id: uid(), title, cls: '', clsList: [], due: '', pts: 30, max: 20, kind: 'normal', noGrade: true, nafs: secs.map(s => s.id), nfMode: 'train', nfSec: 90, qs, subs: {}, at: Date.now() };
   HW.push(h); save(K.hw, HW);
   toast(`✍️ أُنشئ «${title}» بـ ${qs.length} سؤال — حدّد الفصل وموعد الإغلاق ثم انشره`, 'good');
   try { goTab('hw'); } catch (e) {}
@@ -397,11 +398,14 @@ function nafsMakeActivity() {
 }
 
 /* 📝 نوع «نافس» في نموذج إنشاء النشاط: الفصل + الأقسام ← الأسئلة التي تُصحَّح آليًا */
-const NAFS_F = { term: 1, pick: new Set() };
+const NAFS_F = { term: 1, pick: new Set(), mode: 'train', sec: 90 };
+const NAFS_MODES = { train: { ic: '🎯', t: 'تدريب', d: 'يعرف الصح والخطأ بعد كل سؤال مع التوضيح، ومحاولة ثانية إذا أخطأ — يُحتسب أول جواب' },
+  sim: { ic: '⏱️', t: 'محاكاة الاختبار', d: 'مثل نافس الحقيقي: مؤقت وبلا تغذية راجعة حتى التسليم، ثم المراجعة فورًا' } };
 function nafsFormPicker(h) {
   const own = h && Array.isArray(h.nafs) ? h.nafs.filter(id => NAFS_SECTIONS.some(s => s.id === id)) : [];
   NAFS_F.term = own.length ? NAFS_SECTIONS.find(s => s.id === own[0]).term : NAFS.term;
   NAFS_F.pick = new Set(own.length ? own : NAFS_SECTIONS.filter(s => s.term === NAFS_F.term).map(s => s.id));
+  NAFS_F.mode = h && h.nfMode === 'sim' ? 'sim' : 'train'; NAFS_F.sec = Number(h && h.nfSec) || 90;
   return `<div class="nafs-form">${nafsFormBody()}</div>`;
 }
 function nafsFormBody() {
@@ -411,6 +415,9 @@ function nafsFormBody() {
   return `<div class="nafs-terms nafs-terms-sm">${[1, 2].map(n => `<button type="button" class="${NAFS_F.term === n ? 'on' : ''}" onclick="nafsFormTerm(${n})"><b>${NAFS_TERMS[n]}</b></button>`).join('')}</div>
     <div class="nafs-form-secs">${secs.map(s => { const n = NAFS_BANK.filter(q => q.s === s.id && nafsAuto(q)).length;
       return `<label class="nafs-form-sec ${NAFS_F.pick.has(s.id) ? 'on' : ''}"><input type="checkbox" ${NAFS_F.pick.has(s.id) ? 'checked' : ''} onchange="nafsFormPick('${s.id}',this.checked)"><span>${s.ic} ${esc(s.title)}</span><small>${n} سؤال</small></label>`; }).join('')}</div>
+    <div class="nafs-modes">${Object.entries(NAFS_MODES).map(([k, m]) => `<button type="button" class="${NAFS_F.mode === k ? 'on' : ''}" onclick="NAFS_F.mode='${k}';nafsFormRefresh()"><b>${m.ic} ${m.t}</b><small>${m.d}</small></button>`).join('')}</div>
+    ${NAFS_F.mode === 'sim' ? `<label class="nafs-sim-t">⏱️ الوقت لكل سؤال <select class="inp sm" onchange="NAFS_F.sec=+this.value;nafsFormRefresh()">${[[60, 'دقيقة'], [90, 'دقيقة ونصف'], [120, 'دقيقتان'], [180, '3 دقائق']].map(([v, l]) => `<option value="${v}" ${NAFS_F.sec === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
+      <small>${auto ? `مدة الاختبار ≈ ${Math.round(auto * NAFS_F.sec / 60)} دقيقة` : ''}</small></label>` : ''}
     <div class="nafs-form-sum">${auto ? `✍️ <b>${auto}</b> سؤال يُصحَّح آليًا${imgs ? ` · 🖼️ ${imgs} بأشكالها` : ''} · كل سؤال مرتبط بناتج تعلمه` : '⚠️ اختر قسمًا واحدًا على الأقل'}
       <br><small>الأسئلة المقالية لا تدخل النشاط — اطبعها من تبويب «🧭 نافس ونواتج التعلم».</small></div>`;
 }
@@ -420,7 +427,7 @@ function nafsFormPick(id, on) { if (on) NAFS_F.pick.add(id); else NAFS_F.pick.de
 function nafsFormRead() {
   const secs = NAFS_SECTIONS.filter(s => s.term === NAFS_F.term && NAFS_F.pick.has(s.id)), ids = new Set(secs.map(s => s.id));
   const all = NAFS_SECTIONS.filter(s => s.term === NAFS_F.term).length;
-  return { secs: secs.map(s => s.id), qs: NAFS_BANK.filter(q => ids.has(q.s) && nafsAuto(q)).map(nafsToQ),
+  return { secs: secs.map(s => s.id), qs: NAFS_BANK.filter(q => ids.has(q.s) && nafsAuto(q)).map(nafsToQ), mode: NAFS_F.mode, sec: NAFS_F.sec,
     title: 'نافس — ' + (secs.length === all ? `علوم ${NAFS_TERMS[NAFS_F.term].replace('الدراسي ', '')} (شامل)` : secs.length > 2 ? `علوم ${NAFS_TERMS[NAFS_F.term].replace('الدراسي ', '')} (${secs.length} أقسام)` : secs.map(s => s.title).join(' + ')) };
 }
 

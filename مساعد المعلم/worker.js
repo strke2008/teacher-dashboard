@@ -4973,6 +4973,8 @@ export default {
           n: Array.isArray(p.q) ? p.q.length : 0,
           // 🧭 نشاط نافس: تعرضه البوابة في خانة «نافس»
           nf: p.nf ? 1 : 0,
+          // 🗺️ خريطة نواتجي: ناتج كل سؤال ونتيجة الطالب فيه (أول تسليم) — لأنشطة نافس فقط
+          ...(p.nf && Array.isArray(p.q) ? { nk: p.q.map(q => String((q && q.skill) || '').slice(0, 60)), ...(sub && sub.d ? { nd: String(sub.d).slice(0, 200) } : {}) } : {}),
           // 📖 مرّر كيان الفهم القرائي كاملاً عند وجوده، مع إبقاء بوابة القائمة خفيفة.
           // هذا يمنع اختلاف العقد بين /mine و /hw ويجعل النص والأسئلة جزءًا واضحًا من النشاط.
           reading: (p.reading || p.rt) && typeof (p.reading || p.rt) === 'object' ? {

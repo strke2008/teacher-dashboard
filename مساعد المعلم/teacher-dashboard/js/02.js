@@ -7331,7 +7331,7 @@ function renderHw() {
         <span class="spacer"></span>
         ${h.due ? `<span class="pill ${late ? 'due' : 'quiet'}">${late ? 'انتهى' : 'يُغلق'} ${esc(h.due)}</span>` : ''}
         ${(h.kind||'normal')==='normal'
-          ? `${hwIsNafs(h)?'<span class="pill" style="background:rgba(46,107,184,.14);color:#2E6BB8">🧭 نافس</span>':''}<span class="pill quiet">${h.max || 20} درجة</span><span class="pill pts">${h.pts} نقطة</span>`
+          ? `${hwIsNafs(h)?`<span class="pill" style="background:rgba(46,107,184,.14);color:#2E6BB8">🧭 نافس · ${h.nfMode==='sim'?'⏱️ محاكاة':'🎯 تدريب'}</span>`:''}<span class="pill quiet">${h.max || 20} درجة</span><span class="pill pts">${h.pts} نقطة</span>`
           : h.kind==='lab'
             ? `<span class="pill" style="background:rgba(46,107,184,.14);color:#2E6BB8">🔬 مختبر</span><span class="pill quiet">${h.max || 20} درجة</span><span class="pill pts">${h.pts} نقطة</span>`
           : h.kind==='diag'
@@ -7786,7 +7786,7 @@ function saveHw(id) {
   if (id) {
     const h = HW.find(x => x.id === id);
     Object.assign(h, { title, cls, clsList, due, pts, max, kind, noGrade, projectGraded, brief, illus, deliver, accept, reading, lab });
-    if(nafsSel){ h.nafs = nafsSel.secs; if(!nafsSel.keep) h.qs = nafsSel.qs; }
+    if(nafsSel){ h.nafs = nafsSel.secs; h.nfMode = nafsSel.mode; h.nfSec = nafsSel.sec; if(!nafsSel.keep) h.qs = nafsSel.qs; }
     else if(pickedKind!=='nafs' && Array.isArray(h.nafs)) delete h.nafs;   // غيّر المعلم النوع: تبقى الأسئلة ويزول وسم نافس
     if(kind==='reading' && Array.isArray(window.__readingAIQs)){
       h.qs = window.__readingAIQs.map(q=>JSON.parse(JSON.stringify(q)));
@@ -7796,7 +7796,7 @@ function saveHw(id) {
   } else {
     const newH = { id: uid(), title, cls, clsList, due, pts, max, kind, noGrade, projectGraded, brief, illus, deliver, accept, reading, lab, subs: {}, at: Date.now() };
     if(kind==='games') newH.game = {type:'memory', data:[]};
-    if(nafsSel){ newH.nafs = nafsSel.secs; newH.qs = nafsSel.qs; }
+    if(nafsSel){ newH.nafs = nafsSel.secs; newH.nfMode = nafsSel.mode; newH.nfSec = nafsSel.sec; newH.qs = nafsSel.qs; }
     if(kind==='reading' && Array.isArray(window.__readingDemoQs)){ newH.qs = window.__readingDemoQs.map(q=>JSON.parse(JSON.stringify(q))); delete window.__readingDemoQs; }
     if(kind==='reading' && Array.isArray(window.__readingAIQs)){ newH.qs = window.__readingAIQs.map(q=>JSON.parse(JSON.stringify(q))); delete window.__readingAIQs; delete window.__readingAIMeta; }
     HW.push(newH);
@@ -10354,7 +10354,9 @@ function buildPublishPayload(h){
     /* 📊 يدخل في درجة الأنشطة؟ تعرضه البوابة شارةً على النشاط */
     ng:hwCounts(h) ? 0 : 1,
     /* 🧭 نشاط نافس: يظهر للطالب في خانة «نافس» */
-    nf:hwIsNafs(h) ? 1 : 0
+    nf:hwIsNafs(h) ? 1 : 0,
+    /* 🧭 وضع نشاط نافس: train تدريب (تغذية فورية ومحاولة ثانية) · sim محاكاة (مؤقت nt ثانية لكل سؤال) */
+    ...(hwIsNafs(h) ? { nm: h.nfMode==='sim' ? 'sim' : 'train', nt: Number(h.nfSec)||90 } : {})
   };
 }
 

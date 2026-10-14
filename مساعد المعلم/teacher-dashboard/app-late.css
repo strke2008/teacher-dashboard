@@ -2139,3 +2139,9 @@ html body .rep-page.nfp{border:0;box-shadow:none}
 .nf-pc-t th{font-size:.74rem;color:var(--ink-soft,#5A6B84);font-weight:600}
 .nf-pc-t small{color:var(--ink-soft,#5A6B84)}
 .nf-plan-btn{margin-inline-start:.35rem;padding:.15rem .45rem;font-size:.74rem}
+.nafs-modes{display:grid;grid-template-columns:1fr 1fr;gap:.4rem;margin:.2rem 0 .5rem}
+.nafs-modes button{display:flex;flex-direction:column;gap:.15rem;text-align:start;padding:.5rem .6rem;border-radius:10px;border:1.5px solid var(--ui-border,#E3E9F1);background:var(--ui-surface,#fff);color:inherit;font:inherit;cursor:pointer}
+.nafs-modes button small{font-size:.72rem;color:var(--ink-soft,#5A6B84);line-height:1.6}
+.nafs-modes button.on{border-color:#1B9C6B;background:rgba(27,156,107,.08)}
+.nafs-sim-t{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;font-size:.82rem;font-weight:700;margin-bottom:.4rem}
+.nafs-sim-t select{width:auto}.nafs-sim-t small{font-weight:400;color:var(--ink-soft,#5A6B84)}
