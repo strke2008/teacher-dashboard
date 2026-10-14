@@ -425,7 +425,7 @@ function nafsFormRead() {
 }
 
 /* 🖨️ ورقة مطبوعة (كل الأسئلة بأشكالها) أو نموذج الإجابة
-   - ترويسة الطالب: اسم بسطر كتابة عريض + الفصل + التاريخ + الدرجة من مجموع الأسئلة، ثم سطر تعليمات
+   - ترويسة الطالب: اسم بسطر كتابة عريض + الفصل + التاريخ + الدرجة من مجموع الأسئلة
    - الخيارات القصيرة في ٤ أعمدة، والطويلة في عمودين أو عمود — توفّر الورق
    - الشكل المكرر في سؤالين متتاليين يُطبع مرة واحدة · ناتج التعلم يظهر في نموذج الإجابة فقط
    - نموذج الإجابة يبدأ بجدول إجابات سريع للتصحيح */
@@ -434,7 +434,7 @@ function nafsPrint(key) {
   ensureLogo();
   let box = document.getElementById('plan-print'); if (!box) { box = document.createElement('div'); box.id = 'plan-print'; box.className = 'rep'; document.body.appendChild(box); }
   const all = secs.flatMap(s => NAFS_BANK.filter(q => q.s === s.id));
-  const total = all.length, autoN = all.filter(nafsAuto).length;
+  const total = all.length;
   let n = 0, prevImg = '';
   const optCols = q => { const m = Math.max(...q.op.map(o => String(o).length)); return m <= 16 ? 4 : m <= 42 ? 2 : 1; };
   const qHTML = q => { n++;
@@ -448,15 +448,13 @@ function nafsPrint(key) {
       ${key && q.note ? `<div class="nfp-note">${esc(q.note)}</div>` : ''}${key ? `<small class="nfp-out">🎯 ${esc(NAFS_OUT[q.o].short)} · ${q.k === 'off' ? 'مفتاح رسمي' : 'مفتاح مقترح'}</small>` : ''}</div>`; };
   const keyGrid = key ? `<div class="nfp-grid">${all.map((q, i) => `<span><b>${i + 1}</b>${q.t === 'q' ? L4[q.a] : q.t === 'tf' ? (q.a ? 'صح' : 'خطأ') : q.t === 'f' ? esc(q.a) : '✎'}</span>`).join('')}</div>
       <div class="nfp-hint">✎ = سؤال مقالي، نموذج إجابته في موضعه أدناه.</div>` : '';
-  const term = NAFS_TERMS[NAFS.term] || '';
   box.innerHTML = `<div class="rep-page nfp">${repHead(key ? 'نموذج الإجابة — للمعلم' : 'تدريب على الاختبارات الوطنية', key ? 'نافس — نموذج الإجابة' : 'اختبار نافس — علوم')}
     <div class="rep-in">${key ? keyGrid : `<div class="nfp-id">
         <div class="nfp-name"><span>اسم الطالب</span><i></i></div>
         <div><span>الفصل</span><i></i></div>
         <div><span>التاريخ</span><i></i></div>
         <div class="nfp-score"><span>الدرجة</span><i></i><em>من ${total}</em></div>
-      </div>
-      <div class="nfp-ins"><b>التعليمات:</b> علوم الصف الأول المتوسط — ${esc(term)} · عدد الأسئلة <b>${total}</b>${total > autoN ? ` (منها ${total - autoN} مقالي)` : ''} · اقرأ كل سؤال وتأمّل الشكل جيدًا · ظلّل دائرة الإجابة الصحيحة <i></i> · اكتب إجابة الأسئلة المقالية في السطور.</div>`}
+      </div>`}
     ${secs.map(s => `<div class="nfp-sec">${s.ic} ${esc(s.title)}<small>${NAFS_BANK.filter(q => q.s === s.id).length} سؤال</small></div><div class="nfp-qs">${NAFS_BANK.filter(q => q.s === s.id).map(qHTML).join('')}</div>`).join('')}
     <div class="nfp-end">— انتهت الأسئلة — راجع إجاباتك قبل التسليم ✓</div></div></div>`;
   unifiedA4Print({ bodyClass: 'printing-plans', title: key ? 'نافس — نموذج الإجابة' : 'اختبار نافس — علوم', selector: '#plan-print', orientation: 'portrait', margin: '8mm' });
