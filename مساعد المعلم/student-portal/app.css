@@ -1676,3 +1676,4 @@ html[data-pt] body,html[data-pt] .sheet,html[data-pt] .btn,html[data-pt] .studen
 .q-img{margin:.5rem 0 .7rem;text-align:center}
 .q-img img{max-width:100%;max-height:300px;border-radius:12px;border:1px solid var(--rule);background:#fff;padding:4px;cursor:zoom-in;transition:max-height .2s}
 .q-img img.zoom{max-height:none;cursor:zoom-out}
+.q-img.miss{padding:.55rem .7rem;border:1px dashed #E0A100;border-radius:10px;background:#FFF8E6;color:#8A6200;font-size:.82rem;font-weight:700}

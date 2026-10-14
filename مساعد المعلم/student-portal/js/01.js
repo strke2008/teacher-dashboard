@@ -2154,6 +2154,7 @@ async function loadStudentSpace(nm, rows){
       : teacherRetry ? '🔓'
       : purchasedRetry ? '🔁'
       : next.kind==='reading' ? '📖'
+      : isNafsRow(next) ? '🧭'
       : next.kind==='files' ? '🧪'
       : next.kind==='game' ? '🎮'
       : '✏️';
@@ -2439,12 +2440,14 @@ function openJourneyStyleReport(nm){
 /* 🗺️ رسم رحلة الطالب اعتمادًا على حالة الأنشطة الحالية فقط. لا تغيّر درجات أو تسليمات. */
 /* 🔬 «طبّق وجرّب» يجمع المشاريع (files) وتجارب المختبر الافتراضي (lab) */
 function isApplyRow(h){ const k=String(h&&h.kind||''); return k==='files' || k==='lab'; }
+/* 🧭 نشاط نافس: علامة nf من الخادم، أو عنوان يبدأ بـ«نافس» (قبل تحديث الخادم) */
+function isNafsRow(h){ return !!h && !h.remedial && String(h.kind||'normal')==='normal' && (Number(h.nf)===1 || /^\s*نافس(\s|$|[—:-])/.test(String(h.t||h.title||''))); }
 function openLabRow(id){ location.href='lab/?hw='+encodeURIComponent(id); }
 function openJourneyLearning(nm, rows, filterKinds){
   const ws=$('journey-workspace'), content=$('journey-workspace-content');
   if(!ws || !content) return;
   const allowedKinds = Array.isArray(filterKinds) && filterKinds.length ? filterKinds.map(String) : null;
-  const kindOf = h => h && h.remedial ? 'remedial' : String(h?.kind || 'normal');
+  const kindOf = h => h && h.remedial ? 'remedial' : isNafsRow(h) ? 'nafs' : String(h?.kind || 'normal');
   const list=(Array.isArray(rows)?rows:[]).filter(h=>!['style','diag'].includes(kindOf(h)) && (!allowedKinds || allowedKinds.includes(kindOf(h))));
   if(!list.length){ toast(allowedKinds && allowedKinds.includes('files') ? 'لا توجد تجارب أو مشاريع منشورة حاليًا' : 'لا توجد أنشطة تعليمية متاحة الآن','bad'); return; }
 
@@ -2454,6 +2457,7 @@ function openJourneyLearning(nm, rows, filterKinds){
     reading:{icon:'📖',title:'فهم قرائي',desc:'قراءة وفهم وربط واستنتاج'},
     files:{icon:'🧪',title:'تطبيق ومشاريع',desc:'تجارب ومشروعات وتسليمات'},
     lab:{icon:'🔬',title:'المختبر الافتراضي',desc:'جرّب بيدك، لاحظ، ثم فسّر'},
+    nafs:{icon:'🧭',title:'نافس',desc:'تدرّب على أسئلة الاختبارات الوطنية بأشكالها'},
     game:{icon:'🎮',title:'تحديات وألعاب',desc:'تعلم بطريقة تفاعلية'}
   };
   const groups={};
@@ -2462,7 +2466,7 @@ function openJourneyLearning(nm, rows, filterKinds){
     if(!groups[k]) groups[k]=[];
     groups[k].push(h);
   });
-  const order=['remedial','reading','normal','lab','files','game'];
+  const order=['remedial','nafs','reading','normal','lab','files','game'];
   const sorted=[];
   // 🗓️ المسار زمني داخل كل قسم: الأقدم أولًا والأحدث في آخره (كالخطوات)
   const chrono=(a,b)=>(gateTs(a)||Number(a.subAt)||0)-(gateTs(b)||Number(b.subAt)||0);
@@ -2501,7 +2505,7 @@ function openJourneyLearning(nm, rows, filterKinds){
     ${next ? `<div class="jw-next">
       <div class="jw-next-label">🎯 مهمتك الآن</div>
       <div class="jw-next-title">${esc(next.t||'نشاط تعليمي')}</div>
-      <div class="jw-next-reason">${kindOf(next)==='remedial'?'🩹 هذا نشاط علاجي مخصص لمراجعة المهارات التي تحتاج إلى تعزيز.':kindOf(next)==='lab'?'🔬 تجربة في المختبر الافتراضي: نفّذها بنفسك، ولاحظ، ثم فسّر ما حدث.':kindOf(next)==='files'?'🧪 هذه مهمة تطبيقية تحتاج إلى تنفيذها وتسليمها.':kindOf(next)==='reading'?'📖 هذه مهمة فهم قرائي: اقرأ، افهم، ثم أجب وطبّق.':kindOf(next)==='game'?'🎮 هذا تحدٍ تعليمي، أنجزه لتحصل على تجربة تعلم تفاعلية.':'✏️ هذا نشاط تدريب وممارسة، ابدأ به لإكمال خطوتك الحالية.'}</div>
+      <div class="jw-next-reason">${kindOf(next)==='remedial'?'🩹 هذا نشاط علاجي مخصص لمراجعة المهارات التي تحتاج إلى تعزيز.':kindOf(next)==='lab'?'🔬 تجربة في المختبر الافتراضي: نفّذها بنفسك، ولاحظ، ثم فسّر ما حدث.':kindOf(next)==='files'?'🧪 هذه مهمة تطبيقية تحتاج إلى تنفيذها وتسليمها.':kindOf(next)==='reading'?'📖 هذه مهمة فهم قرائي: اقرأ، افهم، ثم أجب وطبّق.':kindOf(next)==='nafs'?'🧭 تدريب على أسئلة نافس الوطنية: اقرأ السؤال وتأمّل الشكل جيدًا قبل الإجابة.':kindOf(next)==='game'?'🎮 هذا تحدٍ تعليمي، أنجزه لتحصل على تجربة تعلم تفاعلية.':'✏️ هذا نشاط تدريب وممارسة، ابدأ به لإكمال خطوتك الحالية.'}</div>
       <div class="jw-next-meta">${hasTeacherRetry(next)?'🔓 لديك صلاحية إعادة التسليم':projectResubmit(next)?'🔁 لديك فرصة لإعادة التسليم':`متاح الآن · لديك ${pending.length} ${pending.length===1?'مهمة متاحة':'مهام متاحة'}`}</div>
       <button type="button" class="btn tick jw-next-btn" id="journey-next-btn">${hasTeacherRetry(next)?'🔓 إعادة التسليم':projectResubmit(next)?'🔁 إعادة التسليم':kindOf(next)==='remedial'?'🎯 ابدأ التطوير':'🚀 ابدأ النشاط الآن'}</button>
     </div>` : `<div class="jw-next" style="border-color:rgba(27,156,107,.35)">
@@ -4275,11 +4279,12 @@ function loadStudentJourney(rows){
   const list=Array.isArray(rows)?rows:[];
   const styleRows=list.filter(h=>String(h.kind||'')==='style');
   const diagRows=list.filter(h=>String(h.kind||'')==='diag');
-  const kindOf = h => h && h.remedial ? 'remedial' : isPureGameRow(h) ? 'game' : String(h?.kind || 'normal');
+  const kindOf = h => h && h.remedial ? 'remedial' : isPureGameRow(h) ? 'game' : isNafsRow(h) ? 'nafs' : String(h?.kind || 'normal');
   const remedialRows=list.filter(h=>kindOf(h)==='remedial');
+  const nafsRows=list.filter(h=>kindOf(h)==='nafs');
   // قسم الألعاب يجمع كل لعبة منشورة، سواء في نشاط ألعاب أو مرفقة بنشاط عادي
   const gameRows=list.filter(h=>isGameRow(h) && !h.remedial);
-  const learningRows=list.filter(h=>!['style','diag','remedial','game'].includes(kindOf(h)));
+  const learningRows=list.filter(h=>!['style','diag','remedial','game','nafs'].includes(kindOf(h)));
   const styleResult=journeyStyleGet(myName);
   const styleDone=styleRows.length>0 && (styleRows.every(h=>!!h.done) || !!styleResult);
   const diagDone=diagRows.length>0 && diagRows.every(h=>!!h.done);
@@ -4294,6 +4299,7 @@ function loadStudentJourney(rows){
     {key:'diag',icon:'🔍',title:'اعرف مستواك',note:diagRows.length?(diagDone?'تم إكمال الاختبار التشخيصي':(styleDone?'الاختبار التشخيصي متاح لك الآن':'أكمل اكتشاف طريقة تعلمك أولًا')):'بانتظار نشر الاختبار التشخيصي',done:diagDone,available:diagRows.length>0&&styleDone,current:styleDone&&!diagDone&&diagRows.length>0,target:diagRows[0]},
     {key:'learning',icon:'🚀',title:'ابدأ رحلة التعلم',pending:startDone?learningRows.filter(h=>!isApplyRow(h)&&!h.done).length:0,note:!startDone?'تُفتح بعد إكمال اختباري البداية':learningRows.filter(h=>!isApplyRow(h)).length?(learningDone?'أكملت أنشطة التعلم والفهم المتاحة':jsPendingText(learningRows.filter(h=>!isApplyRow(h)&&!h.done).length,'نشاط','أنشطة','لم يُحل','لم تُحل')):'ستظهر هنا أنشطة التعلم والفهم عند نشرها',done:learningDone,available:startDone&&learningRows.some(h=>!isApplyRow(h)),current:startDone&&!learningDone&&learningRows.some(h=>!isApplyRow(h)),target:null},
     {key:'apply',icon:'🧪',title:'طبّق وجرّب',pending:startDone?learningRows.filter(h=>isApplyRow(h)&&!h.done).length:0,note:!startDone?'تُفتح بعد إكمال اختباري البداية':(learningRows.filter(h=>isApplyRow(h)).length ? (learningRows.filter(h=>isApplyRow(h)).every(h=>h.done)?'أكملت التجارب والمشاريع المتاحة':jsPendingText(learningRows.filter(h=>isApplyRow(h)&&!h.done).length,'تجربة','تجارب','لم تُسلَّم','لم تُسلَّم')) : 'ستظهر هنا التجارب والمشاريع عند نشرها'),done:startDone&&learningRows.some(h=>isApplyRow(h))&&learningRows.filter(h=>isApplyRow(h)).every(h=>h.done),available:startDone&&learningRows.some(h=>isApplyRow(h)),current:startDone&&learningRows.some(h=>isApplyRow(h)&&!h.done)},
+    {key:'nafs',icon:'🧭',title:'نافس',pending:startDone?nafsRows.filter(h=>!h.done).length:0,note:!nafsRows.length?'ستظهر هنا اختبارات نافس التدريبية عند نشرها':!startDone?'تُفتح بعد إكمال اختباري البداية':nafsRows.every(h=>!!h.done)?'أكملت اختبارات نافس المتاحة ✓':jsPendingText(nafsRows.filter(h=>!h.done).length,'اختبار','اختبارات','لم يُحل','لم تُحل'),done:startDone&&nafsRows.length>0&&nafsRows.every(h=>!!h.done),available:startDone&&nafsRows.length>0,current:false},
     {key:'games',icon:'🎮',title:'الألعاب',pending:startDone?countUnplayedGames(gameRows):0,note:!gameRows.length?'ستظهر هنا الألعاب عند نشرها':!startDone?'تُفتح بعد إكمال اختباري البداية':countUnplayedGames(gameRows)?jsPendingText(countUnplayedGames(gameRows),'لعبة','ألعاب','لم تلعبها بعد','لم تلعبها بعد',` (من ${countGames(gameRows)})`,'العب الآن'):`لعبت كل الألعاب المتاحة (${countGames(gameRows)}) ✓`,done:startDone&&gameRows.length>0&&countGames(gameRows)>0&&countUnplayedGames(gameRows)===0,available:startDone&&gameRows.length>0,current:false,target:gameRows[0]},
     {key:'develop',icon:'🎯',title:'طوّر مستواك',pending:remedialRows.filter(h=>!h.done).length,note:remedialRows.length?(remedialRows.every(h=>!!h.done)?'أكملت الأنشطة العلاجية المتاحة':'لديك أنشطة علاجية لتعزيز المهارات التي تحتاج إلى مراجعة'):'ستظهر هنا الأنشطة العلاجية عند نشرها',done:remedialRows.length>0&&remedialRows.every(h=>!!h.done),available:remedialRows.length>0,current:remedialRows.some(h=>!h.done),target:remedialRows.find(h=>!h.done)||remedialRows[0]}
   ];
@@ -4314,9 +4320,10 @@ function loadStudentJourney(rows){
     const applyOpen=x.key==='apply'&&x.available;
     const developOpen=x.key==='develop'&&x.available;
     const gamesOpen=x.key==='games'&&x.available;
-    const clickable=styleReport||learningOpen||applyOpen||gamesOpen||developOpen||!!x.target&&(x.current||x.available);
-    const attrs=styleReport?'data-journey-style-report="1"':learningOpen?'data-journey-learning="1"':applyOpen?'data-journey-apply="1"':gamesOpen?'data-journey-games="1"':developOpen?'data-journey-develop="1"':(clickable?`data-journey-id="${esc(x.target.id||'')}"`:'');
-    const stateText=styleReport?'📊 عرض التقرير':learningOpen?'📚 عرض الأنشطة':applyOpen?'🧪 عرض التجارب':gamesOpen?'🎴 عرض الألعاب':developOpen?'🩹 عرض الأنشطة العلاجية':state;
+    const nafsOpen=x.key==='nafs'&&x.available;
+    const clickable=styleReport||learningOpen||applyOpen||gamesOpen||developOpen||nafsOpen||!!x.target&&(x.current||x.available);
+    const attrs=styleReport?'data-journey-style-report="1"':learningOpen?'data-journey-learning="1"':applyOpen?'data-journey-apply="1"':nafsOpen?'data-journey-nafs="1"':gamesOpen?'data-journey-games="1"':developOpen?'data-journey-develop="1"':(clickable?`data-journey-id="${esc(x.target.id||'')}"`:'');
+    const stateText=styleReport?'📊 عرض التقرير':learningOpen?'📚 عرض الأنشطة':applyOpen?'🧪 عرض التجارب':nafsOpen?'🧭 عرض اختبارات نافس':gamesOpen?'🎴 عرض الألعاب':developOpen?'🩹 عرض الأنشطة العلاجية':state;
     const reportHint=styleReport?'<span style="display:block;margin-top:.25rem;color:var(--tick);font-size:.76rem;font-weight:700">نتيجتك محفوظة • اضغط لعرض التقرير</span>':'';
     const pend=!x.done&&x.available&&Number(x.pending)>0;
   return `<div class="journey-step ${cls}${pend?' pending':''}" ${attrs}><div class="js-icon">${x.done?'✓':x.icon}${pend?`<b class="js-badge">${Number(x.pending)}</b>`:''}</div><div class="js-body"><span class="js-title">${i+1}. ${esc(x.title)}</span><span class="js-note">${esc(x.note)}</span>${reportHint}</div><span class="js-state">${stateText}</span></div>`;
@@ -4324,6 +4331,7 @@ function loadStudentJourney(rows){
   $('journey-steps').querySelectorAll('[data-journey-style-report]').forEach(el=>el.onclick=()=>openJourneyStyleReport(myName));
   $('journey-steps').querySelectorAll('[data-journey-learning]').forEach(el=>el.onclick=()=>openJourneyLearning(myName, learningRows, ['reading','normal','game']));
   $('journey-steps').querySelectorAll('[data-journey-apply]').forEach(el=>el.onclick=()=>openJourneyLearning(myName, learningRows, ['files','lab']));
+  $('journey-steps').querySelectorAll('[data-journey-nafs]').forEach(el=>el.onclick=()=>openJourneyLearning(myName, nafsRows, ['nafs']));
   $('journey-steps').querySelectorAll('[data-journey-games]').forEach(el=>el.onclick=()=>openJourneyGames(myName, gameRows));
   $('journey-steps').querySelectorAll('[data-journey-develop]').forEach(el=>el.onclick=()=>openJourneyLearning(myName, remedialRows, ['remedial']));
   $('journey-steps').querySelectorAll('[data-journey-id]').forEach(el=>el.onclick=()=>{
@@ -4527,7 +4535,7 @@ async function gateLoad(nm, opts){
       const late = h.due && h.due < t && !h.done;
       const gameRow = isGameRow(h);
       const KI = { style:'🧠', diag:'🔍' };
-      const kicon = gameRow ? '🎮' : (KI[h.kind] || '');
+      const kicon = gameRow ? '🎮' : isNafsRow(h) ? '🧭' : (KI[h.kind] || '');
       const isProject = h.kind === 'files';
       // المشروع بلا مهام: لا «مراجعة أخطاء» ولا بطاقات إعادة/مراجعة مبكرة — حالته هي قرار المعلم
       const canReview = h.done && !isProject && (h.kind === 'style' || h.kind === 'diag' || !h.due || h.due < t);
@@ -5641,7 +5649,9 @@ function readingCurrentStageName(){
 
 /* 🖼️ شكل السؤال (أسئلة نافس: رسم بياني/جدول/خيارات مرسومة) — مسار من مجلد البوابة أو رابط https فقط */
 function qImgSrc(q){ const s=String(q&&q.img||''); return /^nafs\/[\w.-]+\.(webp|png|jpe?g)$/i.test(s)||/^https:\/\/[^\s"'<>]+$/i.test(s)?s:''; }
-function qImgHTML(q){ const s=qImgSrc(q); return s?`<div class="q-img"><img src="${esc(s)}" alt="شكل السؤال — اضغط للتكبير" loading="lazy" onclick="this.classList.toggle('zoom')"></div>`:''; }
+function qImgHTML(q){ const s=qImgSrc(q); return s?`<div class="q-img"><img src="${esc(s)}" alt="شكل السؤال — اضغط للتكبير" loading="lazy" onclick="this.classList.toggle('zoom')" onerror="qImgMiss(this)"></div>`:''; }
+/* الشكل لم يُحمَّل (مثلًا مجلد nafs غير مرفوع للموقع): تنبيه واضح بدل فراغ صامت */
+function qImgMiss(img){ const b=img&&img.parentNode; if(!b) return; b.classList.add('miss'); b.textContent='⚠️ تعذّر تحميل شكل هذا السؤال — أبلغ معلمك'; }
 function isReadingActivity(){ return !!(HW && HW.kind === 'reading'); }
 
 function render(){

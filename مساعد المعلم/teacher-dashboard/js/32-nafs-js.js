@@ -388,12 +388,40 @@ function nafsPick(id, on) { if (on) NAFS.pick.add(id); else NAFS.pick.delete(id)
 function nafsMakeActivity() {
   const secs = nafsPicked(), ids = new Set(secs.map(s => s.id)), qs = NAFS_BANK.filter(q => ids.has(q.s) && nafsAuto(q)).map(nafsToQ);
   if (!qs.length) return;
-  const title = 'نافس — ' + (secs.length === nafsSecs().length ? `علوم ${NAFS_TERMS[NAFS.term].replace('الدراسي ', '')} (شامل)` : secs.map(s => s.title).join(' + '));
+  const title = 'نافس — ' + (secs.length === nafsSecs().length ? `علوم ${NAFS_TERMS[NAFS.term].replace('الدراسي ', '')} (شامل)` : secs.length > 2 ? `علوم ${NAFS_TERMS[NAFS.term].replace('الدراسي ', '')} (${secs.length} أقسام)` : secs.map(s => s.title).join(' + '));
   const h = { id: uid(), title, cls: '', clsList: [], due: '', pts: 30, max: 20, kind: 'normal', noGrade: true, nafs: secs.map(s => s.id), qs, subs: {}, at: Date.now() };
   HW.push(h); save(K.hw, HW);
   toast(`✍️ أُنشئ «${title}» بـ ${qs.length} سؤال — حدّد الفصل وموعد الإغلاق ثم انشره`, 'good');
   try { goTab('hw'); } catch (e) {}
   setTimeout(() => { try { openHwForm(h.id); } catch (e) {} }, 350);
+}
+
+/* 📝 نوع «نافس» في نموذج إنشاء النشاط: الفصل + الأقسام ← الأسئلة التي تُصحَّح آليًا */
+const NAFS_F = { term: 1, pick: new Set() };
+function nafsFormPicker(h) {
+  const own = h && Array.isArray(h.nafs) ? h.nafs.filter(id => NAFS_SECTIONS.some(s => s.id === id)) : [];
+  NAFS_F.term = own.length ? NAFS_SECTIONS.find(s => s.id === own[0]).term : NAFS.term;
+  NAFS_F.pick = new Set(own.length ? own : NAFS_SECTIONS.filter(s => s.term === NAFS_F.term).map(s => s.id));
+  return `<div class="nafs-form">${nafsFormBody()}</div>`;
+}
+function nafsFormBody() {
+  const secs = NAFS_SECTIONS.filter(s => s.term === NAFS_F.term);
+  const ids = new Set(secs.filter(s => NAFS_F.pick.has(s.id)).map(s => s.id));
+  const qs = NAFS_BANK.filter(q => ids.has(q.s)), auto = qs.filter(nafsAuto).length, imgs = qs.filter(q => nafsAuto(q) && q.img).length;
+  return `<div class="nafs-terms nafs-terms-sm">${[1, 2].map(n => `<button type="button" class="${NAFS_F.term === n ? 'on' : ''}" onclick="nafsFormTerm(${n})"><b>${NAFS_TERMS[n]}</b></button>`).join('')}</div>
+    <div class="nafs-form-secs">${secs.map(s => { const n = NAFS_BANK.filter(q => q.s === s.id && nafsAuto(q)).length;
+      return `<label class="nafs-form-sec ${NAFS_F.pick.has(s.id) ? 'on' : ''}"><input type="checkbox" ${NAFS_F.pick.has(s.id) ? 'checked' : ''} onchange="nafsFormPick('${s.id}',this.checked)"><span>${s.ic} ${esc(s.title)}</span><small>${n} سؤال</small></label>`; }).join('')}</div>
+    <div class="nafs-form-sum">${auto ? `✍️ <b>${auto}</b> سؤال يُصحَّح آليًا${imgs ? ` · 🖼️ ${imgs} بأشكالها` : ''} · كل سؤال مرتبط بناتج تعلمه` : '⚠️ اختر قسمًا واحدًا على الأقل'}
+      <br><small>الأسئلة المقالية لا تدخل النشاط — اطبعها من تبويب «🧭 نافس ونواتج التعلم».</small></div>`;
+}
+function nafsFormRefresh() { const b = document.querySelector('#h-nafs-wrap .nafs-form'); if (b) b.innerHTML = nafsFormBody(); }
+function nafsFormTerm(n) { NAFS_F.term = n === 2 ? 2 : 1; NAFS_F.pick = new Set(NAFS_SECTIONS.filter(s => s.term === NAFS_F.term).map(s => s.id)); nafsFormRefresh(); }
+function nafsFormPick(id, on) { if (on) NAFS_F.pick.add(id); else NAFS_F.pick.delete(id); nafsFormRefresh(); }
+function nafsFormRead() {
+  const secs = NAFS_SECTIONS.filter(s => s.term === NAFS_F.term && NAFS_F.pick.has(s.id)), ids = new Set(secs.map(s => s.id));
+  const all = NAFS_SECTIONS.filter(s => s.term === NAFS_F.term).length;
+  return { secs: secs.map(s => s.id), qs: NAFS_BANK.filter(q => ids.has(q.s) && nafsAuto(q)).map(nafsToQ),
+    title: 'نافس — ' + (secs.length === all ? `علوم ${NAFS_TERMS[NAFS_F.term].replace('الدراسي ', '')} (شامل)` : secs.length > 2 ? `علوم ${NAFS_TERMS[NAFS_F.term].replace('الدراسي ', '')} (${secs.length} أقسام)` : secs.map(s => s.title).join(' + ')) };
 }
 
 /* 🖨️ ورقة مطبوعة (كل الأسئلة بأشكالها) أو نموذج الإجابة */

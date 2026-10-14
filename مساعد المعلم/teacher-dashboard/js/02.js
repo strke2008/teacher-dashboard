@@ -7320,7 +7320,7 @@ function renderHw() {
         <span class="spacer"></span>
         ${h.due ? `<span class="pill ${late ? 'due' : 'quiet'}">${late ? 'انتهى' : 'يُغلق'} ${esc(h.due)}</span>` : ''}
         ${(h.kind||'normal')==='normal'
-          ? `<span class="pill quiet">${h.max || 20} درجة</span><span class="pill pts">${h.pts} نقطة</span>`
+          ? `${hwIsNafs(h)?'<span class="pill" style="background:rgba(46,107,184,.14);color:#2E6BB8">🧭 نافس</span>':''}<span class="pill quiet">${h.max || 20} درجة</span><span class="pill pts">${h.pts} نقطة</span>`
           : h.kind==='lab'
             ? `<span class="pill" style="background:rgba(46,107,184,.14);color:#2E6BB8">🔬 مختبر</span><span class="pill quiet">${h.max || 20} درجة</span><span class="pill pts">${h.pts} نقطة</span>`
           : h.kind==='diag'
@@ -7381,12 +7381,12 @@ function openHwForm(id) {
     <div class="field" style="margin-bottom:.35rem"><label>ما نوع هذا النشاط؟</label></div>
     <div class="kind-tiles">
       ${HW_KINDS.map(k=>`<button type="button" class="kind-tile" data-kind="${k.v}"
-        aria-pressed="${(h?((h.kind==='game'?'games':(h.kind||'normal'))===k.v):k.v==='normal')?'true':'false'}"
+        aria-pressed="${hwFormKind(h)===k.v?'true':'false'}"
         onclick="hwPickKind('${k.v}')">
         <span class="ki">${k.ic}</span><b>${k.t}</b><small>${k.d}</small></button>`).join('')}
     </div>
-    <select id="h-kind" style="display:none" onchange="hwKindChanged()">
-      ${HW_KINDS.map(k=>`<option value="${k.v}" ${(h?((h.kind==='game'?'games':(h.kind||'normal'))===k.v):k.v==='normal')?'selected':''}>${k.t}</option>`).join('')}
+    <select id="h-kind" style="display:none" onchange="hwKindChanged()" data-new="${h?'':'1'}">
+      ${HW_KINDS.map(k=>`<option value="${k.v}" ${hwFormKind(h)===k.v?'selected':''}>${k.t}</option>`).join('')}
     </select>
     <div class="field"><label>العنوان</label>
       <input class="inp" id="h-title" value="${h ? esc(h.title) : ''}" placeholder="مثال: مراجعة درس الثدييات"></div>
@@ -7474,6 +7474,8 @@ function openHwForm(id) {
         </div>
       </div>
 
+      <div id="h-nafs-wrap" style="display:none;margin-top:.65rem">${typeof nafsFormPicker==='function' ? nafsFormPicker(h) : ''}</div>
+
       <label id="h-project-grade-wrap" class="row" style="display:none;gap:.5rem;margin-top:.65rem;padding:.65rem .75rem;border:1px solid var(--rule);border-radius:10px;background:rgba(27,156,107,.05);cursor:pointer">
         <input type="checkbox" id="h-project-grade" ${h && h.kind==='files' && h.projectGraded ? 'checked' : ''}>
         <span><b>☑️ احتساب المشروع ضمن درجات المشاريع</b><br><small style="color:var(--ink-soft)">المشاريع المؤكدة فقط تدخل في درجة المشاريع الكاملة (10 درجات).</small></span>
@@ -7509,6 +7511,7 @@ const KIND_NOTE = {
   style:  'لا إجابة صحيحة — كل خيار يُصنّف نمط تعلّم، والنتيجة نمط الطالب الغالب. لا يدخل درجة الأنشطة.',
   reading:'نص علمي مع أسئلة موزعة على مراحل الفهم القرائي. 📊 يدخل في درجة الأنشطة.',
   files:  'يرفع الطالب صور تنفيذ المشروع أو ملف PDF. لا يدخل ضمن الأنشطة، ويمكن تأكيد احتسابه ضمن درجات المشاريع.',
+  nafs:   'أسئلة الاختبارات الوطنية (نافس) بأشكالها ونواتج تعلمها — تُصحَّح آليًا. اختر الفصل والأقسام وتُضاف الأسئلة تلقائيًا. يظهر للطالب في خانة «🧭 نافس». افتراضيًا تدريب بلا درجة.',
   lab:    'تجربة في المختبر الافتراضي: يخلط الطالب ويلاحظ ويجيب ويفصل عمليًا. يصحّحها الخادم. 📊 تدخل في درجة الأنشطة مع نقاط المتجر. تظهر للطالب في «طبّق وجرّب».',
   games:  'نشاط تفاعلي مستقل — تدريب لا يدخل درجة الأنشطة. اختر 🎴 كشف الكلمات أو 🔐 افتح القفل، ويمكن توليد محتوى اللعبة بالذكاء الاصطناعي.'
 };
@@ -7519,8 +7522,12 @@ const HW_KINDS=[
   {v:'diag',   ic:'🔍', t:'تشخيصي',      d:'قياس مستوى بلا نقاط'},
   {v:'style',  ic:'🧠', t:'أنماط التعلّم', d:'تصنيف بلا إجابة صحيحة'},
   {v:'files',  ic:'📎', t:'تسليم ملفات', d:'صور أو PDF أو فيديو'},
-  {v:'lab',    ic:'🔬', t:'مختبر افتراضي', d:'تجربة تفاعلية بدرجة'}
+  {v:'lab',    ic:'🔬', t:'مختبر افتراضي', d:'تجربة تفاعلية بدرجة'},
+  {v:'nafs',   ic:'🧭', t:'نافس',        d:'أسئلة وطنية بالأشكال'}
 ];
+/* 🧭 نشاط نافس يُحفظ «عاديًا» (kind normal) مع قائمة أقسامه h.nafs — فتعمل معه المهارات والعلاج والتصحيح كما هي */
+const hwIsNafs=h=>!!(h && (h.kind||'normal')==='normal' && Array.isArray(h.nafs) && h.nafs.length);
+const hwFormKind=h=>!h ? 'normal' : hwIsNafs(h) ? 'nafs' : (h.kind==='game' ? 'games' : (h.kind||'normal'));
 /* 🔬 المختبر الافتراضي — المواد المتاحة لموضوع «المخاليط» (يطابق صفحة المختبر والـ Worker) */
 const LAB_MATS=[['water','الماء'],['oil','الزيت'],['salt','الملح'],['sugar','السكر'],['sand','الرمل'],['gravel','الحصى'],['iron','برادة الحديد']];
 const labMatName=k=>(LAB_MATS.find(x=>x[0]===k)||[k,k])[1];
@@ -7552,6 +7559,8 @@ function labSummary(h){
 
 function hwPickKind(v){
   const sel=document.getElementById('h-kind');
+  // نشاط نافس جديد: تدريب بلا درجة افتراضيًا (ويعود الاحتساب عند اختيار نوع آخر)
+  if(sel && sel.dataset.new==='1' && (v==='nafs') !== (sel.value==='nafs')){ const g=document.getElementById('h-grade'); if(g) g.checked = v!=='nafs'; }
   if(sel) sel.value=v;
   document.querySelectorAll('.kind-tile').forEach(b=>
     b.setAttribute('aria-pressed', b.dataset.kind===v ? 'true' : 'false'));
@@ -7562,9 +7571,11 @@ function hwKindChanged(){
   const k = (document.getElementById('h-kind')||{}).value || 'normal';
   const box = document.getElementById('h-scores');
   const note = document.getElementById('h-kind-note');
-  if(box) box.style.display = (k === 'normal' || k === 'reading' || k === 'lab') ? '' : 'none';
+  if(box) box.style.display = (k === 'normal' || k === 'reading' || k === 'lab' || k === 'nafs') ? '' : 'none';
   const gw = document.getElementById('h-grade-wrap');
-  if(gw) gw.style.display = GRADE_KINDS.includes(k) ? '' : 'none';
+  if(gw) gw.style.display = (GRADE_KINDS.includes(k) || k === 'nafs') ? '' : 'none';
+  const nw = document.getElementById('h-nafs-wrap');
+  if(nw) nw.style.display = (k === 'nafs') ? '' : 'none';
   const lw = document.getElementById('h-lab-wrap');
   if(lw) lw.style.display = (k === 'lab') ? '' : 'none';
   if(k === 'lab') labTopicChanged();
@@ -7715,10 +7726,23 @@ function hwClsPickerRead(id){
 }
 
 function saveHw(id) {
-  const title = document.getElementById('h-title').value.trim();
+  let title = document.getElementById('h-title').value.trim();
   const { cls, clsList } = hwClsPickerRead('h-cls');
   const due = document.getElementById('h-due').value;
-  const kind = (document.getElementById('h-kind')||{}).value || 'normal';
+  const pickedKind = (document.getElementById('h-kind')||{}).value || 'normal';
+  // 🧭 نافس: أسئلة الأقسام المختارة من بنك نافس، ثم يُحفظ النشاط «عاديًا» بقائمة أقسامه
+  let nafsSel = null;
+  if(pickedKind==='nafs'){
+    nafsSel = typeof nafsFormRead==='function' ? nafsFormRead() : null;
+    if(!nafsSel || !nafsSel.secs.length){ toast('اختر قسمًا واحدًا على الأقل من أقسام نافس', 'bad'); return; }
+    if(!nafsSel.qs.length){ toast('لا أسئلة تُصحَّح آليًا في الأقسام المختارة', 'bad'); return; }
+    if(!title) title = nafsSel.title;
+    const old = id && HW.find(x=>x.id===id);
+    const same = old && Array.isArray(old.nafs) && old.nafs.slice().sort().join()===nafsSel.secs.slice().sort().join();
+    if(old && !same && Object.keys(old.subs||{}).length){ toast('حلّ طلاب هذا النشاط — لا يمكن تغيير أقسام نافس الآن. أنشئ نشاط نافس جديدًا.', 'bad'); return; }
+    if(same) nafsSel.keep = true;
+  }
+  const kind = pickedKind==='nafs' ? 'normal' : pickedKind;
   const pts = (kind==='normal' || kind==='reading' || kind==='lab') ? Math.max(1, +document.getElementById('h-pts').value || 50) : 0;
   const max = (kind==='normal' || kind==='reading' || kind==='lab') ? Math.max(1, +document.getElementById('h-max').value || 20) : 0;
   let lab = null;
@@ -7751,6 +7775,8 @@ function saveHw(id) {
   if (id) {
     const h = HW.find(x => x.id === id);
     Object.assign(h, { title, cls, clsList, due, pts, max, kind, noGrade, projectGraded, brief, illus, deliver, accept, reading, lab });
+    if(nafsSel){ h.nafs = nafsSel.secs; if(!nafsSel.keep) h.qs = nafsSel.qs; }
+    else if(pickedKind!=='nafs' && Array.isArray(h.nafs)) delete h.nafs;   // غيّر المعلم النوع: تبقى الأسئلة ويزول وسم نافس
     if(kind==='reading' && Array.isArray(window.__readingAIQs)){
       h.qs = window.__readingAIQs.map(q=>JSON.parse(JSON.stringify(q)));
       delete window.__readingAIQs; delete window.__readingAIMeta;
@@ -7759,6 +7785,7 @@ function saveHw(id) {
   } else {
     const newH = { id: uid(), title, cls, clsList, due, pts, max, kind, noGrade, projectGraded, brief, illus, deliver, accept, reading, lab, subs: {}, at: Date.now() };
     if(kind==='games') newH.game = {type:'memory', data:[]};
+    if(nafsSel){ newH.nafs = nafsSel.secs; newH.qs = nafsSel.qs; }
     if(kind==='reading' && Array.isArray(window.__readingDemoQs)){ newH.qs = window.__readingDemoQs.map(q=>JSON.parse(JSON.stringify(q))); delete window.__readingDemoQs; }
     if(kind==='reading' && Array.isArray(window.__readingAIQs)){ newH.qs = window.__readingAIQs.map(q=>JSON.parse(JSON.stringify(q))); delete window.__readingAIQs; delete window.__readingAIMeta; }
     HW.push(newH);
@@ -8484,6 +8511,11 @@ function openQs(id){
     </div>`);
 }
 
+/* 🖼️ حقول السؤال التي لا يحررها المحرر (الشكل، المهارة، ربط نافس…) تُحفظ في الصف وتعود عند الحفظ —
+   كان المحرر يعيد بناء السؤال من الحقول الظاهرة فقط فتضيع صور أسئلة نافس */
+const Q_EDITED=new Set(['t','q','o','a','tags','w','h','s','p','stage']);
+function qRowExtras(q){ const x={}; Object.keys(q||{}).forEach(k=>{ if(!Q_EDITED.has(k) && q[k]!=null && q[k]!=='') x[k]=q[k]; }); return x; }
+function qRowKeep(r){ try{ return r && r.dataset.x ? JSON.parse(r.dataset.x) : {}; }catch(e){ return {}; } }
 function qRow(q,i){
   const k = q.t || 'q';
   let body = '';
@@ -8532,13 +8564,15 @@ function qRow(q,i){
            ${[['pre','🎯 قبل القراءة'],['during','📖 أثناء القراءة'],['post','🧠 بعد القراءة'],['apply','🔬 التطبيق']].map(([v,l])=>`<option value="${v}" ${(q.stage||'during')===v?'selected':''}>${l}</option>`).join('')}
          </select>
        </div>` : '';
-  return `<div class="ruled" data-q="${i}" data-k="${k}"${q.ev?` data-ev="${esc(q.ev)}"`:''}${q.sk?` data-sk="${esc(q.sk)}"`:''} style="padding:.8rem 1rem">
+  const keep = qRowExtras(q), keepImg = keep.img && /^(nafs\/[\w.-]+\.(webp|png|jpe?g)|https:\/\/\S+)$/i.test(String(keep.img)) ? String(keep.img) : '';
+  return `<div class="ruled" data-q="${i}" data-k="${k}"${q.ev?` data-ev="${esc(q.ev)}"`:''}${q.sk?` data-sk="${esc(q.sk)}"`:''}${Object.keys(keep).length?` data-x="${esc(JSON.stringify(keep))}"`:''} style="padding:.8rem 1rem">
     <div class="row" style="margin-bottom:.4rem">
       <span class="pill quiet">${QT[k]}</span>
       <span class="spacer"></span>
       <button class="btn ghost sm" onclick="this.closest('[data-q]').remove()">حذف</button>
     </div>
     ${needsQ ? `<input class="inp f-q" value="${esc(q.q||'')}" placeholder="${k==='f'?'اكتب الجملة وضع ___ مكان الفراغ':'نص السؤال'}" style="margin-bottom:.45rem">` : ''}
+    ${keepImg ? `<div class="q-row-img"><img src="${esc(keepImg)}" alt="شكل السؤال" loading="lazy"><small>🖼️ شكل السؤال${keep.skill?` · 🎯 ${esc(keep.skill)}`:''} — يبقى مع السؤال عند الحفظ</small></div>` : ''}
     ${readingStage}
     ${body}
   </div>`;
@@ -9451,6 +9485,7 @@ function addQ(kind){
 }
 
 function exportQsJson(id){
+  const qsPush=(r,x)=>qs.push(Object.assign(qRowKeep(r),x));
   const h = HW.find(x=>x.id===id); if(!h) return;
   const rows = [...document.querySelectorAll('#qs-box [data-q]')];
   let qs = [];
@@ -9468,21 +9503,21 @@ function exportQsJson(id){
         if(!q || o.length<2) return;
         if(QS_KIND==='style'){
           const TAGS=['بصري','سمعي','حركي','قرائي/كتابي'];
-          qs.push(Object.assign({t:'q',q,o,a:0,tags:TAGS.slice(0,o.length)}, QS_KIND==='reading'?readingRowExtra(r,stage):{}));
+          qsPush(r,Object.assign({t:'q',q,o,a:0,tags:TAGS.slice(0,o.length)}, QS_KIND==='reading'?readingRowExtra(r,stage):{}));
         }else{
-          qs.push(Object.assign({t:'q',q,o,a:Math.min(picked?+picked.value:0,o.length-1)}, QS_KIND==='reading'?readingRowExtra(r,stage):{}));
+          qsPush(r,Object.assign({t:'q',q,o,a:Math.min(picked?+picked.value:0,o.length-1)}, QS_KIND==='reading'?readingRowExtra(r,stage):{}));
         }
       }
-      else if(k==='tf'){ const q=val('.f-q'); if(!q) return; qs.push(Object.assign({t:'tf',q,a:picked ? picked.value==='1' : true}, QS_KIND==='reading'?readingRowExtra(r,stage):{})); }
-      else if(k==='f'){ const q=val('.f-q'), a=val('.f-a'); if(!q || !a) return; qs.push(Object.assign({t:'f',q,a}, QS_KIND==='reading'?readingRowExtra(r,stage):{})); }
-      else if(k==='a'){ const w=val('.f-w'); if(!w) return; qs.push(Object.assign({t:'a',w,h:val('.f-h')}, QS_KIND==='reading'?readingRowExtra(r,stage):{})); }
-      else if(k==='s'){ const ss=val('.f-s'); if(!ss || ss.split(/\s+/).length<2) return; qs.push(Object.assign({t:'s',s:ss}, QS_KIND==='reading'?readingRowExtra(r,stage):{})); }
+      else if(k==='tf'){ const q=val('.f-q'); if(!q) return; qsPush(r,Object.assign({t:'tf',q,a:picked ? picked.value==='1' : true}, QS_KIND==='reading'?readingRowExtra(r,stage):{})); }
+      else if(k==='f'){ const q=val('.f-q'), a=val('.f-a'); if(!q || !a) return; qsPush(r,Object.assign({t:'f',q,a}, QS_KIND==='reading'?readingRowExtra(r,stage):{})); }
+      else if(k==='a'){ const w=val('.f-w'); if(!w) return; qsPush(r,Object.assign({t:'a',w,h:val('.f-h')}, QS_KIND==='reading'?readingRowExtra(r,stage):{})); }
+      else if(k==='s'){ const ss=val('.f-s'); if(!ss || ss.split(/\s+/).length<2) return; qsPush(r,Object.assign({t:'s',s:ss}, QS_KIND==='reading'?readingRowExtra(r,stage):{})); }
       else if(k==='m'){
         const L=[...r.querySelectorAll('.f-l')].map(x=>x.value.trim());
         const R=[...r.querySelectorAll('.f-r')].map(x=>x.value.trim());
         const p=L.map((l,j)=>[l,R[j]||'']).filter(x=>x[0]&&x[1]);
         if(p.length<2) return;
-        qs.push(Object.assign({t:'m',p}, QS_KIND==='reading'?readingRowExtra(r,stage):{}));
+        qsPush(r,Object.assign({t:'m',p}, QS_KIND==='reading'?readingRowExtra(r,stage):{}));
       }
     });
   }else{
@@ -10013,6 +10048,7 @@ async function saveStudentGameSettings(id){
 }
 
 async function saveQs(id){
+  const qsPush=(r,x)=>qs.push(Object.assign(qRowKeep(r),x));
   const h = HW.find(x=>x.id===id);
   if(!h) return;
 
@@ -10034,28 +10070,28 @@ async function saveQs(id){
       if(!q || o.length<2) return;
       if(QS_KIND==='style'){
         const tags=['بصري','سمعي','حركي','قرائي/كتابي'];
-        qs.push(Object.assign({t:'q',q,o,a:0,tags:tags.slice(0,o.length)},QS_KIND==='reading'?readingRowExtra(r,stage):{}));
+        qsPush(r,Object.assign({t:'q',q,o,a:0,tags:tags.slice(0,o.length)},QS_KIND==='reading'?readingRowExtra(r,stage):{}));
       }else{
-        qs.push(Object.assign({t:'q',q,o,a:Math.min(picked?+picked.value:0,o.length-1)},QS_KIND==='reading'?readingRowExtra(r,stage):{}));
+        qsPush(r,Object.assign({t:'q',q,o,a:Math.min(picked?+picked.value:0,o.length-1)},QS_KIND==='reading'?readingRowExtra(r,stage):{}));
       }
     }else if(k==='tf'){
       const q=val('.f-q'); if(!q) return;
-      qs.push(Object.assign({t:'tf',q,a:picked ? picked.value==='1' : true},QS_KIND==='reading'?readingRowExtra(r,stage):{}));
+      qsPush(r,Object.assign({t:'tf',q,a:picked ? picked.value==='1' : true},QS_KIND==='reading'?readingRowExtra(r,stage):{}));
     }else if(k==='f'){
       const q=val('.f-q'),a=val('.f-a'); if(!q||!a) return;
-      qs.push(Object.assign({t:'f',q,a},QS_KIND==='reading'?readingRowExtra(r,stage):{}));
+      qsPush(r,Object.assign({t:'f',q,a},QS_KIND==='reading'?readingRowExtra(r,stage):{}));
     }else if(k==='a'){
       const w=val('.f-w'); if(!w) return;
-      qs.push(Object.assign({t:'a',w,h:val('.f-h')},QS_KIND==='reading'?readingRowExtra(r,stage):{}));
+      qsPush(r,Object.assign({t:'a',w,h:val('.f-h')},QS_KIND==='reading'?readingRowExtra(r,stage):{}));
     }else if(k==='s'){
       const s=val('.f-s'); if(!s||s.split(/\s+/).length<2) return;
-      qs.push(Object.assign({t:'s',s},QS_KIND==='reading'?readingRowExtra(r,stage):{}));
+      qsPush(r,Object.assign({t:'s',s},QS_KIND==='reading'?readingRowExtra(r,stage):{}));
     }else if(k==='m'){
       const left=[...r.querySelectorAll('.f-l')].map(x=>x.value.trim());
       const right=[...r.querySelectorAll('.f-r')].map(x=>x.value.trim());
       const pairs=left.map((l,j)=>[l,right[j]||'']).filter(x=>x[0]&&x[1]);
       if(pairs.length<2) return;
-      qs.push(Object.assign({t:'m',p:pairs},QS_KIND==='reading'?readingRowExtra(r,stage):{}));
+      qsPush(r,Object.assign({t:'m',p:pairs},QS_KIND==='reading'?readingRowExtra(r,stage):{}));
     }
   });
 
@@ -10305,7 +10341,9 @@ function buildPublishPayload(h){
     /* 🩹 أوقف المعلم العلاج التلقائي لهذا النشاط */
     nr:h.noRem ? 1 : 0,
     /* 📊 يدخل في درجة الأنشطة؟ تعرضه البوابة شارةً على النشاط */
-    ng:hwCounts(h) ? 0 : 1
+    ng:hwCounts(h) ? 0 : 1,
+    /* 🧭 نشاط نافس: يظهر للطالب في خانة «نافس» */
+    nf:hwIsNafs(h) ? 1 : 0
   };
 }
 

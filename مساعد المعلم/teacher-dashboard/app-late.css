@@ -2097,3 +2097,17 @@ details.ar-escal:not([open]){gap:0}
 .nfp-note{margin-top:1mm;font-size:8.5pt;color:#8A5A00}
 .nfp-out{display:block;margin-top:1mm;font-size:7.5pt;color:#5A6B84}
 @media (max-width:700px){ .nafs-res th:nth-child(3),.nafs-res td:nth-child(3){display:none} .nafs-bar{width:56px} }
+/* 🖼️ شكل السؤال في محرر الأسئلة (أسئلة نافس) */
+.q-row-img{display:flex;gap:.6rem;align-items:center;margin:.1rem 0 .5rem;padding:.4rem;border:1px dashed var(--ui-border,#E3E9F1);border-radius:10px;background:rgba(46,107,184,.04)}
+.q-row-img img{max-width:160px;max-height:110px;border-radius:8px;background:#fff;object-fit:contain}
+.q-row-img small{font-size:.74rem;color:var(--ink-soft,#5A6B84);line-height:1.7}
+/* 🧭 اختيار أقسام نافس في نموذج النشاط */
+.nafs-form{padding:.75rem;border:1px solid var(--ui-border,#E3E9F1);border-radius:12px;background:rgba(46,107,184,.04)}
+.nafs-terms-sm button{padding:.4rem .5rem}
+.nafs-form-secs{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));gap:.4rem;margin:.5rem 0}
+.nafs-form-sec{display:flex;align-items:center;gap:.45rem;padding:.45rem .6rem;border:1px solid var(--ui-border,#E3E9F1);border-radius:10px;background:var(--ui-surface,#fff);cursor:pointer;font-size:.84rem;opacity:.7}
+.nafs-form-sec.on{opacity:1;border-color:#2E6BB8;background:rgba(46,107,184,.07)}
+.nafs-form-sec span{flex:1}
+.nafs-form-sec small{font-size:.72rem;color:var(--ink-soft,#5A6B84);white-space:nowrap}
+.nafs-form-sum{font-size:.8rem;line-height:1.8}
+.nafs-form-sum small{color:var(--ink-soft,#5A6B84)}
