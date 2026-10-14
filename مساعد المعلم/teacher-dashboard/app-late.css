@@ -2158,3 +2158,15 @@ html body .rep-page.nfp{border:0;box-shadow:none}
 .nafs-gen-res{margin-top:.6rem;max-height:55vh;overflow:auto}
 .nafs-gen-q{display:flex;gap:.5rem;align-items:flex-start;padding:.55rem .6rem;border:1px solid var(--ui-border,#E3E9F1);border-radius:10px;margin-top:.45rem;cursor:pointer}
 .nafs-gen-q input{margin-top:.3rem}
+
+/* 📊 أشكال البيانات في نافس + أدوات الصورة */
+.nf-fig{margin:.5rem auto .7rem;max-width:560px;text-align:center}
+.nf-fig figcaption{font-weight:800;font-size:.9rem;margin-bottom:.3rem}
+.nf-fig svg{width:100%;height:auto;background:#fff;border:1px solid #DDE4EE;border-radius:10px}
+.nf-fig-t{margin:0 auto;border-collapse:collapse;font-size:.9rem;background:#fff}
+.nf-fig-t th,.nf-fig-t td{border:1px solid #C9D3E0;padding:.35rem .7rem;text-align:center}
+.nf-fig-t th{background:#EEF3FA;font-weight:800}
+.nf-fig-lg{display:flex;justify-content:center;gap:.8rem;font-size:.8rem;margin-top:.25rem}
+.nf-fig-lg i{display:inline-block;width:12px;height:4px;border-radius:2px;margin-inline-end:.3rem;vertical-align:middle}
+.nafs-img-tools{display:flex;gap:.35rem;flex-wrap:wrap;margin:.3rem 0}
+.nfp-q .nf-fig{max-width:120mm;margin:1.5mm auto}.nfp-q .nf-fig svg{max-height:60mm;border:0}.nfp-q .nf-fig-t{font-size:9pt}

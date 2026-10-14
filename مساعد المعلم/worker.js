@@ -2579,7 +2579,9 @@ function remCleanQ(x) {
   const tip = String(x.tip || '').slice(0, 300).trim();
   // 🖼️ شكل السؤال (أسئلة نافس) يبقى معه في المهمة العلاجية — مسار صور البوابة أو رابط https فقط
   const img = String(x.img || '').trim();
-  const extra = { ...(tip ? { tip } : {}), ...(/^nafs\/[\w.-]+\.(webp|png|jpe?g)$/i.test(img) || /^https:\/\/[^\s"'<>]{1,400}$/i.test(img) ? { img } : {}) };
+  // 📊 شكل بيانات (جدول/أعمدة/منحنى) لأسئلة نافس المولّدة — كائن صغير يُرسم في البوابة
+  let fig = null; try { if (x.fig && typeof x.fig === 'object' && ['table', 'bar', 'line'].includes(x.fig.type) && JSON.stringify(x.fig).length < 5000) fig = JSON.parse(JSON.stringify(x.fig)); } catch {}
+  const extra = { ...(tip ? { tip } : {}), ...(/^nafs\/[\w.-]+\.(webp|png|jpe?g)$/i.test(img) || /^https:\/\/[^\s"'<>]{1,400}$/i.test(img) ? { img } : {}), ...(fig ? { fig } : {}) };
   if (x.t === 'tf') return { t: 'tf', q, a: x.a === true || x.a === 'true', ...extra };
   if (x.t === 'f') { const a = String(x.a ?? '').slice(0, 120).trim(); return a ? { t: 'f', q, a, ...extra } : null; }
   const o = (Array.isArray(x.o) ? x.o : []).map(v => String(v ?? '').slice(0, 200).trim()).filter(Boolean).slice(0, 6);
@@ -2592,7 +2594,7 @@ function remShuffleQ(q, seed) {
   if (!q || q.t !== 'q' || !Array.isArray(q.o)) return q && ['tf', 'f'].includes(q.t) ? { ...q } : null;
   const idx = q.o.map((_, i) => i);
   let s = seed || 7; for (let i = idx.length - 1; i > 0; i--) { s = (s * 9301 + 49297) % 233280; const j = s % (i + 1); [idx[i], idx[j]] = [idx[j], idx[i]]; }
-  return { t: 'q', q: q.q, o: idx.map(i => q.o[i]), a: idx.indexOf(Number(q.a)), ...(q.img ? { img: q.img } : {}) };
+  return { t: 'q', q: q.q, o: idx.map(i => q.o[i]), a: idx.indexOf(Number(q.a)), ...(q.img ? { img: q.img } : {}), ...(q.fig ? { fig: q.fig } : {}) };
 }
 /* 🤖 مفتاح المعلم العام: إيقافه يمنع فتح أي مهمة علاجية جديدة (الحالية تُكمَل كما هي) */
 async function remEnabled(env) { try { const c = JSON.parse(await env.HW.get('remcfg') || '{}'); return c.enabled !== false; } catch { return true; } }
@@ -6085,6 +6087,26 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
     }
 
     // ── 🩹 الأسئلة البديلة لنشاط (تولّدها لوحة التحكم عند النشر) ──
+    // ── 🖼️ صور أسئلة نافس التي يرفعها المعلم (تُعرض للطالب بالرابط العام، والرفع برمز المعلم) ──
+    if (url.pathname === '/nafs-img' && request.method === 'GET') {
+      const id = String(url.searchParams.get('id') || '').replace(/[^\w-]/g, '').slice(0, 40);
+      if (!id) return json({ error: 'missing id' }, 400);
+      const r = await env.HW.getWithMetadata(`nimg:${id}`, { type: 'arrayBuffer' });
+      if (!r || !r.value) return new Response('not found', { status: 404, headers: CORS });
+      const type = (r.metadata && /^image\/(jpeg|png|webp)$/.test(r.metadata.type)) ? r.metadata.type : 'image/jpeg';
+      return new Response(r.value, { headers: { 'Content-Type': type, 'Cache-Control': 'public, max-age=31536000, immutable', ...CORS } });
+    }
+    if (url.pathname === '/nafs-img' && request.method === 'POST') {
+      let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
+      if (!env.TEACHER_TOKEN || b.t !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
+      const type = /^image\/(jpeg|png|webp)$/.test(String(b.type || '')) ? b.type : '';
+      const b64 = String(b.b64 || '');
+      if (!type || !b64 || b64.length > 2_000_000) return json({ error: 'bad image' }, 400);
+      let bytes; try { bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0)); } catch { return json({ error: 'bad base64' }, 400); }
+      const id = 'i' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+      await env.HW.put(`nimg:${id}`, bytes.buffer, { metadata: { type, at: Date.now() } });
+      return json({ ok: true, id, url: `${url.origin}/nafs-img?id=${id}` });
+    }
     // ── 🧭 بنك نافس الخاص بالمعلم: أسئلة مولّدة بالذكاء الاصطناعي + الأسئلة المستبعدة (يتزامن بين أجهزته) ──
     if (url.pathname === '/nafs-bank' && request.method === 'GET') {
       if (!env.TEACHER_TOKEN || url.searchParams.get('t') !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);

@@ -453,3 +453,62 @@ openJourneyLearning = function (nm, rows, kinds) {
   }
   return r;
 };
+
+/* 📊 أشكال البيانات في أسئلة نافس المولّدة: جدول أو أعمدة أو منحنى — تُرسم من بياناتها فتطابق السؤال والإجابة دائمًا.
+   fig: {type:'table', title, head:[..], rows:[[..]]} · {type:'bar', title, x, y, labels:[..], values:[..]} · {type:'line', title, x, y, series:[{name, pts:[[x,y],..]}]}
+   (نسخة مطابقة في بوابة الطالب js/07.js ولوحة المعلم js/32-nafs-js.js) */
+function nfFigClean(f) {
+  if (!f || typeof f !== 'object') return null;
+  const s = v => String(v ?? '').replace(/[<>]/g, '').trim().slice(0, 60), num = v => { const n = Number(String(v).replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[٫,]/g, '.')); return Number.isFinite(n) ? n : null; };
+  const title = s(f.title);
+  if (f.type === 'table') {
+    const head = (Array.isArray(f.head) ? f.head : []).map(s).slice(0, 8), rows = (Array.isArray(f.rows) ? f.rows : []).slice(0, 14).map(r => (Array.isArray(r) ? r : []).map(s).slice(0, 8)).filter(r => r.length);
+    return head.length >= 2 && rows.length ? { type: 'table', title, head, rows } : null;
+  }
+  if (f.type === 'bar') {
+    const labels = (Array.isArray(f.labels) ? f.labels : []).map(s).slice(0, 12), values = (Array.isArray(f.values) ? f.values : []).map(num).slice(0, 12);
+    return labels.length >= 2 && labels.length === values.length && values.every(v => v !== null) ? { type: 'bar', title, x: s(f.x), y: s(f.y), labels, values } : null;
+  }
+  if (f.type === 'line') {
+    const series = (Array.isArray(f.series) ? f.series : []).slice(0, 4).map(r => ({ name: s(r && r.name), pts: (Array.isArray(r && r.pts) ? r.pts : []).slice(0, 20).map(p => [num(p && p[0]), num(p && p[1])]).filter(p => p[0] !== null && p[1] !== null) })).filter(r => r.pts.length >= 2);
+    return series.length ? { type: 'line', title, x: s(f.x), y: s(f.y), series } : null;
+  }
+  return null;
+}
+function nfFigHTML(f) {
+  f = nfFigClean(f); if (!f) return '';
+  const e = v => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const fmt = v => Math.abs(v) >= 1000 ? Math.round(v).toLocaleString('en') : String(Math.round(v * 100) / 100);
+  const cap = f.title ? `<figcaption>${e(f.title)}</figcaption>` : '';
+  if (f.type === 'table') return `<figure class="nf-fig">${cap}<table class="nf-fig-t"><thead><tr>${f.head.map(h => `<th>${e(h)}</th>`).join('')}</tr></thead><tbody>${f.rows.map(r => `<tr>${f.head.map((_, i) => `<td>${e(r[i] ?? '')}</td>`).join('')}</tr>`).join('')}</tbody></table></figure>`;
+  const W = 520, H = 290, L = 58, R = 16, T = 18, B = 52, pw = W - L - R, ph = H - T - B;
+  const nice = m => { if (m <= 0) return 1; const p = Math.pow(10, Math.floor(Math.log10(m))), n = m / p; return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10) * p; };
+  const COL = ['#2E6BB8', '#D6455B', '#1B9C6B', '#E0A100'];
+  let body = '', yMin = 0, yMax = 1;
+  if (f.type === 'bar') { yMin = Math.min(0, ...f.values); yMax = nice(Math.max(...f.values, 0) * 1.08); }
+  else { const ys = f.series.flatMap(r => r.pts.map(p => p[1])); yMin = Math.min(0, ...ys); yMax = nice(Math.max(...ys, 0) * 1.08); }
+  const yS = v => T + ph - (v - yMin) / ((yMax - yMin) || 1) * ph, ticks = 5;
+  let grid = '';
+  for (let i = 0; i <= ticks; i++) { const v = yMin + (yMax - yMin) * i / ticks, y = yS(v); grid += `<line x1="${L}" x2="${W - R}" y1="${y}" y2="${y}" stroke="#E3E9F1"/><text x="${L - 6}" y="${y + 4}" text-anchor="end" font-size="11" fill="#5A6B84">${fmt(v)}</text>`; }
+  if (f.type === 'bar') {
+    const n = f.values.length, slot = pw / n, bw = Math.min(46, slot * .6);
+    f.values.forEach((v, i) => { const cx = L + slot * (i + .5), y0 = yS(0), y = yS(v);
+      body += `<rect x="${cx - bw / 2}" y="${Math.min(y, y0)}" width="${bw}" height="${Math.abs(y0 - y)}" rx="3" fill="${COL[0]}"/><text x="${cx}" y="${Math.min(y, y0) - 4}" text-anchor="middle" font-size="11" fill="#16233A">${fmt(v)}</text><text x="${cx}" y="${T + ph + 16}" text-anchor="middle" font-size="11" fill="#16233A">${e(f.labels[i])}</text>`; });
+  } else {
+    const xs = f.series.flatMap(r => r.pts.map(p => p[0])), xMin = Math.min(...xs), xMax = Math.max(...xs), xS = v => L + (v - xMin) / ((xMax - xMin) || 1) * pw;
+    [...new Set(xs)].sort((a, b) => a - b).slice(0, 14).forEach(v => { body += `<text x="${xS(v)}" y="${T + ph + 16}" text-anchor="middle" font-size="11" fill="#16233A">${fmt(v)}</text>`; });
+    f.series.forEach((r, k) => { const c = COL[k % 4], pts = r.pts.slice().sort((a, b) => a[0] - b[0]);
+      const lp = pts[pts.length - 1];
+      body += `<polyline fill="none" stroke="${c}" stroke-width="2.5" points="${pts.map(p => `${xS(p[0])},${yS(p[1])}`).join(' ')}"/>` + pts.map(p => `<circle cx="${xS(p[0])}" cy="${yS(p[1])}" r="3.2" fill="${c}"/>`).join('')
+        + (f.series.length > 1 && r.name ? `<text x="${Math.min(xS(lp[0]), W - R - 4)}" y="${yS(lp[1]) - 8}" text-anchor="end" font-size="12" font-weight="700" fill="${c}">${e(r.name)}</text>` : ''); });
+  }
+  const axes = `<line x1="${L}" x2="${L}" y1="${T}" y2="${T + ph}" stroke="#16233A"/><line x1="${L}" x2="${W - R}" y1="${yS(0)}" y2="${yS(0)}" stroke="#16233A"/>`
+    + (f.x ? `<text x="${L + pw / 2}" y="${H - 8}" text-anchor="middle" font-size="12" font-weight="700" fill="#16233A">${e(f.x)}</text>` : '')
+    + (f.y ? `<text transform="translate(14 ${T + ph / 2}) rotate(-90)" text-anchor="middle" font-size="12" font-weight="700" fill="#16233A">${e(f.y)}</text>` : '');
+  const legend = f.type === 'line' && f.series.length > 1 ? `<div class="nf-fig-lg">${f.series.map((r, k) => `<span><i style="background:${COL[k % 4]}"></i>${e(r.name || 'سلسلة ' + (k + 1))}</span>`).join('')}</div>` : '';
+  return `<figure class="nf-fig">${cap}<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${e(f.title || 'رسم بياني')}" style="direction:ltr">${grid}${axes}${body}</svg>${legend}</figure>`;
+}
+
+/* الشكل يظهر تحت نص السؤال وفي المراجعة، مع صورة السؤال إن وُجدت */
+const _nfQImgHTML = qImgHTML;
+qImgHTML = function (q) { return _nfQImgHTML(q) + (q && q.fig ? nfFigHTML(q.fig) : ''); };

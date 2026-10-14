@@ -318,7 +318,7 @@ const NAFS_BANK = [
   { id: 'rs15', s: 'rs', o: 'rs1', t: 'q', k: 'off', q: 'يستهلك أحد المصانع كميات كبيرة من المياه الجوفية، كما تُطلق مخلفات التصنيع في النهر المجاور. ما التأثير الأكثر احتمالًا لهذه الممارسات على النظام البيئي؟', op: ['زيادة أعداد الأسماك بسبب توفير المغذيات في النهر', 'تلوث مياه النهر والإضرار بالسلاسل الغذائية المائية', 'تحسين جودة التربة حول المصنع بالمخلفات الغنية بالمعادن', 'زيادة كمية المياه الجوفية بسبب إعادة تدوير المخلفات'], a: 1 }
 ];
 const NAFS_OUT = Object.fromEntries(NAFS_SECTIONS.flatMap(s => s.outcomes.map(([id, short, text]) => [id, { id, short, text, sec: s.id }])));
-const nafsImg = q => q.img ? `nafs/${q.img}.webp` : '';
+const nafsImg = q => !q.img ? '' : /^https:\/\//.test(q.img) ? q.img : `nafs/${q.img}.webp`;   // صور البنك محلية، والمرفوعة رابط https
 const nafsAuto = q => q.t === 'q' || q.t === 'tf' || q.t === 'f';
 NAFS_BANK.forEach(q => {
   if (q.t !== 'q' || !q.m) return;
@@ -334,7 +334,7 @@ function nafsTerm(n) { NAFS.term = n === 2 ? 2 : 1; NAFS.open = ''; try { localS
 /* سؤال البنك ← سؤال نشاط (المهارة = ناتج التعلم المختصر، بادئة «نافس» تميّزه في التقارير) */
 function nafsToQ(q) {
   // nfo: نص ناتج التعلم (زر «ذكّرني بالمفهوم» في وضع التدريب) · nfn: ملاحظة الإجابة (تظهر بعد الإجابة فقط)
-  const base = { img: nafsImg(q) || undefined, skill: 'نافس: ' + NAFS_OUT[q.o].short, nafs: q.id, nfo: NAFS_OUT[q.o].text, ...(q.note ? { nfn: q.note } : {}), ...(q.why ? { nfw: q.why } : {}) };
+  const base = { img: nafsImg(q) || undefined, ...(q.fig ? { fig: q.fig } : {}), skill: 'نافس: ' + NAFS_OUT[q.o].short, nafs: q.id, nfo: NAFS_OUT[q.o].text, ...(q.note ? { nfn: q.note } : {}), ...(q.why ? { nfw: q.why } : {}) };
   if (q.t === 'q') return { t: 'q', q: q.q, o: q.op.slice(), a: q.a, ...base };
   if (q.t === 'tf') return { t: 'tf', q: q.q, a: !!q.a, ...base };
   return { t: 'f', q: q.q, a: String(q.a), ...base };
@@ -382,7 +382,8 @@ function nafsQPreview(q, i) {
   const kind = q.t === 'q' ? 'اختيار' : q.t === 'tf' ? 'صح/خطأ' : q.t === 'f' ? 'إجابة رقمية' : 'مقالي (ورقة)';
   const ans = q.t === 'q' ? `${L4[q.a]}) ${esc(q.op[q.a])}` : q.t === 'tf' ? (q.a ? 'صح' : 'خطأ') : q.t === 'f' ? esc(q.a) : esc(q.key || '');
   return `<div class="nafs-q ${inc ? '' : 'off'}"><div class="nafs-q-h"><label class="nafs-inc" title="${inc ? 'ضمن الاختبار — أزل العلامة لاستبعاده' : 'مستبعد — ضع العلامة لإضافته'}"><input type="checkbox" ${inc ? 'checked' : ''} onchange="nafsToggleQ('${q.id}',this.checked)"> ${inc ? 'ضمن الاختبار' : 'مستبعد'}</label>${q.k === 'ai' ? `<button type="button" class="nafs-del" onclick="nafsDelQ('${q.id}')" title="حذف السؤال المولّد">🗑️</button>` : ''} <b>${i + 1}.</b> <span class="chip ghost">${kind}</span> <span class="chip ghost">🎯 ${esc(NAFS_OUT[q.o].short)}</span> ${keyTag}${q.ad ? '<span class="nafs-k ad">مكيّف</span>' : ''}</div>
-    <div class="nafs-q-t">${esc(q.q).replace(/\n/g, '<br>')}</div>${q.img ? `<img class="nafs-q-img" src="${nafsImg(q)}" alt="" loading="lazy">` : ''}
+    <div class="nafs-q-t">${esc(q.q).replace(/\n/g, '<br>')}</div>${q.img ? `<img class="nafs-q-img" src="${nafsImg(q)}" alt="" loading="lazy">` : ''}${q.fig ? nfFigHTML(q.fig) : ''}
+    ${q.k === 'ai' ? `<div class="nafs-img-tools">${q.img ? `<button type="button" class="btn ghost sm" onclick="nafsImgRemove('${q.id}')">✕ إزالة الصورة</button>` : ''}<button type="button" class="btn ghost sm" onclick="nafsImgAttach('${q.id}')">🖼️ ${q.img ? 'استبدل الصورة' : 'أرفق صورة'}</button></div>` : ''}
     ${q.t === 'q' ? `<ol class="nafs-q-o">${q.op.map((o, j) => `<li class="${j === q.a ? 'ok' : ''}">${L4[j]}) ${esc(o)}</li>`).join('')}</ol>` : `<div class="nafs-q-a">✔ ${ans}</div>`}
     ${q.note ? `<div class="nafs-q-n">ℹ️ ${esc(q.note)}</div>` : ''}${q.why ? `<div class="nafs-q-n">💬 لماذا؟ ${esc(q.why)}</div>` : ''}</div>`;
 }
@@ -448,7 +449,7 @@ function nafsPrint(key) {
   let n = 0, prevImg = '';
   const optCols = q => { const m = Math.max(...q.op.map(o => String(o).length)); return m <= 16 ? 4 : m <= 42 ? 2 : 1; };
   const qHTML = q => { n++;
-    const img = q.img && q.img === prevImg ? '<div class="nfp-same">↑ الشكل في السؤال السابق</div>' : q.img ? `<img src="${nafsImg(q)}" alt="">` : '';
+    const img = (q.img && q.img === prevImg ? '<div class="nfp-same">↑ الشكل في السؤال السابق</div>' : q.img ? `<img src="${nafsImg(q)}" alt="">` : '') + (q.fig ? nfFigHTML(q.fig) : '');
     prevImg = q.img || '';
     const body = q.t === 'q' ? `<ol class="nfp-o c${optCols(q)}">${q.op.map((o, j) => `<li class="${key && j === q.a ? 'ok' : ''}"><i></i>${L4[j]}) ${esc(o)}</li>`).join('')}</ol>`
       : q.t === 'tf' ? `<div class="nfp-tf"><span class="${key && q.a ? 'ok' : ''}"><i></i> صح</span><span class="${key && !q.a ? 'ok' : ''}"><i></i> خطأ</span></div>`
@@ -609,7 +610,7 @@ function nafsTwinItems(h) {
     const rot = [...b.id].reduce((t, c) => t + c.charCodeAt(0), 0);
     const order = a => a.map((x, j) => [x, (j + rot) % Math.max(1, a.length)]).sort((m, n) => m[1] - n[1]).map(m => m[0]);
     const alts = [...order(pool.filter(x => !inAct.has(x.id))), ...order(pool.filter(x => inAct.has(x.id)))].slice(0, 3)
-      .map(x => { const z = nafsToQ(x); return { t: z.t, q: z.q, ...(z.o ? { o: z.o } : {}), a: z.a, ...(z.img ? { img: z.img } : {}) }; });
+      .map(x => { const z = nafsToQ(x); return { t: z.t, q: z.q, ...(z.o ? { o: z.o } : {}), a: z.a, ...(z.img ? { img: z.img } : {}), ...(z.fig ? { fig: z.fig } : {}) }; });
     return alts.length ? { i, tip: ('🎯 ' + NAFS_OUT[b.o].text).slice(0, 300), alts } : null;
   }).filter(Boolean);
 }
@@ -689,22 +690,26 @@ async function nafsDelQ(id) {
 }
 
 /* ✦ نافذة التوليد */
-const NAFS_GEN = { sec: '', items: [], busy: false, ac: null };
+const NAFS_GEN = { sec: '', items: [], busy: false, ac: null, img: null, imgUrl: '' };
 function nafsGenOpen(sec) {
   const s = NAFS_SECTIONS.find(x => x.id === sec); if (!s) return;
   if (typeof twinHasKey === 'function' && !twinHasKey()) { toast('أضف مفتاح ذكاء اصطناعي من ⚙️ الإعدادات أولًا', 'bad'); return; }
-  NAFS_GEN.sec = sec; NAFS_GEN.items = []; NAFS.open = sec;
+  NAFS_GEN.sec = sec; NAFS_GEN.items = []; NAFS_GEN.img = null; NAFS_GEN.imgUrl = ''; NAFS.open = sec;
   const cnt = o => NAFS_BANK.filter(q => q.o === o && nafsAuto(q)).length;
   openModal(`<h2>✦ توليد أسئلة نافس — ${s.ic} ${esc(s.title)}</h2>
-    <p class="muted" style="font-size:.84rem;margin:.2rem 0 .7rem;line-height:1.8">يكتب الذكاء الاصطناعي أسئلة جديدة بأسلوب نافس على النواتج التي تختارها، ثم تراجعها وتختار ما يُضاف للبنك. الأسئلة المولّدة بلا أشكال، ولكل سؤال «لماذا؟» يظهر للطالب بعد إجابته.</p>
+    <p class="muted" style="font-size:.84rem;margin:.2rem 0 .7rem;line-height:1.8">يكتب الذكاء الاصطناعي أسئلة جديدة بأسلوب نافس على النواتج التي تختارها — بلا شكل، أو مع جدول ورسم بياني يُرسم من بياناته، أو مبنية على صورة ترفعها — ثم تراجعها وتختار ما يُضاف للبنك. لكل سؤال «لماذا؟» يظهر للطالب بعد إجابته.</p>
     <div class="field"><label>نواتج التعلم</label><div class="nafs-gen-outs">${s.outcomes.map(([id, sh]) => `<label><input type="checkbox" class="nafs-gen-o" value="${id}" ${cnt(id) < 4 ? 'checked' : ''}> ${esc(sh)} <small class="muted">(${cnt(id)} سؤال)</small></label>`).join('')}</div></div>
     <div class="grid2"><div class="field"><label>عدد الأسئلة</label><select class="inp" id="nafs-gen-n">${[3, 5, 8, 10].map(n => `<option ${n === 5 ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
       <div class="field"><label>النوع</label><select class="inp" id="nafs-gen-t"><option value="q">اختيار من متعدد</option><option value="mix">مزيج (اختيار + صح وخطأ)</option><option value="tf">صح وخطأ</option></select></div></div>
+    <div class="field"><label>الشكل</label><select class="inp" id="nafs-gen-f" onchange="document.getElementById('nafs-gen-imgw').style.display=this.value==='img'?'':'none'">
+      <option value="none">بلا شكل (نص فقط)</option><option value="data">📊 مع شكل بيانات (جدول أو أعمدة أو منحنى)</option><option value="img">🖼️ من صورة أرفعها (الأسئلة مبنية على الصورة)</option></select></div>
+    <div id="nafs-gen-imgw" style="display:none" class="field"><label>الصورة (شكل من الكتاب أو تجربة أو رسم)</label><input type="file" accept="image/*" class="inp" id="nafs-gen-img" onchange="nafsGenImgPrev(this)"><div id="nafs-gen-imgp"></div>
+      <small class="muted">تُرسل للذكاء الاصطناعي ليقرأها ويكتب أسئلة عليها، وتُرفق بكل سؤال يُولّد منها. تحتاج نموذجًا يرى الصور (Claude أو Gemini أو OpenAI).</small></div>
     <div id="nafs-gen-out"></div>
     <div class="modal-foot"><button class="btn ghost" onclick="nafsGenStop();closeModal()">إغلاق</button><button class="ai-btn" id="nafs-gen-go" onclick="nafsGenRun()"><span class="ai-mark">✦</span> ولّد الأسئلة</button></div>`);
 }
 function nafsGenStop() { try { NAFS_GEN.ac && NAFS_GEN.ac.abort(); } catch (e) {} }
-function nafsGenPrompt(s, outs, n, type) {
+function nafsGenPrompt(s, outs, n, type, fmode) {
   const ex = NAFS_BANK.filter(q => outs.includes(q.o) && nafsAuto(q)).slice(0, 14).map(q => '- ' + String(q.q).replace(/\s+/g, ' ').slice(0, 110));
   const types = type === 'tf' ? 'صح وخطأ فقط ("t":"tf" و"a": true أو false)' : type === 'mix' ? 'أغلبها اختيار من متعدد بأربعة خيارات ("t":"q") وبعضها صح وخطأ ("t":"tf")' : 'اختيار من متعدد فقط بأربعة خيارات ("t":"q")';
   return `أنت خبير في بناء أسئلة الاختبارات الوطنية (نافس) والدولية (TIMSS) في العلوم، للصف الأول المتوسط في المملكة العربية السعودية.
@@ -713,44 +718,56 @@ function nafsGenPrompt(s, outs, n, type) {
 ${outs.map(o => `- [${o}] ${NAFS_OUT[o].text}`).join('\n')}
 الشروط:
 - تقيس الفهم والتطبيق والاستدلال لا الحفظ فقط، بسياقات من الحياة اليومية والبيئة السعودية، بأسلوب أسئلة نافس.
-- لا تعتمد على شكل أو صورة أو جدول خارج النص؛ إن احتجت بيانات فاكتبها داخل نص السؤال.
+${fmode === 'data' ? `- لكل سؤال شكل بيانات في الحقل "fig" لا يُجاب السؤال إلا بقراءته (قراءة قيمة، مقارنة، اتجاه، حساب)، بأحد الأشكال:
+  جدول: {"type":"table","title":"...","head":["...","..."],"rows":[["...","..."]]}
+  أعمدة: {"type":"bar","title":"...","x":"عنوان المحور الأفقي","y":"عنوان المحور الرأسي مع الوحدة","labels":["..."],"values":[أرقام]}
+  منحنى: {"type":"line","title":"...","x":"...","y":"...","series":[{"name":"...","pts":[[س,ص],[س,ص]]}]}
+  الأرقام في الشكل يجب أن تطابق الإجابة الصحيحة تمامًا (تحقق من حسابك)، ولا تكرر البيانات داخل نص السؤال بل قل «من الشكل…». نوّع بين الجداول والأعمدة والمنحنيات.`
+  : fmode === 'img' ? `- أرفقتُ صورة شكل علمي: اكتب أسئلة لا يُجاب عنها إلا بتأمل ما يظهر في الصورة فعلًا (أشِر إليها بـ«الشكل»)، ولا تفترض تفاصيل غير ظاهرة فيها، ولا تصف الإجابة داخل نص السؤال. إن لم تناسب الصورة الناتج المختار فاختر من النواتج المذكورة الأقرب لما تُظهره.`
+  : '- لا تعتمد على شكل أو صورة أو جدول خارج النص؛ إن احتجت بيانات فاكتبها داخل نص السؤال.'}
 - إجابة صحيحة واحدة مؤكدة علميًا ومطابقة لمنهج المرحلة، ومشتتات معقولة، ولغة عربية فصيحة واضحة.
 - الأنواع: ${types}. في الاختيار من متعدد "op" أربعة خيارات و"a" رقم الصحيح بدءًا من 0.
 - "why": سطر واحد للطالب يشرح لماذا الإجابة صحيحة، بلا ذكر رقم الخيار أو حرفه.
 - لا تكرر هذه الأسئلة الموجودة ولا تعيد صياغتها:
 ${ex.join('\n') || '- (لا يوجد)'}
-أخرج JSON فقط بهذا الشكل: {"items":[{"o":"${outs[0]}","t":"q","q":"...","op":["...","...","...","..."],"a":0,"why":"..."}]}`;
+أخرج JSON فقط بهذا الشكل: {"items":[{"o":"${outs[0]}","t":"q","q":"...","op":["...","...","...","..."],"a":0,"why":"..."${fmode === 'data' ? ',"fig":{"type":"bar","title":"...","x":"...","y":"...","labels":["..."],"values":[1,2]}' : ''}}]}`;
 }
-function nafsGenClean(it, outs, type) {
+function nafsGenClean(it, outs, type, fmode) {
   if (!it || typeof it !== 'object') return null;
   const o = String(it.o || '').trim(), q = String(it.q || '').trim(), why = String(it.why || '').trim().slice(0, 300);
   if (!outs.includes(o) || q.length < 8) return null;
   const t = it.t === 'tf' ? 'tf' : 'q';
   if (type === 'q' && t !== 'q') return null; if (type === 'tf' && t !== 'tf') return null;
-  if (t === 'tf') { const a = it.a === true || it.a === 'true' ? true : it.a === false || it.a === 'false' ? false : null; return a === null ? null : { t, q, a, o, why }; }
+  const fig = fmode === 'data' ? nfFigClean(it.fig) : null;
+  if (fmode === 'data' && !fig) return null;                                   // سؤال شكل بلا شكل صالح لا يُقبل
+  const fx = fig ? { fig } : {};
+  if (t === 'tf') { const a = it.a === true || it.a === 'true' ? true : it.a === false || it.a === 'false' ? false : null; return a === null ? null : { t, q, a, o, why, ...fx }; }
   const op = (Array.isArray(it.op) ? it.op : Array.isArray(it.o_list) ? it.o_list : []).map(x => String(x ?? '').trim()).filter(Boolean);
   const a = parseInt(it.a, 10);
   if (op.length < 3 || op.length > 5 || !(a >= 0 && a < op.length) || new Set(op).size !== op.length) return null;
   const order = op.map((_, i) => i).sort(() => Math.random() - .5);          // الصحيح لا يبقى في موضع ثابت
-  return { t, q, op: order.map(i => op[i]), a: order.indexOf(a), o, why };
+  return { t, q, op: order.map(i => op[i]), a: order.indexOf(a), o, why, ...fx };
 }
 async function nafsGenRun() {
   if (NAFS_GEN.busy) return;
   const s = NAFS_SECTIONS.find(x => x.id === NAFS_GEN.sec); if (!s) return;
   const outs = [...document.querySelectorAll('.nafs-gen-o:checked')].map(x => x.value);
   if (!outs.length) { toast('اختر ناتجًا واحدًا على الأقل', 'bad'); return; }
-  const n = +document.getElementById('nafs-gen-n').value || 5, type = document.getElementById('nafs-gen-t').value;
+  const n = +document.getElementById('nafs-gen-n').value || 5, type = document.getElementById('nafs-gen-t').value, fmode = document.getElementById('nafs-gen-f').value;
+  if (fmode === 'img' && !NAFS_GEN.img) { toast('اختر الصورة أولًا', 'bad'); return; }
   const box = document.getElementById('nafs-gen-out'), go = document.getElementById('nafs-gen-go');
   NAFS_GEN.busy = true; if (go) go.disabled = true;
   box.innerHTML = `<div class="nafs-gen-wait">⏳ يكتب الذكاء الاصطناعي ${n} أسئلة… <button type="button" class="btn ghost sm" onclick="nafsGenStop()">إيقاف</button></div>`;
   let items = [];
   try {
     const p = readingAIPickProvider(), model = readingAIModels()[p], ac = new AbortController(); NAFS_GEN.ac = ac; let timer;
-    const raw = await Promise.race([readingAICall(p, model, nafsGenPrompt(s, outs, n, type), ac.signal),
+    if (fmode === 'img' && !NAFS_GEN.imgUrl) { box.innerHTML = '<div class="nafs-gen-wait">⏳ نرفع الصورة…</div>'; NAFS_GEN.imgUrl = await nafsImgUpload(NAFS_GEN.img); box.innerHTML = `<div class="nafs-gen-wait">⏳ يقرأ الذكاء الاصطناعي الصورة ويكتب ${n} أسئلة… <button type="button" class="btn ghost sm" onclick="nafsGenStop()">إيقاف</button></div>`; }
+    const raw = await Promise.race([readingAICall(p, model, nafsGenPrompt(s, outs, n, type, fmode), ac.signal, fmode === 'img' ? NAFS_GEN.img : undefined),
       new Promise((_, rej) => { timer = setTimeout(() => { try { ac.abort(); } catch (e) {} rej(new Error('انتهت المهلة (دقيقتان) دون رد')); }, 120000); })]).finally(() => { clearTimeout(timer); NAFS_GEN.ac = null; });
     const d = aiSafeJson(raw), arr = Array.isArray(d && d.items) ? d.items : Array.isArray(d) ? d : [];
     const seen = new Set(NAFS_BANK.map(q => String(q.q).replace(/\s+/g, ' ').trim()));
-    items = arr.map(it => nafsGenClean(it, outs, type)).filter(Boolean).filter(x => !seen.has(x.q.replace(/\s+/g, ' ').trim()));
+    items = arr.map(it => nafsGenClean(it, outs, type, fmode)).filter(Boolean).filter(x => !seen.has(x.q.replace(/\s+/g, ' ').trim()));
+    if (fmode === 'img') items.forEach(x => { x.img = NAFS_GEN.imgUrl; });
     if (!items.length) throw new Error('لم يرجع الذكاء الاصطناعي أسئلة صالحة — أعد المحاولة');
   } catch (e) {
     box.innerHTML = `<div class="nafs-gen-err">⚠️ ${esc(e && e.message ? e.message : String(e))}</div>`;
@@ -760,7 +777,7 @@ async function nafsGenRun() {
   NAFS_GEN.items = items;
   box.innerHTML = `<div class="nafs-gen-res"><b>راجع الأسئلة واختر ما يُضاف (${items.length})</b>
     ${items.map((x, i) => `<label class="nafs-gen-q"><input type="checkbox" class="nafs-gen-pick" value="${i}" checked>
-      <div><small class="chip ghost">🎯 ${esc(NAFS_OUT[x.o].short)} · ${x.t === 'tf' ? 'صح/خطأ' : 'اختيار'}</small><div class="nafs-q-t">${esc(x.q)}</div>
+      <div><small class="chip ghost">🎯 ${esc(NAFS_OUT[x.o].short)} · ${x.t === 'tf' ? 'صح/خطأ' : 'اختيار'}</small><div class="nafs-q-t">${esc(x.q)}</div>${x.img && i === 0 ? `<img class="nafs-q-img" src="${esc(x.img)}" alt="">` : ''}${x.fig ? nfFigHTML(x.fig) : ''}
       ${x.t === 'q' ? `<ol class="nafs-q-o">${x.op.map((o, j) => `<li class="${j === x.a ? 'ok' : ''}">${L4[j] || j + 1}) ${esc(o)}</li>`).join('')}</ol>` : `<div class="nafs-q-a">✔ ${x.a ? 'صح' : 'خطأ'}</div>`}
       ${x.why ? `<div class="nafs-q-n">💬 لماذا؟ ${esc(x.why)}</div>` : ''}</div></label>`).join('')}
     <button type="button" class="btn tick" style="margin-top:.6rem" onclick="nafsGenAdd()">＋ أضف المحدد إلى بنك نافس</button></div>`;
@@ -774,3 +791,96 @@ function nafsGenAdd() {
   toast(`✦ أُضيف ${picks.length} ${picks.length === 1 ? 'سؤال' : 'أسئلة'} إلى «${NAFS_SECTIONS.find(s => s.id === NAFS_GEN.sec).title}» — تدخل الاختبار تلقائيًا`, 'good');
 }
 document.querySelectorAll('[data-tab="nafs"]').forEach(b => b.addEventListener('click', () => nafsCusLoad()));
+
+/* 📊 أشكال البيانات في أسئلة نافس المولّدة: جدول أو أعمدة أو منحنى — تُرسم من بياناتها فتطابق السؤال والإجابة دائمًا.
+   fig: {type:'table', title, head:[..], rows:[[..]]} · {type:'bar', title, x, y, labels:[..], values:[..]} · {type:'line', title, x, y, series:[{name, pts:[[x,y],..]}]}
+   (نسخة مطابقة في بوابة الطالب js/07.js ولوحة المعلم js/32-nafs-js.js) */
+function nfFigClean(f) {
+  if (!f || typeof f !== 'object') return null;
+  const s = v => String(v ?? '').replace(/[<>]/g, '').trim().slice(0, 60), num = v => { const n = Number(String(v).replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[٫,]/g, '.')); return Number.isFinite(n) ? n : null; };
+  const title = s(f.title);
+  if (f.type === 'table') {
+    const head = (Array.isArray(f.head) ? f.head : []).map(s).slice(0, 8), rows = (Array.isArray(f.rows) ? f.rows : []).slice(0, 14).map(r => (Array.isArray(r) ? r : []).map(s).slice(0, 8)).filter(r => r.length);
+    return head.length >= 2 && rows.length ? { type: 'table', title, head, rows } : null;
+  }
+  if (f.type === 'bar') {
+    const labels = (Array.isArray(f.labels) ? f.labels : []).map(s).slice(0, 12), values = (Array.isArray(f.values) ? f.values : []).map(num).slice(0, 12);
+    return labels.length >= 2 && labels.length === values.length && values.every(v => v !== null) ? { type: 'bar', title, x: s(f.x), y: s(f.y), labels, values } : null;
+  }
+  if (f.type === 'line') {
+    const series = (Array.isArray(f.series) ? f.series : []).slice(0, 4).map(r => ({ name: s(r && r.name), pts: (Array.isArray(r && r.pts) ? r.pts : []).slice(0, 20).map(p => [num(p && p[0]), num(p && p[1])]).filter(p => p[0] !== null && p[1] !== null) })).filter(r => r.pts.length >= 2);
+    return series.length ? { type: 'line', title, x: s(f.x), y: s(f.y), series } : null;
+  }
+  return null;
+}
+function nfFigHTML(f) {
+  f = nfFigClean(f); if (!f) return '';
+  const e = v => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const fmt = v => Math.abs(v) >= 1000 ? Math.round(v).toLocaleString('en') : String(Math.round(v * 100) / 100);
+  const cap = f.title ? `<figcaption>${e(f.title)}</figcaption>` : '';
+  if (f.type === 'table') return `<figure class="nf-fig">${cap}<table class="nf-fig-t"><thead><tr>${f.head.map(h => `<th>${e(h)}</th>`).join('')}</tr></thead><tbody>${f.rows.map(r => `<tr>${f.head.map((_, i) => `<td>${e(r[i] ?? '')}</td>`).join('')}</tr>`).join('')}</tbody></table></figure>`;
+  const W = 520, H = 290, L = 58, R = 16, T = 18, B = 52, pw = W - L - R, ph = H - T - B;
+  const nice = m => { if (m <= 0) return 1; const p = Math.pow(10, Math.floor(Math.log10(m))), n = m / p; return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10) * p; };
+  const COL = ['#2E6BB8', '#D6455B', '#1B9C6B', '#E0A100'];
+  let body = '', yMin = 0, yMax = 1;
+  if (f.type === 'bar') { yMin = Math.min(0, ...f.values); yMax = nice(Math.max(...f.values, 0) * 1.08); }
+  else { const ys = f.series.flatMap(r => r.pts.map(p => p[1])); yMin = Math.min(0, ...ys); yMax = nice(Math.max(...ys, 0) * 1.08); }
+  const yS = v => T + ph - (v - yMin) / ((yMax - yMin) || 1) * ph, ticks = 5;
+  let grid = '';
+  for (let i = 0; i <= ticks; i++) { const v = yMin + (yMax - yMin) * i / ticks, y = yS(v); grid += `<line x1="${L}" x2="${W - R}" y1="${y}" y2="${y}" stroke="#E3E9F1"/><text x="${L - 6}" y="${y + 4}" text-anchor="end" font-size="11" fill="#5A6B84">${fmt(v)}</text>`; }
+  if (f.type === 'bar') {
+    const n = f.values.length, slot = pw / n, bw = Math.min(46, slot * .6);
+    f.values.forEach((v, i) => { const cx = L + slot * (i + .5), y0 = yS(0), y = yS(v);
+      body += `<rect x="${cx - bw / 2}" y="${Math.min(y, y0)}" width="${bw}" height="${Math.abs(y0 - y)}" rx="3" fill="${COL[0]}"/><text x="${cx}" y="${Math.min(y, y0) - 4}" text-anchor="middle" font-size="11" fill="#16233A">${fmt(v)}</text><text x="${cx}" y="${T + ph + 16}" text-anchor="middle" font-size="11" fill="#16233A">${e(f.labels[i])}</text>`; });
+  } else {
+    const xs = f.series.flatMap(r => r.pts.map(p => p[0])), xMin = Math.min(...xs), xMax = Math.max(...xs), xS = v => L + (v - xMin) / ((xMax - xMin) || 1) * pw;
+    [...new Set(xs)].sort((a, b) => a - b).slice(0, 14).forEach(v => { body += `<text x="${xS(v)}" y="${T + ph + 16}" text-anchor="middle" font-size="11" fill="#16233A">${fmt(v)}</text>`; });
+    f.series.forEach((r, k) => { const c = COL[k % 4], pts = r.pts.slice().sort((a, b) => a[0] - b[0]);
+      const lp = pts[pts.length - 1];
+      body += `<polyline fill="none" stroke="${c}" stroke-width="2.5" points="${pts.map(p => `${xS(p[0])},${yS(p[1])}`).join(' ')}"/>` + pts.map(p => `<circle cx="${xS(p[0])}" cy="${yS(p[1])}" r="3.2" fill="${c}"/>`).join('')
+        + (f.series.length > 1 && r.name ? `<text x="${Math.min(xS(lp[0]), W - R - 4)}" y="${yS(lp[1]) - 8}" text-anchor="end" font-size="12" font-weight="700" fill="${c}">${e(r.name)}</text>` : ''); });
+  }
+  const axes = `<line x1="${L}" x2="${L}" y1="${T}" y2="${T + ph}" stroke="#16233A"/><line x1="${L}" x2="${W - R}" y1="${yS(0)}" y2="${yS(0)}" stroke="#16233A"/>`
+    + (f.x ? `<text x="${L + pw / 2}" y="${H - 8}" text-anchor="middle" font-size="12" font-weight="700" fill="#16233A">${e(f.x)}</text>` : '')
+    + (f.y ? `<text transform="translate(14 ${T + ph / 2}) rotate(-90)" text-anchor="middle" font-size="12" font-weight="700" fill="#16233A">${e(f.y)}</text>` : '');
+  const legend = f.type === 'line' && f.series.length > 1 ? `<div class="nf-fig-lg">${f.series.map((r, k) => `<span><i style="background:${COL[k % 4]}"></i>${e(r.name || 'سلسلة ' + (k + 1))}</span>`).join('')}</div>` : '';
+  return `<figure class="nf-fig">${cap}<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${e(f.title || 'رسم بياني')}" style="direction:ltr">${grid}${axes}${body}</svg>${legend}</figure>`;
+}
+
+/* 🖼️ صورة يرفعها المعلم: تُصغَّر على الجهاز (≤ 1200px، JPEG) ثم تُخزَّن في الخادم ويُستخدم رابطها */
+function nafsImgPrep(file) {
+  return new Promise((res, rej) => {
+    if (!file || !/^image\//.test(file.type)) { rej(new Error('اختر ملف صورة')); return; }
+    const fr = new FileReader();
+    fr.onload = () => { const im = new Image(); im.onload = () => {
+        const k = Math.min(1, 1200 / Math.max(im.width, im.height)), c = document.createElement('canvas');
+        c.width = Math.round(im.width * k); c.height = Math.round(im.height * k);
+        const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(im, 0, 0, c.width, c.height);
+        const url = c.toDataURL('image/jpeg', .85); res({ type: 'image/jpeg', b64: url.split(',')[1], dataUrl: url }); };
+      im.onerror = () => rej(new Error('تعذّرت قراءة الصورة')); im.src = fr.result; };
+    fr.onerror = () => rej(new Error('تعذّرت قراءة الملف')); fr.readAsDataURL(file);
+  });
+}
+async function nafsImgUpload(img) {
+  if (!getApi() || !getTok()) throw new Error('اضبط رابط الخادم ورمز المعلم أولًا');
+  const r = await fetch(getApi().replace(/\/+$/, '') + '/nafs-img', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ t: getTok(), type: img.type, b64: img.b64 }) });
+  const j = await r.json().catch(() => null);
+  if (r.status === 404 || !j) throw new Error('ارفع worker.js الأخير لحفظ الصور');
+  if (!r.ok || !j.ok || !j.url) throw new Error('تعذّر رفع الصورة');
+  return j.url;
+}
+async function nafsGenImgPrev(inp) {
+  const box = document.getElementById('nafs-gen-imgp'); NAFS_GEN.img = null; NAFS_GEN.imgUrl = '';
+  try { NAFS_GEN.img = await nafsImgPrep(inp.files && inp.files[0]); box.innerHTML = `<img class="nafs-q-img" src="${NAFS_GEN.img.dataUrl}" alt="">`; }
+  catch (e) { box.innerHTML = `<div class="nafs-gen-err">⚠️ ${esc(e.message)}</div>`; }
+}
+function nafsImgAttach(id) {
+  const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*';
+  inp.onchange = async () => {
+    const it = NAFS_CUS.items.find(q => q.id === id); if (!it) return;
+    try { toast('⏳ نرفع الصورة…'); const url = await nafsImgUpload(await nafsImgPrep(inp.files[0])); it.img = url; NAFS.open = it.s; nafsCusSave(); nafsRender(); toast('🖼️ أُرفقت الصورة بالسؤال', 'good'); }
+    catch (e) { toast(e.message || 'تعذّر رفع الصورة', 'bad'); }
+  };
+  inp.click();
+}
+function nafsImgRemove(id) { const it = NAFS_CUS.items.find(q => q.id === id); if (!it) return; delete it.img; NAFS.open = it.s; nafsCusSave(); nafsRender(); }

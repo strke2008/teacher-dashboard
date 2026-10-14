@@ -1713,3 +1713,13 @@ html[data-pt] body,html[data-pt] .sheet,html[data-pt] .btn,html[data-pt] .studen
 .nf-tile.r{border-color:var(--pen);background:rgba(214,69,91,.07);color:#9B2335}
 .nf-tile.n{border-color:var(--rule);color:var(--ink-soft)}
 .nf-why{margin-top:.4rem;font-size:.88rem;line-height:1.85}.nf-why b{color:#16233A}
+
+/* 📊 أشكال البيانات */
+.nf-fig{margin:.5rem auto .7rem;max-width:560px;text-align:center}
+.nf-fig figcaption{font-weight:800;font-size:.9rem;margin-bottom:.3rem}
+.nf-fig svg{width:100%;height:auto;background:#fff;border:1px solid #DDE4EE;border-radius:10px}
+.nf-fig-t{margin:0 auto;border-collapse:collapse;font-size:.9rem;background:#fff}
+.nf-fig-t th,.nf-fig-t td{border:1px solid #C9D3E0;padding:.35rem .7rem;text-align:center}
+.nf-fig-t th{background:#EEF3FA;font-weight:800}
+.nf-fig-lg{display:flex;justify-content:center;gap:.8rem;font-size:.8rem;margin-top:.25rem}
+.nf-fig-lg i{display:inline-block;width:12px;height:4px;border-radius:2px;margin-inline-end:.3rem;vertical-align:middle}

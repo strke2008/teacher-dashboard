@@ -402,7 +402,8 @@ ${readingAIPlanText(opts.plan)}
 ${rdkBlocks(text).map(b=>b.type==='p'?`[${b.n}] ${b.text}`:b.type==='h'?`(عنوان فرعي) ${b.text}`:`(معادلة) ${b.text}`).join('\n\n')}`;
 }
 
-async function readingAICall(provider, model, systemText, signal){
+/* image (اختياري): {type:'image/jpeg', b64} — يُرسل مع النص للنماذج التي ترى الصور (توليد أسئلة من صورة يرفعها المعلم) */
+async function readingAICall(provider, model, systemText, signal, image){
   provider=provider||raiProvider();
   const cfg=readingAIConfig(provider);
   let current=readingAIGetKey(provider);
@@ -412,14 +413,14 @@ async function readingAICall(provider, model, systemText, signal){
   const request=async(p,key)=>{
     const c=readingAIConfig(p), m=(p===provider?model:(localStorage.getItem('ai_model_'+p)||c.defaultModel));
     if(c.compat==='gemini'){
-      const r=await fetch(c.baseUrl+'/'+encodeURIComponent(m)+':generateContent?key='+encodeURIComponent(key),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{role:'user',parts:[{text:systemText}]}],generationConfig:{...(geminiSamplingOK(m)?{temperature:temp}:{}),maxOutputTokens:Math.min(maxTok,c.maxTokens||maxTok),responseMimeType:'application/json'}}),signal});
+      const r=await fetch(c.baseUrl+'/'+encodeURIComponent(m)+':generateContent?key='+encodeURIComponent(key),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{role:'user',parts:[...(image?[{inline_data:{mime_type:image.type,data:image.b64}}]:[]),{text:systemText}]}],generationConfig:{...(geminiSamplingOK(m)?{temperature:temp}:{}),maxOutputTokens:Math.min(maxTok,c.maxTokens||maxTok),responseMimeType:'application/json'}}),signal});
       const d=await r.json();if(!r.ok){const e=new Error(d.error?.message||('خطأ '+r.status));e.status=r.status;throw e}return d.candidates?.[0]?.content?.parts?.map(x=>x.text||'').join('')||'';
     }
     if(c.compat==='claude'){
-      const r=await fetch(c.baseUrl,{method:'POST',headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:m,max_tokens:Math.min(maxTok,c.maxTokens||maxTok),...(claudeSamplingOK(m)?{temperature:temp}:{}),system:'أخرج JSON فقط.',messages:[{role:'user',content:systemText}]}),signal});
+      const r=await fetch(c.baseUrl,{method:'POST',headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:m,max_tokens:Math.min(maxTok,c.maxTokens||maxTok),...(claudeSamplingOK(m)?{temperature:temp}:{}),system:'أخرج JSON فقط.',messages:[{role:'user',content:image?[{type:'image',source:{type:'base64',media_type:image.type,data:image.b64}},{type:'text',text:systemText}]:systemText}]}),signal});
       const d=await r.json();if(!r.ok){const e=new Error(d.error?.message||('خطأ '+r.status));e.status=r.status;throw e}return d.content?.map(x=>x.text||'').join('')||'';
     }
-    const body={model:m,messages:[{role:'system',content:'أخرج JSON صالحاً فقط دون markdown أو شرح.'},{role:'user',content:systemText}],temperature:temp,max_tokens:Math.min(maxTok,c.maxTokens||maxTok)};
+    const body={model:m,messages:[{role:'system',content:'أخرج JSON صالحاً فقط دون markdown أو شرح.'},{role:'user',content:image?[{type:'image_url',image_url:{url:`data:${image.type};base64,${image.b64}`}},{type:'text',text:systemText}]:systemText}],temperature:temp,max_tokens:Math.min(maxTok,c.maxTokens||maxTok)};
     const reasoning=Array.isArray(c.reasoningModels)&&c.reasoningModels.includes(m);if(c.tokenParam&&c.tokenParam!=='max_tokens'){body[c.tokenParam]=body.max_tokens;delete body.max_tokens}if(reasoning)delete body.temperature;if(reasoning&&p==='groq'&&/gpt-oss/.test(m))body.reasoning_effort='low';
     const r=await fetch(c.baseUrl,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},body:JSON.stringify(body),signal});const d=await r.json();if(!r.ok){const e=new Error(d.error?.message||('خطأ '+r.status));e.status=r.status;throw e}return d.choices?.[0]?.message?.content||'';
   };
