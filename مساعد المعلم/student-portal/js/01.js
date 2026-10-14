@@ -5639,6 +5639,9 @@ function readingCurrentStageName(){
   return q && READING_STAGE_ORDER.includes(q.stage) ? q.stage : 'during';
 }
 
+/* 🖼️ شكل السؤال (أسئلة نافس: رسم بياني/جدول/خيارات مرسومة) — مسار من مجلد البوابة أو رابط https فقط */
+function qImgSrc(q){ const s=String(q&&q.img||''); return /^nafs\/[\w.-]+\.(webp|png|jpe?g)$/i.test(s)||/^https:\/\/[^\s"'<>]+$/i.test(s)?s:''; }
+function qImgHTML(q){ const s=qImgSrc(q); return s?`<div class="q-img"><img src="${esc(s)}" alt="شكل السؤال — اضغط للتكبير" loading="lazy" onclick="this.classList.toggle('zoom')"></div>`:''; }
 function isReadingActivity(){ return !!(HW && HW.kind === 'reading'); }
 
 function render(){
@@ -5661,6 +5664,8 @@ function render(){
                           : k==='m' ? 'اضغط كلمة من اليمين ثم ما يقابلها'
                           : k==='f' ? rdkMaskBlank(q)
                           : (q.q || '');
+  { let im=$('q-img-box'); if(!im){ const qt=$('q-text'); if(qt){ qt.insertAdjacentHTML('afterend','<div id="q-img-box"></div>'); im=$('q-img-box'); } }
+    if(im) im.innerHTML = qImgHTML(q); }
 
   if(k==='q'){
     const gone = hintUsed[idx] || [];
@@ -5813,7 +5818,7 @@ function renderReview(marks){
                 : (q.t==='m') ? 'وصّل' : (q.q||'');
     return `<div class="sheet" style="border-inline-start:4px solid ${ok?'var(--tick)':'var(--pen)'};padding:.85rem 1rem">
       <div class="muted" style="font-size:.75rem;margin-bottom:.25rem">${i+1}. ${label} ${ok?'✓':'✗'}</div>
-      <div style="font-weight:700;margin-bottom:.35rem">${esc(title)}</div>
+      <div style="font-weight:700;margin-bottom:.35rem">${esc(title)}</div>${qImgHTML(q)}
       ${ok ? '' : `<div style="font-size:.9rem;color:var(--pen)">إجابتك: ${esc(myAnswer(q, ans[i], built[i]))}</div>`}
       <div style="font-size:.9rem;color:var(--tick)">الصحيح: ${esc(rightAnswer(q))}</div>
     </div>`;

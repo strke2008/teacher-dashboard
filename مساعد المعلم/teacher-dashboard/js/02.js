@@ -529,7 +529,7 @@ function goTab(name){
   b.onclick = ()=>{
     const items = [['—','📚 التعليم'],['projects','📁 المشاريع'],['live','🎮 المسابقات المباشرة'],['madrasati','📚 مدرستي'],
       ['—','👥 الطلاب والمتابعة'],['classtools:profile','👤 ملف الطالب'],['plans','🩺 الخطط العلاجية'],['classtools:duties','🎖️ مهام الطلاب'],
-      ['—','📝 الاختبارات والدرجات'],['classtools:exams','📝 دفتر الاختبارات'],['exam','🖨️ الاختبار الورقي'],['reports','📑 الكشوف'],
+      ['—','📝 الاختبارات والدرجات'],['classtools:exams','📝 دفتر الاختبارات'],['exam','🖨️ الاختبار الورقي'],['nafs','🧭 نافس ونواتج التعلم'],['reports','📑 الكشوف'],
       ['—','📈 التقارير والتحليل'],['grades','📊 تقارير الأنشطة'],['classtools:analysis','📈 المستويات والمهارات'],['classtools:classfile','🏫 ملف الفصل'],['classtools:portfolio','🧾 ملف الإنجاز'],
       ['—','🏅 التواصل والتحفيز'],['messages','💬 رسائل الطلاب'],['classtools:certs','🏅 الشهادات'],['exam-shop','🎓 متجر الدرجات'],
       ['—','⚙️'],['data','⚙️ الإعدادات']];
@@ -981,7 +981,8 @@ function twinQCount(h){return (h.qs||[]).filter(q=>['q','tf','f'].includes(q.t||
 function twinCalls(h){return Math.max(1,Math.ceil(twinQCount(h)/6))}
 let TWIN_PART=0,TWIN_PARTS=0,TWIN_T0=0,TWIN_AC=null,TWIN_STOP=false,TWIN_TICK=0;
 async function twinGenerate(h){
-  const src=h.qs.map((q,i)=>({i,t:q.t||'q',q:q.q,o:q.o,a:q.a})).filter(x=>['q','tf','f'].includes(x.t));
+  // السؤال المبني على شكل (q.img) لا بديل له: الذكاء الاصطناعي لا يرى الشكل فيكتب سؤالًا بلا معنى
+  const src=h.qs.map((q,i)=>({i,t:q.t||'q',q:q.q,o:q.o,a:q.a,img:q.img})).filter(x=>['q','tf','f'].includes(x.t)&&!x.img).map(({img,...x})=>x);
   const out=[];TWIN_PARTS=Math.ceil(src.length/6);
   for(let k=0;k<src.length;k+=6){
     if(TWIN_STOP)throw new Error('أوقفتَ التجهيز');
@@ -1517,7 +1518,7 @@ async function annDelete(id){
 
 /* ═══ 🏷️ تصنيف مهارات الأسئلة لأنشطة منشورة (طلب صغير رخيص: أسماء المهارات فقط) ═══ */
 let SKILL_SERVER=null, SKILL_BUSY=false, SKILL_NAMES=[]; // أسماء المهارات المصنّفة في الخادم (للاقتراح في الخطة)
-function skillEligible(h){return !!(h&&h.published&&h.sid&&(h.kind||'normal')==='normal'&&!h.remedial&&Array.isArray(h.qs)&&h.qs.some(q=>['q','tf','f'].includes(q.t||'q')))}
+function skillEligible(h){return !!(h&&h.published&&h.sid&&(h.kind||'normal')==='normal'&&!h.remedial&&Array.isArray(h.qs)&&h.qs.some(q=>['q','tf','f'].includes(q.t||'q'))&&!h.qs.some(q=>q&&q.skill))}   // أسئلة نافس تحمل ناتج تعلمها
 function skillNeeded(h){return skillEligible(h)&&h.skillsHash!==twinHash(h)&&!(SKILL_SERVER&&SKILL_SERVER.has(String(h.sid))&&!h.skillsHash)}
 /* 🏷️ تصنيف تلقائي عند النشر: طلب قصير رخيص (أسماء المهارات فقط). إن كان توليد الأسئلة البديلة
    سيعمل للنشاط نفسه فالتصنيف يأتي معه بلا طلب إضافي. */

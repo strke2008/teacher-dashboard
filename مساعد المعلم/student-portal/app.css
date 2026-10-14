@@ -1671,3 +1671,8 @@ html[data-pt] body,html[data-pt] .sheet,html[data-pt] .btn,html[data-pt] .studen
 .hw-gr{display:inline-block;margin:.25rem 0 .1rem;padding:.08rem .5rem;border-radius:999px;font-size:.72rem;font-weight:700;
   background:rgba(120,130,145,.12);color:var(--ink-soft);border:1px dashed rgba(120,130,145,.4)}
 .hw-gr.on{background:rgba(46,107,184,.13);color:#2E6BB8;border:1px solid rgba(46,107,184,.35)}
+
+/* 🖼️ شكل السؤال (نافس) */
+.q-img{margin:.5rem 0 .7rem;text-align:center}
+.q-img img{max-width:100%;max-height:300px;border-radius:12px;border:1px solid var(--rule);background:#fff;padding:4px;cursor:zoom-in;transition:max-height .2s}
+.q-img img.zoom{max-height:none;cursor:zoom-out}

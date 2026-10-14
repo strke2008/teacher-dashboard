@@ -1032,7 +1032,8 @@ function skillWindow(data, assignments, sid, from, to, only, cut) {
   for (const h of (assignments || [])) {
     const kind = h && (h.kind || 'normal');
     if (!h || (kind !== 'normal' && kind !== 'diag') || h.remedial) continue;
-    const sk = kind === 'diag' ? diagSkillMap(h) : map[String(h.sid || '')]; if (!sk) continue;
+    // مهارة مكتوبة على السؤال نفسه (التشخيصي، ونواتج نافس) أولًا، وإلا تصنيف الذكاء الاصطناعي
+    const sk = diagSkillMap(h) || (kind === 'diag' ? null : map[String(h.sid || '')]); if (!sk) continue;
     const sub = h.subs && h.subs[String(sid)]; if (!sub || !sub.d) continue;
     const d = planSubDay(sub.at, cut);
     if (from && d < from) continue;
@@ -2832,7 +2833,7 @@ async function planRemedialSend(env, planId, sids, round, state) {
   const metFor = sid => { try { const m = memberReport(sid, plan, students, state.assignments || [], cd);
     return new Set(((m.skill && m.skill.items) || []).filter(x => x.after && x.after.total >= 2 && x.after.rate >= SKILL_TARGET).map(x => x.skill)); } catch { return new Set(); } };
   const skAsg = (Array.isArray(state.assignments) ? state.assignments : []).filter(h => h && h.sid && ['normal', 'diag'].includes(h.kind || 'normal') && !h.remedial);
-  const skFor = h => ((h.kind || 'normal') === 'diag' ? diagSkillMap(h) : skMap[String(h.sid)]);
+  const skFor = h => (diagSkillMap(h) || ((h.kind || 'normal') === 'diag' ? null : skMap[String(h.sid)]));
   const results = [];
   for (const sid of sids) {
     const s = students.find(x => String(x.id) === String(sid));
@@ -3179,7 +3180,11 @@ function activityPace(activity) {
 }
 
 /* ✅ المصحّح الموحّد: التسليم ومهمة التصحيح يحكمان بالقاعدة نفسها حرفيًا */
-const normAnswer = v => String(v ?? '').trim().replace(/\s+/g,' ').toLowerCase();
+/* أكمل الفراغ: «٢» = «2» · «٠٫٨» = «0.8» = «0,8» — الأرقام العربية والفاصلة العشرية لا تُخطّئ الطالب */
+const normAnswer = v => String(v ?? '').trim()
+  .replace(/[\u0660-\u0669]/g, d => String(d.charCodeAt(0) - 0x0660)).replace(/[\u06F0-\u06F9]/g, d => String(d.charCodeAt(0) - 0x06F0))
+  .replace(/(\d)\s*[٫,،]\s*(\d)/g, '$1.$2')
+  .replace(/\s+/g,' ').toLowerCase();
 function gradeAnswer(activity, q, a) {
   const k = String(q?.t || 'q');
   if (String(activity && activity.kind || '') === 'style') return a !== null && a !== undefined;
@@ -6125,7 +6130,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
           let met = new Set(); try { const m = memberReport(sid, plan, students, state.assignments || [], cd);
             met = new Set(((m.skill && m.skill.items) || []).filter(x => x.after && x.after.total >= 2 && x.after.rate >= SKILL_TARGET).map(x => x.skill)); } catch {}
           const left = targets.filter(k => !met.has(k)), cnt = Object.fromEntries(left.map(k => [k, 0]));
-          for (const h of asg) { const sub = h.subs && h.subs[sid], sk = skMap[String(h.sid)]; if (!sub || !sk || !sub.d) continue;
+          for (const h of asg) { const sub = h.subs && h.subs[sid], sk = diagSkillMap(h) || skMap[String(h.sid)]; if (!sub || !sk || !sub.d) continue;
             const d = String(sub.d);
             for (let i = 0; i < d.length; i++) { const k = sk[i]; if (d[i] !== '0' || !(k in cnt) || cnt[k] >= 3) continue; cnt[k]++;
               if (!(await hasTwin(String(h.sid), i))) need.set(String(h.sid), (need.get(String(h.sid)) || 0) + 1); } }

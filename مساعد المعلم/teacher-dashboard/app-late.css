@@ -2048,3 +2048,48 @@ details.ar-escal:not([open]){gap:0}
   .noor-exp-table td.nm{min-width:140px}
   .noor-sep{display:none}
 }
+
+/* ── 🧭 نافس ونواتج التعلم ── */
+.nafs-intro{padding:.6rem .8rem;border-radius:12px;background:rgba(46,107,184,.07);font-size:.84rem;line-height:1.8;margin-bottom:.7rem}
+.nafs-secs{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));gap:.7rem}
+.nafs-sec{border:1px solid var(--ui-border,#E3E9F1);border-radius:14px;padding:.7rem .8rem;background:var(--ui-surface,#fff);opacity:.7}
+.nafs-sec.on{opacity:1;border-color:rgba(27,156,107,.45);box-shadow:0 4px 14px rgba(27,156,107,.08)}
+.nafs-sec-h{display:flex;gap:.55rem;align-items:flex-start;cursor:pointer}
+.nafs-sec-h input{margin-top:.35rem}
+.nafs-ic{font-size:1.5rem;line-height:1}
+.nafs-sec-h b{display:block;font-size:1rem}.nafs-sec-h small{display:block;color:var(--ink-soft);font-size:.74rem;line-height:1.6}
+.nafs-sec-n{display:flex;gap:.3rem;flex-wrap:wrap;margin:.45rem 0}
+.nafs-sec details summary{cursor:pointer;font-size:.82rem;font-weight:700;color:var(--ink-soft)}
+.nafs-out{margin:.4rem 0;padding-inline-start:1.2rem;font-size:.8rem;line-height:1.7;display:grid;gap:.35rem}
+.nafs-qs{display:grid;gap:.5rem;margin-top:.5rem}
+.nafs-q{border:1px dashed var(--ui-border,#E3E9F1);border-radius:10px;padding:.5rem .6rem;font-size:.82rem}
+.nafs-q-h{display:flex;gap:.3rem;flex-wrap:wrap;align-items:center;margin-bottom:.3rem}
+.nafs-q-t{line-height:1.8}
+.nafs-q-img{display:block;max-width:100%;max-height:200px;margin:.4rem auto;border-radius:8px;background:#fff}
+.nafs-q-o{margin:.3rem 0 0;padding-inline-start:1rem;display:grid;gap:.15rem}.nafs-q-o li{list-style:none}
+.nafs-q-o li.ok,.nafs-q-a{color:var(--tick,#1B9C6B);font-weight:700}
+.nafs-q-n{margin-top:.3rem;font-size:.74rem;color:#8A5A00}
+.nafs-k{font-size:.66rem;font-weight:700;padding:.05rem .4rem;border-radius:999px}
+.nafs-k.off{background:rgba(27,156,107,.13);color:var(--tick,#1B9C6B)}.nafs-k.pr{background:rgba(200,138,46,.15);color:#8A5A00}.nafs-k.ad{background:rgba(46,107,184,.12);color:#2E6BB8}
+.nafs-make{margin:.8rem 0}
+.nafs-res{width:100%;border-collapse:collapse;font-size:.82rem;margin-top:.5rem}
+.nafs-res th{text-align:start;font-weight:700;color:var(--ink-soft);padding:.4rem;border-bottom:1px solid var(--ui-border,#E3E9F1)}
+.nafs-res td{padding:.4rem;border-bottom:1px solid var(--ui-border,#EEF2F7);vertical-align:middle}
+.nafs-res td small{display:block}
+.nafs-bar{display:inline-block;width:90px;height:7px;border-radius:99px;background:#EDF1F6;overflow:hidden;vertical-align:middle;margin-inline-end:.35rem}.nafs-bar i{display:block;height:100%}
+.nafs-weak{font-size:.76rem}
+/* الورقة المطبوعة */
+.nfp .nfp-qs{display:grid;gap:3mm}
+.nfp-q{break-inside:avoid;border:1px solid #DDE4EE;border-radius:2.5mm;padding:2.5mm 3.5mm;font-size:10pt}
+.nfp-qh{display:flex;gap:2.5mm;align-items:flex-start;line-height:1.75}.nfp-qh b{flex:none;width:6mm;height:6mm;border-radius:50%;background:#16233A;color:#fff;display:grid;place-items:center;font-size:8.5pt}
+.nfp-q img{display:block;max-width:100%;max-height:48mm;margin:2mm auto}
+.nfp-o{list-style:none;margin:1.5mm 0 0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:1mm 5mm}
+.nfp-o li{display:flex;gap:2mm;align-items:center}.nfp-o li i,.nfp-tf i{width:3.5mm;height:3.5mm;border:1px solid #8A97AB;border-radius:50%;display:inline-block;flex:none}
+.nfp-o li.ok,.nfp-tf .ok{font-weight:800;color:#137A53}.nfp-o li.ok i,.nfp-tf .ok i{background:#137A53;border-color:#137A53}
+.nfp-tf{display:flex;gap:10mm;margin-top:1.5mm}
+.nfp-line{border-bottom:1px dotted #8A97AB;height:7mm}
+.nfp-ans{color:#137A53}
+.nfp-key{margin-top:1.5mm;padding:2mm 3mm;border-radius:2mm;background:#ECF8F2;color:#0E5B4E;line-height:1.7}
+.nfp-note{margin-top:1mm;font-size:8.5pt;color:#8A5A00}
+.nfp-out{display:block;margin-top:1mm;font-size:7.5pt;color:#5A6B84}
+@media (max-width:700px){ .nafs-res th:nth-child(3),.nafs-res td:nth-child(3){display:none} .nafs-bar{width:56px} }
