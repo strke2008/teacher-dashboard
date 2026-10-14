@@ -1712,3 +1712,4 @@ html[data-pt] body,html[data-pt] .sheet,html[data-pt] .btn,html[data-pt] .studen
 .nf-tile.y{border-color:#E0A100;background:#FFF8E6;color:#7A5212}
 .nf-tile.r{border-color:var(--pen);background:rgba(214,69,91,.07);color:#9B2335}
 .nf-tile.n{border-color:var(--rule);color:var(--ink-soft)}
+.nf-why{margin-top:.4rem;font-size:.88rem;line-height:1.85}.nf-why b{color:#16233A}
