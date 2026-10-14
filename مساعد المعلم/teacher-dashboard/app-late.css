@@ -2086,8 +2086,9 @@ details.ar-escal:not([open]){gap:0}
 .nfp .nfp-qs{display:grid;gap:3mm}
 .nfp-q{break-inside:avoid;border:1px solid #DDE4EE;border-radius:2.5mm;padding:2.5mm 3.5mm;font-size:10pt}
 .nfp-qh{display:flex;gap:2.5mm;align-items:flex-start;line-height:1.75}.nfp-qh b{flex:none;width:6mm;height:6mm;border-radius:50%;background:#16233A;color:#fff;display:grid;place-items:center;font-size:8.5pt}
-.nfp-q img{display:block;max-width:100%;max-height:48mm;margin:2mm auto}
+.nfp-q img{display:block;max-width:100%;max-height:42mm;margin:1.5mm auto}
 .nfp-o{list-style:none;margin:1.5mm 0 0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:1mm 5mm}
+.nfp-o.c4{grid-template-columns:repeat(4,1fr)}.nfp-o.c1{grid-template-columns:1fr}
 .nfp-o li{display:flex;gap:2mm;align-items:center}.nfp-o li i,.nfp-tf i{width:3.5mm;height:3.5mm;border:1px solid #8A97AB;border-radius:50%;display:inline-block;flex:none}
 .nfp-o li.ok,.nfp-tf .ok{font-weight:800;color:#137A53}.nfp-o li.ok i,.nfp-tf .ok i{background:#137A53;border-color:#137A53}
 .nfp-tf{display:flex;gap:10mm;margin-top:1.5mm}
@@ -2096,6 +2097,26 @@ details.ar-escal:not([open]){gap:0}
 .nfp-key{margin-top:1.5mm;padding:2mm 3mm;border-radius:2mm;background:#ECF8F2;color:#0E5B4E;line-height:1.7}
 .nfp-note{margin-top:1mm;font-size:8.5pt;color:#8A5A00}
 .nfp-out{display:block;margin-top:1mm;font-size:7.5pt;color:#5A6B84}
+/* ورقة نافس: ترويسة الطالب والتعليمات والأقسام */
+html body .rep-page.nfp{border:0;box-shadow:none}
+.nfp-id{display:grid;grid-template-columns:2.4fr 1fr 1fr 1.1fr;gap:2.5mm;margin:1mm 0 2.5mm}
+.nfp-id>div{display:flex;align-items:flex-end;gap:2mm;border:1.2px solid #B9C6D6;border-radius:2.5mm;padding:2.5mm 3mm 2mm;min-height:13mm;font-size:10pt}
+.nfp-id span{font-weight:800;color:#16233A;white-space:nowrap}
+.nfp-id i{flex:1;border-bottom:1.2px dotted #6B7A90;height:6mm}
+.nfp-id .nfp-name{font-size:11pt}
+.nfp-id .nfp-score em{font-style:normal;font-weight:800;font-size:11pt;color:#16233A}
+.nfp-ins{font-size:9pt;line-height:1.8;padding:2mm 3mm;border-radius:2mm;background:#F3F6FA;margin-bottom:2.5mm}
+.nfp-ins i{display:inline-block;width:3mm;height:3mm;border-radius:50%;background:#16233A;vertical-align:middle}
+.nfp-sec{display:flex;align-items:center;gap:2mm;margin:3mm 0 2mm;padding:1.8mm 3.5mm;border-radius:2mm;background:#16233A;color:#fff;font-weight:800;font-size:10.5pt;break-after:avoid}
+.nfp-sec small{margin-inline-start:auto;font-weight:600;font-size:8.5pt;opacity:.85}
+.nfp-same{font-size:8.5pt;color:#5A6B84;margin:1mm 0}
+.nfp-fill{margin-top:2mm;display:flex;align-items:center;gap:2mm;font-weight:700}
+.nfp-box{display:inline-flex;align-items:center;justify-content:center;min-width:32mm;height:8mm;border:1.2px solid #8A97AB;border-radius:1.5mm}
+.nfp-end{text-align:center;margin:4mm 0 1mm;font-size:9pt;color:#5A6B84}
+.nfp-grid{display:grid;grid-template-columns:repeat(10,1fr);gap:1.2mm;margin:1mm 0 1.5mm}
+.nfp-grid span{display:flex;gap:1.5mm;justify-content:center;align-items:center;border:1px solid #CFE0D8;border-radius:1.5mm;padding:1mm;font-size:9pt;font-weight:800;color:#137A53;background:#F2FAF6}
+.nfp-grid span b{color:#16233A}
+.nfp-hint{font-size:8pt;color:#5A6B84;margin-bottom:2mm}
 @media (max-width:700px){ .nafs-res th:nth-child(3),.nafs-res td:nth-child(3){display:none} .nafs-bar{width:56px} }
 /* 🖼️ شكل السؤال في محرر الأسئلة (أسئلة نافس) */
 .q-row-img{display:flex;gap:.6rem;align-items:center;margin:.1rem 0 .5rem;padding:.4rem;border:1px dashed var(--ui-border,#E3E9F1);border-radius:10px;background:rgba(46,107,184,.04)}
