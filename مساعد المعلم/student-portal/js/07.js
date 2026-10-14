@@ -458,7 +458,9 @@ openJourneyLearning = function (nm, rows, kinds) {
   if (Array.isArray(kinds) && kinds.length === 1 && kinds[0] === 'nafs') {
     NF.rows = rows;
     const c = $('journey-workspace-content'), html = nfMapHTML(rows);
-    if (c && html) c.insertAdjacentHTML('afterbegin', html);
+    // تحت رأس المسار (العنوان وزر «إغلاق») — لا فوقه
+    const head = c && c.querySelector('.jw-head');
+    if (head && html) head.insertAdjacentHTML('afterend', html); else if (c && html) c.insertAdjacentHTML('afterbegin', html);
   }
   return r;
 };
