@@ -2905,7 +2905,9 @@ function planExamRow(p){
   return `<div class="plan-exam"><b>📝 الاختبارات</b>
     <span>قبل الخطة <b>${r(e.before)}</b>${det(e.before)}</span><span>←</span><span>بعدها <b>${r(e.after)}</b>${det(e.after)}</span>
     ${g?`<span class="chip ${e.verdict==='تحسّن'?'tick':e.verdict==='تراجع'?'bad':'ghost'}">${g}</span>`:`<span class="chip ghost">${planEsc(e.verdict)}</span>`}
-    ${e.undated?`<div class="muted" style="font-size:.76rem;flex-basis:100%">⚠️ ${e.undated} ${e.undated===1?'درجة':'درجات'} لاختبار بلا تاريخ — حُسبت بتاريخ رصدها. حدّد «تاريخ الاختبار» في دفتر الاختبارات لدقة أعلى.</div>`:''}</div>`;
+    ${(()=>{const L=x=>(x&&Array.isArray(x.list)?x.list:[]).map(t=>`${planEsc(t.title)} <small class="muted">${planEsc(String(t.date).slice(5).replace('-','/'))}</small> <b>${t.rate}%</b>`).join(' · ');
+      const b=L(e.before),a=L(e.after);return b||a?`<div class="plan-exam-l"><span>قبل: ${b||'—'}</span><span>بعد: ${a||'—'}</span></div>`:''})()}
+    ${e.undated?`<div class="plan-exam-un">📅 ${e.undated===1?'اختبار بلا تاريخ':e.undated+' اختبارات بلا تاريخ'}${Array.isArray(e.undatedList)&&e.undatedList.length?` (${[...new Set(e.undatedList)].map(planEsc).join('، ')})`:''} — <b>لم ${e.undated===1?'يُحتسب':'تُحتسب'} في المقارنة</b> لأنه لا يُعرف أكان قبل الخطة أم بعدها. حدّد تاريخه في «دفتر الاختبارات».</div>`:''}</div>`;
 }
 /* 📊 أدلة الحكم: دلالة الفرق، والمقارنة بالفصل، وفترة خط الأساس (تُحسب في الخادم) */
 const PLAN_CONF_TONE={strong:'tick',likely:'warn',weak:'ghost'};
@@ -3383,7 +3385,7 @@ async function printPlans(id){
         ${planBaseText(p)?`<tr><td><b>فترة خط الأساس</b></td><td style="text-align:start">${planEsc(planBaseText(p))}</td></tr>`:''}
       </tbody></table>`:''}
       ${p.caution?`<div class="plan-warn">⚠️ ${planEsc(p.caution)}</div>`:''}
-      ${ex&&ex.undated?`<div class="plan-note">بعض درجات الاختبارات بلا تاريخ اختبار، فحُسبت بتاريخ رصدها.</div>`:''}
+      ${ex&&ex.undated?`<div class="plan-note">📅 ${ex.undated} ${ex.undated===1?'اختبار بلا تاريخ لم يُحتسب':'اختبارات بلا تاريخ لم تُحتسب'} في المقارنة (لا يُعرف أكان قبل الخطة أم بعدها).</div>`:''}
       <div class="plan-note"><b>منهجية القياس:</b> النسب من إجابات الطالب الفعلية المسجّلة آليًا لا من التقدير. خط الأساس آخر 30 يومًا قبل الخطة (أو كل ما قبلها إن قلّ عن 10 أسئلة).
         في المهارات المستهدفة يُحتسب بعد البدء كل سؤال جديد على المهارة: الأنشطة العادية والأسئلة البديلة في المهمة العلاجية (صياغة جديدة موازية)، أما السؤال الأصلي المعاد بخيارات مرتبة من جديد فلا يُحتسب لأنه يقيس التذكّر لا الفهم. ${p.basis==='skills'?'القياس على أسئلة المهارات المستهدفة وحدها. ':''}
         يُحكم بالتحسّن عند فرق 5 نقاط فأكثر، ويُبيَّن هل الفرق أكبر من هامش الصدفة لعدد الأسئلة، ويُقارَن بتغيّر زملائه في الفصل خلال الفترة نفسها.

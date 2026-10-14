@@ -1080,7 +1080,10 @@ const SUPPORT_ACTIONS = {
   behavior: 'إجلاسه في الصف الأمامي ومتابعته أثناء التدريب',
 };
 const EXAM_WEAK = 60;
-function examWindow(data, sid, from, to) {
+/* opt.datedOnly (للخطط العلاجية): الاختبار بلا تاريخ لا يُعرف أكان قبل الخطة أم بعدها — تاريخ رصد الدرجة
+   قد يأتي بعد البدء لاختبار أُجري قبله — فلا يدخل المقارنة، ويُعدّ في undated ليُطلب تحديد تاريخه. */
+function examWindow(data, sid, from, to, opt) {
+  const datedOnly = !!(opt && opt.datedOnly), undatedList = [];
   const books = data && data.examBooks && typeof data.examBooks === 'object' ? data.examBooks : {};
   let got = 0, max = 0, n = 0, undated = 0;
   const list = [];
@@ -1097,6 +1100,7 @@ function examWindow(data, sid, from, to) {
         const mx = Math.max(1, Number(t.max) || 10);
         let d = /^\d{4}-\d{2}-\d{2}$/.test(String(t.date || '')) ? String(t.date) : '';
         const dated = !!d;
+        if (!d && datedOnly) { undated++; undatedList.push(String(t.title || 'اختبار').slice(0, 80)); continue; }
         if (!d) { const at = Number(v && v.at) || 0; if (!at) continue; d = new Date(at + 3 * 3600000).toISOString().slice(0, 10); }
         if (from && d < from) continue;
         if (to && d > to) continue;
@@ -1106,8 +1110,8 @@ function examWindow(data, sid, from, to) {
       }
     }
   }
-  if (!max) return { rate: null, tests: 0, undated: 0, measured: false, list: [] };
-  return { rate: Math.round((got / max) * 100), tests: n, undated, measured: true, list: list.sort((a, b) => a.date.localeCompare(b.date)) };
+  if (!max) return { rate: null, tests: 0, undated, undatedList, measured: false, list: [] };
+  return { rate: Math.round((got / max) * 100), tests: n, undated, undatedList, measured: true, list: list.sort((a, b) => a.date.localeCompare(b.date)) };
 }
 function examVerdict(before, after) {
   if (!before.measured && !after.measured) return { gain: null, verdict: 'لا توجد اختبارات' };
@@ -1307,10 +1311,11 @@ function memberReport(sid, plan, students, assignments, data_ref) {
     } else measureNote = `لا توجد سجلات كافية في «${CONDUCT[measureKey].label}» بعد البدء — قيس مؤقتًا على التحصيل`;
   }
   const ctx = planContext(data_ref, sid, start, to);
-  const exBefore = examWindow(data_ref, sid, '', start ? prevDay(start) : '');
-  const exAfter = examWindow(data_ref, sid, start, to);
+  const exBefore = examWindow(data_ref, sid, '', start ? prevDay(start) : '', { datedOnly: true });
+  const exAfter = examWindow(data_ref, sid, start, to, { datedOnly: true });
   const ev = examVerdict(exBefore, exAfter);
-  const exam = { before: exBefore, after: exAfter, gain: ev.gain, verdict: ev.verdict, undated: exBefore.undated + exAfter.undated };
+  // الاختبارات بلا تاريخ تُعدّ مرة واحدة (النافذتان تريانها كلتاهما) ولا تدخل المقارنة
+  const exam = { before: exBefore, after: exAfter, gain: ev.gain, verdict: ev.verdict, undated: exBefore.undated, undatedList: exBefore.undatedList || [] };
   let caution = '';
   if (ctx.lowAttendance) caution = `حضر ${ctx.days - ctx.missedDays} من ${ctx.days} يومًا فقط — الخطة لم تُنفَّذ بالقدر الكافي للحكم عليها`;
   else if (ctx.hwMissed >= 3) caution = `لم يسلّم ${ctx.hwMissed} واجبات خلال الخطة`;

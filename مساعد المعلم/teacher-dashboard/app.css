@@ -6173,3 +6173,7 @@ button.pill.hw-gr{cursor:pointer}
 .pc-basis{margin:.35rem 0 0;padding:.4rem .6rem;border-radius:10px;background:rgba(46,107,184,.07);font-size:.76rem;color:var(--ink-soft);line-height:1.7}
 @media (max-width:640px){ .pl-ev li{grid-template-columns:64px 20px 1fr} }
 .pl-cmp td.pl-src{font-size:.74rem;color:var(--ink-soft);line-height:1.6}
+
+/* 📝 اختبارات الخطة: أسماؤها وتواريخها، وما لم يُحتسب لغياب تاريخه */
+.plan-exam-l{flex-basis:100%;display:grid;gap:.15rem;font-size:.76rem;color:var(--ink-soft)}
+.plan-exam-un{flex-basis:100%;font-size:.76rem;padding:.35rem .55rem;border-radius:8px;background:rgba(200,138,46,.1);color:#8A5A00}
