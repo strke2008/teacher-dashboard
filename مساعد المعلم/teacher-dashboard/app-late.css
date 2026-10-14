@@ -2111,3 +2111,12 @@ details.ar-escal:not([open]){gap:0}
 .nafs-form-sec small{font-size:.72rem;color:var(--ink-soft,#5A6B84);white-space:nowrap}
 .nafs-form-sum{font-size:.8rem;line-height:1.8}
 .nafs-form-sum small{color:var(--ink-soft,#5A6B84)}
+/* 🧭 نواتج نافس في الخطة العلاجية */
+.nf-plan .nf-sec{display:block;font-size:.7rem;font-weight:400}
+.nf-plan-none{font-size:.82rem}
+.nf-pc{margin:.5rem 0}
+.nf-pc-t{width:100%;border-collapse:collapse;font-size:.8rem;margin:.3rem 0}
+.nf-pc-t th,.nf-pc-t td{padding:.3rem .4rem;border-bottom:1px solid var(--ui-border,#E3E9F1);text-align:start;vertical-align:middle}
+.nf-pc-t th{font-size:.74rem;color:var(--ink-soft,#5A6B84);font-weight:600}
+.nf-pc-t small{color:var(--ink-soft,#5A6B84)}
+.nf-plan-btn{margin-inline-start:.35rem;padding:.15rem .45rem;font-size:.74rem}

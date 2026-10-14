@@ -1001,7 +1001,9 @@ async function twinGenerate(h){
   return out;
 }
 let TWIN_BUSY=false;const TWIN_Q=[];let TWIN_NOW='',TWIN_CUR='',TWIN_ERR='',TWIN_OK=0,TWIN_FAIL=0,TWIN_LAST='';const TWIN_RUN=new Set();
-function twinQueue(h){if(!h||!twinNeeded(h)||TWIN_Q.includes(h.id)||TWIN_CUR===h.id)return;TWIN_Q.push(h.id);TWIN_RUN.add(h.id);twinPump();autoRemStatus()}
+function twinQueue(h){if(!h||!twinNeeded(h)||TWIN_Q.includes(h.id)||TWIN_CUR===h.id)return;
+  // 🧭 نشاط نافس: بدائله من بنك نافس (أسئلة أخرى على الناتج نفسه بأشكالها) بلا ذكاء اصطناعي
+  if(typeof hwIsNafs==='function'&&hwIsNafs(h)&&typeof nafsTwinsSave==='function'){nafsTwinsSave(h).then(()=>autoRemStatus());return}TWIN_Q.push(h.id);TWIN_RUN.add(h.id);twinPump();autoRemStatus()}
 async function twinPump(){
   if(TWIN_BUSY)return;
   if(!twinHasKey()){TWIN_ERR='لا يوجد مفتاح ذكاء اصطناعي — أضفه من ⚙️ إعدادات الذكاء الاصطناعي';TWIN_Q.length=0;TWIN_RUN.clear();autoRemStatus();return}
@@ -1284,9 +1286,14 @@ async function planEnsureTwins(planId,sids){
   try{const r=await fetch(getApi().replace(/\/+$/,'')+'/plan-twins-need',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:getTok(),planId,sids})});
     const j=await r.json();if(j&&j.ok&&Array.isArray(j.need))need=j.need}catch(e){return ''}   // خادم قديم: يُرسل كما كان
   if(!need.length) return '';
-  const list=need.map(x=>HW.find(h=>String(h.sid)===String(x.hw))).filter(h=>h&&Array.isArray(h.qs)&&h.qs.length);
-  if(!list.length) return '';
-  if(!twinHasKey()) return `⚠️ ${list.length} ${list.length===1?'نشاط':'أنشطة'} بلا أسئلة بديلة (${list.map(h=>'«'+planEsc(h.title)+'»').join('، ')}) ولا يوجد مفتاح ذكاء اصطناعي لتجهيزها — أضفه من ⚙️ الإعدادات.`;
+  let list=need.map(x=>HW.find(h=>String(h.sid)===String(x.hw))).filter(h=>h&&Array.isArray(h.qs)&&h.qs.length);
+  // 🧭 أنشطة نافس: بدائلها من البنك فورًا، والباقي بالذكاء الاصطناعي كما هو
+  const nf=list.filter(h=>typeof hwIsNafs==='function'&&hwIsNafs(h));
+  let nfNote='';
+  if(nf.length){ const ok=(await Promise.all(nf.map(h=>nafsTwinsSave(h)))).filter(Boolean).length;
+    nfNote=ok?`🧭 جُهّزت أسئلة بديلة من بنك نافس لـ${ok} ${ok===1?'نشاط':'أنشطة'}. `:''; list=list.filter(h=>!nf.includes(h)); }
+  if(!list.length) return nfNote;
+  if(!twinHasKey()) return nfNote+`⚠️ ${list.length} ${list.length===1?'نشاط':'أنشطة'} بلا أسئلة بديلة (${list.map(h=>'«'+planEsc(h.title)+'»').join('، ')}) ولا يوجد مفتاح ذكاء اصطناعي لتجهيزها — أضفه من ⚙️ الإعدادات.`;
   if(TWIN_BUSY){ openModal('<h2>🧩 تجهيز الأسئلة البديلة</h2><p class="muted">تجهيز آخر قيد التشغيل — ننتظره…</p>'); for(let i=0;i<480&&TWIN_BUSY;i++) await new Promise(r=>setTimeout(r,500)); }
   // يُعاد التجهيز حتى للنشاط المجهَّز جزئيًا (سؤال لم يُولَّد له بديل)
   list.forEach(h=>{ delete h.twinsHash; try{REM_TWINS&&REM_TWINS.delete(String(h.sid))}catch(e){} });
@@ -1299,9 +1306,9 @@ async function planEnsureTwins(planId,sids){
     await new Promise(r=>setTimeout(r,700));
   }
   const fail=queued.filter(h=>!twinReady(h)), skipped=list.length-queued.length;
-  return fail.length||skipped
+  return nfNote+(fail.length||skipped
     ? `⚠️ جُهّزت الأسئلة البديلة لـ${queued.length-fail.length} من ${list.length} ${list.length===1?'نشاط':'أنشطة'}${TWIN_ERR?` — ${planEsc(TWIN_ERR)}`:''}`
-    : `🧩 جُهّزت الأسئلة البديلة تلقائيًا لـ${list.length} ${list.length===1?'نشاط':'أنشطة'} قبل الإرسال.`;
+    : `🧩 جُهّزت الأسئلة البديلة تلقائيًا لـ${list.length} ${list.length===1?'نشاط':'أنشطة'} قبل الإرسال.`);
 }
 async function planSendRemedial(id,verify){
   const p=(PLAN_DATA&&PLAN_DATA.plans||[]).find(x=>x.id===id);if(!p)return;
@@ -2664,14 +2671,15 @@ function planAfterCell(a){
 }
 function renderPlanSkills(){
   const box=document.getElementById('pf-skills-box'); if(!box) return;
-  const G=planGapProfile(), rows=G.rows, AF=planAfterMap(), hasAf=AF.size>0;
+  // 🧭 نواتج نافس لها جدولها الخاص أسفل هذا الجدول (planNafsBox) فلا تتكرر هنا
+  const G=planGapProfile(), rows=G.rows.filter(r=>!String(r.skill).startsWith('نافس: ')), AF=planAfterMap(), hasAf=AF.size>0;
   const chosen=window._pfSkills=(window._pfSkills||[]).slice(0,PLAN_SKILL_MAX);
-  const rate=new Map(rows.map(r=>[r.skill,r.rate]));
+  const rate=new Map([...rows.map(r=>[r.skill,r.rate]),...(typeof planNafsRateMap==='function'?planNafsRateMap():[])]);
   const elig=(typeof HW!=='undefined'?HW:[]).filter(skillEligible), need=elig.filter(skillNeeded).length;
   const diagN=(typeof HW!=='undefined'?HW:[]).filter(h=>h&&h.kind==='diag'&&(h.qs||[]).some(q=>q&&q.skill)).length;
   const known=knownSkillNames().filter(n=>!rate.has(n)&&!chosen.includes(n)).sort((a,b)=>a.localeCompare(b,'ar'));
   const gaps=rows.filter(r=>r.rate<SKILL_GAP_UI), rest=rows.filter(r=>r.rate>=SKILL_GAP_UI);
-  const manual=chosen.filter(k=>!rate.has(k));
+  const manual=chosen.filter(k=>!rate.has(k)&&!String(k).startsWith('نافس: '));
   const src=r=>[r.diag?`🔍 تشخيصي ${r.diag}`:'',r.acts?`✏️ أنشطة ${r.acts}`:''].filter(Boolean).join(' · ');
   const row=r=>{const b=skBand(r.rate);return `<tr class="${chosen.includes(r.skill)?'on':''}"><td><input type="checkbox" class="pf-skill" value="${planEsc(r.skill)}" ${chosen.includes(r.skill)?'checked':''} onchange="planSkillToggle(this)" aria-label="${planEsc(r.skill)}"></td>
     <td class="sk-n">${planEsc(r.skill)}</td><td><b>${r.rate}%</b></td><td><span class="chip ${b.c}">${b.n}</span>${G.grp&&r.miss?` <small class="muted">${r.miss} من ${G.n}</small>`:''}</td>${hasAf?`<td class="sk-af">${planAfterCell(AF.get(r.skill))}</td>`:''}<td class="muted sk-src">${src(r)} سؤالًا</td></tr>`};
@@ -2701,11 +2709,12 @@ function renderPlanSkills(){
     ${chosen.length?`<div class="pf-goals"><b>② أهداف الخطة</b><ol>${chosen.map(k=>`<li>أن ${G.grp?'يتقن الطلاب':'يتقن الطالب'} مهارة <b>«${planEsc(k)}»</b> بنسبة ${SKILL_TARGET_UI}% فأكثر <span class="muted">— ${rate.has(k)?`مستواه الآن ${rate.get(k)}%`:'لا قياس قبلي بعد'}</span></li>`).join('')}</ol>
       <div class="muted" style="font-size:.76rem">تُغلق الخطة ناجحة عندما تبلغ كل مهارة ${SKILL_TARGET_UI}%، والمهمة العلاجية تُبنى من أخطائه في هذه المهارات وحدها.</div></div>`:''}
   </div>`;
+  if(typeof planNafsBox==='function') planNafsBox();
 }
 /* تحديد مهارة يضيف إجراءاتها، وإلغاؤها يحذفها */
 function planSkillActsSync(skill,on){
   const acts=window._pfActions=window._pfActions||[], tag=`«${skill}»`;
-  if(on){const r=planGapProfile().rows.find(x=>x.skill===skill);skActions(skill,r?r.rate:null).forEach(t=>{if(!acts.includes(t))acts.push(t)})}
+  if(on){const r=planGapProfile().rows.find(x=>x.skill===skill),nr=!r&&typeof planNafsRateMap==='function'?planNafsRateMap().get(skill):null;skActions(skill,r?r.rate:(nr??null)).forEach(t=>{if(!acts.includes(t))acts.push(t)})}
   else window._pfActions=acts.filter(t=>!String(t).includes(tag));
   renderPlanActions();
 }
@@ -3065,6 +3074,7 @@ function planCard(p){
       <div class="pc-body">
         ${p.reason?`<div class="muted" style="font-size:.82rem">${planEsc(p.reason)}</div>`:''}
         <div id="plan-tl-${id}">${planTimelineHTML(p)}</div>
+        ${typeof planNafsHTML==='function'?planNafsHTML(p):''}
         ${planEvidenceHTML(p)}
         ${planExamRow(p)}
         ${p.group?`<div class="mem-table">${(p.members||[]).map(m=>`<div class="mem-row"><span>${planEsc(m.name)}</span><span class="muted">قبل ${m.before.measured?m.before.rate+'%':'—'} · بعد ${m.after.measured?m.after.rate+'%':'—'}${m.exam?` · 📝 ${m.exam.before.measured?m.exam.before.rate+'%':'—'} ← ${m.exam.after.measured?m.exam.after.rate+'%':'—'}`:''}</span><span class="chip ${m.verdict==='تحسّن'?'tick':m.verdict==='تراجع'?'bad':'ghost'}">${m.gain==null?planEsc(m.verdict):(m.gain>0?'+':'')+m.gain}</span></div>`).join('')}</div>`:''}
@@ -3392,6 +3402,7 @@ async function printPlans(id){
         يُحكم بالتحسّن عند فرق 5 نقاط فأكثر، ويُبيَّن هل الفرق أكبر من هامش الصدفة لعدد الأسئلة، ويُقارَن بتغيّر زملائه في الفصل خلال الفترة نفسها.
         ${p.mainBy&&p.mainBy!=='academic'?`الحكم على هذه الخطة بمؤشر «${planEsc(p.measureLabel)}» لأنه سبب إنشائها، وبقية العناصر أدلة مساندة. `:''}الواجبات والمشاركة والحضور والسلوك من سجلات المعلم اليومية؛ الغياب بعذر والواجب «معذور» لا يُحسبان على الطالب.</div></div>
       ${(()=>{const tl=planTimelineHTML(p);return tl?`<div class="rep-sec">مسار الخطة — المقارنة قبل وبعد لكل مهارة، وما تغيّر بعد كل خطوة</div><div class="rep-box">${tl}</div>`:''})()}
+      ${(()=>{const nf=typeof planNafsHTML==='function'?planNafsHTML(p):'';return nf?`<div class="rep-sec">🧭 نواتج تعلم نافس المستهدفة — قبل الخطة وبعدها</div><div class="rep-box">${nf}</div>`:''})()}
       ${p.group?'':`<div class="rep-sec">رابعًا: سياق التنفيذ خلال الخطة</div>
       <div class="rep-box"><table class="rt"><thead><tr><th>نسبة الحضور</th><th>أيام الغياب</th><th>واجبات مُسلّمة</th><th>واجبات غير مُسلّمة</th><th>أنشطة بعد البدء</th></tr></thead><tbody>
         <tr><td>${c.attendanceRate!=null?c.attendanceRate+'%':'—'}</td><td>${c.missedDays||0}</td><td>${c.hwDone||0}</td><td>${c.hwMissed||0}</td><td>${((p.academic?p.academic.after:p.after)||{}).acts||0}</td></tr></tbody></table></div>`}

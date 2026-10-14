@@ -2577,7 +2577,9 @@ function remCleanQ(x) {
   if (!x || typeof x !== 'object') return null;
   const q = String(x.q || '').slice(0, 600).trim(); if (!q) return null;
   const tip = String(x.tip || '').slice(0, 300).trim();
-  const extra = tip ? { tip } : {};
+  // 🖼️ شكل السؤال (أسئلة نافس) يبقى معه في المهمة العلاجية — مسار صور البوابة أو رابط https فقط
+  const img = String(x.img || '').trim();
+  const extra = { ...(tip ? { tip } : {}), ...(/^nafs\/[\w.-]+\.(webp|png|jpe?g)$/i.test(img) || /^https:\/\/[^\s"'<>]{1,400}$/i.test(img) ? { img } : {}) };
   if (x.t === 'tf') return { t: 'tf', q, a: x.a === true || x.a === 'true', ...extra };
   if (x.t === 'f') { const a = String(x.a ?? '').slice(0, 120).trim(); return a ? { t: 'f', q, a, ...extra } : null; }
   const o = (Array.isArray(x.o) ? x.o : []).map(v => String(v ?? '').slice(0, 200).trim()).filter(Boolean).slice(0, 6);
@@ -2590,7 +2592,7 @@ function remShuffleQ(q, seed) {
   if (!q || q.t !== 'q' || !Array.isArray(q.o)) return q && ['tf', 'f'].includes(q.t) ? { ...q } : null;
   const idx = q.o.map((_, i) => i);
   let s = seed || 7; for (let i = idx.length - 1; i > 0; i--) { s = (s * 9301 + 49297) % 233280; const j = s % (i + 1); [idx[i], idx[j]] = [idx[j], idx[i]]; }
-  return { t: 'q', q: q.q, o: idx.map(i => q.o[i]), a: idx.indexOf(Number(q.a)) };
+  return { t: 'q', q: q.q, o: idx.map(i => q.o[i]), a: idx.indexOf(Number(q.a)), ...(q.img ? { img: q.img } : {}) };
 }
 /* 🤖 مفتاح المعلم العام: إيقافه يمنع فتح أي مهمة علاجية جديدة (الحالية تُكمَل كما هي) */
 async function remEnabled(env) { try { const c = JSON.parse(await env.HW.get('remcfg') || '{}'); return c.enabled !== false; } catch { return true; } }
