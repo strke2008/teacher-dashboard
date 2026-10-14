@@ -12909,7 +12909,9 @@ function gCacheKey(){
 }
 
 // الأنشطة التي تدخل الكشف الأكاديمي (بلا تشخيصي/أنماط)
-const gradedHW = () => HW.filter(h => (h.kind||'normal') === 'normal' || h.kind === 'reading');
+/* الأنشطة في التقارير وملف الطالب: ما نُشر للطلاب فقط — المسودة التي لم تُنشر لا يراها الطالب، فلا تُعد «لم يسلّم» */
+const hwEverPublished = h => !!(h && (h.published || h.sid || Object.keys(h.subs || {}).length));
+const gradedHW = () => HW.filter(h => ((h.kind||'normal') === 'normal' || h.kind === 'reading') && hwEverPublished(h));
 const diagHW   = () => HW.filter(h => h.kind === 'diag');
 const styleHW  = () => HW.filter(h => h.kind === 'style');
 

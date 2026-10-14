@@ -394,6 +394,10 @@ function nafsMakeActivity() {
   const secs = nafsPicked(), ids = new Set(secs.map(s => s.id)), qs = NAFS_BANK.filter(q => ids.has(q.s) && nafsAuto(q) && nafsIn(q)).map(nafsToQ);
   if (!qs.length) return;
   const title = 'نافس — ' + (secs.length === nafsSecs().length ? `علوم ${NAFS_TERMS[NAFS.term].replace('الدراسي ', '')} (شامل)` : secs.length > 2 ? `علوم ${NAFS_TERMS[NAFS.term].replace('الدراسي ', '')} (${secs.length} أقسام)` : secs.map(s => s.title).join(' + '));
+  // مسودة نافس لم تُنشر بالأقسام نفسها: تُفتح هي بدل إنشاء نسخة مكررة عند كل ضغطة
+  const key = secs.map(s => s.id).sort().join();
+  const draft = HW.find(x => x && Array.isArray(x.nafs) && !hwEverPublished(x) && x.nafs.slice().sort().join() === key);
+  if (draft) { draft.qs = qs; save(K.hw, HW); toast(`✍️ لديك مسودة «${draft.title}» لم تُنشر — فتحناها لك بدل إنشاء نسخة جديدة`, 'good'); try { goTab('hw'); } catch (e) {} setTimeout(() => { try { openHwForm(draft.id); } catch (e) {} }, 350); return; }
   const h = { id: uid(), title, cls: '', clsList: [], due: '', pts: 30, max: 20, kind: 'normal', noGrade: true, nafs: secs.map(s => s.id), nfMode: 'train', nfSec: 90, qs, subs: {}, at: Date.now() };
   HW.push(h); save(K.hw, HW);
   toast(`✍️ أُنشئ «${title}» بـ ${qs.length} سؤال — حدّد الفصل وموعد الإغلاق ثم انشره`, 'good');
