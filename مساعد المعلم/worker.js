@@ -6085,6 +6085,24 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
     }
 
     // ── 🩹 الأسئلة البديلة لنشاط (تولّدها لوحة التحكم عند النشر) ──
+    // ── 🧭 بنك نافس الخاص بالمعلم: أسئلة مولّدة بالذكاء الاصطناعي + الأسئلة المستبعدة (يتزامن بين أجهزته) ──
+    if (url.pathname === '/nafs-bank' && request.method === 'GET') {
+      if (!env.TEACHER_TOKEN || url.searchParams.get('t') !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
+      let data = null; try { data = JSON.parse(await env.HW.get('nafs:custom')); } catch {}
+      return json({ ok: true, data: data || { ex: [], items: [], at: 0 } });
+    }
+    if (url.pathname === '/nafs-bank' && request.method === 'POST') {
+      let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
+      if (!env.TEACHER_TOKEN || b.t !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
+      const d = b.data && typeof b.data === 'object' ? b.data : null;
+      if (!d || !Array.isArray(d.ex) || !Array.isArray(d.items)) return json({ error: 'missing data' }, 400);
+      const clean = { at: Date.now(), ex: d.ex.map(x => String(x).slice(0, 24)).slice(0, 2000),
+        items: d.items.filter(x => x && typeof x === 'object' && x.id && x.q).slice(0, 1500).map(x => JSON.parse(JSON.stringify(x))) };
+      const raw = JSON.stringify(clean);
+      if (raw.length > 900000) return json({ error: 'too large' }, 413);
+      await env.HW.put('nafs:custom', raw);
+      return json({ ok: true, at: clean.at });
+    }
     if (url.pathname === '/twins' && request.method === 'GET') {
       if (!env.TEACHER_TOKEN || url.searchParams.get('t') !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
       const hw = String(url.searchParams.get('hw') || '').slice(0, 24);

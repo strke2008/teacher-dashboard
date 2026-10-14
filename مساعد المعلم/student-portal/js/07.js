@@ -296,6 +296,7 @@ function nfDecorate() {
 function nfConcept(q) { const s = nfShort(q.skill); return NF_TIP[s] || (q.skill ? 'هذا السؤال يقيس: ' + s : ''); }
 function nfWhy(q) {
   if (q.nafs && NF_WHY[q.nafs]) return NF_WHY[q.nafs];
+  if (q.nfw) return String(q.nfw);                   // سؤال ولّده المعلم بالذكاء الاصطناعي: شرحه معه
   const n = String(q.nfn || '');                     // ملاحظة الدليل تُعرض فقط إن لم تكن موجهة للمعلم
   return n && !/الدليل|راجعه|المعلم/.test(n) ? n : '';
 }

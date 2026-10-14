@@ -334,7 +334,7 @@ function nafsTerm(n) { NAFS.term = n === 2 ? 2 : 1; NAFS.open = ''; try { localS
 /* سؤال البنك ← سؤال نشاط (المهارة = ناتج التعلم المختصر، بادئة «نافس» تميّزه في التقارير) */
 function nafsToQ(q) {
   // nfo: نص ناتج التعلم (زر «ذكّرني بالمفهوم» في وضع التدريب) · nfn: ملاحظة الإجابة (تظهر بعد الإجابة فقط)
-  const base = { img: nafsImg(q) || undefined, skill: 'نافس: ' + NAFS_OUT[q.o].short, nafs: q.id, nfo: NAFS_OUT[q.o].text, ...(q.note ? { nfn: q.note } : {}) };
+  const base = { img: nafsImg(q) || undefined, skill: 'نافس: ' + NAFS_OUT[q.o].short, nafs: q.id, nfo: NAFS_OUT[q.o].text, ...(q.note ? { nfn: q.note } : {}), ...(q.why ? { nfw: q.why } : {}) };
   if (q.t === 'q') return { t: 'q', q: q.q, o: q.op.slice(), a: q.a, ...base };
   if (q.t === 'tf') return { t: 'tf', q: q.q, a: !!q.a, ...base };
   return { t: 'f', q: q.q, a: String(q.a), ...base };
@@ -342,10 +342,10 @@ function nafsToQ(q) {
 
 function nafsRender() {
   const root = document.getElementById('nafs-root'); if (!root) return;
-  const cnt = s => { const qs = NAFS_BANK.filter(q => q.s === s); return { auto: qs.filter(nafsAuto).length, open: qs.filter(q => !nafsAuto(q)).length }; };
+  const cnt = s => { const qs = NAFS_BANK.filter(q => q.s === s && nafsIn(q)); return { auto: qs.filter(nafsAuto).length, open: qs.filter(q => !nafsAuto(q)).length }; };
   const secs = nafsSecs(), ps = nafsPicked(), psIds = new Set(ps.map(s => s.id));
-  const picked = NAFS_BANK.filter(q => psIds.has(q.s)), pa = picked.filter(nafsAuto).length, po = picked.length - pa;
-  const tn = n => { const ss = NAFS_SECTIONS.filter(s => s.term === n).map(s => s.id); return { s: ss.length, q: NAFS_BANK.filter(q => ss.includes(q.s)).length }; };
+  const picked = NAFS_BANK.filter(q => psIds.has(q.s) && nafsIn(q)), pa = picked.filter(nafsAuto).length, po = picked.length - pa;
+  const tn = n => { const ss = NAFS_SECTIONS.filter(s => s.term === n).map(s => s.id); return { s: ss.length, q: NAFS_BANK.filter(q => ss.includes(q.s) && nafsIn(q)).length }; };
   root.innerHTML = `
     <div class="nafs-terms" role="tablist">${[1, 2].map(n => { const c = tn(n);
       return `<button type="button" role="tab" aria-selected="${NAFS.term === n}" class="${NAFS.term === n ? 'on' : ''}" onclick="nafsTerm(${n})"><b>${NAFS_TERMS[n]}</b><small>${c.s} أقسام · ${c.q} سؤال</small></button>`; }).join('')}</div>
@@ -357,8 +357,10 @@ function nafsRender() {
           <span><b>${esc(s.title)}</b><small>${esc(s.lessons)}</small></span></label>
         <div class="nafs-sec-n"><span class="chip tick">✍️ ${c.auto} آلي</span>${c.open ? `<span class="chip ghost">📝 ${c.open} مقالي</span>` : ''}<span class="chip ghost">🎯 ${s.outcomes.length} ناتج</span></div>
         <details ${NAFS.open === s.id ? 'open' : ''} ontoggle="if(this.open)NAFS.open='${s.id}'"><summary>نواتج التعلم والأسئلة</summary>
-          <ol class="nafs-out">${s.outcomes.map(([id, sh, tx]) => { const n = NAFS_BANK.filter(q => q.o === id).length;
+          <ol class="nafs-out">${s.outcomes.map(([id, sh, tx]) => { const n = NAFS_BANK.filter(q => q.o === id && nafsIn(q)).length;
             return `<li><b>${esc(sh)}</b> <small class="muted">${n ? n + ' سؤال' : 'لا سؤال في الدليل'}</small><div class="muted">${esc(tx)}</div></li>`; }).join('')}</ol>
+          <div class="nafs-sec-tools"><button type="button" class="btn ghost sm" onclick="nafsSelAll('${s.id}',true)">✓ اختر الكل</button><button type="button" class="btn ghost sm" onclick="nafsSelAll('${s.id}',false)">✕ ألغِ الكل</button>
+            <button type="button" class="ai-btn sm" onclick="nafsGenOpen('${s.id}')"><span class="ai-mark">✦</span> توليد أسئلة جديدة</button></div>
           <div class="nafs-qs">${NAFS_BANK.filter(q => q.s === s.id).map((q, i) => nafsQPreview(q, i)).join('')}</div>
         </details></div>`; }).join('')}</div>
     <div class="nafs-make sheet">
@@ -375,19 +377,20 @@ function nafsRender() {
   nafsResults();
 }
 function nafsQPreview(q, i) {
-  const keyTag = q.k === 'off' ? '<span class="nafs-k off">مفتاح رسمي</span>' : '<span class="nafs-k pr">مفتاح مقترح</span>';
+  const keyTag = q.k === 'off' ? '<span class="nafs-k off">مفتاح رسمي</span>' : q.k === 'ai' ? '<span class="nafs-k ai">✦ مولّد بالذكاء الاصطناعي</span>' : '<span class="nafs-k pr">مفتاح مقترح</span>';
+  const inc = nafsIn(q);
   const kind = q.t === 'q' ? 'اختيار' : q.t === 'tf' ? 'صح/خطأ' : q.t === 'f' ? 'إجابة رقمية' : 'مقالي (ورقة)';
   const ans = q.t === 'q' ? `${L4[q.a]}) ${esc(q.op[q.a])}` : q.t === 'tf' ? (q.a ? 'صح' : 'خطأ') : q.t === 'f' ? esc(q.a) : esc(q.key || '');
-  return `<div class="nafs-q"><div class="nafs-q-h"><b>${i + 1}.</b> <span class="chip ghost">${kind}</span> <span class="chip ghost">🎯 ${esc(NAFS_OUT[q.o].short)}</span> ${keyTag}${q.ad ? '<span class="nafs-k ad">مكيّف</span>' : ''}</div>
+  return `<div class="nafs-q ${inc ? '' : 'off'}"><div class="nafs-q-h"><label class="nafs-inc" title="${inc ? 'ضمن الاختبار — أزل العلامة لاستبعاده' : 'مستبعد — ضع العلامة لإضافته'}"><input type="checkbox" ${inc ? 'checked' : ''} onchange="nafsToggleQ('${q.id}',this.checked)"> ${inc ? 'ضمن الاختبار' : 'مستبعد'}</label>${q.k === 'ai' ? `<button type="button" class="nafs-del" onclick="nafsDelQ('${q.id}')" title="حذف السؤال المولّد">🗑️</button>` : ''} <b>${i + 1}.</b> <span class="chip ghost">${kind}</span> <span class="chip ghost">🎯 ${esc(NAFS_OUT[q.o].short)}</span> ${keyTag}${q.ad ? '<span class="nafs-k ad">مكيّف</span>' : ''}</div>
     <div class="nafs-q-t">${esc(q.q).replace(/\n/g, '<br>')}</div>${q.img ? `<img class="nafs-q-img" src="${nafsImg(q)}" alt="" loading="lazy">` : ''}
     ${q.t === 'q' ? `<ol class="nafs-q-o">${q.op.map((o, j) => `<li class="${j === q.a ? 'ok' : ''}">${L4[j]}) ${esc(o)}</li>`).join('')}</ol>` : `<div class="nafs-q-a">✔ ${ans}</div>`}
-    ${q.note ? `<div class="nafs-q-n">ℹ️ ${esc(q.note)}</div>` : ''}</div>`;
+    ${q.note ? `<div class="nafs-q-n">ℹ️ ${esc(q.note)}</div>` : ''}${q.why ? `<div class="nafs-q-n">💬 لماذا؟ ${esc(q.why)}</div>` : ''}</div>`;
 }
 function nafsPick(id, on) { if (on) NAFS.pick.add(id); else NAFS.pick.delete(id); nafsRender(); }
 
 /* ✍️ نشاط للطلاب: أسئلة الأقسام المختارة التي تُصحَّح آليًا، كل سؤال بناتج تعلمه وشكله */
 function nafsMakeActivity() {
-  const secs = nafsPicked(), ids = new Set(secs.map(s => s.id)), qs = NAFS_BANK.filter(q => ids.has(q.s) && nafsAuto(q)).map(nafsToQ);
+  const secs = nafsPicked(), ids = new Set(secs.map(s => s.id)), qs = NAFS_BANK.filter(q => ids.has(q.s) && nafsAuto(q) && nafsIn(q)).map(nafsToQ);
   if (!qs.length) return;
   const title = 'نافس — ' + (secs.length === nafsSecs().length ? `علوم ${NAFS_TERMS[NAFS.term].replace('الدراسي ', '')} (شامل)` : secs.length > 2 ? `علوم ${NAFS_TERMS[NAFS.term].replace('الدراسي ', '')} (${secs.length} أقسام)` : secs.map(s => s.title).join(' + '));
   const h = { id: uid(), title, cls: '', clsList: [], due: '', pts: 30, max: 20, kind: 'normal', noGrade: true, nafs: secs.map(s => s.id), nfMode: 'train', nfSec: 90, qs, subs: {}, at: Date.now() };
@@ -411,9 +414,9 @@ function nafsFormPicker(h) {
 function nafsFormBody() {
   const secs = NAFS_SECTIONS.filter(s => s.term === NAFS_F.term);
   const ids = new Set(secs.filter(s => NAFS_F.pick.has(s.id)).map(s => s.id));
-  const qs = NAFS_BANK.filter(q => ids.has(q.s)), auto = qs.filter(nafsAuto).length, imgs = qs.filter(q => nafsAuto(q) && q.img).length;
+  const qs = NAFS_BANK.filter(q => ids.has(q.s) && nafsIn(q)), auto = qs.filter(nafsAuto).length, imgs = qs.filter(q => nafsAuto(q) && q.img).length;
   return `<div class="nafs-terms nafs-terms-sm">${[1, 2].map(n => `<button type="button" class="${NAFS_F.term === n ? 'on' : ''}" onclick="nafsFormTerm(${n})"><b>${NAFS_TERMS[n]}</b></button>`).join('')}</div>
-    <div class="nafs-form-secs">${secs.map(s => { const n = NAFS_BANK.filter(q => q.s === s.id && nafsAuto(q)).length;
+    <div class="nafs-form-secs">${secs.map(s => { const n = NAFS_BANK.filter(q => q.s === s.id && nafsAuto(q) && nafsIn(q)).length;
       return `<label class="nafs-form-sec ${NAFS_F.pick.has(s.id) ? 'on' : ''}"><input type="checkbox" ${NAFS_F.pick.has(s.id) ? 'checked' : ''} onchange="nafsFormPick('${s.id}',this.checked)"><span>${s.ic} ${esc(s.title)}</span><small>${n} سؤال</small></label>`; }).join('')}</div>
     <div class="nafs-modes">${Object.entries(NAFS_MODES).map(([k, m]) => `<button type="button" class="${NAFS_F.mode === k ? 'on' : ''}" onclick="NAFS_F.mode='${k}';nafsFormRefresh()"><b>${m.ic} ${m.t}</b><small>${m.d}</small></button>`).join('')}</div>
     ${NAFS_F.mode === 'sim' ? `<label class="nafs-sim-t">⏱️ الوقت لكل سؤال <select class="inp sm" onchange="NAFS_F.sec=+this.value;nafsFormRefresh()">${[[60, 'دقيقة'], [90, 'دقيقة ونصف'], [120, 'دقيقتان'], [180, '3 دقائق']].map(([v, l]) => `<option value="${v}" ${NAFS_F.sec === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
@@ -427,7 +430,7 @@ function nafsFormPick(id, on) { if (on) NAFS_F.pick.add(id); else NAFS_F.pick.de
 function nafsFormRead() {
   const secs = NAFS_SECTIONS.filter(s => s.term === NAFS_F.term && NAFS_F.pick.has(s.id)), ids = new Set(secs.map(s => s.id));
   const all = NAFS_SECTIONS.filter(s => s.term === NAFS_F.term).length;
-  return { secs: secs.map(s => s.id), qs: NAFS_BANK.filter(q => ids.has(q.s) && nafsAuto(q)).map(nafsToQ), mode: NAFS_F.mode, sec: NAFS_F.sec,
+  return { secs: secs.map(s => s.id), qs: NAFS_BANK.filter(q => ids.has(q.s) && nafsAuto(q) && nafsIn(q)).map(nafsToQ), mode: NAFS_F.mode, sec: NAFS_F.sec,
     title: 'نافس — ' + (secs.length === all ? `علوم ${NAFS_TERMS[NAFS_F.term].replace('الدراسي ', '')} (شامل)` : secs.length > 2 ? `علوم ${NAFS_TERMS[NAFS_F.term].replace('الدراسي ', '')} (${secs.length} أقسام)` : secs.map(s => s.title).join(' + ')) };
 }
 
@@ -440,7 +443,7 @@ function nafsPrint(key) {
   const secs = nafsPicked(); if (!secs.length) return;
   ensureLogo();
   let box = document.getElementById('plan-print'); if (!box) { box = document.createElement('div'); box.id = 'plan-print'; box.className = 'rep'; document.body.appendChild(box); }
-  const all = secs.flatMap(s => NAFS_BANK.filter(q => q.s === s.id));
+  const all = secs.flatMap(s => NAFS_BANK.filter(q => q.s === s.id && nafsIn(q)));
   const total = all.length;
   let n = 0, prevImg = '';
   const optCols = q => { const m = Math.max(...q.op.map(o => String(o).length)); return m <= 16 ? 4 : m <= 42 ? 2 : 1; };
@@ -452,7 +455,7 @@ function nafsPrint(key) {
       : q.t === 'f' ? `<div class="nfp-fill">الإجابة: <span class="nfp-box">${key ? `<b class="nfp-ans">${esc(q.a)}</b>` : ''}</span></div>`
       : `${key ? `<div class="nfp-key">${esc(q.key || '').replace(/\n/g, '<br>')}</div>` : '<div class="nfp-line"></div><div class="nfp-line"></div><div class="nfp-line"></div>'}`;
     return `<div class="nfp-q"><div class="nfp-qh"><b>${n}</b><span>${esc(q.q).replace(/\n/g, '<br>')}</span></div>${img}${body}
-      ${key && q.note ? `<div class="nfp-note">${esc(q.note)}</div>` : ''}${key ? `<small class="nfp-out">🎯 ${esc(NAFS_OUT[q.o].short)} · ${q.k === 'off' ? 'مفتاح رسمي' : 'مفتاح مقترح'}</small>` : ''}</div>`; };
+      ${key && q.note ? `<div class="nfp-note">${esc(q.note)}</div>` : ''}${key ? `<small class="nfp-out">🎯 ${esc(NAFS_OUT[q.o].short)} · ${q.k === 'off' ? 'مفتاح رسمي' : q.k === 'ai' ? 'مولّد بالذكاء الاصطناعي' : 'مفتاح مقترح'}</small>` : ''}</div>`; };
   const keyGrid = key ? `<div class="nfp-grid">${all.map((q, i) => `<span><b>${i + 1}</b>${q.t === 'q' ? L4[q.a] : q.t === 'tf' ? (q.a ? 'صح' : 'خطأ') : q.t === 'f' ? esc(q.a) : '✎'}</span>`).join('')}</div>
       <div class="nfp-hint">✎ = سؤال مقالي، نموذج إجابته في موضعه أدناه.</div>` : '';
   box.innerHTML = `<div class="rep-page nfp">${repHead(key ? 'نموذج الإجابة — للمعلم' : 'تدريب على الاختبارات الوطنية', key ? 'نافس — نموذج الإجابة' : 'اختبار نافس — علوم')}
@@ -462,7 +465,7 @@ function nafsPrint(key) {
         <div><span>التاريخ</span><i></i></div>
         <div class="nfp-score"><span>الدرجة</span><i></i><em>من ${total}</em></div>
       </div>`}
-    ${secs.map(s => `<div class="nfp-sec">${s.ic} ${esc(s.title)}<small>${NAFS_BANK.filter(q => q.s === s.id).length} سؤال</small></div><div class="nfp-qs">${NAFS_BANK.filter(q => q.s === s.id).map(qHTML).join('')}</div>`).join('')}
+    ${secs.map(s => `<div class="nfp-sec">${s.ic} ${esc(s.title)}<small>${NAFS_BANK.filter(q => q.s === s.id && nafsIn(q)).length} سؤال</small></div><div class="nfp-qs">${NAFS_BANK.filter(q => q.s === s.id && nafsIn(q)).map(qHTML).join('')}</div>`).join('')}
     <div class="nfp-end">— انتهت الأسئلة — راجع إجاباتك قبل التسليم ✓</div></div></div>`;
   unifiedA4Print({ bodyClass: 'printing-plans', title: key ? 'نافس — نموذج الإجابة' : 'اختبار نافس — علوم', selector: '#plan-print', orientation: 'portrait', margin: '8mm' });
 }
@@ -630,3 +633,144 @@ function planNafsRateMap() {
   ids.forEach(id => Object.entries(nafsStudentOutcomes(id, splitAt)).forEach(([o, v]) => { const x = acc[o] || (acc[o] = { c: 0, t: 0 }); x.c += v.b.c; x.t += v.b.t; }));
   return new Map(Object.entries(acc).filter(([o, v]) => v.t && NAFS_OUT[o]).map(([o, v]) => [NAFS_SK + NAFS_OUT[o].short, nafsPct(v)]));
 }
+
+/* ═══ ✦ بنك المعلم: أسئلة مولّدة بالذكاء الاصطناعي + اختيار ما يدخل الاختبار ═══
+   - كل سؤال (رسمي أو مولّد) له علامة «ضمن الاختبار»: المستبعد لا يدخل النشاط ولا الورقة المطبوعة.
+   - المولّد يُضاف إلى بنك نافس تحت ناتجه (k:'ai') ومعه «لماذا؟» للطالب.
+   - يُحفظ في الخادم (/nafs-bank) فيتزامن بين أجهزتك، ونسخة على الجهاز تعمل لو تعذّر الخادم. */
+const NAFS_CUS = { ex: new Set(), items: [], at: 0, warned: false, timer: 0 };
+const NAFS_CUS_KEY = 'nafs_custom_v1';
+function nafsIn(q) { return !!q && !NAFS_CUS.ex.has(q.id); }
+function nafsCusValid(x) {
+  if (!x || !x.id || !x.q || !NAFS_OUT[x.o] || !NAFS_SECTIONS.some(s => s.id === x.s)) return false;
+  if (x.t === 'q') return Array.isArray(x.op) && x.op.length >= 3 && x.a >= 0 && x.a < x.op.length;
+  if (x.t === 'tf') return typeof x.a === 'boolean';
+  if (x.t === 'f') return String(x.a ?? '').trim() !== '';
+  return false;
+}
+function nafsCusApply(d) {
+  for (let i = NAFS_BANK.length - 1; i >= 0; i--) if (NAFS_BANK[i].k === 'ai') NAFS_BANK.splice(i, 1);
+  NAFS_CUS.ex = new Set(Array.isArray(d && d.ex) ? d.ex.map(String) : []);
+  NAFS_CUS.items = (Array.isArray(d && d.items) ? d.items : []).filter(nafsCusValid).map(x => ({ ...x, k: 'ai' }));
+  NAFS_CUS.at = Number(d && d.at) || 0;
+  NAFS_CUS.items.forEach(x => NAFS_BANK.push(x));
+}
+const nafsCusData = () => ({ at: NAFS_CUS.at, ex: [...NAFS_CUS.ex], items: NAFS_CUS.items });
+try { const d = JSON.parse(localStorage.getItem(NAFS_CUS_KEY) || 'null'); if (d) nafsCusApply(d); } catch (e) {}
+async function nafsCusLoad() {
+  try {
+    if (!getApi() || !getTok()) return;
+    const r = await fetch(getApi().replace(/\/+$/, '') + '/nafs-bank?t=' + encodeURIComponent(getTok()) + '&_=' + Date.now(), { cache: 'no-store' });
+    const j = await r.json().catch(() => null); if (!r.ok || !j || !j.ok || !j.data) return;
+    if ((Number(j.data.at) || 0) >= NAFS_CUS.at) { nafsCusApply(j.data); try { localStorage.setItem(NAFS_CUS_KEY, JSON.stringify(nafsCusData())); } catch (e) {} if (document.getElementById('nafs-root')?.offsetParent) nafsRender(); }
+  } catch (e) {}
+}
+function nafsCusSave() {
+  NAFS_CUS.at = Date.now();
+  try { localStorage.setItem(NAFS_CUS_KEY, JSON.stringify(nafsCusData())); } catch (e) {}
+  clearTimeout(NAFS_CUS.timer);
+  NAFS_CUS.timer = setTimeout(async () => {
+    try {
+      if (!getApi() || !getTok()) return;
+      const r = await fetch(getApi().replace(/\/+$/, '') + '/nafs-bank', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ t: getTok(), data: nafsCusData() }) });
+      const j = await r.json().catch(() => null);
+      if (!r.ok || !j || !j.ok) throw new Error(r.status === 404 ? 'old' : 'fail');
+    } catch (e) { if (!NAFS_CUS.warned) { NAFS_CUS.warned = true; toast(e.message === 'old' ? 'حُفظ على هذا الجهاز فقط — ارفع worker.js الأخير ليتزامن بنك نافس بين أجهزتك' : 'تعذّر حفظ بنك نافس في الخادم — حُفظ على هذا الجهاز', 'bad'); } }
+  }, 700);
+}
+function nafsToggleQ(id, on) { if (on) NAFS_CUS.ex.delete(id); else NAFS_CUS.ex.add(id); nafsCusSave(); nafsRender(); }
+function nafsSelAll(sec, on) { NAFS_BANK.filter(q => q.s === sec).forEach(q => { if (on) NAFS_CUS.ex.delete(q.id); else NAFS_CUS.ex.add(q.id); }); NAFS.open = sec; nafsCusSave(); nafsRender(); }
+async function nafsDelQ(id) {
+  if (!(await askConfirm('سيُحذف هذا السؤال المولّد من بنك نافس (الأنشطة المنشورة به لا تتأثر).', { title: 'حذف السؤال؟', yes: '🗑️ حذف', no: 'إلغاء', danger: true }))) return;
+  const x = NAFS_BANK.find(q => q.id === id); NAFS.open = x ? x.s : NAFS.open;
+  NAFS_CUS.items = NAFS_CUS.items.filter(q => q.id !== id); NAFS_CUS.ex.delete(id);
+  const i = NAFS_BANK.findIndex(q => q.id === id); if (i >= 0) NAFS_BANK.splice(i, 1);
+  nafsCusSave(); nafsRender();
+}
+
+/* ✦ نافذة التوليد */
+const NAFS_GEN = { sec: '', items: [], busy: false, ac: null };
+function nafsGenOpen(sec) {
+  const s = NAFS_SECTIONS.find(x => x.id === sec); if (!s) return;
+  if (typeof twinHasKey === 'function' && !twinHasKey()) { toast('أضف مفتاح ذكاء اصطناعي من ⚙️ الإعدادات أولًا', 'bad'); return; }
+  NAFS_GEN.sec = sec; NAFS_GEN.items = []; NAFS.open = sec;
+  const cnt = o => NAFS_BANK.filter(q => q.o === o && nafsAuto(q)).length;
+  openModal(`<h2>✦ توليد أسئلة نافس — ${s.ic} ${esc(s.title)}</h2>
+    <p class="muted" style="font-size:.84rem;margin:.2rem 0 .7rem;line-height:1.8">يكتب الذكاء الاصطناعي أسئلة جديدة بأسلوب نافس على النواتج التي تختارها، ثم تراجعها وتختار ما يُضاف للبنك. الأسئلة المولّدة بلا أشكال، ولكل سؤال «لماذا؟» يظهر للطالب بعد إجابته.</p>
+    <div class="field"><label>نواتج التعلم</label><div class="nafs-gen-outs">${s.outcomes.map(([id, sh]) => `<label><input type="checkbox" class="nafs-gen-o" value="${id}" ${cnt(id) < 4 ? 'checked' : ''}> ${esc(sh)} <small class="muted">(${cnt(id)} سؤال)</small></label>`).join('')}</div></div>
+    <div class="grid2"><div class="field"><label>عدد الأسئلة</label><select class="inp" id="nafs-gen-n">${[3, 5, 8, 10].map(n => `<option ${n === 5 ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
+      <div class="field"><label>النوع</label><select class="inp" id="nafs-gen-t"><option value="q">اختيار من متعدد</option><option value="mix">مزيج (اختيار + صح وخطأ)</option><option value="tf">صح وخطأ</option></select></div></div>
+    <div id="nafs-gen-out"></div>
+    <div class="modal-foot"><button class="btn ghost" onclick="nafsGenStop();closeModal()">إغلاق</button><button class="ai-btn" id="nafs-gen-go" onclick="nafsGenRun()"><span class="ai-mark">✦</span> ولّد الأسئلة</button></div>`);
+}
+function nafsGenStop() { try { NAFS_GEN.ac && NAFS_GEN.ac.abort(); } catch (e) {} }
+function nafsGenPrompt(s, outs, n, type) {
+  const ex = NAFS_BANK.filter(q => outs.includes(q.o) && nafsAuto(q)).slice(0, 14).map(q => '- ' + String(q.q).replace(/\s+/g, ' ').slice(0, 110));
+  const types = type === 'tf' ? 'صح وخطأ فقط ("t":"tf" و"a": true أو false)' : type === 'mix' ? 'أغلبها اختيار من متعدد بأربعة خيارات ("t":"q") وبعضها صح وخطأ ("t":"tf")' : 'اختيار من متعدد فقط بأربعة خيارات ("t":"q")';
+  return `أنت خبير في بناء أسئلة الاختبارات الوطنية (نافس) والدولية (TIMSS) في العلوم، للصف الأول المتوسط في المملكة العربية السعودية.
+القسم: ${s.title} — الدروس: ${s.lessons}
+اكتب ${n} أسئلة جديدة موزعة بالتساوي تقريبًا على نواتج التعلم التالية (استخدم معرّف الناتج في الحقل "o"):
+${outs.map(o => `- [${o}] ${NAFS_OUT[o].text}`).join('\n')}
+الشروط:
+- تقيس الفهم والتطبيق والاستدلال لا الحفظ فقط، بسياقات من الحياة اليومية والبيئة السعودية، بأسلوب أسئلة نافس.
+- لا تعتمد على شكل أو صورة أو جدول خارج النص؛ إن احتجت بيانات فاكتبها داخل نص السؤال.
+- إجابة صحيحة واحدة مؤكدة علميًا ومطابقة لمنهج المرحلة، ومشتتات معقولة، ولغة عربية فصيحة واضحة.
+- الأنواع: ${types}. في الاختيار من متعدد "op" أربعة خيارات و"a" رقم الصحيح بدءًا من 0.
+- "why": سطر واحد للطالب يشرح لماذا الإجابة صحيحة، بلا ذكر رقم الخيار أو حرفه.
+- لا تكرر هذه الأسئلة الموجودة ولا تعيد صياغتها:
+${ex.join('\n') || '- (لا يوجد)'}
+أخرج JSON فقط بهذا الشكل: {"items":[{"o":"${outs[0]}","t":"q","q":"...","op":["...","...","...","..."],"a":0,"why":"..."}]}`;
+}
+function nafsGenClean(it, outs, type) {
+  if (!it || typeof it !== 'object') return null;
+  const o = String(it.o || '').trim(), q = String(it.q || '').trim(), why = String(it.why || '').trim().slice(0, 300);
+  if (!outs.includes(o) || q.length < 8) return null;
+  const t = it.t === 'tf' ? 'tf' : 'q';
+  if (type === 'q' && t !== 'q') return null; if (type === 'tf' && t !== 'tf') return null;
+  if (t === 'tf') { const a = it.a === true || it.a === 'true' ? true : it.a === false || it.a === 'false' ? false : null; return a === null ? null : { t, q, a, o, why }; }
+  const op = (Array.isArray(it.op) ? it.op : Array.isArray(it.o_list) ? it.o_list : []).map(x => String(x ?? '').trim()).filter(Boolean);
+  const a = parseInt(it.a, 10);
+  if (op.length < 3 || op.length > 5 || !(a >= 0 && a < op.length) || new Set(op).size !== op.length) return null;
+  const order = op.map((_, i) => i).sort(() => Math.random() - .5);          // الصحيح لا يبقى في موضع ثابت
+  return { t, q, op: order.map(i => op[i]), a: order.indexOf(a), o, why };
+}
+async function nafsGenRun() {
+  if (NAFS_GEN.busy) return;
+  const s = NAFS_SECTIONS.find(x => x.id === NAFS_GEN.sec); if (!s) return;
+  const outs = [...document.querySelectorAll('.nafs-gen-o:checked')].map(x => x.value);
+  if (!outs.length) { toast('اختر ناتجًا واحدًا على الأقل', 'bad'); return; }
+  const n = +document.getElementById('nafs-gen-n').value || 5, type = document.getElementById('nafs-gen-t').value;
+  const box = document.getElementById('nafs-gen-out'), go = document.getElementById('nafs-gen-go');
+  NAFS_GEN.busy = true; if (go) go.disabled = true;
+  box.innerHTML = `<div class="nafs-gen-wait">⏳ يكتب الذكاء الاصطناعي ${n} أسئلة… <button type="button" class="btn ghost sm" onclick="nafsGenStop()">إيقاف</button></div>`;
+  let items = [];
+  try {
+    const p = readingAIPickProvider(), model = readingAIModels()[p], ac = new AbortController(); NAFS_GEN.ac = ac; let timer;
+    const raw = await Promise.race([readingAICall(p, model, nafsGenPrompt(s, outs, n, type), ac.signal),
+      new Promise((_, rej) => { timer = setTimeout(() => { try { ac.abort(); } catch (e) {} rej(new Error('انتهت المهلة (دقيقتان) دون رد')); }, 120000); })]).finally(() => { clearTimeout(timer); NAFS_GEN.ac = null; });
+    const d = aiSafeJson(raw), arr = Array.isArray(d && d.items) ? d.items : Array.isArray(d) ? d : [];
+    const seen = new Set(NAFS_BANK.map(q => String(q.q).replace(/\s+/g, ' ').trim()));
+    items = arr.map(it => nafsGenClean(it, outs, type)).filter(Boolean).filter(x => !seen.has(x.q.replace(/\s+/g, ' ').trim()));
+    if (!items.length) throw new Error('لم يرجع الذكاء الاصطناعي أسئلة صالحة — أعد المحاولة');
+  } catch (e) {
+    box.innerHTML = `<div class="nafs-gen-err">⚠️ ${esc(e && e.message ? e.message : String(e))}</div>`;
+    NAFS_GEN.busy = false; if (go) go.disabled = false; return;
+  }
+  NAFS_GEN.busy = false; if (go) { go.disabled = false; go.innerHTML = '<span class="ai-mark">✦</span> ولّد غيرها'; }
+  NAFS_GEN.items = items;
+  box.innerHTML = `<div class="nafs-gen-res"><b>راجع الأسئلة واختر ما يُضاف (${items.length})</b>
+    ${items.map((x, i) => `<label class="nafs-gen-q"><input type="checkbox" class="nafs-gen-pick" value="${i}" checked>
+      <div><small class="chip ghost">🎯 ${esc(NAFS_OUT[x.o].short)} · ${x.t === 'tf' ? 'صح/خطأ' : 'اختيار'}</small><div class="nafs-q-t">${esc(x.q)}</div>
+      ${x.t === 'q' ? `<ol class="nafs-q-o">${x.op.map((o, j) => `<li class="${j === x.a ? 'ok' : ''}">${L4[j] || j + 1}) ${esc(o)}</li>`).join('')}</ol>` : `<div class="nafs-q-a">✔ ${x.a ? 'صح' : 'خطأ'}</div>`}
+      ${x.why ? `<div class="nafs-q-n">💬 لماذا؟ ${esc(x.why)}</div>` : ''}</div></label>`).join('')}
+    <button type="button" class="btn tick" style="margin-top:.6rem" onclick="nafsGenAdd()">＋ أضف المحدد إلى بنك نافس</button></div>`;
+}
+function nafsGenAdd() {
+  const picks = [...document.querySelectorAll('.nafs-gen-pick:checked')].map(x => NAFS_GEN.items[+x.value]).filter(Boolean);
+  if (!picks.length) { toast('اختر سؤالًا واحدًا على الأقل', 'bad'); return; }
+  const base = Date.now().toString(36);
+  picks.forEach((x, i) => { const it = { id: 'g' + base + i, s: NAFS_GEN.sec, k: 'ai', at: Date.now(), ...x }; NAFS_CUS.items.push(it); NAFS_BANK.push(it); });
+  nafsCusSave(); closeModal(); NAFS.open = NAFS_GEN.sec; nafsRender();
+  toast(`✦ أُضيف ${picks.length} ${picks.length === 1 ? 'سؤال' : 'أسئلة'} إلى «${NAFS_SECTIONS.find(s => s.id === NAFS_GEN.sec).title}» — تدخل الاختبار تلقائيًا`, 'good');
+}
+document.querySelectorAll('[data-tab="nafs"]').forEach(b => b.addEventListener('click', () => nafsCusLoad()));

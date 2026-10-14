@@ -2145,3 +2145,16 @@ html body .rep-page.nfp{border:0;box-shadow:none}
 .nafs-modes button.on{border-color:#1B9C6B;background:rgba(27,156,107,.08)}
 .nafs-sim-t{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;font-size:.82rem;font-weight:700;margin-bottom:.4rem}
 .nafs-sim-t select{width:auto}.nafs-sim-t small{font-weight:400;color:var(--ink-soft,#5A6B84)}
+/* ✦ اختيار الأسئلة وتوليدها في نافس */
+.nafs-q.off{opacity:.5;background:repeating-linear-gradient(135deg,transparent 0 8px,rgba(120,130,150,.06) 8px 16px)}
+.nafs-inc{display:inline-flex;align-items:center;gap:.25rem;font-size:.74rem;font-weight:700;color:#1B7A55;margin-inline-end:.35rem;cursor:pointer}
+.nafs-q.off .nafs-inc{color:#8A97AB}
+.nafs-del{border:0;background:none;cursor:pointer;font-size:.85rem;margin-inline-end:.25rem}
+.nafs-k.ai{background:rgba(123,79,168,.12);color:#7B4FA8}
+.nafs-sec-tools{display:flex;flex-wrap:wrap;gap:.35rem;margin:.5rem 0}
+.nafs-gen-outs{display:grid;gap:.3rem;font-size:.85rem}
+.nafs-gen-wait,.nafs-gen-err{margin:.6rem 0;padding:.6rem .8rem;border-radius:10px;background:#F3F6FA;font-size:.86rem}
+.nafs-gen-err{background:#FFF1F1;color:#9B2335}
+.nafs-gen-res{margin-top:.6rem;max-height:55vh;overflow:auto}
+.nafs-gen-q{display:flex;gap:.5rem;align-items:flex-start;padding:.55rem .6rem;border:1px solid var(--ui-border,#E3E9F1);border-radius:10px;margin-top:.45rem;cursor:pointer}
+.nafs-gen-q input{margin-top:.3rem}
