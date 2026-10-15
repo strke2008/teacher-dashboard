@@ -7074,7 +7074,10 @@ function spAfterGateLoad(){
   if(spOpenAsk){
     spOpenAsk = false;
     try{ const u = new URL(location.href); u.searchParams.delete('open'); history.replaceState(null, '', u.pathname + u.search + u.hash); }catch(e){}
-    setTimeout(() => { try{ ASK_UI.open = true; askRender(); }catch(e){} const n = document.getElementById('space-ask'); if(n) n.scrollIntoView({ behavior:'smooth', block:'start' }); }, 1500);
+    setTimeout(() => {
+      // الزر العائم مفعّل؟ افتح صندوقه (البطاقة قد تكون مخفية)
+      if(typeof ASK_META !== 'undefined' && (ASK_META.mode === 'fab' || ASK_META.mode === 'both') && typeof stuFabToggle === 'function'){ try{ stuFabToggle(true); }catch(e){} return; }
+      try{ ASK_UI.open = true; askRender(); }catch(e){} const n = document.getElementById('space-ask'); if(n) n.scrollIntoView({ behavior:'smooth', block:'start' }); }, 1500);
   }
   if(spOpenNotices){
     spOpenNotices = false;

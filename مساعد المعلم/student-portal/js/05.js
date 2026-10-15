@@ -122,7 +122,7 @@ async function myAskLoad(){
   try{ const r=await fetch(askApi()+'/ask-mine?'+new URLSearchParams(w).toString(),{cache:'no-store'}); const j=await r.json();
     if(j&&j.ok){ ASK_ROWS=askMergePushed(j.rows||[]); ASK_ROWS.forEach(x=>{ if(x.fresh) ASK_UI.fresh.add(x.id); }); if(j.keepDays) ASK_META.keepDays=j.keepDays; askDropNotices(j.gone); if(j.cats) ASK_META={...ASK_META,cats:j.cats,maxLen:j.maxLen||600,maxOpen:j.maxOpen||3}; ASK_META.mode=j.mode||'card'; } }catch(e){}
   if(String(mySid||'')!==w.sid) return;
-  askRender(); try{ stuFabRender(); }catch(e){}
+  askRender(); try{ stuFabRender(); if(SFAB.open){ document.getElementById('sfab-pan')?.remove(); stuFabPanel(); ASK_ROWS.forEach(x=>{ if(ASK_UI.fresh.has(x.id)) SFAB.seen.add(x.id); }); stuFabRender(); } }catch(e){}
 }
 function askRender(){
   const box=document.getElementById('space-ask'); if(!box) return;
@@ -313,7 +313,10 @@ function portalLiveRefresh(full){
   if(full&&portalIdleHome()&&typeof gateLoad==='function'){ try{ gateLoad(nm); }catch(e){} }
 }
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.addEventListener('message',ev=>{ if(ev.data&&ev.data.type==='push-msg'){ try{ askApplyPush(ev.data.data&&ev.data.data.ask); }catch(e){} setTimeout(()=>portalLiveRefresh(true),1500); } });
+  navigator.serviceWorker.addEventListener('message',ev=>{ if(ev.data&&ev.data.type==='push-msg'){ const d=ev.data.data||{};
+    try{ askApplyPush(d.ask); }catch(e){}
+    // نسخة الخادم قد تتأخر حتى دقيقة بعد الكتابة: نعيد الفحص على مراحل حتى يظهر الجديد
+    setTimeout(()=>portalLiveRefresh(true),1500); [12000,30000,50000,75000].forEach(t=>setTimeout(()=>{ try{ myAskLoad(); }catch(e){} },t)); } });
 }
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&Date.now()-LIVE_REF.at>45000) portalLiveRefresh(true); });
 // والزر العائم ظاهر: فحص أسرع (كل ~25 ثانية) حتى يظهر الرقم ولو لم يصل الإشعار للصفحة
