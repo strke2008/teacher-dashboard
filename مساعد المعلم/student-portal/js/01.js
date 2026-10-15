@@ -4463,6 +4463,14 @@ async function gateLoad(nm, opts){
 
   let studentData = { pts:0, perks:{} };
 
+  // ⚡ أنشطة الطالب (أبطأ طلب) تبدأ الآن مع بيانات الرصيد — لا تنتظرها
+  const minePromise = fetch(api + '/mine?name=' + encodeURIComponent(nm) + idQS()).then(r => r.json());
+  minePromise.catch(() => {});
+  // ⚡ مساحة الطالب تظهر فورًا باسمه و«جارٍ التحميل…» بدل صفحة فارغة حتى تصل الأنشطة
+  try{ const sp=$('gate-space'); if(sp && sp.classList.contains('hide')){ sp.classList.remove('hide');
+    const g=$('space-greeting'); if(g){ g.textContent='أهلاً '; const n=document.createElement('span'); n.className='sg-nm'; n.textContent=nm; g.append(n,' 👋'); }
+    const nx=$('space-next'); if(nx) nx.textContent='جارٍ التحميل…'; } }catch(e){}
+
   try{
     const m = await (
       await fetch(api + '/me?name=' + encodeURIComponent(nm) + idQS() + '&_=' + Date.now(), { cache: 'no-store' })
@@ -4554,9 +4562,7 @@ async function gateLoad(nm, opts){
   })();
 
   try{
-    const j = await (
-      await fetch(api + '/mine?name=' + encodeURIComponent(nm) + idQS())
-    ).json();
+    const j = await minePromise;
 
     if(!j.ok) throw new Error('mine failed');
 

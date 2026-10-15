@@ -64,13 +64,21 @@ async function listAllKeys(env, prefix) {
    كل قراءة KV تستغرق ملّي ثوانٍ، فمئة قراءة متتابعة = ثوانٍ من انتظار الطالب.
    الدفعة تُبقي الترتيب كما هو، ولا تغيّر أي منطق — فقط تُزيل الانتظار. */
 async function inBatches(items, size, fn) {
+  // ⚡ مجمّع متواصل: «size» عمليات تعمل معًا دائمًا (كانت دفعات تنتظر أبطأ عنصر في كل دفعة)
   const out = new Array(items.length);
-  for (let i = 0; i < items.length; i += size) {
-    const slice = items.slice(i, i + size);
-    const done = await Promise.all(slice.map((it, j) => fn(it, i + j)));
-    for (let j = 0; j < done.length; j++) out[i + j] = done[j];
-  }
+  let next = 0;
+  const worker = async () => { while (next < items.length) { const i = next++; out[i] = await fn(items[i], i); } };
+  await Promise.all(Array.from({ length: Math.min(Math.max(1, size), items.length) }, worker));
   return out;
+}
+/* ⚡ قائمة المفاتيح نفسها تُطلب مع كل فتح للبوابة: نسخة لكل نسخة خادم لثوانٍ (القائمة في KV متأخرة أصلًا حتى دقيقة) */
+const _KEYLIST = new Map();
+async function listAllKeysCached(env, prefix, ttl = 15000) {
+  const c = _KEYLIST.get(prefix);
+  if (c && Date.now() - c.at < ttl) return c.keys;
+  const keys = await listAllKeys(env, prefix);
+  _KEYLIST.set(prefix, { at: Date.now(), keys });
+  return keys;
 }
 
 // 🗂️ فهرس الأسماء: قراءة واحدة بدل فتح كل نشاط
@@ -4826,7 +4834,7 @@ export default {
       return json({ ok: false, error: 'not found' }, 404);
     }
 
-    if (url.pathname === '/publish' && request.method === 'POST') {
+    if (url.pathname === '/publish' && request.method === 'POST') { _KEYLIST.clear();
       let b;
       try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
       if (!env.TEACHER_TOKEN || b.t !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
@@ -4925,10 +4933,10 @@ export default {
         // احتياط: معرّف النشاط في اللوحة يبدأ بوقت إنشائه (s + Date.now بالأساس 36)
         const idTs = id => { const m = /^s([0-9a-z]{8})/.exec(String(id || '')); const v = m ? parseInt(m[1], 36) : 0; return v > 1.5e12 && v < Date.now() + 864e5 ? v : 0; };
         for (const h of (Array.isArray(ts.assignments) ? ts.assignments : [])) if (h && h.sid) pubMap[String(h.sid)] = Number(h.publishedAt || h.at) || idTs(h.id); } catch {}
-      const hwKeysMine = await listAllKeys(env, 'hw:');
+      const hwKeysMine = await listAllKeysCached(env, 'hw:');
       // ⚡ كانت 4 قراءات متتابعة لكل نشاط، والطالب ينتظرها كلها قبل ظهور قائمته.
       // الآن: صفحات الأنشطة على دفعات، ثم سجلات الطالب الثلاثة معًا لكل نشاط.
-      const rawMine = await inBatches(hwKeysMine, 20, k => env.HW.get(k));
+      const rawMine = await inBatches(hwKeysMine, 40, k => env.HW.get(k));
       const mine = [];
       for (const v of rawMine) {
         if (!v) continue;
@@ -4937,7 +4945,7 @@ export default {
         if (!rosterHas(p, st)) continue;
         mine.push(p);
       }
-      const perAct = await inBatches(mine, 10, p => Promise.all([
+      const perAct = await inBatches(mine, 20, p => Promise.all([
         readByIdentity(env, `s:${p.id}:`,  st, { migrate: false }).then(x => x.value),
         readByIdentity(env, `xa:${p.id}:`, st, { migrate: false }).then(x => x.value),
         readByIdentity(env, `rr:${p.id}:`, st, { migrate: false }).then(x => x.value),
