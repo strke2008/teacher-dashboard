@@ -2206,8 +2206,9 @@ async function loadStudentSpace(nm, rows){
     const actionScore=h=>{
       const teacher=Number(h.extra || h.extraAttempts || 0)>0;
       const project=h.kind==='files' && String(h.reviewStatus||'').toLowerCase()==='rejected' && Number(h.resubmitUntil||0)>Date.now();
-      const retry=!!h.done && Number(MYPERKS.retry || 0)>0;
-      return (teacher||project||retry)?0:1;
+      // الأولوية لما لم يُسلَّم بعد؛ إعادة التسليم تأتي بعده (صلاحية المعلم والمشروع قبل بطاقة المتجر)
+      if(!h.done) return 0;
+      return (teacher||project)?1:2;
     };
     // 🧭 قبل اختباري البداية: «مهمتك الآن» = اكتشف طريقة تعلمك، ثم اعرف مستواك
     const startScore=h=>h.done?2:String(h.kind||'')==='style'?0:String(h.kind||'')==='diag'?1:2;
