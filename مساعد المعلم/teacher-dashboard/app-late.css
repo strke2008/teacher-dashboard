@@ -2175,3 +2175,37 @@ html body .rep-page.nfp{border:0;box-shadow:none}
 .br-madlink small{color:var(--muted,#888)}
 .br-madlink small.ok{color:#2e9d5b}
 .br-madlink small.bad{color:#d64545}
+
+/* 💬 صندوق رسائل الطلاب العائم */
+.askf-btn{position:fixed;left:18px;bottom:18px;z-index:85;width:56px;height:56px;border-radius:50%;border:0;cursor:pointer;display:grid;place-items:center;
+  background:linear-gradient(145deg,#2F6FDB,#1F4FA8);color:#fff;box-shadow:0 8px 22px rgba(31,79,168,.35);transition:transform .15s}
+.askf-btn:hover{transform:scale(1.06)}.askf-btn.on{background:linear-gradient(145deg,#16233A,#2B3B5C)}
+.askf-ic{font-size:1.55rem;line-height:1}
+.askf-n{position:absolute;top:-4px;right:-4px;min-width:24px;height:24px;padding:0 6px;border-radius:99px;background:#E4002B;color:#fff;font-size:.8rem;font-weight:900;display:grid;place-items:center;box-shadow:0 0 0 3px #fff}
+.askf-btn.has{animation:askfGlow 2.6s ease-in-out infinite}
+@keyframes askfGlow{0%,100%{box-shadow:0 8px 22px rgba(31,79,168,.35)}50%{box-shadow:0 0 0 8px rgba(228,0,43,.12),0 8px 22px rgba(31,79,168,.35)}}
+.askf-btn.ping{animation:askfPing .7s cubic-bezier(.2,1.6,.4,1)}
+@keyframes askfPing{0%{transform:scale(.8)}60%{transform:scale(1.15)}100%{transform:none}}
+.askf-pan{position:fixed;left:18px;bottom:86px;z-index:86;width:min(400px,calc(100vw - 36px));max-height:min(70vh,640px);display:flex;flex-direction:column;
+  background:#fff;border:1px solid #D9E2F2;border-radius:18px;box-shadow:0 18px 50px rgba(15,30,60,.25);overflow:hidden;animation:askfIn .18s ease-out}
+@keyframes askfIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.askf-top{display:flex;align-items:center;gap:.5rem;padding:.75rem .9rem;background:linear-gradient(180deg,#F2F6FF,#fff);border-bottom:1px solid #E6ECF5}
+.askf-top b{font-size:1rem}.askf-x{margin-inline-start:auto;border:0;background:#EEF2F8;border-radius:10px;width:32px;height:32px;cursor:pointer;font:inherit}
+.askf-list{overflow:auto;padding:.6rem .75rem;display:grid;gap:.6rem;align-content:start}
+.askf-it{border:1px solid #E3E9F3;border-radius:14px;padding:.6rem .7rem;background:#FBFCFF;display:grid;gap:.35rem}
+.askf-h{display:flex;gap:.4rem;align-items:baseline;flex-wrap:wrap}.askf-h b{font-size:.92rem}.askf-t{margin-inline-start:auto;font-size:.74rem}
+.askf-meta{display:flex;gap:.4rem;flex-wrap:wrap;font-size:.76rem;align-items:center}
+.askf-q{font-size:.9rem;line-height:1.7;white-space:pre-line;background:#fff;border-radius:10px;padding:.45rem .6rem;border:1px solid #EEF2F8}
+.askf-it textarea{width:100%;resize:vertical;font-size:.86rem}
+.askf-b{display:flex;gap:.35rem;flex-wrap:wrap}
+.askf-empty{text-align:center;padding:1.6rem .5rem;color:var(--ink-soft,#5B6B82);display:grid;gap:.25rem}.askf-empty small{font-size:.78rem}
+.askf-foot{display:flex;gap:.4rem;justify-content:space-between;padding:.55rem .75rem;border-top:1px solid #E6ECF5;background:#FAFBFE}
+@media screen and (max-width:700px){
+  .askf-btn{left:14px;bottom:calc(72px + env(safe-area-inset-bottom,0px));width:52px;height:52px}
+  .askf-pan{left:8px;right:8px;bottom:calc(132px + env(safe-area-inset-bottom,0px));width:auto;max-height:calc(100vh - 220px);border-radius:18px;z-index:95}
+}
+@media print{.askf-btn,.askf-pan{display:none!important}}
+
+.ask-nm{cursor:pointer;color:#1F4FA8;text-decoration:underline dotted 1px;text-underline-offset:3px}.ask-nm:hover{text-decoration-style:solid}
+.askf-pin{border:1px solid #D6E0F0;background:#fff;border-radius:99px;padding:.15rem .6rem;font:inherit;font-size:.74rem;font-weight:800;color:#41516B;cursor:pointer;white-space:nowrap}
+.askf-pin.on{background:#E8F0FF;border-color:#9DB8EC;color:#1F4FA8}

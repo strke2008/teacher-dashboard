@@ -28,18 +28,18 @@ function asksOpen(keep){
   if(ASKS===null){ toast('جارٍ جلب الرسائل…'); asksLoad().then(()=>asksOpen()); return; }
   const open=ASKS.filter(x=>x.status==='open'), done=ASKS.filter(x=>x.status!=='open').slice(0,30);
   const card=x=>`<div class="ask-t" id="askc-${thEsc(x.id)}">
-      <div class="ask-t-h"><b>${thEsc(x.name)}</b><span class="muted">${thEsc(x.cls||'')}</span><span class="ask-cat">${thEsc(ASK_CATS[x.cat]||'')}</span><span class="muted">${askAgo(x.at)}</span></div>
+      <div class="ask-t-h">${askNameHTML(x)}<span class="muted">${thEsc(x.cls||'')}</span><span class="ask-cat">${thEsc(ASK_CATS[x.cat]||'')}</span><span class="muted">${askAgo(x.at)}</span></div>
       ${x.hwTitle?`<div class="muted" style="font-size:.78rem">📚 «${thEsc(x.hwTitle)}»</div>`:''}
       <div class="ask-t-q">${thEsc(x.text)}</div>
       ${x.status==='open'?`<div class="ask-quick">${ASK_QUICK.map(t=>`<button type="button" onclick="askQuick('${thEsc(x.id)}',this.textContent)">${thEsc(t)}</button>`).join('')}</div>
       <textarea class="inp" id="askr-${thEsc(x.id)}" rows="2" maxlength="1000" placeholder="اكتب ردك… يصل الطالب في تنبيهاته"></textarea>
       <div class="ask-t-b"><button type="button" class="btn tick sm" onclick="askSend('${thEsc(x.id)}')">📩 أرسل الرد</button>
         <button type="button" class="btn ghost sm" title="حللتها معه في الفصل — لا يُرسل شيء" onclick="askSend('${thEsc(x.id)}',true)">✓ أُغلق دون رد</button>
-        ${(STUDENTS||[]).some(s=>String(s.id)===String(x.sid))?`<button type="button" class="btn ghost sm" onclick="ctOpenProfile('${thEsc(x.sid)}')" title="الملف الشامل">👤</button>`:''}</div>`
+</div>`
       :`${x.reply?`<div class="ask-t-r">📩 ${thEsc(x.reply)}</div><div class="muted" style="font-size:.74rem;margin-top:.2rem">${x.seenAt?'👁️ قرأ الطالب الرد':'⏳ لم يقرأ الطالب الرد بعد'}</div>`:'<div class="muted" style="font-size:.78rem">أُغلق دون رد</div>'}
         <div class="ask-t-b"><button type="button" class="btn ghost sm" onclick="askReopen('${thEsc(x.id)}')">↩️ إعادة فتح</button></div>`}
     </div>`;
-  const html=`<h2 id="ask-inbox">💬 رسائل الطلاب ${open.length?`<span class="chip bad">${open.length} تنتظر ردك</span>`:''}</h2>
+  const html=`<h2 id="ask-inbox">💬 رسائل الطلاب ${open.length?`<span class="chip bad">${open.length} تنتظر ردك</span>`:''} ${askFabToggleBtn()}</h2>
     <p class="muted" style="font-size:.82rem;margin:.2rem 0 .7rem">يرسلها الطالب من «💬 راسل معلمك» في بوابته (حتى ${3} أسئلة مفتوحة و5 رسائل يوميًا). ردك يصله في تنبيهاته مع إشعار.</p>
     ${open.length?open.map(card).join(''):'<div class="feature-empty">لا رسائل تنتظر ردك 🌿</div>'}
     ${done.length?`<details style="margin-top:.7rem"><summary class="muted" style="cursor:pointer">✓ تمّ الرد عليها (${done.length})</summary>${done.map(card).join('')}</details>`:''}
@@ -53,7 +53,7 @@ function asksCardHTML(){
   if(ASKS===null) return `<div class="td-card askc-card"><div class="td-card-h"><b>💬 رسائل الطلاب</b></div><div class="muted" style="padding:.5rem">⏳ جارٍ الجلب…</div></div>`;
   const open=ASKS.filter(x=>x.status==='open').sort((a,b)=>(a.at||0)-(b.at||0)), done=ASKS.filter(x=>x.status!=='open');
   const item=x=>{ const id=thEsc(x.id), ex=ASK_CARD_OPEN.has(x.id);
-    return `<div class="askc ${ex?'ex':''}"><div class="askc-h"><b>${thEsc(x.name)}</b><span class="muted">${thEsc(x.cls||'')}</span>${ASK_CATS[x.cat]?`<span class="ask-cat">${thEsc(ASK_CATS[x.cat])}</span>`:''}<span class="muted askc-t">${askAgo(x.at)}</span></div>
+    return `<div class="askc ${ex?'ex':''}"><div class="askc-h">${askNameHTML(x)}<span class="muted">${thEsc(x.cls||'')}</span>${ASK_CATS[x.cat]?`<span class="ask-cat">${thEsc(ASK_CATS[x.cat])}</span>`:''}<span class="muted askc-t">${askAgo(x.at)}</span></div>
       ${x.hwTitle?`<div class="muted askc-hw">📚 «${thEsc(x.hwTitle)}»</div>`:''}
       <div class="askc-q">${thEsc(x.text)}</div>
       ${ex?`<div class="ask-quick">${ASK_QUICK.map(t=>`<button type="button" onclick="askQuick('${id}',this.textContent,'askcr-')">${thEsc(t)}</button>`).join('')}</div>
@@ -61,7 +61,7 @@ function asksCardHTML(){
         <div class="askc-b"><button type="button" class="btn tick sm" onclick="askSend('${id}',false,'askcr-')">📩 أرسل</button><button type="button" class="btn ghost sm" onclick="askCardToggle('${id}')">إلغاء</button>
           <button type="button" class="btn ghost sm" title="حللتها معه في الفصل — لا يُرسل شيء" onclick="askSend('${id}',true)">✓ أُغلق دون رد</button></div>`
       :`<div class="askc-b"><button type="button" class="btn sm" onclick="askCardToggle('${id}')">✍️ رد</button></div>`}</div>`; };
-  return `<div class="td-card askc-card"><div class="td-card-h"><b>💬 رسائل الطلاب</b>${open.length?`<span class="chip bad">${open.length} تنتظر ردك</span>`:''}<a href="#" class="td-link" onclick="event.preventDefault();asksOpen()">كل الرسائل</a></div>
+  return `<div class="td-card askc-card"><div class="td-card-h"><b>💬 رسائل الطلاب</b>${open.length?`<span class="chip bad">${open.length} تنتظر ردك</span>`:''}${askFabToggleBtn()}<a href="#" class="td-link" onclick="event.preventDefault();asksOpen()">كل الرسائل</a></div>
     ${open.length?`<div class="askc-list">${open.map(item).join('')}</div>`:`<div class="td-empty">🌿 لا رسائل تنتظر ردك${done.length?` <small class="muted">· ردَدت على ${done.length}</small>`:''}</div>`}</div>`;
 }
 function askCardRender(){ const sA=document.getElementById('td-slot-asks'); if(sA){ try{ sA.innerHTML=asksCardHTML(); }catch(e){} } }
@@ -102,3 +102,60 @@ function nsOpen(){
       <button class="btn ghost sm" onclick="fuUndo('${esc(x.s.id)}','ns').then(nsOpen)">↩️ إلغاء</button></div>`).join('')}</details>`:''}
     <div class="modal-foot"><button class="btn ghost" onclick="closeModal()">إغلاق</button></div>`);
 }
+
+/* 💬 صندوق رسائل الطلاب العائم: زر ثابت في كل الصفحات عليه عدد الرسائل المفتوحة، يفتح لوحة للرد السريع */
+const ASKF={open:false,seen:0,ex:'',on:(()=>{ try{ return localStorage.getItem('askf_on_v1')==='1'; }catch(e){ return false; } })()};
+/* اسم الطالب في الرسائل: يفتح ملفه الشامل مباشرة (إن كان في الكشف) */
+function askNameHTML(x){ const ok=(STUDENTS||[]).some(s=>String(s.id)===String(x.sid));
+  return ok?`<b class="ask-nm" role="link" tabindex="0" title="افتح ملف الطالب" onclick="ctOpenProfile('${thEsc(x.sid)}')">${thEsc(x.name)}</b>`:`<b>${thEsc(x.name)}</b>`; }
+/* 📌 الصندوق العائم اختياري: المعلم يُظهره أو يخفيه (يُحفظ على هذا الجهاز) */
+function askFabSet(on){ ASKF.on=!!on; try{ localStorage.setItem('askf_on_v1',on?'1':'0'); }catch(e){}
+  if(!on){ ASKF.open=false; document.getElementById('askf-pan')?.remove(); document.getElementById('askf-btn')?.remove(); }
+  askFabRender(); try{ askCardRender(); }catch(e){} if(document.getElementById('ask-inbox')) try{ asksOpen(true); }catch(e){}
+  toast(on?'📌 ظهر صندوق الرسائل العائم — تصل إليه من أي صفحة':'أُخفي صندوق الرسائل العائم','good'); }
+function askFabToggleBtn(){ return `<button type="button" class="askf-pin${ASKF.on?' on':''}" onclick="askFabSet(${!ASKF.on})" title="${ASKF.on?'إخفاء الزر العائم':'إظهار زر عائم للرسائل في كل الصفحات'}">📌 ${ASKF.on?'عائم ✓':'اجعله عائمًا'}</button>`; }
+function askFabRender(){
+  if(!document.body) return;
+  if(!ASKF.on){ document.getElementById('askf-btn')?.remove(); document.getElementById('askf-pan')?.remove(); return; }
+  let b=document.getElementById('askf-btn');
+  if(!b){ b=document.createElement('button'); b.type='button'; b.id='askf-btn'; b.className='askf-btn'; b.setAttribute('aria-label','رسائل الطلاب');
+    b.onclick=()=>askFabToggle(); document.body.appendChild(b); }
+  const open=Array.isArray(ASKS)?ASKS.filter(x=>x.status==='open'):[], n=open.length;
+  if(n>ASKF.seen && ASKF.seen>=0 && Array.isArray(ASKS)){ b.classList.remove('ping'); void b.offsetWidth; b.classList.add('ping'); }
+  ASKF.seen=n;
+  b.innerHTML=`<span class="askf-ic">💬</span>${n?`<b class="askf-n">${n>99?'99+':n}</b>`:''}`;
+  b.title=n?`${n} ${n===1?'رسالة تنتظر ردك':'رسائل تنتظر ردك'}`:'رسائل الطلاب';
+  b.classList.toggle('has',!!n);
+  if(ASKF.open) askFabPanel();
+}
+function askFabToggle(on){
+  ASKF.open=on===undefined?!ASKF.open:!!on;
+  const p=document.getElementById('askf-pan');
+  if(!ASKF.open){ if(p) p.remove(); document.getElementById('askf-btn')?.classList.remove('on'); return; }
+  if(ASKS===null) asksLoad();
+  askFabPanel(); document.getElementById('askf-btn')?.classList.add('on');
+}
+function askFabPanel(){
+  let p=document.getElementById('askf-pan');
+  if(!p){ p=document.createElement('div'); p.id='askf-pan'; p.className='askf-pan'; p.setAttribute('role','dialog'); document.body.appendChild(p); }
+  const focus=document.activeElement&&p.contains(document.activeElement)?document.activeElement.id:'';
+  const open=Array.isArray(ASKS)?ASKS.filter(x=>x.status==='open').sort((a,b)=>(a.at||0)-(b.at||0)):[];
+  const done=Array.isArray(ASKS)?ASKS.filter(x=>x.status!=='open').length:0;
+  const item=x=>{ const id=thEsc(x.id);
+    return `<div class="askf-it"><div class="askf-h">${askNameHTML(x)}<span class="muted">${thEsc(x.cls||'')}</span><span class="muted askf-t">${askAgo(x.at)}</span></div>
+      ${ASK_CATS[x.cat]||x.hwTitle?`<div class="askf-meta">${ASK_CATS[x.cat]?`<span class="ask-cat">${thEsc(ASK_CATS[x.cat])}</span>`:''}${x.hwTitle?`<span class="muted">📚 «${thEsc(x.hwTitle)}»</span>`:''}</div>`:''}
+      <div class="askf-q">${thEsc(x.text)}</div>
+      ${ASKF.ex===x.id?`<div class="ask-quick">${ASK_QUICK.slice(0,4).map(t=>`<button type="button" onclick="askQuick('${id}',this.textContent,'askfr-')">${thEsc(t)}</button>`).join('')}</div>
+      <textarea class="inp" id="askfr-${id}" rows="2" maxlength="1000" placeholder="اكتب ردك… يصل الطالب في تنبيهاته" oninput="ASK_DRAFT['${id}']=this.value">${thEsc(ASK_DRAFT[x.id]||'')}</textarea>
+      <div class="askf-b"><button type="button" class="btn tick sm" onclick="askSend('${id}',false,'askfr-')">📩 أرسل</button><button type="button" class="btn ghost sm" onclick="ASKF.ex='';askFabPanel()">إلغاء</button></div>`
+      :`<div class="askf-b"><button type="button" class="btn sm" onclick="ASKF.ex='${id}';askFabPanel();setTimeout(()=>document.getElementById('askfr-${id}')?.focus(),30)">✍️ رد</button>
+        <button type="button" class="btn ghost sm" title="حللتها معه في الفصل — لا يُرسل شيء" onclick="askSend('${id}',true)">✓ أُغلق دون رد</button>
+`}</div></div>`; };
+  p.innerHTML=`<div class="askf-top"><b>💬 رسائل الطلاب</b>${open.length?`<span class="chip bad">${open.length} تنتظر ردك</span>`:''}<button type="button" class="askf-x" onclick="askFabToggle(false)" aria-label="إغلاق">✕</button></div>
+    <div class="askf-list">${ASKS===null?'<div class="muted" style="padding:1rem;text-align:center">⏳ جارٍ الجلب…</div>':open.length?open.map(item).join(''):`<div class="askf-empty">🌿 لا رسائل تنتظر ردك${done?`<small>ردَدت على ${done}</small>`:''}</div>`}</div>
+    <div class="askf-foot"><button type="button" class="btn ghost sm" onclick="askFabToggle(false);asksOpen()">كل الرسائل والسابقة</button><button type="button" class="btn ghost sm" onclick="asksLoad()">🔄 تحديث</button><button type="button" class="btn ghost sm" onclick="askFabSet(false)" title="يمكنك إظهاره مجددًا من بطاقة «رسائل الطلاب»">إخفاء الزر</button></div>`;
+  if(focus){ const el=document.getElementById(focus); if(el){ el.focus(); try{ el.setSelectionRange(el.value.length,el.value.length); }catch(e){} } }
+}
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&ASKF.open) askFabToggle(false); });
+(function(){ const o=window.thDraw; if(typeof o==='function') window.thDraw=function(){ const r=o.apply(this,arguments); try{ askFabRender(); }catch(e){} return r; }; })();
+if(document.readyState!=='loading') askFabRender(); else document.addEventListener('DOMContentLoaded',()=>askFabRender());
