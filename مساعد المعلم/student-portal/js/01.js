@@ -2045,11 +2045,58 @@ function examCardHTML(m, isNew){
     ${x.n?`<p class="exm-note">📝 ${esc(x.n)}</p>`:''}
   </div>`;
 }
+/* ⏰ رسالة التذكير بالأنشطة: بطاقة واضحة بدل نص طويل — تُقرأ من نص الرسالة نفسه (فتعمل مع القديمة أيضًا):
+   أقسام (متأخر/قريب/ورقي/مدرستي) وكل نشاط بزر «ابدأ»، وواجبات مدرستي بزر يفتح المنصة مباشرة. */
+function isRemindMsg(m){ return /^تذكير: أنشطة لم تُسلَّم/.test(String(m && m.title || '')); }
+function remindParse(body){
+  const out={ hi:'', secs:[], mad:'', madHint:'' }; let cur=null;
+  String(body||'').replace(/⟨(WK|EX)⟩[\s\S]*$/,'').split('\n').map(x=>x.trim()).forEach((ln,i)=>{
+    if(!ln) return;
+    if(i===0 && /^مرحب/.test(ln)){ out.hi=ln; return; }
+    if(/^بالتوفيق/.test(ln) || /^حلّها قبل الإغلاق/.test(ln) || /^افتح «أنشطتي»/.test(ln)) return;
+    const u=(ln.match(/https?:\/\/[^\s)]+/)||[])[0];
+    if(u && /madrasati\.sa/i.test(u) && (!out.mad || /Assignments/i.test(u))) out.mad=u;
+    if(/^🔗/u.test(ln) || (u && ln===u)) return;
+    if(/^📍/u.test(ln)){ out.madHint=ln.replace(/^📍\s*/u,'').replace(/^بعد تسجيل الدخول:\s*/,'بعد الدخول: '); return; }
+    if(/^•/.test(ln)){
+      const t=ln.replace(/^•\s*/,''), mm=t.match(/^(.*?)\s*\(([^()]*)\)\s*$/);
+      if(!cur){ cur={h:'',kind:'late',items:[]}; out.secs.push(cur); }
+      cur.items.push({ t:mm?mm[1]:t, meta:mm?mm[2].replace(/\s*—.*$/,''):'' }); return;
+    }
+    const kind=/^📱/u.test(ln)?'mad':/^⏳/u.test(ln)?'soon':/^📕/u.test(ln)?'paper':'late';
+    cur={ h:ln.replace(/:\s*$/,''), kind, items:[] }; out.secs.push(cur);
+  });
+  if(out.madHint && /Assignments/i.test(out.mad)) out.madHint='';
+  return out;
+}
+function remindCardHTML(m, isNew, acts){
+  const r=remindParse(m.body), list=Array.isArray(acts)?acts:[];
+  const icon={late:'⏰',soon:'⏳',paper:'📕',mad:'📱'};
+  const findAct=t=>list.find(h=>!h.done && String(h.t||'').trim()===String(t||'').trim());
+  const sec=x=>{
+    const head=x.h.replace(/^[⏳📕📱]\s*/u,'');
+    const items=x.items.map(it=>{ const a=x.kind!=='mad'?findAct(it.t):null;
+      return `<div class="rmd-it"><div class="rmd-it-t"><b>${esc(it.t)}</b>${it.meta?`<small>${esc(it.meta)}</small>`:''}</div>
+        ${a?`<button type="button" class="rmd-go" data-activity-id="${esc(a.id)}">ابدأ ←</button>`:''}</div>`; }).join('');
+    const madBtn=x.kind==='mad'?`<a class="rmd-mad" href="${esc(r.mad||'https://schools.madrasati.sa')}" target="_blank" rel="noopener">📱 افتح واجباتي في مدرستي</a>
+      ${r.madHint?`<small class="rmd-hint">${esc(r.madHint)}</small>`:'<small class="rmd-hint">سجّل دخولك أولًا إن طُلب منك، وحلّها قبل الإغلاق</small>'}`:'';
+    return `<div class="rmd-sec ${x.kind}"><div class="rmd-h"><span>${icon[x.kind]}</span>${esc(head)}</div>${items}${madBtn}</div>`;
+  };
+  return `<div class="rmd-card">
+    <div class="rmd-ic" aria-hidden="true">⏰</div>
+    <div class="rmd-kick">تذكير من معلمك</div>
+    ${isNew?'<span class="thx-new">جديد</span>':''}
+    ${r.hi?`<div class="rmd-hi">${esc(r.hi)}</div>`:''}
+    ${r.secs.length?r.secs.map(sec).join(''):`<p class="rmd-plain">${esc(m.body||'')}</p>`}
+    <div class="rmd-foot">بالتوفيق 🌟</div>
+  </div>`;
+}
 function msgCardHTML(m, isNew, acts){
   if(String(m.type||'')==='weekly') return weeklyCardHTML(m, isNew, acts);
   if(m.ex || (String(m.type||'')==='exam' && m.examDate)) return examCardHTML(m, isNew);
   if(String(m.type||'')==='cert') return certCardHTML(m, isNew);
   if(isThanksMsg(m)) return thanksCardHTML(m, isNew);
+  if(isRemindMsg(m)) return remindCardHTML(m, isNew, acts);
   const pr = MSG_RANK[m.priority]!==undefined ? m.priority : 'normal';
   const badge = pr==='urgent' ? 'عاجل' : pr==='important' ? 'مهم' : '';
   const date = m.examDate ? String(m.examDate).slice(0,10) : '';
@@ -2237,7 +2284,7 @@ async function loadStudentSpace(nm, rows){
         t: m.title||'رسالة من المعلم', p: m.body||'',
         // التقرير والشهادة تُرسمان بطاقةً كاملة هنا لا سطرًا مختصرًا:
         // هذه القائمة هي ما يراه الطالب أولًا، فلا معنى لإحالته إلى مكان آخر.
-        html: (m.type==='weekly'||m.type==='cert'||m.type==='exam'||isThanksMsg(m)) ? msgCardHTML(m, !seen.has(m.id), list) : '',
+        html: (m.type==='weekly'||m.type==='cert'||m.type==='exam'||isThanksMsg(m)||isRemindMsg(m)) ? msgCardHTML(m, !seen.has(m.id), list) : '',
         extra: m.examDate ? `📅 تاريخ الاختبار: ${String(m.examDate).slice(0,10)}` : '',
         id: m.id, isNew: !seen.has(m.id), at: msgTime(m),
         priority: MSG_RANK[m.priority]!==undefined ? m.priority : 'normal'
