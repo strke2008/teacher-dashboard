@@ -102,11 +102,25 @@ function askWhen(t){ const d=Math.floor((Date.now()-t)/864e5); return d<=0?'ال
 /* 💬 محادثات الطالب مع معلمه: مطوية في سطر واحد مهما كثرت.
    الرد الجديد (أول مرة يُعرض) يظهر وحده مفتوحًا حتى لا يفوت الطالب، ثم تعود مطوية. */
 const ASK_UI={ open:false, more:false, exp:new Set(), fresh:new Set() };
+/* ⚡ رد المعلم وصل داخل الإشعار: يُعرض فورًا، ويبقى دقيقتين فوق نسخة الخادم (قد تتأخر بعد الكتابة) */
+const ASK_PUSHED=new Map();
+function askMergePushed(rows){
+  ASK_PUSHED.forEach((v,id)=>{ if(Date.now()-v.at>120000){ ASK_PUSHED.delete(id); return; }
+    const i=rows.findIndex(x=>x.id===id);
+    if(i<0) rows.unshift(v.item); else if(!(rows[i].repliedAt>=v.item.repliedAt)) rows[i]={...rows[i],...v.item}; });
+  return rows;
+}
+function askApplyPush(a){
+  if(!a||!a.id||!a.reply) return;
+  ASK_PUSHED.set(a.id,{at:Date.now(),item:a});
+  ASK_ROWS=askMergePushed(ASK_ROWS.slice()); ASK_UI.fresh.add(a.id); try{ SFAB.seen.delete(a.id); }catch(e){}
+  try{ askRender(); }catch(e){} try{ stuFabRender(); if(SFAB.open){ document.getElementById('sfab-pan')?.remove(); stuFabPanel(); } }catch(e){}
+}
 async function myAskLoad(){
   const box=document.getElementById('space-ask'); if(!box) return;
   const w=askWho(); if(!w.sid&&!w.name){ box.innerHTML=''; return; }
   try{ const r=await fetch(askApi()+'/ask-mine?'+new URLSearchParams(w).toString(),{cache:'no-store'}); const j=await r.json();
-    if(j&&j.ok){ ASK_ROWS=j.rows||[]; ASK_ROWS.forEach(x=>{ if(x.fresh) ASK_UI.fresh.add(x.id); }); if(j.keepDays) ASK_META.keepDays=j.keepDays; askDropNotices(j.gone); if(j.cats) ASK_META={...ASK_META,cats:j.cats,maxLen:j.maxLen||600,maxOpen:j.maxOpen||3}; ASK_META.mode=j.mode||'card'; } }catch(e){}
+    if(j&&j.ok){ ASK_ROWS=askMergePushed(j.rows||[]); ASK_ROWS.forEach(x=>{ if(x.fresh) ASK_UI.fresh.add(x.id); }); if(j.keepDays) ASK_META.keepDays=j.keepDays; askDropNotices(j.gone); if(j.cats) ASK_META={...ASK_META,cats:j.cats,maxLen:j.maxLen||600,maxOpen:j.maxOpen||3}; ASK_META.mode=j.mode||'card'; } }catch(e){}
   if(String(mySid||'')!==w.sid) return;
   askRender(); try{ stuFabRender(); }catch(e){}
 }
@@ -299,7 +313,7 @@ function portalLiveRefresh(full){
   if(full&&portalIdleHome()&&typeof gateLoad==='function'){ try{ gateLoad(nm); }catch(e){} }
 }
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.addEventListener('message',ev=>{ if(ev.data&&ev.data.type==='push-msg'){ try{ myAskLoad(); }catch(e){} setTimeout(()=>portalLiveRefresh(true),1500); } });
+  navigator.serviceWorker.addEventListener('message',ev=>{ if(ev.data&&ev.data.type==='push-msg'){ try{ askApplyPush(ev.data.data&&ev.data.data.ask); }catch(e){} setTimeout(()=>portalLiveRefresh(true),1500); } });
 }
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&Date.now()-LIVE_REF.at>45000) portalLiveRefresh(true); });
 // والزر العائم ظاهر: فحص أسرع (كل ~25 ثانية) حتى يظهر الرقم ولو لم يصل الإشعار للصفحة

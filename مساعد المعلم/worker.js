@@ -5226,7 +5226,8 @@ export default {
           await dropLegacy(env, 'msg:', st);
           try { const rev = parseInt(await env.HW.get('meta:rev'), 10) || 0; await env.HW.put('meta:rev', String(rev + 1)); } catch {}
           if (st.id) notifyStudents(env, ctx, new Set([String(st.id)]), { title: '📩 ردّ معلمك على سؤالك', body: reply.slice(0, 140), tag: `ask-${q.id}`,
-            data: { type: 'message', id, url: './?open=ask' } }, (await sha256Hex(`askr|${q.id}|${now}`)).slice(0, 32));
+            // ⚡ الرد نفسه مع الإشعار: تعرضه البوابة المفتوحة فورًا (قراءة الخادم قد تتأخر دقيقة بعد الكتابة)
+            data: { type: 'message', id, url: './?open=ask', ask: { id: q.id, cat: q.cat, hwTitle: q.hwTitle || '', text: q.text.slice(0, 200), at: q.at, status: 'answered', reply: reply.slice(0, 600), repliedAt: now } } }, (await sha256Hex(`askr|${q.id}|${now}`)).slice(0, 32));
         }
       }
       return json({ ok: true, item: q });
