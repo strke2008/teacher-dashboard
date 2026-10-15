@@ -1493,7 +1493,11 @@ async function annLoad(){
     <span class="ann-st ${st.k}">${st.t}</span>
     <small class="muted">أُنشئ ${new Date(a.at).toLocaleString('ar-SA',{dateStyle:'medium',timeStyle:'short'})} · ${a.classes&&a.classes.length?esc(a.classes.join('، ')):'كل الطلاب'}</small>
     ${a.body?`<div class="muted" style="font-size:.84rem;white-space:pre-wrap">${esc(a.body.slice(0,160))}${a.body.length>160?'…':''}</div>`:''}
-    <div class="ann-fl">${(a.files||[]).map((f,i)=>`<a href="${base}/ann-file?a=${encodeURIComponent(a.id)}&f=${i}&t=${tk}" target="_blank" rel="noopener">${annIcon(f.kind)} ${esc(f.name)}</a>`).join('')}</div>
+    ${(()=>{ const u=i=>`${base}/ann-file?a=${encodeURIComponent(a.id)}&f=${i}&t=${tk}`, fs=(a.files||[]).map((f,i)=>({...f,i}));
+      // 🖼️ معاينة كما يراها الطلاب: الصور مصغّرة (تُفتح كاملة بالضغط) والفيديو يعمل هنا، وبقية الملفات روابط
+      const im=fs.filter(f=>f.kind==='image'), vd=fs.filter(f=>f.kind==='video'), ot=fs.filter(f=>f.kind!=='image'&&f.kind!=='video');
+      return `${im.length||vd.length?`<div class="ann-pv">${im.map(f=>`<a href="${u(f.i)}" target="_blank" rel="noopener" title="${esc(f.name)}"><img loading="lazy" src="${u(f.i)}" alt="${esc(f.name)}"></a>`).join('')}${vd.map(f=>`<video controls playsinline preload="metadata" src="${u(f.i)}"></video>`).join('')}</div>`:''}
+        ${ot.length?`<div class="ann-fl">${ot.map(f=>`<a href="${u(f.i)}" target="_blank" rel="noopener">${annIcon(f.kind)} ${esc(f.name)}</a>`).join('')}</div>`:''}`; })()}
     <div class="ann-edit hide" id="ann-ed-${esc(a.id)}"><label>يظهر من<input class="inp" type="datetime-local" value="${a.showFrom?annLocal(a.showFrom):''}"></label><label>ويختفي في<input class="inp" type="datetime-local" value="${a.showUntil?annLocal(a.showUntil):''}"></label>
       <button class="btn tick sm" type="button" onclick="annTimeSave('${esc(a.id)}')">حفظ الوقت</button></div></div>
     <div class="ann-acts">${st.k==='on'?`<button class="btn ghost sm" onclick="annTimeSet('${esc(a.id)}','hide')">⏹️ أخفِ الآن</button>`:`<button class="btn ghost sm" onclick="annTimeSet('${esc(a.id)}','show')">▶️ أظهر الآن</button>`}
