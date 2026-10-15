@@ -9,6 +9,7 @@ function nsList(){
 let ASKS=null, ASK_CATS={activity:'سؤال عن نشاط',tech:'مشكلة في البوابة',grade:'درجة أو تصحيح',lesson:'استفسار عن الدرس',other:'أخرى'};
 const ASK_QUICK=['تم حل المشكلة — جرّب الآن ✅','سأشرحها لك في الحصة القادمة إن شاء الله','راجع شرح الدرس في الكتاب ثم أعد المحاولة','فتحت لك محاولة إضافية في النشاط','راجعت درجتك وهي صحيحة','أحسنت على سؤالك 👏 — '];
 const ASK_PUSHED=new Map();
+let ASK_LAST=0;
 /* 🎓 «راسل معلمك» في بوابة الطلاب: البطاقة أو الزر العائم أو كلاهما، أو إغلاق التواصل — إعداد واحد للجميع يحفظه الخادم */
 let ASK_PMODE=null;
 const ASK_PMODES={both:'البطاقة + زر عائم',card:'البطاقة فقط',fab:'زر عائم فقط',off:'التواصل مغلق'};
@@ -28,13 +29,13 @@ function askApplyPush(item){
   ASK_PUSHED.set(item.id,{at:Date.now(),item});
   if(!Array.isArray(ASKS)) ASKS=[];
   if(!ASKS.some(x=>x.id===item.id)) ASKS.unshift(item);
-  try{ thDraw(); }catch(e){} if(document.getElementById('ask-inbox')) try{ asksOpen(true); }catch(e){}
+  try{ thDraw(); }catch(e){} try{ askFabRender(); askCardRender(); }catch(e){} if(document.getElementById('ask-inbox')) try{ asksOpen(true); }catch(e){}
 }
 async function asksLoad(){
   try{ const r=await fetch(getApi().replace(/\/+$/,'')+'/asks?t='+encodeURIComponent(getTok()),{cache:'no-store'}); const j=await r.json();
     if(j&&j.ok){ ASKS=j.rows||[]; if(j.cats) ASK_CATS=j.cats; if(j.mode) ASK_PMODE=j.mode;
       // سؤال وصل بالإشعار قبل أن يظهر في رد الخادم (نسخة قديمة لدقيقة): يبقى ظاهرًا دقيقتين
-      ASK_PUSHED.forEach((v,id)=>{ if(Date.now()-v.at>120000||ASKS.some(x=>x.id===id)) ASK_PUSHED.delete(id); else ASKS.unshift(v.item); }); try{ thDraw(); }catch(e){} if(document.getElementById('ask-inbox')) asksOpen(true); } }catch(e){}
+      ASK_PUSHED.forEach((v,id)=>{ if(Date.now()-v.at>120000||ASKS.some(x=>x.id===id)) ASK_PUSHED.delete(id); else ASKS.unshift(v.item); }); ASK_LAST=Date.now(); try{ thDraw(); }catch(e){} try{ askFabRender(); askCardRender(); }catch(e){} if(document.getElementById('ask-inbox')) asksOpen(true); } }catch(e){}
 }
 function askAgo(t){ const m=Math.round((Date.now()-t)/60000); return m<1?'الآن':m<60?`قبل ${m} د`:m<1440?`قبل ${Math.round(m/60)} س`:`قبل ${Math.round(m/1440)} يوم`; }
 function asksOpen(keep){
@@ -170,5 +171,8 @@ function askFabPanel(){
   if(focus){ const el=document.getElementById(focus); if(el){ el.focus(); try{ el.setSelectionRange(el.value.length,el.value.length); }catch(e){} } }
 }
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&ASKF.open) askFabToggle(false); });
-(function(){ const o=window.thDraw; if(typeof o==='function') window.thDraw=function(){ const r=o.apply(this,arguments); try{ askFabRender(); }catch(e){} return r; }; })();
+(function(){ const o=window.thDraw; if(typeof o==='function') window.thDraw=function(){ try{ return o.apply(this,arguments); } finally { try{ askFabRender(); }catch(e){} } }; })();
+/* ⚡ الرسائل حيّة حتى بلا إشعار: عند العودة للوحة، وكل دقيقة والصندوق العائم ظاهر */
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&Date.now()-ASK_LAST>30000) try{ asksLoad(); }catch(e){} });
+setInterval(()=>{ if(!document.hidden&&ASKF.on&&Date.now()-ASK_LAST>55000) try{ asksLoad(); }catch(e){} },20000);
 if(document.readyState!=='loading') askFabRender(); else document.addEventListener('DOMContentLoaded',()=>askFabRender());
