@@ -299,7 +299,9 @@ function portalLiveRefresh(full){
   if(full&&portalIdleHome()&&typeof gateLoad==='function'){ try{ gateLoad(nm); }catch(e){} }
 }
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.addEventListener('message',ev=>{ if(ev.data&&ev.data.type==='push-msg') setTimeout(()=>portalLiveRefresh(true),600); });
+  navigator.serviceWorker.addEventListener('message',ev=>{ if(ev.data&&ev.data.type==='push-msg'){ try{ myAskLoad(); }catch(e){} setTimeout(()=>portalLiveRefresh(true),1500); } });
 }
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&Date.now()-LIVE_REF.at>45000) portalLiveRefresh(true); });
-setInterval(()=>{ if(!document.hidden&&Date.now()-LIVE_REF.at>55000) portalLiveRefresh(false); },20000);
+// والزر العائم ظاهر: فحص أسرع (كل ~25 ثانية) حتى يظهر الرقم ولو لم يصل الإشعار للصفحة
+setInterval(()=>{ if(document.hidden) return; const fast=!!document.getElementById('sfab-btn'); if(Date.now()-LIVE_REF.at>(fast?25000:55000)) portalLiveRefresh(false); },10000);
+addEventListener('focus',()=>{ if(Date.now()-LIVE_REF.at>15000) portalLiveRefresh(true); });
