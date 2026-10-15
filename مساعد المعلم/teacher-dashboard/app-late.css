@@ -2219,3 +2219,16 @@ html body .rep-page.nfp{border:0;box-shadow:none}
 .ann-pv a:hover img{transform:scale(1.04)}
 .ann-pv video{width:260px;max-width:100%;max-height:170px;border-radius:12px;background:#000}
 @media(max-width:600px){.ann-pv img{width:46%;min-width:120px}.ann-pv video{width:100%}}
+/* 🔁 المسابقة اليومية التلقائية */
+.lvd-bar{display:flex;align-items:center;gap:.7rem;margin:.2rem 0 .9rem;padding:.75rem .9rem;border:1.5px dashed #C9D5E8;border-radius:16px;background:#F7F9FD;cursor:pointer}
+.lvd-bar.on{border-style:solid;border-color:#9DD3BC;background:linear-gradient(90deg,#EAF8F1,#F7FBFF)}
+.lvd-ic{flex:none;width:44px;height:44px;border-radius:13px;display:grid;place-items:center;font-size:1.4rem;background:#fff;box-shadow:0 2px 6px rgba(20,40,80,.08)}
+.lvd-tx{flex:1;min-width:0;display:grid;gap:.15rem}.lvd-tx b{font-size:.95rem}.lvd-tx small{font-size:.8rem;color:var(--ink-soft,#5B6B82);line-height:1.6}
+.lvd-tx em{font-style:normal;font-size:.72rem;background:#1B9C6B;color:#fff;border-radius:99px;padding:.08rem .5rem;margin-inline-start:.3rem}
+.lvd-tx i{font-style:normal;font-size:.72rem;background:#E6EBF3;color:#5B6B82;border-radius:99px;padding:.08rem .5rem;margin-inline-start:.3rem}
+.lvd-go{flex:none;font-weight:800;font-size:.85rem;color:#1F4FA8}
+.lvd-sw{display:flex;align-items:center;gap:.5rem;padding:.6rem .8rem;border-radius:12px;background:#EEF5FF;margin:.2rem 0 .8rem;cursor:pointer}
+.lvd-days{display:flex;flex-wrap:wrap;gap:.35rem}
+.lvd-days label{display:inline-flex;align-items:center;gap:.25rem;border:1px solid #D6E0F0;border-radius:99px;padding:.25rem .65rem;font-size:.85rem;cursor:pointer;background:#fff}
+.lvd-bank{background:#FFF8E6;border:1px solid #F2DDA4;border-radius:12px;padding:.6rem .8rem;font-size:.86rem}
+.lvd-tag{font-size:.7rem;font-weight:800;background:#EAF8F1;color:#13734F;border-radius:99px;padding:.1rem .5rem;vertical-align:middle}

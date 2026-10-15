@@ -4077,6 +4077,7 @@ async function liveTick(env, ctx) {
   const now = Date.now();
   LIVE_CTX = ctx;
   try { await liveNotifyTick(env, ctx, now); } catch {}
+  try { await liveDailyTick(env, now); } catch {}
   try {
     const chk = (await env.DB.prepare("SELECT id FROM live_games WHERE status = 'SCHEDULED' AND reg_close <= ?1 AND start_at + 60000 > ?1 AND cfg LIKE '%\"minPlayers\":%' AND cfg NOT LIKE '%\"minOk\":true%' LIMIT 5").bind(now).all()).results || [];
     for (const { id } of chk) await liveGame(env, id);
@@ -4085,6 +4086,68 @@ async function liveTick(env, ctx) {
   } catch {}
   const due = (await env.DB.prepare("SELECT id FROM live_games WHERE status = 'SCHEDULED' AND results IS NULL AND start_at + n * (q_ms + reveal_ms) <= ?1 LIMIT 3").bind(now).all()).results || [];
   for (const { id } of due) { const g = await liveGame(env, id); const res = await liveFinalize(env, g, now); if (res) await livePayPrizes(env, g, res); }
+}
+const clampIntL = (v, lo, hi, d) => { const n = parseInt(v, 10); return Number.isFinite(n) ? Math.max(lo, Math.min(hi, n)) : d; };
+/* 🎮 إنشاء مسابقة (من المعلم أو من المسابقة اليومية التلقائية) */
+async function liveCreateGame(env, b, now) {
+  const clampInt = clampIntL;
+    const qs = (Array.isArray(b.questions) ? b.questions : []).slice(0, 50).map(q => ({
+      q: String(q && q.q || '').slice(0, 600), o: (Array.isArray(q && q.o) ? q.o : []).slice(0, 6).map(x => String(x || '').slice(0, 200)), a: parseInt(q && q.a, 10) }))
+      .filter(q => q.q && q.o.length >= 2 && q.o.every(Boolean) && Number.isInteger(q.a) && q.a >= 0 && q.a < q.o.length);
+    if (!qs.length) return { ok: false, error: 'no_questions' };
+    const startAt = parseInt(b.startAt, 10), regOpen = parseInt(b.regOpen, 10), regClose = parseInt(b.regClose, 10);
+    if (!(startAt > now + 20000)) return { ok: false, error: 'start_in_past' };
+    if (!(regOpen <= regClose && regClose <= startAt)) return { ok: false, error: 'bad_registration_window' };
+    const qMs = clampInt(b.qSec, 5, 120, 20) * 1000, revealMs = clampInt(b.revealSec, 2, 15, 4) * 1000;
+    const maxPts = clampInt(b.scoring && b.scoring.max, 1, 1000, 100), minPts = clampInt(b.scoring && b.scoring.min, 0, maxPts, Math.round(maxPts * 0.7));
+    const cfg = { questions: qs, classes: (Array.isArray(b.classes) ? b.classes : []).map(String).filter(Boolean).slice(0, 30),
+      prizes: (Array.isArray(b.prizes) ? b.prizes : []).slice(0, 10).map(x => clampInt(x, 0, 10000, 0)), scoring: { max: maxPts, min: minPts }, source: String(b.source || '').slice(0, 120),
+      skin: LIVE_SKINS.includes(String(b.skin)) ? String(b.skin) : 'classic', notify: b.notify !== false,
+      // 👥 حد أدنى للاعبين: يُفحص عند إغلاق التسجيل — تمديد (حتى مرتين) أو إلغاء مع استرداد الرسوم
+      minPlayers: clampInt(b.minPlayers, 0, 50, 0), minAction: b.minAction === 'cancel' ? 'cancel' : 'extend',
+      extendMin: clampInt(b.extendMin, 1, 30, 5), maxExtends: clampInt(b.maxExtends, 0, 5, 2), extends: 0 };
+    const id = 'lg' + now.toString(36) + Math.random().toString(36).slice(2, 7);
+    await env.DB.prepare('INSERT INTO live_games (id, title, cfg, status, reg_open, reg_close, start_at, q_ms, reveal_ms, n, fee, max_players, created_at) VALUES (?1, ?2, ?3, \'SCHEDULED\', ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)')
+      .bind(id, String(b.title || 'مسابقة').slice(0, 80), JSON.stringify(cfg), regOpen, regClose, startAt, qMs, revealMs, qs.length, clampInt(b.fee, 0, 10000, 0), clampInt(b.maxPlayers, 0, 500, 0), now).run();
+    return { ok: true, id };
+}
+/* 🔁 المسابقة اليومية: موعد اليوم/التالي بتوقيت السعودية */
+function liveDailyStartFor(D, dayMs) {
+  const k = new Date(dayMs + 3 * 3600000), [hh, mm] = String(D.time || '20:00').split(':').map(Number);
+  return Date.UTC(k.getUTCFullYear(), k.getUTCMonth(), k.getUTCDate(), hh, mm) - 3 * 3600000;
+}
+function liveDailyNext(D, now) {
+  if (!D || !D.on || !(D.days || []).length) return 0;
+  for (let i = 0; i < 8; i++) { const day = now + i * 864e5, dow = new Date(day + 3 * 3600000).getUTCDay(), st = liveDailyStartFor(D, day);
+    if ((D.days || []).includes(dow) && st > now + 60000) return st; }
+  return 0;
+}
+async function liveDailyTick(env, now) {
+  let D; try { D = JSON.parse(await env.HW.get('live:daily') || 'null'); } catch { return; }
+  if (!D || !D.on || !(D.days || []).length) return;
+  const k = new Date(now + 3 * 3600000), today = k.toISOString().slice(0, 10);
+  if (D.last === today || !(D.days || []).includes(k.getUTCDay())) return;
+  const startAt = liveDailyStartFor(D, now), regOpen = startAt - (D.regOpenMin || 30) * 60000;
+  if (now < regOpen - 120000 || now > startAt - 60000) return;          // تُنشأ قبل فتح التسجيل بدقيقتين
+  const bank = Array.isArray(D.bank) ? D.bank : [];
+  D.last = today;                                                        // مرة واحدة في اليوم حتى لو فشل الإنشاء
+  if (!bank.length) { D.lastErr = 'no_questions'; await env.HW.put('live:daily', JSON.stringify(D)); return; }
+  // أسئلة عشوائية لم تُستخدم في آخر 7 أيام (إن نفدت يُكمَل من المستخدم سابقًا)
+  const hq = q => String(q.q).replace(/\s+/g, ' ').slice(0, 120);
+  const recent = (Array.isArray(D.recent) ? D.recent : []).filter(r => now - r.at < 7 * 864e5), used = new Set(recent.map(r => r.h));
+  const shuf = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const n = D.n || 10, fresh = shuf(bank.filter(q => !used.has(hq(q)))), old = shuf(bank.filter(q => used.has(hq(q))));
+  const pick = fresh.concat(old).slice(0, n).map(q => {
+    if (q.o.length === 2 && q.o[0] === 'صح') return q;                   // صح/خطأ بترتيبه
+    const idx = shuf(q.o.map((_, i) => i)); return { q: q.q, o: idx.map(i => q.o[i]), a: idx.indexOf(q.a) };
+  });
+  const regClose = Math.max(regOpen, startAt - (D.regCloseMin ?? 1) * 60000);
+  const r = await liveCreateGame(env, { title: D.title, classes: D.classes, questions: pick, fee: D.fee, prizes: D.prizes, maxPlayers: D.maxPlayers,
+    minPlayers: D.minPlayers, minAction: D.minAction, qSec: D.qSec, revealSec: D.revealSec, regOpen: Math.max(regOpen, now), regClose, startAt,
+    skin: D.skin, notify: D.notify, source: '🔁 مسابقة يومية تلقائية', daily: true }, now);
+  if (r.ok) { D.lastId = r.id; delete D.lastErr; D.recent = recent.concat(pick.map(q => ({ h: hq(q), at: now }))).slice(-500); }
+  else D.lastErr = r.error;
+  await env.HW.put('live:daily', JSON.stringify(D));
 }
 async function handleLive(url, request, env, ctx) {
   if (!env.DB) return json({ ok: false, error: 'setup_db' }, 503);
@@ -4098,25 +4161,30 @@ async function handleLive(url, request, env, ctx) {
   // ── المعلم ──
   if (P === '/live/create' && request.method === 'POST') {
     if (!isTeacher) return json({ ok: false, error: 'unauthorized' }, 401);
-    const qs = (Array.isArray(b.questions) ? b.questions : []).slice(0, 50).map(q => ({
-      q: String(q && q.q || '').slice(0, 600), o: (Array.isArray(q && q.o) ? q.o : []).slice(0, 6).map(x => String(x || '').slice(0, 200)), a: parseInt(q && q.a, 10) }))
+    const r = await liveCreateGame(env, b, now);
+    return json(r, r.ok ? 200 : 400);
+  }
+  /* 🔁 المسابقة اليومية التلقائية: إعدادها وبنك أسئلتها (من أنشطة المعلم، يرسله من لوحته) */
+  if (P === '/live/daily' && request.method === 'POST') {
+    if (!isTeacher) return json({ ok: false, error: 'unauthorized' }, 401);
+    let D = {}; try { D = JSON.parse(await env.HW.get('live:daily') || '{}') || {}; } catch {}
+    const cleanBank = arr => (Array.isArray(arr) ? arr : []).slice(0, 1500).map(q => ({ q: String(q && q.q || '').slice(0, 600), o: (Array.isArray(q && q.o) ? q.o : []).slice(0, 6).map(x => String(x || '').slice(0, 200)), a: parseInt(q && q.a, 10) }))
       .filter(q => q.q && q.o.length >= 2 && q.o.every(Boolean) && Number.isInteger(q.a) && q.a >= 0 && q.a < q.o.length);
-    if (!qs.length) return json({ ok: false, error: 'no_questions' }, 400);
-    const startAt = parseInt(b.startAt, 10), regOpen = parseInt(b.regOpen, 10), regClose = parseInt(b.regClose, 10);
-    if (!(startAt > now + 20000)) return json({ ok: false, error: 'start_in_past' }, 400);
-    if (!(regOpen <= regClose && regClose <= startAt)) return json({ ok: false, error: 'bad_registration_window' }, 400);
-    const qMs = clampInt(b.qSec, 5, 120, 20) * 1000, revealMs = clampInt(b.revealSec, 2, 15, 4) * 1000;
-    const maxPts = clampInt(b.scoring && b.scoring.max, 1, 1000, 100), minPts = clampInt(b.scoring && b.scoring.min, 0, maxPts, Math.round(maxPts * 0.7));
-    const cfg = { questions: qs, classes: (Array.isArray(b.classes) ? b.classes : []).map(String).filter(Boolean).slice(0, 30),
-      prizes: (Array.isArray(b.prizes) ? b.prizes : []).slice(0, 10).map(x => clampInt(x, 0, 10000, 0)), scoring: { max: maxPts, min: minPts }, source: String(b.source || '').slice(0, 120),
-      skin: LIVE_SKINS.includes(String(b.skin)) ? String(b.skin) : 'classic', notify: b.notify !== false,
-      // 👥 حد أدنى للاعبين: يُفحص عند إغلاق التسجيل — تمديد (حتى مرتين) أو إلغاء مع استرداد الرسوم
-      minPlayers: clampInt(b.minPlayers, 0, 50, 0), minAction: b.minAction === 'cancel' ? 'cancel' : 'extend',
-      extendMin: clampInt(b.extendMin, 1, 30, 5), maxExtends: clampInt(b.maxExtends, 0, 5, 2), extends: 0 };
-    const id = 'lg' + now.toString(36) + Math.random().toString(36).slice(2, 7);
-    await env.DB.prepare('INSERT INTO live_games (id, title, cfg, status, reg_open, reg_close, start_at, q_ms, reveal_ms, n, fee, max_players, created_at) VALUES (?1, ?2, ?3, \'SCHEDULED\', ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)')
-      .bind(id, String(b.title || 'مسابقة').slice(0, 80), JSON.stringify(cfg), regOpen, regClose, startAt, qMs, revealMs, qs.length, clampInt(b.fee, 0, 10000, 0), clampInt(b.maxPlayers, 0, 500, 0), now).run();
-    return json({ ok: true, id });
+    if (b.op === 'set' && b.cfg && typeof b.cfg === 'object') {
+      const c = b.cfg, t = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(c.time)) ? String(c.time) : '20:00';
+      D = { ...D, on: !!c.on, title: String(c.title || 'التحدي اليومي 🔥').slice(0, 80), time: t,
+        days: (Array.isArray(c.days) ? c.days : []).map(x => parseInt(x, 10)).filter(x => x >= 0 && x <= 6),
+        regOpenMin: clampInt(c.regOpenMin, 1, 600, 30), regCloseMin: clampInt(c.regCloseMin, 0, 60, 1), n: clampInt(c.n, 1, 50, 10),
+        qSec: clampInt(c.qSec, 5, 120, 20), revealSec: clampInt(c.revealSec, 2, 15, 4), fee: clampInt(c.fee, 0, 10000, 0),
+        prizes: (Array.isArray(c.prizes) ? c.prizes : []).slice(0, 10).map(x => clampInt(x, 0, 10000, 0)), maxPlayers: clampInt(c.maxPlayers, 0, 500, 0),
+        minPlayers: clampInt(c.minPlayers, 0, 50, 0), minAction: c.minAction === 'cancel' ? 'cancel' : 'extend',
+        skin: LIVE_SKINS.includes(String(c.skin)) ? String(c.skin) : 'classic', notify: c.notify !== false,
+        classes: (Array.isArray(c.classes) ? c.classes : []).map(String).filter(Boolean).slice(0, 30) };
+    }
+    if ((b.op === 'set' || b.op === 'bank') && Array.isArray(b.bank)) { D.bank = cleanBank(b.bank); D.bankAt = now; D.bankActs = clampInt(b.acts, 0, 5000, 0); }
+    if (b.op === 'set' || b.op === 'bank') await env.HW.put('live:daily', JSON.stringify(D));
+    const { bank, recent, ...pub } = D;
+    return json({ ok: true, now, daily: { ...pub, bankN: (bank || []).length, next: liveDailyNext(D, now) } });
   }
   if (P === '/live/list' && request.method === 'POST') {
     if (!isTeacher) return json({ ok: false, error: 'unauthorized' }, 401);
