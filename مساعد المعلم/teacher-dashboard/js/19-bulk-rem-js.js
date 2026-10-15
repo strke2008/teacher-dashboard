@@ -39,12 +39,12 @@ function remCompose(s,x){
            student:`مرحبًا ${first} 👋\n${S.join('\n\n')}\n\nبالتوفيق 🌟` };
 }
 
-/* 📍 أين يجد الطالب واجب مدرستي: رابط صفحة «الواجبات» للمادة إن حفظه المعلم (SubjectId+SchoolId فقط — بلا UId فيصلح لكل الطلاب)، وإلا الرابط العام + الخطوات */
+/* 📍 أين يجد الطالب واجب مدرستي: رابط صفحة «الواجبات» للمادة إن حفظه المعلم (SubjectId+SchoolId [+searchByStatus] — بلا UId فيصلح لكل الطلاب)، وإلا الرابط العام + الخطوات */
 function madListUrl(v){
   try{ const u=new URL(String(v||'').trim()); if(!/(^|\.)madrasati\.sa$/i.test(u.hostname)) return '';
     const g=k=>{ for(const [n,x] of u.searchParams) if(n.toLowerCase()===k) return x; return ''; };
     const sub=g('subjectid'), sch=g('schoolid'); if(!/^[0-9A-F]{16,64}$/i.test(sub)||!/^[0-9A-F]{16,64}$/i.test(sch)) return '';
-    return `https://schools.madrasati.sa/Student/Home/Assignments?SubjectId=${sub}&SchoolId=${sch}`; }catch(e){ return ''; }
+    const st=g('searchbystatus'); return `https://schools.madrasati.sa/Student/Home/Assignments?SubjectId=${sub}&SchoolId=${sch}`+(/^[A-Za-z]{1,20}$/.test(st)?`&searchByStatus=${st}`:''); }catch(e){ return ''; }
 }
 function madLinkSet(v){
   const url=madListUrl(v); const st=document.getElementById('br-madlink-st');
