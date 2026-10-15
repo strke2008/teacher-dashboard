@@ -1,7 +1,7 @@
 /* أنشطتي — Service Worker: الإشعارات (نشاط جديد · رسالة من المعلم) + حفظ ملفات البوابة على الجهاز.
    ⚡ يحفظ ملفات الواجهة فقط (الصفحة والتنسيق والبرمجة والصور) فتُفتح البوابة فورًا ويُجلب الأحدث في الخلفية.
    الأنشطة والدرجات وبيانات الطالب لا تُحفظ إطلاقًا: تُجلب دائمًا من الخادم (نطاق آخر لا يمرّ هنا). لا يحتوي أي سر. */
-const SW_VERSION = 'student-push-v1+static-v3';
+const SW_VERSION = 'student-push-v2+static-v3';
 const API = new URL(self.location.href).searchParams.get('api') || '';
 const STATIC = 'portal-static-v1';
 const SCOPE = new URL(self.registration ? self.registration.scope : './', self.location.href);
@@ -95,7 +95,12 @@ self.addEventListener('push', event => {
     timestamp: Date.now()
   };
   if (!options.tag) delete options.tag;
-  event.waitUntil(self.registration.showNotification(String(msg.title || 'أنشطتي'), options));
+  event.waitUntil((async () => {
+    await self.registration.showNotification(String(msg.title || 'أنشطتي'), options);
+    // ⚡ البوابة مفتوحة؟ نخبرها لتحدّث الرسائل والعدّاد فورًا بلا إعادة تحميل
+    const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const c of all) c.postMessage({ type: 'push-msg', data: msg.data || {} });
+  })());
 });
 
 self.addEventListener('notificationclick', event => {

@@ -280,3 +280,26 @@ function stuFabPanel(){
 }
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&SFAB.open) stuFabToggle(false); });
 setInterval(()=>{ try{ stuFabRender(); }catch(e){} },900);
+
+/* ⚡ تحديث حيّ: رسالة أو رد من المعلم يصل بإشعار والبوابة مفتوحة ⇒ تتحدث الرسائل والعدّاد فورًا.
+   وعند العودة للبوابة بعد غياب، وكل دقيقة أثناء فتحها: فحص خفيف للمحادثات فقط. */
+const LIVE_REF={at:Date.now()};
+function portalIdleHome(){
+  const vis=id=>{ const e=document.getElementById(id); return !!(e&&!e.classList.contains('hide')&&e.offsetParent!==null); };
+  if(!vis('gate-space')||vis('live-room')||document.getElementById('ask-veil')) return false;
+  const jw=document.getElementById('journey-workspace'); if(jw&&jw.classList.contains('journey-page')&&!jw.classList.contains('hide')&&jw.offsetParent!==null) return false;
+  const a=document.activeElement; if(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return false;
+  return !document.querySelector('.modal-bg.open,.modal.open,#store-pin,#pt-ov,.rep-ov');
+}
+function portalLiveRefresh(full){
+  const nm=String(myName||'').trim(); if(!nm) return;
+  LIVE_REF.at=Date.now();
+  try{ myAskLoad(); }catch(e){}
+  // التنبيهات كاملة: فقط والطالب في الصفحة الرئيسية بلا نافذة أو كتابة — لا نقاطع حلّه أو لعبه
+  if(full&&portalIdleHome()&&typeof gateLoad==='function'){ try{ gateLoad(nm); }catch(e){} }
+}
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.addEventListener('message',ev=>{ if(ev.data&&ev.data.type==='push-msg') setTimeout(()=>portalLiveRefresh(true),600); });
+}
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&Date.now()-LIVE_REF.at>45000) portalLiveRefresh(true); });
+setInterval(()=>{ if(!document.hidden&&Date.now()-LIVE_REF.at>55000) portalLiveRefresh(false); },20000);
