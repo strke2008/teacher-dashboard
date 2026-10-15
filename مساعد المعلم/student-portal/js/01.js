@@ -6798,16 +6798,23 @@ function liveRocketStart(Q, k, qStart, qEnd, answered){
   };
   LIVE_RK.raf = requestAnimationFrame(frame);
 }
+/* 🎨 رمز مظهر اللاعب (من «مظهري»): رمز تعبيري أو صورته، بجانب اسمه في المسابقة */
+function liveAvHTML(p, cls){
+  const v = String(p && p.av || ''), gid = LIVE.st && LIVE.st.game && LIVE.st.game.id;
+  if(v[0] === 'e'){ const e = (typeof PT !== 'undefined' && PT.AV[parseInt(v.slice(1), 10)]) || ''; return e ? `<span class="lv-av ${cls||''}">${e}</span>` : ''; }
+  if(v[0] === 'i' && p.s && gid) return `<span class="lv-av ${cls||''}"><img src="${esc(liveApi())}/live/av?g=${encodeURIComponent(gid)}&s=${encodeURIComponent(p.s)}&v=${esc(v)}" alt="" onerror="this.parentNode.remove()"></span>`;
+  return '';
+}
 /* السباق في لحظة الكشف: الخمسة الأوائل وصاروخك، وحركتك في الترتيب */
 function liveRaceHTML(race){
   if(!race) return '';
   const lead = Math.max(1, race.lead), pos = sc => Math.round(Math.max(0, sc) / lead * 86);
   const sk = (LIVE.st && LIVE.st.game && LIVE.st.game.skin) || 'rocket';
   const ico = { rocket: '🚀', shapes: '⭐', jumper: '🤖', invaders: '🛸', claw: '🎁', boss: '⚔️' }[sk] || '🚀', goal = sk === 'rocket' ? '🪐 المريخ' : sk === 'boss' ? '⚔️ الأكثر ضررًا' : '🏁 خط النهاية';
-  const row = (p, i, me) => `<div class="lvr-row${me ? ' me' : ''}"><span class="lvr-nm">${i}. ${esc(me && !p.name ? 'أنت' : p.name)}${me ? ' <small>(أنت)</small>' : ''}</span><div class="lvr-track"><i class="${ico === '🚀' ? '' : 'up'}" style="--p:${pos(p.score)}%">${ico}</i></div><b>${p.score}</b></div>`;
+  const row = (p, i, me) => `<div class="lvr-row${me ? ' me' : ''}"><span class="lvr-nm">${i}. ${liveAvHTML(p, 'sm')}${esc(me && !p.name ? 'أنت' : p.name)}${me ? ' <small>(أنت)</small>' : ''}</span><div class="lvr-track"><i class="${ico === '🚀' ? '' : 'up'}" style="--p:${pos(p.score)}%">${ico}</i></div><b>${p.score}</b></div>`;
   const rows = race.top.map((p, i) => row(p, i + 1, p.me)).join('');
   const m = race.me, inTop = race.top.some(p => p.me);
-  const mine = m && !inTop ? `<div class="lvr-gap">…</div>${row({ name: '', score: m.score }, m.rank, true)}` : '';
+  const mine = m && !inTop ? `<div class="lvr-gap">…</div>${row({ name: '', score: m.score, ...(race.myAv || {}) }, m.rank, true)}` : '';
   let move = '';
   if(m && m.prevRank){ const d = m.prevRank - m.rank; move = d > 0 ? `⬆️ تقدّمت ${d} ${d === 1 ? 'مركزًا' : d <= 10 ? 'مراكز' : 'مركزًا'}` : d < 0 ? `تراجعت ${-d} — عوّضها في القادم` : 'حافظت على مركزك'; }
   return `<div class="lvr-race"><div class="lvr-mars">${goal}</div>${rows}${mine}
@@ -6984,7 +6991,7 @@ function liveRender(extra){
       <div class="live-count" data-live-to="${g.startAt}"></div>
       <p><b>👥 ${s.players}${g.maxPlayers ? ` / ${g.maxPlayers}` : ''}</b> لاعبًا · ${g.n} ${g.n > 10 ? 'سؤالًا' : 'أسئلة'}</p>
       ${g.minPlayers && s.players < g.minPlayers && ph.status !== 'SCHEDULED' ? `<p class="live-min">👥 ينقصنا <b>${g.minPlayers - s.players === 1 ? 'لاعب واحد' : g.minPlayers - s.players === 2 ? 'لاعبان' : (g.minPlayers - s.players) + ' لاعبين'}</b> لتبدأ المسابقة — ادعُ زملاءك!${g.extends ? ' (مُدّد التسجيل)' : ''}</p>` : ''}
-      <div class="live-roster">${(s.roster || []).map(p => `<span class="${p.online ? 'on' : ''}">${p.online ? '🟢' : '🟡'} ${esc(p.name)}</span>`).join('')}</div>
+      <div class="live-roster">${(s.roster || []).map(p => `<span class="${p.online ? 'on' : ''}">${p.online ? '🟢' : '🟡'} ${liveAvHTML(p, 'sm')}${esc(p.name)}</span>`).join('')}</div>
     </div>`;
   } else if(ph.status === 'LIVE' && !s.joined){
     body = `<div class="live-center"><div class="live-big">🎮</div><h2>المسابقة جارية</h2><p class="muted">لم تسجّل فيها قبل البداية.</p><button class="btn" onclick="liveCloseRoom()">رجوع</button></div>`;
@@ -7018,8 +7025,8 @@ function liveRender(extra){
     body = `<div class="live-res-wrap">
       <h2 style="text-align:center">🏁 النتائج النهائية</h2>${bossEnd}
       ${me ? `<div class="live-me">مركزك <b>${me.rank}</b> من ${B.length} · ${me.score} نقطة · ${me.correct} / ${s.results.n} صحيحة${me.prize ? `<br>🎁 <b>+${me.prize}</b> نقطة أُضيفت لرصيدك` : ''}</div>` : ''}
-      <div class="live-podium">${B.slice(0, 3).map((x, i) => `<div class="p${i + 1}${x.me ? ' me' : ''}"><span>${medal[i]}</span><b class="${nmCls(x.glow)}">${esc(x.name)}</b><small>${x.score} نقطة${x.prize ? ` · 🎁 ${x.prize}` : ''}</small></div>`).join('')}</div>
-      <ol class="live-board" start="4">${B.slice(3).map(x => `<li class="${x.me ? 'me' : ''}"><span class="${nmCls(x.glow)}">${esc(x.name)}</span><b>${x.score}</b></li>`).join('')}</ol>
+      <div class="live-podium">${B.slice(0, 3).map((x, i) => `<div class="p${i + 1}${x.me ? ' me' : ''}"><span>${medal[i]}</span>${liveAvHTML(x, 'lg')}<b class="${nmCls(x.glow)}">${esc(x.name)}</b><small>${x.score} نقطة${x.prize ? ` · 🎁 ${x.prize}` : ''}</small></div>`).join('')}</div>
+      <ol class="live-board" start="4">${B.slice(3).map(x => `<li class="${x.me ? 'me' : ''}">${liveAvHTML(x, 'sm')}<span class="${nmCls(x.glow)}">${esc(x.name)}</span><b>${x.score}</b></li>`).join('')}</ol>
       ${liveNextPromo(g.id)}
       <button class="btn" style="width:100%;margin-top:.8rem" onclick="liveCloseRoom()">رجوع</button>
     </div>`;

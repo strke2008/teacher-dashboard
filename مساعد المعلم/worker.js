@@ -3889,6 +3889,19 @@ async function liveFinalize(env, g, now) {
   const again = await liveGame(env, g.id); try { return JSON.parse(again.results); } catch { return res; }
 }
 /* 🚀 ترتيب السباق بعد السؤال q: يُحسب مرة واحدة ويُحفظ (لا تجميع مع كل طلب — حدود القراءة) */
+/* 🎨 رمز مظهر الطالب في المسابقة: «e<رقم>» لرمز تعبيري، «i<طول>» لصورة (تُجلب من /live/av)، أو فارغ.
+   مخزّن مؤقتًا دقيقتين لكل طالب — التحديث كل ثانية لا يقرأ التخزين كل مرة. */
+const LIVE_AV = new Map();
+async function liveAvOf(env, sid) {
+  sid = String(sid || ''); if (!sid) return '';
+  const c = LIVE_AV.get(sid); if (c && Date.now() - c.at < 120000) return c.v;
+  let v = '';
+  try { const p = JSON.parse(await env.HW.get(`prefs:${sid}`) || 'null');
+    if (p && p.av) { if (p.av.t === 'i' && p.av.v) v = 'i' + String(p.av.v).length; else if (p.av.t === 'e') { const n = parseInt(p.av.v, 10); if (n >= 0 && n < 100) v = 'e' + n; } } } catch {}
+  if (LIVE_AV.size > 3000) LIVE_AV.clear();
+  LIVE_AV.set(sid, { v, at: Date.now() }); return v;
+}
+async function liveAvs(env, sids) { const out = {}; await Promise.all([...new Set(sids.map(String))].slice(0, 120).map(async s => { out[s] = await liveAvOf(env, s); })); return out; }
 async function liveStandings(env, g, q) {
   if (q < 0) return null;
   const row = await env.DB.prepare('SELECT data FROM live_snap WHERE game = ?1 AND q = ?2').bind(g.id, q).first();
@@ -4181,6 +4194,18 @@ async function handleLive(url, request, env, ctx) {
     return json({ ok: true, now, games });
   }
 
+  // 🖼️ صورة مظهر لاعب: تُعرض لزملائه في نفس المسابقة فقط (يُشترط أنه مسجّل فيها)
+  if (P === '/live/av' && request.method === 'GET') {
+    const gid = String(url.searchParams.get('g') || '').slice(0, 80), sid = String(url.searchParams.get('s') || '').slice(0, 80);
+    const inGame = gid && sid ? await env.DB.prepare('SELECT 1 AS x FROM live_players WHERE game = ?1 AND sid = ?2').bind(gid, sid).first() : null;
+    if (!inGame) return new Response('', { status: 404 });
+    let p = null; try { p = JSON.parse(await env.HW.get(`prefs:${sid}`) || 'null'); } catch {}
+    const m = p && p.av && p.av.t === 'i' ? /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(String(p.av.v || '')) : null;
+    if (!m) return new Response('', { status: 404 });
+    const bin = Uint8Array.from(atob(m[2]), c => c.charCodeAt(0));
+    return new Response(bin, { headers: { 'Content-Type': m[1], 'Cache-Control': 'public, max-age=600', 'Access-Control-Allow-Origin': '*' } });
+  }
+
   // ── الطالب: كل ما بعده يتطلب جلسته الموقّعة (الهوية من الخادم لا من الطلب) ──
   const auth = await requireStudentSession(env, b); if (auth.res) return auth.res;
   const st = auth.st;
@@ -4253,8 +4278,9 @@ async function handleLive(url, request, env, ctx) {
     out.players = ((await env.DB.prepare('SELECT COUNT(*) AS n FROM live_players WHERE game = ?1').bind(g.id).first()) || {}).n || 0;
     if (me && now - me.last_seen > LIVE_SEEN_MS) await env.DB.prepare('UPDATE live_players SET last_seen = ?3 WHERE game = ?1 AND sid = ?2').bind(g.id, st.id, now).run();
     if (ph.status === 'REGISTRATION' || ph.status === 'WAITING') {
-      out.roster = ((await env.DB.prepare('SELECT name, last_seen FROM live_players WHERE game = ?1 ORDER BY joined_at LIMIT 100').bind(g.id).all()).results || [])
-        .map(p => ({ name: String(p.name || '').split(' ')[0], online: now - p.last_seen < LIVE_ONLINE_MS }));
+      const rr = ((await env.DB.prepare('SELECT sid, name, last_seen FROM live_players WHERE game = ?1 ORDER BY joined_at LIMIT 100').bind(g.id).all()).results || []);
+      const avs = await liveAvs(env, rr.map(p => p.sid));
+      out.roster = rr.map(p => ({ name: String(p.name || '').split(' ')[0], online: now - p.last_seen < LIVE_ONLINE_MS, av: avs[String(p.sid)] || '', s: avs[String(p.sid)] && avs[String(p.sid)][0] === 'i' ? String(p.sid) : undefined }));
       if (!me) out.bal = await liveBal(env, st);
     }
     if (ph.status === 'LIVE' && me) {
@@ -4272,7 +4298,9 @@ async function handleLive(url, request, env, ctx) {
       if (ph.phase === 'reveal' && ['rocket', 'jumper', 'invaders', 'claw', 'shapes', 'boss'].includes(g.cfgObj.skin)) {
         const now_ = await liveStandings(env, g, ph.q), prev = ph.q > 0 ? await liveStandings(env, g, ph.q - 1) : null;
         const idx = now_.findIndex(x => x.sid === String(st.id)), pIdx = prev ? prev.findIndex(x => x.sid === String(st.id)) : -1;
-        out.race = { top: now_.slice(0, 5).map(x => ({ name: x.name, score: x.score, me: x.sid === String(st.id) })), n: now_.length,
+        const avs = await liveAvs(env, now_.slice(0, 5).map(x => x.sid).concat(String(st.id)));
+        const avOf = sid => ({ av: avs[sid] || '', s: avs[sid] && avs[sid][0] === 'i' ? sid : undefined });
+        out.race = { top: now_.slice(0, 5).map(x => ({ name: x.name, score: x.score, me: x.sid === String(st.id), ...avOf(x.sid) })), n: now_.length, myAv: avOf(String(st.id)),
           me: idx >= 0 ? { rank: idx + 1, score: now_[idx].score, prevRank: pIdx >= 0 ? pIdx + 1 : null } : null, lead: now_.length ? now_[0].score : 0,
           ahead: idx > 0 ? { name: now_[idx - 1].name, gap: now_[idx - 1].score - now_[idx].score } : null };
       }
@@ -4280,7 +4308,8 @@ async function handleLive(url, request, env, ctx) {
     if (ph.status === 'FINISHED') {
       const res = await liveFinalize(env, g, now);
       ctx && ctx.waitUntil && ctx.waitUntil(livePayPrizes(env, g, res).catch(() => {}));
-      out.results = { board: res.board.map(r => ({ rank: r.rank, name: r.name, score: r.score, correct: r.correct, prize: r.prize, me: r.sid === st.id, glow: r.glow || '' })), n: g.n };
+      const avs = await liveAvs(env, res.board.slice(0, 100).map(r => r.sid));
+      out.results = { board: res.board.map(r => { const a = avs[String(r.sid)] || ''; return { rank: r.rank, name: r.name, score: r.score, correct: r.correct, prize: r.prize, me: r.sid === st.id, glow: r.glow || '', av: a, s: a && a[0] === 'i' ? String(r.sid) : undefined }; }), n: g.n };
       if (g.cfgObj.skin === 'boss') out.boss = await liveBossState(env, g);
     }
     return json(out);
