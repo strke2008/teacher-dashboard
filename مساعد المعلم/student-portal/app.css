@@ -1774,18 +1774,6 @@ html[data-pt] body,html[data-pt] .sheet,html[data-pt] .btn,html[data-pt] .studen
   background:var(--a);box-shadow:0 4px 0 color-mix(in srgb,var(--a) 70%,#000)}
 .nc-go:active{transform:translateY(3px);box-shadow:none}
 .student-space-head + .space-grid.now-compact{margin:.2rem 0 .7rem}
-/* 🗂️ أقسام قابلة للطي في البوابة */
-.fold-card>summary{list-style:none;display:flex;align-items:center;gap:.6rem;cursor:pointer}
-.fold-card>summary::-webkit-details-marker{display:none}
-.fold-ic{flex:none;width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:1.25rem;background:#FFF4CC}
-.fold-tx{flex:1;min-width:0;display:grid;gap:.1rem}
-.fold-tx b{font-size:.95rem}
-.fold-tx small{font-size:.8rem;color:var(--ink-soft)}
-.fold-chev{flex:none;font-size:1rem;color:var(--ink-soft);transition:transform .2s}
-.fold-card[open] .fold-chev{transform:rotate(180deg)}
-.board-fold{padding:.75rem 1rem}
-.js-folded .journey-step:not(.current):not(.fold-keep){display:none}
-.fold-more{display:block;width:100%;margin-top:.55rem;border:1px dashed var(--rule);border-radius:12px;background:transparent;padding:.5rem;font:inherit;font-weight:800;font-size:.85rem;color:var(--ink-soft);cursor:pointer}
 .sp-ios>summary{list-style:none}
 .sp-ios .sp-note{margin-top:.4rem}
 /* 💬 «عندك سؤال» على الجوال: صف واحد — الزر بجانب العنوان، والشرح الطويل مخفي */

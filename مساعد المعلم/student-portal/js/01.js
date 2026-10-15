@@ -2478,17 +2478,6 @@ async function loadStudentSpace(nm, rows){
     if(listEl) applyView();
   }
 }
-/* 🗺️ طيّ الرحلة: تظهر الخطوة الحالية فقط، وبقية الخطوات بزر «عرض كل الخطوات» (يُحفظ اختيار الطالب) */
-function journeyFold(n){
-  const box=$('student-journey'), list=$('journey-steps'); if(!box||!list) return;
-  let open=false; try{ open=localStorage.getItem('journey_open_v1')==='1'; }catch(e){}
-  const hasCur=!!list.querySelector('.journey-step.current');
-  if(!hasCur){ const p=list.querySelector('.journey-step.pending')||list.querySelector('.journey-step:not(.done):not(.wait)'); if(p) p.classList.add('fold-keep'); }
-  box.classList.toggle('js-folded', !open);
-  let t=$('journey-fold'); if(!t){ t=document.createElement('button'); t.type='button'; t.id='journey-fold'; t.className='fold-more'; list.after(t);
-    t.onclick=()=>{ const o=box.classList.contains('js-folded'); box.classList.toggle('js-folded',!o); try{ localStorage.setItem('journey_open_v1',o?'1':'0'); }catch(e){} t.textContent=o?'إخفاء الخطوات ⌃':`عرض كل الخطوات (${n}) ⌄`; }; }
-  t.textContent=open?'إخفاء الخطوات ⌃':`عرض كل الخطوات (${n}) ⌄`;
-}
 /* 🧠 نتيجة أنماط التعلم: تُحفظ محليًا لكل طالب حتى تبقى متاحة داخل الرحلة. */
 const JOURNEY_STYLE_KEY = 'hwapp_journey_style_v1';
 function journeyStyleStore(){
@@ -4415,7 +4404,6 @@ function loadStudentJourney(rows){
     const pend=!x.done&&x.available&&Number(x.pending)>0;
   return `<div class="journey-step ${cls}${pend?' pending':''}" ${attrs}><div class="js-icon">${x.done?'✓':x.icon}${pend?`<b class="js-badge">${Number(x.pending)}</b>`:''}</div><div class="js-body"><span class="js-title">${i+1}. ${esc(x.title)}</span><span class="js-note">${esc(x.note)}</span>${reportHint}</div><span class="js-state">${stateText}</span></div>`;
   }).join('');
-  try{ journeyFold(steps.length); }catch(e){}
   $('journey-steps').querySelectorAll('[data-journey-style-report]').forEach(el=>el.onclick=()=>openJourneyStyleReport(myName));
   $('journey-steps').querySelectorAll('[data-journey-learning]').forEach(el=>el.onclick=()=>openJourneyLearning(myName, learningRows, ['reading','normal','game']));
   $('journey-steps').querySelectorAll('[data-journey-apply]').forEach(el=>el.onclick=()=>openJourneyLearning(myName, learningRows, ['files','lab']));
@@ -4539,12 +4527,13 @@ async function gateLoad(nm, opts){
     if(b.ok && b.total > 1){
       const medal = ['🥇','🥈','🥉'];
 
-      const me=`ترتيبك <b style="color:var(--ink)">${b.myRank}</b> من ${b.total}${b.myMax ? `<span class="muted" style="font-size:.8rem"> · درجاتك ${b.myPts}/${b.myMax}</span>` : ''}`;
-      let bOpen=false; try{ bOpen=localStorage.getItem('board_open_v1')==='1'; }catch(e){}
       $('gate-board').innerHTML = `
-        <details class="sheet fold-card board-fold"${bOpen?' open':''} ontoggle="try{localStorage.setItem('board_open_v1',this.open?'1':'0')}catch(e){}">
-          <summary><span class="fold-ic">🏆</span><span class="fold-tx"><b>صدارة ${b.cls ? esc(b.cls) : 'فصلك'}</b><small>${me}</small></span><span class="fold-chev" aria-hidden="true">⌄</span></summary>
-          <div class="center muted" style="font-size:.72rem;margin:.4rem 0 .3rem;opacity:.85">حسب الدرجات</div>
+        <div class="sheet" style="padding:.85rem 1rem">
+          <div class="center muted" style="font-size:.82rem;margin-bottom:.5rem">
+            🏆 صدارة ${b.cls ? esc(b.cls) : 'فصلك'}
+            <div style="font-size:.72rem;opacity:.85">حسب الدرجات</div>
+          </div>
+
           ${(b.top||[]).map((r,i)=>`
             <div style="display:flex;gap:.5rem;align-items:center;padding:.28rem 0;
               ${r.name===nm?'font-weight:700;color:var(--tick)':''}">
@@ -4553,7 +4542,13 @@ async function gateLoad(nm, opts){
               <span class="muted">${r.pts}${r.max?'<span style="opacity:.7">/'+r.max+'</span>':''}</span>
             </div>
           `).join('')}
-        </details>`;
+
+          <div style="border-top:1px solid var(--rule);margin-top:.45rem;
+            padding-top:.45rem;text-align:center;font-size:.88rem">
+            ترتيبك <b style="color:var(--ink)">${b.myRank}</b> من ${b.total}
+            ${b.myMax ? `<span class="muted" style="font-size:.8rem"> · درجاتك ${b.myPts}/${b.myMax}</span>` : ''}
+          </div>
+        </div>`;
     }
    }catch(e){}
   })();
