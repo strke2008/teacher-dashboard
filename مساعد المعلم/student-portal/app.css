@@ -1810,3 +1810,5 @@ html[data-pt] body,html[data-pt] .sheet,html[data-pt] .btn,html[data-pt] .studen
 .sfab-foot{padding:.6rem .7rem;border-top:1px solid #E6ECF5}
 .sfab-go{width:100%;border:0;border-radius:12px;padding:.65rem;font:inherit;font-weight:900;font-size:.95rem;color:#fff;background:#3157C8;cursor:pointer}
 @media print{.sfab-btn,.sfab-pan{display:none!important}}
+/* 📄 «تقريري» داخل مساحة الطالب مباشرة بعد «مهمتك الآن» */
+#gate-space #my-report-panel{margin:0 0 .7rem;box-shadow:none;border:1.5px solid #D9E2F2;background:linear-gradient(180deg,#F6F8FF,#fff)}
