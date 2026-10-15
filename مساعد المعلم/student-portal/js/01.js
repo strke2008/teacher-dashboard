@@ -2045,6 +2045,33 @@ function examCardHTML(m, isNew){
     ${x.n?`<p class="exm-note">📝 ${esc(x.n)}</p>`:''}
   </div>`;
 }
+/* 🎴 بقية التنبيهات: بطاقة بنفس أسلوب الشكر والتذكير، ولكل نوع لونه وأيقونته وعنوانه الصغير ليتميّز بنظرة */
+const NC_KIND = {
+  message:    { c:'msg',  k:'رسالة من معلمك' },
+  activity:   { c:'act',  k:'نشاط من معلمك' },
+  warning:    { c:'warn', k:'تنبيه من معلمك' },
+  exam:       { c:'exam', k:'موعد اختبار' },
+  achievement:{ c:'star', k:'تشجيع من معلمك' },
+  late:       { c:'late', k:'نشاط متأخر' },
+  due:        { c:'due',  k:'اقترب موعد التسليم' },
+  review:     { c:'rev',  k:'مراجعة مطلوبة' },
+  report:     { c:'rep',  k:'تقريرك' }
+};
+function ncCardHTML(n, key){
+  const kind = n.tone==='late'?'late':n.tone==='due'?'due':n.tone==='review'?'rev0':n.openReport?'report':(n.mt||'');
+  const K = NC_KIND[kind==='rev0'?'review':kind] || NC_KIND.message;
+  const badge = n.priority==='urgent'?'🚨 عاجل':n.priority==='important'?'⭐ مهم':'';
+  const act = n.reviewTask?`data-review-task="${esc(n.reviewTask)}"`:n.openReport?`data-open-report="${esc(n.openReport===true?'week':n.openReport)}"`:n.activityId?`data-activity-id="${esc(n.activityId)}"`:'';
+  const btn = act?`<button type="button" class="nc-go" ${act}>${n.reviewTask?'ابدأ مهمة التصحيح ←':n.openReport?'افتح التقرير ←':n.tone==='late'||n.tone==='due'?'افتح النشاط وسلّمه ←':'فتح النشاط ←'}</button>`:'';
+  const title = String(n.t||'').trim().replace(new RegExp('^'+K.k+'\\s*:?\\s*'),''), showTitle = !!title;
+  return `<div class="space-notice rich"><div class="nc-card ${K.c}${n.priority==='urgent'?' urgent':''}">
+    <div class="nc-top"><span class="nc-ic" aria-hidden="true">${n.i||'💬'}</span>
+      <div class="nc-h"><span class="nc-kick">${esc(K.k)}</span>${showTitle?`<b>${esc(title)}</b>`:''}</div></div>
+    ${(badge||n.isNew)?`<div class="nc-tags">${badge?`<span class="nc-pr">${badge}</span>`:''}${n.isNew?'<span class="nc-new">جديد</span>':''}</div>`:''}
+    ${n.p?`<p class="nc-body">${esc(n.p)}${n.extra?`<strong class="nc-extra">${esc(n.extra)}</strong>`:''}</p>`:''}
+    ${btn}
+  </div><button type="button" class="notice-delete" data-delete-notice="${esc(key)}" aria-label="حذف التنبيه" title="حذف التنبيه">🗑️</button></div>`;
+}
 /* ⏰ رسالة التذكير بالأنشطة: بطاقة واضحة بدل نص طويل — تُقرأ من نص الرسالة نفسه (فتعمل مع القديمة أيضًا):
    أقسام (متأخر/قريب/ورقي/مدرستي) وكل نشاط بزر «ابدأ»، وواجبات مدرستي بزر يفتح المنصة مباشرة. */
 function isRemindMsg(m){ return /^تذكير: أنشطة لم تُسلَّم/.test(String(m && m.title || '')); }
@@ -2280,7 +2307,7 @@ async function loadStudentSpace(nm, rows){
     // 📩 ردود المعلم على أسئلة الطالب مكانها «محادثاتك» (تُبرز الرد الجديد هناك) — لا تتكرر هنا
     msgs.filter(m=>m.type!=='weekly' && m.type!=='srep' && m.type!=='reply' && msgActive(m)).forEach(m=>{
       notices.push({
-        i: MSG_ICON[m.type] || '💬',
+        i: MSG_ICON[m.type] || '💬', mt: String(m.type||'message'),
         t: m.title||'رسالة من المعلم', p: m.body||'',
         // التقرير والشهادة تُرسمان بطاقةً كاملة هنا لا سطرًا مختصرًا:
         // هذه القائمة هي ما يراه الطالب أولًا، فلا معنى لإحالته إلى مكان آخر.
@@ -2342,6 +2369,7 @@ async function loadStudentSpace(nm, rows){
       return c;
     };
     const renderNotice = n=>{
+      if(!n.html) return ncCardHTML(n, noticeKey(n));
       if(n.html) return `<div class="space-notice rich">${n.html}
         <button type="button" class="notice-delete" data-delete-notice="${esc(noticeKey(n))}" aria-label="حذف التنبيه" title="حذف التنبيه">🗑️</button></div>`;
       const badge=n.priority==='urgent'?'عاجل':n.priority==='important'?'مهم':n.isNew?'جديد':'';

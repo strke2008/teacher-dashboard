@@ -1745,3 +1745,31 @@ html[data-pt] body,html[data-pt] .sheet,html[data-pt] .btn,html[data-pt] .studen
 .rmd-foot{margin-top:.6rem;font-weight:900;color:#1F4FA8}
 .space-notice .rmd-card p,.space-notice .rmd-card b,.space-notice .rmd-card small{-webkit-line-clamp:unset!important;display:revert;overflow:visible!important;max-height:none!important}
 .space-notice .rmd-card .rmd-it-t small,.space-notice .rmd-card .rmd-hint{display:block}
+/* 🎴 بطاقات التنبيهات: نفس أسلوب الشكر والتذكير، ولون لكل نوع */
+.nc-card{--a:#6C4BD1;--bg1:#F1ECFF;--bg2:#FFFFFF;position:relative;border-radius:20px;padding:.9rem .85rem .85rem;margin:.35rem 0;
+  background:linear-gradient(145deg,var(--bg1) 0%,var(--bg2) 100%);border:2px solid color-mix(in srgb,var(--a) 45%,#fff);box-shadow:0 8px 20px color-mix(in srgb,var(--a) 16%,transparent);color:#1C2333;text-align:start}
+.nc-card.act{--a:#2F6FDB;--bg1:#E4EFFF}
+.nc-card.warn{--a:#D6455B;--bg1:#FFE6EA}
+.nc-card.exam{--a:#9B3FC8;--bg1:#F6E6FF}
+.nc-card.star{--a:#D99A0B;--bg1:#FFF4CC;--bg2:#F0FFF4}
+.nc-card.late{--a:#E0452E;--bg1:#FFE7DF}
+.nc-card.due{--a:#E58A12;--bg1:#FFF0D6}
+.nc-card.rev{--a:#13866F;--bg1:#DDF7EF}
+.nc-card.rep{--a:#3D4FC4;--bg1:#E6E9FF}
+.nc-card.urgent{animation:ncPulse 2.2s ease-in-out infinite}
+@keyframes ncPulse{0%,100%{box-shadow:0 8px 20px color-mix(in srgb,var(--a) 16%,transparent)}50%{box-shadow:0 0 0 4px color-mix(in srgb,var(--a) 25%,transparent)}}
+.nc-top{display:flex;align-items:center;gap:.6rem;padding-inline-end:40px}
+.nc-ic{flex:none;width:52px;height:52px;border-radius:16px;display:grid;place-items:center;font-size:1.9rem;background:#fff;box-shadow:0 3px 0 color-mix(in srgb,var(--a) 35%,#fff);animation:ncBob 2.6s ease-in-out infinite}
+@keyframes ncBob{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-3px) rotate(-6deg)}}
+.nc-h{display:grid;gap:.1rem;min-width:0}
+.space-notice .nc-card .nc-kick{display:block;font-weight:900;font-size:.95rem;color:var(--a);line-height:1.4}
+.space-notice .nc-card .nc-h b{display:block;font-size:1.02rem;font-weight:900;line-height:1.5;color:#1C2333;overflow-wrap:anywhere}
+.nc-tags{display:flex;gap:.35rem;flex-wrap:wrap;margin:.5rem 0 0}
+.nc-pr,.nc-new{font-size:.74rem;font-weight:900;border-radius:99px;padding:.15rem .6rem;color:#fff;background:var(--a)}
+.nc-new{background:#E4002B}
+.space-notice .nc-card .nc-body{display:block!important;-webkit-line-clamp:unset!important;overflow:visible!important;max-height:none!important;white-space:pre-line;
+  margin:.6rem 0 0;background:rgba(255,255,255,.9);border-radius:14px;padding:.7rem .8rem;font-size:.98rem;line-height:1.85;font-weight:700;color:#24304A;box-shadow:0 2px 6px rgba(30,40,80,.07)}
+.nc-extra{display:block;margin-top:.35rem;color:var(--a);font-weight:900}
+.nc-go{display:block;width:100%;margin-top:.65rem;border:0;border-radius:99px;padding:.6rem 1rem;font:inherit;font-weight:900;font-size:1rem;color:#fff;cursor:pointer;
+  background:var(--a);box-shadow:0 4px 0 color-mix(in srgb,var(--a) 70%,#000)}
+.nc-go:active{transform:translateY(3px);box-shadow:none}
