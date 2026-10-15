@@ -1773,3 +1773,4 @@ html[data-pt] body,html[data-pt] .sheet,html[data-pt] .btn,html[data-pt] .studen
 .nc-go{display:block;width:100%;margin-top:.65rem;border:0;border-radius:99px;padding:.6rem 1rem;font:inherit;font-weight:900;font-size:1rem;color:#fff;cursor:pointer;
   background:var(--a);box-shadow:0 4px 0 color-mix(in srgb,var(--a) 70%,#000)}
 .nc-go:active{transform:translateY(3px);box-shadow:none}
+.student-space-head + .space-grid.now-compact{margin:.2rem 0 .7rem}
