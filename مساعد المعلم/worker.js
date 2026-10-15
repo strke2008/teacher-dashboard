@@ -5170,7 +5170,7 @@ export default {
       }
       if (dirty) await askSave(env, all);
       const rows = mine.filter(x => !askGoneForStudent(x, now)).slice(0, 10).map(x => ({ ...askPublic(x), fresh: fresh.has(x.id) }));
-      return json({ ok: true, rows, gone, keepDays: ASK.keepSeenDays, cats: ASK.cats, maxLen: ASK.maxLen, maxOpen: ASK.maxOpen });
+      return json({ ok: true, rows, gone, keepDays: ASK.keepSeenDays, cats: ASK.cats, maxLen: ASK.maxLen, maxOpen: ASK.maxOpen, fab: (await env.HW.get('cfg:askfab')) === '1' });
     }
     if (url.pathname === '/ask-hide' && request.method === 'POST') {
       let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
@@ -5186,7 +5186,14 @@ export default {
     }
     if (url.pathname === '/asks' && request.method === 'GET') {
       if (!env.TEACHER_TOKEN || url.searchParams.get('t') !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
-      return json({ ok: true, rows: (await askLoad(env)).slice(0, 300), cats: ASK.cats });
+      return json({ ok: true, rows: (await askLoad(env)).slice(0, 300), cats: ASK.cats, fab: (await env.HW.get('cfg:askfab')) === '1' });
+    }
+    /* 💬 زر «راسل معلمك» العائم في بوابة الطلاب: المعلم يشغّله أو يطفيه للجميع */
+    if (url.pathname === '/ask-cfg' && request.method === 'POST') {
+      let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
+      if (!env.TEACHER_TOKEN || b.t !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
+      if (b.fab) await env.HW.put('cfg:askfab', '1'); else await env.HW.delete('cfg:askfab');
+      return json({ ok: true, fab: !!b.fab });
     }
     if (url.pathname === '/ask-reply' && request.method === 'POST') {
       let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }

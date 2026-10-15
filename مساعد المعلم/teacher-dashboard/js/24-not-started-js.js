@@ -9,6 +9,17 @@ function nsList(){
 let ASKS=null, ASK_CATS={activity:'سؤال عن نشاط',tech:'مشكلة في البوابة',grade:'درجة أو تصحيح',lesson:'استفسار عن الدرس',other:'أخرى'};
 const ASK_QUICK=['تم حل المشكلة — جرّب الآن ✅','سأشرحها لك في الحصة القادمة إن شاء الله','راجع شرح الدرس في الكتاب ثم أعد المحاولة','فتحت لك محاولة إضافية في النشاط','راجعت درجتك وهي صحيحة','أحسنت على سؤالك 👏 — '];
 const ASK_PUSHED=new Map();
+/* 🎓 زر «راسل معلمك» العائم في بوابة الطلاب: إعداد واحد للجميع يحفظه الخادم */
+let ASK_PFAB=null;
+async function askPortalFabSet(on){
+  try{ const r=await fetch(getApi().replace(/\/+$/,'')+'/ask-cfg',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:getTok(),fab:!!on})});
+    const j=await r.json(); if(!j.ok) throw new Error(j.error||'');
+    ASK_PFAB=!!j.fab; toast(ASK_PFAB?'🎓 ظهر زر «راسل معلمك» العائم في بوابة الطلاب':'أُخفي الزر العائم من بوابة الطلاب','good');
+    try{ askCardRender(); }catch(e){} if(document.getElementById('ask-inbox')) asksOpen(true);
+  }catch(e){ toast(r404(e)||/unauthorized/.test(String(e&&e.message))?'انشر worker.js الأخير أولًا':'تعذّر الحفظ — تحقق من الاتصال','bad'); }
+}
+function askPortalFabBtn(){ if(ASK_PFAB===null) return '';
+  return `<button type="button" class="askf-pin${ASK_PFAB?' on':''}" onclick="askPortalFabSet(${!ASK_PFAB})" title="${ASK_PFAB?'إخفاء الزر العائم من بوابة الطلاب':'إظهار زر عائم «راسل معلمك» في بوابة كل الطلاب'}">🎓 ${ASK_PFAB?'عائم عند الطلاب ✓':'زر عائم للطلاب'}</button>`; }
 /* ⚡ سؤال طالب وصل داخل الإشعار: يظهر في «رسائل الطلاب» فورًا */
 function askApplyPush(item){
   if(!item||!item.id) return;
@@ -19,7 +30,7 @@ function askApplyPush(item){
 }
 async function asksLoad(){
   try{ const r=await fetch(getApi().replace(/\/+$/,'')+'/asks?t='+encodeURIComponent(getTok()),{cache:'no-store'}); const j=await r.json();
-    if(j&&j.ok){ ASKS=j.rows||[]; if(j.cats) ASK_CATS=j.cats;
+    if(j&&j.ok){ ASKS=j.rows||[]; if(j.cats) ASK_CATS=j.cats; if(typeof j.fab==='boolean') ASK_PFAB=j.fab;
       // سؤال وصل بالإشعار قبل أن يظهر في رد الخادم (نسخة قديمة لدقيقة): يبقى ظاهرًا دقيقتين
       ASK_PUSHED.forEach((v,id)=>{ if(Date.now()-v.at>120000||ASKS.some(x=>x.id===id)) ASK_PUSHED.delete(id); else ASKS.unshift(v.item); }); try{ thDraw(); }catch(e){} if(document.getElementById('ask-inbox')) asksOpen(true); } }catch(e){}
 }
@@ -39,7 +50,7 @@ function asksOpen(keep){
       :`${x.reply?`<div class="ask-t-r">📩 ${thEsc(x.reply)}</div><div class="muted" style="font-size:.74rem;margin-top:.2rem">${x.seenAt?'👁️ قرأ الطالب الرد':'⏳ لم يقرأ الطالب الرد بعد'}</div>`:'<div class="muted" style="font-size:.78rem">أُغلق دون رد</div>'}
         <div class="ask-t-b"><button type="button" class="btn ghost sm" onclick="askReopen('${thEsc(x.id)}')">↩️ إعادة فتح</button></div>`}
     </div>`;
-  const html=`<h2 id="ask-inbox">💬 رسائل الطلاب ${open.length?`<span class="chip bad">${open.length} تنتظر ردك</span>`:''} ${askFabToggleBtn()}</h2>
+  const html=`<h2 id="ask-inbox">💬 رسائل الطلاب ${open.length?`<span class="chip bad">${open.length} تنتظر ردك</span>`:''} ${askFabToggleBtn()} ${askPortalFabBtn()}</h2>
     <p class="muted" style="font-size:.82rem;margin:.2rem 0 .7rem">يرسلها الطالب من «💬 راسل معلمك» في بوابته (حتى ${3} أسئلة مفتوحة و5 رسائل يوميًا). ردك يصله في تنبيهاته مع إشعار.</p>
     ${open.length?open.map(card).join(''):'<div class="feature-empty">لا رسائل تنتظر ردك 🌿</div>'}
     ${done.length?`<details style="margin-top:.7rem"><summary class="muted" style="cursor:pointer">✓ تمّ الرد عليها (${done.length})</summary>${done.map(card).join('')}</details>`:''}
@@ -61,7 +72,7 @@ function asksCardHTML(){
         <div class="askc-b"><button type="button" class="btn tick sm" onclick="askSend('${id}',false,'askcr-')">📩 أرسل</button><button type="button" class="btn ghost sm" onclick="askCardToggle('${id}')">إلغاء</button>
           <button type="button" class="btn ghost sm" title="حللتها معه في الفصل — لا يُرسل شيء" onclick="askSend('${id}',true)">✓ أُغلق دون رد</button></div>`
       :`<div class="askc-b"><button type="button" class="btn sm" onclick="askCardToggle('${id}')">✍️ رد</button></div>`}</div>`; };
-  return `<div class="td-card askc-card"><div class="td-card-h"><b>💬 رسائل الطلاب</b>${open.length?`<span class="chip bad">${open.length} تنتظر ردك</span>`:''}${askFabToggleBtn()}<a href="#" class="td-link" onclick="event.preventDefault();asksOpen()">كل الرسائل</a></div>
+  return `<div class="td-card askc-card"><div class="td-card-h"><b>💬 رسائل الطلاب</b>${open.length?`<span class="chip bad">${open.length} تنتظر ردك</span>`:''}${askFabToggleBtn()}${askPortalFabBtn()}<a href="#" class="td-link" onclick="event.preventDefault();asksOpen()">كل الرسائل</a></div>
     ${open.length?`<div class="askc-list">${open.map(item).join('')}</div>`:`<div class="td-empty">🌿 لا رسائل تنتظر ردك${done.length?` <small class="muted">· ردَدت على ${done.length}</small>`:''}</div>`}</div>`;
 }
 function askCardRender(){ const sA=document.getElementById('td-slot-asks'); if(sA){ try{ sA.innerHTML=asksCardHTML(); }catch(e){} } }

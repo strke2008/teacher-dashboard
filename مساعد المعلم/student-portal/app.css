@@ -1788,3 +1788,25 @@ html[data-pt] body,html[data-pt] .sheet,html[data-pt] .btn,html[data-pt] .studen
 .lvr-nm{display:inline-flex;align-items:center;gap:.1em}
 .live-roster span.lv-av{width:1.9em;height:1.9em;padding:0;border:0;font-size:1.1em!important;background:#EEF3FB;margin-inline:.2em}
 .live-roster>span{display:inline-flex;align-items:center}
+/* 💬 زر «راسل معلمك» العائم (يُظهره المعلم) — في الزاوية اليسرى، بعيدًا عن أزرار المحتوى */
+.sfab-btn{position:fixed;left:14px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:800;width:52px;height:52px;border-radius:50%;border:0;cursor:pointer;display:grid;place-items:center;
+  font-size:1.45rem;color:#fff;background:linear-gradient(145deg,#3C8CF0,#1F5FC8);box-shadow:0 8px 20px rgba(31,95,200,.35);animation:sfabIn .25s ease-out}
+@keyframes sfabIn{from{transform:scale(.6);opacity:0}to{transform:none;opacity:1}}
+.sfab-btn.on{background:linear-gradient(145deg,#16233A,#2B3B5C)}
+.sfab-btn.has{animation:sfabPulse 2.2s ease-in-out infinite}
+@keyframes sfabPulse{0%,100%{box-shadow:0 8px 20px rgba(31,95,200,.35)}50%{box-shadow:0 0 0 9px rgba(228,0,43,.14),0 8px 20px rgba(31,95,200,.35)}}
+.sfab-n{position:absolute;top:-4px;right:-4px;min-width:22px;height:22px;padding:0 5px;border-radius:99px;background:#E4002B;color:#fff;font-size:.78rem;font-weight:900;display:grid;place-items:center;box-shadow:0 0 0 3px #fff}
+.sfab-pan{position:fixed;left:10px;right:auto;bottom:calc(78px + env(safe-area-inset-bottom,0px));z-index:801;width:min(360px,calc(100vw - 20px));max-height:min(65vh,560px);display:flex;flex-direction:column;
+  background:#fff;color:#1C2333;border:1px solid #D9E2F2;border-radius:18px;box-shadow:0 18px 50px rgba(15,30,60,.28);overflow:hidden;animation:sfabUp .18s ease-out}
+@keyframes sfabUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.sfab-top{display:flex;align-items:center;gap:.5rem;padding:.7rem .85rem;background:linear-gradient(180deg,#EEF4FF,#fff);border-bottom:1px solid #E6ECF5}
+.sfab-top b{font-size:.98rem}.sfab-x{margin-inline-start:auto;border:0;background:#EEF2F8;border-radius:10px;width:32px;height:32px;cursor:pointer;font:inherit;color:#1C2333}
+.sfab-list{overflow:auto;padding:.6rem .7rem;display:grid;gap:.5rem;align-content:start}
+.sfab-it{border:1px solid #E3E9F3;border-radius:14px;padding:.55rem .65rem;background:#FBFCFF;display:grid;gap:.3rem;font-size:.88rem;line-height:1.7}
+.sfab-it.new{border-color:#7FB2F0;background:#F0F6FF}
+.sfab-r{background:#E9F7EF;border-radius:10px;padding:.4rem .55rem}
+.sfab-m{font-size:.74rem;color:#5B6B82}
+.sfab-empty{text-align:center;color:#5B6B82;padding:1.2rem .4rem;font-size:.9rem}
+.sfab-foot{padding:.6rem .7rem;border-top:1px solid #E6ECF5}
+.sfab-go{width:100%;border:0;border-radius:12px;padding:.65rem;font:inherit;font-weight:900;font-size:.95rem;color:#fff;background:#3157C8;cursor:pointer}
+@media print{.sfab-btn,.sfab-pan{display:none!important}}

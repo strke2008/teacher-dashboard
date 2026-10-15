@@ -106,9 +106,9 @@ async function myAskLoad(){
   const box=document.getElementById('space-ask'); if(!box) return;
   const w=askWho(); if(!w.sid&&!w.name){ box.innerHTML=''; return; }
   try{ const r=await fetch(askApi()+'/ask-mine?'+new URLSearchParams(w).toString(),{cache:'no-store'}); const j=await r.json();
-    if(j&&j.ok){ ASK_ROWS=j.rows||[]; ASK_ROWS.forEach(x=>{ if(x.fresh) ASK_UI.fresh.add(x.id); }); if(j.keepDays) ASK_META.keepDays=j.keepDays; askDropNotices(j.gone); if(j.cats) ASK_META={...ASK_META,cats:j.cats,maxLen:j.maxLen||600,maxOpen:j.maxOpen||3}; } }catch(e){}
+    if(j&&j.ok){ ASK_ROWS=j.rows||[]; ASK_ROWS.forEach(x=>{ if(x.fresh) ASK_UI.fresh.add(x.id); }); if(j.keepDays) ASK_META.keepDays=j.keepDays; askDropNotices(j.gone); if(j.cats) ASK_META={...ASK_META,cats:j.cats,maxLen:j.maxLen||600,maxOpen:j.maxOpen||3}; ASK_META.fab=!!j.fab; } }catch(e){}
   if(String(mySid||'')!==w.sid) return;
-  askRender();
+  askRender(); try{ stuFabRender(); }catch(e){}
 }
 function askRender(){
   const box=document.getElementById('space-ask'); if(!box) return;
@@ -237,3 +237,43 @@ async function myPlanLoad(){
         ${p.tasks.some(t=>t.status==='open'||t.status==='retry')?'<small class="muted">مهامك في «🎯 طوّر مستواك» أسفل الصفحة.</small>':''}</div>`:''}
     </section>`}).join('');
 }
+
+/* ═══ 💬 زر «راسل معلمك» العائم: يُظهره المعلم من لوحته للجميع.
+   يظهر في الصفحة الرئيسية فقط — يختفي أثناء حل نشاط أو لعبة أو مسابقة أو أي نافذة، حتى لا يعيق الطالب. ═══ */
+const SFAB={open:false,seen:new Set()};
+function stuFabWanted(){
+  if(!ASK_META.fab) return false;
+  const vis=id=>{ const e=document.getElementById(id); return !!(e&&!e.classList.contains('hide')&&e.offsetParent!==null); };
+  if(!vis('gate-space')) return false;
+  if(document.getElementById('ask-veil')||vis('live-room')) return false;
+  const jw=document.getElementById('journey-workspace'); if(jw&&jw.classList.contains('journey-page')&&!jw.classList.contains('hide')&&jw.offsetParent!==null) return false;
+  if(document.querySelector('.modal-bg.open,.modal.open,#store-pin,.pt-ov,#pt-ov,.rep-ov')) return false;
+  return true;
+}
+function stuFabRender(){
+  let b=document.getElementById('sfab-btn');
+  if(!stuFabWanted()){ if(b) b.remove(); if(SFAB.open){ SFAB.open=false; document.getElementById('sfab-pan')?.remove(); } return; }
+  if(!b){ b=document.createElement('button'); b.type='button'; b.id='sfab-btn'; b.className='sfab-btn'; b.setAttribute('aria-label','راسل معلمك'); b.onclick=()=>stuFabToggle(); document.body.appendChild(b); }
+  const fresh=ASK_ROWS.filter(x=>ASK_UI.fresh.has(x.id)&&!SFAB.seen.has(x.id)).length;
+  const html=`<span>💬</span>${fresh?`<b class="sfab-n">${fresh}</b>`:''}`;
+  if(b.innerHTML!==html) b.innerHTML=html;
+  b.title=fresh?`${fresh===1?'رد جديد':fresh+' ردود جديدة'} من معلمك`:'راسل معلمك';
+  b.classList.toggle('has',!!fresh); b.classList.toggle('on',SFAB.open);
+}
+function stuFabToggle(on){
+  SFAB.open=on===undefined?!SFAB.open:!!on;
+  document.getElementById('sfab-pan')?.remove();
+  if(SFAB.open){ ASK_ROWS.forEach(x=>{ if(ASK_UI.fresh.has(x.id)) SFAB.seen.add(x.id); }); stuFabPanel(); }
+  stuFabRender();
+}
+function stuFabPanel(){
+  const p=document.createElement('div'); p.id='sfab-pan'; p.className='sfab-pan'; p.setAttribute('role','dialog');
+  const ST={open:'⏳ بانتظار الرد',answered:'✅ ردّ معلمك',closed:'أُغلق'};
+  const rows=ASK_ROWS.slice().sort((a,b)=>(b.repliedAt||b.at)-(a.repliedAt||a.at)).slice(0,6);
+  p.innerHTML=`<div class="sfab-top"><b>💬 محادثاتك مع معلمك</b><button type="button" class="sfab-x" onclick="stuFabToggle(false)" aria-label="إغلاق">✕</button></div>
+    <div class="sfab-list">${rows.length?rows.map(x=>`<div class="sfab-it${ASK_UI.fresh.has(x.id)?' new':''}"><div class="sfab-q">❓ ${esc(x.text)}</div>${x.reply?`<div class="sfab-r"><b>📩 ردّ المعلم:</b> ${esc(x.reply)}</div>`:''}<div class="sfab-m"><span class="ask-st ${esc(x.status)}">${ST[x.status]||''}</span> · ${askWhen(x.at)}</div></div>`).join(''):'<div class="sfab-empty">لا محادثات بعد — عندك سؤال؟ اكتب لمعلمك 👇</div>'}</div>
+    <div class="sfab-foot"><button type="button" class="sfab-go" onclick="stuFabToggle(false);askOpen()">✍️ راسل معلمك</button></div>`;
+  document.body.appendChild(p);
+}
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&SFAB.open) stuFabToggle(false); });
+setInterval(()=>{ try{ stuFabRender(); }catch(e){} },900);
