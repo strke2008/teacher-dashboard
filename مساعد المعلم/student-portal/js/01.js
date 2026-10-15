@@ -2160,7 +2160,7 @@ async function showDirectMessages(nm){
   if(serverDeleted){
     localDeleted.forEach(k=>{ if(!serverDeleted.has(k)) dismissNoticeServer(nm,k).catch(()=>{}); serverDeleted.add(k); });
   }
-  const directVisible=msgs.filter(m=>!deleted.has(`msg:${m.id}`) && m.type!=='weekly' && m.type!=='srep' && msgActive(m));   // التقريران مكانهما «تقريري»
+  const directVisible=msgs.filter(m=>!deleted.has(`msg:${m.id}`) && m.type!=='weekly' && m.type!=='srep' && m.type!=='reply' && msgActive(m));   // التقريران مكانهما «تقريري»، وردود المعلم مكانها «محادثاتك»
   if(!directVisible.length){ box.classList.add('hide'); box.innerHTML=''; return; }
   const seen = new Set(seenMsgIds());
   const sorted = directVisible.slice().sort((a,b)=>msgTime(b)-msgTime(a));
