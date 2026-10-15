@@ -2170,3 +2170,8 @@ html body .rep-page.nfp{border:0;box-shadow:none}
 .nf-fig-lg i{display:inline-block;width:12px;height:4px;border-radius:2px;margin-inline-end:.3rem;vertical-align:middle}
 .nafs-img-tools{display:flex;gap:.35rem;flex-wrap:wrap;margin:.3rem 0}
 .nfp-q .nf-fig{max-width:120mm;margin:1.5mm auto}.nfp-q .nf-fig svg{max-height:60mm;border:0}.nfp-q .nf-fig-t{font-size:9pt}
+.br-madlink{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem;margin:-.2rem 0 .6rem;font-size:.82rem}
+.br-madlink input{flex:1 1 260px;min-width:0;font-size:.78rem}
+.br-madlink small{color:var(--muted,#888)}
+.br-madlink small.ok{color:#2e9d5b}
+.br-madlink small.bad{color:#d64545}

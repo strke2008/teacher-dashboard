@@ -39,9 +39,24 @@ function remCompose(s,x){
            student:`مرحبًا ${first} 👋\n${S.join('\n\n')}\n\nبالتوفيق 🌟` };
 }
 
-/* 📍 أين يجد الطالب واجب مدرستي: الرابط العام للمنصة + خطوات الوصول (لا يوجد رابط مباشر لكل واجب من جهة الطالب) */
+/* 📍 أين يجد الطالب واجب مدرستي: رابط صفحة «الواجبات» للمادة إن حفظه المعلم (SubjectId+SchoolId فقط — بلا UId فيصلح لكل الطلاب)، وإلا الرابط العام + الخطوات */
+function madListUrl(v){
+  try{ const u=new URL(String(v||'').trim()); if(!/(^|\.)madrasati\.sa$/i.test(u.hostname)) return '';
+    const g=k=>{ for(const [n,x] of u.searchParams) if(n.toLowerCase()===k) return x; return ''; };
+    const sub=g('subjectid'), sch=g('schoolid'); if(!/^[0-9A-F]{16,64}$/i.test(sub)||!/^[0-9A-F]{16,64}$/i.test(sch)) return '';
+    return `https://schools.madrasati.sa/Student/Home/Assignments?SubjectId=${sub}&SchoolId=${sch}`; }catch(e){ return ''; }
+}
+function madLinkSet(v){
+  const url=madListUrl(v); const st=document.getElementById('br-madlink-st');
+  if(String(v||'').trim()&&!url){ if(st){st.textContent='✗ الرابط لا يحوي رقم المادة والمدرسة';st.className='bad';} return; }
+  REPCFG.madlink=url; rcSave();
+  try{ brRender(); }catch(e){}
+  const st2=document.getElementById('br-madlink-st'); if(st2) st2.textContent=url?'✓ حُفظ — يظهر في التذكير':'حُذف — سيُرسل الرابط العام والخطوات';
+}
 function madWhere(){
   const sub=(typeof rcGet==='function'&&rcGet('subject'))||'العلوم';
+  const url=madListUrl(typeof rcGet==='function'?rcGet('madlink'):'');
+  if(url) return `🔗 واجبات «${sub}» في منصة مدرستي (سجّل دخولك أولاً ثم افتح الرابط):\n${url}\n📍 ستجد الواجب بالعنوان أعلاه.`;
   return `🔗 ادخل منصة مدرستي: https://schools.madrasati.sa\n📍 بعد تسجيل الدخول: افتح مادة «${sub}» ← «الواجبات» وستجد الواجب بالعنوان أعلاه.`;
 }
 
@@ -107,6 +122,7 @@ function brRender(){
       <label><input type="checkbox" ${BR.paper?'checked':''} onchange="BR.paper=this.checked;BR.sel=null;brRender()"> 📕 الواجب الورقي (آخر أسبوع)</label>
       <label title="${BR.madBy?'':'تعذّر جلب واجبات مدرستي الآن'}"><input type="checkbox" ${BR.mad&&BR.madBy?'checked':''} ${BR.madBy?'':'disabled'} onchange="BR.mad=this.checked;BR.sel=null;brRender()"> 📱 واجبات مدرستي المفتوحة</label>
     </div>
+    ${BR.mad&&BR.madBy?`<div class="br-madlink"><label for="br-madlink">🔗 رابط «الواجبات» للطلاب:</label><input class="inp" id="br-madlink" dir="ltr" placeholder="الصق رابط صفحة الواجبات من حساب أي طالب" value="${esc(rcGet('madlink')||'')}" onchange="madLinkSet(this.value)"><small id="br-madlink-st" class="${rcGet('madlink')?'ok':''}">${rcGet('madlink')?'✓ محفوظ':'بدونه يُرسل الرابط العام والخطوات'}</small></div>`:''}
     ${BR.rows.length?`<div class="br-list">${BR.rows.map(r=>{ const id=String(r.s.id), on=BR.sel.has(id);
       return `<div class="br-row ${on?'':'off'}"><input type="checkbox" ${on?'checked':''} onchange="brToggle('${esc(id)}',this.checked)">
         <div class="br-main"><b>${esc(r.s.name)}</b><small>${esc(r.s.cls||'')}</small>
