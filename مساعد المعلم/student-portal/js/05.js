@@ -106,12 +106,14 @@ async function myAskLoad(){
   const box=document.getElementById('space-ask'); if(!box) return;
   const w=askWho(); if(!w.sid&&!w.name){ box.innerHTML=''; return; }
   try{ const r=await fetch(askApi()+'/ask-mine?'+new URLSearchParams(w).toString(),{cache:'no-store'}); const j=await r.json();
-    if(j&&j.ok){ ASK_ROWS=j.rows||[]; ASK_ROWS.forEach(x=>{ if(x.fresh) ASK_UI.fresh.add(x.id); }); if(j.keepDays) ASK_META.keepDays=j.keepDays; askDropNotices(j.gone); if(j.cats) ASK_META={...ASK_META,cats:j.cats,maxLen:j.maxLen||600,maxOpen:j.maxOpen||3}; ASK_META.fab=!!j.fab; } }catch(e){}
+    if(j&&j.ok){ ASK_ROWS=j.rows||[]; ASK_ROWS.forEach(x=>{ if(x.fresh) ASK_UI.fresh.add(x.id); }); if(j.keepDays) ASK_META.keepDays=j.keepDays; askDropNotices(j.gone); if(j.cats) ASK_META={...ASK_META,cats:j.cats,maxLen:j.maxLen||600,maxOpen:j.maxOpen||3}; ASK_META.mode=j.mode||'card'; } }catch(e){}
   if(String(mySid||'')!==w.sid) return;
   askRender(); try{ stuFabRender(); }catch(e){}
 }
 function askRender(){
   const box=document.getElementById('space-ask'); if(!box) return;
+  // 🎓 معلمك يختار: البطاقة، أو الزر العائم وحده، أو يغلق التواصل
+  if(ASK_META.mode==='fab'||ASK_META.mode==='off'){ box.innerHTML=''; return; }
   const ST={open:'⏳ بانتظار الرد',answered:'✅ ردّ معلمك',closed:'أُغلق'};
   const kd=(ASK_META.keepDays||3)*864e5;
   const rows=ASK_ROWS.filter(x=>x.status==='open'||Date.now()-(x.seenAt||x.repliedAt||x.at)<kd).sort((a,b)=>(b.repliedAt||b.at)-(a.repliedAt||a.at));
@@ -152,6 +154,7 @@ async function askHide(id,btn){
   }catch(e){ if(it) it.style.opacity=''; if(btn) btn.disabled=false; alert('تعذّر الإخفاء — تحقق من الإنترنت وحاول مجددًا'); }
 }
 function askOpen(pre){
+  if(ASK_META.mode==='off'){ try{ toast('أوقف معلمك استقبال الرسائل حاليًا — اسأله في الحصة'); }catch(e){} return; }
   pre=pre||{}; document.getElementById('ask-veil')?.remove();
   const open=ASK_ROWS.filter(x=>x.status==='open').length;
   const acts=((window.__journeyRows||[]).filter(h=>h&&h.id&&!h.remedial)).slice().sort((a,b)=>(Number(b.at)||0)-(Number(a.at)||0)).slice(0,30);
@@ -242,7 +245,7 @@ async function myPlanLoad(){
    يظهر في الصفحة الرئيسية فقط — يختفي أثناء حل نشاط أو لعبة أو مسابقة أو أي نافذة، حتى لا يعيق الطالب. ═══ */
 const SFAB={open:false,seen:new Set()};
 function stuFabWanted(){
-  if(!ASK_META.fab) return false;
+  if(ASK_META.mode!=='fab'&&ASK_META.mode!=='both') return false;
   const vis=id=>{ const e=document.getElementById(id); return !!(e&&!e.classList.contains('hide')&&e.offsetParent!==null); };
   if(!vis('gate-space')) return false;
   if(document.getElementById('ask-veil')||vis('live-room')) return false;

@@ -2209,3 +2209,6 @@ html body .rep-page.nfp{border:0;box-shadow:none}
 .ask-nm{cursor:pointer;color:#1F4FA8;text-decoration:underline dotted 1px;text-underline-offset:3px}.ask-nm:hover{text-decoration-style:solid}
 .askf-pin{border:1px solid #D6E0F0;background:#fff;border-radius:99px;padding:.15rem .6rem;font:inherit;font-size:.74rem;font-weight:800;color:#41516B;cursor:pointer;white-space:nowrap}
 .askf-pin.on{background:#E8F0FF;border-color:#9DB8EC;color:#1F4FA8}
+.askf-mode{display:inline-flex;align-items:center;gap:.3rem;border:1px solid #D6E0F0;background:#fff;border-radius:99px;padding:.1rem .25rem .1rem .55rem;font-size:.74rem;font-weight:800;color:#41516B;white-space:nowrap}
+.askf-mode select{border:0;background:#EEF3FB;border-radius:99px;padding:.15rem .45rem;font:inherit;font-size:.74rem;font-weight:800;color:#1F4FA8;cursor:pointer}
+.askf-mode.off{border-color:#F1B8C2;background:#FFF4F6}.askf-mode.off select{background:#FFE3E8;color:#B3203D}

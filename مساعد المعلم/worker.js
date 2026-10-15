@@ -5129,10 +5129,13 @@ export default {
     }
 
     // ══ 💬 «راسل معلمك»: سؤال أو مشكلة من الطالب، ورد المعلم يصله في رسائله ══
+    /* 💬 طريقة ظهور «راسل معلمك» عند الطلاب: both (البطاقة والزر العائم) · card · fab · off (التواصل مغلق) */
+    const askMode = async () => { const m = await env.HW.get('cfg:askmode'); if (['both', 'card', 'fab', 'off'].includes(m)) return m; return (await env.HW.get('cfg:askfab')) === '1' ? 'both' : 'card'; };
     if (url.pathname === '/ask' && request.method === 'POST') {
       let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
       const st = await resolveStudent(env, { id: String(b.sid || '').slice(0, 40), name: String(b.name || '').slice(0, 80) });
       if (!st.known) return json({ ok: false, error: 'student not recognized' }, 403);
+      if ((await askMode()) === 'off') return json({ ok: false, error: 'أوقف معلمك استقبال الرسائل حاليًا — اسأله في الحصة' }, 403);
       const text = String(b.text || '').trim().slice(0, ASK.maxLen);
       if (text.length < 3) return json({ ok: false, error: 'اكتب سؤالك أولًا' }, 400);
       const cat = ASK.cats[String(b.cat || '')] ? String(b.cat) : 'other';
@@ -5170,7 +5173,7 @@ export default {
       }
       if (dirty) await askSave(env, all);
       const rows = mine.filter(x => !askGoneForStudent(x, now)).slice(0, 10).map(x => ({ ...askPublic(x), fresh: fresh.has(x.id) }));
-      return json({ ok: true, rows, gone, keepDays: ASK.keepSeenDays, cats: ASK.cats, maxLen: ASK.maxLen, maxOpen: ASK.maxOpen, fab: (await env.HW.get('cfg:askfab')) === '1' });
+      return json({ ok: true, rows, gone, keepDays: ASK.keepSeenDays, cats: ASK.cats, maxLen: ASK.maxLen, maxOpen: ASK.maxOpen, mode: await askMode() });
     }
     if (url.pathname === '/ask-hide' && request.method === 'POST') {
       let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
@@ -5186,14 +5189,15 @@ export default {
     }
     if (url.pathname === '/asks' && request.method === 'GET') {
       if (!env.TEACHER_TOKEN || url.searchParams.get('t') !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
-      return json({ ok: true, rows: (await askLoad(env)).slice(0, 300), cats: ASK.cats, fab: (await env.HW.get('cfg:askfab')) === '1' });
+      return json({ ok: true, rows: (await askLoad(env)).slice(0, 300), cats: ASK.cats, mode: await askMode() });
     }
-    /* 💬 زر «راسل معلمك» العائم في بوابة الطلاب: المعلم يشغّله أو يطفيه للجميع */
+    /* 💬 «راسل معلمك» في بوابة الطلاب: المعلم يختار البطاقة أو الزر العائم أو كليهما أو يغلق التواصل */
     if (url.pathname === '/ask-cfg' && request.method === 'POST') {
       let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
       if (!env.TEACHER_TOKEN || b.t !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
-      if (b.fab) await env.HW.put('cfg:askfab', '1'); else await env.HW.delete('cfg:askfab');
-      return json({ ok: true, fab: !!b.fab });
+      const mode = ['both', 'card', 'fab', 'off'].includes(b.mode) ? b.mode : 'card';
+      await env.HW.put('cfg:askmode', mode); await env.HW.delete('cfg:askfab');
+      return json({ ok: true, mode });
     }
     if (url.pathname === '/ask-reply' && request.method === 'POST') {
       let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }

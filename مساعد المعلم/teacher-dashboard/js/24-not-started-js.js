@@ -9,17 +9,19 @@ function nsList(){
 let ASKS=null, ASK_CATS={activity:'سؤال عن نشاط',tech:'مشكلة في البوابة',grade:'درجة أو تصحيح',lesson:'استفسار عن الدرس',other:'أخرى'};
 const ASK_QUICK=['تم حل المشكلة — جرّب الآن ✅','سأشرحها لك في الحصة القادمة إن شاء الله','راجع شرح الدرس في الكتاب ثم أعد المحاولة','فتحت لك محاولة إضافية في النشاط','راجعت درجتك وهي صحيحة','أحسنت على سؤالك 👏 — '];
 const ASK_PUSHED=new Map();
-/* 🎓 زر «راسل معلمك» العائم في بوابة الطلاب: إعداد واحد للجميع يحفظه الخادم */
-let ASK_PFAB=null;
-async function askPortalFabSet(on){
-  try{ const r=await fetch(getApi().replace(/\/+$/,'')+'/ask-cfg',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:getTok(),fab:!!on})});
-    const j=await r.json(); if(!j.ok) throw new Error(j.error||'');
-    ASK_PFAB=!!j.fab; toast(ASK_PFAB?'🎓 ظهر زر «راسل معلمك» العائم في بوابة الطلاب':'أُخفي الزر العائم من بوابة الطلاب','good');
-    try{ askCardRender(); }catch(e){} if(document.getElementById('ask-inbox')) asksOpen(true);
+/* 🎓 «راسل معلمك» في بوابة الطلاب: البطاقة أو الزر العائم أو كلاهما، أو إغلاق التواصل — إعداد واحد للجميع يحفظه الخادم */
+let ASK_PMODE=null;
+const ASK_PMODES={both:'البطاقة + زر عائم',card:'البطاقة فقط',fab:'زر عائم فقط',off:'التواصل مغلق'};
+async function askPortalModeSet(mode){
+  try{ const r=await fetch(getApi().replace(/\/+$/,'')+'/ask-cfg',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:getTok(),mode})});
+    const j=await r.json(); if(!j.ok||!j.mode) throw new Error(j.error||'');
+    ASK_PMODE=j.mode; toast(j.mode==='off'?'🔒 أُغلق التواصل — لا يستطيع الطلاب إرسال رسائل جديدة':`🎓 عند الطلاب: ${ASK_PMODES[j.mode]}`,'good');
   }catch(e){ toast(r404(e)||/unauthorized/.test(String(e&&e.message))?'انشر worker.js الأخير أولًا':'تعذّر الحفظ — تحقق من الاتصال','bad'); }
+  try{ askCardRender(); }catch(e){} if(document.getElementById('ask-inbox')) asksOpen(true);
 }
-function askPortalFabBtn(){ if(ASK_PFAB===null) return '';
-  return `<button type="button" class="askf-pin${ASK_PFAB?' on':''}" onclick="askPortalFabSet(${!ASK_PFAB})" title="${ASK_PFAB?'إخفاء الزر العائم من بوابة الطلاب':'إظهار زر عائم «راسل معلمك» في بوابة كل الطلاب'}">🎓 ${ASK_PFAB?'عائم عند الطلاب ✓':'زر عائم للطلاب'}</button>`; }
+function askPortalModeSel(){ if(ASK_PMODE===null) return '';
+  return `<label class="askf-mode${ASK_PMODE==='off'?' off':''}" title="كيف يظهر «راسل معلمك» في بوابة الطلاب">🎓 عند الطلاب:
+    <select onchange="askPortalModeSet(this.value)">${Object.entries(ASK_PMODES).map(([k,v])=>`<option value="${k}"${k===ASK_PMODE?' selected':''}>${k==='off'?'🔒 ':''}${v}</option>`).join('')}</select></label>`; }
 /* ⚡ سؤال طالب وصل داخل الإشعار: يظهر في «رسائل الطلاب» فورًا */
 function askApplyPush(item){
   if(!item||!item.id) return;
@@ -30,7 +32,7 @@ function askApplyPush(item){
 }
 async function asksLoad(){
   try{ const r=await fetch(getApi().replace(/\/+$/,'')+'/asks?t='+encodeURIComponent(getTok()),{cache:'no-store'}); const j=await r.json();
-    if(j&&j.ok){ ASKS=j.rows||[]; if(j.cats) ASK_CATS=j.cats; if(typeof j.fab==='boolean') ASK_PFAB=j.fab;
+    if(j&&j.ok){ ASKS=j.rows||[]; if(j.cats) ASK_CATS=j.cats; if(j.mode) ASK_PMODE=j.mode;
       // سؤال وصل بالإشعار قبل أن يظهر في رد الخادم (نسخة قديمة لدقيقة): يبقى ظاهرًا دقيقتين
       ASK_PUSHED.forEach((v,id)=>{ if(Date.now()-v.at>120000||ASKS.some(x=>x.id===id)) ASK_PUSHED.delete(id); else ASKS.unshift(v.item); }); try{ thDraw(); }catch(e){} if(document.getElementById('ask-inbox')) asksOpen(true); } }catch(e){}
 }
@@ -50,7 +52,7 @@ function asksOpen(keep){
       :`${x.reply?`<div class="ask-t-r">📩 ${thEsc(x.reply)}</div><div class="muted" style="font-size:.74rem;margin-top:.2rem">${x.seenAt?'👁️ قرأ الطالب الرد':'⏳ لم يقرأ الطالب الرد بعد'}</div>`:'<div class="muted" style="font-size:.78rem">أُغلق دون رد</div>'}
         <div class="ask-t-b"><button type="button" class="btn ghost sm" onclick="askReopen('${thEsc(x.id)}')">↩️ إعادة فتح</button></div>`}
     </div>`;
-  const html=`<h2 id="ask-inbox">💬 رسائل الطلاب ${open.length?`<span class="chip bad">${open.length} تنتظر ردك</span>`:''} ${askFabToggleBtn()} ${askPortalFabBtn()}</h2>
+  const html=`<h2 id="ask-inbox">💬 رسائل الطلاب ${open.length?`<span class="chip bad">${open.length} تنتظر ردك</span>`:''} ${askFabToggleBtn()} ${askPortalModeSel()}</h2>
     <p class="muted" style="font-size:.82rem;margin:.2rem 0 .7rem">يرسلها الطالب من «💬 راسل معلمك» في بوابته (حتى ${3} أسئلة مفتوحة و5 رسائل يوميًا). ردك يصله في تنبيهاته مع إشعار.</p>
     ${open.length?open.map(card).join(''):'<div class="feature-empty">لا رسائل تنتظر ردك 🌿</div>'}
     ${done.length?`<details style="margin-top:.7rem"><summary class="muted" style="cursor:pointer">✓ تمّ الرد عليها (${done.length})</summary>${done.map(card).join('')}</details>`:''}
@@ -72,7 +74,7 @@ function asksCardHTML(){
         <div class="askc-b"><button type="button" class="btn tick sm" onclick="askSend('${id}',false,'askcr-')">📩 أرسل</button><button type="button" class="btn ghost sm" onclick="askCardToggle('${id}')">إلغاء</button>
           <button type="button" class="btn ghost sm" title="حللتها معه في الفصل — لا يُرسل شيء" onclick="askSend('${id}',true)">✓ أُغلق دون رد</button></div>`
       :`<div class="askc-b"><button type="button" class="btn sm" onclick="askCardToggle('${id}')">✍️ رد</button></div>`}</div>`; };
-  return `<div class="td-card askc-card"><div class="td-card-h"><b>💬 رسائل الطلاب</b>${open.length?`<span class="chip bad">${open.length} تنتظر ردك</span>`:''}${askFabToggleBtn()}${askPortalFabBtn()}<a href="#" class="td-link" onclick="event.preventDefault();asksOpen()">كل الرسائل</a></div>
+  return `<div class="td-card askc-card"><div class="td-card-h"><b>💬 رسائل الطلاب</b>${open.length?`<span class="chip bad">${open.length} تنتظر ردك</span>`:''}${askFabToggleBtn()}${askPortalModeSel()}<a href="#" class="td-link" onclick="event.preventDefault();asksOpen()">كل الرسائل</a></div>
     ${open.length?`<div class="askc-list">${open.map(item).join('')}</div>`:`<div class="td-empty">🌿 لا رسائل تنتظر ردك${done.length?` <small class="muted">· ردَدت على ${done.length}</small>`:''}</div>`}</div>`;
 }
 function askCardRender(){ const sA=document.getElementById('td-slot-asks'); if(sA){ try{ sA.innerHTML=asksCardHTML(); }catch(e){} } }
@@ -124,7 +126,7 @@ function askFabSet(on){ ASKF.on=!!on; try{ localStorage.setItem('askf_on_v1',on?
   if(!on){ ASKF.open=false; document.getElementById('askf-pan')?.remove(); document.getElementById('askf-btn')?.remove(); }
   askFabRender(); try{ askCardRender(); }catch(e){} if(document.getElementById('ask-inbox')) try{ asksOpen(true); }catch(e){}
   toast(on?'📌 ظهر صندوق الرسائل العائم — تصل إليه من أي صفحة':'أُخفي صندوق الرسائل العائم','good'); }
-function askFabToggleBtn(){ return `<button type="button" class="askf-pin${ASKF.on?' on':''}" onclick="askFabSet(${!ASKF.on})" title="${ASKF.on?'إخفاء الزر العائم':'إظهار زر عائم للرسائل في كل الصفحات'}">📌 ${ASKF.on?'عائم ✓':'اجعله عائمًا'}</button>`; }
+function askFabToggleBtn(){ return `<button type="button" class="askf-pin${ASKF.on?' on':''}" onclick="askFabSet(${!ASKF.on})" title="${ASKF.on?'إخفاء الزر العائم':'إظهار زر عائم للرسائل في كل الصفحات'}">📌 ${ASKF.on?'عائم عندي ✓':'عائم عندي'}</button>`; }
 function askFabRender(){
   if(!document.body) return;
   if(!ASKF.on){ document.getElementById('askf-btn')?.remove(); document.getElementById('askf-pan')?.remove(); return; }
