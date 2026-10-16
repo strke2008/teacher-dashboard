@@ -2473,6 +2473,7 @@ function ctProfileBody(sid){
   const days30=ctDaysBack(30), abs30=days30.filter(d=>ctStatus(D,'participation',d,sid)==='غائب').length;
   return `<div class="ct-pf-head"><div><h3 style="margin:0">${esc(s.name||'')}</h3><span class="muted">${esc(s.cls||'')} · الفصل ${sem===1?'الأول':'الثاني'} · الفترة ${per===1?'الأولى':'الثانية'}</span></div>
       <div>${L.measured?`<span class="chip ${tone}">${esc(L.status||'')}</span>`:'<span class="chip ghost">لم يُقَس</span>'} ${g.trend&&g.trend.measurable?ctTrendHTML(g.trend):''}</div></div>
+    <div class="par-box" id="par-box" data-sid="${esc(String(sid))}">${parBoxHTML(String(sid))}</div>
     ${typeof ctCmpStudentHTML==='function'?ctCmpStudentHTML(sid):''}
     <div class="ct-kpis ct-kpis6">
       ${kpi('الإتقان',L.measured?L.rate+'%':'—',L.measured?`${L.correct}/${L.total} في ${L.count} نشاط`:'',tone)}
@@ -17475,3 +17476,36 @@ renderAll();
 
 /* 📋 بعد كل بناء للورقة: تُرتَّب حالة المعاينة (ملخص + ملاحظات عند الطلب) */
 (function(){ const o=window.examBuild; if(typeof o==='function') window.examBuild=function(){ try{ return o.apply(this,arguments); } finally { try{ examStatusDecorate(); }catch(e){} } }; })();
+
+
+/* ═══ 👪 ولي الأمر في ملف الطالب: جواله (من مدرستي أو يدويًا) · واتساب مباشر · رابط تقرير ابنه ═══ */
+let PARENTS=null, PARENTS_AT=0;
+async function parLoad(force){
+  if(!force && PARENTS && Date.now()-PARENTS_AT<60000) return PARENTS;
+  try{ const r=await fetch(getApi().replace(/\/+$/,'')+'/parent-phones?t='+encodeURIComponent(getTok())); const j=await r.json(); if(j&&j.ok){ PARENTS=j.parents||{}; PARENTS_AT=Date.now(); } }catch(e){}
+  return PARENTS;
+}
+function parFmt(p){ return p?'0'+String(p):''; }
+function parLink(){ return getSite().replace(/\/+$/,'')+'/parent.html'; }
+function parBoxHTML(sid){
+  if(PARENTS===null){ parLoad().then(()=>{ const b=document.getElementById('par-box'); if(b&&b.dataset.sid===sid) b.innerHTML=parBoxHTML(sid); }); return '<span class="muted">👪 جارٍ جلب جوال ولي الأمر…</span>'; }
+  const x=PARENTS[sid], s=(STUDENTS||[]).find(v=>String(v.id)===sid)||{};
+  if(!x) return `<span class="par-ic">👪</span><span class="par-tx"><b>لا يوجد جوال لولي الأمر</b><small>أضفه يدويًا، أو من مدرستي: «تقارير إدارة المدرسة ← معلومات الطلاب» ثم زر الإضافة «📱 أرسل جوالات أولياء الأمور»</small></span>
+    <button type="button" class="btn sm" onclick="parEdit('${esc(sid)}')">＋ أضف الجوال</button>`;
+  const wa='966'+x.p, msg=`السلام عليكم ${x.pn?('أ. '+x.pn.split(/\s+/)[0]):'ولي أمر الطالب'}،\nتقرير ابنكم ${String(s.name||'').split(/\s+/)[0]} في مادة ${rcGet('subject')||'العلوم'} متاح هنا:\n${parLink()}\nادخل باسم الطالب ورقم جوالكم هذا.`;
+  return `<span class="par-ic">👪</span><span class="par-tx"><b>${esc(x.pn||'ولي الأمر')} · <span dir="ltr">${esc(parFmt(x.p))}</span></b><small>${x.src==='manual'?'أدخلته يدويًا':'من مدرستي'}</small></span>
+    <a class="btn tick sm" target="_blank" rel="noopener" href="https://wa.me/${wa}">💬 واتساب</a>
+    <a class="btn ghost sm" target="_blank" rel="noopener" href="https://wa.me/${wa}?text=${encodeURIComponent(msg)}" title="رسالة فيها رابط تقرير ابنه وطريقة الدخول">🔗 أرسل رابط التقرير</a>
+    <button type="button" class="btn ghost sm" onclick="parEdit('${esc(sid)}')">✏️</button>`;
+}
+async function parEdit(sid){
+  const x=(PARENTS||{})[sid]||{};
+  const v=prompt('جوال ولي الأمر (مثل 05xxxxxxxx) — اتركه فارغًا للحذف:', x.p?parFmt(x.p):''); if(v===null) return;
+  const pn=prompt('اسم ولي الأمر (اختياري):', x.pn||''); if(pn===null) return;
+  try{ const r=await fetch(getApi().replace(/\/+$/,'')+'/parent-phones',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:getTok(),op:'set',sid,phone:v,pn})});
+    const j=await r.json(); if(!j.ok) throw new Error(j.error||'');
+    PARENTS=PARENTS||{}; if(j.parent) PARENTS[sid]=j.parent; else delete PARENTS[sid];
+    const b=document.getElementById('par-box'); if(b&&b.dataset.sid===sid) b.innerHTML=parBoxHTML(sid);
+    toast(j.parent?'✓ حُفظ جوال ولي الأمر':'حُذف الجوال','good');
+  }catch(e){ toast(/not_found|404/.test(String(e.message))?'انشر worker.js الأخير':'تعذّر الحفظ — تأكد من الرقم (يبدأ بـ 05)','bad'); }
+}

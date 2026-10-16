@@ -153,6 +153,20 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
     tabsApi.create({ url: chrome.runtime.getURL('report/report.html') + '?tabId=' + src });
     return;
   }
+  // 👪 جوالات أولياء الأمور من صفحة «معلومات الطلاب» ← خادم المعلم (يطابقها بأسماء طلابه)
+  if (msg && msg.type === 'mb:parentPhones') {
+    (async () => {
+      try {
+        const cfg = ((await chrome.storage.local.get('mb_cfg')).mb_cfg) || {};
+        if (!cfg.token) { reply({ ok: false, error: 'افتح مساعد المعلم مرة (مع الإضافة) ليصلها عنوان الخادم وكلمة السر' }); return; }
+        const rows = (Array.isArray(msg.rows) ? msg.rows : []).slice(0, 2000).map(r => ({ name: String(r.name || '').slice(0, 120), cls: String(r.cls || '').slice(0, 40), parent: String(r.parent || '').slice(0, 80), phone: String(r.phone || '').replace(/\D/g, '').slice(-12) }));
+        const res = await fetch(String(cfg.api || API_DEFAULT_BG).replace(/\/+$/, '') + '/parent-phones', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ t: cfg.token, rows }) });
+        const j = await res.json().catch(() => ({}));
+        reply(res.ok && j.ok ? j : { ok: false, error: j.error === 'unauthorized' ? 'كلمة السر غير صحيحة' : res.status === 404 ? 'انشر worker.js الأخير' : (j.error || ('HTTP ' + res.status)) });
+      } catch (e) { reply({ ok: false, error: String(e && e.message || e) }); }
+    })();
+    return true;
+  }
   if (msg && msg.type === 'mb:readGrade') { readGradeInHiddenTab(msg.url).then(reply, e => reply({ available: false, reason: String(e && e.message || e) })); return true; }
 });
 

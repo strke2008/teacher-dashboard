@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#16233A">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" sizes="32x32" href="pwa/favicon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="pwa/apple-touch-icon-180.png">
+<title>تقرير ولي الأمر</title>
+<style>
+:root{--ink:#16233A;--soft:#5B6B82;--rule:#DCE3EE;--bg:#EEF2F8;--card:#fff;--ok:#13734F;--bad:#B4232F;--acc:#1F5FC8}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Segoe UI",Tahoma,Arial,sans-serif;line-height:1.7}
+header{background:var(--ink);color:#fff;padding:calc(14px + env(safe-area-inset-top,0px)) 16px 14px}
+header b{font-size:1.15rem}header small{display:block;opacity:.75;font-size:.8rem}
+main{max-width:640px;margin:0 auto;padding:16px}
+.card{background:var(--card);border-radius:18px;padding:16px;margin-bottom:14px;box-shadow:0 4px 16px rgba(22,35,58,.06)}
+h2{font-size:1.05rem;margin:0 0 .6rem}
+label{display:grid;gap:4px;font-weight:700;font-size:.9rem;margin-bottom:10px}
+input{font:inherit;padding:12px 14px;border:1.5px solid var(--rule);border-radius:12px;background:#F7F9FD;width:100%}
+input:focus{outline:2px solid #9DB8EC;border-color:#9DB8EC}
+button{font:inherit;font-weight:800;border:0;border-radius:12px;padding:12px 16px;background:var(--acc);color:#fff;cursor:pointer;width:100%}
+button.ghost{background:#EEF3FB;color:var(--acc);width:auto;padding:8px 14px}
+.muted{color:var(--soft);font-size:.84rem}
+.err{color:var(--bad);font-weight:700;font-size:.9rem;margin-top:8px}
+.who{display:flex;align-items:center;gap:12px}.who .av{width:52px;height:52px;border-radius:16px;background:#EEF3FB;display:grid;place-items:center;font-size:1.6rem}
+.who b{font-size:1.1rem}
+.kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.kpi{border:1px solid var(--rule);border-radius:14px;padding:10px 12px}.kpi span{font-size:.8rem;color:var(--soft)}.kpi b{display:block;font-size:1.3rem}.kpi small{font-size:.76rem;color:var(--soft)}
+.row{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px dashed var(--rule);font-size:.92rem}.row:first-of-type{border-top:0}
+.tag{font-size:.74rem;font-weight:800;border-radius:99px;padding:2px 9px;white-space:nowrap}.tag.late{background:#FFE6EA;color:var(--bad)}.tag.open{background:#FFF3D6;color:#8A5A00}.tag.ok{background:#E3F4EC;color:var(--ok)}
+.note{background:#F7F9FD;border-radius:12px;padding:10px 12px;white-space:pre-line;font-size:.92rem}
+.sib{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.hide{display:none}
+footer{text-align:center;color:var(--soft);font-size:.78rem;padding:10px 0 30px}
+</style>
+</head>
+<body>
+<header><b>👪 تقرير ولي الأمر</b><small>متابعة ابنكم في المادة — للاطلاع فقط</small></header>
+<main>
+  <section class="card" id="login">
+    <h2>الدخول</h2>
+    <p class="muted" style="margin-top:0">اكتب اسم الطالب (الاسم الأول واسم العائلة على الأقل) ورقم جوالكم المسجّل في المدرسة.</p>
+    <form id="f" autocomplete="on">
+      <label>اسم الطالب<input id="nm" name="student" required placeholder="مثال: محمد عبدالله العتيبي" autocomplete="off"></label>
+      <label>جوال ولي الأمر<input id="ph" name="tel" type="tel" inputmode="numeric" required placeholder="05xxxxxxxx" dir="ltr"></label>
+      <button type="submit" id="go">عرض التقرير</button>
+      <div class="err hide" id="err"></div>
+    </form>
+  </section>
+  <div id="out"></div>
+</main>
+<footer>أنشطتي · تطوير: المعلم أحمد المرزوق</footer>
+<script>
+const API='https://homework.ahmadalmarzooq2009.workers.dev';
+const KEY='parent_login_v1';
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+const pct=(a,b)=>b?Math.round(a/b*100):0;
+function err(t){ const e=$('err'); e.textContent=t; e.classList.toggle('hide',!t); }
+async function go(name, phone, quiet){
+  err(''); $('go').disabled=true; $('go').textContent='⏳ جارٍ التحقق…';
+  try{
+    const r=await fetch(API+'/parent/report',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,phone})});
+    const j=await r.json().catch(()=>({}));
+    if(!j.ok){
+      if(quiet){ $('login').classList.remove('hide'); return; }
+      err(j.error==='locked'?'محاولات كثيرة غير صحيحة — حاول بعد ساعة.':r.status===404&&j.error==='no_match'?`الاسم أو رقم الجوال غير مطابق لبيانات المدرسة.${j.left!=null?` (متبقٍ ${j.left} محاولات)`:''}`:'تعذّر الاتصال — حاول لاحقًا.');
+      return;
+    }
+    try{ localStorage.setItem(KEY,JSON.stringify({name,phone})); }catch(e){}
+    $('login').classList.add('hide'); render(j, phone);
+  }catch(e){ err('تعذّر الاتصال — تحقق من الإنترنت.'); }
+  finally{ $('go').disabled=false; $('go').textContent='عرض التقرير'; }
+}
+function render(j, phone){
+  const s=j.student, A=j.acts||{}, late=(A.missing||[]).filter(x=>x.late), open=(A.missing||[]).filter(x=>!x.late);
+  let h=`<section class="card"><div class="who"><div class="av">🎓</div><div><b>${esc(s.name)}</b><div class="muted">الفصل ${esc(s.cls||'—')}</div></div></div>
+    ${(j.siblings||[]).length?`<div class="muted" style="margin-top:10px">إخوته المسجّلون بنفس الجوال:</div><div class="sib">${j.siblings.map(n=>`<button class="ghost" type="button" data-sib="${esc(n)}">${esc(n)}</button>`).join('')}</div>`:''}
+    <div style="margin-top:12px"><button class="ghost" type="button" id="out-btn">↩︎ خروج</button></div></section>`;
+  h+=`<section class="card"><h2>📚 الأنشطة</h2><div class="kpis">
+      <div class="kpi"><span>سلّم</span><b>${A.doneN||0} من ${A.total||0}</b><small>${pct(A.doneN||0,A.total||0)}% من أنشطة فصله</small></div>
+      <div class="kpi"><span>لم يسلّم</span><b style="color:${late.length?'var(--bad)':'inherit'}">${(A.missing||[]).length}</b><small>${late.length?`منها ${late.length} انتهى موعدها`:'لا متأخرات'}</small></div></div>
+    ${late.length||open.length?`<div style="margin-top:10px">${late.concat(open).map(x=>`<div class="row"><span>${esc(x.t)}</span><span class="tag ${x.late?'late':'open'}">${x.late?'⏰ انتهى موعده':x.due?'مفتوح حتى '+esc(x.due):'مفتوح'}</span></div>`).join('')}</div>`:''}
+    ${(A.done||[]).length?`<details style="margin-top:8px"><summary class="muted" style="cursor:pointer">آخر ما سلّمه (${A.done.length})</summary>${A.done.map(x=>`<div class="row"><span>${esc(x.t)}</span>${x.n?`<span class="tag ok">${x.c} من ${x.n}</span>`:'<span class="tag ok">سُلّم</span>'}</div>`).join('')}</details>`:''}</section>`;
+  const W=j.weekly&&j.weekly.d;
+  if(W){ const att=(W.sh||0)+(W.ab||0)+(W.ms||0), hw=(W.dn||0)+(W.un||0);
+    h+=`<section class="card"><h2>📊 تقرير الأسبوع</h2><div class="kpis">
+      ${att?`<div class="kpi"><span>المشاركة</span><b>${W.sh||0} من ${att}</b><small>${W.ab?`غياب ${W.ab}`:'بلا غياب'}</small></div>`:''}
+      ${hw?`<div class="kpi"><span>الواجبات</span><b>${W.dn||0} من ${hw}</b><small>${W.ex?`${W.ex} بعذر`:''}</small></div>`:''}
+      ${W.ac?`<div class="kpi"><span>أنشطة البوابة</span><b>${W.sb||0} من ${W.ac}</b></div>`:''}
+      ${W.md&&((W.md.s||0)+((W.md.m||[]).length))?`<div class="kpi"><span>مدرستي</span><b>${W.md.s||0} من ${(W.md.s||0)+(W.md.m||[]).length}</b></div>`:''}</div>
+      ${(W.ps||[]).length?`<p style="margin:.6rem 0 0">🌟 <b>أحسن في:</b> ${W.ps.map(esc).join('، ')}</p>`:''}
+      ${(W.ng||[]).length?`<p style="margin:.3rem 0 0">📌 <b>يحتاج انتباهًا إلى:</b> ${W.ng.map(esc).join('، ')}</p>`:''}
+      ${W.st?`<p class="note" style="margin-top:.6rem">🎯 خطوته القادمة: ${esc(W.st)}</p>`:''}</section>`;
+  } else if(j.weekly&&j.weekly.text){ h+=`<section class="card"><h2>📊 تقرير الأسبوع</h2><div class="note">${esc(j.weekly.text)}</div></section>`; }
+  for(const r of (j.reports||[])){
+    const k=(t,o,sub)=>o&&o.score!=null?`<div class="kpi"><span>${t}</span><b>${o.score} من ${o.max}</b>${sub?`<small>${sub}</small>`:''}</div>`:'';
+    h+=`<section class="card"><h2>📄 تقرير ${esc(r.label||'الفترة')}</h2><div class="kpis">
+      ${k('المشاركة',r.participation,r.participation&&r.participation.absent?`غياب ${r.participation.absent}`:'')}
+      ${k('الواجبات',r.homework)}${k('السلوك',r.behavior,r.behavior?`🌟 ${r.behavior.pos||0} · ⚠️ ${r.behavior.neg||0}`:'')}
+      ${r.exam&&r.exam.measured?k('الاختبارات',r.exam):''}</div>
+      ${r.teacherNote?`<p class="note" style="margin-top:.6rem">📝 ملاحظة المعلم: ${esc(r.teacherNote)}</p>`:''}</section>`;
+  }
+  if(!j.weekly&&!(j.reports||[]).length) h+=`<section class="card muted">لم يُنشر تقرير أسبوعي أو تقرير فترة لابنكم بعد.</section>`;
+  $('out').innerHTML=h;
+  $('out-btn').onclick=()=>{ try{ localStorage.removeItem(KEY); }catch(e){} $('out').innerHTML=''; $('login').classList.remove('hide'); };
+  $('out').querySelectorAll('[data-sib]').forEach(b=>b.onclick=()=>go(b.dataset.sib, phone));
+}
+$('f').onsubmit=e=>{ e.preventDefault(); go($('nm').value.trim(), $('ph').value.trim()); };
+try{ const s=JSON.parse(localStorage.getItem(KEY)||'null'); if(s&&s.name&&s.phone){ $('nm').value=s.name; $('ph').value=s.phone; $('login').classList.add('hide'); go(s.name,s.phone,true); } }catch(e){}
+</script>
+</body>
+</html>

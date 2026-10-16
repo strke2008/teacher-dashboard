@@ -88,6 +88,23 @@ async function listAllKeysCached(env, prefix, ttl = 15000) {
    بالمعرف، وتُقرأ القديمة بالاسم كاحتياط، وتُرحَّل تلقائيًا عند أول لمسة.
    لا يُحذف أي مفتاح قديم إلا بعد نجاح نسخه.
    ═══════════════════════════════════════════════════════════════════ */
+
+/* ═══ 👪 أولياء الأمور: جوالاتهم (من صفحة «معلومات الطلاب» في مدرستي أو إدخال المعلم) وبوابة تقرير بالاسم + الجوال ═══ */
+function parNorm(s) {
+  return String(s || '').replace(/[ً-ْـ]/g, '').replace(/[أإآ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').replace(/ؤ/g, 'و').replace(/ئ/g, 'ي')
+    .replace(/[^ء-ي\s]/g, ' ').split(/\s+/).filter(w => w && !['بن', 'ابن', 'بنت', 'ال', 'آل', 'ال'].includes(w)).map(w => w.replace(/^ال(?=..)/, '')).filter(Boolean);
+}
+function parPhone(p) { const d = String(p || '').replace(/[٠-٩]/g, c => '٠١٢٣٤٥٦٧٨٩'.indexOf(c)).replace(/\D/g, ''); const m = /5\d{8}$/.exec(d); return m ? m[0] : ''; }
+/* تطابق اسم مكتوب مع اسم في الكشف: الاسم الأول والأخير متطابقان، وكل كلمة مكتوبة موجودة */
+function parNameMatch(typed, full) {
+  const a = parNorm(typed), b = parNorm(full); if (!a.length || !b.length) return false;
+  if (a[0] !== b[0]) return false;
+  if (a.length > 1 && a[a.length - 1] !== b[b.length - 1]) return false;
+  return a.every(w => b.includes(w));
+}
+/* مطابقة الاستيراد: الأسماء في مدرستي قد تكون ثلاثية والكشف رباعيًا (أو العكس) — الأول متطابق وكل كلمات الأقصر في الأطول */
+function parNameLoose(x, y) { let a = parNorm(x), b = parNorm(y); if (a.length > b.length) [a, b] = [b, a]; return a.length >= 2 && a[0] === b[0] && a.every(w => b.includes(w)); }
+async function parentsRead(env) { try { const o = JSON.parse(await env.HW.get('parents') || '{}'); return o && typeof o === 'object' ? o : {}; } catch { return {}; } }
 async function loadRoster(env) {
   try {
     const st = await env.HW.get('tstate:main');
@@ -4997,6 +5014,66 @@ export default {
     }
 
     // ── 📋 واجبات الطالب: ما عليه وما سلّمه ──
+
+    /* 👪 جوالات أولياء الأمور — للمعلم: رفع من مدرستي (مطابقة بالأسماء) · تعديل يدوي · قراءة */
+    if (url.pathname === '/parent-phones' && (request.method === 'POST' || request.method === 'GET')) {
+      let b = {}; if (request.method === 'POST') { try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); } }
+      const tok = request.method === 'POST' ? b.t : url.searchParams.get('t');
+      if (!env.TEACHER_TOKEN || tok !== env.TEACHER_TOKEN) return json({ ok: false, error: 'unauthorized' }, 401);
+      const P = await parentsRead(env);
+      if (request.method === 'GET') return json({ ok: true, parents: P });
+      const roster = await loadRoster(env);
+      if (b.op === 'set') {
+        const sid = String(b.sid || ''); if (!roster.some(x => String(x.id) === sid)) return json({ ok: false, error: 'not_found' }, 404);
+        const ph = parPhone(b.phone);
+        if (!ph) delete P[sid]; else P[sid] = { p: ph, pn: String(b.pn || (P[sid] && P[sid].pn) || '').slice(0, 80), at: Date.now(), src: 'manual' };
+        await env.HW.put('parents', JSON.stringify(P));
+        return json({ ok: true, parent: P[sid] || null });
+      }
+      const rows = (Array.isArray(b.rows) ? b.rows : []).slice(0, 2000);
+      let matched = 0; const unmatched = [], ambiguous = [];
+      for (const r of rows) {
+        const ph = parPhone(r && r.phone); if (!ph) continue;
+        const nm = String(r.name || '');
+        let c = roster.filter(x => parNameLoose(nm, x.name));
+        if (c.length > 1 && r.cls) { const d = String(r.cls).replace(/\D/g, ''); const c2 = c.filter(x => String(x.cls || '').replace(/\D/g, '').endsWith(d)); if (c2.length) c = c2; }
+        if (c.length === 1) { const sid = String(c[0].id); if (P[sid] && P[sid].src === 'manual') { matched++; continue; }   // تعديل المعلم اليدوي لا يُستبدل
+          P[sid] = { p: ph, pn: String(r.parent || '').slice(0, 80), at: Date.now(), src: 'madrasati' }; matched++; }
+        else if (c.length > 1) ambiguous.push(nm.slice(0, 80)); else unmatched.push(nm.slice(0, 80));
+      }
+      await env.HW.put('parents', JSON.stringify(P));
+      return json({ ok: true, matched, unmatched: unmatched.slice(0, 100), ambiguous: ambiguous.slice(0, 50), total: Object.keys(P).length });
+    }
+    /* 👪 بوابة ولي الأمر: اسم الطالب + جوال ولي الأمر ← تقرير ابنه (للقراءة فقط). 8 محاولات خاطئة في الساعة لكل جهاز */
+    if (url.pathname === '/parent/report' && request.method === 'POST') {
+      let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
+      const ip = request.headers.get('CF-Connecting-IP') || 'x', fk = `pfail:${ip}`;
+      const fails = parseInt(await env.HW.get(fk), 10) || 0;
+      if (fails >= 8) return json({ ok: false, error: 'locked' }, 429);
+      const ph = parPhone(b.phone), nm = String(b.name || '').slice(0, 120);
+      const P = await parentsRead(env), roster = await loadRoster(env);
+      const hits = ph && parNorm(nm).length >= 2 ? roster.filter(x => P[String(x.id)] && P[String(x.id)].p === ph && parNameMatch(nm, x.name)) : [];
+      if (!hits.length) { await env.HW.put(fk, String(fails + 1), { expirationTtl: 3600 }); return json({ ok: false, error: 'no_match', left: Math.max(0, 7 - fails) }, 404); }
+      const st = hits[0], sid = String(st.id);
+      // إخوة بنفس الجوال: تظهر أسماؤهم ليختار ولي الأمر بينهم
+      const siblings = roster.filter(x => String(x.id) !== sid && P[String(x.id)] && P[String(x.id)].p === ph).map(x => { const w = String(x.name).trim().split(/\s+/); return w.length > 1 ? `${w[0]} ${w[w.length - 1]}` : w[0]; });
+      let state = {}; try { state = JSON.parse(await env.HW.get('tstate:main')) || {}; } catch {}
+      const cls = String(st.cls || ''), today = new Date(Date.now() + 3 * 3600000).toISOString().slice(0, 10);
+      const forCls = h => { const l = Array.isArray(h.clsList) && h.clsList.length ? h.clsList.map(String) : (h.cls ? [String(h.cls)] : []); return !l.length || l.includes(cls); };
+      const acts = (Array.isArray(state.assignments) ? state.assignments : []).filter(h => h && (h.sid || h.published) && !h.remedial && forCls(h));
+      const done = [], missing = [];
+      for (const h of acts) { const sub = h.subs && h.subs[sid];
+        if (sub) done.push({ t: String(h.title || '').slice(0, 80), at: Number(sub.at) || 0, c: Number(sub.correct) || 0, n: Number(sub.total) || 0 });
+        else missing.push({ t: String(h.title || '').slice(0, 80), due: String(h.due || ''), late: !!(h.due && h.due < today) }); }
+      const readJ = async k => { try { return JSON.parse(await env.HW.get(k) || 'null'); } catch { return null; } };
+      const reports = []; for (const x of ((await readJ(`srep:idx:${sid}`)) || []).slice(0, 4)) { const r = await readJ(`srep:${x.semester}:${x.period}:${sid}`); if (r) reports.push(r); }
+      reports.sort((a, c) => (c.semester - a.semester) || (c.period - a.period));
+      let weekly = null; try { const ms = await readMessages(env, { id: sid, name: st.name }); const w = ms.filter(m => m && m.type === 'weekly').sort((a, c) => String(c.createdAt).localeCompare(String(a.createdAt)))[0];
+        if (w) { const i = String(w.body || '').indexOf('⟨WK⟩'); weekly = { at: w.createdAt, text: (i < 0 ? w.body : w.body.slice(0, i)).trim().slice(0, 1200), d: i < 0 ? null : (() => { try { return JSON.parse(w.body.slice(i + 4)); } catch { return null; } })() }; } } catch {}
+      if (fails) await env.HW.delete(fk);
+      return json({ ok: true, student: { name: st.name, cls }, siblings, acts: { total: acts.length, done: done.sort((a, c) => c.at - a.at).slice(0, 15), doneN: done.length, missing: missing.slice(0, 20) }, reports, weekly,
+        teacher: String((state.repcfg && state.repcfg.teacher) || '') });
+    }
     if (url.pathname === '/mine' && request.method === 'GET') {
       const name = String(url.searchParams.get('name') || '').trim();
       const sidIn = String(url.searchParams.get('sid') || url.searchParams.get('id') || '').trim();
