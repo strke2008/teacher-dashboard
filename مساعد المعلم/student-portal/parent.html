@@ -166,8 +166,8 @@ function parentDetails(R, A){
       ${P.score<P.max?'<p class="tip">💡 شجّعوه على رفع يده والإجابة في الحصة — كل مشاركة تعوّض «لم يشارك».</p>':''}`; }
   if(R&&R.homework){ const H=R.homework, C=H.classPart;
     D.hw=C?`<h3>📕 واجبات الفصل</h3>${why(C.score,C.max)}
-      <div class="dk"><span>أنجز</span><b>${C.done}</b></div><div class="dk"><span>لم ينجز</span><b>${C.missed}</b></div>${C.forgiven?`<div class="dk"><span>🎫 مسحه بنقاط تميّزه من المتجر</span><b>${C.forgiven}</b></div>${(C.forgivenList||[]).length?`<p class="how">واجبات أيام: ${C.forgivenList.map(dayFmt).join('، ')}</p>`:''}`:''}
-      ${C.missed?'<p class="tip">💡 تابعوا معه حلّ واجب الكتاب وإحضاره في الحصة التالية.</p>':''}`
+      <div class="dk"><span>أنجز</span><b>${C.done}</b></div><div class="dk"><span>لم ينجز</span><b>${C.missed}</b></div>${C.forgiven?`<div class="dk"><span>🎫 عوّضه بنقاط تميّزه</span><b>${C.forgiven}</b></div>${(C.forgivenList||[]).length?`<p class="how">واجبات أيام: ${C.forgivenList.map(dayFmt).join('، ')}</p>`:''}`:''}
+      ${C.missed?'<p class="tip">💡 تابعوا معه حلّ واجب الكتاب وإحضاره في الحصة التالية.</p><p class="tip">⭐ ما فاته يمكن تعويضه بنقاط التميّز التي يكسبها ابنكم من حلّ الأنشطة والمشاركة في البوابة — فكل نشاط يحلّه اليوم يساعده غدًا.</p>':''}`
       :`<h3>📕 الواجبات</h3>${why(H.score,H.max)}`; }
   if(R&&R.behavior){ const B=R.behavior, neg=(B.notes||[]).filter(n=>n.type!=='positive'), pos=(B.notes||[]).filter(n=>n.type==='positive');
     D.beh=`<h3>🤝 السلوك</h3>${why(B.score,B.max)}
@@ -177,21 +177,21 @@ function parentDetails(R, A){
     D.exam=`<h3>📝 الاختبارات</h3>${E.measured&&E.score!=null?why(E.score,E.max):'<p class="how">لم تُرصد درجات بعد.</p>'}
       ${T.length?`<div class="dt">${T.map(t=>{ const p=t.score==null?null:Math.round(t.score/t.max*100);
         return `<div class="dk${p!=null&&p<70?' low':''}"><span>${esc(t.title)}</span><b>${t.score==null?'لم يُرصد':`${t.score} من ${t.max}`}</b></div>`; }).join('')}</div>`:''}
-      ${E.bonus>0?`<div class="dk" style="margin-top:8px"><span>مجموع درجاته في الاختبارات</span><b>${E.base!=null?+(+E.base).toFixed(2):+(E.score-E.bonus).toFixed(2)} من ${E.max}</b></div><div class="dk"><span>🎁 تعويض اشتراه بنقاط تميّزه في البوابة</span><b style="color:var(--ok)" dir="ltr">+${+(+E.bonus).toFixed(2)}</b></div><div class="dk"><span>درجته النهائية في الاختبارات</span><b>${E.score} من ${E.max}</b></div>`:''}
+      ${E.bonus>0?`<div class="dk" style="margin-top:8px"><span>مجموع درجاته في الاختبارات</span><b>${E.base!=null?+(+E.base).toFixed(2):+(E.score-E.bonus).toFixed(2)} من ${E.max}</b></div><div class="dk"><span>🎁 عوّضه بنقاط تميّزه</span><b style="color:var(--ok)" dir="ltr">+${+(+E.bonus).toFixed(2)}</b></div><div class="dk"><span>درجته النهائية في الاختبارات</span><b>${E.score} من ${E.max}</b></div>`:''}
       ${(()=>{ const w=T.filter(t=>t.score!=null&&t.score/t.max<0.7).sort((a,b)=>a.score/a.max-b.score/b.max)[0]; if(!w) return '';
         return `<p class="tip">💡 أقل درجاته في «${esc(w.title)}» (${w.score} من ${w.max}). نقترح مراجعة دروس هذا الاختبار معه${w.score/w.max<0.6?'، وستصله في البوابة مهمة علاجية بالأسئلة التي أخطأ فيها':''}.</p>`; })()}`; }
   if(A&&A.total){ const late=(A.missing||[]).filter(x=>x.late), op=(A.missing||[]).filter(x=>!x.late).sort((a,b)=>String(a.due||'9999').localeCompare(String(b.due||'9999')));
     D.acts=`<h3>💻 المهام الأدائية (أنشطة البوابة)</h3>${A.doneN>=A.total?ok('سلّم كل الأنشطة.'):`<p class="miss">لم يسلّم <b>${A.total-(A.doneN||0)}</b> من ${A.total}</p>`}
       ${op.length?`<p class="grp open">⏳ متاحة للحل الآن:</p>${li(op.map(x=>esc(x.t)+(x.due?closeTag(closeIn(x.due)):' <span class="tag ok">مفتوح</span>')))}
       <p class="tip">💡 يحلّها ابنكم من رابط «أنشطتي» قبل موعد الإغلاق — كل نشاط يسلّمه يرفع درجته.</p>`:''}
-      ${late.length?`<p class="grp gone">انتهى وقتها:</p><ul class="gone">${late.map(x=>`<li>${esc(x.t)}</li>`).join('')}</ul>`:''}`; }
+      ${late.length?`<p class="grp gone">انتهى وقتها:</p><ul class="gone">${late.map(x=>`<li>${esc(x.t)}</li>`).join('')}</ul><p class="tip">⭐ ما انتهى وقته يمكن فتحه من جديد بنقاط التميّز التي يكسبها ابنكم من حلّ الأنشطة والمشاركة في البوابة — فكل نشاط يحلّه اليوم يساعده غدًا.</p>`:''}`; }
   if(R&&R.homework&&R.homework.madrasati&&(R.homework.madrasati.counted||(R.homework.madrasati.pendingList||[]).length)){ const M=R.homework.madrasati;
     const MP=(M.pendingList||[]).slice().sort((a,b)=>(a.dueAt||9e15)-(b.dueAt||9e15)), unsolved=M.counted-M.solved+MP.length;
     D.mad=`<h3>📱 واجبات مدرستي</h3>${!unsolved?ok('حلّ كل واجبات مدرستي.'):`<p class="miss">لم يحلّ <b>${M.counted-M.solved}</b> من ${M.counted}${MP.length?` · ومتاح له ${MP.length} الآن`:''}</p>`}
       ${MP.length?`<p class="grp open">⏳ متاحة للحل الآن:</p>${li(MP.map(x=>esc(x.title)+(x.dueAt?closeTag(closeIn(x.dueAt)):closeTag({n:x.daysLeft,txt:`خلال ${x.daysLeft} ${x.daysLeft===1?'يوم':'أيام'}`}))))}
       <p class="tip">💡 يحلّها ابنكم من تطبيق مدرستي ← واجباتي، قبل موعد الإغلاق.</p>`:''}
-      ${(M.missedList||[]).length?`<p class="grp gone">انتهى وقتها:</p><ul class="gone">${M.missedList.map(t=>`<li>${esc(t)}</li>`).join('')}</ul>`:''}
-      ${M.forgiven?`<p class="grp" style="color:#6B4FB8">🎫 مسحها بنقاط تميّزه من المتجر (${M.forgiven}):</p>${(M.forgivenList||[]).length?`<ul>${M.forgivenList.map(t=>`<li>${esc(t)}</li>`).join('')}</ul>`:''}`:''}`; }
+      ${(M.missedList||[]).length?`<p class="grp gone">انتهى وقتها:</p><ul class="gone">${M.missedList.map(t=>`<li>${esc(t)}</li>`).join('')}</ul><p class="tip">⭐ ما فاته يمكن تعويضه بنقاط التميّز التي يكسبها ابنكم من حلّ الأنشطة والمشاركة في البوابة — فكل نشاط يحلّه اليوم يساعده غدًا.</p>`:''}
+      ${M.forgiven?`<p class="grp" style="color:#6B4FB8">🎫 عوّضها بنقاط تميّزه (${M.forgiven}):</p>${(M.forgivenList||[]).length?`<ul>${M.forgivenList.map(t=>`<li>${esc(t)}</li>`).join('')}</ul>`:''}`:''}`; }
   return D;
 }
 function render(j, phone){
@@ -215,13 +215,13 @@ function render(j, phone){
     h+=`<section class="card"><h2>📚 أعمال السنة <span class="h-sc">${work} من 40</span></h2><p class="muted" style="margin:-.3rem 0 .7rem">اضغط أي بطاقة لمعرفة سبب درجتها.</p><div class="tiles">
       ${bar('المشاركة',pS,10,R.participation&&R.participation.absent?`غاب ${R.participation.absent} ${R.participation.absent===1?'حصة':'حصص'}`:'','🙋','part')}
       ${bar('السلوك',bS,10,`🌟 ${R.behavior&&R.behavior.pos||0} إيجابي · ⚠️ ${R.behavior&&R.behavior.neg||0} سلبي`,'🤝','beh')}
-      ${C&&C.max?bar('واجبات الفصل',n1(C.score),C.max,`أنجز ${C.done||0} · لم ينجز ${C.missed||0}${C.forgiven?` · 🎫 مسح ${C.forgiven}`:''}`,'📕','hw'):''}
-      ${M&&M.max?bar('واجبات مدرستي',n1(M.score),M.max,(M.counted?`حلّ ${M.solved} من ${M.counted}`:'لا واجبات بعد')+(M.forgiven?` · 🎫 مسح ${M.forgiven}`:''),'📱','mad'):''}
+      ${C&&C.max?bar('واجبات الفصل',n1(C.score),C.max,`أنجز ${C.done||0} · لم ينجز ${C.missed||0}${C.forgiven?` · 🎫 عوّض ${C.forgiven}`:''}`,'📕','hw'):''}
+      ${M&&M.max?bar('واجبات مدرستي',n1(M.score),M.max,(M.counted?`حلّ ${M.solved} من ${M.counted}`:'لا واجبات بعد')+(M.forgiven?` · 🎫 عوّض ${M.forgiven}`:''),'📱','mad'):''}
       ${!(C&&C.max)&&!(M&&M.max)?bar('الواجبات',hS,10,'','📕','hw'):''}
       ${bar('المهام الأدائية',aS,10,AC?`سلّم ${AC.done} من ${AC.n} من أنشطة البوابة`:'','💻','acts')}
     </div></section>
     <section class="card"><h2>📝 الاختبارات <span class="h-sc">${exOn?exS:'—'} من 20</span></h2><div class="tiles">
-      ${exOn?bar('الاختبارات',exS,20,(R.exam.tests||[]).filter(t=>t.score!=null).map(t=>`${esc(t.title)}: ${t.score} من ${t.max}`).join(' · ')+(R.exam.bonus>0?` · 🎁 +${+(+R.exam.bonus).toFixed(2)} تعويض بالنقاط`:''),'📝','exam'):`<div class="tile none"><div class="t-top"><span class="t-ic">📝</span><span class="t-nm">الاختبارات</span></div><span class="t-sub">لم تُرصد درجات بعد</span></div>`}
+      ${exOn?bar('الاختبارات',exS,20,(R.exam.tests||[]).filter(t=>t.score!=null).map(t=>`${esc(t.title)}: ${t.score} من ${t.max}`).join(' · ')+(R.exam.bonus>0?` · 🎁 +${+(+R.exam.bonus).toFixed(2)} بنقاط التميّز`:''),'📝','exam'):`<div class="tile none"><div class="t-top"><span class="t-ic">📝</span><span class="t-nm">الاختبارات</span></div><span class="t-sub">لم تُرصد درجات بعد</span></div>`}
     </div><div id="det" class="det hide"></div>${R.teacherNote?`<p class="note" style="margin-top:12px">📝 <b>ملاحظة المعلم:</b> ${esc(R.teacherNote)}</p>`:''}</section>`;
   }
   const W=j.weekly&&j.weekly.d;
