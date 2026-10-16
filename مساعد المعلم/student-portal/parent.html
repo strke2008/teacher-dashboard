@@ -156,6 +156,7 @@ function closeIn(d){ // d: تاريخ ISO أو ملي ثانية
   const day=`${DAYS[t.getUTCDay()]} ${t.getUTCDate()}/${t.getUTCMonth()+1}`;
   return { n, txt: n<=0?'يُغلق اليوم':n===1?'يُغلق غدًا':n<=6?`يُغلق ${day}`:`حتى ${day}` };
 }
+const dayFmt=d=>{ const t=new Date(String(d)+'T12:00:00Z'); return isNaN(t)?esc(d):`${DAYS[t.getUTCDay()]} ${t.getUTCDate()}/${t.getUTCMonth()+1}`; };
 const closeTag=c=>c?`<span class="tag ${c.n<=1?'late':'open'}">⏳ ${esc(c.txt)}</span>`:'';
 function parentDetails(R, A){
   const D={}, li=a=>a.length?`<ul>${a.map(x=>`<li>${x}</li>`).join('')}</ul>`:'', ok=t=>`<p class="ok">✓ ${t}</p>`, why=(v,m)=>v>=m?ok('الدرجة كاملة — لا خصم.'):`<p class="miss">نقص <b>${+(m-v).toFixed(2)}</b> من ${m}</p>`;
@@ -165,7 +166,7 @@ function parentDetails(R, A){
       ${P.score<P.max?'<p class="tip">💡 شجّعوه على رفع يده والإجابة في الحصة — كل مشاركة تعوّض «لم يشارك».</p>':''}`; }
   if(R&&R.homework){ const H=R.homework, C=H.classPart;
     D.hw=C?`<h3>📕 واجبات الفصل</h3>${why(C.score,C.max)}
-      <div class="dk"><span>أنجز</span><b>${C.done}</b></div><div class="dk"><span>لم ينجز</span><b>${C.missed}</b></div>${C.forgiven?`<div class="dk"><span>أُعفي من</span><b>${C.forgiven}</b></div>`:''}
+      <div class="dk"><span>أنجز</span><b>${C.done}</b></div><div class="dk"><span>لم ينجز</span><b>${C.missed}</b></div>${C.forgiven?`<div class="dk"><span>🎫 مسحه بنقاط تميّزه من المتجر</span><b>${C.forgiven}</b></div>${(C.forgivenList||[]).length?`<p class="how">واجبات أيام: ${C.forgivenList.map(dayFmt).join('، ')}</p>`:''}`:''}
       ${C.missed?'<p class="tip">💡 تابعوا معه حلّ واجب الكتاب وإحضاره في الحصة التالية.</p>':''}`
       :`<h3>📕 الواجبات</h3>${why(H.score,H.max)}`; }
   if(R&&R.behavior){ const B=R.behavior, neg=(B.notes||[]).filter(n=>n.type!=='positive'), pos=(B.notes||[]).filter(n=>n.type==='positive');
@@ -190,7 +191,7 @@ function parentDetails(R, A){
       ${MP.length?`<p class="grp open">⏳ متاحة للحل الآن:</p>${li(MP.map(x=>esc(x.title)+(x.dueAt?closeTag(closeIn(x.dueAt)):closeTag({n:x.daysLeft,txt:`خلال ${x.daysLeft} ${x.daysLeft===1?'يوم':'أيام'}`}))))}
       <p class="tip">💡 يحلّها ابنكم من تطبيق مدرستي ← واجباتي، قبل موعد الإغلاق.</p>`:''}
       ${(M.missedList||[]).length?`<p class="grp gone">انتهى وقتها:</p><ul class="gone">${M.missedList.map(t=>`<li>${esc(t)}</li>`).join('')}</ul>`:''}
-      ${M.forgiven?`<p class="how">أُعفي من ${M.forgiven}.</p>`:''}`; }
+      ${M.forgiven?`<p class="grp" style="color:#6B4FB8">🎫 مسحها بنقاط تميّزه من المتجر (${M.forgiven}):</p>${(M.forgivenList||[]).length?`<ul>${M.forgivenList.map(t=>`<li>${esc(t)}</li>`).join('')}</ul>`:''}`:''}`; }
   return D;
 }
 function render(j, phone){
@@ -214,8 +215,8 @@ function render(j, phone){
     h+=`<section class="card"><h2>📚 أعمال السنة <span class="h-sc">${work} من 40</span></h2><p class="muted" style="margin:-.3rem 0 .7rem">اضغط أي بطاقة لمعرفة سبب درجتها.</p><div class="tiles">
       ${bar('المشاركة',pS,10,R.participation&&R.participation.absent?`غاب ${R.participation.absent} ${R.participation.absent===1?'حصة':'حصص'}`:'','🙋','part')}
       ${bar('السلوك',bS,10,`🌟 ${R.behavior&&R.behavior.pos||0} إيجابي · ⚠️ ${R.behavior&&R.behavior.neg||0} سلبي`,'🤝','beh')}
-      ${C&&C.max?bar('واجبات الفصل',n1(C.score),C.max,`أنجز ${C.done||0} · لم ينجز ${C.missed||0}`,'📕','hw'):''}
-      ${M&&M.max?bar('واجبات مدرستي',n1(M.score),M.max,M.counted?`حلّ ${M.solved} من ${M.counted}`:'لا واجبات بعد','📱','mad'):''}
+      ${C&&C.max?bar('واجبات الفصل',n1(C.score),C.max,`أنجز ${C.done||0} · لم ينجز ${C.missed||0}${C.forgiven?` · 🎫 مسح ${C.forgiven}`:''}`,'📕','hw'):''}
+      ${M&&M.max?bar('واجبات مدرستي',n1(M.score),M.max,(M.counted?`حلّ ${M.solved} من ${M.counted}`:'لا واجبات بعد')+(M.forgiven?` · 🎫 مسح ${M.forgiven}`:''),'📱','mad'):''}
       ${!(C&&C.max)&&!(M&&M.max)?bar('الواجبات',hS,10,'','📕','hw'):''}
       ${bar('المهام الأدائية',aS,10,AC?`سلّم ${AC.done} من ${AC.n} من أنشطة البوابة`:'','💻','acts')}
     </div></section>

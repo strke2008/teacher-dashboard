@@ -561,7 +561,7 @@ function studentReportBuild(data, g, semester, period, teacherNote, acts) {
     range: { start: range.start, end: range.end },
     participation: { score: p.score, max: GRADE_RULES.max, yes: p.yes || 0, no: p.no || 0, absent: p.absent || 0, measured: !!p.measured },
     homework: { score: h.score, max: GRADE_RULES.max,
-      classPart: h.classPart ? { score: h.classPart.score, max: h.classPart.max, done: h.done || 0, missed: h.missed || 0, forgiven: h.forgiven || 0, measured: !!h.classPart.measured } : null,
+      classPart: h.classPart ? { score: h.classPart.score, max: h.classPart.max, done: h.done || 0, missed: h.missed || 0, forgiven: h.forgiven || 0, forgivenList: (h.classPart.fgDates || []).slice(0, 15), measured: !!h.classPart.measured } : null,
       madrasati: h.madrasati ? madReportPart(h.madrasati) : null },
     behavior: { score: b.score, max: GRADE_RULES.max, pos: b.pos || 0, neg: b.neg || 0, notes },
     activities: srepActs(acts),
@@ -826,7 +826,7 @@ function gradeMadrasati(data, sid, range, now) {
 function gradeHomework(data, sid, range, now) {
   const grace = GRADE_RULES.graceDays * GDAY;
   let done = 0, missed = 0, excused = 0, forgiven = 0;
-  const pending = [];
+  const pending = [], fgDates = [];
   const H = data.homework || {};
   const fg = (data.__hwfg && data.__hwfg[String(sid)]) || {};
   for (const d of Object.keys(H)) {
@@ -838,7 +838,7 @@ function gradeHomework(data, sid, range, now) {
     else if (st === 'لم ينجز') {
       const age = now - Date.parse(d + 'T00:00:00Z');
       if (age < grace) pending.push({ date: d, daysLeft: Math.max(1, Math.ceil((grace - age) / GDAY)) });
-      else if (fg[d]) forgiven++;   // 📘 مُسح خصمه ببطاقة: محايد مثل «معذور»
+      else if (fg[d]) { forgiven++; fgDates.push(d); }   // 📘 مُسح خصمه ببطاقة: محايد مثل «معذور»
       else missed++;
     }
   }
@@ -849,7 +849,7 @@ function gradeHomework(data, sid, range, now) {
   return {
     score: gRound(classScore + madrasati.score),
     done, missed, excused, forgiven, inGrace, pending, recorded, measured: recorded > 0 || madrasati.measured,
-    classPart: { score: classScore, max: HW_SPLIT.classMax, measured: recorded > 0, forgiven },
+    classPart: { score: classScore, max: HW_SPLIT.classMax, measured: recorded > 0, forgiven, fgDates: fgDates.sort() },
     madrasati,
   };
 }
