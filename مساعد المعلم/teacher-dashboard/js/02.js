@@ -5189,7 +5189,11 @@ function omrMeasure(){
     const cells=[...q.querySelectorAll(mc?'.ex-opt':'.ex-tf-c')];
     const boxes=cells.map(c=>c.querySelector('.ex-box')).filter(Boolean).map(R);
     const key=cells.findIndex(c=>c.classList.contains('key'));
-    if(boxes.length>=2 && key>=0) questions.push({ t:mc?'mc':'tf', boxes, key });
+    // 📝 نص السؤال وخياراته: ليُبنى العلاج من الأسئلة التي أخطأ فيها الطالب بعد التصحيح الآلي
+    const tx=e=>String(e&&e.textContent||'').replace(/\s+/g,' ').trim().slice(0,600);
+    const qt=mc?tx(q.querySelector('.ex-qt span:last-child')):tx([...q.children].find(c=>c.tagName==='SPAN'&&!c.classList.contains('ex-num')&&!c.classList.contains('ex-tf-c')));
+    const opts=mc?cells.map(c=>tx(c.querySelector('span:last-child'))):[];
+    if(boxes.length>=2 && key>=0) questions.push({ t:mc?'mc':'tf', boxes, key, ...(qt?{q:qt}:{}), ...(mc&&opts.every(Boolean)?{o:opts}:{}) });
   });
   const allQ=document.querySelectorAll('#exam-paper .ex-q, #exam-paper .ex-tf').length;
   const cells=[...page.querySelectorAll('.ex-mcode i')];

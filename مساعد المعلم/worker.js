@@ -2749,7 +2749,7 @@ async function remFromExams(env, st) {
       const v = raw[String(t && t.id)]; const sc = v && typeof v === 'object' ? Number(v.score) : Number(v);
       if (!t || !Number.isFinite(sc)) continue;
       const rate = Math.round((Math.max(0, sc) / Math.max(1, Number(t.max) || 10)) * 100);
-      if (rate < REM.fail) weak.push({ t, rate });
+      if (rate < REM.fail) weak.push({ t, rate, om: v && typeof v === 'object' && v.om && typeof v.om === 'object' ? v.om : null });
     }
   }
   if (!weak.length) return;
@@ -2763,9 +2763,18 @@ async function remFromExams(env, st) {
     const withSub = h => { const s = h.subs && h.subs[String(st.id)]; return s && Number(s.total) > 0 ? s : null; };
     if (!pool.length) pool = asg.filter(withSub).sort((a, b) => {
       const ra = withSub(a), rb = withSub(b); return ra.correct / ra.total - rb.correct / rb.total; }).slice(0, 2);
-    if (!pool.length) continue;
-    let q1 = [], q2 = [], fallback = false, practice = false;
+    let q1 = [], q2 = [], fallback = false, practice = false, fromExam = 0;
+    // 📷 صُحّح آليًا: الأسئلة التي أخطأ فيها في الاختبار نفسه أولًا (نصها من خريطة التصحيح)
+    if (w.om && w.om.t && Array.isArray(w.om.w) && w.om.w.length) {
+      let tpl = null; try { tpl = JSON.parse(await env.HW.get(`omr:t:${String(w.om.t).replace(/[^A-Za-z0-9_-]/g, '')}`)); } catch {}
+      const M = tpl && Array.isArray(tpl.models) ? (tpl.models[parseInt(w.om.m, 10) || 0] || tpl.models[0]) : null;
+      const qs = M ? M.questions.map(q => !q.q ? null : q.t === 'tf' ? { t: 'tf', q: q.q, a: q.key === 0 } : Array.isArray(q.o) ? { t: 'q', q: q.q, o: q.o, a: q.key } : null) : [];
+      const wi = w.om.w.map(Number).filter(i => qs[i]);
+      if (wi.length) { const r = await remQuestionsFor(env, `ox:${w.om.t}:${parseInt(w.om.m, 10) || 0}`, qs, wi.slice(0, REM.maxQ)); q1 = r.q1; q2 = r.q2; fallback = r.fallback; fromExam = r.q1.length; }
+    }
+    if (!pool.length && !q1.length) continue;
     for (const h of pool) {
+      if (q1.length >= REM.maxQ) break;
       const s = withSub(h); if (!s) continue;
       const wrong = String(s.d || '').split('').map((c, i) => c === '0' ? i : -1).filter(i => i >= 0);
       if (!wrong.length) continue;
@@ -2783,8 +2792,9 @@ async function remFromExams(env, st) {
     }
     if (!q1.length) { await env.HW.put(mark, 'wait', { expirationTtl: 86400 }); continue; }   // ننتظر توليد الأسئلة البديلة
     const title = String(w.t.title || 'الاختبار');
+    q1 = q1.slice(0, REM.maxQ); q2 = q2.slice(0, REM.maxQ);
     const made = await remCreate(env, { st, cls: st.cls || '', src: `exam:${w.t.id}`, srcTitle: title, kind: 'exam',
-      reason: `${title}: ${w.rate}%${practice ? ' — أداؤه في الأنشطة جيد، فالتدريب بنمط الاختبار' : ''}`, before: w.rate,
+      reason: `${title}: ${w.rate}%${fromExam ? ` — ${fromExam} من الأسئلة التي أخطأ فيها في الاختبار` : ''}${practice ? ' — أداؤه في الأنشطة جيد، فالتدريب بنمط الاختبار' : ''}`, before: w.rate,
       q1, q2, fallback, title: practice ? `🩹 تدريب بنمط الاختبار: ${title}` : `🩹 تعزيز بعد ${title}`, api: '' });
     if (made) await env.HW.put(mark, made.id, { expirationTtl: 60 * 60 * 24 * 200 });
   }
@@ -5589,7 +5599,8 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
           letter: String(m.letter || '').slice(0, 2),
           anchors: (Array.isArray(m.anchors) ? m.anchors : []).filter(rect).slice(0, 20).map(r => r.map(Number)),
           questions: (Array.isArray(m.questions) ? m.questions : []).slice(0, 60).filter(q => q && (q.t === 'mc' || q.t === 'tf') && Array.isArray(q.boxes) && q.boxes.length >= 2 && q.boxes.length <= 6 && q.boxes.every(rect) && Number.isInteger(q.key) && q.key >= 0 && q.key < q.boxes.length)
-            .map(q => ({ t: q.t, key: q.key, boxes: q.boxes.map(r => r.map(Number)) })),
+            .map(q => ({ t: q.t, key: q.key, boxes: q.boxes.map(r => r.map(Number)),
+              ...(q.q ? { q: String(q.q).slice(0, 600) } : {}), ...(Array.isArray(q.o) && q.o.length === q.boxes.length ? { o: q.o.map(x => String(x || '').slice(0, 200)) } : {}) })),
           mcode: m.mcode && Array.isArray(m.mcode.cells) && m.mcode.cells.length >= 2 && m.mcode.cells.length <= 6 && m.mcode.cells.every(rect) && Number.isInteger(m.mcode.on)
             ? { cells: m.mcode.cells.map(r => r.map(Number)), on: m.mcode.on } : null,
           skipped: Math.max(0, Math.round(num(m.skipped) || 0)),

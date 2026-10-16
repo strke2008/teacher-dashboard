@@ -3474,14 +3474,14 @@ async function deleteExamTest(id){
   for(const sid of Object.keys(b.scores||{})){if(b.scores[sid])delete b.scores[sid][String(id)];}
   renderExamConfig();renderExamGrades();await save();toast('تم حذف الاختبار');
 }
-async function setExamScore(sid,testId,value,quiet){
+async function setExamScore(sid,testId,value,quiet,extra){
   if(academicClosed()){toast('الفصل مغلق. افتحه للضرورة أولًا.');renderExamGrades();return}
   const b=examBook(),t=b.tests.find(x=>String(x.id)===String(testId));if(!t)return;
   const n=String(value).trim(), bucket=b.scores[String(sid)]=b.scores[String(sid)]||{};
   if(n===''){delete bucket[String(testId)];if(!Object.keys(bucket).length)delete b.scores[String(sid)];}
   // 🚫 غائب: علامة فقط — لا درجة (تُحتسب كدرجة لم تُرصد حتى تُرصد له درجة)، لكنه لا يُعدّ «لم يُرصد»
   else if(n==='غ'||n==='غائب'){bucket[String(testId)]={absent:true,at:Date.now()};}
-  else{const score=Math.max(0,Math.min(Number(t.max)||0,Number(n)));if(!Number.isFinite(score))return;bucket[String(testId)]={score,at:Date.now()};}
+  else{const score=Math.max(0,Math.min(Number(t.max)||0,Number(n)));if(!Number.isFinite(score))return;bucket[String(testId)]={score,at:Date.now(),...(extra&&typeof extra==='object'?extra:{})};}
   renderExamGrades();
   await save();if(!quiet)toast('تم حفظ الدرجة');
 }
@@ -6001,13 +6001,19 @@ function omrCrop(i){
   img.style.width = (W*s)+'px'; img.style.transform = `translate(${-x0*s}px,${-y0*s}px)`; box.style.height = ((y1-y0)*s)+'px';
 }
 function omrSet(i, v){ OMRUI.result.answers[i].final = v; omrShowResult(); if(OMRUI.result.answers.some(a=>a.final===null)) { const j = OMRUI.result.answers.findIndex(a=>a.final===null); omrFix(j); } }
+function omrWrongOf(answers, model){
+  if(!OMRUI.tpl || !OMRUI.tpl.id || !Array.isArray(answers)) return null;
+  const w = answers.map((a, i) => a && a.final !== null && a.final !== a.key ? i : -1).filter(i => i >= 0);
+  return { om: { t: OMRUI.tpl.id, m: Number(model) || 0, w } };
+}
 async function omrSave(){
   const r = OMRUI.result, T = OMRUI.tpl, test = omrTest(); if(!test || !OMRUI.sid) return;
   const sc = omrScoreOf(r), tt = omrTotals();
   const val = Math.abs(tt.total - test.max) > 1e-9 ? +(sc.raw / tt.total * test.max).toFixed(2) : sc.raw;
   const b = examBook(), prev = b.scores[String(OMRUI.sid)] && b.scores[String(OMRUI.sid)][String(OMRUI.testId)];
   if(prev !== undefined && !(await askConfirm('لهذا الطالب درجة مرصودة في هذا الاختبار. استبدالها بالقراءة الجديدة؟', { title:'استبدال الدرجة؟', yes:'استبدل', no:'إلغاء' }))) return;
-  await setExamScore(OMRUI.sid, OMRUI.testId, String(val));
+  // 📷 الأسئلة التي أخطأ فيها تُحفظ مع الدرجة: منها تُبنى المهمة العلاجية للاختبار
+  await setExamScore(OMRUI.sid, OMRUI.testId, String(val), false, omrWrongOf(r.answers, OMRUI.model));
   const who = list(OMRUI.cls).find(s=>s.id===OMRUI.sid);
   toast(`✓ ${who?who.name:''}: ${val} من ${test.max}`);
   OMRUI.sid = omrNextStudent(); OMRUI.savedN = (OMRUI.savedN||0) + 1;
@@ -6164,7 +6170,7 @@ async function omrSheetSave(s){
   const sc = omrSheetScore(s), val = Math.abs(sc.total - test.max) > 1e-9 ? +(sc.raw / sc.total * test.max).toFixed(2) : sc.raw;
   const b = examBook(), prev = b.scores[String(s.sid)] && b.scores[String(s.sid)][String(OMRUI.testId)];
   if(prev !== undefined && !(await askConfirm('لهذا الطالب درجة مرصودة في هذا الاختبار. استبدالها بهذه الورقة؟', { title:'استبدال الدرجة؟', yes:'استبدل', no:'إلغاء' }))){ s.sid = null; OMRDB.put(s); omrMatchRender(); return; }
-  await setExamScore(s.sid, OMRUI.testId, String(val));
+  await setExamScore(s.sid, OMRUI.testId, String(val), false, omrWrongOf(s.answers, s.model));
   s.saved = true; OMRDB.put(s);
   const who = list(OMRUI.cls).find(x => String(x.id) === String(s.sid));
   toast(`✓ ${who ? who.name : ''}: ${val} من ${test.max}`);
