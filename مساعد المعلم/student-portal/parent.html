@@ -95,7 +95,7 @@ function bar(label, val, max, sub, icon){
     <div class="ln-bar"><i style="width:${p}%;background:${L[2]}"></i></div>${sub?`<small>${sub}</small>`:''}</div>`;
 }
 function render(j, phone){
-  const s=j.student, A=j.acts||{}, R=j.live, late=(A.missing||[]).filter(x=>x.late), open=(A.missing||[]).filter(x=>!x.late);
+  const s=j.student, A=j.acts||{}, R=j.live||(j.reports||[])[0]||null, late=(A.missing||[]).filter(x=>x.late), open=(A.missing||[]).filter(x=>!x.late);
   // المستوى العام: متوسط نسب ما قيس فعلًا (المشاركة · الواجبات · السلوك · الاختبارات · الأنشطة الإلكترونية)
   const parts=[];
   if(R){ if(R.participation&&R.participation.measured) parts.push(R.participation.score/R.participation.max);
