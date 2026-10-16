@@ -565,7 +565,7 @@ function studentReportBuild(data, g, semester, period, teacherNote, acts) {
       madrasati: h.madrasati ? madReportPart(h.madrasati) : null },
     behavior: { score: b.score, max: GRADE_RULES.max, pos: b.pos || 0, neg: b.neg || 0, notes },
     activities: srepActs(acts),
-    exam: { score: e.score, max: e.max || 20, measured: !!e.measured, tests },
+    exam: { score: e.score, max: e.max || 20, measured: !!e.measured, tests, ...(Number(e.bonus) > 0 ? { bonus: Number(e.bonus), base: e.baseScore } : {}) },
     teacherNote: String(teacherNote || '').replace(/[<>]/g, '').trim().slice(0, 400),
     publishedAt: Date.now(),
   };

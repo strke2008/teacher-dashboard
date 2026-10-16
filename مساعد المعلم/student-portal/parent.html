@@ -176,6 +176,7 @@ function parentDetails(R, A){
     D.exam=`<h3>📝 الاختبارات</h3>${E.measured&&E.score!=null?why(E.score,E.max):'<p class="how">لم تُرصد درجات بعد.</p>'}
       ${T.length?`<div class="dt">${T.map(t=>{ const p=t.score==null?null:Math.round(t.score/t.max*100);
         return `<div class="dk${p!=null&&p<70?' low':''}"><span>${esc(t.title)}</span><b>${t.score==null?'لم يُرصد':`${t.score} من ${t.max}`}</b></div>`; }).join('')}</div>`:''}
+      ${E.bonus>0?`<div class="dk" style="margin-top:8px"><span>مجموع درجاته في الاختبارات</span><b>${E.base!=null?+(+E.base).toFixed(2):+(E.score-E.bonus).toFixed(2)} من ${E.max}</b></div><div class="dk"><span>🎁 تعويض اشتراه بنقاط تميّزه في البوابة</span><b style="color:var(--ok)" dir="ltr">+${+(+E.bonus).toFixed(2)}</b></div><div class="dk"><span>درجته النهائية في الاختبارات</span><b>${E.score} من ${E.max}</b></div>`:''}
       ${(()=>{ const w=T.filter(t=>t.score!=null&&t.score/t.max<0.7).sort((a,b)=>a.score/a.max-b.score/b.max)[0]; if(!w) return '';
         return `<p class="tip">💡 أقل درجاته في «${esc(w.title)}» (${w.score} من ${w.max}). نقترح مراجعة دروس هذا الاختبار معه${w.score/w.max<0.6?'، وستصله في البوابة مهمة علاجية بالأسئلة التي أخطأ فيها':''}.</p>`; })()}`; }
   if(A&&A.total){ const late=(A.missing||[]).filter(x=>x.late), op=(A.missing||[]).filter(x=>!x.late).sort((a,b)=>String(a.due||'9999').localeCompare(String(b.due||'9999')));
@@ -219,7 +220,7 @@ function render(j, phone){
       ${bar('المهام الأدائية',aS,10,AC?`سلّم ${AC.done} من ${AC.n} من أنشطة البوابة`:'','💻','acts')}
     </div></section>
     <section class="card"><h2>📝 الاختبارات <span class="h-sc">${exOn?exS:'—'} من 20</span></h2><div class="tiles">
-      ${exOn?bar('الاختبارات',exS,20,(R.exam.tests||[]).filter(t=>t.score!=null).map(t=>`${esc(t.title)}: ${t.score} من ${t.max}`).join(' · '),'📝','exam'):`<div class="tile none"><div class="t-top"><span class="t-ic">📝</span><span class="t-nm">الاختبارات</span></div><span class="t-sub">لم تُرصد درجات بعد</span></div>`}
+      ${exOn?bar('الاختبارات',exS,20,(R.exam.tests||[]).filter(t=>t.score!=null).map(t=>`${esc(t.title)}: ${t.score} من ${t.max}`).join(' · ')+(R.exam.bonus>0?` · 🎁 +${+(+R.exam.bonus).toFixed(2)} تعويض بالنقاط`:''),'📝','exam'):`<div class="tile none"><div class="t-top"><span class="t-ic">📝</span><span class="t-nm">الاختبارات</span></div><span class="t-sub">لم تُرصد درجات بعد</span></div>`}
     </div><div id="det" class="det hide"></div>${R.teacherNote?`<p class="note" style="margin-top:12px">📝 <b>ملاحظة المعلم:</b> ${esc(R.teacherNote)}</p>`:''}</section>`;
   }
   const W=j.weekly&&j.weekly.d;
