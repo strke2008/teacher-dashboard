@@ -35,7 +35,7 @@ function remCompose(s,x){
     P.push(`واجبات منصة مدرستي مفتوحة ولم تُحل بعد (${x.mad.length}):\n${madUnsolvedLines(x.mad)}\n${how}`);
     S.push(`📱 ${x.mad.length===1?'واجب في منصة مدرستي مفتوح':'واجبات في منصة مدرستي مفتوحة'} ولم تحلها بعد:\n${madUnsolvedLines(x.mad)}\n\n${how}\nحلّها قبل الإغلاق.`);
   }
-  return { parent:`السلام عليكم، ولي أمر الطالب ${s.name}،\nالفصل: ${s.cls||'غير محدد'}\n\n${P.join('\n\n')}\n\nنأمل متابعة الطالب وإكمالها.\nوشكرًا لتعاونكم.`,
+  return { parent:`السلام عليكم، ولي أمر الطالب ${s.name}،\nالفصل: ${s.cls||'غير محدد'}\n\n${P.join('\n\n')}\n\nنأمل متابعة الطالب وإكمالها.\nوشكرًا لتعاونكم.`+(typeof parFooter==='function'?parFooter():''),
            student:`مرحبًا ${first} 👋\n${S.join('\n\n')}\n\nبالتوفيق 🌟` };
 }
 

@@ -119,7 +119,7 @@ function pmText(k,s){ const n=pmFirst(s.name), sub='مادة '+(String(rcGet('su
     behavior:`أرجو متابعة ابنكم ${n}، فقد صدرت منه ملاحظة سلوكية في حصة ${sub.replace('مادة ','')}.`,homework_neg:`لم ينجز ابنكم ${n} واجب ${sub}، وأرجو متابعته.`,
     late:`تأخر ابنكم ${n} عن حصة ${sub.replace('مادة ','')}، وأرجو تنبيهه على الالتزام بالوقت.`,support:`يحتاج ابنكم ${n} إلى متابعة إضافية في ${sub}.`,skill:`يحتاج ابنكم ${n} إلى مزيد من التدريب على مهارات ${sub}.`,
     start:`لم يبدأ ابنكم ${n} حل أنشطة ${sub} في بوابة الطالب حتى الآن. أرجو مساعدته في الدخول والبدء باختباري البداية ثم الأنشطة: ${typeof getSite==='function'?getSite():''}`};
-  return M[k]||M.behavior; }
+  return (M[k]||M.behavior)+(typeof parFooter==='function'?parFooter():''); }
 let PM={sid:'',dis:''};
 function pmsgOpen(sid,suggest,dis){
   const s=(STUDENTS||[]).find(x=>String(x.id)===String(sid)); if(!s) return; PM={sid:String(sid),dis:dis||''};
@@ -137,7 +137,7 @@ async function pmSend(k,how){
   let t,label;
   if(k==='custom'){ t=String(document.getElementById('pm-custom')?.value||'').replace(/\{الطالب\}/g,pmFirst(s.name)).replace(/\{الاسم الكامل\}/g,s.name).replace(/\{الفصل\}/g,s.cls||''); label='رسالة مخصصة'; if(!t.trim()){ toast('اكتب الرسالة','bad'); return; } }
   else { t=pmText(k,s); label=([...PM_POS,...PM_NEG].find(x=>x[1]===k)||['رسالة'])[0].replace(/^\S+\s/,''); }
-  if(how==='wa'){ const w=window.open('https://wa.me/?text='+encodeURIComponent(t),'_blank','noopener'); if(!w) location.href='https://wa.me/?text='+encodeURIComponent(t); }
+  if(how==='wa') parWaOpen(PM.sid,t);
   else { try{ await navigator.clipboard.writeText(t); toast('📋 نُسخت الرسالة','good'); }catch(e){ prompt('انسخ الرسالة:',t); } }
   try{ const id=PM.sid, dis=PM.dis; await ctSave(D=>{ D.contacts=Array.isArray(D.contacts)?D.contacts:[];
       D.contacts.push({id:v2Id(),studentId:id,date:ctToday(),channel:how==='wa'?'واتساب':'رسالة نصية',reason:label,result:'',at:Date.now()});

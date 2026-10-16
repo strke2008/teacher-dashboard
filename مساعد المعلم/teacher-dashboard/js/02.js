@@ -1585,7 +1585,7 @@ function planParentMsg(id){
   const one=n=>done
     ? `السلام عليكم، ولي أمر الطالب ${n}،\n\nانتهت الخطة العلاجية لابنكم في مادة ${subj}.\n📊 النتيجة: ${p.outcome||p.verdict}${p.before&&p.after&&p.before.measured&&p.after.measured?` — من ${p.before.rate}% إلى ${p.after.rate}%`:''}.\n${p.outcome&&/نجحت/.test(p.outcome)?'شكرًا لمتابعتكم، ونأمل المحافظة على هذا المستوى.':'نأمل التواصل معنا لمتابعة الخطوات القادمة.'}\n\n${teacher}`
     : `السلام عليكم، ولي أمر الطالب ${n}،\n\nبدأنا خطة علاجية لابنكم في مادة ${subj} لمدة ${p.timing&&p.timing.days||14} يومًا (حتى ${fmt(p.timing&&p.timing.due)}).\n🎯 الهدف: ${goal}\n📱 المطلوب: متابعة حلّه للمهمة العلاجية في بوابة الطالب «🎯 طوّر مستواك»، ومراجعة الدرس معه في المنزل.\n\nنشكر تعاونكم.\n${teacher}`;
-  const text=names.map(one).join('\n\n— — —\n\n');
+  const text=names.map(one).join('\n\n— — —\n\n')+(typeof parFooter==='function'?parFooter():'');
   openModal(`<h2>✉️ رسالة لولي الأمر — ${done?'نتيجة الخطة':'بدء الخطة'}</h2>
     <textarea class="inp" id="plan-pm" rows="12" style="width:100%;line-height:1.8">${planEsc(text)}</textarea>
     <div class="modal-foot"><button class="btn ghost" onclick="closeModal()">إغلاق</button>
@@ -15760,7 +15760,7 @@ function whatsappStudentReminder(id, btn){
   if(!remGuard(id,'parent',btn)) return;
   if(btn){ btn.textContent=btn.dataset.orig||btn.textContent; btn.classList.remove('rem-armed'); }
   remLogAdd(id,'parent','whatsapp');
-  const url='https://wa.me/?text='+encodeURIComponent(area.value||'');
+  const url=parWaUrl(id, area.value||'');
   const w=window.open(url,'_blank','noopener');
   if(!w) location.href=url;
   markFollowupHandled(id);
@@ -17486,13 +17486,19 @@ async function parLoad(force){
   return PARENTS;
 }
 function parFmt(p){ return p?'0'+String(p):''; }
-function parLink(){ return getSite().replace(/\/+$/,'')+'/parent.html'; }
+function parLink(){ return getSite().replace(/\/+$/,'')+'/parent'; }
+/* 👪 سطر رابط تقرير ولي الأمر يُلحق برسائل أولياء الأمور */
+function parFooter(){ return `\n\n📊 لمتابعة مستوى ابنكم ودرجاته: ${parLink()}\n(الدخول باسم الطالب ورقم جوالكم المسجّل في المدرسة)`; }
+/* 💬 واتساب لولي الأمر: على رقمه مباشرة إن كان محفوظًا، وإلا تختار المحادثة بنفسك */
+function parWaUrl(sid,text){ const x=PARENTS&&PARENTS[String(sid)]; return 'https://wa.me/'+(x&&x.p?'966'+x.p:'')+'?text='+encodeURIComponent(text||''); }
+function parWaOpen(sid,text){ const u=parWaUrl(sid,text), w=window.open(u,'_blank','noopener'); if(!w) location.href=u; }
+setTimeout(()=>{ try{ if(getApi()&&getTok()) parLoad(); }catch(e){} },4000);
 function parBoxHTML(sid){
   if(PARENTS===null){ parLoad().then(()=>{ const b=document.getElementById('par-box'); if(b&&b.dataset.sid===sid) b.innerHTML=parBoxHTML(sid); }); return '<span class="muted">👪 جارٍ جلب جوال ولي الأمر…</span>'; }
   const x=PARENTS[sid], s=(STUDENTS||[]).find(v=>String(v.id)===sid)||{};
   if(!x) return `<span class="par-ic">👪</span><span class="par-tx"><b>لا يوجد جوال لولي الأمر</b><small>أضفه يدويًا، أو من مدرستي: «تقارير إدارة المدرسة ← معلومات الطلاب» ثم زر الإضافة «📱 أرسل جوالات أولياء الأمور»</small></span>
     <button type="button" class="btn sm" onclick="parEdit('${esc(sid)}')">＋ أضف الجوال</button>`;
-  const wa='966'+x.p, msg=`السلام عليكم ${x.pn?('أ. '+x.pn.split(/\s+/)[0]):'ولي أمر الطالب'}،\nتقرير ابنكم ${String(s.name||'').split(/\s+/)[0]} في مادة ${rcGet('subject')||'العلوم'} متاح هنا:\n${parLink()}\nادخل باسم الطالب ورقم جوالكم هذا.`;
+  const wa='966'+x.p, msg=`السلام عليكم ${x.pn?('أ. '+x.pn.split(/\s+/)[0]):'ولي أمر الطالب'}،\nيمكنكم متابعة مستوى ابنكم ${String(s.name||'').split(/\s+/)[0]} ودرجاته في مادة ${rcGet('subject')||'العلوم'} (من 60) من هذا الرابط:\n${parLink()}\nالدخول باسم الطالب ورقم جوالكم هذا.`;
   return `<span class="par-ic">👪</span><span class="par-tx"><b>${esc(x.pn||'ولي الأمر')} · <span dir="ltr">${esc(parFmt(x.p))}</span></b><small>${x.src==='manual'?'أدخلته يدويًا':'من مدرستي'}</small></span>
     <a class="btn tick sm" target="_blank" rel="noopener" href="https://wa.me/${wa}">💬 واتساب</a>
     <a class="btn ghost sm" target="_blank" rel="noopener" href="https://wa.me/${wa}?text=${encodeURIComponent(msg)}" title="رسالة فيها رابط تقرير ابنه وطريقة الدخول">🔗 أرسل رابط التقرير</a>
