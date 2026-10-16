@@ -124,32 +124,28 @@ function parentDetails(R, A){
   if(R&&R.participation){ const P=R.participation, net=Math.max(0,(P.no||0)-(P.yes||0));
     D.part=`<h3>🙋 المشاركة</h3>${why(P.score,P.max)}
       <div class="dk"><span>شارك</span><b>${P.yes||0}</b></div><div class="dk"><span>لم يشارك</span><b>${P.no||0}</b></div><div class="dk"><span>غاب</span><b>${P.absent||0}</b></div>
-      <p class="how">📐 كيف تُحسب: تبدأ من ${P.max}، وتنقص درجة عن كل 3 مرات «لم يشارك» زيادةً على مرات مشاركته${net?` — عنده ${net} زيادة`:''}.</p>
       ${P.score<P.max?'<p class="tip">💡 شجّعوه على رفع يده والإجابة في الحصة — كل مشاركة تعوّض «لم يشارك».</p>':''}`; }
-  if(R&&R.homework){ const H=R.homework, C=H.classPart, M=H.madrasati;
-    D.hw=`<h3>📕 الواجبات</h3>${why(H.score,H.max)}
-      ${C?`<div class="dsub">📕 الواجب في الحصة: <b>${C.score} من ${C.max}</b> — أنجز ${C.done} · لم ينجز ${C.missed}${C.forgiven?` · أُعفي من ${C.forgiven}`:''}</div>`:''}
-      ${M&&M.counted?`<div class="dsub">📱 واجبات مدرستي: <b>${M.score} من ${M.max}</b> — حلّ ${M.solved} من ${M.counted}</div>${(M.missedList||[]).length?`<p class="miss">لم يحلّ في مدرستي:</p>${li(M.missedList.map(esc))}`:''}`:''}
-      <p class="how">📐 كيف تُحسب: كل واجب لم يُسلَّم ينقص نصف درجة (بعد أسبوع سماح)، وواجبات مدرستي بنسبة ما حلّه منها.</p>
-      ${(M&&(M.pendingList||[]).length)?`<p class="tip">💡 ما زال مفتوحًا في مدرستي: ${M.pendingList.map(x=>esc(x.title)).join('، ')} — حلّه قبل الإغلاق يحفظ درجته.</p>`:''}`; }
+  if(R&&R.homework){ const H=R.homework, C=H.classPart;
+    D.hw=C?`<h3>📕 واجبات الفصل</h3>${why(C.score,C.max)}
+      <div class="dk"><span>أنجز</span><b>${C.done}</b></div><div class="dk"><span>لم ينجز</span><b>${C.missed}</b></div>${C.forgiven?`<div class="dk"><span>أُعفي من</span><b>${C.forgiven}</b></div>`:''}
+      ${C.missed?'<p class="tip">💡 تابعوا معه حلّ واجب الكتاب وإحضاره في الحصة التالية.</p>':''}`
+      :`<h3>📕 الواجبات</h3>${why(H.score,H.max)}`; }
   if(R&&R.behavior){ const B=R.behavior, neg=(B.notes||[]).filter(n=>n.type!=='positive'), pos=(B.notes||[]).filter(n=>n.type==='positive');
     D.beh=`<h3>🤝 السلوك</h3>${why(B.score,B.max)}
       ${neg.length?`<p class="miss">ملاحظات سلبية (${neg.length}):</p>${li(neg.map(n=>`${esc(n.date)} — ${esc(n.category||'ملاحظة')}${n.note?`: ${esc(n.note)}`:''}`))}`:''}
-      ${pos.length?`<p class="ok">🌟 مواقف إيجابية (${pos.length}):</p>${li(pos.map(n=>`${esc(n.date)} — ${esc(n.category||'')}${n.note?`: ${esc(n.note)}`:''}`))}`:''}
-      <p class="how">📐 كيف تُحسب: كل ملاحظة سلبية تنقص درجة، وكل موقف إيجابي يعوّض درجة مما نقص (دون تجاوز الكامل).</p>`; }
+      ${pos.length?`<p class="ok">🌟 مواقف إيجابية (${pos.length}):</p>${li(pos.map(n=>`${esc(n.date)} — ${esc(n.category||'')}${n.note?`: ${esc(n.note)}`:''}`))}`:''}`; }
   if(R&&R.exam){ const E=R.exam, T=(E.tests||[]);
     D.exam=`<h3>📝 الاختبارات</h3>${E.measured&&E.score!=null?why(E.score,E.max):'<p class="how">لم تُرصد درجات بعد.</p>'}
       ${T.length?`<div class="dt">${T.map(t=>{ const p=t.score==null?null:Math.round(t.score/t.max*100);
         return `<div class="dk${p!=null&&p<70?' low':''}"><span>${esc(t.title)}</span><b>${t.score==null?'لم يُرصد':`${t.score} من ${t.max}`}</b></div>`; }).join('')}</div>`:''}
-      <p class="how">📐 الدرجة من ${E.max} محسوبة من مجموع اختبارات الفترة.</p>
       ${T.some(t=>t.score!=null&&t.score/t.max<0.7)?'<p class="tip">💡 الاختبار المظلل هو الأضعف — راجعوا معه دروسه، وإن أخفق فيه تصله مهمة علاجية بأسئلته في البوابة.</p>':''}`; }
   if(A&&A.total){ const late=(A.missing||[]).filter(x=>x.late), op=(A.missing||[]).filter(x=>!x.late);
     D.acts=`<h3>💻 أنشطة البوابة</h3>${A.doneN>=A.total?ok('سلّم كل الأنشطة.'):`<p class="miss">لم يسلّم <b>${A.total-(A.doneN||0)}</b> من ${A.total}</p>`}
       ${late.length?`<p class="miss">⏰ متأخرة:</p>${li(late.map(x=>esc(x.t)))}`:''}${op.length?`<p class="how">📌 مفتوحة لم يحلّها:</p>${li(op.map(x=>esc(x.t)+(x.due?` <small>(حتى ${esc(x.due)})</small>`:'')))}`:''}
       <p class="tip">💡 يحلّها من بوابة الطالب «أنشطتي» — كل نشاط يُسلَّم يرفع النسبة.</p>`; }
   if(R&&R.homework&&R.homework.madrasati&&R.homework.madrasati.counted){ const M=R.homework.madrasati;
-    D.mad=`<h3>📱 واجبات مدرستي</h3>${M.solved>=M.counted?ok('حلّ كل واجبات مدرستي.'):`<p class="miss">لم يحلّ <b>${M.counted-M.solved}</b> من ${M.counted}</p>`}
-      ${(M.missedList||[]).length?li(M.missedList.map(esc)):''}${(M.pendingList||[]).length?`<p class="how">مفتوح الآن:</p>${li(M.pendingList.map(x=>esc(x.title)))}`:''}
+    D.mad=`<h3>📱 واجبات مدرستي</h3>${M.solved>=M.counted?ok('حلّ كل واجبات مدرستي.'):`<p class="miss">لم يحلّ <b>${M.counted-M.solved}</b> من ${M.counted}:</p>`}
+      ${(M.missedList||[]).length?li(M.missedList.map(esc)):''}${(M.pendingList||[]).length?`<p class="tip">💡 مفتوح الآن في مدرستي — حلّه قبل الإغلاق: ${M.pendingList.map(x=>esc(x.title)).join('، ')}</p>`:''}
       ${M.forgiven?`<p class="how">أُعفي من ${M.forgiven}.</p>`:''}`; }
   return D;
 }
@@ -158,7 +154,10 @@ function render(j, phone){
   // المستوى العام: متوسط نسب ما قيس فعلًا (المشاركة · الواجبات · السلوك · الاختبارات · الأنشطة الإلكترونية)
   const parts=[];
   if(R){ if(R.participation&&R.participation.measured) parts.push(R.participation.score/R.participation.max);
-    if(R.homework&&R.homework.score!=null) parts.push(R.homework.score/R.homework.max);
+    { const H=R.homework||{}, C=H.classPart, M=H.madrasati;
+      if(C&&C.measured!==false&&C.max) parts.push(C.score/C.max);
+      if(M&&M.counted&&M.max) parts.push(M.score/M.max);
+      if(!(C&&C.measured!==false)&&!(M&&M.counted)&&H.score!=null) parts.push(H.score/H.max); }
     if(R.behavior&&R.behavior.score!=null) parts.push(R.behavior.score/R.behavior.max);
     if(R.exam&&R.exam.measured&&R.exam.score!=null) parts.push(R.exam.score/R.exam.max); }
   if(A.total) parts.push((A.doneN||0)/A.total);
@@ -170,11 +169,11 @@ function render(j, phone){
     ${(j.siblings||[]).length?`<div class="sib"><span class="muted">إخوته:</span>${j.siblings.map(n=>`<button class="ghost sm" type="button" data-sib="${esc(n)}">${esc(n)}</button>`).join('')}</div>`:''}</section>`;
   h+=`<section class="card"><h2>📊 تفاصيل مستواه</h2><p class="muted" style="margin:-.3rem 0 .7rem">اضغط أي بطاقة لمعرفة سبب درجتها وما يمكن فعله.</p><div class="tiles">
     ${R&&R.participation&&R.participation.measured?bar('المشاركة',R.participation.score,R.participation.max,R.participation.absent?`غاب ${R.participation.absent} ${R.participation.absent===1?'حصة':'حصص'}`:'','🙋','part'):''}
-    ${R&&R.homework&&R.homework.score!=null?bar('الواجبات',R.homework.score,R.homework.max,R.homework.classPart?`أنجز ${R.homework.classPart.done} · لم ينجز ${R.homework.classPart.missed}`:'','📕','hw'):''}
+    ${R&&R.homework&&R.homework.classPart&&R.homework.classPart.measured!==false?bar('واجبات الفصل',R.homework.classPart.score,R.homework.classPart.max,`أنجز ${R.homework.classPart.done} · لم ينجز ${R.homework.classPart.missed}`,'📕','hw'):R&&R.homework&&!R.homework.madrasati&&R.homework.score!=null?bar('الواجبات',R.homework.score,R.homework.max,'','📕','hw'):''}
     ${R&&R.behavior&&R.behavior.score!=null?bar('السلوك',R.behavior.score,R.behavior.max,`🌟 ${R.behavior.pos||0} إيجابي · ⚠️ ${R.behavior.neg||0} سلبي`,'🤝','beh'):''}
     ${R&&R.exam&&R.exam.measured&&R.exam.score!=null?bar('الاختبارات',R.exam.score,R.exam.max,(R.exam.tests||[]).filter(t=>t.score!=null).map(t=>`${esc(t.title)}: ${t.score} من ${t.max}`).join(' · '),'📝','exam'):R?`<div class="tile none"><div class="t-top"><span class="t-ic">📝</span><span class="t-nm">الاختبارات</span></div><span class="t-sub" style="margin-top:6px">لم تُرصد بعد</span></div>`:''}
     ${A.total?bar('أنشطة البوابة',A.doneN||0,A.total,'ما سلّمه من الأنشطة الإلكترونية','💻','acts'):''}
-    ${R&&R.homework&&R.homework.madrasati&&R.homework.madrasati.counted?bar('واجبات مدرستي',R.homework.madrasati.solved,R.homework.madrasati.counted,'','📱','mad'):''}
+    ${R&&R.homework&&R.homework.madrasati&&R.homework.madrasati.counted?bar('واجبات مدرستي',R.homework.madrasati.score,R.homework.madrasati.max,`حلّ ${R.homework.madrasati.solved} من ${R.homework.madrasati.counted}`,'📱','mad'):''}
     </div><div id="det" class="det hide"></div>${R&&R.teacherNote?`<p class="note" style="margin-top:12px">📝 <b>ملاحظة المعلم:</b> ${esc(R.teacherNote)}</p>`:''}</section>`;
   if(late.length||open.length){
     h+=`<section class="card"><h2>📌 المطلوب منه</h2>
