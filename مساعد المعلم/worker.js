@@ -5070,8 +5070,15 @@ export default {
       reports.sort((a, c) => (c.semester - a.semester) || (c.period - a.period));
       let weekly = null; try { const ms = await readMessages(env, { id: sid, name: st.name }); const w = ms.filter(m => m && m.type === 'weekly').sort((a, c) => String(c.createdAt).localeCompare(String(a.createdAt)))[0];
         if (w) { const i = String(w.body || '').indexOf('⟨WK⟩'); weekly = { at: w.createdAt, text: (i < 0 ? w.body : w.body.slice(0, i)).trim().slice(0, 1200), d: i < 0 ? null : (() => { try { return JSON.parse(w.body.slice(i + 4)); } catch { return null; } })() }; } } catch {}
+      // 📈 مستواه الآن: نفس حساب «تقرير الفترة» للفترة الجارية (ولو لم يُنشر بعد)
+      let live = null;
+      try { const data0 = await loadClassroom(env), ac = academicNormalize(data0) || {}, sem = ac.currentSemester === 2 ? 2 : 1;
+        const per = ((ac.semesters || {})[String(sem)] || {}).activePeriod === 2 ? 2 : 1;
+        const { data, grades } = await studentReportGrades(env, sem, per), g = grades.students.find(x => String(x.id) === sid);
+        if (g) { const pub = reports.find(r => r.semester === sem && r.period === per);
+          live = studentReportBuild(data, g, sem, per, pub ? pub.teacherNote : '', null); } } catch {}
       if (fails) await env.HW.delete(fk);
-      return json({ ok: true, student: { name: st.name, cls }, siblings, acts: { total: acts.length, done: done.sort((a, c) => c.at - a.at).slice(0, 15), doneN: done.length, missing: missing.slice(0, 20) }, reports, weekly,
+      return json({ ok: true, live, student: { name: st.name, cls }, siblings, acts: { total: acts.length, done: done.sort((a, c) => c.at - a.at).slice(0, 15), doneN: done.length, missing: missing.slice(0, 20) }, reports, weekly,
         teacher: String((state.repcfg && state.repcfg.teacher) || '') });
     }
     if (url.pathname === '/mine' && request.method === 'GET') {

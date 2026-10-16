@@ -32,6 +32,19 @@ button.ghost{background:#EEF3FB;color:var(--acc);width:auto;padding:8px 14px}
 .tag{font-size:.74rem;font-weight:800;border-radius:99px;padding:2px 9px;white-space:nowrap}.tag.late{background:#FFE6EA;color:var(--bad)}.tag.open{background:#FFF3D6;color:#8A5A00}.tag.ok{background:#E3F4EC;color:var(--ok)}
 .note{background:#F7F9FD;border-radius:12px;padding:10px 12px;white-space:pre-line;font-size:.92rem}
 .sib{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+button.sm{padding:6px 12px;font-size:.85rem}
+.hero .who{align-items:center}
+.lv{display:flex;align-items:center;gap:16px;margin-top:14px;padding:14px;border-radius:16px;background:color-mix(in srgb,var(--c) 8%,#fff)}
+.ring{--p:0;flex:none;width:92px;height:92px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--c) calc(var(--p)*1%),#E6ECF5 0)}
+.ring b{width:72px;height:72px;border-radius:50%;background:#fff;display:grid;place-items:center;font-size:1.25rem;color:var(--c)}
+.lv-t{font-size:1.6rem;font-weight:900;color:var(--c);line-height:1.3}
+.ln{padding:10px 0;border-top:1px dashed var(--rule)}.ln:first-of-type{border-top:0}
+.ln-h{display:flex;justify-content:space-between;gap:8px;font-weight:700}
+.ln-bar{height:9px;border-radius:99px;background:#E6ECF5;overflow:hidden;margin:6px 0 2px}.ln-bar i{display:block;height:100%;border-radius:99px}
+.ln small{color:var(--soft);font-size:.78rem}
+.pt{margin:.3rem 0}
+details summary{cursor:pointer;margin:.3rem 0}
+.sib{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px}
 .hide{display:none}
 footer{text-align:center;color:var(--soft);font-size:.78rem;padding:10px 0 30px}
 </style>
@@ -74,36 +87,49 @@ async function go(name, phone, quiet){
   }catch(e){ err('تعذّر الاتصال — تحقق من الإنترنت.'); }
   finally{ $('go').disabled=false; $('go').textContent='عرض التقرير'; }
 }
+const LEVELS=[[90,'ممتاز','#13734F'],[80,'جيد جدًا','#1F7A5A'],[65,'جيد','#1F5FC8'],[50,'مقبول','#B7791F'],[0,'يحتاج متابعة','#B4232F']];
+const lvl=p=>LEVELS.find(x=>p>=x[0]);
+function bar(label, val, max, sub, icon){
+  const p=max?Math.round(val/max*100):0, L=lvl(p);
+  return `<div class="ln"><div class="ln-h"><span>${icon} ${label}</span><b style="color:${L[2]}">${val} من ${max}</b></div>
+    <div class="ln-bar"><i style="width:${p}%;background:${L[2]}"></i></div>${sub?`<small>${sub}</small>`:''}</div>`;
+}
 function render(j, phone){
-  const s=j.student, A=j.acts||{}, late=(A.missing||[]).filter(x=>x.late), open=(A.missing||[]).filter(x=>!x.late);
-  let h=`<section class="card"><div class="who"><div class="av">🎓</div><div><b>${esc(s.name)}</b><div class="muted">الفصل ${esc(s.cls||'—')}</div></div></div>
-    ${(j.siblings||[]).length?`<div class="muted" style="margin-top:10px">إخوته المسجّلون بنفس الجوال:</div><div class="sib">${j.siblings.map(n=>`<button class="ghost" type="button" data-sib="${esc(n)}">${esc(n)}</button>`).join('')}</div>`:''}
-    <div style="margin-top:12px"><button class="ghost" type="button" id="out-btn">↩︎ خروج</button></div></section>`;
-  h+=`<section class="card"><h2>📚 الأنشطة</h2><div class="kpis">
-      <div class="kpi"><span>سلّم</span><b>${A.doneN||0} من ${A.total||0}</b><small>${pct(A.doneN||0,A.total||0)}% من أنشطة فصله</small></div>
-      <div class="kpi"><span>لم يسلّم</span><b style="color:${late.length?'var(--bad)':'inherit'}">${(A.missing||[]).length}</b><small>${late.length?`منها ${late.length} انتهى موعدها`:'لا متأخرات'}</small></div></div>
-    ${late.length||open.length?`<div style="margin-top:10px">${late.concat(open).map(x=>`<div class="row"><span>${esc(x.t)}</span><span class="tag ${x.late?'late':'open'}">${x.late?'⏰ انتهى موعده':x.due?'مفتوح حتى '+esc(x.due):'مفتوح'}</span></div>`).join('')}</div>`:''}
-    ${(A.done||[]).length?`<details style="margin-top:8px"><summary class="muted" style="cursor:pointer">آخر ما سلّمه (${A.done.length})</summary>${A.done.map(x=>`<div class="row"><span>${esc(x.t)}</span>${x.n?`<span class="tag ok">${x.c} من ${x.n}</span>`:'<span class="tag ok">سُلّم</span>'}</div>`).join('')}</details>`:''}</section>`;
-  const W=j.weekly&&j.weekly.d;
-  if(W){ const att=(W.sh||0)+(W.ab||0)+(W.ms||0), hw=(W.dn||0)+(W.un||0);
-    h+=`<section class="card"><h2>📊 تقرير الأسبوع</h2><div class="kpis">
-      ${att?`<div class="kpi"><span>المشاركة</span><b>${W.sh||0} من ${att}</b><small>${W.ab?`غياب ${W.ab}`:'بلا غياب'}</small></div>`:''}
-      ${hw?`<div class="kpi"><span>الواجبات</span><b>${W.dn||0} من ${hw}</b><small>${W.ex?`${W.ex} بعذر`:''}</small></div>`:''}
-      ${W.ac?`<div class="kpi"><span>أنشطة البوابة</span><b>${W.sb||0} من ${W.ac}</b></div>`:''}
-      ${W.md&&((W.md.s||0)+((W.md.m||[]).length))?`<div class="kpi"><span>مدرستي</span><b>${W.md.s||0} من ${(W.md.s||0)+(W.md.m||[]).length}</b></div>`:''}</div>
-      ${(W.ps||[]).length?`<p style="margin:.6rem 0 0">🌟 <b>أحسن في:</b> ${W.ps.map(esc).join('، ')}</p>`:''}
-      ${(W.ng||[]).length?`<p style="margin:.3rem 0 0">📌 <b>يحتاج انتباهًا إلى:</b> ${W.ng.map(esc).join('، ')}</p>`:''}
-      ${W.st?`<p class="note" style="margin-top:.6rem">🎯 خطوته القادمة: ${esc(W.st)}</p>`:''}</section>`;
-  } else if(j.weekly&&j.weekly.text){ h+=`<section class="card"><h2>📊 تقرير الأسبوع</h2><div class="note">${esc(j.weekly.text)}</div></section>`; }
-  for(const r of (j.reports||[])){
-    const k=(t,o,sub)=>o&&o.score!=null?`<div class="kpi"><span>${t}</span><b>${o.score} من ${o.max}</b>${sub?`<small>${sub}</small>`:''}</div>`:'';
-    h+=`<section class="card"><h2>📄 تقرير ${esc(r.label||'الفترة')}</h2><div class="kpis">
-      ${k('المشاركة',r.participation,r.participation&&r.participation.absent?`غياب ${r.participation.absent}`:'')}
-      ${k('الواجبات',r.homework)}${k('السلوك',r.behavior,r.behavior?`🌟 ${r.behavior.pos||0} · ⚠️ ${r.behavior.neg||0}`:'')}
-      ${r.exam&&r.exam.measured?k('الاختبارات',r.exam):''}</div>
-      ${r.teacherNote?`<p class="note" style="margin-top:.6rem">📝 ملاحظة المعلم: ${esc(r.teacherNote)}</p>`:''}</section>`;
+  const s=j.student, A=j.acts||{}, R=j.live, late=(A.missing||[]).filter(x=>x.late), open=(A.missing||[]).filter(x=>!x.late);
+  // المستوى العام: متوسط نسب ما قيس فعلًا (المشاركة · الواجبات · السلوك · الاختبارات · الأنشطة الإلكترونية)
+  const parts=[];
+  if(R){ if(R.participation&&R.participation.measured) parts.push(R.participation.score/R.participation.max);
+    if(R.homework&&R.homework.score!=null) parts.push(R.homework.score/R.homework.max);
+    if(R.behavior&&R.behavior.score!=null) parts.push(R.behavior.score/R.behavior.max);
+    if(R.exam&&R.exam.measured&&R.exam.score!=null) parts.push(R.exam.score/R.exam.max); }
+  if(A.total) parts.push((A.doneN||0)/A.total);
+  const P=parts.length?Math.round(parts.reduce((a,b)=>a+b,0)/parts.length*100):null, L=P==null?null:lvl(P);
+  let h=`<section class="card hero"><div class="who"><div class="av">🎓</div><div style="flex:1;min-width:0"><b>${esc(s.name)}</b><div class="muted">الفصل ${esc(s.cls||'—')}${R?` · ${esc(R.label||'')}`:''}</div></div>
+      <button class="ghost sm" type="button" id="out-btn">خروج</button></div>
+    ${L?`<div class="lv" style="--c:${L[2]}"><div class="ring" style="--p:${P}"><b>${P}%</b></div><div><span class="muted">مستواه العام حتى الآن</span><div class="lv-t">${L[1]}</div>
+      <span class="muted">${late.length?`⚠️ عليه ${late.length} ${late.length===1?'نشاط متأخر':'أنشطة متأخرة'}`:open.length?`📌 عليه ${open.length} ${open.length===1?'نشاط مفتوح':'أنشطة مفتوحة'} لم يحلّها بعد`:'✓ لا أنشطة متأخرة عليه'}</span></div></div>`:''}
+    ${(j.siblings||[]).length?`<div class="sib"><span class="muted">إخوته:</span>${j.siblings.map(n=>`<button class="ghost sm" type="button" data-sib="${esc(n)}">${esc(n)}</button>`).join('')}</div>`:''}</section>`;
+  h+=`<section class="card"><h2>📊 تفاصيل مستواه</h2>
+    ${R&&R.participation&&R.participation.measured?bar('المشاركة',R.participation.score,R.participation.max,R.participation.absent?`غاب ${R.participation.absent} ${R.participation.absent===1?'حصة':'حصص'}`:'','🙋'):''}
+    ${R&&R.homework&&R.homework.score!=null?bar('الواجبات',R.homework.score,R.homework.max,R.homework.classPart?`أنجز ${R.homework.classPart.done} · لم ينجز ${R.homework.classPart.missed}`:'','📕'):''}
+    ${R&&R.behavior&&R.behavior.score!=null?bar('السلوك',R.behavior.score,R.behavior.max,`🌟 ${R.behavior.pos||0} إيجابي · ⚠️ ${R.behavior.neg||0} سلبي`,'🤝'):''}
+    ${R&&R.exam&&R.exam.measured&&R.exam.score!=null?bar('الاختبارات',R.exam.score,R.exam.max,(R.exam.tests||[]).filter(t=>t.score!=null).map(t=>`${esc(t.title)}: ${t.score} من ${t.max}`).join(' · '),'📝'):R?`<div class="ln muted">📝 الاختبارات: لم تُرصد بعد</div>`:''}
+    ${A.total?bar('الأنشطة الإلكترونية',A.doneN||0,A.total,'عدد ما سلّمه من أنشطة البوابة','💻'):''}
+    ${R&&R.homework&&R.homework.madrasati&&R.homework.madrasati.counted?bar('واجبات مدرستي',R.homework.madrasati.solved,R.homework.madrasati.counted,'','📱'):''}
+    ${R&&R.teacherNote?`<p class="note">📝 <b>ملاحظة المعلم:</b> ${esc(R.teacherNote)}</p>`:''}</section>`;
+  if(late.length||open.length){
+    h+=`<section class="card"><h2>📌 المطلوب منه</h2>
+      ${late.map(x=>`<div class="row"><span>${esc(x.t)}</span><span class="tag late">⏰ متأخر</span></div>`).join('')}
+      ${open.length?(late.length?`<details><summary class="muted">وأنشطة مفتوحة لم يحلّها (${open.length})</summary>`:'')+open.map(x=>`<div class="row"><span>${esc(x.t)}</span><span class="tag open">${x.due?'حتى '+esc(x.due):'مفتوح'}</span></div>`).join('')+(late.length?'</details>':''):''}
+      <p class="muted" style="margin:.5rem 0 0">يحلّها من بوابة الطالب «أنشطتي».</p></section>`;
   }
-  if(!j.weekly&&!(j.reports||[]).length) h+=`<section class="card muted">لم يُنشر تقرير أسبوعي أو تقرير فترة لابنكم بعد.</section>`;
+  const W=j.weekly&&j.weekly.d;
+  if(W&&((W.ps||[]).length||(W.ng||[]).length||W.st)) h+=`<section class="card"><h2>🗓️ آخر أسبوع</h2>
+      ${(W.ps||[]).length?`<p class="pt">🌟 <b>أحسن في:</b> ${W.ps.map(esc).join('، ')}</p>`:''}
+      ${(W.ng||[]).length?`<p class="pt">📌 <b>يحتاج انتباهًا إلى:</b> ${W.ng.map(esc).join('، ')}</p>`:''}
+      ${W.st?`<p class="note">🎯 خطوته القادمة: ${esc(W.st)}</p>`:''}</section>`;
+  const old=(j.reports||[]).filter(r=>!R||r.semester!==R.semester||r.period!==R.period);
+  if(old.length) h+=`<section class="card"><details><summary><b>📄 تقارير الفترات السابقة (${old.length})</b></summary>${old.map(r=>`<div class="row"><span>${esc(r.label||'')}</span><span class="muted">مشاركة ${r.participation?r.participation.score:'—'} · واجبات ${r.homework?r.homework.score:'—'} · سلوك ${r.behavior?r.behavior.score:'—'}${r.exam&&r.exam.measured?` · اختبارات ${r.exam.score}/${r.exam.max}`:''}</span></div>`).join('')}</details></section>`;
   $('out').innerHTML=h;
   $('out-btn').onclick=()=>{ try{ localStorage.removeItem(KEY); }catch(e){} $('out').innerHTML=''; $('login').classList.remove('hide'); };
   $('out').querySelectorAll('[data-sib]').forEach(b=>b.onclick=()=>go(b.dataset.sib, phone));
