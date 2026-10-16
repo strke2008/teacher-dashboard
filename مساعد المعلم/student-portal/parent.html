@@ -23,6 +23,7 @@ input:focus{outline:2px solid #9DB8EC;border-color:#9DB8EC}
 button{font:inherit;font-weight:800;border:0;border-radius:12px;padding:12px 16px;background:var(--acc);color:#fff;cursor:pointer;width:100%}
 button.ghost{background:#EEF3FB;color:var(--acc);width:auto;padding:8px 14px}
 .muted{color:var(--soft);font-size:.84rem}
+#nmx{margin:-4px 0 10px}#nmx .pick{background:#E9F6F0;border:1.5px solid #9BD3BB;color:var(--ink);text-align:start;font-weight:400;padding:10px 14px}#nmx .pick small{display:block;color:var(--soft);font-size:.76rem}#nmx .pick b{font-size:1rem}#nmx .hint{color:var(--soft);font-size:.82rem}
 .err{color:var(--bad);font-weight:700;font-size:.9rem;margin-top:8px}
 .who{display:flex;align-items:center;gap:12px}.who .av{width:52px;height:52px;border-radius:16px;background:#EEF3FB;display:grid;place-items:center;font-size:1.6rem}
 .who b{font-size:1.1rem}
@@ -81,9 +82,10 @@ footer{text-align:center;color:var(--soft);font-size:.78rem;padding:10px 0 30px}
 <main>
   <section class="card" id="login">
     <h2>الدخول</h2>
-    <p class="muted" style="margin-top:0">اكتب اسم الطالب (الاسم الأول واسم العائلة على الأقل) ورقم جوالكم المسجّل في المدرسة.</p>
+    <p class="muted" style="margin-top:0">اكتب اسم الطالب أو جزءًا منه واختر اسمه من الاقتراح، ثم رقم جوالكم المسجّل في المدرسة.</p>
     <form id="f" autocomplete="on">
       <label>اسم الطالب<input id="nm" name="student" required placeholder="مثال: محمد عبدالله العتيبي" autocomplete="off"></label>
+      <div id="nmx" class="hide"></div>
       <label>جوال ولي الأمر<input id="ph" name="tel" type="tel" inputmode="numeric" required placeholder="05xxxxxxxx" dir="ltr"></label>
       <button type="submit" id="go">عرض التقرير</button>
       <div class="err hide" id="err"></div>
@@ -114,6 +116,27 @@ async function go(name, phone, quiet){
   }catch(e){ err('تعذّر الاتصال — تحقق من الإنترنت.'); }
   finally{ $('go').disabled=false; $('go').textContent='عرض التقرير'; }
 }
+// 💡 اقتراح الاسم الصحيح مثل «أنشطتي»: يكتب جزءًا من الاسم ويختار اسمه الكامل بلمسة
+let _nT=null;
+const nmBox=(h)=>{ const x=$('nmx'); x.innerHTML=h||''; x.classList.toggle('hide',!h); };
+$('nm').addEventListener('input',()=>{
+  clearTimeout(_nT); const q=$('nm').value.trim();
+  if(!q){ nmBox(''); return; }
+  _nT=setTimeout(async()=>{
+    try{
+      const j=await (await fetch(API+'/find',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({q})})).json();
+      if(q!==$('nm').value.trim()) return;
+      if(j.ok&&Array.isArray(j.matches)&&j.matches.length===1){
+        const nm=j.matches[0].name||'';
+        if(nm.trim()===q){ nmBox('<div class="hint">✅ الاسم صحيح</div>'); return; }
+        nmBox(`<button type="button" class="pick" data-nm="${esc(nm)}"><small>هل تقصد؟ اضغط للتأكيد</small><b>${esc(nm)}</b></button>`);
+        $('nmx').querySelector('.pick').onclick=e=>{ $('nm').value=e.currentTarget.dataset.nm; nmBox('<div class="hint">✅ الاسم صحيح</div>'); $('ph').focus(); };
+      } else if(j.error==='many') nmBox(`<div class="hint">يوجد ${j.total||'أكثر من'} طلاب بهذا الاسم — أضف اسم الأب أو العائلة</div>`);
+      else if(j.error==='none') nmBox('<div class="hint" style="color:var(--bad)">لم أجد اسمًا مطابقًا — ابدأ بالاسم الأول للطالب</div>');
+      else nmBox('');
+    }catch(e){ nmBox(''); }
+  },300);
+});
 const LEVELS=[[90,'ممتاز','#13734F'],[80,'جيد جدًا','#1F7A5A'],[65,'جيد','#1F5FC8'],[50,'مقبول','#B7791F'],[0,'يحتاج متابعة','#B4232F']];
 const lvl=p=>LEVELS.find(x=>p>=x[0]);
 function bar(label, val, max, sub, icon, key){
