@@ -45,6 +45,18 @@ button.sm{padding:6px 12px;font-size:.85rem}
 .pt{margin:.3rem 0}
 details summary{cursor:pointer;margin:.3rem 0}
 .sib{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px}
+
+.tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+@media(min-width:560px){.tiles{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.tile{border-radius:16px;padding:12px;background:color-mix(in srgb,var(--c,#5B6B82) 7%,#fff);border:1px solid color-mix(in srgb,var(--c,#5B6B82) 22%,#fff);display:grid;gap:8px;align-content:start}
+.tile.none{--c:#8A97AB}
+.t-top{display:flex;align-items:center;gap:6px;font-weight:800;font-size:.9rem}.t-ic{font-size:1.1rem}
+.t-mid{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.mini{--p:0;flex:none;width:54px;height:54px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--c) calc(var(--p)*1%),#E6ECF5 0)}
+.mini span{width:42px;height:42px;border-radius:50%;background:#fff;display:grid;place-items:center;font-size:.78rem;font-weight:900;color:var(--c)}
+.t-sc{display:block;font-size:1.35rem;line-height:1.2;color:var(--ink)}.t-sc small{font-size:.8rem;color:var(--soft);font-weight:700}
+.t-lv{display:inline-block;margin-top:3px;font-size:.74rem;font-weight:900;color:#fff;background:var(--c);border-radius:99px;padding:1px 9px;white-space:nowrap}
+.t-sub{font-size:.76rem;color:var(--soft);line-height:1.5}
 .hide{display:none}
 footer{text-align:center;color:var(--soft);font-size:.78rem;padding:10px 0 30px}
 </style>
@@ -90,9 +102,11 @@ async function go(name, phone, quiet){
 const LEVELS=[[90,'ممتاز','#13734F'],[80,'جيد جدًا','#1F7A5A'],[65,'جيد','#1F5FC8'],[50,'مقبول','#B7791F'],[0,'يحتاج متابعة','#B4232F']];
 const lvl=p=>LEVELS.find(x=>p>=x[0]);
 function bar(label, val, max, sub, icon){
+  // 🎯 بطاقة لكل جانب: دائرة صغيرة بالنسبة ولونها حسب المستوى، والدرجة والحكم وتفصيل قصير
   const p=max?Math.round(val/max*100):0, L=lvl(p);
-  return `<div class="ln"><div class="ln-h"><span>${icon} ${label}</span><b style="color:${L[2]}">${val} من ${max}</b></div>
-    <div class="ln-bar"><i style="width:${p}%;background:${L[2]}"></i></div>${sub?`<small>${sub}</small>`:''}</div>`;
+  return `<div class="tile" style="--c:${L[2]}"><div class="t-top"><span class="t-ic">${icon}</span><span class="t-nm">${label}</span></div>
+    <div class="t-mid"><div class="mini" style="--p:${p}"><span>${p}%</span></div><div><b class="t-sc">${val}<small> من ${max}</small></b><span class="t-lv">${L[1]}</span></div></div>
+    ${sub?`<small class="t-sub">${sub}</small>`:''}</div>`;
 }
 function render(j, phone){
   const s=j.student, A=j.acts||{}, R=j.live||(j.reports||[])[0]||null, late=(A.missing||[]).filter(x=>x.late), open=(A.missing||[]).filter(x=>!x.late);
@@ -109,14 +123,14 @@ function render(j, phone){
     ${L?`<div class="lv" style="--c:${L[2]}"><div class="ring" style="--p:${P}"><b>${P}%</b></div><div><span class="muted">مستواه العام حتى الآن</span><div class="lv-t">${L[1]}</div>
       <span class="muted">${late.length?`⚠️ عليه ${late.length} ${late.length===1?'نشاط متأخر':'أنشطة متأخرة'}`:open.length?`📌 عليه ${open.length} ${open.length===1?'نشاط مفتوح':'أنشطة مفتوحة'} لم يحلّها بعد`:'✓ لا أنشطة متأخرة عليه'}</span></div></div>`:''}
     ${(j.siblings||[]).length?`<div class="sib"><span class="muted">إخوته:</span>${j.siblings.map(n=>`<button class="ghost sm" type="button" data-sib="${esc(n)}">${esc(n)}</button>`).join('')}</div>`:''}</section>`;
-  h+=`<section class="card"><h2>📊 تفاصيل مستواه</h2>
+  h+=`<section class="card"><h2>📊 تفاصيل مستواه</h2><div class="tiles">
     ${R&&R.participation&&R.participation.measured?bar('المشاركة',R.participation.score,R.participation.max,R.participation.absent?`غاب ${R.participation.absent} ${R.participation.absent===1?'حصة':'حصص'}`:'','🙋'):''}
     ${R&&R.homework&&R.homework.score!=null?bar('الواجبات',R.homework.score,R.homework.max,R.homework.classPart?`أنجز ${R.homework.classPart.done} · لم ينجز ${R.homework.classPart.missed}`:'','📕'):''}
     ${R&&R.behavior&&R.behavior.score!=null?bar('السلوك',R.behavior.score,R.behavior.max,`🌟 ${R.behavior.pos||0} إيجابي · ⚠️ ${R.behavior.neg||0} سلبي`,'🤝'):''}
-    ${R&&R.exam&&R.exam.measured&&R.exam.score!=null?bar('الاختبارات',R.exam.score,R.exam.max,(R.exam.tests||[]).filter(t=>t.score!=null).map(t=>`${esc(t.title)}: ${t.score} من ${t.max}`).join(' · '),'📝'):R?`<div class="ln muted">📝 الاختبارات: لم تُرصد بعد</div>`:''}
-    ${A.total?bar('الأنشطة الإلكترونية',A.doneN||0,A.total,'عدد ما سلّمه من أنشطة البوابة','💻'):''}
+    ${R&&R.exam&&R.exam.measured&&R.exam.score!=null?bar('الاختبارات',R.exam.score,R.exam.max,(R.exam.tests||[]).filter(t=>t.score!=null).map(t=>`${esc(t.title)}: ${t.score} من ${t.max}`).join(' · '),'📝'):R?`<div class="tile none"><div class="t-top"><span class="t-ic">📝</span><span class="t-nm">الاختبارات</span></div><span class="t-sub" style="margin-top:6px">لم تُرصد بعد</span></div>`:''}
+    ${A.total?bar('أنشطة البوابة',A.doneN||0,A.total,'ما سلّمه من الأنشطة الإلكترونية','💻'):''}
     ${R&&R.homework&&R.homework.madrasati&&R.homework.madrasati.counted?bar('واجبات مدرستي',R.homework.madrasati.solved,R.homework.madrasati.counted,'','📱'):''}
-    ${R&&R.teacherNote?`<p class="note">📝 <b>ملاحظة المعلم:</b> ${esc(R.teacherNote)}</p>`:''}</section>`;
+    </div>${R&&R.teacherNote?`<p class="note" style="margin-top:12px">📝 <b>ملاحظة المعلم:</b> ${esc(R.teacherNote)}</p>`:''}</section>`;
   if(late.length||open.length){
     h+=`<section class="card"><h2>📌 المطلوب منه</h2>
       ${late.map(x=>`<div class="row"><span>${esc(x.t)}</span><span class="tag late">⏰ متأخر</span></div>`).join('')}
