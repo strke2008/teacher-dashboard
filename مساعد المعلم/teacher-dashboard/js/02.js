@@ -16674,6 +16674,7 @@ async function liveTLoad(){
     const sec = (title, list, cls) => list.length ? `<div class="lv-sec ${cls}"><h3>${title} <span>${list.length}</span>${cls === 'past' ? `<button type="button" class="lv-delall" onclick="lvDeleteAllPast()">🗑 حذف الكل (${list.length})</button>` : ''}</h3>${list.map(lvRowHTML).join('')}</div>` : '';
     box.innerHTML = LVT.games.length ? sec('القادمة والجارية', active, 'now') + sec('السابقة', past, 'past')
       : '<p class="muted">لا توجد مسابقات بعد — اضغط «➕ مسابقة جديدة».</p>';
+    try{ lvDailyBar(); }catch(e){}
   }catch(e){ box.innerHTML = `<p class="muted">تعذّر التحميل${LV_ERR[e.message] ? ': ' + LV_ERR[e.message] : ''}.</p>`; }
 }
 /* صف مسابقة: مربع الحالة · الاسم وشرائح التفاصيل · الحالة واللاعبون وأيقونة الحذف */
@@ -16719,7 +16720,17 @@ function lvDailyBar(){
     <span class="lvd-ic">🔁</span>
     <span class="lvd-tx"><b>المسابقة اليومية التلقائية ${D.on ? '<em>مفعّلة</em>' : '<i>متوقفة</i>'}</b>
       <small>${D.on ? `${days} · ⏰ ${esc(D.time || '')} · ❓ ${D.n || 10} أسئلة من ${D.bankN || 0} في البنك${D.next ? ` · القادمة: ${lvWhen(D.next)}` : ''}${D.lastErr ? ' · ⚠️ ' + (D.lastErr === 'no_questions' ? 'لا أسئلة في البنك' : esc(D.lastErr)) : ''}` : 'مسابقة كل يوم في وقت ثابت بأسئلة عشوائية من كل دروسك — اضغط للإعداد'}</small></span>
-    <span class="lvd-go">${D.on ? '⚙️ تعديل' : 'إعداد ←'}</span></div>`;
+    <span class="lvd-go">${D.on ? '⚙️ تعديل' : 'إعداد ←'}</span></div>${lvDailyLastHTML()}`;
+}
+/* 📊 آخر مسابقة يومية: حالتها وعدد من لعب، وضغطة تفتح نتائجها */
+function lvDailyLastHTML(){
+  const G = ((typeof LVT !== 'undefined' && LVT.games) || []).filter(g => /^🔁/.test(g.source || ''));
+  if(!G.length) return '';
+  const g = G.find(x => !['SCHEDULED','REGISTRATION','WAITING'].includes(x.status)) || G[0], done = G.filter(x => x.status === 'FINISHED').length;
+  const why = g.status === 'CANCELLED' ? (g.players ? ' — لم يكتمل الحد الأدنى' : ' — لم يسجّل أحد') : '';
+  return `<div class="lvd-last" onclick="lvMonitor('${esc(g.id)}')" role="button" tabindex="0">
+    <span>📊 <b>آخر مسابقة يومية:</b> ${lvDay(g.startAt)} · ${lvChip(g.status)} · 👥 <b>${g.players || 0}</b> ${g.players === 1 ? 'لاعب' : 'لاعبين'}${why}${done > 1 ? ` · <small>${done} مسابقات منتهية في القائمة أدناه</small>` : ''}</span>
+    <span class="lvd-go">${g.status === 'FINISHED' ? 'النتائج ←' : 'التفاصيل ←'}</span></div>`;
 }
 function lvDailyOpen(){
   const D = LVD || {}, P = lvPrefs(), pv = (id, d) => (P && P.v && P.v[id] !== undefined ? P.v[id] : d);

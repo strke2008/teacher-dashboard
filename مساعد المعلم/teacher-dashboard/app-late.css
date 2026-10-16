@@ -2244,3 +2244,7 @@ html body .rep-page.nfp{border:0;box-shadow:none}
 /* 👪 ولي الأمر في ملف الطالب */
 .par-box{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;margin:.55rem 0 .7rem;padding:.6rem .8rem;border:1px solid #D9E2F2;border-radius:14px;background:#F7F9FD}
 .par-ic{font-size:1.3rem}.par-tx{flex:1;min-width:180px;display:grid;gap:.1rem}.par-tx b{font-size:.92rem}.par-tx small{font-size:.76rem;color:var(--ink-soft,#5B6B82)}
+/* 📊 آخر مسابقة يومية تحت شريط الإعداد */
+.lvd-last{display:flex;align-items:center;gap:.6rem;margin:-.5rem 0 .9rem;padding:.6rem .9rem;border:1px solid #DCE3EE;border-radius:14px;background:#fff;cursor:pointer;font-size:.86rem;flex-wrap:wrap}
+.lvd-last>span:first-child{flex:1;min-width:0;line-height:1.9}.lvd-last small{color:var(--ink-soft,#5B6B82)}
+.lvd-last:hover{border-color:#9DD3BC;background:#F4FBF8}
