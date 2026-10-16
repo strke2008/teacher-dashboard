@@ -67,6 +67,11 @@ details summary{cursor:pointer;margin:.3rem 0}
 .det .how{color:var(--soft);font-size:.85rem;margin:8px 0 0}.det .tip{background:#fff;border-radius:10px;padding:8px 10px;margin:8px 0 0;font-size:.88rem}
 .dk{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px dashed var(--rule)}.dk.low{background:#FFF1F3;border-radius:8px;padding:6px 8px;color:var(--bad)}
 .dsub{background:#fff;border-radius:10px;padding:8px 10px;margin:6px 0;font-size:.9rem}
+
+.ring b small{display:block;font-size:.62rem;color:var(--soft);font-weight:700;margin-top:-4px}
+.ring b{flex-direction:column;line-height:1.1}
+.sum{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.sum span{background:#fff;border-radius:99px;padding:2px 10px;font-size:.8rem;color:var(--soft)}.sum b{color:var(--ink)}
+.h-sc{float:left;font-size:.85rem;background:#EEF3FB;color:var(--acc);border-radius:99px;padding:2px 10px}
 .hide{display:none}
 footer{text-align:center;color:var(--soft);font-size:.78rem;padding:10px 0 30px}
 </style>
@@ -140,7 +145,7 @@ function parentDetails(R, A){
         return `<div class="dk${p!=null&&p<70?' low':''}"><span>${esc(t.title)}</span><b>${t.score==null?'لم يُرصد':`${t.score} من ${t.max}`}</b></div>`; }).join('')}</div>`:''}
       ${T.some(t=>t.score!=null&&t.score/t.max<0.7)?'<p class="tip">💡 الاختبار المظلل هو الأضعف — راجعوا معه دروسه، وإن أخفق فيه تصله مهمة علاجية بأسئلته في البوابة.</p>':''}`; }
   if(A&&A.total){ const late=(A.missing||[]).filter(x=>x.late), op=(A.missing||[]).filter(x=>!x.late);
-    D.acts=`<h3>💻 أنشطة البوابة</h3>${A.doneN>=A.total?ok('سلّم كل الأنشطة.'):`<p class="miss">لم يسلّم <b>${A.total-(A.doneN||0)}</b> من ${A.total}</p>`}
+    D.acts=`<h3>💻 المهام الأدائية (أنشطة البوابة)</h3>${A.doneN>=A.total?ok('سلّم كل الأنشطة.'):`<p class="miss">لم يسلّم <b>${A.total-(A.doneN||0)}</b> من ${A.total}</p>`}
       ${late.length?`<p class="miss">⏰ متأخرة:</p>${li(late.map(x=>esc(x.t)))}`:''}${op.length?`<p class="how">📌 مفتوحة لم يحلّها:</p>${li(op.map(x=>esc(x.t)+(x.due?` <small>(حتى ${esc(x.due)})</small>`:'')))}`:''}
       <p class="tip">💡 يحلّها من بوابة الطالب «أنشطتي» — كل نشاط يُسلَّم يرفع النسبة.</p>`; }
   if(R&&R.homework&&R.homework.madrasati&&R.homework.madrasati.counted){ const M=R.homework.madrasati;
@@ -151,30 +156,32 @@ function parentDetails(R, A){
 }
 function render(j, phone){
   const s=j.student, A=j.acts||{}, R=j.live||(j.reports||[])[0]||null, late=(A.missing||[]).filter(x=>x.late), open=(A.missing||[]).filter(x=>!x.late);
-  // المستوى العام: متوسط نسب ما قيس فعلًا (المشاركة · الواجبات · السلوك · الاختبارات · الأنشطة الإلكترونية)
-  const parts=[];
-  if(R){ if(R.participation&&R.participation.measured) parts.push(R.participation.score/R.participation.max);
-    { const H=R.homework||{}, C=H.classPart, M=H.madrasati;
-      if(C&&C.measured!==false&&C.max) parts.push(C.score/C.max);
-      if(M&&M.counted&&M.max) parts.push(M.score/M.max);
-      if(!(C&&C.measured!==false)&&!(M&&M.counted)&&H.score!=null) parts.push(H.score/H.max); }
-    if(R.behavior&&R.behavior.score!=null) parts.push(R.behavior.score/R.behavior.max);
-    if(R.exam&&R.exam.measured&&R.exam.score!=null) parts.push(R.exam.score/R.exam.max); }
-  if(A.total) parts.push((A.doneN||0)/A.total);
-  const P=parts.length?Math.round(parts.reduce((a,b)=>a+b,0)/parts.length*100):null, L=P==null?null:lvl(P);
+  // 🧮 مثل كشف الدرجات: أعمال السنة 40 (المشاركة 10 · الواجبات 10 · السلوك 10 · المهام الأدائية 10) + الاختبارات 20 = 60
+  const n1=v=>Math.round((Number(v)||0)*10)/10, H=R&&R.homework||{}, C=H.classPart, M=H.madrasati;
+  const AC=R&&R.activities&&R.activities.n!=null?R.activities:(A.total?{score:n1((A.doneN||0)/A.total*10),max:10,n:A.total,done:A.doneN||0}:null);
+  const pS=R&&R.participation?n1(R.participation.score):0, hS=n1(H.score), bS=R&&R.behavior?n1(R.behavior.score):0, aS=AC?n1(AC.score):10;
+  const work=n1(pS+hS+bS+aS), exOn=!!(R&&R.exam&&R.exam.measured&&R.exam.score!=null), exS=exOn?n1(R.exam.score):0, total=n1(work+exS);
+  const level=t=>t>=54?['ممتاز','#13734F']:t>=48?['جيد جدًا','#1F7A5A']:t>=42?['جيد','#1F5FC8']:t>=30?['يحتاج متابعة','#B7791F']:['يحتاج دعم','#B4232F'];
+  const out=exOn?total:work, max=exOn?60:40, LV=exOn?level(total):level(work*1.5), P=Math.round(out/max*100);
   let h=`<section class="card hero"><div class="who"><div class="av">🎓</div><div style="flex:1;min-width:0"><b>${esc(s.name)}</b><div class="muted">الفصل ${esc(s.cls||'—')}${R?` · ${esc(R.label||'')}`:''}</div></div>
       <button class="ghost sm" type="button" id="out-btn">خروج</button></div>
-    ${L?`<div class="lv" style="--c:${L[2]}"><div class="ring" style="--p:${P}"><b>${P}%</b></div><div><span class="muted">مستواه العام حتى الآن</span><div class="lv-t">${L[1]}</div>
-      <span class="muted">${late.length?`⚠️ عليه ${late.length} ${late.length===1?'نشاط متأخر':'أنشطة متأخرة'}`:open.length?`📌 عليه ${open.length} ${open.length===1?'نشاط مفتوح':'أنشطة مفتوحة'} لم يحلّها بعد`:'✓ لا أنشطة متأخرة عليه'}</span></div></div>`:''}
+    ${R?`<div class="lv" style="--c:${LV[1]}"><div class="ring" style="--p:${P}"><b>${out}<small>من ${max}</small></b></div><div><span class="muted">${exOn?'مجموعه حتى الآن':'أعمال السنة حتى الآن (الاختبارات لم تُرصد)'}</span><div class="lv-t">${LV[0]}</div>
+      <div class="sum"><span>📚 أعمال السنة <b>${work}</b> من 40</span><span>📝 الاختبارات <b>${exOn?exS:'—'}</b> من 20</span></div></div></div>`:''}
+    ${(late.length||open.length)?`<p class="muted" style="margin:.6rem 0 0">${late.length?`⚠️ عليه ${late.length} ${late.length===1?'نشاط متأخر':'أنشطة متأخرة'}`:`📌 عليه ${open.length} ${open.length===1?'نشاط مفتوح':'أنشطة مفتوحة'} لم يحلّها بعد`} — تفاصيلها في «المهام الأدائية».</p>`:''}
     ${(j.siblings||[]).length?`<div class="sib"><span class="muted">إخوته:</span>${j.siblings.map(n=>`<button class="ghost sm" type="button" data-sib="${esc(n)}">${esc(n)}</button>`).join('')}</div>`:''}</section>`;
-  h+=`<section class="card"><h2>📊 تفاصيل مستواه</h2><p class="muted" style="margin:-.3rem 0 .7rem">اضغط أي بطاقة لمعرفة سبب درجتها وما يمكن فعله.</p><div class="tiles">
-    ${R&&R.participation&&R.participation.measured?bar('المشاركة',R.participation.score,R.participation.max,R.participation.absent?`غاب ${R.participation.absent} ${R.participation.absent===1?'حصة':'حصص'}`:'','🙋','part'):''}
-    ${R&&R.homework&&R.homework.classPart&&R.homework.classPart.measured!==false?bar('واجبات الفصل',R.homework.classPart.score,R.homework.classPart.max,`أنجز ${R.homework.classPart.done} · لم ينجز ${R.homework.classPart.missed}`,'📕','hw'):R&&R.homework&&!R.homework.madrasati&&R.homework.score!=null?bar('الواجبات',R.homework.score,R.homework.max,'','📕','hw'):''}
-    ${R&&R.behavior&&R.behavior.score!=null?bar('السلوك',R.behavior.score,R.behavior.max,`🌟 ${R.behavior.pos||0} إيجابي · ⚠️ ${R.behavior.neg||0} سلبي`,'🤝','beh'):''}
-    ${R&&R.exam&&R.exam.measured&&R.exam.score!=null?bar('الاختبارات',R.exam.score,R.exam.max,(R.exam.tests||[]).filter(t=>t.score!=null).map(t=>`${esc(t.title)}: ${t.score} من ${t.max}`).join(' · '),'📝','exam'):R?`<div class="tile none"><div class="t-top"><span class="t-ic">📝</span><span class="t-nm">الاختبارات</span></div><span class="t-sub" style="margin-top:6px">لم تُرصد بعد</span></div>`:''}
-    ${A.total?bar('أنشطة البوابة',A.doneN||0,A.total,'ما سلّمه من الأنشطة الإلكترونية','💻','acts'):''}
-    ${R&&R.homework&&R.homework.madrasati&&R.homework.madrasati.counted?bar('واجبات مدرستي',R.homework.madrasati.score,R.homework.madrasati.max,`حلّ ${R.homework.madrasati.solved} من ${R.homework.madrasati.counted}`,'📱','mad'):''}
-    </div><div id="det" class="det hide"></div>${R&&R.teacherNote?`<p class="note" style="margin-top:12px">📝 <b>ملاحظة المعلم:</b> ${esc(R.teacherNote)}</p>`:''}</section>`;
+  if(R){
+    h+=`<section class="card"><h2>📚 أعمال السنة <span class="h-sc">${work} من 40</span></h2><p class="muted" style="margin:-.3rem 0 .7rem">اضغط أي بطاقة لمعرفة سبب درجتها.</p><div class="tiles">
+      ${bar('المشاركة',pS,10,R.participation&&R.participation.absent?`غاب ${R.participation.absent} ${R.participation.absent===1?'حصة':'حصص'}`:'','🙋','part')}
+      ${C&&C.max?bar('واجبات الفصل',n1(C.score),C.max,`أنجز ${C.done||0} · لم ينجز ${C.missed||0}`,'📕','hw'):''}
+      ${M&&M.max?bar('واجبات مدرستي',n1(M.score),M.max,M.counted?`حلّ ${M.solved} من ${M.counted}`:'لا واجبات بعد','📱','mad'):''}
+      ${!(C&&C.max)&&!(M&&M.max)?bar('الواجبات',hS,10,'','📕','hw'):''}
+      ${bar('السلوك',bS,10,`🌟 ${R.behavior&&R.behavior.pos||0} إيجابي · ⚠️ ${R.behavior&&R.behavior.neg||0} سلبي`,'🤝','beh')}
+      ${bar('المهام الأدائية',aS,10,AC?`سلّم ${AC.done} من ${AC.n} من أنشطة البوابة`:'','💻','acts')}
+    </div></section>
+    <section class="card"><h2>📝 الاختبارات <span class="h-sc">${exOn?exS:'—'} من 20</span></h2><div class="tiles">
+      ${exOn?bar('الاختبارات',exS,20,(R.exam.tests||[]).filter(t=>t.score!=null).map(t=>`${esc(t.title)}: ${t.score} من ${t.max}`).join(' · '),'📝','exam'):`<div class="tile none"><div class="t-top"><span class="t-ic">📝</span><span class="t-nm">الاختبارات</span></div><span class="t-sub">لم تُرصد درجات بعد</span></div>`}
+    </div><div id="det" class="det hide"></div>${R.teacherNote?`<p class="note" style="margin-top:12px">📝 <b>ملاحظة المعلم:</b> ${esc(R.teacherNote)}</p>`:''}</section>`;
+  }
   const W=j.weekly&&j.weekly.d;
   if(W&&((W.ps||[]).length||(W.ng||[]).length||W.st)) h+=`<section class="card"><h2>🗓️ آخر أسبوع</h2>
       ${(W.ps||[]).length?`<p class="pt">🌟 <b>أحسن في:</b> ${W.ps.map(esc).join('، ')}</p>`:''}
@@ -187,7 +194,7 @@ function render(j, phone){
   $('out').querySelectorAll('.tile[data-k]').forEach(t=>{ const open=()=>{ const d=$('det'), k=t.dataset.k, was=t.classList.contains('on');
       $('out').querySelectorAll('.tile.on').forEach(x=>x.classList.remove('on'));
       if(was){ d.classList.add('hide'); return; }
-      t.classList.add('on'); d.style.setProperty('--c', getComputedStyle(t).getPropertyValue('--c')); d.innerHTML=DET[k]||''; d.classList.remove('hide'); d.scrollIntoView({behavior:'smooth',block:'nearest'}); };
+      t.classList.add('on'); t.closest('section').appendChild(d); d.style.setProperty('--c', getComputedStyle(t).getPropertyValue('--c')); d.innerHTML=DET[k]||''; d.classList.remove('hide'); d.scrollIntoView({behavior:'smooth',block:'nearest'}); };
     t.onclick=open; t.onkeydown=e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); open(); } }; });
   $('out-btn').onclick=()=>{ try{ localStorage.removeItem(KEY); }catch(e){} $('out').innerHTML=''; $('login').classList.remove('hide'); };
   $('out').querySelectorAll('[data-sib]').forEach(b=>b.onclick=()=>go(b.dataset.sib, phone));
