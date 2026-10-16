@@ -4153,11 +4153,14 @@ async function liveDailyTick(env, now) {
   let D; try { D = JSON.parse(await env.HW.get('live:daily') || 'null'); } catch { return; }
   if (!D || !D.on || !(D.days || []).length) return;
   const k = new Date(now + 3 * 3600000), today = k.toISOString().slice(0, 10);
-  if (D.last === today || !(D.days || []).includes(k.getUTCDay())) return;
+  if (!(D.days || []).includes(k.getUTCDay())) return;
   const startAt = liveDailyStartFor(D, now), regOpen = startAt - (D.regOpenMin || 30) * 60000;
-  if (now < regOpen - 120000 || now > startAt - 60000) return;          // تُنشأ قبل فتح التسجيل بدقيقتين
+  // 🔑 مرة واحدة لكل موعد (لا لكل يوم): لو غيّر المعلم الوقت في نفس اليوم تُنشأ مسابقة الموعد الجديد.
+  //    كان «D.last === today» يمنعها إن سبقتها مسابقة (أو محاولة فاشلة) في وقت آخر من اليوم.
+  if (D.lastSlot === startAt || (!D.lastSlot && D.last === today && D.lastAt && D.lastAt >= regOpen - 180000)) return;
+  if (now < regOpen - 120000 || now > startAt - 30000) return;          // تُنشأ قبل فتح التسجيل بدقيقتين
   const bank = Array.isArray(D.bank) ? D.bank : [];
-  D.last = today;                                                        // مرة واحدة في اليوم حتى لو فشل الإنشاء
+  D.last = today; D.lastSlot = startAt; D.lastAt = now;                 // مرة واحدة لكل موعد حتى لو فشل الإنشاء
   if (!bank.length) { D.lastErr = 'no_questions'; await env.HW.put('live:daily', JSON.stringify(D)); return; }
   // أسئلة عشوائية لم تُستخدم في آخر 7 أيام (إن نفدت يُكمَل من المستخدم سابقًا)
   const hq = q => String(q.q).replace(/\s+/g, ' ').slice(0, 120);
@@ -4172,7 +4175,7 @@ async function liveDailyTick(env, now) {
   const r = await liveCreateGame(env, { title: D.title, classes: D.classes, questions: pick, fee: D.fee, prizes: D.prizes, maxPlayers: D.maxPlayers,
     minPlayers: D.minPlayers, minAction: D.minAction, qSec: D.qSec, revealSec: D.revealSec, regOpen: Math.max(regOpen, now), regClose, startAt,
     skin: D.skin, notify: D.notify, source: '🔁 مسابقة يومية تلقائية', daily: true }, now);
-  if (r.ok) { D.lastId = r.id; delete D.lastErr; D.recent = recent.concat(pick.map(q => ({ h: hq(q), at: now }))).slice(-500); }
+  if (r.ok) { D.lastId = r.id; delete D.lastErr; D.lastErrAt = 0; D.recent = recent.concat(pick.map(q => ({ h: hq(q), at: now }))).slice(-500); }
   else D.lastErr = r.error;
   await env.HW.put('live:daily', JSON.stringify(D));
 }
