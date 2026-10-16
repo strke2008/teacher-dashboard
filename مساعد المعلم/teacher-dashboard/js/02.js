@@ -17498,7 +17498,7 @@ function parBoxHTML(sid){
   const x=PARENTS[sid], s=(STUDENTS||[]).find(v=>String(v.id)===sid)||{};
   if(!x) return `<span class="par-ic">👪</span><span class="par-tx"><b>لا يوجد جوال لولي الأمر</b><small>أضفه يدويًا، أو من مدرستي: «تقارير إدارة المدرسة ← معلومات الطلاب» ثم زر الإضافة «📱 أرسل جوالات أولياء الأمور»</small></span>
     <button type="button" class="btn sm" onclick="parEdit('${esc(sid)}')">＋ أضف الجوال</button>`;
-  const wa='966'+x.p, msg=`السلام عليكم ${x.pn?('أ. '+x.pn.split(/\s+/)[0]):'ولي أمر الطالب'}،\nيمكنكم متابعة مستوى ابنكم ${String(s.name||'').split(/\s+/)[0]} ودرجاته في مادة ${rcGet('subject')||'العلوم'} (من 60) من هذا الرابط:\n${parLink()}\nالدخول باسم الطالب ورقم جوالكم هذا.`;
+  const wa='966'+x.p, msg=`السلام عليكم ولي أمر الطالب ${String(s.name||'').split(/\s+/)[0]}،\nيمكنكم متابعة مستوى ابنكم ودرجاته في مادة ${rcGet('subject')||'العلوم'} (من 60) من هذا الرابط:\n${parLink()}\nالدخول باسم الطالب ورقم جوالكم هذا.`;
   return `<span class="par-ic">👪</span><span class="par-tx"><b>${esc(x.pn||'ولي الأمر')} · <span dir="ltr">${esc(parFmt(x.p))}</span></b><small>${x.src==='manual'?'أدخلته يدويًا':'من مدرستي'}</small></span>
     <a class="btn tick sm" target="_blank" rel="noopener" href="https://wa.me/${wa}">💬 واتساب</a>
     <a class="btn ghost sm" target="_blank" rel="noopener" href="https://wa.me/${wa}?text=${encodeURIComponent(msg)}" title="رسالة فيها رابط تقرير ابنه وطريقة الدخول">🔗 أرسل رابط التقرير</a>
