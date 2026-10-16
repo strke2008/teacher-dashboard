@@ -5888,6 +5888,21 @@ function examRenderTemplate(c){
   return { n, fit, overflow };
 }
 
+/* 📋 حالة المعاينة: ملخص قصير (شرائح) + زر «⚠️ ملاحظات» يفتح قائمة واضحة بدل سطر طويل مزدحم */
+let EXS_OPEN=false;
+function examStatusDecorate(){
+  const st=document.getElementById('ex-status'); if(!st) return;
+  const txt=st.textContent||''; if(!txt||st.dataset.src===txt) return;
+  const i=txt.indexOf('⚠️'), head=(i<0?txt:txt.slice(0,i)).replace(/[\s·]+$/,'');
+  const warns=[...new Set((i<0?'':txt.slice(i)).split(/\s+·\s+/).map(w=>w.replace(/^[\s·]*⚠️\s*/,'').trim()).filter(Boolean))];
+  if(!/^المعاينة:/.test(head)&&!warns.length) return;
+  const parts=head.replace(/^المعاينة:\s*/,'').split(/\s+·\s+/).filter(Boolean);
+  st.innerHTML=`<div class="exs">${parts.map((p,k)=>`<span class="exs-c${k===0?' main':''}">${esc(p)}</span>`).join('')}
+    ${warns.length?`<button type="button" class="exs-w${EXS_OPEN?' on':''}" onclick="EXS_OPEN=!EXS_OPEN;this.classList.toggle('on',EXS_OPEN);this.closest('#ex-status').querySelector('.exs-list').classList.toggle('hide',!EXS_OPEN);this.lastChild.textContent=EXS_OPEN?'⌃':'⌄'">⚠️ ${warns.length} ${warns.length===1?'ملاحظة':warns.length===2?'ملاحظتان':'ملاحظات'} <i>${EXS_OPEN?'⌃':'⌄'}</i></button>`:''}</div>
+    ${warns.length?`<ol class="exs-list${EXS_OPEN?'':' hide'}">${warns.map(w=>`<li>${esc(w)}</li>`).join('')}</ol>`:''}`;
+  st.style.color='';
+  st.dataset.src=st.textContent;
+}
 function examBuild(force){
   const box = document.getElementById('exam-paper');
   if(!box) return;
@@ -17457,3 +17472,6 @@ renderAll();
 
   window.addEventListener('focus', ()=>{ lastActive=Date.now(); schedule(0); });
 })();
+
+/* 📋 بعد كل بناء للورقة: تُرتَّب حالة المعاينة (ملخص + ملاحظات عند الطلب) */
+(function(){ const o=window.examBuild; if(typeof o==='function') window.examBuild=function(){ try{ return o.apply(this,arguments); } finally { try{ examStatusDecorate(); }catch(e){} } }; })();
