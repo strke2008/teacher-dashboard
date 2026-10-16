@@ -175,12 +175,6 @@ function render(j, phone){
     ${A.total?bar('أنشطة البوابة',A.doneN||0,A.total,'ما سلّمه من الأنشطة الإلكترونية','💻','acts'):''}
     ${R&&R.homework&&R.homework.madrasati&&R.homework.madrasati.counted?bar('واجبات مدرستي',R.homework.madrasati.score,R.homework.madrasati.max,`حلّ ${R.homework.madrasati.solved} من ${R.homework.madrasati.counted}`,'📱','mad'):''}
     </div><div id="det" class="det hide"></div>${R&&R.teacherNote?`<p class="note" style="margin-top:12px">📝 <b>ملاحظة المعلم:</b> ${esc(R.teacherNote)}</p>`:''}</section>`;
-  if(late.length||open.length){
-    h+=`<section class="card"><h2>📌 المطلوب منه</h2>
-      ${late.map(x=>`<div class="row"><span>${esc(x.t)}</span><span class="tag late">⏰ متأخر</span></div>`).join('')}
-      ${open.length?(late.length?`<details><summary class="muted">وأنشطة مفتوحة لم يحلّها (${open.length})</summary>`:'')+open.map(x=>`<div class="row"><span>${esc(x.t)}</span><span class="tag open">${x.due?'حتى '+esc(x.due):'مفتوح'}</span></div>`).join('')+(late.length?'</details>':''):''}
-      <p class="muted" style="margin:.5rem 0 0">يحلّها من بوابة الطالب «أنشطتي».</p></section>`;
-  }
   const W=j.weekly&&j.weekly.d;
   if(W&&((W.ps||[]).length||(W.ng||[]).length||W.st)) h+=`<section class="card"><h2>🗓️ آخر أسبوع</h2>
       ${(W.ps||[]).length?`<p class="pt">🌟 <b>أحسن في:</b> ${W.ps.map(esc).join('، ')}</p>`:''}
