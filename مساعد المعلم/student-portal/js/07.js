@@ -404,7 +404,17 @@ function nfPractice(onlyWrong) {
   try { $('bar-title').textContent = '🎯 تدريب نافس'; } catch (e) {}
   startSolving();
 }
+/* 💪 أثر التدريب على خريطة النواتج: آخر جولة تدريب لكل ناتج — على جهاز الطالب فقط، لا تُرسل ولا تغيّر النسبة الرسمية */
+const NF_PRAC_KEY = () => 'nf_prac_v1:' + (typeof mySid !== 'undefined' && mySid ? mySid : (myName || ''));
+function nfPracRead() { try { return JSON.parse(localStorage.getItem(NF_PRAC_KEY()) || '{}') || {}; } catch (e) { return {}; } }
+function nfPracSave(marks) {
+  try { const P = nfPracRead(), by = {};
+    (HW.q || []).forEach((q, i) => { if (!q || !q.skill) return; const s = nfShort(q.skill), o = by[s] || (by[s] = { c: 0, t: 0 }); o.t++; if (marks[i]) o.c++; });
+    Object.entries(by).forEach(([s, v]) => { P[s] = { c: v.c, t: v.t, at: Date.now() }; });
+    localStorage.setItem(NF_PRAC_KEY(), JSON.stringify(P)); } catch (e) {}
+}
 function nfPracticeDone(marks) {
+  nfPracSave(marks);
   const c = marks.filter(Boolean).length, t = HW.q.length;
   hide('s-quiz'); show('s-done');
   $('done-name').textContent = myName || '';
@@ -431,10 +441,14 @@ function nfMapHTML(rows) {
   const st = nfMapStats(rows); if (!st.length) return '';
   const done = st.filter(x => x.p != null), mast = done.filter(x => x.p >= 80).length;
   const cls = x => x.p == null ? 'n' : x.p >= 80 ? 'g' : x.p >= 50 ? 'y' : 'r';
-  return `<div class="nf-map"><div class="nf-map-h"><b>🗺️ خريطة نواتجي</b><span>${mast} من ${st.length} ناتج متقن</span></div>
-    <div class="nf-map-l">${st.map((x, i) => `<button type="button" class="nf-tile ${cls(x)}" onclick="nfPracticeSkill(${i})" title="${esc(x.s)}">
-      <b>${esc(x.s)}</b><small>${x.p == null ? 'لم تتدرّب عليه بعد' : `${x.p}% · ${x.c} من ${x.t}`}</small><em>🔁 تدرّب</em></button>`).join('')}</div>
-    <small class="muted">🟩 متقن ٨٠٪+ · 🟨 قريب · 🟥 يحتاج تدريبًا · ⬜ لم تتدرّب عليه. اضغط ناتجًا لتتدرّب على أسئلته (لا تُحتسب).</small></div>`;
+  const P = nfPracRead(), pr = x => { const v = P[x.s]; return v && v.t ? { ...v, p: Math.round(v.c / v.t * 100) } : null; };
+  const byPrac = st.filter(x => !(x.p >= 80) && (pr(x) || {}).p >= 80).length;
+  return `<div class="nf-map"><div class="nf-map-h"><b>🗺️ خريطة نواتجي</b><span>${mast} من ${st.length} ناتج متقن${byPrac ? ` · 💪 ${byPrac} بالتدريب` : ''}</span></div>
+    <div class="nf-map-l">${st.map((x, i) => { const v = pr(x), up = v && v.p >= 80 && !(x.p >= 80);
+      return `<button type="button" class="nf-tile ${cls(x)}${up ? ' up' : ''}" onclick="nfPracticeSkill(${i})" title="${esc(x.s)}">
+      <b>${esc(x.s)}</b><small>${x.p == null ? 'لم تتدرّب عليه بعد' : `${x.p}% · ${x.c} من ${x.t}`}</small>
+      ${v ? `<span class="nf-prac${v.p >= 80 ? ' ok' : ''}">💪 ${v.p >= 80 ? 'أتقنته بالتدريب ✓' : `تدريب ${v.c}/${v.t}`}</span>` : ''}<em>🔁 تدرّب</em></button>`; }).join('')}</div>
+    <small class="muted">🟩 متقن ٨٠٪+ · 🟨 قريب · 🟥 يحتاج تدريبًا · ⬜ لم تتدرّب عليه. اللون من أول حلّ لك في كل نشاط، و«💪» نتيجة آخر تدريب لك عليه (لا تُحتسب في الدرجة).</small></div>`;
 }
 async function nfPracticeSkill(i) {
   const st = nfMapStats(NF.rows)[i]; if (!st) return;
