@@ -222,8 +222,9 @@ async function loadProjects(showToast){
     if(state){state.style.display='';state.textContent='ضع عنوان الخادم وكلمة السر في تبويب الإعدادات أولًا.';}
     if(list) list.innerHTML=''; return;
   }
-  if(state){state.style.display='';state.textContent='جارٍ تحميل مشاريع الطلاب…';}
-  if(list) list.innerHTML='';
+  // ⚡ إن سبق التحميل: تبقى القائمة السابقة ظاهرة ويُحدَّث في الخلفية بدل شاشة فارغة
+  const had=PROJECTS_LOADED && Array.isArray(PROJECTS_DATA);
+  if(!had){ if(state){state.style.display='';state.textContent='جارٍ تحميل مشاريع الطلاب…';} if(list) list.innerHTML=''; }
   try{
     const r=await fetch(api.replace(/\/+$/,'')+'/projects?t='+encodeURIComponent(tok)+'&_='+Date.now(),{cache:'no-store'});
     const j=await r.json().catch(()=>({}));
@@ -235,6 +236,7 @@ async function loadProjects(showToast){
     renderProjectFilters(); renderProjects();
     if(showToast) toast('تم تحديث مشاريع الطلاب','ok');
   }catch(e){
+    if(had){ if(showToast) toast('تعذّر تحديث المشاريع — المعروض آخر نسخة محمّلة','bad'); return; }
     PROJECTS_LOADED=false;
     if(state){state.style.display='';state.textContent=e.message==='unauthorized'?'كلمة السر غير صحيحة.':'تعذّر تحميل مشاريع الطلاب — تحقق من الخادم والاتصال.';}
     if(showToast) toast(e.message==='unauthorized'?'كلمة السر غير صحيحة':'تعذّر تحميل المشاريع','bad');

@@ -9019,21 +9019,19 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
           if (nm) studentClasses.set(nm, String(s?.cls || '').trim());
         });
       } catch {}
-      for (const hk of hwKeys) {
-        const raw = await env.HW.get(hk);
-        if (!raw) continue;
-        let p;
-        try { p = JSON.parse(raw); } catch { continue; }
-        if (!p || p.kind !== 'files') continue;
+      // ⚡ القراءة متوازية: كانت كل الأنشطة ثم كل التسليمات تُقرأ واحدًا تلو الآخر، فيطول التحميل مع كثرة الأنشطة
+      const readJ = async k => { const raw = await env.HW.get(k); if (!raw) return null; try { return JSON.parse(raw); } catch { return null; } };
+      const projs = (await inBatches(hwKeys, 30, async hk => { const p = await readJ(hk); return p && p.kind === 'files' ? { hk, p } : null; })).filter(Boolean);
+      const projSubs = await inBatches(projs, 6, async ({ hk, p }) => {
+        const projectId = String(p.id || hk.slice(3));
+        const subKeys = await listAllKeys(env, `s:${projectId}:`);
+        return inBatches(subKeys, 20, async sk => ({ sk, sub: await readJ(sk) }));
+      });
+      projs.forEach(({ hk, p }, pi) => {
         const projectId = String(p.id || hk.slice(3));
         const projectGraded = p.pg === true || p.projectGraded === true;
         projects.push({ id: projectId, title: String(p.t || p.title || 'مشروع'), cls: String(p.cls || ''), graded: projectGraded, students: Array.isArray(p.s) ? p.s.map(String) : [] });
-        const subKeys = await listAllKeys(env, `s:${projectId}:`);
-        for (const sk of subKeys) {
-          const sv = await env.HW.get(sk);
-          if (!sv) continue;
-          let sub;
-          try { sub = JSON.parse(sv); } catch { continue; }
+        for (const { sk, sub } of projSubs[pi]) {
           if (!sub || !sub.fileSubmission || !Array.isArray(sub.files) || !sub.files.length) continue;
           rows.push({
             project: { id: projectId, title: String(p.t || p.title || 'مشروع'), cls: String(p.cls || ''), d: String(p.d || ''), graded: projectGraded },
@@ -9053,7 +9051,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
             resubmitUntil: Number(sub.resubmitUntil || 0)
           });
         }
-      }
+      });
       rows.sort((a,b)=>(b.at||0)-(a.at||0));
       const uniqueProjects = [...new Map(projects.map(x=>[x.id,x])).values()];
       return json({ ok:true, count:rows.length, rows, projects: uniqueProjects });
