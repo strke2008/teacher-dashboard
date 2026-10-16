@@ -212,7 +212,7 @@ function render(j, phone){
   if(R){
     h+=`<section class="card"><h2>📚 أعمال السنة <span class="h-sc">${work} من 40</span></h2><p class="muted" style="margin:-.3rem 0 .7rem">اضغط أي بطاقة لمعرفة سبب درجتها.</p><div class="tiles">
       ${bar('المشاركة',pS,10,R.participation&&R.participation.absent?`غاب ${R.participation.absent} ${R.participation.absent===1?'حصة':'حصص'}`:'','🙋','part')}
-
+      ${bar('السلوك',bS,10,`🌟 ${R.behavior&&R.behavior.pos||0} إيجابي · ⚠️ ${R.behavior&&R.behavior.neg||0} سلبي`,'🤝','beh')}
       ${C&&C.max?bar('واجبات الفصل',n1(C.score),C.max,`أنجز ${C.done||0} · لم ينجز ${C.missed||0}`,'📕','hw'):''}
       ${M&&M.max?bar('واجبات مدرستي',n1(M.score),M.max,M.counted?`حلّ ${M.solved} من ${M.counted}`:'لا واجبات بعد','📱','mad'):''}
       ${!(C&&C.max)&&!(M&&M.max)?bar('الواجبات',hS,10,'','📕','hw'):''}
