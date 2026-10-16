@@ -143,7 +143,8 @@ function parentDetails(R, A){
     D.exam=`<h3>📝 الاختبارات</h3>${E.measured&&E.score!=null?why(E.score,E.max):'<p class="how">لم تُرصد درجات بعد.</p>'}
       ${T.length?`<div class="dt">${T.map(t=>{ const p=t.score==null?null:Math.round(t.score/t.max*100);
         return `<div class="dk${p!=null&&p<70?' low':''}"><span>${esc(t.title)}</span><b>${t.score==null?'لم يُرصد':`${t.score} من ${t.max}`}</b></div>`; }).join('')}</div>`:''}
-      ${T.some(t=>t.score!=null&&t.score/t.max<0.7)?'<p class="tip">💡 الاختبار المظلل هو الأضعف — راجعوا معه دروسه، وإن أخفق فيه تصله مهمة علاجية بأسئلته في البوابة.</p>':''}`; }
+      ${(()=>{ const w=T.filter(t=>t.score!=null&&t.score/t.max<0.7).sort((a,b)=>a.score/a.max-b.score/b.max)[0]; if(!w) return '';
+        return `<p class="tip">💡 أقل درجاته في «${esc(w.title)}» (${w.score} من ${w.max}). نقترح مراجعة دروس هذا الاختبار معه${w.score/w.max<0.6?'، وستصله في البوابة مهمة علاجية بالأسئلة التي أخطأ فيها':''}.</p>`; })()}`; }
   if(A&&A.total){ const late=(A.missing||[]).filter(x=>x.late), op=(A.missing||[]).filter(x=>!x.late);
     D.acts=`<h3>💻 المهام الأدائية (أنشطة البوابة)</h3>${A.doneN>=A.total?ok('سلّم كل الأنشطة.'):`<p class="miss">لم يسلّم <b>${A.total-(A.doneN||0)}</b> من ${A.total}</p>`}
       ${late.length?`<p class="miss">⏰ متأخرة:</p>${li(late.map(x=>esc(x.t)))}`:''}${op.length?`<p class="how">📌 مفتوحة لم يحلّها:</p>${li(op.map(x=>esc(x.t)+(x.due?` <small>(حتى ${esc(x.due)})</small>`:'')))}`:''}
