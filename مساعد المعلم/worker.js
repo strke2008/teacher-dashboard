@@ -3624,7 +3624,7 @@ function wkPrevWeek(todayIso) {               // اليوم أحد ⇒ الأح�
 function wkActsFor(s, assignments) {
   const cls = String(s.cls || s.className || s.class || '').trim();
   return (Array.isArray(assignments) ? assignments : []).filter(h => {
-    if (!h || (h.kind || 'normal') !== 'normal') return false;
+    if (!h || (h.kind || 'normal') !== 'normal' || h.noGrade) return false;
     if (!h.sid && !h.published && !(Array.isArray(h.s) && h.s.length)) return false;
     const hcl = Array.isArray(h.clsList) && h.clsList.length ? h.clsList.map(String) : (h.cls ? [String(h.cls)] : []);
     if (hcl.length && cls && !hcl.includes(cls)) return false;
@@ -5060,7 +5060,9 @@ export default {
       let state = {}; try { state = JSON.parse(await env.HW.get('tstate:main')) || {}; } catch {}
       const cls = String(st.cls || ''), today = new Date(Date.now() + 3 * 3600000).toISOString().slice(0, 10);
       const forCls = h => { const l = Array.isArray(h.clsList) && h.clsList.length ? h.clsList.map(String) : (h.cls ? [String(h.cls)] : []); return !l.length || l.includes(cls); };
-      const acts = (Array.isArray(state.assignments) ? state.assignments : []).filter(h => h && (h.sid || h.published) && !h.remedial && forCls(h));
+      // الأنشطة بدون درجة (تدريب) لا تدخل في تقرير ولي الأمر
+      const acts = (Array.isArray(state.assignments) ? state.assignments : []).filter(h => h && ['normal', 'reading', 'lab'].includes(h.kind || 'normal') && !h.noGrade && (h.sid || h.published) && !h.remedial && forCls(h)
+        && (!(Array.isArray(h.s) && h.s.length) || h.s.map(String).includes(sid) || h.s.map(String).includes(String(st.name))));
       const done = [], missing = [];
       for (const h of acts) { const sub = h.subs && h.subs[sid];
         if (sub) done.push({ t: String(h.title || '').slice(0, 80), at: Number(sub.at) || 0, c: Number(sub.correct) || 0, n: Number(sub.total) || 0 });
