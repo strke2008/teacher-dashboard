@@ -65,6 +65,7 @@ details summary{cursor:pointer;margin:.3rem 0}
 .det{margin-top:12px;border-radius:16px;padding:14px;border:1.5px solid color-mix(in srgb,var(--c,#1F5FC8) 35%,#fff);background:color-mix(in srgb,var(--c,#1F5FC8) 5%,#fff)}
 .det h3{margin:0 0 6px;font-size:1rem}.det ul{margin:4px 0 8px;padding-inline-start:20px}.det li{margin:2px 0}
 .det .miss{color:var(--bad);font-weight:700;margin:6px 0}.det .ok{color:var(--ok);font-weight:700;margin:6px 0}
+.det .grp{margin:10px 0 2px;font-weight:800;font-size:.9rem}.det .grp.open{color:#8A5A00}.det .grp.gone{color:var(--soft)}.det ul.gone li{color:var(--soft)}.det li .tag{margin-inline-start:6px;display:inline-block}
 .det .how{color:var(--soft);font-size:.85rem;margin:8px 0 0}.det .tip{background:#fff;border-radius:10px;padding:8px 10px;margin:8px 0 0;font-size:.88rem}
 .dk{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px dashed var(--rule)}.dk.low{background:#FFF1F3;border-radius:8px;padding:6px 8px;color:var(--bad)}
 .dsub{background:#fff;border-radius:10px;padding:8px 10px;margin:6px 0;font-size:.9rem}
@@ -147,6 +148,15 @@ function bar(label, val, max, sub, icon, key){
     ${sub?`<small class="t-sub">${sub}</small>`:''}</div>`;
 }
 /* 🔎 لماذا نقصت الدرجة؟ شرح كل جانب بلغة ولي الأمر: كيف تُحسب، وما الذي خصم منها، وماذا يفعل */
+// ⏳ موعد الإغلاق: أهم ما يحتاجه ولي الأمر ليتابع ما زال ممكنًا
+const DAYS=['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+function closeIn(d){ // d: تاريخ ISO أو ملي ثانية
+  const t=typeof d==='number'?new Date(d+3*3600000):new Date(String(d)+'T12:00:00Z'); if(isNaN(t)) return null;
+  const today=new Date(Date.now()+3*3600000); const n=Math.round((Date.UTC(t.getUTCFullYear(),t.getUTCMonth(),t.getUTCDate())-Date.UTC(today.getUTCFullYear(),today.getUTCMonth(),today.getUTCDate()))/864e5);
+  const day=`${DAYS[t.getUTCDay()]} ${t.getUTCDate()}/${t.getUTCMonth()+1}`;
+  return { n, txt: n<=0?'يُغلق اليوم':n===1?'يُغلق غدًا':n<=6?`يُغلق ${day}`:`حتى ${day}` };
+}
+const closeTag=c=>c?`<span class="tag ${c.n<=1?'late':'open'}">⏳ ${esc(c.txt)}</span>`:'';
 function parentDetails(R, A){
   const D={}, li=a=>a.length?`<ul>${a.map(x=>`<li>${x}</li>`).join('')}</ul>`:'', ok=t=>`<p class="ok">✓ ${t}</p>`, why=(v,m)=>v>=m?ok('الدرجة كاملة — لا خصم.'):`<p class="miss">نقص <b>${+(m-v).toFixed(2)}</b> من ${m}</p>`;
   if(R&&R.participation){ const P=R.participation, net=Math.max(0,(P.no||0)-(P.yes||0));
@@ -168,13 +178,17 @@ function parentDetails(R, A){
         return `<div class="dk${p!=null&&p<70?' low':''}"><span>${esc(t.title)}</span><b>${t.score==null?'لم يُرصد':`${t.score} من ${t.max}`}</b></div>`; }).join('')}</div>`:''}
       ${(()=>{ const w=T.filter(t=>t.score!=null&&t.score/t.max<0.7).sort((a,b)=>a.score/a.max-b.score/b.max)[0]; if(!w) return '';
         return `<p class="tip">💡 أقل درجاته في «${esc(w.title)}» (${w.score} من ${w.max}). نقترح مراجعة دروس هذا الاختبار معه${w.score/w.max<0.6?'، وستصله في البوابة مهمة علاجية بالأسئلة التي أخطأ فيها':''}.</p>`; })()}`; }
-  if(A&&A.total){ const late=(A.missing||[]).filter(x=>x.late), op=(A.missing||[]).filter(x=>!x.late);
+  if(A&&A.total){ const late=(A.missing||[]).filter(x=>x.late), op=(A.missing||[]).filter(x=>!x.late).sort((a,b)=>String(a.due||'9999').localeCompare(String(b.due||'9999')));
     D.acts=`<h3>💻 المهام الأدائية (أنشطة البوابة)</h3>${A.doneN>=A.total?ok('سلّم كل الأنشطة.'):`<p class="miss">لم يسلّم <b>${A.total-(A.doneN||0)}</b> من ${A.total}</p>`}
-      ${late.length?`<p class="miss">⏰ متأخرة:</p>${li(late.map(x=>esc(x.t)))}`:''}${op.length?`<p class="how">📌 مفتوحة لم يحلّها:</p>${li(op.map(x=>esc(x.t)+(x.due?` <small>(حتى ${esc(x.due)})</small>`:'')))}`:''}
-      <p class="tip">💡 يحلّها من بوابة الطالب «أنشطتي» — كل نشاط يُسلَّم يرفع النسبة.</p>`; }
-  if(R&&R.homework&&R.homework.madrasati&&R.homework.madrasati.counted){ const M=R.homework.madrasati;
-    D.mad=`<h3>📱 واجبات مدرستي</h3>${M.solved>=M.counted?ok('حلّ كل واجبات مدرستي.'):`<p class="miss">لم يحلّ <b>${M.counted-M.solved}</b> من ${M.counted}:</p>`}
-      ${(M.missedList||[]).length?li(M.missedList.map(esc)):''}${(M.pendingList||[]).length?`<p class="tip">💡 مفتوح الآن في مدرستي — حلّه قبل الإغلاق: ${M.pendingList.map(x=>esc(x.title)).join('، ')}</p>`:''}
+      ${op.length?`<p class="grp open">⏳ متاحة للحل الآن:</p>${li(op.map(x=>esc(x.t)+(x.due?closeTag(closeIn(x.due)):' <span class="tag ok">مفتوح</span>')))}
+      <p class="tip">💡 يحلّها ابنكم من رابط «أنشطتي» قبل موعد الإغلاق — كل نشاط يسلّمه يرفع درجته.</p>`:''}
+      ${late.length?`<p class="grp gone">انتهى وقتها:</p><ul class="gone">${late.map(x=>`<li>${esc(x.t)}</li>`).join('')}</ul>`:''}`; }
+  if(R&&R.homework&&R.homework.madrasati&&(R.homework.madrasati.counted||(R.homework.madrasati.pendingList||[]).length)){ const M=R.homework.madrasati;
+    const MP=(M.pendingList||[]).slice().sort((a,b)=>(a.dueAt||9e15)-(b.dueAt||9e15)), unsolved=M.counted-M.solved+MP.length;
+    D.mad=`<h3>📱 واجبات مدرستي</h3>${!unsolved?ok('حلّ كل واجبات مدرستي.'):`<p class="miss">لم يحلّ <b>${M.counted-M.solved}</b> من ${M.counted}${MP.length?` · ومتاح له ${MP.length} الآن`:''}</p>`}
+      ${MP.length?`<p class="grp open">⏳ متاحة للحل الآن:</p>${li(MP.map(x=>esc(x.title)+(x.dueAt?closeTag(closeIn(x.dueAt)):closeTag({n:x.daysLeft,txt:`خلال ${x.daysLeft} ${x.daysLeft===1?'يوم':'أيام'}`}))))}
+      <p class="tip">💡 يحلّها ابنكم من تطبيق مدرستي ← واجباتي، قبل موعد الإغلاق.</p>`:''}
+      ${(M.missedList||[]).length?`<p class="grp gone">انتهى وقتها:</p><ul class="gone">${M.missedList.map(t=>`<li>${esc(t)}</li>`).join('')}</ul>`:''}
       ${M.forgiven?`<p class="how">أُعفي من ${M.forgiven}.</p>`:''}`; }
   return D;
 }
@@ -191,7 +205,9 @@ function render(j, phone){
       <button class="ghost sm" type="button" id="out-btn">خروج</button></div>
     ${R?`<div class="lv" style="--c:${LV[1]}"><div class="ring" style="--p:${P}"><b>${out}<small>من ${max}</small></b></div><div><span class="muted">${exOn?'مجموعه حتى الآن':'أعمال السنة حتى الآن (الاختبارات لم تُرصد)'}</span><div class="lv-t">${LV[0]}</div>
       <div class="sum"><span>📚 أعمال السنة <b>${work}</b> من 40</span><span>📝 الاختبارات <b>${exOn?exS:'—'}</b> من 20</span></div></div></div>`:''}
-    ${(late.length||open.length)?`<p class="muted" style="margin:.6rem 0 0">${late.length?`⚠️ عليه ${late.length} ${late.length===1?'نشاط متأخر':'أنشطة متأخرة'}`:`📌 عليه ${open.length} ${open.length===1?'نشاط مفتوح':'أنشطة مفتوحة'} لم يحلّها بعد`} — تفاصيلها في «المهام الأدائية».</p>`:''}
+    ${(()=>{ const mp=(M&&M.pendingList)||[], n=open.length+mp.length; if(!n) return '';
+      const cs=[...open.filter(x=>x.due).map(x=>closeIn(x.due)),...mp.map(x=>x.dueAt?closeIn(x.dueAt):{n:x.daysLeft,txt:`يُغلق خلال ${x.daysLeft} ${x.daysLeft===1?'يوم':'أيام'}`})].filter(Boolean).sort((a,b)=>a.n-b.n)[0];
+      return `<p class="muted" style="margin:.6rem 0 0">⏳ لديه <b>${n}</b> ${n===1?'مهمة متاحة':'مهام متاحة'} للحل الآن${cs?` — أقربها ${esc(cs.txt)}`:''}. اضغط بطاقة «واجبات مدرستي» أو «المهام الأدائية» للتفاصيل.</p>`; })()}
     ${(j.siblings||[]).length?`<div class="sib"><span class="muted">إخوته:</span>${j.siblings.map(n=>`<button class="ghost sm" type="button" data-sib="${esc(n)}">${esc(n)}</button>`).join('')}</div>`:''}</section>`;
   if(R){
     h+=`<section class="card"><h2>📚 أعمال السنة <span class="h-sc">${work} من 40</span></h2><p class="muted" style="margin:-.3rem 0 .7rem">اضغط أي بطاقة لمعرفة سبب درجتها.</p><div class="tiles">
