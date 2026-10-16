@@ -5590,9 +5590,11 @@ function examFlexData(o){
     total += sec.marks;
     return sec;
   }));
-  if(M.pairs.length > Tm * MM) notes.push(`الوصل: ${M.pairs.length - Tm * MM} زوجًا زائدًا لم يُستخدم`);
-  if(fills.length > Tf * MM) notes.push(`أكمل الفراغ: ${fills.length - Tf * MM} سؤالًا زائدًا لم يُستخدم`);
-  if(opens.length > To * MM) notes.push(`أجب: ${opens.length - To * MM} سؤالًا زائدًا لم يُستخدم`);
+  // ℹ️ ليس خطأ: النص المكتوب أكثر مما يتسع له التصميم — نقول كم كُتب وكم يُستخدم وكيف يُستفاد من الباقي
+  const extraNote = (label, unit, have, used, sec) => { if(have > used) notes.push(`${label}: كتبت ${have} ${unit} والتصميم يستخدم ${used}${MM > 1 ? ` (${used / MM} لكل نموذج)` : ''} — ${used ? `زِد عدد ${unit} قسم «${sec}» في «📐 تصميم الاختبار»` : `أضف قسم «${sec}» في «📐 تصميم الاختبار»`} لاستخدام الباقي، أو احذف الزائد من النص`); };
+  extraNote('الوصل', 'أزواج', M.pairs.length, Tm * MM, 'وصّل');
+  extraNote('أكمل الفراغ', 'أسئلة', fills.length, Tf * MM, 'أكمل الفراغ');
+  extraNote('أجب', 'أسئلة', opens.length, To * MM, 'أجب');
   return { pages, notes, total: +total.toFixed(2), mcN, tfN };
 }
 function examFlexSecHtml(sec, o){
