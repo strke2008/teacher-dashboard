@@ -57,6 +57,16 @@ details summary{cursor:pointer;margin:.3rem 0}
 .t-sc{display:block;font-size:1.35rem;line-height:1.2;color:var(--ink)}.t-sc small{font-size:.8rem;color:var(--soft);font-weight:700}
 .t-lv{display:inline-block;margin-top:3px;font-size:.74rem;font-weight:900;color:#fff;background:var(--c);border-radius:99px;padding:1px 9px;white-space:nowrap}
 .t-sub{font-size:.76rem;color:var(--soft);line-height:1.5}
+
+.tile.tap{cursor:pointer;transition:transform .12s,box-shadow .12s}.tile.tap:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(22,35,58,.08)}
+.tile.on{outline:2.5px solid var(--c);outline-offset:1px}
+.t-more{margin-inline-start:auto;flex:none;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:.8rem;font-weight:900;color:#fff;background:var(--c)}
+.det{margin-top:12px;border-radius:16px;padding:14px;border:1.5px solid color-mix(in srgb,var(--c,#1F5FC8) 35%,#fff);background:color-mix(in srgb,var(--c,#1F5FC8) 5%,#fff)}
+.det h3{margin:0 0 6px;font-size:1rem}.det ul{margin:4px 0 8px;padding-inline-start:20px}.det li{margin:2px 0}
+.det .miss{color:var(--bad);font-weight:700;margin:6px 0}.det .ok{color:var(--ok);font-weight:700;margin:6px 0}
+.det .how{color:var(--soft);font-size:.85rem;margin:8px 0 0}.det .tip{background:#fff;border-radius:10px;padding:8px 10px;margin:8px 0 0;font-size:.88rem}
+.dk{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px dashed var(--rule)}.dk.low{background:#FFF1F3;border-radius:8px;padding:6px 8px;color:var(--bad)}
+.dsub{background:#fff;border-radius:10px;padding:8px 10px;margin:6px 0;font-size:.9rem}
 .hide{display:none}
 footer{text-align:center;color:var(--soft);font-size:.78rem;padding:10px 0 30px}
 </style>
@@ -101,12 +111,47 @@ async function go(name, phone, quiet){
 }
 const LEVELS=[[90,'ممتاز','#13734F'],[80,'جيد جدًا','#1F7A5A'],[65,'جيد','#1F5FC8'],[50,'مقبول','#B7791F'],[0,'يحتاج متابعة','#B4232F']];
 const lvl=p=>LEVELS.find(x=>p>=x[0]);
-function bar(label, val, max, sub, icon){
+function bar(label, val, max, sub, icon, key){
   // 🎯 بطاقة لكل جانب: دائرة صغيرة بالنسبة ولونها حسب المستوى، والدرجة والحكم وتفصيل قصير
   const p=max?Math.round(val/max*100):0, L=lvl(p);
-  return `<div class="tile" style="--c:${L[2]}"><div class="t-top"><span class="t-ic">${icon}</span><span class="t-nm">${label}</span></div>
+  return `<div class="tile${key?' tap':''}" style="--c:${L[2]}" ${key?`data-k="${key}" role="button" tabindex="0"`:''}><div class="t-top"><span class="t-ic">${icon}</span><span class="t-nm">${label}</span>${key?'<span class="t-more" title="اضغط لمعرفة السبب">؟</span>':''}</div>
     <div class="t-mid"><div class="mini" style="--p:${p}"><span>${p}%</span></div><div><b class="t-sc">${val}<small> من ${max}</small></b><span class="t-lv">${L[1]}</span></div></div>
     ${sub?`<small class="t-sub">${sub}</small>`:''}</div>`;
+}
+/* 🔎 لماذا نقصت الدرجة؟ شرح كل جانب بلغة ولي الأمر: كيف تُحسب، وما الذي خصم منها، وماذا يفعل */
+function parentDetails(R, A){
+  const D={}, li=a=>a.length?`<ul>${a.map(x=>`<li>${x}</li>`).join('')}</ul>`:'', ok=t=>`<p class="ok">✓ ${t}</p>`, why=(v,m)=>v>=m?ok('الدرجة كاملة — لا خصم.'):`<p class="miss">نقص <b>${+(m-v).toFixed(2)}</b> من ${m}</p>`;
+  if(R&&R.participation){ const P=R.participation, net=Math.max(0,(P.no||0)-(P.yes||0));
+    D.part=`<h3>🙋 المشاركة</h3>${why(P.score,P.max)}
+      <div class="dk"><span>شارك</span><b>${P.yes||0}</b></div><div class="dk"><span>لم يشارك</span><b>${P.no||0}</b></div><div class="dk"><span>غاب</span><b>${P.absent||0}</b></div>
+      <p class="how">📐 كيف تُحسب: تبدأ من ${P.max}، وتنقص درجة عن كل 3 مرات «لم يشارك» زيادةً على مرات مشاركته${net?` — عنده ${net} زيادة`:''}.</p>
+      ${P.score<P.max?'<p class="tip">💡 شجّعوه على رفع يده والإجابة في الحصة — كل مشاركة تعوّض «لم يشارك».</p>':''}`; }
+  if(R&&R.homework){ const H=R.homework, C=H.classPart, M=H.madrasati;
+    D.hw=`<h3>📕 الواجبات</h3>${why(H.score,H.max)}
+      ${C?`<div class="dsub">📕 الواجب في الحصة: <b>${C.score} من ${C.max}</b> — أنجز ${C.done} · لم ينجز ${C.missed}${C.forgiven?` · أُعفي من ${C.forgiven}`:''}</div>`:''}
+      ${M&&M.counted?`<div class="dsub">📱 واجبات مدرستي: <b>${M.score} من ${M.max}</b> — حلّ ${M.solved} من ${M.counted}</div>${(M.missedList||[]).length?`<p class="miss">لم يحلّ في مدرستي:</p>${li(M.missedList.map(esc))}`:''}`:''}
+      <p class="how">📐 كيف تُحسب: كل واجب لم يُسلَّم ينقص نصف درجة (بعد أسبوع سماح)، وواجبات مدرستي بنسبة ما حلّه منها.</p>
+      ${(M&&(M.pendingList||[]).length)?`<p class="tip">💡 ما زال مفتوحًا في مدرستي: ${M.pendingList.map(x=>esc(x.title)).join('، ')} — حلّه قبل الإغلاق يحفظ درجته.</p>`:''}`; }
+  if(R&&R.behavior){ const B=R.behavior, neg=(B.notes||[]).filter(n=>n.type!=='positive'), pos=(B.notes||[]).filter(n=>n.type==='positive');
+    D.beh=`<h3>🤝 السلوك</h3>${why(B.score,B.max)}
+      ${neg.length?`<p class="miss">ملاحظات سلبية (${neg.length}):</p>${li(neg.map(n=>`${esc(n.date)} — ${esc(n.category||'ملاحظة')}${n.note?`: ${esc(n.note)}`:''}`))}`:''}
+      ${pos.length?`<p class="ok">🌟 مواقف إيجابية (${pos.length}):</p>${li(pos.map(n=>`${esc(n.date)} — ${esc(n.category||'')}${n.note?`: ${esc(n.note)}`:''}`))}`:''}
+      <p class="how">📐 كيف تُحسب: كل ملاحظة سلبية تنقص درجة، وكل موقف إيجابي يعوّض درجة مما نقص (دون تجاوز الكامل).</p>`; }
+  if(R&&R.exam){ const E=R.exam, T=(E.tests||[]);
+    D.exam=`<h3>📝 الاختبارات</h3>${E.measured&&E.score!=null?why(E.score,E.max):'<p class="how">لم تُرصد درجات بعد.</p>'}
+      ${T.length?`<div class="dt">${T.map(t=>{ const p=t.score==null?null:Math.round(t.score/t.max*100);
+        return `<div class="dk${p!=null&&p<70?' low':''}"><span>${esc(t.title)}</span><b>${t.score==null?'لم يُرصد':`${t.score} من ${t.max}`}</b></div>`; }).join('')}</div>`:''}
+      <p class="how">📐 الدرجة من ${E.max} محسوبة من مجموع اختبارات الفترة.</p>
+      ${T.some(t=>t.score!=null&&t.score/t.max<0.7)?'<p class="tip">💡 الاختبار المظلل هو الأضعف — راجعوا معه دروسه، وإن أخفق فيه تصله مهمة علاجية بأسئلته في البوابة.</p>':''}`; }
+  if(A&&A.total){ const late=(A.missing||[]).filter(x=>x.late), op=(A.missing||[]).filter(x=>!x.late);
+    D.acts=`<h3>💻 أنشطة البوابة</h3>${A.doneN>=A.total?ok('سلّم كل الأنشطة.'):`<p class="miss">لم يسلّم <b>${A.total-(A.doneN||0)}</b> من ${A.total}</p>`}
+      ${late.length?`<p class="miss">⏰ متأخرة:</p>${li(late.map(x=>esc(x.t)))}`:''}${op.length?`<p class="how">📌 مفتوحة لم يحلّها:</p>${li(op.map(x=>esc(x.t)+(x.due?` <small>(حتى ${esc(x.due)})</small>`:'')))}`:''}
+      <p class="tip">💡 يحلّها من بوابة الطالب «أنشطتي» — كل نشاط يُسلَّم يرفع النسبة.</p>`; }
+  if(R&&R.homework&&R.homework.madrasati&&R.homework.madrasati.counted){ const M=R.homework.madrasati;
+    D.mad=`<h3>📱 واجبات مدرستي</h3>${M.solved>=M.counted?ok('حلّ كل واجبات مدرستي.'):`<p class="miss">لم يحلّ <b>${M.counted-M.solved}</b> من ${M.counted}</p>`}
+      ${(M.missedList||[]).length?li(M.missedList.map(esc)):''}${(M.pendingList||[]).length?`<p class="how">مفتوح الآن:</p>${li(M.pendingList.map(x=>esc(x.title)))}`:''}
+      ${M.forgiven?`<p class="how">أُعفي من ${M.forgiven}.</p>`:''}`; }
+  return D;
 }
 function render(j, phone){
   const s=j.student, A=j.acts||{}, R=j.live||(j.reports||[])[0]||null, late=(A.missing||[]).filter(x=>x.late), open=(A.missing||[]).filter(x=>!x.late);
@@ -123,14 +168,14 @@ function render(j, phone){
     ${L?`<div class="lv" style="--c:${L[2]}"><div class="ring" style="--p:${P}"><b>${P}%</b></div><div><span class="muted">مستواه العام حتى الآن</span><div class="lv-t">${L[1]}</div>
       <span class="muted">${late.length?`⚠️ عليه ${late.length} ${late.length===1?'نشاط متأخر':'أنشطة متأخرة'}`:open.length?`📌 عليه ${open.length} ${open.length===1?'نشاط مفتوح':'أنشطة مفتوحة'} لم يحلّها بعد`:'✓ لا أنشطة متأخرة عليه'}</span></div></div>`:''}
     ${(j.siblings||[]).length?`<div class="sib"><span class="muted">إخوته:</span>${j.siblings.map(n=>`<button class="ghost sm" type="button" data-sib="${esc(n)}">${esc(n)}</button>`).join('')}</div>`:''}</section>`;
-  h+=`<section class="card"><h2>📊 تفاصيل مستواه</h2><div class="tiles">
-    ${R&&R.participation&&R.participation.measured?bar('المشاركة',R.participation.score,R.participation.max,R.participation.absent?`غاب ${R.participation.absent} ${R.participation.absent===1?'حصة':'حصص'}`:'','🙋'):''}
-    ${R&&R.homework&&R.homework.score!=null?bar('الواجبات',R.homework.score,R.homework.max,R.homework.classPart?`أنجز ${R.homework.classPart.done} · لم ينجز ${R.homework.classPart.missed}`:'','📕'):''}
-    ${R&&R.behavior&&R.behavior.score!=null?bar('السلوك',R.behavior.score,R.behavior.max,`🌟 ${R.behavior.pos||0} إيجابي · ⚠️ ${R.behavior.neg||0} سلبي`,'🤝'):''}
-    ${R&&R.exam&&R.exam.measured&&R.exam.score!=null?bar('الاختبارات',R.exam.score,R.exam.max,(R.exam.tests||[]).filter(t=>t.score!=null).map(t=>`${esc(t.title)}: ${t.score} من ${t.max}`).join(' · '),'📝'):R?`<div class="tile none"><div class="t-top"><span class="t-ic">📝</span><span class="t-nm">الاختبارات</span></div><span class="t-sub" style="margin-top:6px">لم تُرصد بعد</span></div>`:''}
-    ${A.total?bar('أنشطة البوابة',A.doneN||0,A.total,'ما سلّمه من الأنشطة الإلكترونية','💻'):''}
-    ${R&&R.homework&&R.homework.madrasati&&R.homework.madrasati.counted?bar('واجبات مدرستي',R.homework.madrasati.solved,R.homework.madrasati.counted,'','📱'):''}
-    </div>${R&&R.teacherNote?`<p class="note" style="margin-top:12px">📝 <b>ملاحظة المعلم:</b> ${esc(R.teacherNote)}</p>`:''}</section>`;
+  h+=`<section class="card"><h2>📊 تفاصيل مستواه</h2><p class="muted" style="margin:-.3rem 0 .7rem">اضغط أي بطاقة لمعرفة سبب درجتها وما يمكن فعله.</p><div class="tiles">
+    ${R&&R.participation&&R.participation.measured?bar('المشاركة',R.participation.score,R.participation.max,R.participation.absent?`غاب ${R.participation.absent} ${R.participation.absent===1?'حصة':'حصص'}`:'','🙋','part'):''}
+    ${R&&R.homework&&R.homework.score!=null?bar('الواجبات',R.homework.score,R.homework.max,R.homework.classPart?`أنجز ${R.homework.classPart.done} · لم ينجز ${R.homework.classPart.missed}`:'','📕','hw'):''}
+    ${R&&R.behavior&&R.behavior.score!=null?bar('السلوك',R.behavior.score,R.behavior.max,`🌟 ${R.behavior.pos||0} إيجابي · ⚠️ ${R.behavior.neg||0} سلبي`,'🤝','beh'):''}
+    ${R&&R.exam&&R.exam.measured&&R.exam.score!=null?bar('الاختبارات',R.exam.score,R.exam.max,(R.exam.tests||[]).filter(t=>t.score!=null).map(t=>`${esc(t.title)}: ${t.score} من ${t.max}`).join(' · '),'📝','exam'):R?`<div class="tile none"><div class="t-top"><span class="t-ic">📝</span><span class="t-nm">الاختبارات</span></div><span class="t-sub" style="margin-top:6px">لم تُرصد بعد</span></div>`:''}
+    ${A.total?bar('أنشطة البوابة',A.doneN||0,A.total,'ما سلّمه من الأنشطة الإلكترونية','💻','acts'):''}
+    ${R&&R.homework&&R.homework.madrasati&&R.homework.madrasati.counted?bar('واجبات مدرستي',R.homework.madrasati.solved,R.homework.madrasati.counted,'','📱','mad'):''}
+    </div><div id="det" class="det hide"></div>${R&&R.teacherNote?`<p class="note" style="margin-top:12px">📝 <b>ملاحظة المعلم:</b> ${esc(R.teacherNote)}</p>`:''}</section>`;
   if(late.length||open.length){
     h+=`<section class="card"><h2>📌 المطلوب منه</h2>
       ${late.map(x=>`<div class="row"><span>${esc(x.t)}</span><span class="tag late">⏰ متأخر</span></div>`).join('')}
@@ -145,6 +190,12 @@ function render(j, phone){
   const old=(j.reports||[]).filter(r=>!R||r.semester!==R.semester||r.period!==R.period);
   if(old.length) h+=`<section class="card"><details><summary><b>📄 تقارير الفترات السابقة (${old.length})</b></summary>${old.map(r=>`<div class="row"><span>${esc(r.label||'')}</span><span class="muted">مشاركة ${r.participation?r.participation.score:'—'} · واجبات ${r.homework?r.homework.score:'—'} · سلوك ${r.behavior?r.behavior.score:'—'}${r.exam&&r.exam.measured?` · اختبارات ${r.exam.score}/${r.exam.max}`:''}</span></div>`).join('')}</details></section>`;
   $('out').innerHTML=h;
+  const DET=parentDetails(R, A);
+  $('out').querySelectorAll('.tile[data-k]').forEach(t=>{ const open=()=>{ const d=$('det'), k=t.dataset.k, was=t.classList.contains('on');
+      $('out').querySelectorAll('.tile.on').forEach(x=>x.classList.remove('on'));
+      if(was){ d.classList.add('hide'); return; }
+      t.classList.add('on'); d.style.setProperty('--c', getComputedStyle(t).getPropertyValue('--c')); d.innerHTML=DET[k]||''; d.classList.remove('hide'); d.scrollIntoView({behavior:'smooth',block:'nearest'}); };
+    t.onclick=open; t.onkeydown=e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); open(); } }; });
   $('out-btn').onclick=()=>{ try{ localStorage.removeItem(KEY); }catch(e){} $('out').innerHTML=''; $('login').classList.remove('hide'); };
   $('out').querySelectorAll('[data-sib]').forEach(b=>b.onclick=()=>go(b.dataset.sib, phone));
 }
