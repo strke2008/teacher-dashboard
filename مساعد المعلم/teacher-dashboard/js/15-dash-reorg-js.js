@@ -55,8 +55,8 @@ function thActions(){
   const plans=((typeof CT_GRADES!=='undefined'&&CT_GRADES&&CT_GRADES.plans)||(typeof PLAN_DATA!=='undefined'&&PLAN_DATA&&PLAN_DATA.plans)||[]).filter(p=>p.status!=='done');
   const need=plans.filter(p=>p.timing&&p.timing.expired).length;
   const soon=plans.filter(p=>p.timing&&!p.timing.expired&&p.timing.left!=null&&p.timing.left<=3).length;
-  if(need) out.push(['bad','🩺',`${need} ${need===1?'خطة علاجية انتهت مدتها وتنتظر قرارك':'خطط علاجية انتهت مدتها وتنتظر قرارك'}`,need,"goTab('plans')"]);
-  if(soon) out.push(['warn','⏳',`${soon} ${soon===1?'خطة تنتهي':'خطط تنتهي'} خلال 3 أيام`,soon,"goTab('plans')"]);
+  if(need) out.push(['bad','🩺',`${need} ${need===1?'خطة علاجية انتهت مدتها وتنتظر قرارك':'خطط علاجية انتهت مدتها وتنتظر قرارك'}`,need,"plansGo('need')"]);
+  if(soon) out.push(['warn','⏳',`${soon} ${soon===1?'خطة تنتهي':'خطط تنتهي'} خلال 3 أيام`,soon,"plansGo('soon3')"]);
   if(typeof CT_DATA!=='undefined'&&CT_DATA){
     let al=[]; try{ al=ctAlertsOpen(''); }catch(e){}
     const bad=al.filter(a=>a.lvl==='bad').length, warn=al.length-bad;
@@ -222,7 +222,7 @@ function tdKpis(){
   const late=(STUDENTS||[]).filter(s=>getStudentMissingActivities(s).length).length;
   out.push(['⏰','طلاب متأخرون',late,'openBulkReminder()']);
   const plans=((typeof CT_GRADES!=='undefined'&&CT_GRADES&&CT_GRADES.plans)||(typeof PLAN_DATA!=='undefined'&&PLAN_DATA&&PLAN_DATA.plans)||[]).filter(p=>p.status!=='done'&&p.timing&&p.timing.expired).length;
-  out.push(['🩺','خطط تنتظر قرارك',plans,"goTab('plans')"]);
+  out.push(['🩺','خطط تنتظر قرارك',plans,"plansGo('need')"]);
   return `<div class="td-kpis">${out.map(([i,l,v,go])=>`<button type="button" class="td-kpi" onclick="${go}">${i} <span>${l}</span> <b>${v}</b></button>`).join('')}</div>`;
 }
 function brOpenFor(id){ BR.act=String(id); BR.cls=''; BR.sel=null; BR.only=null; openBulkReminder(); }
