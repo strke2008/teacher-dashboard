@@ -15650,14 +15650,14 @@ function madCloseText(dueAt){
 }
 function madUnsolvedLines(list, direct){
   // 🔗 direct (رسالة الطالب فقط): رابط الواجب نفسه في مدرستي تحت عنوانه — من رمز الواجب + رقم المدرسة والمادة في رابط «واجباتي»
-  const su=k=>direct&&k&&typeof madSolveUrl==='function'?madSolveUrl(k):'';
-  return list.map(x=>`• ${x.title}${x.st==='pending'?` (${x.dueAt?madCloseText(x.dueAt)+' — بادِر بحله قبل الإغلاق':'ما زال مفتوحًا'})`:' (أُغلق ولم يُحل)'}${su(x.k)?`\n  ↳ ${su(x.k)}`:''}`).join('\n');
+  const su=x=>{ const k=typeof madKeyFor==='function'?madKeyFor(x):x.k; return direct&&k&&typeof madSolveUrl==='function'?madSolveUrl(k):''; };
+  return list.map(x=>`• ${x.title}${x.st==='pending'?` (${x.dueAt?madCloseText(x.dueAt)+' — بادِر بحله قبل الإغلاق':'ما زال مفتوحًا'})`:' (أُغلق ولم يُحل)'}${su(x)?`\n  ↳ ${su(x)}`:''}`).join('\n');
 }
 async function openStudentReminder(id){
   const s=byId(id);
   if(!s) return;
   const missing=getStudentMissingActivities(s);
-  const mad=await madUnsolvedFor(s.id);
+  const mad=await madUnsolvedFor(s.id); try{ if(typeof madKeysLoad==='function') await madKeysLoad(); }catch(e){}
   const soon=remSoonActivities(s);
   let paper=[]; try{ paper=remPaperMissed(s, await loadComprehensiveClassroom(false)); }catch(e){}
 

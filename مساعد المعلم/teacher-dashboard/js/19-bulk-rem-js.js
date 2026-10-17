@@ -52,6 +52,24 @@ function madSolveUrl(k){
     const u=new URL(madListUrl(typeof rcGet==='function'?rcGet('madlink'):'')||'x:'), sub=u.searchParams.get('SubjectId'), sch=u.searchParams.get('SchoolId');
     return sub&&sch?`https://schools.madrasati.sa/Student/Assignments/SolveLectureAssignment/${k}?SchoolId=${sch}&SubjectId=${sub}&type=Current&published=false`:''; }catch(e){ return ''; }
 }
+/* رمز الواجب بعنوانه من قائمة واجبات مدرستي (احتياط إن لم يُرسله الخادم): العنوان المكرر بين الفصول لا يُخمَّن */
+let MAD_KEYS=null;
+async function madKeysLoad(){
+  if(MAD_KEYS) return MAD_KEYS;
+  try{ const L=(await Promise.race([madApi('/madrasati/list'),new Promise((_,no)=>setTimeout(()=>no(new Error('timeout')),5000))])).assignments||[], m=new Map();
+    L.forEach(a=>{ const t=String(a&&a.title||'').trim(), k=String(a&&a.key||''); if(!t||!/^[0-9A-F]{16,64}$/i.test(k)) return; m.set(t, m.has(t)&&m.get(t)!==k?'':k); });
+    MAD_KEYS=m; }catch(e){ MAD_KEYS=new Map(); }
+  return MAD_KEYS;
+}
+function madKeyFor(x){ if(x&&x.k) return x.k; const t=String(x&&x.title||'').trim(); return (MAD_KEYS&&MAD_KEYS.get(t))||''; }
+/* 🎯 هل سيظهر زر «حلّه» للطلاب؟ عدد الواجبات المفتوحة التي عُرف رابطها المباشر */
+function brSolveNote(){
+  if(!madListUrl(rcGet('madlink'))) return '<small class="br-solve">🎯 احفظ رابط «واجباتي» أعلاه ليظهر للطالب زر «حلّه» يفتح كل واجب مباشرة</small>';
+  const all=[]; (BR.rows||[]).forEach(r=>(r.x.mad||[]).forEach(m=>all.push(m)));
+  if(!all.length) return '';
+  const ok=all.filter(m=>madKeyFor(m)).length;
+  return `<small class="br-solve ${ok?'ok':''}">🎯 زر «حلّه» المباشر: ${ok} من ${all.length} واجب${ok<all.length?' — الباقي برابط «واجباتي» فقط':''}</small>`;
+}
 function madLinkSet(v){
   const url=madListUrl(v); const st=document.getElementById('br-madlink-st');
   if(String(v||'').trim()&&!url){ if(st){st.textContent='✗ الرابط لا يحوي رقم المادة والمدرسة';st.className='bad';} return; }
@@ -89,6 +107,7 @@ async function openBulkReminder(keepOnly){
   try{ const dates=[...Array(14)].map((_,i)=>remKsaDay(-i));
     const j=await Promise.race([madApi('/madrasati/week',{dates}),new Promise((_,no)=>setTimeout(()=>no(new Error('timeout')),6000))]);
     BR.madBy=(j&&j.bySid)||{}; }catch(e){ BR.madBy=null; }
+  try{ await madKeysLoad(); }catch(e){}
   brRender();
 }
 function brMad(sid){
@@ -128,7 +147,7 @@ function brRender(){
       <label><input type="checkbox" ${BR.paper?'checked':''} onchange="BR.paper=this.checked;BR.sel=null;brRender()"> 📕 الواجب الورقي (آخر أسبوع)</label>
       <label title="${BR.madBy?'':'تعذّر جلب واجبات مدرستي الآن'}"><input type="checkbox" ${BR.mad&&BR.madBy?'checked':''} ${BR.madBy?'':'disabled'} onchange="BR.mad=this.checked;BR.sel=null;brRender()"> 📱 واجبات مدرستي المفتوحة</label>
     </div>
-    ${BR.mad&&BR.madBy?`<div class="br-madlink"><label for="br-madlink">🔗 رابط «الواجبات» للطلاب:</label><input class="inp" id="br-madlink" dir="ltr" placeholder="الصق رابط صفحة الواجبات من حساب أي طالب" value="${esc(rcGet('madlink')||'')}" onchange="madLinkSet(this.value)"><small id="br-madlink-st" class="${rcGet('madlink')?'ok':''}">${rcGet('madlink')?'✓ محفوظ':'بدونه يُرسل الرابط العام والخطوات'}</small></div>`:''}
+    ${BR.mad&&BR.madBy?`<div class="br-madlink"><label for="br-madlink">🔗 رابط «الواجبات» للطلاب:</label><input class="inp" id="br-madlink" dir="ltr" placeholder="الصق رابط صفحة الواجبات من حساب أي طالب" value="${esc(rcGet('madlink')||'')}" onchange="madLinkSet(this.value)"><small id="br-madlink-st" class="${rcGet('madlink')?'ok':''}">${rcGet('madlink')?'✓ محفوظ':'بدونه يُرسل الرابط العام والخطوات'}</small>${brSolveNote()}</div>`:''}
     ${BR.rows.length?`<div class="br-list">${BR.rows.map(r=>{ const id=String(r.s.id), on=BR.sel.has(id);
       return `<div class="br-row ${on?'':'off'}"><input type="checkbox" ${on?'checked':''} onchange="brToggle('${esc(id)}',this.checked)">
         <div class="br-main"><b>${esc(r.s.name)}</b><small>${esc(r.s.cls||'')}</small>
