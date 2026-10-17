@@ -245,6 +245,7 @@ th{font-family:var(--display);font-weight:600;background:var(--bench)}
 .frobs:empty{display:none}
 .inh{font-size:1.08rem;margin:14px 2px 2px}
 .hide-b{display:none}
+.frzone canvas.pcfit{width:100%!important;max-width:640px!important;margin:0 auto;touch-action:none}
 .seg{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-weight:600}
 .seg .chip{padding:5px 12px}
 .frscroll{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:12px;width:100%;max-width:100%}
@@ -3750,120 +3751,316 @@ const PHYSCHG={
 };
 CONTENT.physchg=PHYSCHG;
 
-/* ---- رسم الأدوات ---- */
-const PC_G=222,PC_YB=PC_G-14,PC_PXML=(PC_YB-44)/100,PC_CX=600;
-function pcCube(c,cx,by,s,col,lbl){
-  const d=s*.32,x=cx-s/2,y=by-s;
+/* ---- محرّك المشهد التفاعلي: يمسك الطالب الأدوات بإصبعه، والجاذبية تُسقطها، والماء يرتفع ويتموّج ويتطاير،
+   والميزان يهتز ثم يثبت (النقطة الخضراء)، والضغط باليد يزيد القراءة كما في الواقع ---- */
+const PCW=440,PCH=300,PCG=262,PCS={bal:170,PAN:PCG-40,CX:330,IW:24,yt:40,yb:PCG-14,LX:384,LR:34,Z:3};
+PCS.K=(PCS.yb-70)/100;
+const pcSurfY=L=>PCS.yb-L*PCS.K,pcClamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const pcBalNew=()=>({disp:0,vel:0,stT:0,show:0});
+function pcBalStep(b,target,dt,jit){b.vel+=(target-b.disp)*110*dt;b.vel*=Math.exp(-11*dt);b.disp+=b.vel*dt;
+  const st=!jit&&Math.abs(target-b.disp)<.05&&Math.abs(b.vel)<.3;b.stT=st?b.stT+dt:0;
+  b.show=b.stT>.45?target:b.disp+(Math.random()-.5)*(jit||Math.min(.2,Math.abs(target-b.disp)*.05+Math.abs(b.vel)*.01));if(Math.abs(b.show)<.05)b.show=0}
+function pcDrawBal(c,b,cx,lbl,sink,pw){const G=PCG,P=PCS.PAN+(sink||0);pw=pw||46;
+  c.fillStyle='#9AA6B1';c.fillRect(cx-6,P+5,12,G-30-P-5);
+  c.fillStyle='#E9EEF2';WMD.rr(c,cx-62,G-30,124,30,7);c.fill();c.strokeStyle='#8995A1';c.lineWidth=1.4;c.stroke();
+  c.fillStyle='#C3CCD4';WMD.rr(c,cx-pw,P,2*pw,6,3);c.fill();c.strokeStyle='#7D8995';c.stroke();
+  c.fillStyle='#163A2A';WMD.rr(c,cx-38,G-25,76,18,4);c.fill();
+  c.fillStyle='#7CF0A8';c.font='bold 14px ui-monospace,Menlo,monospace';c.textAlign='center';c.fillText(`${b.show.toFixed(1)} g`,cx-4,G-11);
+  if(b.stT>.45){c.beginPath();c.arc(cx+48,G-16,3,0,7);c.fill()}
+  if(lbl){c.fillStyle='#4F6879';c.font='11px system-ui,sans-serif';c.fillText(lbl,cx,G+15)}}
+function pcCube(c,cx,by,s,col){
+  const d=s*.3,x=cx-s/2,y=by-s;
   c.fillStyle=col[1];c.beginPath();c.moveTo(x+s,y);c.lineTo(x+s+d,y-d);c.lineTo(x+s+d,y+s-d);c.lineTo(x+s,y+s);c.closePath();c.fill();
   c.fillStyle=col[0];c.beginPath();c.moveTo(x,y);c.lineTo(x+d,y-d);c.lineTo(x+s+d,y-d);c.lineTo(x+s,y);c.closePath();c.fill();
   const g=c.createLinearGradient(x,y,x+s,y+s);g.addColorStop(0,col[0]);g.addColorStop(1,col[1]);c.fillStyle=g;c.fillRect(x,y,s,s);
-  c.strokeStyle='rgba(0,0,0,.35)';c.lineWidth=1;c.strokeRect(x,y,s,s);
-  if(lbl){c.fillStyle='#13324A';c.font='bold 12px system-ui,sans-serif';c.textAlign='center';c.fillText(lbl,cx,by+16)}}
-function pcRing(c,cx,by,s){c.save();c.lineWidth=Math.max(5,s*.28);const g=c.createLinearGradient(cx-s,by-s,cx+s,by);g.addColorStop(0,'#F7D774');g.addColorStop(.5,'#D9A82E');g.addColorStop(1,'#A87B12');
-  c.strokeStyle=g;c.beginPath();c.ellipse(cx,by-s*.5,s*.75,s*.42,0,0,7);c.stroke();c.restore()}
-function pcBalance(c,cx,val,lbl){
-  const G=PC_G,x=cx-80;c.fillStyle='#E9EEF2';WMD.rr(c,x,G-36,160,36,8);c.fill();c.strokeStyle='#8995A1';c.lineWidth=1.5;c.stroke();
-  c.fillStyle='#B7C1CA';WMD.rr(c,cx-58,G-44,116,8,3);c.fill();c.strokeStyle='#7D8995';c.stroke();
-  c.fillStyle='#163A2A';WMD.rr(c,cx-40,G-30,80,22,4);c.fill();c.fillStyle='#7CF0A8';c.font='bold 16px ui-monospace,Menlo,monospace';c.textAlign='center';
-  c.fillText(`${(Math.round(val*10)/10).toFixed(val%1?1:0)} g`,cx,G-13);
-  if(lbl){c.fillStyle='#4F6879';c.font='12px system-ui,sans-serif';c.fillText(lbl,cx,G+16)}}
-function pcCylinder(c,cx,lvl){
-  const L=cx-30,R=cx+30,yb=PC_YB,top=30;
-  c.fillStyle='rgba(120,150,170,.35)';WMD.rr(c,cx-44,PC_G-8,88,8,3);c.fill();
-  const wy=yb-lvl*PC_PXML,g=c.createLinearGradient(0,wy,0,yb);g.addColorStop(0,'rgba(79,179,200,.55)');g.addColorStop(1,'rgba(46,125,181,.6)');
-  c.fillStyle=g;c.beginPath();c.moveTo(L+2,wy);c.quadraticCurveTo(cx,wy+7,R-2,wy);c.lineTo(R-2,yb);c.lineTo(L+2,yb);c.closePath();c.fill();
-  c.strokeStyle='rgba(30,80,110,.75)';c.lineWidth=1.6;c.beginPath();c.moveTo(L+2,wy);c.quadraticCurveTo(cx,wy+7,R-2,wy);c.stroke();
-  c.strokeStyle='#5D7A8C';c.lineWidth=2.2;c.beginPath();c.moveTo(L,top);c.lineTo(L,yb);c.quadraticCurveTo(L,yb+6,L+6,yb+6);c.lineTo(R-6,yb+6);c.quadraticCurveTo(R,yb+6,R,yb);c.lineTo(R,top);c.stroke();
-  c.fillStyle='rgba(255,255,255,.25)';c.fillRect(L+5,top+6,5,yb-top-12);
-  c.strokeStyle='#33495E';c.fillStyle='#33495E';c.font='bold 11px system-ui,sans-serif';c.textAlign='right';
-  for(let m=0;m<=100;m+=2){const y=yb-m*PC_PXML,big=m%10===0;c.lineWidth=big?1.6:1;c.beginPath();c.moveTo(L,y);c.lineTo(L+(big?14:7),y);c.stroke();if(big&&m)c.fillText(arNum(String(m)),L-6,y+4)}
-  c.textAlign='center';c.font='bold 11px system-ui,sans-serif';c.fillText('مل',cx,top-6);
-  return wy}
-function pcBeaker(c,cx,by,w,h,fill,o){
-  o=o||{};const L=cx-w/2,R=cx+w/2,top=by-h;
-  if(fill>0){const wy=by-4-(h-8)*fill;c.fillStyle=o.tint||'rgba(79,179,200,.45)';c.fillRect(L+3,wy,w-6,by-4-wy);c.strokeStyle='rgba(30,80,110,.5)';c.lineWidth=1.2;c.beginPath();c.moveTo(L+3,wy);c.lineTo(R-3,wy);c.stroke()}
-  if(o.ice>0){const s=26*o.ice;c.fillStyle='rgba(225,243,252,.95)';c.strokeStyle='rgba(120,170,200,.9)';c.lineWidth=1.4;WMD.rr(c,cx-s/2,by-6-s,s,s,4);c.fill();c.stroke()}
-  if(o.grains>0){c.fillStyle=`rgba(255,255,255,${o.grains})`;for(let i=0;i<26;i++){const gx=L+8+((i*37)%(w-16)),gy=by-8-((i*13)%10);c.fillRect(gx,gy,2.4,2.4)}}
-  c.strokeStyle='#5D7A8C';c.lineWidth=2;c.beginPath();c.moveTo(L-3,top);c.lineTo(L,top+4);c.lineTo(L,by);c.lineTo(R,by);c.lineTo(R,top+4);c.lineTo(R+3,top);c.stroke();
-  if(o.lid){c.fillStyle='rgba(180,200,215,.85)';WMD.rr(c,L-6,top-6,w+12,6,3);c.fill();c.strokeStyle='#5D7A8C';c.lineWidth=1.2;c.stroke()}}
+  c.strokeStyle='rgba(0,0,0,.35)';c.lineWidth=1;c.strokeRect(x,y,s,s)}
+function pcDrawObj(c,o){const x=o.x,y=o.y;c.save();
+  if(o.st==='held'){c.translate(x,y-o.h/2);c.rotate(pcClamp(o.vx*.0012,-.3,.3));c.translate(-x,-(y-o.h/2));
+    c.fillStyle='rgba(0,0,0,.12)';c.beginPath();c.ellipse(x,Math.min(PCG,y+30),o.w*.5,3,0,0,7);c.fill()}
+  if(o.ring){const rx=o.w/2,ry=o.h/2,lw=Math.max(4,o.w*.2),g=c.createLinearGradient(x-rx,y-o.h,x+rx,y);g.addColorStop(0,'#F7D774');g.addColorStop(.5,'#D9A82E');g.addColorStop(1,'#A87B12');
+    c.lineWidth=lw;c.strokeStyle=g;c.beginPath();c.ellipse(x,y-ry,rx-lw/2,ry-lw/2*.7,0,0,7);c.stroke();
+    c.lineWidth=1.2;c.strokeStyle='rgba(255,255,255,.6)';c.beginPath();c.ellipse(x,y-ry,rx-lw/2,ry-lw/2*.7,0,3.5,4.5);c.stroke()}
+  else pcCube(c,x,y,o.w,o.col);
+  c.restore()}
+/* ---- المشهد (أ): منشفة + ميزان + مخبار مدرّج + مكبّر ---- */
+const pcE={items:[],held:null,off:{x:0,y:0},tgt:{x:0,y:0},water:50,amp:0,ph:0,surf:0,bal:pcBalNew(),press:0,refill:0,lp:{y:0,held:false,off:0,moved:false},
+  cb:{},can:()=>true,accept:()=>true,pill:null};
+const pcGround=x=>x>=8&&x<=116?PCG-5:PCG;
+const pcOverCyl=(o,x)=>x+o.w/2>PCS.CX-PCS.IW-5&&x-o.w/2<PCS.CX+PCS.IW+5;
+const pcInMouth=(o,x)=>Math.abs(x-PCS.CX)<=PCS.IW-o.w/2-1;
+const pcOverBal=(o,x)=>x+o.w/2>PCS.bal-62&&x-o.w/2<PCS.bal+62;
+const pcOverPan=x=>Math.abs(x-PCS.bal)<46;
+const pcBlocked=o=>pcE.items.some(q=>q!==o&&q.inT)||!pcE.accept(o);
+function pcPill(t,cl,s){pcE.pill={t,cl,until:performance.now()+(s||2600)}}
+function pcLevel(){let L=pcE.water;pcE.items.forEach(o=>{if(o.inT)L+=o.v*pcClamp((o.y-pcE.surf)/o.h,0,1)});return L}
+function pcSplash(o,v){const S=PCS,E=pcE;E.amp=Math.min(7,E.amp+Math.abs(v)*.016+.5);
+  WMSIM.puff(S.CX,E.surf,Math.min(16,3+Math.round(Math.abs(v)/30)),'rgba(120,200,225,.95)',{vy:-Math.min(260,40+Math.abs(v)*.55),g:520});
+  if(v>300&&!o.fired.splash){const lost=Math.min(4,1+Math.round((v-300)/80));o.fired.splash=1;E.water-=lost;
+    WMSIM.puff(S.CX-S.IW,S.yt,8,'rgba(120,200,225,.95)',{vx:-80,vy:-70,g:500});WMSIM.puff(S.CX+S.IW,S.yt,8,'rgba(120,200,225,.95)',{vx:80,vy:-70,g:500});
+    pcPill(`💦 تطاير ${lost} مل من الماء!`,'#C3473E',3500);E.cb.splash&&E.cb.splash(o,lost)}}
+function pcEntry(o,y0,y1,v){if(o.inT&&y0<pcE.surf&&y1>=pcE.surf)pcSplash(o,v)}
+function pcMoveHeld(o,nx,ny,dt){const S=PCS;let press=0;
+  if(o.inT){nx=pcClamp(nx,S.CX-S.IW+o.w/2+1,S.CX+S.IW-o.w/2-1);ny=Math.min(ny,S.yb);if(ny<S.yt-1)o.inT=false}
+  else{
+    if(pcOverCyl(o,nx)&&ny>S.yt){
+      if(o.y<=S.yt+1&&pcInMouth(o,nx)&&!pcBlocked(o)){o.inT=true;ny=Math.min(ny,S.yb)}
+      else if(o.y<=S.yt+1){ny=S.yt;if(!o.warned){o.warned=1;pcPill(pcE.items.some(q=>q!==o&&q.inT)?'أخرج الجسم الآخر من المخبار أولًا':!pcE.accept(o)?'زِن العينة أولًا وهي جافة':'أدخلها من وسط الفوهة','#D98E1F')}}
+      else nx=o.x<S.CX?Math.min(nx,S.CX-S.IW-5-o.w/2):Math.max(nx,S.CX+S.IW+5+o.w/2)}
+    if(!o.inT&&pcOverBal(o,nx)&&ny>S.PAN){
+      if(o.y<=S.PAN+1){press=pcOverPan(nx)?ny-S.PAN:0;ny=S.PAN}
+      else nx=o.x<S.bal?Math.min(nx,S.bal-62-o.w/2):Math.max(nx,S.bal+62+o.w/2)}
+    ny=Math.min(ny,pcGround(nx))}
+  nx=pcClamp(nx,o.w/2+2,PCW-o.w/2-2);ny=Math.max(o.h+4,ny);
+  if(dt>0){o.vx=o.vx*.6+.4*(nx-o.x)/dt;o.vy=o.vy*.6+.4*(ny-o.y)/dt}
+  pcEntry(o,o.y,ny,o.vy);o.x=nx;o.y=ny;return press}
+function pcFall(o,dt){const S=PCS,y0=o.y;
+  if(o.inT){const sub=o.y>pcE.surf+2;o.vy+=(sub?650-4.6*o.vy:900)*dt;o.vx=0;o.x=pcClamp(o.x,S.CX-S.IW+o.w/2+1,S.CX+S.IW-o.w/2-1);
+    o.y+=o.vy*dt;pcEntry(o,y0,o.y,o.vy);
+    if(o.y>=S.yb){o.y=S.yb;if(o.vy>120){o.vy*=-.12;pcE.amp+=.5}else{o.vy=0;o.st='cyl'}}return}
+  o.vy+=900*dt;o.vx*=Math.exp(-1.5*dt);let nx=o.x+o.vx*dt,ny=o.y+o.vy*dt;
+  if(pcOverCyl(o,nx)&&ny>S.yt){
+    if(y0<=S.yt+1){if(pcInMouth(o,nx)&&!pcBlocked(o)){o.inT=true;o.x=nx;o.y=ny;pcEntry(o,y0,ny,o.vy);return}
+      ny=S.yt;o.vy=-Math.abs(o.vy)*.3;o.vx=(nx<S.CX?-1:1)*110;pcE.amp+=.3}
+    else nx=o.x<S.CX?Math.min(nx,S.CX-S.IW-5-o.w/2):Math.max(nx,S.CX+S.IW+5+o.w/2)}
+  if(pcOverBal(o,nx)&&ny>=S.PAN){
+    if(y0<=S.PAN+1){ny=S.PAN;if(pcOverPan(nx))pcE.bal.vel+=o.vy*o.m*.004;
+      if(o.vy>160)o.vy*=-.2;else if(pcOverPan(nx)){o.vy=0;o.vx=0;o.st='pan'}else{o.vy=0;o.vx=(nx<S.bal?-1:1)*90;ny=S.PAN-.5}}
+    else nx=o.x<S.bal?Math.min(nx,S.bal-62-o.w/2):Math.max(nx,S.bal+62+o.w/2)}
+  const gy=pcGround(nx);if(o.st==='fall'&&ny>=gy){ny=gy;if(o.vy>160){o.vy*=-.2;o.vx*=.5}else{o.vy=0;o.vx=0;o.st=gy<PCG?'tray':'table'}}
+  o.x=pcClamp(nx,o.w/2+2,PCW-o.w/2-2);o.y=ny}
+function pcStepA(dt){const E=pcE;E.ph+=dt;E.amp*=Math.exp(-2*dt);
+  if(E.refill>0){const k=Math.min(E.refill,dt*6);E.water+=k;E.refill-=k;E.amp=Math.max(E.amp,.8);if(Math.random()<.6)WMSIM.puff(PCS.CX+8,PCS.yt+6,1,'rgba(120,200,225,.95)',{vy:120,g:300})}
+  E.press=0;
+  E.items.forEach(o=>{
+    if(o.st==='held'){const k=Math.min(1,dt*30);E.press=Math.max(E.press,pcMoveHeld(o,o.x+(E.tgt.x-o.x)*k,o.y+(E.tgt.y-o.y)*k,dt))}
+    else if(o.st==='fall')pcFall(o,dt);
+    if(o.wet>0){o.wet-=dt;if(!o.inT&&Math.random()<dt*7)WMSIM.puff(o.x,o.y,1,'rgba(79,179,200,.95)',{vy:40,g:420})}});
+  E.surf=pcSurfY(pcLevel());
+  const onPan=E.items.filter(o=>o.st==='pan');
+  pcBalStep(E.bal,onPan.reduce((s,o)=>s+o.m,0)+E.press*6,dt,0);
+  if(E.press>2&&!E.pressWarned){E.pressWarned=1;pcPill('✋ يدك تضغط على الكفّة فزادت القراءة! اتركها','#C3473E')}
+  if(E.press<=2)E.pressWarned=0;
+  if(onPan.length===1&&E.bal.stT>.5&&!onPan[0].fired.w){onPan[0].fired.w=1;E.cb.weighed&&E.cb.weighed(onPan[0])}
+  E.items.forEach(o=>{
+    if(o.st==='cyl'&&E.amp<.25&&E.refill<=0&&!o.fired.sub){o.fired.sub=1;o.wasIn=1;E.cb.sub&&E.cb.sub(o)}
+    if(o.wasIn&&!o.inT&&!o.fired.out){o.wet=2.4;o.fired.out=1}
+    if(o.fired.out&&(o.st==='tray'||o.st==='table'||o.st==='pan')&&!o.fired.back){o.fired.back=1;E.cb.out&&E.cb.out(o)}})}
+function pcDrawTube(c){const S=PCS,E=pcE,L=S.CX-S.IW,R=S.CX+S.IW;
+  c.fillStyle='rgba(120,150,170,.45)';WMD.rr(c,S.CX-36,PCG-8,72,8,3);c.fill();
+  c.fillStyle='rgba(225,240,248,.35)';c.fillRect(L,S.yt,R-L,S.yb+4-S.yt);
+  E.items.forEach(o=>{if(o.inT)pcDrawObj(c,o)});
+  const sy=E.surf,surf=x=>{const u=(x-S.CX)/S.IW;return sy-3.5*Math.pow(Math.abs(u),4)+E.amp*Math.sin(E.ph*14+x*.3)*(1-.3*u*u)};
+  const g=c.createLinearGradient(0,sy,0,S.yb);g.addColorStop(0,'rgba(79,179,200,.42)');g.addColorStop(1,'rgba(46,125,181,.52)');
+  c.fillStyle=g;c.beginPath();c.moveTo(L+1,surf(L+1));for(let x=L+1;x<=R-1;x+=1.5)c.lineTo(x,surf(x));c.lineTo(R-1,S.yb+3);c.lineTo(L+1,S.yb+3);c.closePath();c.fill();
+  c.strokeStyle='rgba(30,80,110,.9)';c.lineWidth=1;c.beginPath();for(let x=L+1;x<=R-1;x+=1.5)x===L+1?c.moveTo(x,surf(x)):c.lineTo(x,surf(x));c.stroke();
+  c.strokeStyle='#33495E';c.fillStyle='#33495E';
+  for(let m=1;m<=100;m++){const y=S.yb-m*S.K,big=m%10===0,mid=m%5===0;c.lineWidth=big?1.2:mid?.9:.55;c.beginPath();c.moveTo(L,y);c.lineTo(L+(big?13:mid?9:5),y);c.stroke()}
+  c.font='bold 8px system-ui,sans-serif';c.textAlign='left';for(let m=10;m<=100;m+=10)c.fillText(String(m),L+15,S.yb-m*S.K+3);
+  c.textAlign='center';c.font='bold 10px system-ui,sans-serif';c.fillText('مل',S.CX,S.yt-8);
+  c.strokeStyle='#5D7A8C';c.lineWidth=2.2;c.beginPath();c.moveTo(L-4,S.yt-3);c.lineTo(L,S.yt);c.lineTo(L,S.yb+4);c.lineTo(R,S.yb+4);c.lineTo(R,S.yt);c.lineTo(R+3,S.yt-2);c.stroke();
+  c.fillStyle='rgba(255,255,255,.3)';c.fillRect(R-8,S.yt+6,3,S.yb-S.yt-12)}
+function pcDrawLoupe(c,col){const S=PCS,E=pcE,ly=E.lp.y,lx=S.LX,R=S.LR,fx=S.CX-S.IW+13;
+  c.save();c.strokeStyle='rgba(19,50,74,.4)';c.setLineDash([3,3]);c.lineWidth=1;c.beginPath();c.moveTo(fx+6,ly);c.lineTo(lx-R,ly);c.stroke();c.restore();
+  c.save();c.beginPath();c.arc(lx,ly,R,0,7);c.clip();c.fillStyle=col.dark?'#1C3247':'#EEF5FA';c.fillRect(lx-R,ly-R,2*R,2*R);
+  c.translate(lx,ly);c.scale(S.Z,S.Z);c.translate(-fx,-ly);pcDrawTube(c);c.restore();
+  c.save();c.strokeStyle='rgba(195,71,62,.55)';c.lineWidth=.8;c.beginPath();c.moveTo(lx-R+3,ly);c.lineTo(lx+R-3,ly);c.stroke();c.restore();
+  c.lineWidth=5;c.strokeStyle='#3B444D';c.beginPath();c.arc(lx,ly,R,0,7);c.stroke();
+  c.lineWidth=1.4;c.strokeStyle='rgba(255,255,255,.7)';c.beginPath();c.arc(lx,ly,R-4,3.7,4.5);c.stroke();
+  c.lineCap='round';c.lineWidth=8;c.strokeStyle='#6B4F33';c.beginPath();c.moveTo(lx+R*.72,ly+R*.72);c.lineTo(lx+R*.72+12,ly+R*.72+18);c.stroke();c.lineCap='butt';
+  if(!E.lp.moved&&E.items.some(o=>o.st==='cyl'))WMD.hint(c,lx-8,ly-R-14,'🔍 اسحبني',E.ph)}
+function pcDrawA(c,col,t,dt){dt=Math.min(dt||.016,.033);pcStepA(dt);const S=PCS,E=pcE;
+  WMD.bg(c,col,PCW,PCH,PCG);
+  c.fillStyle=col.dark?'#2E4B5E':'#CFE6F1';WMD.rr(c,8,PCG-6,108,8,3);c.fill();
+  c.strokeStyle=col.dark?'rgba(255,255,255,.15)':'rgba(46,125,181,.35)';c.lineWidth=1;for(let x=16;x<116;x+=12){c.beginPath();c.moveTo(x,PCG-5);c.lineTo(x,PCG+1);c.stroke()}
+  c.fillStyle='#4F6879';c.font='11px system-ui,sans-serif';c.textAlign='center';c.fillText('المنشفة',62,PCG+30);
+  pcDrawBal(c,E.bal,S.bal,'الميزان الرقمي',Math.min(2,E.press*.05));
+  pcDrawTube(c);c.fillStyle='#4F6879';c.font='11px system-ui,sans-serif';c.textAlign='center';c.fillText('المخبار المدرّج',S.CX,PCG+15);
+  E.items.forEach(o=>{if(o.inT||o.st==='held')return;pcDrawObj(c,o);
+    if(o.st==='tray'||o.st==='table'){c.fillStyle=o.done?'#1E8A5C':'#13324A';c.font='bold 11px system-ui,sans-serif';c.textAlign='center';c.fillText(o.done?'✓':o.lbl,o.x,(o.st==='tray'?PCG+16:o.y+14))}});
+  E.items.forEach(o=>{if(o.st==='held'&&!o.inT)pcDrawObj(c,o)});
+  pcDrawLoupe(c,col);
+  if(E.pill&&performance.now()<E.pill.until)WMD.pill(c,PCW/2-30,16,E.pill.t,E.pill.cl);
+  else if(E.bal.stT>.45&&E.items.some(o=>o.st==='pan'))WMD.pill(c,S.bal,S.PAN-60,'● ثبتت القراءة','#1E8A5C')}
+function pcPick(p,quiet){const E=pcE;
+  const on=E.items.filter(o=>o.st!=='fall'&&Math.abs(p.x-o.x)<o.w/2+10&&p.y>o.y-o.h-12&&p.y<o.y+8).reverse(),ok=on.find(o=>E.can(o));
+  if(ok)return ok;if(on.length){if(!quiet)E.cb.locked&&E.cb.locked(on[0]);return quiet?on[0]:null}
+  if(Math.hypot(p.x-PCS.LX,p.y-E.lp.y)<PCS.LR+4)return 'lp';return null}
+const pcHA={
+  hit(p){return !!pcPick(p,true)},
+  down(p){const E=pcE,k=pcPick(p);if(!k)return;
+    if(k==='lp'){E.lp.held=true;E.lp.off=E.lp.y-p.y;E.lp.moved=true;return}
+    k.st='held';k.fired.splash=0;k.warned=0;E.held=k;E.off={x:k.x-p.x,y:k.y-p.y};E.tgt={x:k.x,y:k.y};k.vx=k.vy=0},
+  move(p){const E=pcE;if(E.lp.held){E.lp.y=pcClamp(p.y+E.lp.off,PCS.yt+8,PCS.yb-4);return}
+    if(E.held)E.tgt={x:p.x+E.off.x,y:p.y+E.off.y}},
+  up(){const E=pcE;if(E.lp.held){E.lp.held=false;return}const o=E.held;if(!o)return;E.held=null;
+    o.st='fall';o.vy=pcClamp(o.vy*.6,-150,450);o.vx=pcClamp(o.vx*.3,-150,150)}};
+function pcAMount(sel,items,opt){const cv=$(sel);
+  Object.assign(pcE,{items,held:null,water:PC.W0,amp:0,ph:0,bal:pcBalNew(),press:0,refill:0,pill:null,can:opt.can||(()=>true),accept:opt.accept||(()=>true),cb:opt.cb||{}});
+  pcE.surf=pcSurfY(PC.W0);pcE.lp={y:pcSurfY(PC.W0)-10,held:false,off:0,moved:false};
+  const n=items.length;items.forEach((o,i)=>Object.assign(o,{x:n>2?30+i*32:36+i*48,y:PCG-5,vx:0,vy:0,st:'tray',inT:false,fired:{},wet:0,
+    w:o.ring?30*Math.cbrt(o.v/15):24*Math.cbrt(o.v/20)},{h:o.ring?30*Math.cbrt(o.v/15)*.5:24*Math.cbrt(o.v/20)}));
+  WMSIM.mount(cv,PCW,PCH,pcDrawA,pcHA);cv.style.touchAction='none'}
+function pcRefill(){const E=pcE;if(E.water>=PC.W0-.01||E.refill>0)return note('المخبار فيه 50 مل بالفعل.');
+  if(E.items.some(o=>o.inT))return note('أخرج الجسم من المخبار أولًا (اسحبه لأعلى)، ثم أكمل الماء.',true);
+  E.refill=PC.W0-E.water;E.items.forEach(o=>{if(o.wasIn){o.fired.sub=o.fired.out=o.fired.back=0;o.wasIn=0}});
+  E.cb.refilled&&E.cb.refilled()}
 
-/* ---- المشهد (أ): ميزان ومخبار مدرّج — يُستعمل للعينات وللتحدي (السواران) ---- */
-const pcA={items:[],cur:-1,where:'shelf',pos:null,disp:0,lvl:50,ring:false,done:false};
-function pcShelfX(i,n){return 70+i*(n>2?55:100)}
-function pcItemSize(it){return it.ring?22:30*Math.cbrt(it.v/20)}
-function pcDrawA(c,col,t){
-  const W=800,H=270,G=PC_G,v=pcA;WMD.bg(c,col,W,H,G);
-  pcBalance(c,330,v.disp,'الميزان الرقمي');
-  pcCylinder(c,PC_CX,v.lvl);c.fillStyle='#4F6879';c.font='12px system-ui,sans-serif';c.textAlign='center';c.fillText('المخبار المدرّج',PC_CX,G+16);
-  v.items.forEach((it,i)=>{if(i===v.cur)return;if(it.used)return;const x=pcShelfX(i,v.items.length);
-    if(it.ring)pcRing(c,x,G,22),(c.fillStyle='#13324A',c.font='bold 12px system-ui,sans-serif',c.textAlign='center',c.fillText(it.lbl,x,G+16));else pcCube(c,x,G,pcItemSize(it),it.col,it.lbl)});
-  if(v.cur>=0&&v.pos){const it=v.items[v.cur];if(it.ring)pcRing(c,v.pos.x,v.pos.y,22);else pcCube(c,v.pos.x,v.pos.y,pcItemSize(it),it.col,v.where==='shelf'?it.lbl:'')}
-  if(v.where==='cyl'&&!WMSIM.tweening()){const wy=PC_YB-v.lvl*PC_PXML;
-    c.save();c.setLineDash([4,3]);c.strokeStyle='#D98E1F';c.lineWidth=1.5;c.beginPath();c.moveTo(PC_CX-58,wy+4);c.lineTo(PC_CX+40,wy+4);c.stroke();c.restore();
-    WMD.pill(c,PC_CX+118,wy+4,'اقرأ عند أسفل التقعّر','#D98E1F','#1b1206')}
-  else if(v.where==='pan'&&!WMSIM.tweening())WMD.pill(c,330,G-90,'✓ ثبتت القراءة','#1E8A5C');
-}
-function pcAMount(id,items){Object.assign(pcA,{sel:id,items,cur:-1,where:'shelf',pos:null,disp:0,lvl:PC.W0});WMSIM.mount($(id),800,270,pcDrawA,null);setTimeout(()=>frFollowEl(id,300),0)}
-function pcAWeigh(i,onEnd){
-  const v=pcA,it=v.items[i];if(v.cur>=0&&v.cur!==i){v.items[v.cur].used=true}
-  Object.assign(v,{cur:i,where:'move',lvl:PC.W0,disp:0});frFollowEl(v.sel,330);const x0=pcShelfX(i,v.items.length),y0=PC_G;
-  WMSIM.animate(700,k=>{v.pos={x:x0+(330-x0)*k,y:y0-44*k-70*Math.sin(Math.PI*k)}},()=>{v.pos={x:330,y:PC_G-44};v.where='pan';
-    WMSIM.animate(800,k=>{v.disp=it.m*k},()=>{v.disp=it.m;onEnd&&onEnd()},true)});
-}
-function pcADrop(onEnd){
-  const v=pcA,it=v.items[v.cur];v.where='move';frFollowEl(v.sel,PC_CX);const s=it.ring?14:pcItemSize(it);
-  WMSIM.animate(900,k=>{const up=Math.min(1,k/.55),dn=Math.max(0,(k-.55)/.45);
-    v.disp=it.m*(1-Math.min(1,k*3));
-    v.pos=k<.55?{x:330+(PC_CX-330)*up,y:PC_G-44-150*Math.sin(Math.PI*up/2)}:{x:PC_CX,y:(PC_G-194)+(PC_YB-(PC_G-194))*dn};
-    if(k>.7){const wy=PC_YB-v.lvl*PC_PXML;if(v.pos.y>wy)v.lvl=PC.W0+it.v*Math.min(1,(v.pos.y-wy)/(s+4)+.15)}},
-    ()=>{v.disp=0;v.pos={x:PC_CX,y:PC_YB};v.lvl=PC.W0+it.v;v.where='cyl';WMSIM.puff(PC_CX,PC_YB-it.v*PC_PXML-PC.W0*PC_PXML,6,'rgba(160,220,240,.9)',{vy:-30,g:60});onEnd&&onEnd()});
-}
-
-/* ---- المشهد (ب): ميزان رقمي وتغير فيزيائي فوقه ---- */
-const pcB={j:0,k:0,phase:'idle'};
-function pcDrawB(c,col,t){
-  const W=800,H=270,G=PC_G,v=pcB,ch=PC.changes[v.j],k=v.k,cx=300;WMD.bg(c,col,W,H,G);
-  pcBalance(c,cx,ch.m+(v.phase==='run'?Math.sin(t*20)*.0:0),'الميزان الرقمي');
-  const py=G-44;
-  if(ch.k==='melt'){pcBeaker(c,cx,py,70,70,.08+.32*k,{ice:1-k*.95,lid:true});
-    if(v.phase==='run'){c.save();c.strokeStyle='rgba(232,140,46,.85)';c.lineWidth=2.4;for(let s=-1;s<=1;s+=2)for(let i=0;i<3;i++){const x=cx+s*(50+i*9);c.beginPath();for(let y=0;y<=50;y+=5)c.lineTo(x+Math.sin(y/7-t*9+i)*3,py-8-y);c.stroke()}c.restore()}}
-  else if(ch.k==='foil'){const fw=110*(1-k)+30*k,fh=6*(1-k)+30*k;
-    const g=c.createLinearGradient(cx-fw/2,py-fh,cx+fw/2,py);g.addColorStop(0,'#F1F4F7');g.addColorStop(.5,'#B9C3CC');g.addColorStop(1,'#E2E7EC');c.fillStyle=g;
-    if(k<.98){c.beginPath();c.moveTo(cx-fw/2,py);for(let i=0;i<=8;i++){const x=cx-fw/2+fw*i/8;c.lineTo(x,py-fh-(i%2?k*8:0))}c.lineTo(cx+fw/2,py);c.closePath();c.fill();c.strokeStyle='#8995A1';c.lineWidth=1;c.stroke()}
-    else{c.beginPath();c.arc(cx,py-15,15,0,7);c.fill();c.strokeStyle='#8995A1';c.lineWidth=1;c.stroke();c.beginPath();c.moveTo(cx-9,py-20);c.lineTo(cx+3,py-12);c.lineTo(cx+8,py-22);c.moveTo(cx-6,py-8);c.lineTo(cx+5,py-6);c.stroke()}}
-  else{pcBeaker(c,cx+20,py,72,74,.55,{grains:Math.max(0,1-k*1.4)*(k>0?.9:0),tint:`rgba(79,179,200,${.45})`});
-    if(k<.45){const sx=cx-45+50*Math.min(1,k/.25),sy=py-8-40*Math.min(1,k/.25);c.fillStyle='#F3F5F7';c.beginPath();c.ellipse(sx,sy,18,6,0,0,7);c.fill();c.strokeStyle='#A7B1BA';c.lineWidth=1;c.stroke();
-      c.fillStyle='#fff';c.beginPath();c.moveTo(sx-12,sy-2);c.quadraticCurveTo(sx,sy-14*(1-k/.45),sx+12,sy-2);c.fill()}
-    if(k>.25&&k<1){c.strokeStyle='#8B6B3A';c.lineWidth=3;c.beginPath();const a=t*8;c.moveTo(cx+20+Math.cos(a)*14,py-30);c.lineTo(cx+20+Math.cos(a)*6,py-90);c.stroke()}}
-  c.fillStyle='#13324A';c.font='bold 13px system-ui,sans-serif';c.textAlign='center';c.fillText(k>=1?ch.to:ch.from,cx,30);
-  WMD.hud(c,560,14,[['التغيّر',ch.s],['القراءة قبل',`${ch.m} g`,'#9BE6BF'],['القراءة الآن',`${ch.m} g`,'#FFE08A']]);
-  if(v.phase==='done')WMD.pill(c,cx,58,'✓ انتهى التغيّر — اقرأ الميزان','#1E8A5C');
-}
-function pcBMount(id){Object.assign(pcB,{j:0,k:0,phase:'idle'});WMSIM.mount($(id),800,270,pcDrawB,null);setTimeout(()=>frFollowEl(id,300),0)}
-function pcBSet(j){Object.assign(pcB,{j,k:0,phase:'idle'})}
-function pcBRun(onEnd){pcB.phase='run';pcB.k=0;WMSIM.animate(2200,k=>{pcB.k=k},()=>{pcB.k=1;pcB.phase='done';onEnd&&onEnd()},true)}
+/* ---- المشهد (ب): تغيّرات فيزيائية على الميزان (مجفف شعر، كبس بالإصبع، صبّ وتحريك) ---- */
+const PCB={bx:175,pw:60,PAN:PCG-40};
+const pcB={j:0,ch:null,bal:pcBalNew(),k:0,held:null,off:{x:0,y:0},tgt:{x:0,y:0},done:false,cb:null,air:[],gr:[],press:0,stirT:0,dissAcc:0,heat:0,swirl:0,pts:[]};
+function pcBSet(j){const ch=PC.changes[j];
+  Object.assign(pcB,{j,ch,k:0,held:null,done:false,air:[],gr:[],press:0,stirT:0,dissAcc:0,heat:0,swirl:0,pourAcc:0,rodPress:0,warn:null,
+    dryer:{x:378,y:PCG-46,hx:378,hy:PCG-46},rod:{x:330,y:PCG-4,hx:330,hy:PCG-4,inB:false},dish:{x:138,y:PCB.PAN,st:'pan',tilt:0,n:60,vy:0}});
+  pcB.bal=pcBalNew();pcB.bal.disp=pcB.bal.show=ch.m;pcB.bal.stT=1;
+  pcB.pts=[...Array(28)].map((_,i)=>.75+.5*Math.abs(Math.sin(i*12.9898)*43758.5453%1))}
+function pcBWarn(t,cl){pcB.warn={t,cl:cl||'#C3473E',until:performance.now()+2200}}
+function pcStepB(dt){const B=pcB,ch=B.ch,P=PCB.PAN,fl=Math.min(1,dt*20);let target=ch.m,jit=0;
+  if(ch.k==='melt'){const d=B.dryer;
+    if(B.held==='dryer'){d.x=pcClamp(d.x+(B.tgt.x-d.x)*fl,262,PCW-36);d.y=pcClamp(d.y+(B.tgt.y-d.y)*fl,40,PCG-46);
+      const tx=d.x-42,ty=d.y,dist=Math.hypot(tx-PCB.bx,ty-(P-40));B.heat=pcClamp(1-(dist-40)/170,0,1);
+      if(Math.random()<dt*45)B.air.push({x:tx,y:ty+(Math.random()-.5)*8,vx:-200-Math.random()*60,vy:(Math.random()-.5)*50,l:.8});
+      B.k=Math.min(1,B.k+B.heat*dt/6);jit=B.heat>.05?.3+B.heat*1.3:.12;
+      if(B.k>=1&&B.heat>.05&&!B.warn)pcBWarn('الهواء يهزّ الميزان — اترك المجفف لتثبت القراءة','#D98E1F')}
+    else{B.heat=0;d.x+=(d.hx-d.x)*Math.min(1,dt*6);d.y+=(d.hy-d.y)*Math.min(1,dt*6)}
+    B.air.forEach(a=>{a.x+=a.vx*dt;a.y+=a.vy*dt;a.vx*=Math.exp(-1.2*dt);a.l-=dt*(a.x<PCB.bx+40?3:1)});B.air=B.air.filter(a=>a.l>0)}
+  else if(ch.k==='foil'){if(B.held==='foil'){B.press=40+pcClamp(B.tgt.y-(P-30),0,40)*5;target+=B.press;jit=.6}else B.press=0}
+  else{const ds=B.dish,rd=B.rod,bx=202,bw=54,L=bx-bw/2,R=bx+bw/2,top=P-78,wt=P-50;
+    if(B.held==='dish'){ds.x=pcClamp(ds.x+(B.tgt.x-ds.x)*fl,24,PCW-24);ds.y=Math.min(P,ds.y+(B.tgt.y-ds.y)*fl);
+      if(Math.abs(ds.x-bx)<bw/2+18&&ds.y>top-4)ds.y=top-4;
+      const dir=ds.x<bx?1:-1,over=Math.abs(ds.x+dir*12-bx)<bw/2-6&&ds.y<top-2&&ds.y>top-130;
+      ds.tilt+=((over?1.05*dir:0)-ds.tilt)*Math.min(1,dt*6);
+      if(Math.abs(ds.tilt)>.55&&ds.n>0){B.pourAcc+=dt*60*(Math.abs(ds.tilt)-.4);
+        const a=ds.tilt,lx0=dir*19,ly0=-3,lx=ds.x+lx0*Math.cos(a)-ly0*Math.sin(a),ly=ds.y-4+lx0*Math.sin(a)+ly0*Math.cos(a);
+        while(B.pourAcc>=1&&ds.n>0){B.pourAcc--;ds.n--;B.gr.push({x:lx+(Math.random()-.5)*4,y:ly,vx:dir*(10+Math.random()*25),vy:10+Math.random()*20,st:'air'})}}}
+    else if(ds.st==='fall'){ds.tilt*=Math.exp(-8*dt);ds.vy+=900*dt;ds.y+=ds.vy*dt;if(Math.abs(ds.x-bx)<bw/2+18&&ds.y>top-4)ds.x=ds.x<bx?L-20:R+20;
+      const onPan=Math.abs(ds.x-PCB.bx)<PCB.pw,gy=onPan?P:PCG;if(ds.y>=gy){ds.y=gy;ds.vy=0;ds.st=onPan?'pan':'table'}}
+    B.rodPress=0;
+    if(B.held==='rod'){let nx=rd.x+(B.tgt.x-rd.x)*fl,ny=rd.y+(B.tgt.y-rd.y)*fl;
+      if(rd.inB){nx=pcClamp(nx,L+4,R-4);if(ny>P-5){B.rodPress=B.tgt.y-(P-5);ny=P-5}if(ny<top-1)rd.inB=false}
+      else{if(Math.abs(nx-bx)<bw/2+3&&ny>top){if(rd.y<=top+1&&Math.abs(nx-bx)<bw/2-4)rd.inB=true;else if(rd.y<=top+1)ny=top;else nx=rd.x<bx?Math.min(nx,L-3):Math.max(nx,R+3)}
+        ny=Math.min(ny,Math.abs(nx-PCB.bx)<PCB.pw?P:PCG-2)}
+      const d=Math.hypot(nx-rd.x,ny-rd.y);rd.x=nx;rd.y=ny;
+      if(rd.inB&&ny>wt&&d>.3){B.stirT=.35;B.swirl+=d*.06;jit=.35;B.dissAcc+=d*.08;
+        while(B.dissAcc>=1){const g=B.gr.find(q=>q.st==='bed')||B.gr.find(q=>q.st==='water');if(!g){B.dissAcc=0;break}g.st='diss';B.dissAcc--}}
+      if(B.rodPress>2){target+=B.rodPress*4;jit=.4;if(!B.warn)pcBWarn('لا تضغط بالقضيب على قاع الكأس — القراءة تزيد')}}
+    else{rd.inB=false;rd.x+=(rd.hx-rd.x)*Math.min(1,dt*6);rd.y+=(rd.hy-rd.y)*Math.min(1,dt*6)}
+    B.stirT=Math.max(0,B.stirT-dt);
+    let bed=B.gr.filter(g=>g.st==='bed').length;
+    B.gr.forEach(g=>{
+      if(g.st==='air'){g.vy+=900*dt;g.x+=g.vx*dt;g.y+=g.vy*dt;
+        if(Math.abs(g.x-bx)<bw/2-3&&g.y>wt){g.st='water';g.vy=Math.min(g.vy,90);g.by=P-4-Math.min(9,bed*.16)-Math.random()*2;bed++}
+        else if(g.y>=P&&Math.abs(g.x-PCB.bx)<PCB.pw&&Math.abs(g.x-bx)>=bw/2){g.st='pan';g.y=P-1}else if(g.y>=PCG){g.st='floor';g.y=PCG-1}}
+      else if(g.st==='water'){g.vy+=(55-g.vy)*dt*4;g.y+=g.vy*dt;if(B.stirT>0)g.x=pcClamp(g.x+Math.sin(B.swirl+g.y*.2)*30*dt,L+3,R-3);if(g.y>=g.by){g.y=g.by;g.st='bed'}}
+      else if(g.st==='bed'&&B.stirT>0)g.x=pcClamp(g.x+(Math.random()-.5)*20*dt,L+3,R-3)});
+    const cnt=B.gr.filter(g=>g.st==='water'||g.st==='bed'||g.st==='diss'||g.st==='pan').length;
+    target=200+((ds.st==='pan'&&B.held!=='dish')?ds.n:0)/3+cnt/3;
+    if(B.held==='dish'&&!B.liftWarned){B.liftWarned=1;pcBWarn('رفعت السكر عن الميزان فنقصت القراءة','#D98E1F')}}
+  pcBalStep(B.bal,target,dt,jit);
+  if(!B.done&&B.bal.stT>.5&&!B.held){
+    const ok=ch.k==='melt'?B.k>=1:ch.k==='foil'?B.k>=1:B.dish.n===0&&!B.gr.some(g=>g.st==='air'||g.st==='water'||g.st==='bed');
+    if(ok){B.done=true;B.cb&&B.cb(B.j)}}}
+function pcGlass(c,L,R,top,P){c.strokeStyle='#5D7A8C';c.lineWidth=2;c.beginPath();c.moveTo(L-3,top-2);c.lineTo(L,top+2);c.lineTo(L,P);c.lineTo(R,P);c.lineTo(R,top+2);c.lineTo(R+3,top-2);c.stroke();
+  c.fillStyle='rgba(255,255,255,.28)';c.fillRect(R-8,top+6,3,P-top-12)}
+function pcWater(c,L,R,wy,P,t,a){const g=c.createLinearGradient(0,wy,0,P);g.addColorStop(0,'rgba(79,179,200,.4)');g.addColorStop(1,'rgba(46,125,181,.5)');c.fillStyle=g;
+  c.beginPath();c.moveTo(L+2,wy);for(let x=L+2;x<=R-2;x+=2)c.lineTo(x,wy+(a||0)*Math.sin(t*9+x*.3));c.lineTo(R-2,P-2);c.lineTo(L+2,P-2);c.closePath();c.fill();
+  c.strokeStyle='rgba(30,80,110,.6)';c.lineWidth=1;c.beginPath();for(let x=L+2;x<=R-2;x+=2)x===L+2?c.moveTo(x,wy+(a||0)*Math.sin(t*9+x*.3)):c.lineTo(x,wy+(a||0)*Math.sin(t*9+x*.3));c.stroke()}
+function pcDryer(c,x,y,on,t){
+  c.fillStyle='#3E6C8F';WMD.rr(c,x+4,y+6,14,40,6);c.fill();
+  const g=c.createLinearGradient(0,y-14,0,y+14);g.addColorStop(0,'#5E9BC7');g.addColorStop(1,'#2F6A93');c.fillStyle=g;WMD.rr(c,x-30,y-14,58,28,13);c.fill();
+  c.fillStyle='#1E3F57';c.beginPath();c.ellipse(x+28,y,5,13,0,0,7);c.fill();
+  if(on){c.strokeStyle='rgba(255,255,255,.6)';c.lineWidth=1;c.beginPath();c.ellipse(x+28,y,4,Math.max(1,11*Math.abs(Math.sin(t*40))),0,0,7);c.stroke()}
+  c.fillStyle='#24506E';c.beginPath();c.moveTo(x-30,y-9);c.lineTo(x-42,y-6);c.lineTo(x-42,y+6);c.lineTo(x-30,y+9);c.closePath();c.fill();
+  c.fillStyle=on?'#FF7A3D':'#8AA3B5';c.beginPath();c.arc(x+11,y+18,3,0,7);c.fill()}
+function pcDish(c,x,y,a,n){c.save();c.translate(x,y-4);c.rotate(a);
+  if(n>0){const h=10*Math.sqrt(n/60);c.fillStyle='#FBF8EE';c.strokeStyle='rgba(170,160,130,.8)';c.lineWidth=.8;c.beginPath();c.moveTo(-14,-1);c.quadraticCurveTo(0,-1-h*2,14,-1);c.closePath();c.fill();c.stroke();
+    c.fillStyle='rgba(170,160,130,.6)';for(let i=0;i<8;i++)c.fillRect(-9+i*2.4,-2-h*.6*Math.sin(i/7*Math.PI),1.2,1.2)}
+  c.fillStyle='rgba(215,232,243,.85)';c.strokeStyle='#5D7A8C';c.lineWidth=1.3;c.beginPath();c.moveTo(-20,-3);c.quadraticCurveTo(0,9,20,-3);c.closePath();c.fill();c.stroke();c.restore()}
+function pcRod(c,r){c.save();c.lineCap='round';c.lineWidth=4;c.strokeStyle='rgba(170,205,225,.95)';c.beginPath();c.moveTo(r.x,r.y);c.lineTo(r.x+12,r.y-100);c.stroke();
+  c.lineWidth=1.2;c.strokeStyle='rgba(255,255,255,.85)';c.beginPath();c.moveTo(r.x+1,r.y-6);c.lineTo(r.x+12,r.y-96);c.stroke();c.restore()}
+function pcDrawB(c,col,t,dt){dt=Math.min(dt||.016,.033);const B=pcB,ch=B.ch;if(!ch)return;pcStepB(dt);const P=PCB.PAN;
+  WMD.bg(c,col,PCW,PCH,PCG);
+  const sink=ch.k==='foil'&&B.held==='foil'?Math.min(3,B.press/80):0,Pp=P+sink;
+  pcDrawBal(c,B.bal,PCB.bx,'الميزان الرقمي',sink,PCB.pw);
+  if(ch.k==='melt'){const bx=PCB.bx,bw=78,bh=86,L=bx-bw/2,R=bx+bw/2,top=Pp-bh,k=B.k,wh=4+48*k,wy=Pp-3-wh;
+    c.fillStyle='rgba(225,240,248,.35)';c.fillRect(L,top,bw,bh);
+    const s=24*Math.cbrt(Math.max(0,1-k));
+    if(s>1.5)[-20,2,22].forEach((dx,i)=>{const fl=wh>s*.85,by=fl?wy+s*.85+Math.sin(t*2+i)*.8:Pp-3,x=bx+dx*(.55+.45*(1-k));
+      c.fillStyle='rgba(232,246,253,.95)';c.strokeStyle='rgba(120,170,200,.9)';c.lineWidth=1.2;WMD.rr(c,x-s/2,by-s,s,s,Math.min(6,s*.3));c.fill();c.stroke();
+      c.fillStyle='rgba(255,255,255,.9)';c.fillRect(x-s/2+3,by-s+3,s*.25,s*.25);
+      if(B.heat>.1&&Math.random()<dt*B.heat*6)WMSIM.puff(x,by-2,1,'rgba(120,200,225,.95)',{vy:20,g:200})});
+    pcWater(c,L,R,wy,Pp,t,B.heat*.8);
+    if(k>.15){c.fillStyle='rgba(160,200,225,.75)';for(let i=0;i<Math.floor(14*k);i++)c.beginPath(),c.arc(L+6+((i*37)%(bw-12)),top+3+(i%3)*2,1.4,0,7),c.fill()}
+    pcGlass(c,L,R,top,Pp);c.fillStyle='rgba(180,200,215,.95)';WMD.rr(c,L-6,top-6,bw+12,6,3);c.fill();c.strokeStyle='#5D7A8C';c.lineWidth=1.2;c.stroke();
+    c.fillStyle='#5D7A8C';WMD.rr(c,bx-6,top-11,12,5,2);c.fill();
+    B.air.forEach(a=>{c.fillStyle=`rgba(255,150,70,${Math.max(0,a.l)*.35})`;c.beginPath();c.arc(a.x,a.y,3+(.8-a.l)*7,0,7);c.fill()});
+    pcDryer(c,B.dryer.x,B.dryer.y,B.held==='dryer',t);
+    if(B.held!=='dryer'&&B.k<1)WMD.hint(c,B.dryer.x-6,B.dryer.y-32,'💨 اسحبني إلى الكأس',t)}
+  else if(ch.k==='foil'){const e=Math.pow(B.k,.7),cx=PCB.bx,N=B.pts.length,sq=B.held==='foil'?Math.min(.35,B.press/500):0;
+    const pt=(i,f)=>{const a=i/N*Math.PI*2,n=B.pts[((i%N)+N)%N],fx=Math.cos(a)*60*f,fy=(Math.sin(a)*5-5)*f,bxp=Math.cos(a)*15*n*f,byp=(Math.sin(a)*14*n)*f-15;
+      return [cx+fx+(bxp-fx)*e,Pp+(fy+(byp-fy)*e)*(1-sq)]};
+    const g=c.createLinearGradient(cx-60,Pp-30,cx+60,Pp);g.addColorStop(0,'#F4F7FA');g.addColorStop(.45,'#B9C3CC');g.addColorStop(.7,'#E9EEF2');g.addColorStop(1,'#A3AEB8');
+    c.fillStyle=g;c.beginPath();for(let i=0;i<=N;i++){const [x,y]=pt(i,1);i?c.lineTo(x,y):c.moveTo(x,y)}c.closePath();c.fill();c.strokeStyle='#8995A1';c.lineWidth=1;c.stroke();
+    c.strokeStyle='rgba(90,105,120,.55)';c.lineWidth=.8;for(let i=0;i<Math.floor(18*e);i++){const [x1,y1]=pt(i*3,.6),[x2,y2]=pt(i*3+11,.45);c.beginPath();c.moveTo(x1,y1);c.lineTo((x1+x2)/2+(B.pts[i]-1)*8,(y1+y2)/2);c.lineTo(x2,y2);c.stroke()}
+    if(B.held==='foil'){c.fillStyle='rgba(235,190,160,.75)';c.beginPath();c.ellipse(B.tgt.x,Math.min(B.tgt.y,Pp-6)-10,11,14,0,0,7);c.fill();
+      WMD.pill(c,PCB.bx,40,'✋ يدك تضغط على الميزان! ارفعها لتقرأ','#C3473E')}
+    else if(B.k<1)WMD.hint(c,cx,Pp-48,'👆 اضغط وحرّك إصبعك لتكبسها',t)}
+  else{const ds=B.dish,rd=B.rod,bx=202,bw=54,L=bx-bw/2,R=bx+bw/2,top=Pp-78,wt=Pp-50;
+    c.fillStyle='rgba(225,240,248,.35)';c.fillRect(L,top,bw,Pp-top);
+    if(rd.inB)pcRod(c,rd);
+    pcWater(c,L,R,wt,Pp,t,B.stirT>0?.8:0);
+    const dis=B.gr.filter(g=>g.st==='diss').length;
+    if(B.stirT>0||(dis>0&&dis<60&&B.gr.some(g=>g.st==='bed'))){c.strokeStyle='rgba(255,255,255,.4)';c.lineWidth=1;
+      for(let i=0;i<3;i++){c.beginPath();for(let x=L+4;x<=R-4;x+=2){const y=wt+10+i*11+2*Math.sin(x*.2+B.swirl+i*2);x===L+4?c.moveTo(x,y):c.lineTo(x,y)}c.stroke()}}
+    c.fillStyle='#FDFBF3';c.strokeStyle='rgba(150,140,110,.7)';c.lineWidth=.5;
+    B.gr.forEach(g=>{if(g.st==='diss'||g.st==='floor')return;c.fillRect(g.x-1.3,g.y-1.3,2.6,2.6);c.strokeRect(g.x-1.3,g.y-1.3,2.6,2.6)});
+    pcGlass(c,L,R,top,Pp);
+    c.fillStyle='#8B6B3A';WMD.rr(c,322,PCG-9,22,9,3);c.fill();
+    if(!rd.inB)pcRod(c,rd);
+    pcDish(c,ds.x,ds.y,ds.tilt,ds.n);
+    if(!B.held&&ds.n>0)WMD.hint(c,ds.x+10,ds.y-36,'🥄 اسحب السكر فوق الكأس',t);
+    else if(!B.held&&ds.n===0&&B.gr.some(g=>g.st==='bed'||g.st==='water'))WMD.hint(c,rd.hx+10,rd.hy-112,'🥢 حرّك بالقضيب داخل الماء',t)}
+  c.fillStyle=col.dark?'#E6EEF4':'#13324A';c.font='bold 13px system-ui,sans-serif';c.textAlign='center';
+  c.fillText(B.done?ch.to:(ch.k==='melt'?B.k>0:ch.k==='foil'?B.k>0:B.dish.n<60)?'يحدث التغيّر…':ch.from,PCW/2+40,22);
+  WMD.pill(c,88,18,`قبل التغيّر: ${ch.m.toFixed(1)} g`,'#5D6873');
+  if(B.warn&&performance.now()<B.warn.until)WMD.pill(c,PCW/2,64,B.warn.t,B.warn.cl);
+  else if(B.done)WMD.pill(c,PCW/2,64,'✓ انتهى التغيّر وثبتت القراءة — سجّلها','#1E8A5C')}
+function pcBPick(p){const B=pcB,ch=B.ch;if(!ch)return null;
+  if(ch.k==='melt'){const d=B.dryer;return p.x>d.x-48&&p.x<d.x+36&&p.y>d.y-20&&p.y<d.y+48?'dryer':null}
+  if(ch.k==='foil')return Math.abs(p.x-PCB.bx)<66&&p.y>PCB.PAN-40&&p.y<PCB.PAN+6?'foil':null;
+  const ds=B.dish;if(ds.st!=='fall'&&Math.abs(p.x-ds.x)<28&&p.y>ds.y-30&&p.y<ds.y+8)return 'dish';
+  const r=B.rod,x2=r.x+12,y2=r.y-100,q=pcClamp(((p.x-r.x)*(x2-r.x)+(p.y-r.y)*(y2-r.y))/((x2-r.x)**2+(y2-r.y)**2),0,1);
+  return Math.hypot(p.x-(r.x+q*(x2-r.x)),p.y-(r.y+q*(y2-r.y)))<12?'rod':null}
+const pcHB={
+  hit(p){return !!pcBPick(p)},
+  down(p){const B=pcB,k=pcBPick(p);if(!k)return;B.held=k;B.lastP=p;B.warn=null;
+    const o=k==='dryer'?B.dryer:k==='dish'?B.dish:k==='rod'?B.rod:null;B.off=o?{x:o.x-p.x,y:o.y-p.y}:{x:0,y:0};if(k==='dish'){B.dish.st='held';B.liftWarned=0}
+    B.tgt={x:p.x+B.off.x,y:p.y+B.off.y}},
+  move(p){const B=pcB;if(!B.held)return;B.tgt={x:p.x+B.off.x,y:p.y+B.off.y};
+    if(B.held==='foil'){const d=Math.hypot(p.x-B.lastP.x,p.y-B.lastP.y);B.k=Math.min(1,B.k+d/650);if(d>3&&Math.random()<.5)WMSIM.puff(p.x,Math.min(p.y,PCB.PAN-8),1,'rgba(225,232,238,.95)',{vy:-25,g:40})}
+    B.lastP=p},
+  up(){const B=pcB;if(B.held==='dish'){B.dish.st='fall';B.dish.vy=0}B.held=null;B.press=0}};
+function pcBMount(sel){const cv=$(sel);pcBSet(0);WMSIM.mount(cv,PCW,PCH,pcDrawB,pcHB);cv.style.touchAction='none'}
 
 /* ---- شاشة التجربة ---- */
 function renderPC(){
   const r=APP.run;
-  if(!r.pc) r.pc={pred:null,s:PC.samples.map(()=>({weighed:false,dropped:false,v:[],d:[],id:[],vOk:false,dOk:false,idOk:false})),c:PC.changes.map(()=>({done:false,m:[],ns:[],mOk:false,nsOk:false}))};
+  if(!r.pc) r.pc={pred:null,s:PC.samples.map(()=>({weighed:false,sub:false,out:false,v:[],d:[],id:[],vOk:false,dOk:false,idOk:false})),c:PC.changes.map(()=>({done:false,m:[],ns:[],mOk:false,nsOk:false}))};
   if(r.step==='safety') r.step='predict';
   const rec=(id,unit)=>`<span style="display:inline-flex;gap:6px;align-items:center"><input type="text" inputmode="decimal" autocomplete="off" class="frin" id="${id}" disabled placeholder="٠"> ${unit} <button class="btn ghost sm-btn" id="${id}r" disabled>سجّل</button><span id="${id}o"></span></span>`;
   const matChips=i=>`<span class="pcmat" id="pid${i}">${Object.entries(PC.mats).map(([k,[n]])=>`<button class="chip" data-mat="${k}" data-i="${i}" disabled>${n}</button>`).join('')}</span><span id="pid${i}o"></span>`;
   app.innerHTML=`<div id="cyc"></div>
   <section class="bench">${inGuideBox()}
     <h3 class="inh">الجزء الأول: قِس الخواص الفيزيائية لثلاث عينات</h3>
-    <div class="frbar"><button class="btn amber" id="pcW">⚖️ زِن العينة</button><button class="btn amber" id="pcDr" disabled>🧪 أنزلها في المخبار</button></div>
-    <p class="note" style="margin:0 2px 6px">في المخبار <b>50 mL</b> من الماء. الحجم الذي يرتفعه الماء = حجم العينة (1 mL = 1 cm³).</p>
-    <div class="beakerzone frzone"><div class="frscroll" dir="ltr"><canvas id="pcA" aria-label="ميزان رقمي ومخبار مدرّج فيه ماء وثلاث عينات فلزية"></canvas></div></div><p class="swipe-hint">↔ اسحب الرسم يمينًا ويسارًا لرؤيته كاملًا</p>
+    <p class="note" style="margin:0 2px 6px">أمسك الأدوات بإصبعك أو بالفأرة. في المخبار <b>50 mL</b> من الماء، والحجم الذي يرتفعه الماء = حجم العينة (1 mL = 1 cm³).</p>
+    <div class="frbar"><button class="btn ghost" id="pcRef" disabled>↺ أكمل الماء إلى 50 مل</button></div>
+    <div class="beakerzone frzone"><canvas id="pcA" class="pcfit" aria-label="منشفة عليها ثلاث عينات فلزية، وميزان رقمي، ومخبار مدرّج فيه ماء، ومكبّر"></canvas></div>
     <div class="tablewrap" style="margin-top:12px"><table class="frtab"><thead><tr><th>العينة</th><th>الكتلة (جم)</th><th>حجم العينة (سم³)</th><th>الكثافة = الكتلة ÷ الحجم (جم/سم³)</th><th>المادة</th></tr></thead><tbody>
     ${PC.samples.map((s,i)=>`<tr><td><b>${s.lbl}</b></td><td id="pm${i}">—</td><td>${rec('pv'+i,'سم³')}</td><td>${rec('pd'+i,'جم/سم³')}</td><td>${matChips(i)}</td></tr>`).join('')}
     </tbody></table></div>
     <div class="panel" style="margin-top:8px;padding:10px 12px"><b>📘 جدول كثافات بعض المواد (جم/سم³)</b><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">${Object.values(PC.mats).map(([n,d])=>`<span class="chip" style="cursor:default">${n}: <b class="num">${d}</b></span>`).join('')}</div></div>
     <div id="pcPartB" class="hide-b">
       <h3 class="inh" style="margin-top:16px">الجزء الثاني: تغيّرات فيزيائية على الميزان</h3>
-      <div class="frbar"><button class="btn amber" id="pcAct">ابدأ التغيّر</button></div>
-      <div class="beakerzone frzone"><div class="frscroll" dir="ltr"><canvas id="pcB" aria-label="ميزان رقمي عليه مادة يحدث لها تغيّر فيزيائي"></canvas></div></div><p class="swipe-hint">↔ اسحب الرسم يمينًا ويسارًا لرؤيته كاملًا</p>
+      <div class="beakerzone frzone"><canvas id="pcB" class="pcfit" aria-label="ميزان رقمي عليه مادة يحدث لها تغيّر فيزيائي، وأدوات يحرّكها الطالب"></canvas></div>
       <div class="tablewrap" style="margin-top:12px"><table class="frtab"><thead><tr><th>التغيّر</th><th>الكتلة قبل</th><th>الكتلة بعد</th><th>هل تكوّنت مادة جديدة؟</th></tr></thead><tbody>
       ${PC.changes.map((ch,j)=>`<tr><td><b>${ch.t}</b><div class="note" style="margin:0;font-size:.78rem">${ch.from} ← ${ch.to}</div></td><td class="num">${ch.m} g</td><td>${rec('pc'+j,'جم')}</td>
         <td><span id="pn${j}"><button class="chip" data-ns="no" data-j="${j}" disabled>لا، المادة نفسها</button><button class="chip" data-ns="yes" data-j="${j}" disabled>نعم، مادة جديدة</button></span><span id="pn${j}o"></span></td></tr>`).join('')}
@@ -3872,60 +4069,59 @@ function renderPC(){
   </section>
   <div id="obsPanel" class="frobs"></div>
   <div class="panel safety" style="margin-top:12px"><h3>قواعد السلامة</h3><ul>${PHYSCHG.safety.map(x=>`<li>${x}</li>`).join('')}</ul></div>`;
-  pcAMount('#pcA',PC.samples.map(s=>({...s})));
+  const x=r.pc;
+  pcAMount('#pcA',PC.samples.map(s=>({...s})),{
+    can:o=>r.step==='meas'&&o.i===pcCurA()&&!x.s[o.i].out,
+    accept:o=>x.s[o.i].weighed,
+    cb:{locked:o=>note(r.step==='predict'?'اختر توقعك أولًا.':x.s[o.i]&&x.s[o.i].out?'انتهيت من هذه العينة.':`ابدأ بالعينة ${PC.samples[pcCurA()]?PC.samples[pcCurA()].lbl:''}.`),
+      weighed:o=>{const w=x.s[o.i];if(w.weighed||o.i!==pcCurA())return;w.weighed=true;$('#pm'+o.i).textContent=`${o.m} g`;pcGuide()},
+      sub:o=>{const w=x.s[o.i];if(pcE.water<PC.W0-.01){w.splash=true;$('#pcRef').disabled=false;pcGuide();return}
+        w.sub=true;if(!w.vOk){$('#pv'+o.i).disabled=false;$('#pv'+o.i+'r').disabled=false}pcGuide()},
+      splash:(o,lost)=>{r.log.push(`تطاير الماء عند إسقاط العينة ${PC.samples[o.i].lbl} من أعلى`);x.s[o.i].splash=true;$('#pcRef').disabled=false;
+        note(`تطاير ${lost} مل من الماء لأنك أسقطت العينة من أعلى! القراءة لن تكون صحيحة. أخرجها ثم أكمل الماء وأنزلها بهدوء.`,true);pcGuide()},
+      refilled:()=>{PC.samples.forEach((s,i)=>{x.s[i].splash=false});$('#pcRef').disabled=true;pcGuide()},
+      out:o=>{const w=x.s[o.i];if(w.idOk&&!w.out){w.out=true;o.done=true;pcGuide()}}}});
+  pcE.items.forEach((o,i)=>o.i=i);
   $$('.frin').forEach(x=>x.addEventListener('input',()=>{const v=arNum(x.value.replace(/[,،]/g,'.'));if(v!==x.value)x.value=v}));
-  $('#pcW').onclick=pcWeigh;$('#pcDr').onclick=pcDrop;$('#pcAct').onclick=pcChange;
+  $('#pcRef').onclick=pcRefill;
   PC.samples.forEach((s,i)=>{['v','d'].forEach(q=>{const id=`p${q}${i}`;$('#'+id+'r').onclick=()=>pcRec(q,i);$('#'+id).addEventListener('keydown',e=>{if(e.key==='Enter')pcRec(q,i)})})});
   $$('[data-mat]').forEach(b=>b.onclick=()=>pcPickMat(+b.dataset.i,b.dataset.mat));
   PC.changes.forEach((c,j)=>{$('#pc'+j+'r').onclick=()=>pcRecM(j);$('#pc'+j).addEventListener('keydown',e=>{if(e.key==='Enter')pcRecM(j)})});
   $$('[data-ns]').forEach(b=>b.onclick=()=>pcPickNs(+b.dataset.j,b.dataset.ns));
   pcGuide();
 }
-const pcCurA=()=>APP.run.pc.s.findIndex(w=>!(w.vOk&&w.dOk&&w.idOk));
-function pcWeigh(){
-  const r=APP.run,x=r.pc;if(r.step==='predict'){note('اختر توقعك أولًا.');return}if(r.step!=='meas'||WMSIM.tweening())return;
-  const i=pcCurA();if(i<0)return;const w=x.s[i];if(w.weighed)return note('العينة على الميزان. أنزلها الآن في المخبار.');
-  $('#pcW').disabled=true;pcAWeigh(i,()=>{w.weighed=true;$('#pm'+i).textContent=`${PC.samples[i].m} g`;$('#pcDr').disabled=false;pcGuide()});
-}
-function pcDrop(){
-  const r=APP.run,x=r.pc,i=pcCurA();if(i<0||WMSIM.tweening())return;const w=x.s[i];if(!w.weighed||w.dropped)return;
-  $('#pcDr').disabled=true;pcADrop(()=>{w.dropped=true;$('#pv'+i).disabled=false;$('#pv'+i+'r').disabled=false;$('#pv'+i).focus({preventScroll:true});pcGuide()});
-}
+const pcCurA=()=>APP.run.pc.s.findIndex(w=>!(w.vOk&&w.dOk&&w.idOk&&w.out));
 function pcRec(q,i){
   const r=APP.run,w=r.pc.s[i],s=PC.samples[i],id=`p${q}${i}`;
-  if(q==='v'&&(!w.dropped||w.vOk))return;if(q==='d'&&(!w.vOk||w.dOk))return;
+  if(q==='v'&&(!w.sub||w.vOk))return;if(q==='d'&&(!w.vOk||w.dOk))return;
+  if(q==='v'&&w.splash)return note('تطاير بعض الماء، فالقراءة لن تكون صحيحة. أكمل الماء إلى 50 مل وأعد إنزال العينة.',true);
   const v=parseNum($('#'+id).value);if(!isFinite(v)||v<=0)return note(q==='v'?'اكتب حجم العينة بالسنتيمتر المكعب (سم³)، مثل ٢٠':'اكتب الكثافة، مثل ٢٫٧');
   const t=q==='v'?s.v:pcD(s),tol=q==='v'?.5:.05,arr=w[q];arr.push(Math.round(v*100)/100);
   const fin=tx=>{w[q+'Ok']=true;$('#'+id+'o').textContent=tx;$('#'+id).disabled=true;$('#'+id+'r').disabled=true;
-    if(q==='v'){$('#pd'+i).disabled=false;$('#pd'+i+'r').disabled=false;$('#pd'+i).focus()}else $$(`[data-mat][data-i="${i}"]`).forEach(b=>b.disabled=false)};
+    if(q==='v'){$('#pd'+i).disabled=false;$('#pd'+i+'r').disabled=false;$('#pd'+i).focus({preventScroll:true})}else $$(`[data-mat][data-i="${i}"]`).forEach(b=>b.disabled=false)};
   if(Math.abs(v-t)<=tol)fin('✓');
   else if(arr.length<3){r.log.push(q==='v'?`قراءة حجم غير دقيقة للعينة ${s.lbl}: ${v}`:`حساب كثافة غير دقيق للعينة ${s.lbl}: ${v}`);
-    note(q==='v'?(Math.abs(v-(PC.W0+s.v))<=.5?'هذه قراءة المستوى الجديد. حجم العينة = المستوى الجديد − 50 mL.':'اقرأ مستوى الماء الجديد عند أسفل التقعّر، ثم اطرح منه 50 mL.'):`الكثافة = الكتلة ÷ الحجم = ${s.m} ÷ ${s.v}.`,true)}
+    note(q==='v'?(Math.abs(v-(PC.W0+s.v))<=.5?'هذه قراءة المستوى الجديد. حجم العينة = المستوى الجديد − 50 مل.':'حرّك المكبّر 🔍 إلى سطح الماء واقرأ عند أسفل التقعّر، ثم اطرح 50 مل.'):`الكثافة = الكتلة ÷ الحجم = ${s.m} ÷ ${s.v}.`,true)}
   else{$('#'+id).value=arNum(q==='v'?String(t):fx1(t));fin(`الصحيح ${q==='v'?t:fx1(t)}`)}
   pcGuide();
 }
 function pcPickMat(i,k){
   const r=APP.run,w=r.pc.s[i],s=PC.samples[i];if(!w.dOk||w.idOk)return;w.id.push(k);
   if(k===s.mat){w.idOk=true;$$(`[data-mat][data-i="${i}"]`).forEach(b=>{b.disabled=true;b.setAttribute('aria-pressed',b.dataset.mat===k?'true':'false')});$('#pid'+i+'o').textContent=' ✓';
-    pcA.items[i].used=true;Object.assign(pcA,{cur:-1,where:'shelf',pos:null,disp:0,lvl:PC.W0});
-    if(pcCurA()>=0){$('#pcW').disabled=false;note('أخرجنا العينة وجفّفناها. زِن العينة التالية.')}}
+    const o=pcE.items[i];if(o&&!o.inT&&o.st!=='held'){w.out=true;o.done=true}}
   else{r.log.push(`تعرّف خاطئ على العينة ${s.lbl}: ${PC.mats[k][0]}`);note(`كثافة ${PC.mats[k][0]} ${PC.mats[k][1]} g/cm³، وكثافة العينة ${fx1(pcD(s))} g/cm³. قارنها بالجدول.`,true)}
   pcGuide();
 }
-function pcShowB(){const box=$('#pcPartB');if(!box||box.dataset.on)return;box.dataset.on='1';box.classList.remove('hide-b');$('#pcW').disabled=true;$('#pcDr').disabled=true;
-  pcBMount('#pcB');box.scrollIntoView({behavior:'smooth',block:'nearest'})}
+function pcShowB(){const box=$('#pcPartB');if(!box||box.dataset.on)return;box.dataset.on='1';box.classList.remove('hide-b');$('#pcRef').disabled=true;
+  pcBMount('#pcB');pcB.cb=j=>{const w=APP.run.pc.c[j];if(w.done)return;w.done=true;$('#pc'+j).disabled=false;$('#pc'+j+'r').disabled=false;$$(`[data-ns][data-j="${j}"]`).forEach(b=>b.disabled=false);pcGuide()};
+  box.scrollIntoView({behavior:'smooth',block:'nearest'})}
 const pcCurB=()=>APP.run.pc.c.findIndex(w=>!(w.mOk&&w.nsOk));
-function pcChange(){
-  const r=APP.run,x=r.pc;if(r.step!=='chg'||WMSIM.tweening())return;const j=pcCurB();if(j<0)return;const w=x.c[j];
-  if(w.done)return note('سجّل قراءة الميزان بعد التغيّر أولًا.');
-  $('#pcAct').disabled=true;pcBSet(j);pcBRun(()=>{w.done=true;$('#pc'+j).disabled=false;$('#pc'+j+'r').disabled=false;$$(`[data-ns][data-j="${j}"]`).forEach(b=>b.disabled=false);$('#pc'+j).focus({preventScroll:true});pcGuide()});
-}
 function pcRecM(j){
   const r=APP.run,w=r.pc.c[j],ch=PC.changes[j];if(!w.done||w.mOk)return;
   const v=parseNum($('#pc'+j).value);if(!isFinite(v)||v<0)return note('اكتب قراءة الميزان بالجرام، مثل ١٥٠');
   w.m.push(Math.round(v*10)/10);const fin=tx=>{w.mOk=true;$('#pc'+j+'o').textContent=tx;$('#pc'+j).disabled=true;$('#pc'+j+'r').disabled=true};
   if(Math.abs(v-ch.m)<=.5)fin('✓');
-  else if(w.m.length<3){r.log.push(`قراءة كتلة غير دقيقة بعد «${ch.t}»: ${v} g`);note('انظر إلى شاشة الميزان في الرسم بعد انتهاء التغيّر، واكتب الرقم كما هو.',true)}
+  else if(w.m.length<3){r.log.push(`قراءة كتلة غير دقيقة بعد «${ch.t}»: ${v} g`);note('انظر إلى شاشة الميزان بعد أن تثبت القراءة (النقطة الخضراء) ولا تلمس شيئًا، واكتب الرقم كما هو.',true)}
   else{$('#pc'+j).value=arNum(String(ch.m));fin(`الصحيح ${ch.m}`)}
   pcNextB(j);pcGuide();
 }
@@ -3935,7 +4131,7 @@ function pcPickNs(j,k){
   else{r.log.push(`ظنّ أن «${ch.t}» كوّن مادة جديدة`);note(ch.k==='melt'?'الماء السائل والجليد مادة واحدة في حالتين مختلفتين. هل تغيّرت المادة نفسها؟':ch.k==='foil'?'الكرة ما زالت ألومنيومًا لامعًا، فقط تغيّر شكلها.':'تذوّق المحلول (في المطبخ لا في المختبر!) يكون حلوًا: السكر ما زال موجودًا.',true)}
   pcNextB(j);pcGuide();
 }
-function pcNextB(j){const w=APP.run.pc.c[j];if(w.mOk&&w.nsOk&&pcCurB()>=0){$('#pcAct').disabled=false;pcBSet(pcCurB())}}
+function pcNextB(j){const w=APP.run.pc.c[j];if(w.mOk&&w.nsOk&&pcCurB()>=0&&pcB.j===j)pcBSet(pcCurB())}
 function pcGuide(){
   const r=APP.run,x=r.pc,t=$('#gtext'),act=$('#gact');if(!t)return;act.innerHTML='';
   const cyc=$('#cyc');if(cyc)cyc.innerHTML=cycleHTML(r.step==='predict'?0:r.step==='observe'?2:1);
@@ -3945,44 +4141,51 @@ function pcGuide(){
     $$('[data-pred]',act).forEach(b=>b.onclick=()=>{x.pred=b.dataset.pred;r.step='meas';note('سجّلنا توقعك. ستتحقق منه في الجزء الثاني.');pcGuide()});return;
   }
   if(r.step==='meas'){
-    const i=pcCurA();if(i<0){r.step='chg';pcShowB();$('#pcAct').disabled=false;$('#pcAct').textContent=PC.changes[0].act;return pcGuide()}
-    const w=x.s[i],s=PC.samples[i];$('#pcW').disabled=w.weighed||WMSIM.tweening();
-    if(!w.weighed){t.textContent=bidi(`العينة ${s.lbl}: اضغط «⚖️ زِن العينة» وانظر إلى شاشة الميزان.`);return}
-    if(!w.dropped){t.textContent=bidi(`كتلة العينة ${s.lbl} = ${s.m} g. أنزلها الآن في المخبار وراقب مستوى الماء.`);return}
-    if(!w.vOk){t.textContent=bidi('ارتفع الماء. اقرأ المستوى الجديد، واطرح منه 50 mL، واكتب حجم العينة.');return}
+    const i=pcCurA();if(i<0){r.step='chg';pcShowB();return pcGuide()}
+    const w=x.s[i],s=PC.samples[i];
+    if(!w.weighed){t.textContent=bidi(`العينة ${s.lbl}: اسحبها من المنشفة وضعها على كفّة الميزان، ثم ارفع يدك وانتظر حتى تثبت القراءة (تظهر نقطة خضراء).`);return}
+    if(w.splash){t.textContent=bidi('تطاير الماء! اسحب العينة لأعلى خارج المخبار، ثم اضغط «↺ أكمل الماء إلى 50 مل»، وأنزلها بيدك داخل المخبار حتى تقترب من الماء ثم اتركها.');return}
+    if(!w.sub){t.textContent=bidi(`كتلة العينة ${s.lbl} = ${s.m} g. الآن اسحبها إلى فوهة المخبار، وأنزلها بيدك داخله حتى تقترب من الماء ثم اتركها؛ لا ترمها من الأعلى حتى لا يتطاير الماء.`);return}
+    if(!w.vOk){t.textContent=bidi('ارتفع الماء. اسحب المكبّر 🔍 إلى سطح الماء واقرأ المستوى عند أسفل التقعّر، واطرح منه 50 mL، واكتب حجم العينة.');return}
     if(!w.dOk){t.textContent=bidi(`احسب الكثافة: ${s.m} g ÷ ${s.v} cm³، واكتبها في الجدول.`);return}
-    t.textContent=bidi('قارن الكثافة التي حسبتها بجدول الكثافات، واختر مادة العينة.');return;
+    if(!w.idOk){t.textContent=bidi('قارن الكثافة التي حسبتها بجدول الكثافات، واختر مادة العينة.');return}
+    t.textContent=bidi(`أخرج العينة ${s.lbl} من المخبار (اسحبها لأعلى) وضعها على المنشفة لتجف.`);return;
   }
   if(r.step==='chg'){
     const j=pcCurB();
     if(j<0){t.textContent='أكملت الجزأين. قارن الجدولين، ثم سجّل ملاحظاتك.';
       act.innerHTML='<button class="btn amber" id="pcObsGo">سجّل ملاحظاتي</button>';$('#pcObsGo').onclick=()=>{r.step='observe';pcGuide();wmObs(PC_OBS,PC_OBS_SET,'physchg')};return}
-    const w=x.c[j],ch=PC.changes[j];$('#pcAct').textContent=ch.act;
-    if(!w.done){t.textContent=bidi(`التغيّر ${j+1}: ${ch.t}. الميزان يقرأ ${ch.m} g قبل التغيّر. اضغط «${ch.act}» وراقب الشاشة.`);return}
+    const w=x.c[j],ch=PC.changes[j];
+    const how={melt:'أمسك مجفف الشعر 💨 وقرّبه من الكأس المغطاة، واستمر حتى يذوب الجليد كله، ثم اتركه.',
+      foil:'اضغط بإصبعك على ورقة الألومنيوم وحرّكه لتكبسها كرة صغيرة، ثم ارفع إصبعك.',
+      sugar:'اسحب طبق السكر فوق الكأس ليميل وينسكب فيها، ثم أمسك القضيب الزجاجي وحرّك داخل الماء حتى يذوب السكر كله.'}[ch.k];
+    if(!w.done){t.textContent=bidi(`التغيّر ${j+1}: ${ch.t}. الميزان يقرأ ${ch.m} g قبل التغيّر. ${how} راقب الميزان، وانتظر النقطة الخضراء.`);return}
     t.textContent=bidi('اكتب قراءة الميزان بعد التغيّر، وأجب: هل تكوّنت مادة جديدة؟');return;
   }
   if(r.step==='observe')t.textContent='ماذا لاحظت؟ اختر ملاحظاتك تحت الجدول.';
 }
 /* ---- التحدي العملي: أي السوارين ذهب خالص؟ ---- */
 function renderPCChal(){
-  const r=APP.run;r.chal=r.chal||[];r.chalDone=false;r.pcm=r.pcm||{};
+  const r=APP.run;r.chal=r.chal||[];r.chalDone=false;r.pcm={};
   app.innerHTML=`${cycleHTML(4)}<section class="bench">
     <div class="guide" role="status" aria-live="polite"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 29V4M8 5h16l-5 5 5 5H8"/></svg>
-      <div class="gt"><span class="who">التحدي العملي</span><p id="gtext">سواران متشابهان في اللون والكتلة. أحدهما ذهب خالص (كثافة الذهب ${PC.gold} g/cm³) والآخر مغشوش. قِس كلًّا منهما ثم احكم.</p><div class="gact" id="gact"></div></div></div>
+      <div class="gt"><span class="who">التحدي العملي</span><p id="gtext">سواران متشابهان في اللون والكتلة. أحدهما ذهب خالص (كثافة الذهب ${PC.gold} g/cm³) والآخر مغشوش. زِن كلًّا منهما، ثم أنزله بهدوء في المخبار واقرأ الحجم بالمكبّر، ثم احكم.</p><div class="gact" id="gact"></div></div></div>
     <div class="gnote" id="gnote" role="alert"></div>
-    <div class="frbar">${PC.bracelets.map((b,i)=>`<button class="btn amber" data-bm="${i}">⚖️🧪 قِس ${b.lbl}</button>`).join('')}</div>
-    <div class="beakerzone frzone"><div class="frscroll" dir="ltr"><canvas id="pcC"></canvas></div></div><p class="swipe-hint">↔ اسحب الرسم يمينًا ويسارًا لرؤيته كاملًا</p>
-    <div class="tablewrap" style="margin-top:10px"><table class="frtab"><thead><tr><th>السوار</th><th>الكتلة</th><th>مستوى الماء</th><th>الكثافة</th></tr></thead><tbody>
-      ${PC.bracelets.map((b,i)=>`<tr><td><b>${b.lbl}</b></td><td id="cm${i}">—</td><td id="cl${i}">—</td><td id="cd${i}">احسبها بنفسك</td></tr>`).join('')}</tbody></table></div>
+    <div class="frbar"><button class="btn ghost" id="pcRef" disabled>↺ أكمل الماء إلى 50 مل</button></div>
+    <div class="beakerzone frzone"><canvas id="pcC" class="pcfit" aria-label="سواران وميزان رقمي ومخبار مدرّج ومكبّر"></canvas></div>
+    <div class="tablewrap" style="margin-top:10px"><table class="frtab"><thead><tr><th>السوار</th><th>الكتلة</th><th>حجم السوار</th><th>الكثافة</th></tr></thead><tbody>
+      ${PC.bracelets.map((b,i)=>`<tr><td><b>${b.lbl}</b></td><td id="cm${i}">—</td><td id="cl${i}">—</td><td>احسبها بنفسك</td></tr>`).join('')}</tbody></table></div>
     <div class="frbar" style="margin-top:10px"><span>الذهب الخالص هو:</span>${PC.bracelets.map((b,i)=>`<button class="btn" data-bp="${i}">${b.lbl}</button>`).join('')}</div>
   </section>`;
-  pcAMount('#pcC',PC.bracelets.map(b=>({...b,ring:true})));
-  const meas=i=>{if(WMSIM.tweening())return;const b=PC.bracelets[i];$$('[data-bm]').forEach(x=>x.disabled=true);
-    pcAWeigh(i,()=>{$('#cm'+i).textContent=`${b.m} g`;setTimeout(()=>pcADrop(()=>{$('#cl'+i).textContent=bidi(`${PC.W0} ← ${PC.W0+b.v} mL`);r.pcm[i]=1;
-      setTimeout(()=>{pcA.items[i].used=false;Object.assign(pcA,{cur:-1,where:'shelf',pos:null,disp:0,lvl:PC.W0});$$('[data-bm]').forEach(x=>x.disabled=false)},1800)}),500)})};
-  $$('[data-bm]').forEach(b=>b.onclick=()=>meas(+b.dataset.bm));
+  pcAMount('#pcC',PC.bracelets.map((b,i)=>({...b,ring:true,i})),{cb:{
+    weighed:o=>{$('#cm'+o.i).textContent=`${o.m} g`;r.pcm[o.i]=(r.pcm[o.i]||0)|1},
+    sub:o=>{if(pcE.water<PC.W0-.01){$('#pcRef').disabled=false;return}$('#cl'+o.i).textContent='اقرأه بالمكبّر 🔍';setTimeout(()=>{const e=$('#cl'+o.i);if(e)e.textContent=bidi(`مستوى الماء ${PC.W0} ← ${PC.W0+o.v} mL`)},4000);r.pcm[o.i]=(r.pcm[o.i]||0)|2;
+      note(bidi(`ارتفع الماء. اقرأ المستوى بالمكبّر واطرح 50 mL لتعرف حجم ${o.lbl}.`))},
+    splash:(o,lost)=>{$('#pcRef').disabled=false;note(`تطاير ${lost} مل من الماء! أخرج السوار، وأكمل الماء، وأنزله بهدوء.`,true)},
+    refilled:()=>{$('#pcRef').disabled=true}}});
+  $('#pcRef').onclick=pcRefill;
   $$('[data-bp]').forEach(b=>b.onclick=()=>{if(r.chalDone)return;const i=+b.dataset.bp,t=$('#gtext'),act=$('#gact');
-    if(!r.pcm[0]||!r.pcm[1])return note('قِس السوارين أولًا: الكتلة والحجم.');
+    if(r.pcm[0]!==3||r.pcm[1]!==3)return note('زِن السوارين وأنزل كلًّا منهما في المخبار أولًا.');
     r.chal.push(i);const B=PC.bracelets;
     if(i===PC.chalOk){r.chalDone=true;t.textContent=bidi(`أحسنت! ${B[1].lbl}: ${B[1].m} ÷ ${B[1].v} = ${fx1(B[1].m/B[1].v)} g/cm³ = كثافة الذهب. أما ${B[0].lbl}: ${B[0].m} ÷ ${B[0].v} ≈ ${fx1(B[0].m/B[0].v)} g/cm³ فقط، أي أن فيه مادة أقل كثافة من الذهب. الكتلة واحدة، لكن حجم المغشوش أكبر.`);
       act.innerHTML='<button class="btn amber" id="toLearn">إلى الخلاصة</button>';$('#toLearn').onclick=()=>go('learned');return}
