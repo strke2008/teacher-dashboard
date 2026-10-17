@@ -124,7 +124,7 @@ function madRegisterRender(cls, asgs, mids, linkNote){
     : x.st==='pending'?'<td class="madr-c wait" title="لم يحل بعد — الموعد لم ينتهِ">⏳</td>'
     : x.st==='grace'?`<td class="madr-c grace" title="لم يحل — انتهى الموعد، لكنه في أسبوع السماح: يُخصم بعد ${x.daysLeft} ${x.daysLeft===1?'يوم':'أيام'} إن لم يحله">❌<small>${x.daysLeft}ي</small></td>`
     : x.st==='excluded'?'<td class="madr-c none" title="مستبعد من التقييم">🚫</td>'
-    : x.st==='forgiven'?'<td class="madr-c none" title="لم يحل — مسح الطالب خصمه ببطاقة «مسح خصم مدرستي» (500 نقطة)">🧽</td>'
+    : x.st==='forgiven'?'<td class="madr-c none" title="لم يحل — مسح الطالب خصمه ببطاقة «مسح خصم مدرستي» (250 نقطة)">🧽</td>'
     : x.st==='out'?`<td class="madr-c out" title="يُغلق خارج الفترة المختارة${termTxt?' ('+termTxt+')':''} — لا يدخل درجتها">↗</td>`
     : '<td class="madr-c no" title="لم يحل — مخصوم 0.5">❌</td>';
   const linkedMids=new Set(Object.keys(MADREG.links));
