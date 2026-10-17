@@ -119,7 +119,7 @@ function pmText(k,s){ const n=pmFirst(s.name), sub='مادة '+(String(rcGet('su
     behavior:`أرجو متابعة ابنكم ${n}، فقد صدرت منه ملاحظة سلوكية في حصة ${sub.replace('مادة ','')}.`,homework_neg:`لم ينجز ابنكم ${n} واجب ${sub}، وأرجو متابعته.`,
     late:`تأخر ابنكم ${n} عن حصة ${sub.replace('مادة ','')}، وأرجو تنبيهه على الالتزام بالوقت.`,support:`يحتاج ابنكم ${n} إلى متابعة إضافية في ${sub}.`,skill:`يحتاج ابنكم ${n} إلى مزيد من التدريب على مهارات ${sub}.`,
     start:`لم يبدأ ابنكم ${n} حل أنشطة ${sub} في بوابة الطالب حتى الآن. أرجو مساعدته في الدخول والبدء باختباري البداية ثم الأنشطة: ${typeof getSite==='function'?getSite():''}`};
-  return (M[k]||M.behavior)+(typeof parFooter==='function'?parFooter():''); }
+  return `السلام عليكم ولي أمر الطالب ${n}،\n\n`+(M[k]||M.behavior)+(typeof parFooter==='function'?parFooter():''); }
 let PM={sid:'',dis:''};
 function pmsgOpen(sid,suggest,dis){
   const s=(STUDENTS||[]).find(x=>String(x.id)===String(sid)); if(!s) return; PM={sid:String(sid),dis:dis||''};

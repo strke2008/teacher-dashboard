@@ -2283,3 +2283,5 @@ html body .rep-page.nfp{border:0;box-shadow:none}
   .stc-back{display:inline-flex !important;order:-2}
   .stc-who{flex-basis:100%;order:-1}
 }
+/* 💬 الرسائل الجاهزة لولي الأمر: أسطرها كما ستُرسل (التحية، النص، رابط المتابعة) */
+.pm-card p{white-space:pre-line}
