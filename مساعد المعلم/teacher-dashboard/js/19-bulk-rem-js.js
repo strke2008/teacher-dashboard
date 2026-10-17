@@ -40,17 +40,23 @@ function remCompose(s,x){
 }
 
 /* 📍 أين يجد الطالب واجب مدرستي: رابط صفحة «الواجبات» للمادة إن حفظه المعلم (SubjectId+SchoolId [+searchByStatus] — بلا UId فيصلح لكل الطلاب)، وإلا الرابط العام + الخطوات */
-function madListUrl(v){
-  try{ const u=new URL(String(v||'').trim()); if(!/(^|\.)madrasati\.sa$/i.test(u.hostname)) return '';
-    const g=k=>{ for(const [n,x] of u.searchParams) if(n.toLowerCase()===k) return x; return ''; };
-    const sub=g('subjectid'), sch=g('schoolid'); if(!/^[0-9A-F]{16,64}$/i.test(sub)||!/^[0-9A-F]{16,64}$/i.test(sch)) return '';
-    const st=g('searchbystatus'); return `https://schools.madrasati.sa/Student/Home/Assignments?SubjectId=${sub}&SchoolId=${sch}`+(/^[A-Za-z]{1,20}$/.test(st)?`&searchByStatus=${st}`:''); }catch(e){ return ''; }
+/* 🔎 رقما المدرسة والمادة من أي رابط مدرستي: صفحة «واجباتي» للطالب (SubjectId+SchoolId) أو صفحة واجبات المعلم (/Teacher/Assignments/Index/<SchoolId>) */
+function madIds(v){
+  try{ const u=new URL(String(v||'').trim()); if(!/(^|\.)madrasati\.sa$/i.test(u.hostname)) return {};
+    const g=k=>{ for(const [n,x] of u.searchParams) if(n.toLowerCase()===k) return x; return ''; }, hx=x=>/^[0-9A-F]{16,64}$/i.test(x)?x:'';
+    const pm=u.pathname.match(/\/Teacher\/Assignments\/Index\/([0-9A-F]{16,64})/i);
+    const st=g('searchbystatus');
+    return { sub:hx(g('subjectid')), sch:hx(g('schoolid'))||(pm?pm[1]:''), st:/^[A-Za-z]{1,20}$/.test(st)?st:'' }; }catch(e){ return {}; }
 }
-/* 🎯 رابط الواجب نفسه للطالب: SolveLectureAssignment/<رمز الواجب> بنفس رقم المدرسة والمادة (بلا UId — الطالب يُعرف من دخوله) */
+/* 📍 رابط صفحة «الواجبات» للمادة (يلزمه رقم المادة والمدرسة — بلا UId فيصلح لكل الطلاب) */
+function madListUrl(v){
+  const x=madIds(v); return x.sub&&x.sch?`https://schools.madrasati.sa/Student/Home/Assignments?SubjectId=${x.sub}&SchoolId=${x.sch}`+(x.st?`&searchByStatus=${x.st}`:''):'';
+}
+/* 🎯 رابط الواجب نفسه للطالب: SolveLectureAssignment/<رمز الواجب> برقم المدرسة (والمادة إن عُرفت) — بلا UId، الطالب يُعرف من دخوله */
 function madSolveUrl(k){
   try{ if(!/^[0-9A-F]{16,64}$/i.test(String(k||''))) return '';
-    const u=new URL(madListUrl(typeof rcGet==='function'?rcGet('madlink'):'')||'x:'), sub=u.searchParams.get('SubjectId'), sch=u.searchParams.get('SchoolId');
-    return sub&&sch?`https://schools.madrasati.sa/Student/Assignments/SolveLectureAssignment/${k}?SchoolId=${sch}&SubjectId=${sub}&type=Current&published=false`:''; }catch(e){ return ''; }
+    const x=madIds(typeof rcGet==='function'?rcGet('madlink'):''); if(!x.sch) return '';
+    return `https://schools.madrasati.sa/Student/Assignments/SolveLectureAssignment/${k}?SchoolId=${x.sch}${x.sub?`&SubjectId=${x.sub}`:''}&type=Current&published=false`; }catch(e){ return ''; }
 }
 /* رمز الواجب بعنوانه من قائمة واجبات مدرستي (احتياط إن لم يُرسله الخادم): العنوان المكرر بين الفصول لا يُخمَّن */
 let MAD_KEYS=null;
@@ -64,18 +70,19 @@ async function madKeysLoad(){
 function madKeyFor(x){ if(x&&x.k) return x.k; const t=String(x&&x.title||'').trim(); return (MAD_KEYS&&MAD_KEYS.get(t))||''; }
 /* 🎯 هل سيظهر زر «حلّه» للطلاب؟ عدد الواجبات المفتوحة التي عُرف رابطها المباشر */
 function brSolveNote(){
-  if(!madListUrl(rcGet('madlink'))) return '<small class="br-solve">🎯 احفظ رابط «واجباتي» أعلاه ليظهر للطالب زر «حلّه» يفتح كل واجب مباشرة</small>';
+  if(!madIds(rcGet('madlink')).sch) return '<small class="br-solve">🎯 الصق أعلاه رابط «واجباتي» من حساب طالب، أو رابط صفحة الواجبات من حسابك كمعلم، ليظهر للطالب زر «حلّه» يفتح كل واجب مباشرة</small>';
   const all=[]; (BR.rows||[]).forEach(r=>(r.x.mad||[]).forEach(m=>all.push(m)));
   if(!all.length) return '';
   const ok=all.filter(m=>madKeyFor(m)).length;
   return `<small class="br-solve ${ok?'ok':''}">🎯 زر «حلّه» المباشر: ${ok} من ${all.length} واجب${ok<all.length?' — الباقي برابط «واجباتي» فقط':''}</small>`;
 }
 function madLinkSet(v){
-  const url=madListUrl(v); const st=document.getElementById('br-madlink-st');
-  if(String(v||'').trim()&&!url){ if(st){st.textContent='✗ الرابط لا يحوي رقم المادة والمدرسة';st.className='bad';} return; }
-  REPCFG.madlink=url; rcSave();
+  const x=madIds(v), st=document.getElementById('br-madlink-st');
+  if(String(v||'').trim()&&!x.sch){ if(st){st.textContent='✗ الرابط لا يحوي رقم المدرسة';st.className='bad';} return; }
+  // يُحفظ رابط «واجباتي» الموحّد إن عُرفت المادة، وإلا رابط صفحة المعلم (فيه رقم المدرسة فقط)
+  REPCFG.madlink=x.sch?(madListUrl(v)||`https://schools.madrasati.sa/Teacher/Assignments/Index/${x.sch}`):''; rcSave();
   try{ brRender(); }catch(e){}
-  const st2=document.getElementById('br-madlink-st'); if(st2) st2.textContent=url?'✓ حُفظ — يظهر في التذكير':'حُذف — سيُرسل الرابط العام والخطوات';
+  const st2=document.getElementById('br-madlink-st'); if(st2) st2.textContent=!x.sch?'حُذف — سيُرسل الرابط العام والخطوات':x.sub?'✓ حُفظ — رابط «واجباتي» وزر «حلّه» يظهران في التذكير':'✓ حُفظ رقم المدرسة — زر «حلّه» يظهر، وقائمة الواجبات بالخطوات';
 }
 function madWhere(){
   const sub=(typeof rcGet==='function'&&rcGet('subject'))||'العلوم';
@@ -147,7 +154,7 @@ function brRender(){
       <label><input type="checkbox" ${BR.paper?'checked':''} onchange="BR.paper=this.checked;BR.sel=null;brRender()"> 📕 الواجب الورقي (آخر أسبوع)</label>
       <label title="${BR.madBy?'':'تعذّر جلب واجبات مدرستي الآن'}"><input type="checkbox" ${BR.mad&&BR.madBy?'checked':''} ${BR.madBy?'':'disabled'} onchange="BR.mad=this.checked;BR.sel=null;brRender()"> 📱 واجبات مدرستي المفتوحة</label>
     </div>
-    ${BR.mad&&BR.madBy?`<div class="br-madlink"><label for="br-madlink">🔗 رابط «الواجبات» للطلاب:</label><input class="inp" id="br-madlink" dir="ltr" placeholder="الصق رابط صفحة الواجبات من حساب أي طالب" value="${esc(rcGet('madlink')||'')}" onchange="madLinkSet(this.value)"><small id="br-madlink-st" class="${rcGet('madlink')?'ok':''}">${rcGet('madlink')?'✓ محفوظ':'بدونه يُرسل الرابط العام والخطوات'}</small>${brSolveNote()}</div>`:''}
+    ${BR.mad&&BR.madBy?`<div class="br-madlink"><label for="br-madlink">🔗 رابط «الواجبات» للطلاب:</label><input class="inp" id="br-madlink" dir="ltr" placeholder="رابط «واجباتي» من حساب طالب، أو رابط صفحة الواجبات من حسابك" value="${esc(rcGet('madlink')||'')}" onchange="madLinkSet(this.value)"><small id="br-madlink-st" class="${rcGet('madlink')?'ok':''}">${rcGet('madlink')?'✓ محفوظ':'بدونه يُرسل الرابط العام والخطوات'}</small>${brSolveNote()}</div>`:''}
     ${BR.rows.length?`<div class="br-list">${BR.rows.map(r=>{ const id=String(r.s.id), on=BR.sel.has(id);
       return `<div class="br-row ${on?'':'off'}"><input type="checkbox" ${on?'checked':''} onchange="brToggle('${esc(id)}',this.checked)">
         <div class="br-main"><b>${esc(r.s.name)}</b><small>${esc(r.s.cls||'')}</small>
