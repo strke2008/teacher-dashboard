@@ -2083,7 +2083,7 @@ function remindParse(body){
     if(/^بالتوفيق/.test(ln) || /^حلّها قبل الإغلاق/.test(ln) || /^افتح «أنشطتي»/.test(ln)) return;
     const u=(ln.match(/https?:\/\/[^\s)]+/)||[])[0];
     // ↳ رابط الواجب نفسه في مدرستي: يُلحق بآخر واجب قبله
-    if(/^↳/u.test(ln)){ const it=cur&&cur.items[cur.items.length-1]; if(it && u && /^https:\/\/schools\.madrasati\.sa\//i.test(u)) it.u=u; return; }
+    if(/^↳/u.test(ln)){ const it=cur&&cur.items[cur.items.length-1]; if(it && u && /^https:\/\/schools\.madrasati\.sa\//i.test(u) && !/SolveLectureAssignment/i.test(u)) it.u=u; return; }
     if(u && /madrasati\.sa/i.test(u) && (!out.mad || /Assignments/i.test(u))) out.mad=u;
     if(/^🔗/u.test(ln) || (u && ln===u)) return;
     if(/^📍/u.test(ln)){ out.madHint=ln.replace(/^📍\s*/u,'').replace(/^بعد تسجيل الدخول:\s*/,'بعد الدخول: '); return; }

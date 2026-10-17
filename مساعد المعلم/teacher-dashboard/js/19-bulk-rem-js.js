@@ -53,7 +53,10 @@ function madListUrl(v){
   const x=madIds(v); return x.sub&&x.sch?`https://schools.madrasati.sa/Student/Home/Assignments?SubjectId=${x.sub}&SchoolId=${x.sch}`+(x.st?`&searchByStatus=${x.st}`:''):'';
 }
 /* 🎯 رابط الواجب نفسه للطالب: SolveLectureAssignment/<رمز الواجب> برقم المدرسة (والمادة إن عُرفت) — بلا UId، الطالب يُعرف من دخوله */
+// ⛔ مُعطّل: جُرّب فعليًا ففتح الصفحة الرئيسية — رمز الواجب عند المعلم ليس رمزه عند الطالب (الطالب له studentAssignmentId خاص به)
+const MAD_SOLVE_OK=false;
 function madSolveUrl(k){
+  if(!MAD_SOLVE_OK) return '';
   try{ if(!/^[0-9A-F]{16,64}$/i.test(String(k||''))) return '';
     const x=madIds(typeof rcGet==='function'?rcGet('madlink'):''); if(!x.sch) return '';
     return `https://schools.madrasati.sa/Student/Assignments/SolveLectureAssignment/${k}?SchoolId=${x.sch}${x.sub?`&SubjectId=${x.sub}`:''}&type=Current&published=false`; }catch(e){ return ''; }
@@ -70,6 +73,7 @@ async function madKeysLoad(){
 function madKeyFor(x){ if(x&&x.k) return x.k; const t=String(x&&x.title||'').trim(); return (MAD_KEYS&&MAD_KEYS.get(t))||''; }
 /* 🎯 هل سيظهر زر «حلّه» للطلاب؟ عدد الواجبات المفتوحة التي عُرف رابطها المباشر */
 function brSolveNote(){
+  if(!MAD_SOLVE_OK) return madListUrl(rcGet('madlink'))?'':'<small class="br-solve">📍 الصق رابط «واجباتي» (فيه SubjectId وSchoolId) ليفتح الطالب واجبات المادة مباشرة</small>';
   if(!madIds(rcGet('madlink')).sch) return '<small class="br-solve">🎯 الصق أعلاه رابط «واجباتي» من حساب طالب، أو رابط صفحة الواجبات من حسابك كمعلم، ليظهر للطالب زر «حلّه» يفتح كل واجب مباشرة</small>';
   const all=[]; (BR.rows||[]).forEach(r=>(r.x.mad||[]).forEach(m=>all.push(m)));
   if(!all.length) return '';
@@ -82,7 +86,7 @@ function madLinkSet(v){
   // يُحفظ رابط «واجباتي» الموحّد إن عُرفت المادة، وإلا رابط صفحة المعلم (فيه رقم المدرسة فقط)
   REPCFG.madlink=x.sch?(madListUrl(v)||`https://schools.madrasati.sa/Teacher/Assignments/Index/${x.sch}`):''; rcSave();
   try{ brRender(); }catch(e){}
-  const st2=document.getElementById('br-madlink-st'); if(st2) st2.textContent=!x.sch?'حُذف — سيُرسل الرابط العام والخطوات':x.sub?'✓ حُفظ — رابط «واجباتي» وزر «حلّه» يظهران في التذكير':'✓ حُفظ رقم المدرسة — زر «حلّه» يظهر، وقائمة الواجبات بالخطوات';
+  const st2=document.getElementById('br-madlink-st'); if(st2) st2.textContent=!x.sch?'حُذف — سيُرسل الرابط العام والخطوات':x.sub?'✓ حُفظ — رابط «واجباتي» يظهر في التذكير':'✗ ينقصه رقم المادة (SubjectId) — الصق رابط «واجباتي» من حساب طالب';
 }
 function madWhere(){
   const sub=(typeof rcGet==='function'&&rcGet('subject'))||'العلوم';
