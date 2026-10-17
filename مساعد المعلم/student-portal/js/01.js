@@ -2797,6 +2797,8 @@ function gateIsNew(h){ const a=Number(h.at)||0; return !h.done && a>0 && Date.no
 /* 📊 هل يدخل النشاط في درجة الأنشطة؟ الخادم يرسل gr، والقديم يُستنتج من النوع */
 function gateCounts(h){ return h.gr != null ? !!Number(h.gr) : ['normal','reading','lab'].includes(String(h.kind||'normal')); }
 function gateGradeTag(h){
+  // 🔒 نشاط من فترة أُغلقت درجاتها: حلّه يفيده في نقاط التميّز والتعلّم فقط
+  if(Number(h.grc)) return '<span class="hw-gr shut" title="أُغلقت درجات فترة هذا النشاط — تسليمه الآن لا يغيّر درجتك">🔒 انتهت فترته · حلّه لنقاط التميّز فقط، ولا يُحسب في درجتك</span>';
   return gateCounts(h)
     ? '<span class="hw-gr on" title="تسليمه يُحتسب في درجة الأنشطة">📊 يدخل في درجتك</span>'
     : '<span class="hw-gr" title="للتدريب — لا يؤثر على درجة الأنشطة">🎯 تدريب — بلا درجة</span>';

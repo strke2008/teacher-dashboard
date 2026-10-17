@@ -571,12 +571,26 @@ function studentReportBuild(data, g, semester, period, teacherNote, acts) {
   };
 }
 /* 💻 المهام الأدائية (أنشطة البوابة) من 10 — نفس حساب لوحة المعلم: أنشطة الفترة المحتسبة لفصله، والدرجة بنسبة ما سلّمه */
+/* هل وقت نشر النشاط t داخل حدود الفترة T؟ (نفس قاعدة compActivitiesForStudent في اللوحة) */
+function termHasTs(T, t) {
+  if (!t || !T) return true; if (T.startAt && t < T.startAt) return false; if (T.endAt && t >= T.endAt) return false;
+  const d = new Date(t + 3 * 3600000).toISOString().slice(0, 10);
+  if ((T.explicit || T.startSet) && T.start && d < T.start) return false; if ((T.explicit || T.endSet) && T.end && d > T.end) return false; return true;
+}
+/* 🔒 الفترات المغلقة (من لقطاتها): حدودها ولحظة إغلاقها — ما نُشر فيها وسُلّم بعد الإغلاق لا يُحسب لها */
+function closedTerms(data) {
+  const ac = academicNormalize(data) || {}, out = [];
+  for (const sn of ['1', '2']) { const S = (ac.semesters || {})[sn] || {};
+    for (const pn of ['1', '2']) { const snap = (S.periodSnapshots || {})[pn];
+      if (!snap || !snap.term || !(S.status === 'closed' || (S.periodStatus || {})[pn] === 'closed')) continue;
+      out.push({ T: snap.term, cut: Number(snap.term.closedAt || snap.term.endAt || S.closedAt) || 0 }); } }
+  return out;
+}
 function srepActsLive(state, data, sid, name, cls, sem, per) {
   sid = String(sid); cls = String(cls || '');
   const forCls = h => { const l = Array.isArray(h.clsList) && h.clsList.length ? h.clsList.map(String) : (h.cls ? [String(h.cls)] : []); return !l.length || l.includes(cls); };
   const T = gradeTermRange(data, per, sem), aAt = h => { const t = Number(h.firstPub || h.at) || 0; if (t) return t; const m = /^s([0-9a-z]{8,9})/.exec(String(h.id || '')); const x = m ? parseInt(m[1], 36) : 0; return x > 1.5e12 && x < 4e12 ? x : (Number(h.publishedAt) || 0); };
-  const inT = h => { const t = aAt(h); if (!t || !T) return true; if (T.startAt && t < T.startAt) return false; if (T.endAt && t >= T.endAt) return false;
-    const d = new Date(t + 3 * 3600000).toISOString().slice(0, 10); if ((T.explicit || T.startSet) && T.start && d < T.start) return false; if ((T.explicit || T.endSet) && T.end && d > T.end) return false; return true; };
+  const inT = h => termHasTs(T, aAt(h));
   const termActs = (Array.isArray(state && state.assignments) ? state.assignments : []).filter(h => h && ['normal', 'reading', 'lab'].includes(h.kind || 'normal') && !h.noGrade && (h.sid || h.published || (Array.isArray(h.s) && h.s.length)) && forCls(h) && inT(h)
     && (!(Array.isArray(h.s) && h.s.length) || h.s.map(String).includes(sid) || h.s.map(String).includes(String(name))));
   const tDone = termActs.filter(h => h.subs && (h.subs[sid] || h.subs[String(name)])).length;
@@ -5189,11 +5203,12 @@ export default {
 
       const rows = [];
       // 🕒 الأنشطة المنشورة قبل ختم وقت النشر: تاريخها من نسخة لوحة المعلم (h.at حين أنشأه)
-      const pubMap = {};
+      const pubMap = {}, firstMap = {};
       try { const ts = JSON.parse(await env.HW.get('tstate:main')) || {};
         // احتياط: معرّف النشاط في اللوحة يبدأ بوقت إنشائه (s + Date.now بالأساس 36)
         const idTs = id => { const m = /^s([0-9a-z]{8})/.exec(String(id || '')); const v = m ? parseInt(m[1], 36) : 0; return v > 1.5e12 && v < Date.now() + 864e5 ? v : 0; };
-        for (const h of (Array.isArray(ts.assignments) ? ts.assignments : [])) if (h && h.sid) pubMap[String(h.sid)] = Number(h.publishedAt || h.at) || idTs(h.id); } catch {}
+        for (const h of (Array.isArray(ts.assignments) ? ts.assignments : [])) if (h && h.sid) { pubMap[String(h.sid)] = Number(h.publishedAt || h.at) || idTs(h.id); firstMap[String(h.sid)] = Number(h.firstPub || h.at) || idTs(h.id); } } catch {}
+      let shut = []; try { shut = closedTerms(JSON.parse(await env.HW.get('teacher:classroom')) || {}); } catch {}
       const hwKeysMine = await listAllKeysCached(env, 'hw:');
       // ⚡ كانت 4 قراءات متتابعة لكل نشاط، والطالب ينتظرها كلها قبل ظهور قائمته.
       // الآن: صفحات الأنشطة على دفعات، ثم سجلات الطالب الثلاثة معًا لكل نشاط.
@@ -5269,7 +5284,11 @@ export default {
           // 🩹 مرّر علامة النشاط العلاجي للبوابة حتى تفصله عن الأنشطة العادية.
           remedial: !!p.remedial,
           // 📊 يدخل في درجة الأنشطة؟ (عادي/فهم قرائي/مختبر، إلا ما جعله المعلم تدريبًا)
-          gr: ['normal', 'reading', 'lab'].includes(String(p.kind || 'normal')) && !p.ng ? 1 : 0,
+          ...(() => { const g = ['normal', 'reading', 'lab'].includes(String(p.kind || 'normal')) && !p.ng;
+            // 🔒 نشاط فترةٍ أُغلقت: إن لم يُسلَّم قبل إغلاقها فحلّه الآن لنقاط التميّز فقط (grc)
+            const t = firstMap[String(p.id)] || Number(p.pubAt) || 0, c = g && t ? shut.find(x => x.cut && termHasTs(x.T, t)) : null;
+            const early = c && sub && (Number(sub.fat || sub.at) || 0) && (Number(sub.fat || sub.at) < c.cut);
+            return { gr: g && (!c || early) ? 1 : 0, ...(c && !early ? { grc: 1 } : {}) }; })(),
           n: Array.isArray(p.q) ? p.q.length : 0,
           // 🧭 نشاط نافس: تعرضه البوابة في خانة «نافس»
           nf: p.nf ? 1 : 0,
