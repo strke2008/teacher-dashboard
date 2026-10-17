@@ -1771,6 +1771,7 @@ const MSG_RANK = { urgent:0, important:1, normal:2 };
 const MSG_TTL_DAYS = { thanks:14, cert:30, achievement:21, warning:14, activity:14, message:21, reply:21 };
 function msgActive(m){
   const now=Date.now();
+  try{ if(isRemindMsg(m) && remindLive(m, REMIND_ACTS).empty) return false; }catch(e){}
   if(m.expiresAt){ const t=Date.parse(m.expiresAt); if(t && t<now) return false; }
   if(m.examDate){ const t=Date.parse(String(m.examDate).slice(0,10)+'T23:59:59+03:00'); if(t) return t>=now; }
   const at=Date.parse(m.createdAt||'')||0; if(!at) return true;
@@ -2098,8 +2099,40 @@ function remindParse(body){
   if(out.madHint && /Assignments/i.test(out.mad)) out.madHint='';
   return out;
 }
+/* 🧹 التذكير يختفي حين يفقد قيمته: واجب مدرستي أُغلق موعده، ونشاط البوابة سُلِّم — يُقرأ من نص الرسالة فيعمل مع القديمة.
+   «يُغلق اليوم/غدًا/السبت… الساعة ١١:٥٩ م» نسبةً إلى يوم إرسال الرسالة (بتوقيت السعودية) */
+let REMIND_ACTS=null;
+const RMD_DOW=['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+function remindDueAt(meta, createdAt){
+  const t=String(meta||'').replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/إثنين/g,'اثنين');
+  const sent=Date.parse(createdAt||''); if(!sent || !/يُغلق|يغلق/.test(t)) return 0;
+  const k=new Date(sent+3*3600000); let add=-1;
+  if(/اليوم/.test(t)) add=0; else if(/غد/.test(t)) add=1;
+  else { const w=RMD_DOW.findIndex(d=>t.includes(d)), dm=t.replace(/\d{1,2}:\d{2}/,'').match(/(\d{1,2})\D{1,3}(\d{1,2})/);
+    // التاريخ «يوم/شهر» (أو «شهر/يوم») يحسم الأسبوع: يُختار ما يطابق اسم اليوم خلال الأسابيع الثلاثة التالية
+    if(dm){ for(let i=0;i<21 && add<0;i++){ const x=new Date(Date.UTC(k.getUTCFullYear(),k.getUTCMonth(),k.getUTCDate()+i)), D=x.getUTCDate(), M=x.getUTCMonth()+1;
+      if(((D==dm[1]&&M==dm[2])||(D==dm[2]&&M==dm[1])) && (w<0||x.getUTCDay()===w)) add=i; } }
+    if(add<0 && w>=0){ add=(w-k.getUTCDay()+7)%7; if(add<2) add+=7; } }   // «اليوم/غدًا» تُكتبان صراحة، فاسم اليوم يعني بعدهما
+  if(add<0) return 0;
+  const tm=t.match(/(\d{1,2}):(\d{2})\s*(ص|م)?/); let h=23, mi=59;
+  if(tm){ h=+tm[1]%12; mi=+tm[2]; if(tm[3]==='م') h+=12; else if(!tm[3]) h=+tm[1]; }
+  return Date.UTC(k.getUTCFullYear(),k.getUTCMonth(),k.getUTCDate()+add,h,mi)-3*3600000+60000;
+}
+function remindLive(m, acts){
+  const r=remindParse(m.body), now=Date.now(), list=Array.isArray(acts)?acts:null;
+  const gone=(x,it)=>{
+    if(x.kind==='mad'){ const d=remindDueAt(it.meta, m.createdAt); return !!d && d<now; }
+    if(x.kind==='paper' || !list) return false;
+    const h=list.find(a=>String(a.t||'').trim()===String(it.t||'').trim());
+    return !h || !!h.done;
+  };
+  const all=r.secs.reduce((n,x)=>n+x.items.length,0);
+  r.secs=r.secs.map(x=>({ ...x, items:x.items.filter(it=>!gone(x,it)) })).filter(x=>x.items.length);
+  r.empty=all>0 && !r.secs.length;
+  return r;
+}
 function remindCardHTML(m, isNew, acts){
-  const r=remindParse(m.body), list=Array.isArray(acts)?acts:[];
+  const r=remindLive(m, acts||REMIND_ACTS), list=Array.isArray(acts)?acts:(REMIND_ACTS||[]);
   const icon={late:'⏰',soon:'⏳',paper:'📕',mad:'📱'};
   const findAct=t=>list.find(h=>!h.done && String(h.t||'').trim()===String(t||'').trim());
   const sec=x=>{
@@ -2283,6 +2316,7 @@ async function loadStudentSpace(nm, rows){
   };
 
   const notices=[];
+  REMIND_ACTS=list;
   list.forEach(h=>{
     const late=h.due && h.due < todayISO() && !h.done;
     if(h.reviewPending) notices.push({i:'🔎',t:`مراجعة مطلوبة: «${h.t||'النشاط'}»`,p:`${rtReviewText(h)} ${rtTaskLine(h,true)}`,tone:'review',reviewTask:h.id});
