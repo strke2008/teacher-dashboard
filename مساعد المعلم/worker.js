@@ -576,7 +576,7 @@ function srepActsLive(state, data, sid, name, cls, sem, per) {
   const forCls = h => { const l = Array.isArray(h.clsList) && h.clsList.length ? h.clsList.map(String) : (h.cls ? [String(h.cls)] : []); return !l.length || l.includes(cls); };
   const T = gradeTermRange(data, per, sem), aAt = h => { const t = Number(h.firstPub || h.at) || 0; if (t) return t; const m = /^s([0-9a-z]{8,9})/.exec(String(h.id || '')); const x = m ? parseInt(m[1], 36) : 0; return x > 1.5e12 && x < 4e12 ? x : (Number(h.publishedAt) || 0); };
   const inT = h => { const t = aAt(h); if (!t || !T) return true; if (T.startAt && t < T.startAt) return false; if (T.endAt && t >= T.endAt) return false;
-    if (T.explicit) { const d = new Date(t + 3 * 3600000).toISOString().slice(0, 10); if (T.start && d < T.start) return false; if (T.end && d > T.end) return false; } return true; };
+    const d = new Date(t + 3 * 3600000).toISOString().slice(0, 10); if ((T.explicit || T.startSet) && T.start && d < T.start) return false; if ((T.explicit || T.endSet) && T.end && d > T.end) return false; return true; };
   const termActs = (Array.isArray(state && state.assignments) ? state.assignments : []).filter(h => h && ['normal', 'reading', 'lab'].includes(h.kind || 'normal') && !h.noGrade && (h.sid || h.published || (Array.isArray(h.s) && h.s.length)) && forCls(h) && inT(h)
     && (!(Array.isArray(h.s) && h.s.length) || h.s.map(String).includes(sid) || h.s.map(String).includes(String(name))));
   const tDone = termActs.filter(h => h.subs && (h.subs[sid] || h.subs[String(name)])).length;
@@ -798,7 +798,8 @@ function gradeTermRange(data, period = 1, semester = 1) {
   let end = String(ap.end || terms[String(period)]?.end || legacy.end || '');
   const startAt = Number(ap.startAt) || 0;
   const endAt = Number(ap.endAt) || 0;
-  const explicit = !!(start && end);
+  // startSet للفترة الثانية فقط: بدايتها تُضبط عند الانتقال، أما بداية الأولى فقد تُضبط بعد أنشطة سابقة لها
+  const explicit = !!(start && end), endSet = !!end, startSet = !!start && period === 2;
   if (!start) {
     const ds = [
       ...Object.keys(data.participation || {}), ...Object.keys(data.homework || {}),
@@ -808,7 +809,7 @@ function gradeTermRange(data, period = 1, semester = 1) {
   }
   if (!end) end = gToday();
   if (start > end) { const x = start; start = end; end = x; }
-  return { start, end, startAt, endAt, explicit, semester, period, activePeriod: sem.activePeriod, closed: sem.status === 'closed' };
+  return { start, end, startAt, endAt, explicit, endSet, startSet, semester, period, activePeriod: sem.activePeriod, closed: sem.status === 'closed' };
 }
 /* المشاركة: تبدأ من الكامل · «غائب» محايد تمامًا */
 function gradeParticipation(data, sid, range) {
@@ -7567,8 +7568,16 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         let assignments=[]; try{const st=await env.HW.get('tstate:main'); if(st) assignments=JSON.parse(st).assignments||[];}catch{}
         const transitionAt=Date.now();
         const today=gToday();
-        sem.periods['1']={...(sem.periods['1']||{}), end:today, endAt:transitionAt};
-        sem.periods['2']={...(sem.periods['2']||{}), start:today, startAt:transitionAt};
+        /* 📌 إن حدّد المعلم نهاية للفترة الأولى (من تواريخ فترات التقييم) قبل اليوم: تبقى كما هي،
+           وما نُشر أو رُصد بعدها يبدأ به الفترة الثانية — لا يُعاد ضمّه للأولى لحظة الإغلاق */
+        const p1End=String((sem.periods['1']||{}).end||'');
+        if(p1End&&p1End<today){
+          sem.periods['1']={...(sem.periods['1']||{}), end:p1End, endAt:0};
+          sem.periods['2']={...(sem.periods['2']||{}), start:new Date(Date.parse(p1End+'T12:00:00Z')+864e5).toISOString().slice(0,10), startAt:0};
+        } else {
+          sem.periods['1']={...(sem.periods['1']||{}), end:today, endAt:transitionAt};
+          sem.periods['2']={...(sem.periods['2']||{}), start:today, startAt:transitionAt};
+        }
         const snap=computeAllGrades(students,data,assignments,semester,1);
         sem.periodSnapshots['1']=snap;
         sem.activePeriod=2;

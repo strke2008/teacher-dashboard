@@ -684,7 +684,7 @@ function renderDashboardAcademicControl(){
   const del=document.getElementById('dashboard-year-delete');
   if(status){
     status.className='chip '+(sem.status==='closed'?'bad':sem.status==='not_started'?'ghost':active===2?'tick':'ghost');
-    status.textContent=sem.status==='not_started'?'الفصل الثاني لم يبدأ بعد':sem.status==='closed'?`🔒 الفصل الدراسي ${semValue} مغلق`:`الفصل ${semValue} · الفترة الحالية للرصد: ${active===1?'الأولى':'الثانية'}`;
+    status.textContent=sem.status==='not_started'?'الفصل الثاني لم يبدأ بعد':sem.status==='closed'?`🔒 الفصل الدراسي ${semValue} مغلق`:`الفصل ${semValue} · الفترة الحالية للرصد: ${active===1?'الأولى':'الثانية'}`+(()=>{const e=String((sem.periods||{})[String(active)]?.end||'');return e&&e<ctToday()?` · 📌 تُحسب درجاتها حتى ${e.replace(/-/g,'/')}`:''})();
   }
   if(action){
     action.style.display='none'; action.disabled=false;
@@ -733,7 +733,8 @@ async function startPeriod2FromDashboard(){
   const semester=Number(document.getElementById('comp-semester')?.value||DASH_ACADEMIC?.currentSemester||1)===2?2:1;
   const sem=(DASH_ACADEMIC?.semesters||{})[String(semester)]||{};
   if(sem.status==='closed' || Number(sem.activePeriod)===2) return;
-  const ok=await askConfirm('سيتم إغلاق الفترة الأولى وحفظ درجاتها الحالية كنسخة نهائية، ثم تصبح الفترة الثانية هي الفترة النشطة للرصد. لا تحتاج إلى تحديد تاريخ. هل تريد المتابعة؟',{title:'بدء الفترة الثانية',yes:'🔒 إغلاق الأولى وبدء الثانية',no:'إلغاء',danger:true});
+  const p1End=String((sem.periods||{})['1']?.end||'');
+  const ok=await askConfirm((p1End&&p1End<ctToday()?`سيتم إغلاق الفترة الأولى وحفظ درجاتها كنسخة نهائية، محسوبة حتى ${p1End.replace(/-/g,'/')} كما حددت في الإعدادات. وكل ما نُشر أو رُصد بعد هذا التاريخ يدخل في الفترة الثانية. هل تريد المتابعة؟`:'سيتم إغلاق الفترة الأولى وحفظ درجاتها الحالية كنسخة نهائية، ثم تصبح الفترة الثانية هي الفترة النشطة للرصد. لا تحتاج إلى تحديد تاريخ. هل تريد المتابعة؟'),{title:'بدء الفترة الثانية',yes:'🔒 إغلاق الأولى وبدء الثانية',no:'إلغاء',danger:true});
   if(!ok)return;
   const btn=document.getElementById('dashboard-academic-action'); if(btn)btn.disabled=true;
   try{ await postDashboardAcademic({action:'start_period2',semester,year:String(DASH_ACADEMIC?.year||'')}); }
@@ -790,8 +791,9 @@ function hwInTerm(h,term){
   const t=hwAssignedAt(h); if(!t) return true;
   if(term.startAt&&t<term.startAt) return false;
   if(term.endAt&&t>=term.endAt) return false;
-  if(term.explicit){ const d=new Date(t+3*3600000).toISOString().slice(0,10);   // يوم النشر بتوقيت السعودية
-    if(term.start&&d<term.start) return false; if(term.end&&d>term.end) return false; }
+  const d=new Date(t+3*3600000).toISOString().slice(0,10);   // يوم النشر بتوقيت السعودية
+  if((term.explicit||term.startSet)&&term.start&&d<term.start) return false;
+  if((term.explicit||term.endSet)&&term.end&&d>term.end) return false;   // 📌 ما نُشر بعد نهاية الفترة المحددة لا يُحسب فيها
   return true;
 }
 /* حدود الفترة من درجات الخادم المحمّلة (إن وُجدت) */
