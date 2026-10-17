@@ -2152,7 +2152,7 @@ const LAB_M = {
   salt:{ n:'الملح', dissolves:true }, sugar:{ n:'السكر', dissolves:true },
   sand:{ n:'الرمل' }, gravel:{ n:'الحصى' }, iron:{ n:'برادة الحديد' }
 };
-const LAB_TOPICS = { mixtures: 'المخاليط', friction: 'قوة الاحتكاك', inertia: 'القصور الذاتي', work: 'الشغل', machines: 'الآلات البسيطة', newton3: 'قانون نيوتن الثالث' };
+const LAB_TOPICS = { mixtures: 'المخاليط', friction: 'قوة الاحتكاك', inertia: 'القصور الذاتي', work: 'الشغل', machines: 'الآلات البسيطة', newton3: 'قانون نيوتن الثالث', physchg: 'الخواص والتغيرات الفيزيائية' };
 const LAB_CONCEPTS = { het:'المخلوط غير المتجانس', hom:'المخلوط المتجانس (المحلول)', sol:'الذوبان',
   dens:'الكثافة والطفو والترسّب', prop:'احتفاظ مكونات المخلوط بخصائصها', sep:'طرق فصل المخاليط',
   obs:'دقة الملاحظة', safe:'الالتزام بالسلامة' };
@@ -2243,6 +2243,7 @@ function labScore(cfg, b) {
   if (cfg.topic === 'work') return workScore(log);
   if (cfg.topic === 'machines') return machinesScore(log);
   if (cfg.topic === 'newton3') return newton3Score(log);
+  if (cfg.topic === 'physchg') return physchgScore(log);
   const pair = Array.isArray(log.pair) ? log.pair.map(String) : [];
   if (pair.length !== 2 || !LAB_M[pair[0]] || !LAB_M[pair[1]] || pair[0] === pair[1]) return null;
   if (cfg.pair && [...cfg.pair].sort().join('+') !== [...pair].sort().join('+')) return null;   // الخليط الذي حدده المعلم فقط
@@ -2560,6 +2561,59 @@ function newton3Score(log) {
     steps: rows.map(w => `سحب ${w.F} N: قرأ الميزان (أ) ${w.rec[w.rec.length - 1]} N (الصحيح ${w.F})`)
       .concat(carts.map(k => `${kg(k.mA)} و${kg(k.mB)} kg: حسب ${k.a[k.a.length - 1]} و${k.b[k.b.length - 1]} m/s (الصحيح ${v2(k.mA)} و${v2(k.mB)})`))
   }, { obs: obsScore >= 0.8, fair: unfair === 0, calc: calc >= 14.99, scales: scl >= 9.99 }, log);
+}
+/* 🧊 تجربة الخواص والتغيرات الفيزيائية — ثلاث عينات (كتلة ÷ حجم بالإزاحة = كثافة ← المادة)
+   + ثلاثة تغيرات فيزيائية على الميزان (الكتلة محفوظة ولا تتكوّن مادة جديدة) + تحدي السوارين (الذهب 193 g ÷ 10 cm³) */
+const PC_SAMPLES = [{ lbl: '(أ)', m: 54, v: 20, mat: 'al' }, { lbl: '(ب)', m: 158, v: 20, mat: 'fe' }, { lbl: '(ج)', m: 89, v: 10, mat: 'cu' }];
+const PC_MATS = { al: 'الألومنيوم', fe: 'الحديد', cu: 'النحاس', pb: 'الرصاص' };
+const PC_CHANGES = [{ t: 'انصهار الجليد', m: 150 }, { t: 'كبس ورقة الألومنيوم', m: 12 }, { t: 'إذابة السكر', m: 220 }];
+const PC_OBS = { ok: ['pc_mass_same','pc_same_v','pc_same_sub'], neutral: ['pc_level'], all: ['pc_mass_same','pc_same_v','pc_same_sub','pc_level','pc_less','pc_new'] };
+Object.assign(LAB_CONCEPTS, { pcvol:'قياس الحجم بإزاحة الماء', pccalc:'حساب الكثافة = الكتلة ÷ الحجم', pcdens:'الكثافة خاصية مميزة للمادة',
+  pchg:'التمييز بين التغير الفيزيائي والكيميائي', pcmass:'حفظ الكتلة في التغير الفيزيائي', pclife:'الخواص الفيزيائية في الحياة' });
+function physchgScore(log) {
+  if (!log || typeof log !== 'object') return null;
+  const near = (a, t, tol) => Math.abs(a - t) <= tol;
+  const smp = (Array.isArray(log.samples) ? log.samples : []).slice(0, 3).map(w => ({ v: labNums(w && w.v, 3), d: labNums(w && w.d, 3),
+    id: (Array.isArray(w && w.id) ? w.id : []).slice(0, 4).map(String) }));
+  if (smp.length !== 3 || smp.some(w => !w.v.length || !w.d.length || !w.id.length)) return null;      // البوابة: قاس العينات الثلاث
+  const chg = (Array.isArray(log.changes) ? log.changes : []).slice(0, 3).map(w => ({ m: labNums(w && w.m, 3),
+    ns: (Array.isArray(w && w.ns) ? w.ns : []).slice(0, 3).map(String) }));
+  if (chg.length !== 3 || chg.some(w => !w.m.length || !w.ns.length)) return null;                     // البوابة: نفّذ التغيرات الثلاثة
+  let vol = 0, den = 0, idn = 0;
+  smp.forEach((w, i) => { const s = PC_SAMPLES[i], d = s.m / s.v;
+    vol += near(w.v[0], s.v, 0.5) ? 10 / 3 : w.v.some(x => near(x, s.v, 0.5)) ? 5 / 3 : 0;
+    den += near(w.d[0], d, 0.05) ? 5 : w.d.some(x => near(x, d, 0.05)) ? 2.5 : 0;
+    idn += w.id[0] === s.mat ? 5 / 3 : 0; });
+  let cm = 0; chg.forEach((w, j) => { const t = PC_CHANGES[j].m;
+    cm += (near(w.m[0], t, 0.5) ? 10 / 6 : w.m.some(x => near(x, t, 0.5)) ? 10 / 12 : 0) + (w.ns[0] === 'no' ? 10 / 6 : 0); });
+  const res = labAnswers(log, [{ type:'classify', concept:'pchg', bins:[0,1,0,1,0] }, { type:'mcq', concept:'pcdens', ok:[0] },
+                              { type:'mcq', concept:'pcmass', ok:[0] }, { type:'mcq', concept:'pclife', ok:[0] }]);
+  if (!res) return null;
+  const { obsIn, obsScore } = labObsScore(log, PC_OBS);
+  const chal = (Array.isArray(log.chal) ? log.chal : []).slice(0, 10).map(Number);
+  const ti = chal.findIndex(z => z === 1), tries = ti < 0 ? 0 : ti + 1;
+  const f = r => r && r.correct ? [0, 1, 0.6, 0.3][r.attempts] : 0;
+  const parts = [
+    ['قياس الحجم بالإزاحة', vol, 10],
+    ['دقة حساب الكثافة', den, 15],
+    ['التعرّف على المادة', idn, 5],
+    ['الكتلة في التغير الفيزيائي', cm, 10],
+    ['دقة الملاحظة', 10 * obsScore, 10],
+    ['الإجابات', 10 * f(res[0]) + 10 * f(res[2]), 20],
+    ['تفسير النتيجة', 10 * f(res[1]), 10],
+    ['التحدي العملي', tries ? [0, 10, 4][Math.min(2, tries)] : 0, 10],
+    ['التطبيق في موقف جديد', 10 * f(res[3]), 10]
+  ];
+  const last = a => a.length ? a[a.length - 1] : '—';
+  return labFinish('physchg', parts, res, {
+    names: ['الخواص والتغيرات الفيزيائية', 'الكثافة وحفظ الكتلة'],
+    result: PC_SAMPLES.map(s => `${s.lbl} ${s.m} ÷ ${s.v} = ${(s.m / s.v).toFixed(1)} g/cm³ (${PC_MATS[s.mat]})`).join('، ') + ' · الكتلة ثابتة في التغيرات الثلاثة',
+    obs: obsIn, sepDone: tries > 0,
+    practical: { label: 'التحدي العملي', done: tries > 0, text: tries ? `تعرّف سوار الذهب الخالص في المحاولة ${tries}` : 'لم يُنجز' },
+    steps: smp.map((w, i) => { const s = PC_SAMPLES[i];
+      return `العينة ${s.lbl}: الحجم ${last(w.v)} cm³ (الصحيح ${s.v})، الكثافة ${last(w.d)} (الصحيح ${(s.m / s.v).toFixed(1)})، المادة ${PC_MATS[w.id[w.id.length - 1]] || '—'}`; })
+      .concat(chg.map((w, j) => `${PC_CHANGES[j].t}: قرأ ${last(w.m)} g (الصحيح ${PC_CHANGES[j].m})، مادة جديدة؟ ${w.ns[0] === 'no' ? 'لا ✓' : 'نعم ✗'}`))
+  }, { obs: obsScore >= 0.8, pcvol: vol >= 9.99, pccalc: den >= 14.99, pcmass: cm >= 9.99 }, log);
 }
 /* 🔧 تجربة الآلات البسيطة — رافعة (حمل 60 N على 0.5 m) + سطح مائل (صندوق 40 N إلى 0.5 m) */
 const MC_ARMS = [0.5, 1, 1.5], MC_RAMPS = [0.5, 1, 2];
