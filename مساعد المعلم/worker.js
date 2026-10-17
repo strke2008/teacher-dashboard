@@ -5119,7 +5119,7 @@ export default {
         const per = ((ac.semesters || {})[String(sem)] || {}).activePeriod === 2 ? 2 : 1;
         const { data, grades } = await studentReportGrades(env, sem, per), g = grades.students.find(x => String(x.id) === sid);
         if (g) { const pub = reports.find(r => r.semester === sem && r.period === per);
-          live = studentReportBuild(data, g, sem, per, pub ? pub.teacherNote : '', srepActsLive(state, data, sid, st.name, cls, sem, per));
+          live = studentReportBuild(data, g, sem, per, pub ? pub.teacherNote : '', srepActsLive(state, data, sid, st.name, cls, sem, per)); } else liveErr = 'not_in_grades'; } catch (e) { liveErr = String(e && e.message || e).slice(0, 120); }
       if (fails) await env.HW.delete(fk);
       return json({ ok: true, live, ...(liveErr ? { liveErr } : {}), student: { name: st.name, cls }, siblings, acts: { total: acts.length, done: done.sort((a, c) => c.at - a.at).slice(0, 15), doneN: done.length, missing: missing.slice(0, 20) }, reports, weekly,
         teacher: String((state.repcfg && state.repcfg.teacher) || '') });
