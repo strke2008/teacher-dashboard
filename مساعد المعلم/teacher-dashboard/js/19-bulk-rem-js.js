@@ -33,7 +33,7 @@ function remCompose(s,x){
   if(x.mad.length){
     const how=madWhere();
     P.push(`واجبات منصة مدرستي مفتوحة ولم تُحل بعد (${x.mad.length}):\n${madUnsolvedLines(x.mad)}\n${how}`);
-    S.push(`📱 ${x.mad.length===1?'واجب في منصة مدرستي مفتوح':'واجبات في منصة مدرستي مفتوحة'} ولم تحلها بعد:\n${madUnsolvedLines(x.mad)}\n\n${how}\nحلّها قبل الإغلاق.`);
+    S.push(`📱 ${x.mad.length===1?'واجب في منصة مدرستي مفتوح':'واجبات في منصة مدرستي مفتوحة'} ولم تحلها بعد:\n${madUnsolvedLines(x.mad,true)}\n\n${how}\nحلّها قبل الإغلاق.`);
   }
   return { parent:`السلام عليكم، ولي أمر الطالب ${s.name}،\nالفصل: ${s.cls||'غير محدد'}\n\n${P.join('\n\n')}\n\nنأمل متابعة الطالب وإكمالها.\nوشكرًا لتعاونكم.`+(typeof parFooter==='function'?parFooter():''),
            student:`مرحبًا ${first} 👋\n${S.join('\n\n')}\n\nبالتوفيق 🌟` };
@@ -45,6 +45,12 @@ function madListUrl(v){
     const g=k=>{ for(const [n,x] of u.searchParams) if(n.toLowerCase()===k) return x; return ''; };
     const sub=g('subjectid'), sch=g('schoolid'); if(!/^[0-9A-F]{16,64}$/i.test(sub)||!/^[0-9A-F]{16,64}$/i.test(sch)) return '';
     const st=g('searchbystatus'); return `https://schools.madrasati.sa/Student/Home/Assignments?SubjectId=${sub}&SchoolId=${sch}`+(/^[A-Za-z]{1,20}$/.test(st)?`&searchByStatus=${st}`:''); }catch(e){ return ''; }
+}
+/* 🎯 رابط الواجب نفسه للطالب: SolveLectureAssignment/<رمز الواجب> بنفس رقم المدرسة والمادة (بلا UId — الطالب يُعرف من دخوله) */
+function madSolveUrl(k){
+  try{ if(!/^[0-9A-F]{16,64}$/i.test(String(k||''))) return '';
+    const u=new URL(madListUrl(typeof rcGet==='function'?rcGet('madlink'):'')||'x:'), sub=u.searchParams.get('SubjectId'), sch=u.searchParams.get('SchoolId');
+    return sub&&sch?`https://schools.madrasati.sa/Student/Assignments/SolveLectureAssignment/${k}?SchoolId=${sch}&SubjectId=${sub}&type=Current&published=false`:''; }catch(e){ return ''; }
 }
 function madLinkSet(v){
   const url=madListUrl(v); const st=document.getElementById('br-madlink-st');
@@ -87,7 +93,7 @@ async function openBulkReminder(keepOnly){
 }
 function brMad(sid){
   const md=BR.madBy&&BR.madBy[String(sid)]; if(!md) return [];
-  return madOpenOnly((md.o||[]).map(o=>({title:o.t,st:'pending',dueAt:o.d})));
+  return madOpenOnly((md.o||[]).map(o=>({title:o.t,st:'pending',dueAt:o.d,k:o.k||''})));
 }
 function brBuild(){
   const roster=(STUDENTS||[]).filter(s=>(!BR.cls||String(s.cls||'')===BR.cls)&&(!BR.only||BR.only.has(String(s.id))));

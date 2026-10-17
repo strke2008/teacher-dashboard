@@ -2082,6 +2082,8 @@ function remindParse(body){
     if(i===0 && /^مرحب/.test(ln)){ out.hi=ln; return; }
     if(/^بالتوفيق/.test(ln) || /^حلّها قبل الإغلاق/.test(ln) || /^افتح «أنشطتي»/.test(ln)) return;
     const u=(ln.match(/https?:\/\/[^\s)]+/)||[])[0];
+    // ↳ رابط الواجب نفسه في مدرستي: يُلحق بآخر واجب قبله
+    if(/^↳/u.test(ln)){ const it=cur&&cur.items[cur.items.length-1]; if(it && u && /^https:\/\/schools\.madrasati\.sa\//i.test(u)) it.u=u; return; }
     if(u && /madrasati\.sa/i.test(u) && (!out.mad || /Assignments/i.test(u))) out.mad=u;
     if(/^🔗/u.test(ln) || (u && ln===u)) return;
     if(/^📍/u.test(ln)){ out.madHint=ln.replace(/^📍\s*/u,'').replace(/^بعد تسجيل الدخول:\s*/,'بعد الدخول: '); return; }
@@ -2104,7 +2106,7 @@ function remindCardHTML(m, isNew, acts){
     const head=x.h.replace(/^[⏳📕📱]\s*/u,'');
     const items=x.items.map(it=>{ const a=x.kind!=='mad'?findAct(it.t):null;
       return `<div class="rmd-it"><div class="rmd-it-t"><b>${esc(it.t)}</b>${it.meta?`<small>${esc(it.meta)}</small>`:''}</div>
-        ${a?`<button type="button" class="rmd-go" data-activity-id="${esc(a.id)}">ابدأ ←</button>`:''}</div>`; }).join('');
+        ${a?`<button type="button" class="rmd-go" data-activity-id="${esc(a.id)}">ابدأ ←</button>`:it.u?`<a class="rmd-go" href="${esc(it.u)}" target="_blank" rel="noopener">حلّه ←</a>`:''}</div>`; }).join('');
     const madBtn=x.kind==='mad'?`<a class="rmd-mad" href="${esc(r.mad||'https://schools.madrasati.sa')}" target="_blank" rel="noopener">📱 افتح واجباتي في مدرستي</a>
       ${r.madHint?`<small class="rmd-hint">${esc(r.madHint)}</small>`:'<small class="rmd-hint">سجّل دخولك أولًا إن طُلب منك، وحلّها قبل الإغلاق</small>'}`:'';
     return `<div class="rmd-sec ${x.kind}"><div class="rmd-h"><span>${icon[x.kind]}</span>${esc(head)}</div>${items}${madBtn}</div>`;

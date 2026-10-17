@@ -3658,7 +3658,7 @@ function madWeekPart(data, sid, dset, now) {
     const due = a.dueAt || 0; if (!due) continue;
     const t = String(a.title || 'واجب').slice(0, 60);
     if (dset.has(ksaDay(due))) { if (a.solved) s++; else if (!a.forgiven && due <= now) m.push(t); }
-    if (!a.solved && !a.forgiven && due > now) o.push({ t, d: due });
+    if (!a.solved && !a.forgiven && due > now) o.push({ t, d: due, ...(/^[0-9A-F]{16,64}$/i.test(String(a.key || '')) ? { k: String(a.key) } : {}) });
   }
   o.sort((x, y) => x.d - y.d);
   return (s || m.length || o.length) ? { s, m: m.slice(0, 6), o: o.slice(0, 4) } : null;
@@ -4876,7 +4876,7 @@ export default {
         const m = gradeMadrasati(d, sid, all, Date.now());
         return json({ ok: true, linked: m.linked, solved: m.solved, missed: m.missed, inGrace: m.inGrace,
           unsolved: m.items.filter(x => x.st !== 'solved' && x.st !== 'forgiven').sort((a, b2) => (a.dueAt || 0) - (b2.dueAt || 0))
-            .map(x => ({ title: x.title || 'واجب', st: x.st, daysLeft: x.daysLeft || 0, dueAt: x.dueAt || 0 })).slice(0, 30) });
+            .map(x => ({ title: x.title || 'واجب', st: x.st, daysLeft: x.daysLeft || 0, dueAt: x.dueAt || 0, ...(/^[0-9A-F]{16,64}$/i.test(String(x.key || '')) ? { k: String(x.key) } : {}) })).slice(0, 30) });
       }
       /* 🔗 ربط طالب مدرستي بطالب الكشف: { links: { mid: sid | null } } — null يلغي الربط */
       if (url.pathname === '/madrasati/links') {

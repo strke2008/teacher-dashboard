@@ -15648,8 +15648,10 @@ function madCloseText(dueAt){
   const day=diff===0?'اليوم':diff===1?'غدًا':d.toLocaleDateString('ar-SA-u-ca-gregory',{...tz,weekday:'long',day:'numeric',month:'numeric'});
   return `يُغلق ${day} الساعة ${time}`;
 }
-function madUnsolvedLines(list){
-  return list.map(x=>`• ${x.title}${x.st==='pending'?` (${x.dueAt?madCloseText(x.dueAt)+' — بادِر بحله قبل الإغلاق':'ما زال مفتوحًا'})`:' (أُغلق ولم يُحل)'}`).join('\n');
+function madUnsolvedLines(list, direct){
+  // 🔗 direct (رسالة الطالب فقط): رابط الواجب نفسه في مدرستي تحت عنوانه — من رمز الواجب + رقم المدرسة والمادة في رابط «واجباتي»
+  const su=k=>direct&&k&&typeof madSolveUrl==='function'?madSolveUrl(k):'';
+  return list.map(x=>`• ${x.title}${x.st==='pending'?` (${x.dueAt?madCloseText(x.dueAt)+' — بادِر بحله قبل الإغلاق':'ما زال مفتوحًا'})`:' (أُغلق ولم يُحل)'}${su(x.k)?`\n  ↳ ${su(x.k)}`:''}`).join('\n');
 }
 async function openStudentReminder(id){
   const s=byId(id);

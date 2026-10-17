@@ -1816,3 +1816,5 @@ html[data-pt] body,html[data-pt] .sheet,html[data-pt] .btn,html[data-pt] .studen
 .nf-prac{white-space:nowrap;font-size:.7rem;font-weight:700;border-radius:99px;padding:.05rem .45rem;background:#EEF2F8;color:#4A5A72;align-self:flex-start}
 .nf-prac.ok{background:rgba(27,156,107,.14);color:#0E6B48}
 .nf-tile.up{border-style:dashed;border-color:var(--tick);box-shadow:inset 0 0 0 1px rgba(27,156,107,.25)}
+/* 📱 «حلّه ←» رابط الواجب نفسه في مدرستي */
+a.rmd-go{text-decoration:none;display:inline-block;background:linear-gradient(#1FAE76,#13734F);box-shadow:0 3px 0 #0E5A3D}
