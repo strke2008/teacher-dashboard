@@ -829,11 +829,15 @@ function compActivitiesForStudent(s,term){
     return true;
   });
 }
-function compSubmissionCount(acts,s){
-  const sid=String(s.id), name=String(s.name||'');
+/* 🔒 بعد إغلاق الفترة: لا يُحسب لها إلا ما سُلّم قبل لحظة الإغلاق (term.closedAt، أو endAt للإغلاقات القديمة) */
+function compSubmissionCount(acts,s,term){
+  const sid=String(s.id), name=String(s.name||''), cut=Number(term&&(term.closedAt||term.endAt))||0;
   return acts.filter(h=>{
-    const subs=h.subs||{};
-    return !!subs[sid] || !!subs[name];
+    const subs=h.subs||{}, sub=subs[sid]||subs[name];
+    if(!sub) return false;
+    if(!cut) return true;
+    const t=Number(sub.fat||sub.at)||0;
+    return !t||t<cut;
   }).length;
 }
 function compAnnualLevel(total){
@@ -2442,7 +2446,7 @@ function ctPfStep(d){
 function pfGradeBox(sid){
   const s=(STUDENTS||[]).find(x=>String(x.id)===String(sid)); if(!s) return '';
   const {sem,per}=ctSem(), term=compTermFor(sem,per);
-  const acts=compActivitiesForStudent(s,term), done=compSubmissionCount(acts,s);
+  const acts=compActivitiesForStudent(s,term), done=compSubmissionCount(acts,s,term);
   const score=acts.length?Math.round(done/acts.length*100)/10:10;
   const miss=acts.filter(h=>{ const v=h.subs||{}; return !v[String(s.id)]&&!v[String(s.name||'')]; });
   return `<div class="pf-gr">📊 <b>درجة الأنشطة${term?` — ${per===2?'الفترة الثانية':'الفترة الأولى'}`:''}:</b>
@@ -3491,7 +3495,7 @@ async function renderComprehensive(force=false){
       const examScore=exam.score==null?0:Number(exam.score)||0;
       const bScore=b.score==null?0:b.score, bNeg=b.neg||0, bPos=b.pos||0;
       const acts=compActivitiesForStudent(s,G.term);
-      const submitted=compSubmissionCount(acts,s);
+      const submitted=compSubmissionCount(acts,s,G.term);
       // لا أنشطة مطلوبة = لا بيانات، لا رسوب. (كان يعطي 0.0/10 صامتًا)
       const aScore=acts.length?Math.round(submitted/acts.length*100)/10:(G.rules&&G.rules.max)||10;
       // 🛡️ طالب لم يصل من الخادم (أُضيف ولم تُزامَن بياناته بعد): لا يُطبع بأصفار.
@@ -3848,7 +3852,7 @@ async function renderCompAnalysis(force=false){
     const p=g.participation?.score??0, h=g.homework?.score??0, b=g.behavior?.score??0;
     const exam=(g.exam&&g.exam.score!=null)?Number(g.exam.score):0;
     const acts=compActivitiesForStudent(s,G.term);
-    const sub=compSubmissionCount(acts,s);
+    const sub=compSubmissionCount(acts,s,G.term);
     const a=acts.length?Math.round(sub/acts.length*100)/10:MAX;
     const total=Math.round((p+h+b+a+exam)*10)/10;
     calc.push({ s, p, h, b, a, exam, total, level:compAnnualLevel(total),
@@ -8396,7 +8400,8 @@ async function pullResults(id, silent){
       lab: row.lab && typeof row.lab==='object' ? row.lab : null,
           lab: row.lab && typeof row.lab==='object' ? row.lab : null,
           resubmitUntil: Number(row.resubmitUntil)||0,
-          at:row.at||0
+          at:row.at||0,
+          fat:Number(cur.fat||cur.at)||Number(row.at)||0   // ⏱️ وقت أول تسليم: إعادة المحاولة بعد إغلاق الفترة لا تنقل النشاط خارجها
         };
         added++;
       }else if(!Array.isArray(cur.ans) && Array.isArray(row.ans)){
@@ -8435,7 +8440,8 @@ async function pullResults(id, silent){
       reviewReason: row.reviewReason||'',
       reviewedAt: Number(row.reviewedAt)||0,
       resubmitUntil: Number(row.resubmitUntil)||0,
-      at:row.at||0
+      at:row.at||0,
+      fat:Number(row.at)||0
     };
     added++;
   });

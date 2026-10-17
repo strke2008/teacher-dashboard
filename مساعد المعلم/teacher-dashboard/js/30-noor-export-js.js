@@ -61,7 +61,7 @@ function noorRowFor(s, G) {
   if (!g) return null;
   const p = g.participation || {}, h = g.homework || {}, b = g.behavior || {}, ex = g.exam || {};
   const pS = p.score == null ? 0 : p.score, hS = h.score == null ? 0 : h.score, bS = b.score == null ? 0 : b.score;
-  const acts = compActivitiesForStudent(s, G.term), sub = compSubmissionCount(acts, s);
+  const acts = compActivitiesForStudent(s, G.term), sub = compSubmissionCount(acts, s, G.term);
   const aS = acts.length ? Math.round(sub / acts.length * 100) / 10 : (G.rules && G.rules.max) || 10;
   const eS = ex.score == null ? 0 : Number(ex.score) || 0;
   const work = Math.round((pS + hS + bS + aS) * 10) / 10;

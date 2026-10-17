@@ -262,7 +262,7 @@ async function srepOpen(){
 function srepActsFor(list,sem=SREPD.sem,per=SREPD.per){
   const out={}, term=compTermFor(sem,per);
   for(const s of (list||[])){
-    const acts=compActivitiesForStudent(s,term), done=compSubmissionCount(acts,s);
+    const acts=compActivitiesForStudent(s,term), done=compSubmissionCount(acts,s,term);
     out[String(s.id)]={ n:acts.length, done, score:acts.length?Math.round(done/acts.length*100)/10:10 };
   }
   return out;

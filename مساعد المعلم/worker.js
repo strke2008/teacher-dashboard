@@ -7579,6 +7579,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
           sem.periods['2']={...(sem.periods['2']||{}), start:today, startAt:transitionAt};
         }
         const snap=computeAllGrades(students,data,assignments,semester,1);
+        snap.term={...snap.term, closedAt:transitionAt};   // 🔒 درجة الأنشطة: لا يُحسب للفترة ما سُلّم بعد هذه اللحظة
         sem.periodSnapshots['1']=snap;
         sem.activePeriod=2;
         sem.periodStatus=sem.periodStatus||{}; sem.periodStatus['1']='closed'; sem.periodStatus['2']='open';
@@ -7588,8 +7589,14 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       else if(b.action==='close') {
         const students=[]; try{const st=await env.HW.get('tstate:main'); if(st) students.push(...((JSON.parse(st).students||[]).filter(x=>x&&x.name)));}catch{}
         let assignments=[]; try{const st=await env.HW.get('tstate:main'); if(st) assignments=JSON.parse(st).assignments||[];}catch{}
-        for(const p of [1,2]) sem.periodSnapshots[String(p)]=computeAllGrades(students,data,assignments,semester,p);
-        sem.status='closed'; sem.closedAt=Date.now();
+        const closeAt=Date.now();
+        for(const p of [1,2]){
+          // الفترة المغلقة سابقًا تبقى على لقطتها: ما سُلّم أو اشتُري بعد إغلاقها لا يغيّرها
+          if((sem.periodStatus||{})[String(p)]==='closed'&&sem.periodSnapshots[String(p)]) continue;
+          const snp=computeAllGrades(students,data,assignments,semester,p); snp.term={...snp.term, closedAt:closeAt};
+          sem.periodSnapshots[String(p)]=snp;
+        }
+        sem.status='closed'; sem.closedAt=closeAt;
       } else if(b.action==='set') { sem.activePeriod=Number(b.period)===2?2:1; }
       /* 📅 تعديل حدود الفترة يدويًا من بوابة المعلم (الحالة الأكاديمية لا تُقبل عبر /classroom) */
       else if(b.action==='set_dates') {
