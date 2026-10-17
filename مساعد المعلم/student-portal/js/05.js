@@ -89,9 +89,15 @@ async function myCertSave(id){
   line((c.cls?`الفصل ${c.cls} · `:'')+c.date,W/2,H*0.672,30,'#8A8A8A',700);
   line(c.rTitle,W*0.74,H*0.815,40,'#6E6E6E',800,W*0.26);line(c.rName,W*0.74,H*0.87,38,'#6E6E6E',700,W*0.26);
   line(c.lTitle,W*0.26,H*0.815,40,'#6E6E6E',800,W*0.26);line(c.lName,W*0.26,H*0.87,38,'#6E6E6E',700,W*0.26);
-  const a=document.createElement('a');a.download=`شهادة-شكر-${(c.name||'').replace(/\s+/g,'-')}.png`;
-  try{a.href=cv.toDataURL('image/png')}catch(e){alert('تعذّر حفظ الصورة — استخدم «طباعة» ثم «حفظ كـ PDF»');return}
-  document.body.appendChild(a);a.click();setTimeout(()=>a.remove(),300);
+  const fname=`شهادة-شكر-${(c.name||'').replace(/\s+/g,'-')}.png`;
+  const blob=await new Promise(r=>{try{cv.toBlob(b=>r(b),'image/png')}catch(e){r(null)}});
+  if(!blob){alert('تعذّر حفظ الصورة — استخدم «طباعة» ثم «حفظ كـ PDF»');return}
+  // 📱 iPhone/iPad (سفاري): قائمة المشاركة ← «حفظ الصورة» في الصور — رابط data: يفتح صفحة «تنزيل/عرض» بدل الحفظ
+  const ios=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  if(ios&&navigator.canShare){const f=new File([blob],fname,{type:'image/png'});
+    if(navigator.canShare({files:[f]})){try{await navigator.share({files:[f],title:'شهادة شكر وتقدير'});return}catch(e){if(e&&e.name==='AbortError')return}}}
+  const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=fname;
+  document.body.appendChild(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(url)},1500);
 }
 
 /* ═══ 💬 راسل معلمك: سؤال أو مشكلة تصل المعلم مباشرة، ورده يظهر هنا وفي التنبيهات ═══ */

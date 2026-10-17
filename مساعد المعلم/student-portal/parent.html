@@ -195,9 +195,11 @@ function pcPrint(){
   const img=w.querySelector('img'), go=()=>setTimeout(()=>{ window.print(); setTimeout(off,4000); },150);
   if(img&&!img.complete) img.onload=go; else go();
 }
-/* حفظ صورة: تُرسم الشهادة على لوحة بدقة الطباعة وتُنزَّل PNG — تعمل على الجوال بلا طابعة */
-async function pcSave(){
-  const c=PC; if(!c) return; try{ await document.fonts.ready; }catch(e){}
+/* حفظ صورة: تُرسم الشهادة على لوحة بدقة الطباعة. تُجهَّز مسبقًا بعد ظهورها، فيبقى الضغط «إيماءة مستخدم» يقبلها سفاري:
+   iPhone/iPad ← قائمة المشاركة («حفظ الصورة» إلى الصور) · غيره ← تنزيل ملف PNG */
+let PC_BLOB=null, PC_BLOB_KEY='';
+async function pcRender(c){
+  try{ await document.fonts.ready; }catch(e){}
   const img=new Image(); img.src=PC_BG; await new Promise(r=>{ if(img.complete) r(); else { img.onload=r; img.onerror=r; } });
   const W=2000,H=1412,cv=document.createElement('canvas'); cv.width=W; cv.height=H; const x=cv.getContext('2d');
   x.drawImage(img,0,0,W,H); x.direction='rtl'; x.textAlign='center'; x.textBaseline='middle';
@@ -209,9 +211,22 @@ async function pcSave(){
   line((/\d/.test(c.cls||'')?`الفصل ${c.cls} · `:'')+c.date,W/2,H*0.672,30,'#8A8A8A',700);
   line(c.rTitle,W*0.74,H*0.815,40,'#6E6E6E',800,W*0.26); line(c.rName,W*0.74,H*0.87,38,'#6E6E6E',700,W*0.26);
   line(c.lTitle,W*0.26,H*0.815,40,'#6E6E6E',800,W*0.26); line(c.lName,W*0.26,H*0.87,38,'#6E6E6E',700,W*0.26);
-  const a=document.createElement('a'); a.download=`شهادة-تميز-${(c.name||'').replace(/\s+/g,'-')}.png`;
-  try{ a.href=cv.toDataURL('image/png'); }catch(e){ alert('تعذّر حفظ الصورة — استخدموا «طباعة» ثم «حفظ كـ PDF»'); return; }
-  document.body.appendChild(a); a.click(); setTimeout(()=>a.remove(),300);
+  return new Promise(r=>{ try{ cv.toBlob(b=>r(b),'image/png'); }catch(e){ r(null); } });
+}
+async function pcPrepare(){ if(!PC) return; const k=JSON.stringify(PC); if(PC_BLOB&&PC_BLOB_KEY===k) return; PC_BLOB=await pcRender(PC); PC_BLOB_KEY=k; }
+async function pcSave(){
+  const c=PC; if(!c) return;
+  const fname=`شهادة-تميز-${(c.name||'').replace(/\s+/g,'-')}.png`;
+  let blob=(PC_BLOB&&PC_BLOB_KEY===JSON.stringify(c))?PC_BLOB:null;
+  const ios=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  if(blob&&ios&&navigator.canShare){
+    const f=new File([blob],fname,{type:'image/png'});
+    if(navigator.canShare({files:[f]})){ try{ await navigator.share({files:[f],title:'شهادة تميّز'}); return; }catch(e){ if(e&&e.name==='AbortError') return; } }
+  }
+  if(!blob) blob=await pcRender(c);
+  if(!blob){ alert('تعذّر حفظ الصورة — استخدموا «طباعة» ثم «حفظ كـ PDF»'); return; }
+  const url=URL.createObjectURL(blob), a=document.createElement('a'); a.href=url; a.download=fname;
+  document.body.appendChild(a); a.click(); setTimeout(()=>{ a.remove(); URL.revokeObjectURL(url); },1500);
 }
 window.addEventListener('resize',()=>{ if(PC) pcFit($('out')); });
 const LEVELS=[[90,'ممتاز','#13734F'],[80,'جيد جدًا','#1F7A5A'],[65,'جيد','#1F5FC8'],[50,'مقبول','#B7791F'],[0,'يحتاج متابعة','#B4232F']];
@@ -310,7 +325,7 @@ function render(j, phone){
   const old=(j.reports||[]).filter(r=>!R||r.semester!==R.semester||r.period!==R.period);
   if(old.length) h+=`<section class="card"><details><summary><b>📄 تقارير الفترات السابقة (${old.length})</b></summary>${old.map(r=>`<div class="row"><span>${esc(r.label||'')}</span><span class="muted">مشاركة ${r.participation?r.participation.score:'—'} · واجبات ${r.homework?r.homework.score:'—'} · سلوك ${r.behavior?r.behavior.score:'—'}${r.exam&&r.exam.measured?` · اختبارات ${r.exam.score}/${r.exam.max}`:''}</span></div>`).join('')}</details></section>`;
   $('out').innerHTML=h;
-  if(PC){ requestAnimationFrame(()=>pcFit($('out'))); const im=$('out').querySelector('.mc-bg'); if(im) im.onload=()=>pcFit($('out')); }
+  if(PC){ requestAnimationFrame(()=>pcFit($('out'))); const im=$('out').querySelector('.mc-bg'); if(im) im.onload=()=>pcFit($('out')); setTimeout(()=>pcPrepare().catch(()=>{}),600); }
   const DET=parentDetails(R, A);
   $('out').querySelectorAll('.tile[data-k]').forEach(t=>{ const open=()=>{ const d=$('det'), k=t.dataset.k, was=t.classList.contains('on');
       $('out').querySelectorAll('.tile.on').forEach(x=>x.classList.remove('on'));
