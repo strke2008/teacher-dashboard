@@ -570,6 +570,44 @@ function studentReportBuild(data, g, semester, period, teacherNote, acts) {
     publishedAt: Date.now(),
   };
 }
+/* 💻 المهام الأدائية (أنشطة البوابة) من 10 — نفس حساب لوحة المعلم: أنشطة الفترة المحتسبة لفصله، والدرجة بنسبة ما سلّمه */
+function srepActsLive(state, data, sid, name, cls, sem, per) {
+  sid = String(sid); cls = String(cls || '');
+  const forCls = h => { const l = Array.isArray(h.clsList) && h.clsList.length ? h.clsList.map(String) : (h.cls ? [String(h.cls)] : []); return !l.length || l.includes(cls); };
+  const T = gradeTermRange(data, per, sem), aAt = h => { const t = Number(h.firstPub || h.at) || 0; if (t) return t; const m = /^s([0-9a-z]{8,9})/.exec(String(h.id || '')); const x = m ? parseInt(m[1], 36) : 0; return x > 1.5e12 && x < 4e12 ? x : (Number(h.publishedAt) || 0); };
+  const inT = h => { const t = aAt(h); if (!t || !T) return true; if (T.startAt && t < T.startAt) return false; if (T.endAt && t >= T.endAt) return false;
+    if (T.explicit) { const d = new Date(t + 3 * 3600000).toISOString().slice(0, 10); if (T.start && d < T.start) return false; if (T.end && d > T.end) return false; } return true; };
+  const termActs = (Array.isArray(state && state.assignments) ? state.assignments : []).filter(h => h && ['normal', 'reading', 'lab'].includes(h.kind || 'normal') && !h.noGrade && (h.sid || h.published || (Array.isArray(h.s) && h.s.length)) && forCls(h) && inT(h)
+    && (!(Array.isArray(h.s) && h.s.length) || h.s.map(String).includes(sid) || h.s.map(String).includes(String(name))));
+  const tDone = termActs.filter(h => h.subs && (h.subs[sid] || h.subs[String(name)])).length;
+  return { n: termActs.length, done: tDone, score: termActs.length ? Math.round(tDone / termActs.length * 100) / 10 : GRADE_RULES.max };
+}
+/* 🔄 تقرير الفترة المرسل يبقى حيًّا حتى تُقفل الفترة: يُعاد بناؤه بالدرجات الحالية (شراء درجة، مسح واجب، رصد جديد)
+   مع إبقاء ملاحظة المعلم وتاريخ الإرسال. بعد الإقفال يثبت على آخر نسخة محفوظة. */
+function srepPeriodOpen(data, sem, per) {
+  const ac = academicNormalize(data) || {}, S = (ac.semesters || {})[String(sem)] || {};
+  if (S.status === 'closed' || S.status === 'not_started') return false;
+  if ((S.periodStatus || {})[String(per)] === 'closed') return false;
+  if (per === 1 && S.activePeriod === 2) return false;
+  return true;
+}
+async function srepLiveReports(env, st, reports) {
+  if (!reports.length) return reports;
+  let state = {}; try { state = JSON.parse(await env.HW.get('tstate:main')) || {}; } catch {}
+  const cache = new Map(), out = [];
+  for (const r of reports) {
+    try {
+      const key = `${r.semester}:${r.period}`;
+      if (!cache.has(key)) cache.set(key, await studentReportGrades(env, r.semester, r.period));
+      const { data, grades } = cache.get(key);
+      if (grades.closed || !srepPeriodOpen(data, r.semester, r.period)) { out.push(r); continue; }
+      const g = grades.students.find(x => String(x.id) === String(st.id)); if (!g) { out.push(r); continue; }
+      const live = studentReportBuild(data, g, r.semester, r.period, r.teacherNote || '', srepActsLive(state, data, st.id, g.name || st.name, g.cls || st.cls, r.semester, r.period));
+      out.push({ ...live, publishedAt: r.publishedAt, liveAt: Date.now() });
+    } catch { out.push(r); }
+  }
+  return out;
+}
 async function studentReportGrades(env, semester, period) {
   const data = await attachMadrasati(env, await loadClassroom(env));
   let students = [], assignments = [];
@@ -4689,7 +4727,7 @@ export default {
         const reports = [];
         for (const x of idx) { const r = await readJ(`srep:${x.semester}:${x.period}:${auth.st.id}`, null); if (r) reports.push(r); }
         reports.sort((a, c) => (c.semester - a.semester) || (c.period - a.period));
-        return json({ ok: true, reports });
+        return json({ ok: true, reports: await srepLiveReports(env, auth.st, reports) });
       }
       if (!pushIsTeacher(env, b)) return json({ ok: false, error: 'unauthorized' }, 401);
 
@@ -5081,14 +5119,7 @@ export default {
         const per = ((ac.semesters || {})[String(sem)] || {}).activePeriod === 2 ? 2 : 1;
         const { data, grades } = await studentReportGrades(env, sem, per), g = grades.students.find(x => String(x.id) === sid);
         if (g) { const pub = reports.find(r => r.semester === sem && r.period === per);
-          // 💻 المهام الأدائية (أنشطة البوابة) من 10 — نفس حساب لوحة المعلم: أنشطة الفترة المحتسبة لفصله، والدرجة بنسبة ما سلّمه
-          const T = gradeTermRange(data, per, sem), aAt = h => { const t = Number(h.firstPub || h.at) || 0; if (t) return t; const m = /^s([0-9a-z]{8,9})/.exec(String(h.id || '')); const x = m ? parseInt(m[1], 36) : 0; return x > 1.5e12 && x < 4e12 ? x : (Number(h.publishedAt) || 0); };
-          const inT = h => { const t = aAt(h); if (!t || !T) return true; if (T.startAt && t < T.startAt) return false; if (T.endAt && t >= T.endAt) return false;
-            if (T.explicit) { const d = new Date(t + 3 * 3600000).toISOString().slice(0, 10); if (T.start && d < T.start) return false; if (T.end && d > T.end) return false; } return true; };
-          const termActs = (Array.isArray(state.assignments) ? state.assignments : []).filter(h => h && ['normal', 'reading', 'lab'].includes(h.kind || 'normal') && !h.noGrade && (h.sid || h.published || (Array.isArray(h.s) && h.s.length)) && forCls(h) && inT(h)
-            && (!(Array.isArray(h.s) && h.s.length) || h.s.map(String).includes(sid) || h.s.map(String).includes(String(st.name))));
-          const tDone = termActs.filter(h => h.subs && (h.subs[sid] || h.subs[String(st.name)])).length;
-          live = studentReportBuild(data, g, sem, per, pub ? pub.teacherNote : '', { n: termActs.length, done: tDone, score: termActs.length ? Math.round(tDone / termActs.length * 100) / 10 : GRADE_RULES.max }); } else liveErr = 'not_in_grades'; } catch (e) { liveErr = String(e && e.message || e).slice(0, 120); }
+          live = studentReportBuild(data, g, sem, per, pub ? pub.teacherNote : '', srepActsLive(state, data, sid, st.name, cls, sem, per));
       if (fails) await env.HW.delete(fk);
       return json({ ok: true, live, ...(liveErr ? { liveErr } : {}), student: { name: st.name, cls }, siblings, acts: { total: acts.length, done: done.sort((a, c) => c.at - a.at).slice(0, 15), doneN: done.length, missing: missing.slice(0, 20) }, reports, weekly,
         teacher: String((state.repcfg && state.repcfg.teacher) || '') });

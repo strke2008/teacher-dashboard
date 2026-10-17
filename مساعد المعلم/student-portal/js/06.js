@@ -59,7 +59,7 @@ function srpHTML(r){
         :'<p class="srp-empty">لا توجد ملاحظات سلوكية خلال هذه الفترة.</p>'}
     </section>
     ${r.teacherNote?`<section class="srp-note"><h2><em class="srp-ic">💬</em>ملاحظة المعلم</h2><p>${srpEsc(r.teacherNote)}</p></section>`:''}
-    <footer class="srp-foot"><span>صدر في ${srpEsc(srpDate(r.publishedAt||Date.now()))}</span><span>مساعد المعلم</span></footer>
+    <footer class="srp-foot"><span>صدر في ${srpEsc(srpDate(r.publishedAt||Date.now()))}${r.liveAt?` · 🔄 محدَّث تلقائيًا ${srpEsc(srpLiveTime(r.liveAt))}`:''}</span><span>مساعد المعلم</span></footer>
   </article>`;
 }
 /* ═══ 🖨️ تقرير الطالب — قالب الطباعة الرسمي (A4) ═══
@@ -216,7 +216,7 @@ function srxHTML(r){
     <div class="srx-next"><h3>🎯 ${praise}</h3>${next.length?`<ul>${next.slice(0,4).map(t=>`<li>${E(t)}</li>`).join('')}</ul>`:'<div style="font-size:9.5pt">لا شيء متأخر — حافظ على مستواك.</div>'}</div>
     ${r.teacherNote?`<div class="srx-tnote"><h3>💬 ملاحظة المعلم</h3><p>${E(r.teacherNote)}</p></div>`:''}
     <div class="srx-sign"><div>اطّلع ولي الأمر — الاسم والتوقيع:<span></span></div><div>معلم المادة — التوقيع:<span></span></div></div>
-    <footer class="srx-foot"><span>صدر في ${E(srpDate(r.publishedAt||Date.now()))}</span><span>مساعد المعلم</span></footer>
+    <footer class="srx-foot"><span>صدر في ${E(srpDate(r.publishedAt||Date.now()))}${r.liveAt?` · 🔄 محدَّث تلقائيًا ${E(srpLiveTime(r.liveAt))}`:''}</span><span>مساعد المعلم</span></footer>
   </article>`;
 }
 function srpPrintNative(r){
@@ -474,3 +474,5 @@ function spShowUpdate(){
   };
   if(document.readyState === 'complete') setTimeout(run, 1200); else addEventListener('load', () => setTimeout(run, 1200));
 })();
+/* 🔄 وقت آخر تحديث تلقائي لتقرير الفترة (يُبنى بالدرجات الحالية ما دامت الفترة مفتوحة) */
+function srpLiveTime(ms){ try{ return new Date(ms).toLocaleString('ar-SA-u-ca-gregory-nu-latn',{ timeZone:'Asia/Riyadh', day:'numeric', month:'numeric', hour:'numeric', minute:'2-digit' }); }catch(e){ return ''; } }
