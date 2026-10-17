@@ -2422,7 +2422,7 @@ async function ctProfile(box,force){
       <button class="pf-act" onclick="openStudentForm('${esc(sid)}')">✏️ تعديل البيانات</button>
       ${printBtn?`<span class="pf-print">${printBtn}</span>`:''}</div>`;
   box.innerHTML=head+bar+`<div id="ct-pf" class="sf-body"></div>`;
-  const el=document.getElementById('ct-pf');
+  const el=box.querySelector('#ct-pf');   // داخل هذا الملف تحديدًا: قد توجد نسخة أخرى قيد الاستبدال (تبويب «الطلاب»)
   if(sub==='overview') el.innerHTML=(off?'<div class="ct-warn">تعذّر الاتصال بالخادم — المستوى والحضور والسلوك تحتاج الخادم. تبويب «الأنشطة والإجراءات» يعمل من بيانات هذا الجهاز.</div>':'')+ctProfileBody(sid);
   else if(sub==='acts'){ el.classList.add('sf-embed'); sfEmbed(el,()=>_legacyStudentProfile(sid)); el.insertAdjacentHTML('afterbegin',pfGradeBox(sid)); }
   else if(sub==='report'){ el.classList.add('sf-embed'); sfEmbed(el,()=>_legacyStudentReport(sid)); }
