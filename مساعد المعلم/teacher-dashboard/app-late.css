@@ -2249,3 +2249,37 @@ html body .rep-page.nfp{border:0;box-shadow:none}
 .lvd-last>span:first-child{flex:1;min-width:0;line-height:1.9}.lvd-last small{color:var(--ink-soft,#5B6B82)}
 .lvd-last:hover{border-color:#9DD3BC;background:#F4FBF8}
 .br-solve{display:block;margin-top:.3rem;font-size:.78rem;color:#8A5A00}.br-solve.ok{color:#13734F}
+/* ═══ 👥 الطلاب + ملف الطالب في تبويب واحد ═══ */
+#p-students .students-center{grid-template-columns:minmax(260px,320px) minmax(0,1fr) !important}
+#student-center-detail{container-type:inline-size;min-width:0}
+.stc-nav{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;padding:.1rem 0 .65rem;margin-bottom:.55rem;border-bottom:1px solid var(--ui-border,#DCE5F0)}
+.stc-who{display:grid;line-height:1.4;min-width:0;flex:1 1 160px}
+.stc-who b{font-size:1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stc-who small{color:var(--ink-soft,#5B6B82);font-size:.76rem}
+.stc-btns{display:flex;gap:.3rem;flex:none}
+.stc-del{color:#B4232F !important}
+.stc-back{display:none !important}
+.stc-alert{display:grid;gap:.4rem;margin:0 0 .7rem}
+.stc-att{background:#FFF6E5;border:1px solid #F1D49A;color:#7A5212;border-radius:12px;padding:.55rem .75rem;font-size:.86rem}
+.stc-inds{display:flex;flex-wrap:wrap;gap:.35rem}
+.stc-ind{font-size:.78rem;border-radius:99px;padding:.2rem .6rem;background:color-mix(in srgb,var(--c) 10%,#fff);border:1px solid color-mix(in srgb,var(--c) 30%,#fff);color:#33415A}
+.stc-ind b{color:var(--c)}
+/* الملف داخل عمود أضيق من صفحة كاملة: البطاقات تتكيّف مع عرضه لا عرض الشاشة */
+#student-center-detail .pf-tabs{flex-wrap:wrap;overflow:visible;gap:.3rem}
+@container (max-width:820px){
+  #student-center-detail .ct-kpis.ct-kpis6{grid-template-columns:repeat(3,1fr)}
+}
+@container (max-width:560px){
+  #student-center-detail .ct-pf-grid{grid-template-columns:1fr}
+  #student-center-detail .ct-kpis.ct-kpis6{grid-template-columns:repeat(2,1fr)}
+}
+/* 📱 الجوال: القائمة أولًا، والطالب المختار يفتح ملفه بملء الشاشة */
+@media screen and (max-width:900px){
+  #p-students .students-center{grid-template-columns:1fr !important}
+  #p-students .students-list{max-height:none !important}
+  #p-students:not(.stc-open) .student-detail-pane{display:none !important}
+  #p-students.stc-open .students-list-pane,#p-students.stc-open .students-center-head{display:none !important}
+  #p-students.stc-open .student-detail-pane{padding:.7rem !important}
+  .stc-back{display:inline-flex !important;order:-2}
+  .stc-who{flex-basis:100%;order:-1}
+}

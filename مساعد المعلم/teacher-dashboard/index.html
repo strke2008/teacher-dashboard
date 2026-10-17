@@ -22,7 +22,7 @@
 <meta content="root-cause-sync-v2" name="sync-fix-version"/>
 <link rel="stylesheet" href="app.css?v=caf855e9">
 <script src="js/01-right-sidebar-navigation-js.js?v=41ea29b3" defer></script>
-<script src="js/02.js?v=e9092dcb" defer></script>
+<script src="js/02.js?v=0cb029a8" defer></script>
 <script src="js/03-projects-students-logic-v13.js?v=1222f001" defer></script>
 <script src="js/04.js?v=88f51ee5" defer></script>
 <script src="js/05.js?v=5e4e4410" defer></script>
@@ -479,7 +479,7 @@
 .exam-shop-status.open{background:#E4F4EC;color:#167852}.exam-shop-status.closed{background:#FFF1F2;color:#9F2538}
 @media screen and (max-width:600px){.exam-shop-kpis{grid-template-columns:1fr 1fr}.exam-shop-student{grid-template-columns:1fr 105px}.exam-shop-student small{grid-column:1}.exam-shop-student .exam-shop-used{display:none}}
 </style>
-<link rel="stylesheet" id="late-css" href="app-late.css?v=771b0c57">
+<link rel="stylesheet" id="late-css" href="app-late.css?v=d0593333">
 </head>
 <body>
 <header class="masthead">
@@ -510,7 +510,6 @@
 <section class="app-nav-group">
 <div class="app-nav-title">👥 الطلاب والمتابعة</div>
 <button class="tab" data-tab="students" type="button"><span class="app-nav-icon">👥</span><span>الطلاب</span></button>
-<button class="tab" data-tab="classtools" data-view="profile" type="button"><span class="app-nav-icon">👤</span><span>ملف الطالب</span></button>
 <button class="tab" data-tab="classtools" data-view="records" type="button"><span class="app-nav-icon">🗂️</span><span>السجلات والحضور</span></button>
 <button class="tab" data-tab="plans" type="button"><span class="app-nav-icon">🩺</span><span>الخطط العلاجية</span></button>
 <button class="tab" data-tab="classtools" data-view="duties" type="button"><span class="app-nav-icon">🎖️</span><span>مهام الطلاب</span></button>
@@ -741,7 +740,7 @@
 <div class="sheet-head students-center-head">
 <div>
 <h2>الطلاب</h2>
-<span class="sub">كل ما تحتاجه عن الطالب من مكان واحد</span>
+<span class="sub">اختر طالبًا ليُفتح ملفه الكامل</span>
 </div>
 <span class="spacer"></span>
 <span class="pill due hide" id="req-badge" title="طلبات رسائل الشكر">💌 <b>0</b></span>
@@ -754,14 +753,14 @@
 <div class="students-center">
 <aside class="students-list-pane">
 <div class="students-search">
-<input class="inp" id="students-center-search" oninput="renderStudentsCenter()" placeholder="ابحث عن طالب…"/>
+<input class="inp" id="students-center-search" oninput="renderStudentsCenter(1)" placeholder="ابحث عن طالب…"/>
 </div>
 <div class="students-filters">
-<select class="inp" id="students-center-class" onchange="renderStudentsCenter()">
+<select class="inp" id="students-center-class" onchange="renderStudentsCenter(1)">
 <option value="">كل الفصول</option>
 </select>
 <div class="row" style="gap:.35rem">
-<select class="inp" id="students-center-sort" onchange="renderStudentsCenter()" style="flex:1;min-width:0">
+<select class="inp" id="students-center-sort" onchange="renderStudentsCenter(1)" style="flex:1;min-width:0">
 <option value="name">الاسم</option>
 <option value="performance">الأداء</option>
 <option value="completion">التسليم</option>
@@ -781,7 +780,7 @@
 <div class="student-center-empty">
 <div class="student-center-empty-icon">👤</div>
 <h3>اختر طالبًا</h3>
-<p>ستظهر هنا درجاته، أنشطته، إنجازاته، وحالات المتابعة بدون الانتقال إلى تبويب آخر.</p>
+<p>يُفتح هنا ملفه الكامل: النظرة الشاملة، الأنشطة، النقاط، الخط الزمني، التواصل، والتقارير.</p>
 </div>
 </section>
 </div>

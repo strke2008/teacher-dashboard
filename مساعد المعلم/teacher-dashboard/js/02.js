@@ -514,6 +514,7 @@ function askAlert(msg, title){
    الأصلي في الشريط العلوي، فلا يتكرّر منطق التنقّل في مكانين. */
 function goTab(name){
   closeModal();
+  if(name==='classtools:profile'){ stcOpen(window._ctPfSid||STUDENT_CENTER_SELECTED); return; }
   const [tab,view] = String(name||'').split(':');
   const btn = view
     ? document.querySelector(`.tab[data-tab="${tab}"][data-view="${view}"]`)
@@ -528,7 +529,7 @@ function goTab(name){
   if(!b) return;
   b.onclick = ()=>{
     const items = [['—','📚 التعليم'],['projects','📁 المشاريع'],['live','🎮 المسابقات المباشرة'],['madrasati','📚 مدرستي'],
-      ['—','👥 الطلاب والمتابعة'],['classtools:profile','👤 ملف الطالب'],['plans','🩺 الخطط العلاجية'],['classtools:duties','🎖️ مهام الطلاب'],
+      ['—','👥 الطلاب والمتابعة'],['students','👥 الطلاب وملفاتهم'],['plans','🩺 الخطط العلاجية'],['classtools:duties','🎖️ مهام الطلاب'],
       ['—','📝 الاختبارات والدرجات'],['classtools:exams','📝 دفتر الاختبارات'],['exam','🖨️ الاختبار الورقي'],['nafs','🧭 نافس ونواتج التعلم'],['reports','📑 الكشوف'],
       ['—','📈 التقارير والتحليل'],['grades','📊 تقارير الأنشطة'],['classtools:analysis','📈 المستويات والمهارات'],['classtools:classfile','🏫 ملف الفصل'],['classtools:portfolio','🧾 ملف الإنجاز'],
       ['—','🏅 التواصل والتحفيز'],['messages','💬 رسائل الطلاب'],['classtools:certs','🏅 الشهادات'],['exam-shop','🎓 متجر الدرجات'],
@@ -1651,6 +1652,7 @@ function ctMarkNav(){
 }
 /* فتح أداة من أي مكان: ينتقل إلى قسمها في القائمة ويُبقي الاختيار الحالي داخلها */
 function ctGo(tab){
+  if(tab==='profile'){ stcOpen(window._ctPfSid||STUDENT_CENTER_SELECTED); return; }   // 👤 ملف الطالب صار داخل «الطلاب»
   CT_TAB=tab;
   const view=ctViewOf(tab), panel=document.getElementById('p-classtools');
   if(!panel||!panel.classList.contains('on')){ goTab('classtools:'+view); return; }
@@ -1681,6 +1683,9 @@ function ctToday(){ return new Date(Date.now()+3*3600000).toISOString().slice(0,
 function ctClassSel(id,val,onch,all=true){ return `<select class="inp" id="${id}" style="width:auto;min-width:130px" onchange="${onch}">${all?'<option value="">كل الفصول</option>':''}${ctClasses().map(c=>`<option value="${esc(c)}" ${c===val?'selected':''}>${esc(c)}</option>`).join('')}</select>`; }
 
 async function renderClassTools(force){
+  // 👤 ملف الطالب يُرسم داخل «الطلاب»: تبويباته وأزراره تستدعي renderClassTools فيُعاد رسمه هناك
+  if(typeof stcActive==='function' && stcActive() && document.querySelector('#student-center-detail .stc-file')) return renderStudentCenterDetail(force?2:1);
+  if(CT_TAB==='profile'){ CT_TAB='records'; stcOpen(window._ctPfSid||STUDENT_CENTER_SELECTED); return; }
   const box=document.getElementById('ct-body'), nav=document.getElementById('ct-nav'); if(!box) return;
   const V=CT_VIEWS[CT_VIEW], tabs=V?CT_TABS.filter(([k])=>V.tabs.includes(k)):CT_TABS;
   if(!tabs.some(([k])=>k===CT_TAB)) CT_TAB=tabs[0][0];
@@ -2152,7 +2157,7 @@ function ctHeat(rate){
   const h=Math.round(Math.max(0,Math.min(100,rate))*1.2);   // 0=أحمر ← 120=أخضر
   return `background:hsl(${h} 62% 88%);color:hsl(${h} 70% 22%)`;
 }
-function ctOpenProfile(sid,sub){ window._ctPfSub=sub||'overview'; window._ctPfSid=String(sid); const s=(STUDENTS||[]).find(x=>String(x.id)===String(sid)); if(s) window._ctPfCls=String(s.cls||''); closeModal(); ctGo('profile'); }
+function ctOpenProfile(sid,sub){ window._ctPfSub=sub||'overview'; window._ctPfSid=String(sid); const s=(STUDENTS||[]).find(x=>String(x.id)===String(sid)); if(s) window._ctPfCls=String(s.cls||''); closeModal(); stcOpen(sid); }
 function ctNameLink(s){ return `<a href="#" class="ct-name" onclick="event.preventDefault();ctOpenProfile('${esc(s.id)}')">${esc(s.name)}</a>`; }
 
 /* ── 📅 حصصي اليوم (أعلى التبويب دائمًا) ── */
@@ -16435,7 +16440,7 @@ function scDiagPct(s){
   return -1;   // لم يختبر — يقع في الأسفل
 }
 
-function renderStudentsCenter(){
+function renderStudentsCenter(quiet){
   SC_CACHE = new Map();
   populateStudentCenterClasses();
   const q=normAr(document.getElementById('students-center-search')?.value||'');
@@ -16467,6 +16472,7 @@ function renderStudentsCenter(){
 
   const count=document.getElementById('students-center-count');
   if(count) count.textContent=`${list.length} طالب`;
+  window.STC_LIST=list.map(s=>String(s.id));   // ترتيب القائمة: للسابق/التالي في ملف الطالب
 
   const box=document.getElementById('students-center-list');
   if(!box) return;
@@ -16498,10 +16504,10 @@ function renderStudentsCenter(){
     STUDENT_CENTER_SELECTED=null;
   }
   if(STUDENT_CENTER_SELECTED && list.some(s=>String(s.id)===String(STUDENT_CENTER_SELECTED))){
-    renderStudentCenterDetail();
+    renderStudentCenterDetail(quiet?0:1);   // البحث والفرز لا يعيدان رسم الملف المفتوح
   }else if(list.length){
     STUDENT_CENTER_SELECTED=list[0].id;
-    renderStudentCenterDetail();
+    renderStudentCenterDetail(1);
     requestAnimationFrame(()=>{
       document.querySelectorAll('.student-list-item').forEach(el=>el.classList.remove('selected'));
       const target=[...document.querySelectorAll('.student-list-item')].find(el=>el.getAttribute('onclick')?.includes(`'${list[0].id}'`));
@@ -16516,11 +16522,13 @@ function selectStudentCenter(id,rerender=true){
   STUDENT_CENTER_SELECTED=id;
   if(rerender) renderStudentsCenter();
   else {
-    renderStudentCenterDetail();
+    renderStudentCenterDetail(1);
     document.querySelectorAll('.student-list-item').forEach(el=>el.classList.remove('selected'));
     const target=[...document.querySelectorAll('.student-list-item')].find(el=>el.getAttribute('onclick')?.includes(`'${id}'`));
     if(target) target.classList.add('selected');
   }
+  // 📱 الجوال: الملف بملء الشاشة وزر «القائمة» يعيد إليها
+  if(stcMobile()){ stcPanel()?.classList.add('stc-open'); window.scrollTo({top:0}); }
 }
 
 let POINTS_TARGET = null;
@@ -17247,7 +17255,7 @@ async function pullExtraAttemptStatus(){
   }catch(e){ console.error('pullExtraAttemptStatus:',e); }
 }
 
-function renderStudentCenterDetail(){
+function renderStudentCenterDetailOld(){   // ⛔ اللوحة المختصرة القديمة — حلّ محلها ملف الطالب الكامل (stcFile)
   const box=document.getElementById('student-center-detail');
   const s=byId(STUDENT_CENTER_SELECTED);
   if(!box||!s) return;
@@ -17528,3 +17536,83 @@ async function parEdit(sid){
     toast(j.parent?'✓ حُفظ جوال ولي الأمر':'حُذف الجوال','good');
   }catch(e){ toast(/not_found|404/.test(String(e.message))?'انشر worker.js الأخير':'تعذّر الحفظ — تأكد من الرقم (يبدأ بـ 05)','bad'); }
 }
+
+/* ═══ 👥 «الطلاب» و«ملف الطالب» في تبويب واحد ═══
+   الحاسب: القائمة يمينًا وملف الطالب الكامل بجانبها (يُختار الطالب فيُفتح ملفه مكانه).
+   الجوال: القائمة أولًا، والضغط على طالب يفتح ملفه بملء الشاشة مع زر «→ القائمة».
+   الملف نفسه هو ctProfile (نظرة شاملة، الأنشطة، النقاط، الخط الزمني، التواصل، التقارير) — بلا نسخة ثانية. */
+let STC_SHOWN='', STC_SEQ=0;
+function stcPanel(){ return document.getElementById('p-students'); }
+function stcActive(){ const p=stcPanel(); return !!(p&&p.classList.contains('on')); }
+function stcMobile(){ try{ return window.matchMedia('(max-width:900px)').matches; }catch(e){ return false; } }
+/* force: 0 لا يعيد رسم الملف المعروض نفسه · 1 يعيد رسمه · 2 يعيد جلب الدرجات أيضًا */
+async function renderStudentCenterDetail(force){
+  const box=document.getElementById('student-center-detail'), s=byId(STUDENT_CENTER_SELECTED);
+  if(!box||!s) return;
+  if(!force && STC_SHOWN===String(s.id) && box.querySelector('.stc-file')) return;
+  const seq=++STC_SEQ; STC_SHOWN=String(s.id);
+  if(String(window._ctPfSid)!==String(s.id)) window._ctPfSub=window._ctPfSub||'overview';
+  window._ctPfSid=String(s.id); window._ctPfCls=String(s.cls||'');
+  // لا نسختان من الملف (معرّفاته فريدة): إن بقي ملف قديم في «أدوات الفصل» يُفرَّغ
+  const cb=document.getElementById('ct-body'); if(cb&&cb.querySelector('#ct-pf')) cb.innerHTML='';
+  if(!box.querySelector('.stc-file')) box.innerHTML='<div class="muted" style="padding:1.2rem">⏳ جارٍ فتح ملف الطالب…</div>';
+  const old=[...box.children];
+  const el=document.createElement('div'); el.className='stc-file'; el.style.display='none'; box.appendChild(el);
+  old.forEach(o=>{ const pf=o.querySelector&&o.querySelector('#ct-pf'); if(pf) pf.removeAttribute('id'); });   // يرسم ctProfile في الجديد
+  try{ await ctProfile(el, force===2); }catch(e){ el.innerHTML='<div class="ct-warn">تعذّر فتح ملف الطالب — حدّث الصفحة.</div>'; }
+  if(seq!==STC_SEQ){ el.remove(); return; }   // اختير طالب آخر أثناء التحميل
+  stcDecorate(el,s);
+  old.forEach(o=>o.remove()); el.style.display='';
+}
+function stcDecorate(el,s){
+  const L=window.STC_LIST||[], i=L.indexOf(String(s.id)), sid=esc(s.id);
+  const nav=`<div class="stc-nav no-print">
+    <button type="button" class="btn ghost sm stc-back" onclick="stcBack()">→ القائمة</button>
+    <span class="stc-who"><b>${esc(s.name)}</b><small>${esc(s.cls||'بدون فصل')}${i>=0?` · ${i+1} من ${L.length}`:''}</small></span>
+    ${typeof pfPinChip==='function'?pfPinChip(s.id):''}
+    <span class="stc-btns">${L.length>1?`<button type="button" class="btn ghost sm" title="الطالب السابق في القائمة" onclick="stcStep(-1)">→</button><button type="button" class="btn ghost sm" title="الطالب التالي في القائمة" onclick="stcStep(1)">←</button>`:''}
+      <button type="button" class="btn ghost sm stc-del" title="حذف الطالب" onclick="delStudent('${sid}')">🗑️</button></span></div>`;
+  const tools=el.querySelector('.ct-tools'); if(tools) tools.outerHTML=nav; else el.insertAdjacentHTML('afterbegin',nav);
+  const pf=el.querySelector('#ct-pf');
+  if(pf && (window._ctPfSub||'overview')==='overview'){ const x=stcAttentionHTML(s); if(x) pf.insertAdjacentHTML('afterbegin',x); }
+}
+/* ⚠️ ما كان في اللوحة المختصرة ولا يوجد في الملف: «يحتاج تدخّلك» ومؤشرات التشخيصي ونمط التعلّم */
+function stcAttentionHTML(s){
+  let d; try{ d=studentCenterData(s); }catch(e){ return ''; }
+  const a=[]; if(d.missing) a.push(`لديه ${d.missing} نشاط غير مسلّم`); if(d.late) a.push(`${d.late} تسليم متأخر`); if(d.pct<60&&d.done>=2) a.push('متوسط الأداء يحتاج متابعة');
+  const ind=[];
+  try{ diagHW().filter(h=>hwFor(h,s.cls)).forEach(h=>{ const v=(h.subs||{})[s.id]; if(!v) return; const p=Math.round((v.correct||0)/Math.max(1,v.total||1)*100);
+    const lv=p>=80?['متقدّم','#1B9C6B']:p>=60?['متوسط','#2E6BB8']:p>=40?['يحتاج دعمًا','#C88A2E']:['أساسي','#B4232F'];
+    ind.push(`<span class="stc-ind" style="--c:${lv[1]}">🔍 ${esc(h.title)}: <b>${lv[0]} · ${p}%</b></span>`); }); }catch(e){}
+  try{ styleHW().filter(h=>hwFor(h,s.cls)).forEach(h=>{ const t=styleTally(h,s.id); if(!t) return;
+    ind.push(`<span class="stc-ind" style="--c:${STYLE_COLOR[t.top]||'#5A6B84'}">${STYLE_ICON[t.top]||'🧠'} نمط التعلّم: <b>${esc(t.top)} ${t.topPct}%</b></span>`); }); }catch(e){}
+  if(!a.length&&!ind.length) return '';
+  return `<div class="stc-alert">${a.length?`<div class="stc-att"><b>⚠️ يحتاج تدخّلك:</b> ${a.map(esc).join(' · ')}</div>`:''}${ind.length?`<div class="stc-inds">${ind.join('')}</div>`:''}</div>`;
+}
+function stcStep(d){
+  const L=window.STC_LIST||[]; if(!L.length) return;
+  const i=L.indexOf(String(STUDENT_CENTER_SELECTED)), n=L[(i+d+L.length)%L.length];
+  selectStudentCenter(n,false);
+  const it=[...document.querySelectorAll('.student-list-item')].find(e=>e.getAttribute('onclick')?.includes(`'${n}'`));
+  if(it&&!stcMobile()) it.scrollIntoView({block:'nearest'});
+}
+function stcBack(){
+  stcPanel()?.classList.remove('stc-open');
+  const it=document.querySelector('.student-list-item.selected'); if(it) it.scrollIntoView({block:'center'});
+}
+/* فتح ملف طالب من أي مكان (الرسائل، الخطط، اللوحة…): ينتقل إلى «الطلاب» ويختاره */
+function stcOpen(sid){
+  sid=String(sid||''); closeModal();
+  if(!stcActive()) goTab('students');
+  if(!sid||!byId(sid)) return;
+  if(!(window.STC_LIST||[]).includes(sid)){   // البحث أو الفصل يخفيه: يُفرَّغان
+    const q=document.getElementById('students-center-search'), c=document.getElementById('students-center-class');
+    if(q) q.value=''; if(c) c.value='';
+  }
+  STUDENT_CENTER_SELECTED=sid; STC_SHOWN='';
+  renderStudentsCenter();
+  if(stcMobile()){ stcPanel()?.classList.add('stc-open'); window.scrollTo({top:0}); }
+  else { const it=document.querySelector('.student-list-item.selected'); if(it) it.scrollIntoView({block:'nearest'}); }
+}
+// الضغط على «الطلاب» في القائمة (والجوال خاصة) يعيد إلى قائمة الطلاب
+document.addEventListener('click',e=>{ if(e.target.closest&&e.target.closest('.tab[data-tab="students"],.mobile-nav button[data-tab="students"]')) stcPanel()?.classList.remove('stc-open'); },true);
