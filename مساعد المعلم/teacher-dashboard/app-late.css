@@ -2364,3 +2364,8 @@ button.sk-chip:not([onclick]){cursor:default}
 .lvr-names span b{font-weight:800}
 .lvr-ul{margin:0;padding-inline-start:1.1rem;font-size:.8em;line-height:1.65;color:#22324A}
 @media (max-width:700px){.lvr-row{grid-template-columns:1fr}.lvr-skn{width:6.5rem}.lvr-act{width:6.8rem}}
+.lvr-pick{display:flex;flex-direction:column;gap:.3rem;max-height:52vh;overflow:auto;padding:.1rem}
+.lvr-pk{display:flex;align-items:center;gap:.55rem;border:1px solid var(--ui-border,#DCE5F0);border-radius:10px;padding:.4rem .6rem;cursor:pointer;border-inline-start:4px solid #9AA8B8}
+.lvr-pk.reteach{border-inline-start-color:#D6455B}.lvr-pk.group,.lvr-pk.one{border-inline-start-color:#D49A1E}.lvr-pk.ok{border-inline-start-color:#2E9E6B}
+.lvr-pk-n{flex:1;font-weight:700;font-size:.88rem}.lvr-pk b{font-size:.88rem}.lvr-pk small{width:6.5rem;font-size:.74rem;color:var(--ink-soft)}
+.lvr-pk:has(input:checked){background:rgba(46,107,184,.07)}
