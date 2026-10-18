@@ -2383,7 +2383,6 @@ button.sk-chip:not([onclick]){cursor:default}
 .onl-row:has(input:checked){background:rgba(46,107,184,.07);border-color:rgba(46,107,184,.35)}
 .onl-n{flex:1;min-width:0}.onl-n b{display:block;font-size:.9rem}.onl-n small{color:var(--ink-soft);font-size:.74rem}
 .onl-w{font-size:.78rem;color:var(--ink-soft);max-width:45%;text-align:start}
-.onl-warn{font-size:.7rem;color:#8A5D00;background:rgba(233,185,73,.2);border-radius:999px;padding:.05rem .45rem;white-space:nowrap}
 .onl-send{margin-top:.6rem;border-top:1px dashed var(--ui-border,#DCE5F0);padding-top:.6rem}
 .onl-tpl{display:flex;flex-wrap:wrap;gap:.3rem;margin-bottom:.4rem}.onl-tpl .chip{font-size:.74rem;cursor:pointer}
 #onl-msg{width:100%;box-sizing:border-box;font:inherit}

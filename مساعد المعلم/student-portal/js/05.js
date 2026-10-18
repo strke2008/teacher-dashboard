@@ -142,7 +142,7 @@ function askRender(){
       ${x.status!=='open'?`<button type="button" class="askc-x" onclick="event.stopPropagation();askHide('${esc(x.id)}',this)" title="إخفاء" aria-label="إخفاء الرد">✕</button>`:''}
       <div class="askc-q">❓ ${esc(x.text)}</div>
       ${x.reply?`<div class="askc-r"><b>📩 ردّ المعلم:</b> ${esc(x.reply)}</div>`:''}
-      <div class="askc-meta"><span class="ask-st ${esc(x.status)}">${ST[x.status]||''}</span> ${esc(ASK_META.cats[x.cat]||'')}${x.hwTitle?` · «${esc(x.hwTitle)}»`:''} · ${askWhen(x.at)}${ASK_UI.fresh.has(x.id)?'<span class="askc-new">رد جديد</span>':''}</div></div>`;
+      <div class="askc-meta"><span class="ask-st ${esc(x.status)}">${ST[x.status]||''}</span> ${esc(ASK_META.cats[x.cat]||(x.cat==='reply'?'↩️ ردّك على رسالة معلمك':''))}${x.hwTitle?` · «${esc(x.hwTitle)}»`:''}${x.reText?` · «${esc(x.reText.slice(0,60))}»`:''} · ${askWhen(x.at)}${ASK_UI.fresh.has(x.id)?'<span class="askc-new">رد جديد</span>':''}</div></div>`;
   let body='';
   if(rows.length){
     body+=`<button type="button" class="askc-sum" onclick="ASK_UI.open=!ASK_UI.open;askRender()" aria-expanded="${ASK_UI.open}"><span>📩 محادثاتك (${rows.length})</span><b>${ASK_UI.open?'إخفاء ⌃':'عرض ⌄'}</b>${fresh.length||waiting?`<span class="askc-chips">${fresh.length?`<em>${fresh.length} ${fresh.length===1?'رد جديد':'ردود جديدة'}</em>`:''}${waiting?`<i>⏳ ${waiting} بانتظار الرد</i>`:''}</span>`:''}</button>`;
@@ -345,18 +345,19 @@ async function presPing(){
   PRES.busy=true; PRES.t=Date.now();
   try{
     const api=((typeof HW!=='undefined'&&HW&&HW.api)||API||'').replace(/\/+$/,''); if(!api) return;
-    const r=await fetch(api+'/presence',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sid:mySid,session:getStoreSession(),w:presWhere()})});
+    const r=await fetch(api+'/presence',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sid:mySid,w:presWhere()})});
     const j=await r.json().catch(()=>null);
-    (j&&Array.isArray(j.nudges)?j.nudges:[]).forEach(n=>PRES.q.push(n)); presNext();
+    (j&&Array.isArray(j.live)?j.live:[]).forEach(n=>PRES.q.push(n)); presNext();
   }catch(e){} finally{ PRES.busy=false; }
 }
 function presNext(){
   if(PRES.open||!PRES.q.length) return;
   const n=PRES.q.shift(); PRES.open=true;
   const ov=document.createElement('div'); ov.className='pres-ov'; ov.setAttribute('role','dialog'); ov.setAttribute('aria-modal','true');
-  ov.innerHTML=`<div class="pres-card"><div class="pres-h">📣 رسالة من معلمك</div><p class="pres-b"></p><small class="pres-t"></small>
-    <textarea class="pres-r" rows="2" maxlength="300" placeholder="اكتب ردّك لمعلمك (اختياري)"></textarea><div class="pres-msg" aria-live="polite"></div>
+  ov.innerHTML=`<div class="pres-card"><div class="pres-h">📣 رسالة من معلمك</div><b class="pres-ti"></b><p class="pres-b"></p><small class="pres-t"></small>
+    <textarea class="pres-r" rows="2" maxlength="600" placeholder="اكتب ردّك لمعلمك (اختياري)"></textarea><div class="pres-msg" aria-live="polite"></div>
     <div class="pres-a"><button type="button" class="pres-send">إرسال الرد</button><button type="button" class="pres-ok">حسنًا</button></div></div>`;
+  const ti=String(n.title||''); if(ti&&ti!=='رسالة من معلمك') ov.querySelector('.pres-ti').textContent=ti; else ov.querySelector('.pres-ti').remove();
   ov.querySelector('.pres-b').textContent=String(n.body||'');
   try{ ov.querySelector('.pres-t').textContent=new Date(Number(n.at)).toLocaleTimeString('ar-SA',{hour:'numeric',minute:'2-digit'}); }catch(e){}
   const close=()=>{ ov.remove(); PRES.open=false; setTimeout(presNext,300); };
@@ -366,8 +367,9 @@ function presNext(){
     if(!text){ msg.textContent='اكتب ردّك أولًا'; ta.focus(); return; }
     msg.textContent='جارٍ الإرسال…';
     try{ const api=((typeof HW!=='undefined'&&HW&&HW.api)||API||'').replace(/\/+$/,'');
-      const j=await (await fetch(api+'/presence/reply',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sid:mySid,session:getStoreSession(),id:n.id,text})})).json();
-      if(j&&j.ok){ msg.textContent='✓ وصل ردّك لمعلمك'; setTimeout(close,900); } else msg.textContent='تعذّر الإرسال — أعد المحاولة';
+      // الرد يدخل «راسل معلمك» نفسه: يراه المعلم في رسائل الطلاب، ويعود رده لك هناك
+      const j=await (await fetch(api+'/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...askWho(),re:n.mid,text})})).json();
+      if(j&&j.ok){ msg.textContent='✓ وصل ردّك لمعلمك'; try{ myAskLoad(); }catch(e){} setTimeout(close,900); } else msg.textContent=(j&&j.error&&/[\u0600-\u06FF]/.test(j.error))?j.error:'تعذّر الإرسال — أعد المحاولة';
     }catch(e){ msg.textContent='تعذّر الإرسال — تحقق من الاتصال'; }
   };
   document.body.appendChild(ov);

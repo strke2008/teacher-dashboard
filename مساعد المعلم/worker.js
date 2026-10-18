@@ -322,10 +322,11 @@ function cleanStudentPrefs(o) {
 }
 /* ═══ 🟢 المتصلون الآن + 📣 رسالة فورية ═══
    بوابة الطالب ترسل نبضًا كل ~30 ث ما دامت ظاهرة على الشاشة (sid + ما يفعله الآن)، فتعرف اللوحة من متصل الآن.
-   النبض في D1 لا KV (حد الكتابة اليومي في KV صغير)، ولا يقرأ KV إطلاقًا: يُتحقق من توقيع الجلسة فقط.
-   الرسالة الفورية (nudge) تُسلَّم في رد النبض التالي للطالب (خلال ثوانٍ وهو متصل)، ويرد عليها من النافذة نفسها.
-   لا تُسلَّم رسالة إلا لجلسة موقّعة لنفس الطالب — فلا يقرأ أحد رسائل غيره. */
-const PRES_ONLINE_MS = 90000, PRES_NUDGE_TTL = 6 * 3600000;
+   النبض في D1 لا KV (حد الكتابة اليومي في KV صغير)، ولا يقرأ KV إطلاقًا.
+   لا نظام رسائل ثانٍ هنا: «الرسالة الفورية» رسالة عادية من /messages (تُحفظ في رسائل الطالب ويصله إشعارها)
+   مع live:true، فيُسجَّل لها في D1 سطر تسليم لكل طالب، ويأخذها الطالب المتصل في رد نبضه التالي فتظهر له نافذةً.
+   ورد الطالب منها يذهب إلى «رسائل الطلاب» (/ask مع re = معرّف الرسالة) كأي سؤال، ويرد عليه المعلم من هناك. */
+const PRES_ONLINE_MS = 90000, PRES_LIVE_TTL = 6 * 3600000;
 const _presReady = new WeakMap();
 async function presReady(env) {
   if (!env.DB) return false;
@@ -333,23 +334,12 @@ async function presReady(env) {
   if (!p) {
     p = env.DB.batch([
       env.DB.prepare('CREATE TABLE IF NOT EXISTS presence (sid TEXT PRIMARY KEY, at INTEGER NOT NULL, since INTEGER NOT NULL, w TEXT, signed INTEGER NOT NULL DEFAULT 0)'),
-      env.DB.prepare('CREATE TABLE IF NOT EXISTS nudges (id TEXT PRIMARY KEY, sid TEXT NOT NULL, body TEXT NOT NULL, at INTEGER NOT NULL, seen_at INTEGER, reply TEXT, reply_at INTEGER)'),
-      env.DB.prepare('CREATE INDEX IF NOT EXISTS nudges_sid ON nudges (sid, at)'),
+      env.DB.prepare('CREATE TABLE IF NOT EXISTS livemsg (mid TEXT NOT NULL, sid TEXT NOT NULL, title TEXT, body TEXT, at INTEGER NOT NULL, seen_at INTEGER, PRIMARY KEY (mid, sid))'),
+      env.DB.prepare('CREATE INDEX IF NOT EXISTS livemsg_sid ON livemsg (sid, at)'),
     ]).then(() => true).catch(e => { _presReady.delete(env.DB); throw e; });
     _presReady.set(env.DB, p);
   }
   return p;
-}
-/* توقيع جلسة الطالب فقط (بلا قراءة KV) — يكفي للنبض الخفيف؛ العمليات الحساسة تبقى على requireStudentSession */
-async function sessionSidLite(env, token) {
-  const key = await sessionKey(env); if (!key) return '';
-  token = String(token || ''); const dot = token.indexOf('.');
-  if (dot < 1 || token.length > 600) return '';
-  try {
-    if (!(await crypto.subtle.verify('HMAC', key, b64urlToBytes(token.slice(dot + 1)), _enc.encode(token.slice(0, dot))))) return '';
-    const p = JSON.parse(new TextDecoder().decode(b64urlToBytes(token.slice(0, dot))));
-    return p && p.v === 1 && p.sid && Number(p.exp) > Date.now() ? String(p.sid) : '';
-  } catch { return ''; }
 }
 async function requireStudentSession(env, b) {
   const deny = (error = 'auth', status = 401) => ({ res: json({ ok: false, error }, status) });
@@ -2001,7 +1991,7 @@ const ASK = { maxLen: 600, maxOpen: 3, perDay: 5, keep: 600, keepSeenDays: 3,
 async function askLoad(env) { try { const a = JSON.parse(await env.HW.get('asks')); return Array.isArray(a) ? a : []; } catch { return []; } }
 async function askSave(env, all) { await env.HW.put('asks', JSON.stringify(all.slice(0, ASK.keep))); }
 function askMine(x, st) { return !!x && ((st.id && x.sid && String(x.sid) === String(st.id)) || (!x.sid && x.name === st.name)); }
-function askPublic(x) { return { id: x.id, cat: x.cat, hwTitle: x.hwTitle || '', text: x.text, at: x.at, status: x.status, reply: x.reply || '', repliedAt: x.repliedAt || 0, seenAt: x.seenAt || 0 }; }
+function askPublic(x) { return { id: x.id, cat: x.cat, hwTitle: x.hwTitle || '', re: x.re || '', reText: x.reText || '', text: x.text, at: x.at, status: x.status, reply: x.reply || '', repliedAt: x.repliedAt || 0, seenAt: x.seenAt || 0 }; }
 // 🧹 الرد يبقى عند الطالب ASK.keepSeenDays بعد أن يراه، أو يخفيه بنفسه — ومعه تنبيهه، فلا يتكرر ولا يزدحم
 function askGoneForStudent(x, now) {
   if (!x || x.status === 'open') return false;
@@ -5362,55 +5352,34 @@ export default {
 
     // ── 💬 رسائل مساحة الطالب ──
 
-    // ── 🟢 نبض الحضور من بوابة الطالب، ويعود معه ما ينتظره من رسائل فورية ──
+    // ── 🟢 نبض الحضور من بوابة الطالب، ويعود معه ما وصله من رسائل فورية لم تظهر له بعد ──
     if (url.pathname === '/presence' && request.method === 'POST') {
       let b; try { b = await request.json(); } catch { return json({ ok: false }, 400); }
       const sid = String(b.sid || '').trim();
       if (!/^[\w-]{1,64}$/.test(sid)) return json({ ok: false, error: 'sid' }, 400);
       if (!(await presReady(env).catch(() => false))) return json({ ok: false, error: 'no_db' }, 503);
-      const now = Date.now(), signed = (await sessionSidLite(env, b.session)) === sid ? 1 : 0, w = String(b.w || '').slice(0, 90);
-      await env.DB.prepare('INSERT INTO presence (sid, at, since, w, signed) VALUES (?1, ?2, ?2, ?3, ?4) ON CONFLICT(sid) DO UPDATE SET since = CASE WHEN ?2 - presence.at > ?5 THEN ?2 ELSE presence.since END, at = ?2, w = ?3, signed = ?4')
-        .bind(sid, now, w, signed, PRES_ONLINE_MS).run();
-      let nudges = [];
-      if (signed) {
-        const r = await env.DB.prepare('SELECT id, body, at FROM nudges WHERE sid = ?1 AND seen_at IS NULL AND at > ?2 ORDER BY at LIMIT 5').bind(sid, now - PRES_NUDGE_TTL).all();
-        nudges = (r && r.results) || [];
-        if (nudges.length) await env.DB.batch(nudges.map(n => env.DB.prepare('UPDATE nudges SET seen_at = ?1 WHERE id = ?2').bind(now, n.id)));
-      }
-      return json({ ok: true, signed: !!signed, nudges });
+      const now = Date.now(), w = String(b.w || '').slice(0, 90);
+      await env.DB.prepare('INSERT INTO presence (sid, at, since, w) VALUES (?1, ?2, ?2, ?3) ON CONFLICT(sid) DO UPDATE SET since = CASE WHEN ?2 - presence.at > ?4 THEN ?2 ELSE presence.since END, at = ?2, w = ?3')
+        .bind(sid, now, w, PRES_ONLINE_MS).run();
+      // نفس ما تعرضه /messages لهذا الطالب أصلًا — النبض يسلّمه أسرع فقط
+      const r = await env.DB.prepare('SELECT mid, title, body, at FROM livemsg WHERE sid = ?1 AND seen_at IS NULL AND at > ?2 ORDER BY at LIMIT 5').bind(sid, now - PRES_LIVE_TTL).all();
+      const live = (r && r.results) || [];
+      if (live.length) await env.DB.batch(live.map(n => env.DB.prepare('UPDATE livemsg SET seen_at = ?1 WHERE mid = ?2 AND sid = ?3').bind(now, n.mid, sid)));
+      return json({ ok: true, live });
     }
-    if (url.pathname === '/presence/reply' && request.method === 'POST') {
-      let b; try { b = await request.json(); } catch { return json({ ok: false }, 400); }
-      const sid = String(b.sid || '').trim(), text = String(b.text || '').trim().slice(0, 300);
-      if (!sid || (await sessionSidLite(env, b.session)) !== sid) return json({ ok: false, error: 'auth' }, 401);
-      if (!text) return json({ ok: false, error: 'empty' }, 400);
-      if (!(await presReady(env).catch(() => false))) return json({ ok: false, error: 'no_db' }, 503);
-      const r = await env.DB.prepare('UPDATE nudges SET reply = ?1, reply_at = ?2 WHERE id = ?3 AND sid = ?4').bind(text, Date.now(), String(b.id || ''), sid).run();
-      return json({ ok: !!(r && r.meta && r.meta.changes) });
-    }
-    // ── للمعلم: من متصل الآن، وآخر الرسائل الفورية وردودها ──
+    // ── للمعلم: من متصل الآن، وتسليم آخر الرسائل الفورية (الردود في «رسائل الطلاب») ──
     if (url.pathname === '/presence' && request.method === 'GET') {
       if (!env.TEACHER_TOKEN || url.searchParams.get('t') !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
       if (!(await presReady(env).catch(() => false))) return json({ ok: false, error: 'no_db' }, 503);
       const now = Date.now();
-      const [pr, nu] = await Promise.all([
-        env.DB.prepare('SELECT sid, at, since, w, signed FROM presence WHERE at > ?1 ORDER BY at DESC LIMIT 300').bind(now - 30 * 60000).all(),
-        env.DB.prepare('SELECT id, sid, body, at, seen_at, reply, reply_at FROM nudges WHERE at > ?1 ORDER BY at DESC LIMIT 200').bind(now - PRES_NUDGE_TTL).all(),
+      const [pr, lv] = await Promise.all([
+        env.DB.prepare('SELECT sid, at, since, w FROM presence WHERE at > ?1 ORDER BY at DESC LIMIT 300').bind(now - 30 * 60000).all(),
+        env.DB.prepare('SELECT mid, sid, body, at, seen_at FROM livemsg WHERE at > ?1 ORDER BY at DESC LIMIT 300').bind(now - PRES_LIVE_TTL).all(),
       ]);
-      if (Math.random() < 0.02) ctx.waitUntil(env.DB.batch([env.DB.prepare('DELETE FROM nudges WHERE at < ?1').bind(now - 7 * 864e5), env.DB.prepare('DELETE FROM presence WHERE at < ?1').bind(now - 30 * 864e5)]).catch(() => {}));
-      return json({ ok: true, now, onlineMs: PRES_ONLINE_MS, presence: (pr && pr.results) || [], nudges: (nu && nu.results) || [] });
+      if (Math.random() < 0.02) ctx.waitUntil(env.DB.batch([env.DB.prepare('DELETE FROM livemsg WHERE at < ?1').bind(now - 7 * 864e5), env.DB.prepare('DELETE FROM presence WHERE at < ?1').bind(now - 30 * 864e5)]).catch(() => {}));
+      return json({ ok: true, now, onlineMs: PRES_ONLINE_MS, presence: (pr && pr.results) || [], live: (lv && lv.results) || [] });
     }
-    if (url.pathname === '/nudge' && request.method === 'POST') {
-      let b; try { b = await request.json(); } catch { return json({ ok: false }, 400); }
-      if (!env.TEACHER_TOKEN || b.t !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
-      const body = String(b.body || '').trim().slice(0, 300);
-      const sids = [...new Set((Array.isArray(b.sids) ? b.sids : []).map(x => String(x || '').trim()).filter(x => /^[\w-]{1,64}$/.test(x)))].slice(0, 80);
-      if (!body || !sids.length) return json({ ok: false, error: 'missing' }, 400);
-      if (!(await presReady(env).catch(() => false))) return json({ ok: false, error: 'no_db' }, 503);
-      const now = Date.now();
-      await env.DB.batch(sids.map((sid, i) => env.DB.prepare('INSERT INTO nudges (id, sid, body, at) VALUES (?1, ?2, ?3, ?4)').bind(now.toString(36) + '-' + i + '-' + Math.random().toString(36).slice(2, 7), sid, body, now)));
-      return json({ ok: true, count: sids.length });
-    }
+
     if (url.pathname === '/messages' && request.method === 'GET') {
       const name = String(url.searchParams.get('name') || '').slice(0, 80).trim();
       const sidIn = String(url.searchParams.get('sid') || url.searchParams.get('id') || '').trim();
@@ -5504,6 +5473,29 @@ export default {
       let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
       const st = await resolveStudent(env, { id: String(b.sid || '').slice(0, 40), name: String(b.name || '').slice(0, 80) });
       if (!st.known) return json({ ok: false, error: 'student not recognized' }, 403);
+      // ↩️ رد على رسالة من المعلم: يدخل «رسائل الطلاب» نفسها، بلا حدود الأسئلة (المعلم هو من بدأ الحديث)
+      const re = String(b.re || '').slice(0, 40);
+      if (re) {
+        const m = (await readMessages(env, st)).find(x => x && String(x.id) === re);
+        if (!m) return json({ ok: false, error: 'not found' }, 404);
+        const text = String(b.text || '').trim().slice(0, ASK.maxLen);
+        if (!text) return json({ ok: false, error: 'اكتب ردّك أولًا' }, 400);
+        const all = await askLoad(env), now = Date.now();
+        let q = all.find(x => x.re === re && x.status === 'open' && askMine(x, st));
+        if (q) { q.text = (q.text + '\n' + text).slice(-ASK.maxLen); q.at = now; }
+        else { q = { id: 'q' + now.toString(36) + Math.random().toString(36).slice(2, 6), sid: String(st.id || ''), name: String(st.name || ''), cls: String(st.cls || ''),
+          cat: 'reply', hw: '', hwTitle: '', re, reText: String(m.body || m.title || '').replace(/⟨(WK|EX)⟩[\s\S]*$/, '').trim().slice(0, 160), text, at: now, status: 'open', reply: '', repliedAt: 0 }; all.unshift(q); }
+        await askSave(env, all);
+        const task = (async () => {
+          if (!pushConfigured(env)) return; const subs = await pushListSubs(env); if (!subs.length) return;
+          const eventId = (await sha256Hex(`ask|${q.id}|${now}`)).slice(0, 32); if (!(await pushClaimEvent(env, eventId))) return;
+          await pushDeliver(env, { title: `↩️ ${q.name} ردّ على رسالتك`, body: text.slice(0, 140), tag: `ask-${q.id}`,
+            data: { type: 'ask', id: q.id, url: './?open=asks', item: { ...q, text: q.text.slice(0, 500) } } }, eventId, subs);
+        })().catch(() => {});
+        if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(task);
+        await bumpRev(env);
+        return json({ ok: true, item: askPublic(q) });
+      }
       if ((await askMode()) === 'off') return json({ ok: false, error: 'أوقف معلمك استقبال الرسائل حاليًا — اسأله في الحصة' }, 403);
       const text = String(b.text || '').trim().slice(0, ASK.maxLen);
       if (text.length < 3) return json({ ok: false, error: 'اكتب سؤالك أولًا' }, 400);
@@ -5584,7 +5576,7 @@ export default {
         const st = await resolveStudent(env, { id: q.sid, name: q.name });
         if (st && (st.id || st.name)) {
           const id = `${now.toString(36)}${Math.random().toString(36).slice(2, 8)}`;
-          const msg = { id, title: `ردّ معلمك على ${q.hwTitle ? `سؤالك عن «${q.hwTitle}»` : 'سؤالك'}`, body: `سؤالك: ${q.text.slice(0, 200)}\n\n📩 الرد: ${reply}`,
+          const msg = { id, title: `ردّ معلمك على ${q.re ? 'ردّك' : q.hwTitle ? `سؤالك عن «${q.hwTitle}»` : 'سؤالك'}`, body: `${q.re ? 'ردّك' : 'سؤالك'}: ${q.text.slice(0, 200)}\n\n📩 الرد: ${reply}`,
             type: 'reply', priority: 'normal', examDate: '', visibleFrom: '', expiresAt: '', createdAt: new Date().toISOString() };
           // رد واحد لكل سؤال: تعديل الرد أو إعادة إرساله يستبدل رسالته السابقة لا يكررها
           const prevIds = new Set((q.msgIds || []).map(String));
@@ -5683,7 +5675,13 @@ export default {
           data: { type: 'message', id, url: './?open=notices' }
         }, (await sha256Hex(`msg|${id}`)).slice(0, 32));
       }
-      return json({ ok: true, id, count, requested: recipients.length, delivered, skipped });
+      // 📣 فورية: الطالب المتصل يراها نافذةً خلال ثوانٍ (عبر نبض الحضور)، وتبقى في رسائله كأي رسالة
+      let live = 0;
+      if (b.live && !(visibleFrom && new Date(visibleFrom).getTime() > Date.now()) && await presReady(env).catch(() => false)) {
+        const sids = [...new Set(delivered.map(x => String(x.sid || '')).filter(x => /^[\w-]{1,64}$/.test(x)))], now = Date.now();
+        if (sids.length) { await env.DB.batch(sids.map(sid => env.DB.prepare('INSERT OR IGNORE INTO livemsg (mid, sid, title, body, at) VALUES (?1, ?2, ?3, ?4, ?5)').bind(id, sid, title, body, now))); live = sids.length; }
+      }
+      return json({ ok: true, id, count, live, requested: recipients.length, delivered, skipped });
     }
 
     // ── 💌 مشاركة رسالة الشكر مع الأهل: مرتان كحد أقصى خلال 7 أيام من صدورها، مع رابط تحقق ──

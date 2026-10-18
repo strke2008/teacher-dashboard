@@ -1,9 +1,9 @@
 'use strict';
 /* ═════════ 🟢 المتصلون الآن + 📣 الرسالة الفورية ═════════
-   بوابة الطالب ترسل نبضًا كل ~30 ث وهي ظاهرة (/presence): نعرض هنا من متصل الآن وماذا يفعل،
-   ونرسل له رسالة فورية (/nudge) تظهر له نافذةً خلال ثوانٍ ويرد منها، ويظهر رده هنا.
-   «متصل» = ظهر خلال onlineMs (90 ث). الطالب الذي لم يدخل برمزه بعد يظهر متصلًا لكن الرسالة لا تصله
-   (الرسائل لا تُسلَّم إلا لجلسة موقّعة)، فنقول ذلك صراحة. */
+   بوابة الطالب ترسل نبضًا كل ~30 ث وهي ظاهرة (/presence): نعرض هنا من متصل الآن وماذا يفعل.
+   الرسالة الفورية ليست نظامًا مستقلًا: رسالة عادية (/messages) تُحفظ في رسائل الطالب ويصله إشعارها،
+   ومعها live:true فتظهر للمتصل نافذةً خلال ثوانٍ. ورده يصل «💬 رسائل الطلاب» (ASKS، re = معرّف الرسالة)
+   ونرد عليه من هناك كأي رسالة طالب. هنا نعرض فقط حالة التسليم والردود المرتبطة بكل رسالة. */
 const ONL={data:null,at:0,busy:false,sel:new Set(),cls:'',open:false,timer:0};
 function onlApi(){ return (typeof getApi==='function'?getApi():'').replace(/\/+$/,''); }
 function onlStu(sid){ return (Array.isArray(STUDENTS)?STUDENTS:[]).find(s=>String(s.id)===String(sid))||null; }
@@ -27,20 +27,23 @@ function onlChip(){
   let b=document.getElementById('onl-chip');
   if(!b){ b=document.createElement('button'); b.type='button'; b.id='onl-chip'; b.className='onl-chip no-print'; b.onclick=onlOpen;
     const ref=document.getElementById('portal-link-btn'); host.insertBefore(b, ref||null); }
-  const {on}=onlRows(), unread=((ONL.data&&ONL.data.nudges)||[]).filter(n=>n.reply&&!onlSeenReply(n)).length;
-  b.innerHTML=`<i class="onl-dot ${on.length?'on':''}"></i><b>${on.length}</b> متصل الآن${unread?`<span class="onl-badge" title="ردود جديدة">${unread}</span>`:''}`;
+  const {on}=onlRows(), unread=onlReplies().filter(x=>x.status==='open').length;
+  b.innerHTML=`<i class="onl-dot ${on.length?'on':''}"></i><b>${on.length}</b> متصل الآن${unread?`<span class="onl-badge" title="ردود على رسائلك تنتظرك في «رسائل الطلاب»">${unread}</span>`:''}`;
   b.title=on.length?on.slice(0,8).map(r=>r.s.name).join('، '):'لا أحد من طلابك في البوابة الآن';
 }
-function onlSeenKey(){ return 'onl_seen_replies_v1'; }
-function onlSeenReply(n){ try{ return (JSON.parse(localStorage.getItem(onlSeenKey())||'[]')).includes(n.id); }catch(e){ return false; } }
-function onlMarkReplies(){ try{ const ids=((ONL.data&&ONL.data.nudges)||[]).filter(n=>n.reply).map(n=>n.id); localStorage.setItem(onlSeenKey(),JSON.stringify(ids.slice(0,300))); }catch(e){} }
+/* ردود الطلاب على رسائلك الفورية: من «رسائل الطلاب» نفسها */
+function onlReplies(){ const mids=new Set(((ONL.data&&ONL.data.live)||[]).map(n=>n.mid)); return (typeof ASKS!=='undefined'&&Array.isArray(ASKS)?ASKS:[]).filter(x=>x.re&&mids.has(x.re)); }
 function onlOpen(){
   ONL.open=true;
   openModal(`<div id="onl-box"><div class="muted" style="padding:1rem">⏳ جارٍ التحميل…</div></div>`);
   const veil=document.getElementById('veil');
-  const stop=()=>{ ONL.open=false; clearInterval(ONL.timer); onlMarkReplies(); onlChip(); };
-  clearInterval(ONL.timer); ONL.timer=setInterval(()=>{ if(!veil||!veil.classList.contains('on')||!document.getElementById('onl-box')) return stop(); if(!document.hidden) onlLoad(); },10000);
-  onlLoad().then(()=>onlRender());
+  const stop=()=>{ ONL.open=false; clearInterval(ONL.timer); onlChip(); };
+  let tick=0;
+  clearInterval(ONL.timer); ONL.timer=setInterval(()=>{ if(!veil||!veil.classList.contains('on')||!document.getElementById('onl-box')) return stop(); if(document.hidden) return; onlLoad(); if(++tick%3===0) onlAsks(); },10000);
+  Promise.all([onlLoad(),onlAsks()]).then(()=>onlRender());
+}
+async function onlAsks(){ if(typeof asksLoad!=='function') return; await asksLoad(); if(ONL.open) onlRender(); onlChip(); }
+function onlReplyOpen(id){ closeModal(); setTimeout(()=>{ asksOpen(); setTimeout(()=>document.getElementById('askc-'+id)?.scrollIntoView({block:'center'}),80); },60);
 }
 function onlRender(){
   const box=document.getElementById('onl-box'); if(!box) return;
@@ -50,8 +53,8 @@ function onlRender(){
   const list=on.filter(r=>!ONL.cls||String(r.s.cls||'')===ONL.cls);
   [...ONL.sel].forEach(id=>{ if(!on.some(r=>String(r.sid)===id)) ONL.sel.delete(id); });
   const name=sid=>{ const s=onlStu(sid); return s?s.name:'طالب'; };
-  const nudges=(D.nudges||[]), groups={};
-  nudges.forEach(n=>{ const k=n.body+'|'+Math.round(n.at/60000); (groups[k]=groups[k]||{body:n.body,at:n.at,items:[]}).items.push(n); });
+  const groups={}, reps=onlReplies();
+  (D.live||[]).forEach(n=>{ (groups[n.mid]=groups[n.mid]||{mid:n.mid,body:n.body,at:n.at,items:[]}).items.push(n); });
   const tpl=['هل النشاط يعمل معك بشكل صحيح؟','افتح النشاط الجديد وأخبرني رأيك 👍','جرّب هذه الميزة وأخبرني هل واجهتك مشكلة','أحسنت! استمر 🌟','ادخل المسابقة المباشرة الآن 🎮'];
   box.innerHTML=`<h2 style="margin:0 0 .2rem">🟢 المتصلون الآن <span class="chip ${on.length?'tick':'ghost'}">${on.length}</span></h2>
     <p class="muted" style="font-size:.8rem;margin:.1rem 0 .6rem">من فتح البوابة خلال آخر دقيقة ونصف وهي ظاهرة على شاشته · يتحدث كل 10 ثوانٍ</p>
@@ -59,14 +62,15 @@ function onlRender(){
     ${list.length?`<div class="row" style="justify-content:space-between;align-items:center;margin-bottom:.3rem"><label class="muted" style="font-size:.8rem"><input type="checkbox" ${list.every(r=>ONL.sel.has(String(r.sid)))?'checked':''} onchange="onlSelAll(this.checked)"> تحديد الكل (${list.length})</label><span class="muted" style="font-size:.78rem">${ONL.sel.size} محدد</span></div>
       <div class="onl-list">${list.map(r=>`<label class="onl-row"><input type="checkbox" ${ONL.sel.has(String(r.sid))?'checked':''} onchange="onlSel('${esc(r.sid)}',this.checked)">
         <i class="onl-dot on"></i><span class="onl-n"><b>${esc(r.s.name)}</b><small>${esc(r.s.cls||'')} · متصل ${esc(onlAgo(r.dur))}</small></span>
-        <span class="onl-w">${esc(r.w||'')}</span>${r.signed?'':'<span class="onl-warn" title="لم يدخل برمزه السري — الرسالة الفورية لا تصله">⚠️ بلا رمز</span>'}</label>`).join('')}</div>
+        <span class="onl-w">${esc(r.w||'')}</span></label>`).join('')}</div>
       <div class="onl-send"><div class="onl-tpl">${tpl.map(t=>`<button type="button" class="chip ghost" onclick="document.getElementById('onl-msg').value=${JSON.stringify(t).replace(/"/g,'&quot;')};document.getElementById('onl-msg').focus()">${esc(t)}</button>`).join('')}</div>
-        <textarea id="onl-msg" class="inp" rows="2" maxlength="300" placeholder="رسالة فورية تظهر للطالب نافذةً خلال ثوانٍ، ويرد عليك منها…"></textarea>
+        <textarea id="onl-msg" class="inp" rows="2" maxlength="1000" placeholder="تظهر للطالب نافذةً خلال ثوانٍ وتبقى في رسائله، ورده يصلك في «💬 رسائل الطلاب»…"></textarea>
         <div class="row" style="gap:.4rem;justify-content:flex-end;margin-top:.4rem"><span id="onl-st" class="muted" style="font-size:.8rem;margin-inline-end:auto"></span><button class="btn tick" onclick="onlSend()">📣 أرسل للمحددين</button></div></div>`
     :`<div class="empty" style="padding:1.2rem"><span class="big">🌙</span>لا أحد من طلابك${ONL.cls?' في هذا الفصل':''} في البوابة الآن.</div>`}
     ${recent.length?`<details style="margin-top:.6rem"><summary class="muted" style="cursor:pointer;font-size:.82rem">ظهروا خلال آخر نصف ساعة (${recent.length})</summary><div class="onl-recent">${recent.slice(0,40).map(r=>`<span class="chip ghost" title="${esc(r.w||'')}">${esc(r.s.name)} · ${esc(onlAgo(r.age))}</span>`).join('')}</div></details>`:''}
-    <div class="onl-hist"><b>📨 الرسائل الفورية وردودها (آخر 6 ساعات)</b>${Object.values(groups).length?Object.values(groups).sort((a,b)=>b.at-a.at).slice(0,12).map(g=>`<div class="onl-g"><div class="onl-gh"><span>«${esc(g.body)}»</span><small>${esc(onlAgo(Date.now()-g.at))} · وصلت ${g.items.filter(n=>n.seen_at).length} من ${g.items.length}</small></div>
-      ${g.items.filter(n=>n.reply).map(n=>`<div class="onl-rep ${onlSeenReply(n)?'':'new'}"><b>${esc(name(n.sid))}:</b> ${esc(n.reply)}</div>`).join('')}
+    <div class="onl-hist"><b>📨 رسائلك الفورية (آخر 6 ساعات)</b>${Object.values(groups).length?Object.values(groups).sort((a,b)=>b.at-a.at).slice(0,12).map(g=>`<div class="onl-g"><div class="onl-gh"><span>«${esc(g.body)}»</span><small>${esc(onlAgo(Date.now()-g.at))} · وصلت ${g.items.filter(n=>n.seen_at).length} من ${g.items.length}</small></div>
+      ${reps.filter(x=>x.re===g.mid).map(x=>`<div class="onl-rep ${x.status==='open'?'new':''}"><b>${esc(x.name||name(x.sid))}:</b> ${esc(x.text)}
+        <button type="button" class="btn ghost sm" onclick="onlReplyOpen('${esc(x.id)}')">${x.status==='open'?'✍️ رد عليه':'✓ تم الرد'}</button></div>`).join('')}
       ${g.items.filter(n=>!n.seen_at).length?`<div class="muted" style="font-size:.74rem">⏳ لم تصل بعد: ${g.items.filter(n=>!n.seen_at).map(n=>esc(name(n.sid))).join('، ')}</div>`:''}</div>`).join(''):'<div class="muted" style="font-size:.8rem">لم ترسل رسالة فورية بعد.</div>'}</div>
     <div class="modal-foot"><button class="btn ghost" onclick="closeModal()">إغلاق</button></div>`;
 }
@@ -77,9 +81,10 @@ async function onlSend(){
   if(!ONL.sel.size){ st.textContent='حدّد طالبًا واحدًا على الأقل.'; return; }
   if(!body){ st.textContent='اكتب الرسالة.'; ta.focus(); return; }
   st.textContent='جارٍ الإرسال…';
-  try{ const j=await (await fetch(onlApi()+'/nudge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:getTok(),sids:[...ONL.sel],body})})).json();
+  try{ const j=await (await fetch(onlApi()+'/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:getTok(),title:'رسالة من معلمك',body,type:'message',priority:'normal',audience:'students',
+      recipients:[...ONL.sel].map(id=>{ const s=onlStu(id); return {id,name:s?s.name:''}; }),live:true})})).json();
     if(!j||!j.ok) throw new Error(j&&j.error||'فشل');
-    toast(`📣 أُرسلت إلى ${j.count} — تظهر لهم خلال ثوانٍ`,'good'); ta.value=''; ONL.sel.clear(); await onlLoad(); onlRender();
+    toast(j.live?`📣 أُرسلت إلى ${j.count} — تظهر لهم خلال ثوانٍ وتبقى في رسائلهم`:`📨 وصلت لرسائل ${j.count} — انشر worker.js الأخير لتظهر نافذةً فورية`,'good'); ta.value=''; ONL.sel.clear(); await onlLoad(); onlRender();
   }catch(e){ st.textContent='تعذّر الإرسال: '+(e.message||''); }
 }
 /* تحديث العدّاد: كل 30 ث واللوحة ظاهرة، وفورًا عند العودة إليها */

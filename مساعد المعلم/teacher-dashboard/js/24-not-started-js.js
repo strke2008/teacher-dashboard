@@ -7,6 +7,7 @@ function nsList(){
 }
 /* ═══ 💬 رسائل الطلاب: سؤال أو مشكلة من «راسل معلمك» في البوابة، والرد يصل الطالب في تنبيهاته ═══ */
 let ASKS=null, ASK_CATS={activity:'سؤال عن نشاط',tech:'مشكلة في البوابة',grade:'درجة أو تصحيح',lesson:'استفسار عن الدرس',other:'أخرى'};
+const ASK_REPLY_CAT='↩️ ردّ على رسالتك';
 const ASK_QUICK=['تم حل المشكلة — جرّب الآن ✅','سأشرحها لك في الحصة القادمة إن شاء الله','راجع شرح الدرس في الكتاب ثم أعد المحاولة','فتحت لك محاولة إضافية في النشاط','راجعت درجتك وهي صحيحة','أحسنت على سؤالك 👏 — '];
 const ASK_PUSHED=new Map();
 let ASK_LAST=0;
@@ -42,8 +43,9 @@ function asksOpen(keep){
   if(ASKS===null){ toast('جارٍ جلب الرسائل…'); asksLoad().then(()=>asksOpen()); return; }
   const open=ASKS.filter(x=>x.status==='open'), done=ASKS.filter(x=>x.status!=='open').slice(0,30);
   const card=x=>`<div class="ask-t" id="askc-${thEsc(x.id)}">
-      <div class="ask-t-h">${askNameHTML(x)}<span class="muted">${thEsc(x.cls||'')}</span><span class="ask-cat">${thEsc(ASK_CATS[x.cat]||'')}</span><span class="muted">${askAgo(x.at)}</span></div>
+      <div class="ask-t-h">${askNameHTML(x)}<span class="muted">${thEsc(x.cls||'')}</span><span class="ask-cat">${thEsc((ASK_CATS[x.cat]||(x.cat==='reply'?ASK_REPLY_CAT:''))||'')}</span><span class="muted">${askAgo(x.at)}</span></div>
       ${x.hwTitle?`<div class="muted" style="font-size:.78rem">📚 «${thEsc(x.hwTitle)}»</div>`:''}
+      ${x.reText?`<div class="muted" style="font-size:.78rem">📣 ردًا على رسالتك: «${thEsc(x.reText)}»</div>`:''}
       <div class="ask-t-q">${thEsc(x.text)}</div>
       ${x.status==='open'?`<div class="ask-quick">${ASK_QUICK.map(t=>`<button type="button" onclick="askQuick('${thEsc(x.id)}',this.textContent)">${thEsc(t)}</button>`).join('')}</div>
       <textarea class="inp" id="askr-${thEsc(x.id)}" rows="2" maxlength="1000" placeholder="اكتب ردك… يصل الطالب في تنبيهاته"></textarea>
@@ -67,8 +69,9 @@ function asksCardHTML(){
   if(ASKS===null) return `<div class="td-card askc-card"><div class="td-card-h"><b>💬 رسائل الطلاب</b></div><div class="muted" style="padding:.5rem">⏳ جارٍ الجلب…</div></div>`;
   const open=ASKS.filter(x=>x.status==='open').sort((a,b)=>(a.at||0)-(b.at||0)), done=ASKS.filter(x=>x.status!=='open');
   const item=x=>{ const id=thEsc(x.id), ex=ASK_CARD_OPEN.has(x.id);
-    return `<div class="askc ${ex?'ex':''}"><div class="askc-h">${askNameHTML(x)}<span class="muted">${thEsc(x.cls||'')}</span>${ASK_CATS[x.cat]?`<span class="ask-cat">${thEsc(ASK_CATS[x.cat])}</span>`:''}<span class="muted askc-t">${askAgo(x.at)}</span></div>
+    return `<div class="askc ${ex?'ex':''}"><div class="askc-h">${askNameHTML(x)}<span class="muted">${thEsc(x.cls||'')}</span>${(ASK_CATS[x.cat]||(x.cat==='reply'?ASK_REPLY_CAT:''))?`<span class="ask-cat">${thEsc((ASK_CATS[x.cat]||(x.cat==='reply'?ASK_REPLY_CAT:'')))}</span>`:''}<span class="muted askc-t">${askAgo(x.at)}</span></div>
       ${x.hwTitle?`<div class="muted askc-hw">📚 «${thEsc(x.hwTitle)}»</div>`:''}
+      ${x.reText?`<div class="muted askc-hw">📣 ردًا على رسالتك: «${thEsc(x.reText)}»</div>`:''}
       <div class="askc-q">${thEsc(x.text)}</div>
       ${ex?`<div class="ask-quick">${ASK_QUICK.map(t=>`<button type="button" onclick="askQuick('${id}',this.textContent,'askcr-')">${thEsc(t)}</button>`).join('')}</div>
         <textarea class="inp" id="askcr-${id}" rows="2" maxlength="1000" placeholder="اكتب ردك… يصل الطالب في تنبيهاته" oninput="ASK_DRAFT['${id}']=this.value">${thEsc(ASK_DRAFT[x.id]||'')}</textarea>
@@ -157,7 +160,7 @@ function askFabPanel(){
   const done=Array.isArray(ASKS)?ASKS.filter(x=>x.status!=='open').length:0;
   const item=x=>{ const id=thEsc(x.id);
     return `<div class="askf-it"><div class="askf-h">${askNameHTML(x)}<span class="muted">${thEsc(x.cls||'')}</span><span class="muted askf-t">${askAgo(x.at)}</span></div>
-      ${ASK_CATS[x.cat]||x.hwTitle?`<div class="askf-meta">${ASK_CATS[x.cat]?`<span class="ask-cat">${thEsc(ASK_CATS[x.cat])}</span>`:''}${x.hwTitle?`<span class="muted">📚 «${thEsc(x.hwTitle)}»</span>`:''}</div>`:''}
+      ${(ASK_CATS[x.cat]||(x.cat==='reply'?ASK_REPLY_CAT:''))||x.hwTitle?`<div class="askf-meta">${(ASK_CATS[x.cat]||(x.cat==='reply'?ASK_REPLY_CAT:''))?`<span class="ask-cat">${thEsc((ASK_CATS[x.cat]||(x.cat==='reply'?ASK_REPLY_CAT:'')))}</span>`:''}${x.hwTitle?`<span class="muted">📚 «${thEsc(x.hwTitle)}»</span>`:''}</div>`:''}
       <div class="askf-q">${thEsc(x.text)}</div>
       ${ASKF.ex===x.id?`<div class="ask-quick">${ASK_QUICK.slice(0,4).map(t=>`<button type="button" onclick="askQuick('${id}',this.textContent,'askfr-')">${thEsc(t)}</button>`).join('')}</div>
       <textarea class="inp" id="askfr-${id}" rows="2" maxlength="1000" placeholder="اكتب ردك… يصل الطالب في تنبيهاته" oninput="ASK_DRAFT['${id}']=this.value">${thEsc(ASK_DRAFT[x.id]||'')}</textarea>
