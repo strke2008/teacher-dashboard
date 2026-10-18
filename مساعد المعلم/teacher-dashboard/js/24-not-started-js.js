@@ -156,7 +156,7 @@ function askFabToggle(on){
 /* 💬 صندوق المحادثات العائم: كل ما بينك وبين كل طالب في خيط واحد —
    أسئلته من «راسل معلمك» وردودك عليها، ورسائلك الخاصة له (kind:'t') وردوده عليها. مصدر واحد: ASKS.
    ردك في خيط فيه سؤال مفتوح = رد على السؤال (/ask-reply)؛ وإلا = رسالة خاصة جديدة (/messages chat+live).
-   الطالب المتصل الآن يراها نافذةً خلال ثوانٍ، وغير المتصل يجدها في رسائله ومعها إشعار. */
+   الطالب المتصل الآن يرى تنبيهًا أحمر على صندوقه العائم خلال ثوانٍ، وغير المتصل يجدها في رسائله ومعها إشعار. */
 function chStu(sid){ return (STUDENTS||[]).find(s=>String(s.id)===String(sid))||null; }
 function chOn(sid){ try{ return typeof onlRows==='function'&&onlRows().on.some(r=>String(r.sid)===String(sid)); }catch(e){ return false; } }
 function chThreads(){
@@ -194,7 +194,7 @@ function askFabPanel(){
         <button type="button" class="askf-x" onclick="askFabToggle(false)" aria-label="إغلاق">✕</button></div>
       <div class="askf-list ch-thread" id="ch-thread">${B.length?B.map(m=>`<div class="ch-b ${m.who}${m.open?' open':''}">${m.ctx?`<small class="ch-ctx">${thEsc(m.ctx)}</small>`:''}<div>${thEsc(m.text)}</div>
           <small class="ch-t">${chTime(m.at)}${m.who==='t'&&m.seen?' · 👁️ قرأها':''}${m.open?' · ⏳ ينتظر ردك':''}</small></div>`).join('')
-        :`<div class="askf-empty">💬 ابدأ محادثة مع ${thEsc(nm)}<small>${on?'متصل الآن — تظهر له رسالتك نافذةً خلال ثوانٍ':'تصله في رسائله ومعها إشعار، وتظهر له نافذةً أول ما يفتح البوابة'}</small></div>`}</div>
+        :`<div class="askf-empty">💬 ابدأ محادثة مع ${thEsc(nm)}<small>${on?'متصل الآن — يظهر له تنبيه أحمر على صندوق المحادثة خلال ثوانٍ':'تصله في رسائله ومعها إشعار، وتظهر في صندوق محادثته أول ما يفتح البوابة'}</small></div>`}</div>
       <div class="ch-comp">${hasOpen?`<div class="ask-quick">${ASK_QUICK.slice(0,4).map(q=>`<button type="button" onclick="askQuick('${id}',this.textContent,'chr-')">${thEsc(q)}</button>`).join('')}</div>`:''}
         <div class="ch-row"><textarea class="inp" id="chr-${id}" rows="2" maxlength="1000" placeholder="${hasOpen?'ردك على سؤاله…':on?'رسالة خاصة — تظهر له فورًا…':'رسالة خاصة — تصله في رسائله…'}" oninput="ASK_DRAFT['ch:${id}']=this.value"
           onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();chSend('${id}')}">${thEsc(ASK_DRAFT['ch:'+sid]||'')}</textarea>

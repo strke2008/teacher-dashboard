@@ -2,7 +2,7 @@
 /* ═════════ 🟢 المتصلون الآن + 📣 الرسالة الفورية ═════════
    بوابة الطالب ترسل نبضًا كل ~30 ث وهي ظاهرة (/presence): نعرض هنا من متصل الآن وماذا يفعل.
    الرسالة الفورية ليست نظامًا مستقلًا: رسالة عادية (/messages) تُحفظ في رسائل الطالب ويصله إشعارها،
-   ومعها live:true فتظهر للمتصل نافذةً خلال ثوانٍ. ورده يصل «💬 رسائل الطلاب» (ASKS، re = معرّف الرسالة)
+   ومعها live:true فيرى المتصل تنبيهًا على صندوقه العائم خلال ثوانٍ. ورده يصل «💬 رسائل الطلاب» (ASKS، re = معرّف الرسالة)
    ونرد عليه من هناك كأي رسالة طالب. هنا نعرض فقط حالة التسليم والردود المرتبطة بكل رسالة. */
 const ONL={data:null,at:0,busy:false,sel:new Set(),cls:'',open:false,timer:0};
 function onlApi(){ return (typeof getApi==='function'?getApi():'').replace(/\/+$/,''); }
@@ -62,7 +62,7 @@ function onlRender(){
         <i class="onl-dot on"></i><span class="onl-n"><b>${esc(r.s.name)}</b><small>${esc(r.s.cls||'')} · متصل ${esc(onlAgo(r.dur))}</small></span>
         <span class="onl-w">${esc(r.w||'')}</span><button type="button" class="btn ghost sm" title="محادثة خاصة" onclick="event.preventDefault();closeModal();chOpen('${esc(r.sid)}')">💬</button></label>`).join('')}</div>
       <div class="onl-send"><div class="onl-tpl">${tpl.map(t=>`<button type="button" class="chip ghost" onclick="document.getElementById('onl-msg').value=${JSON.stringify(t).replace(/"/g,'&quot;')};document.getElementById('onl-msg').focus()">${esc(t)}</button>`).join('')}</div>
-        <textarea id="onl-msg" class="inp" rows="2" maxlength="1000" placeholder="تظهر للطالب نافذةً خلال ثوانٍ وتبقى في رسائله، ورده يصلك في «💬 رسائل الطلاب»…"></textarea>
+        <textarea id="onl-msg" class="inp" rows="2" maxlength="1000" placeholder="تصل لصندوق محادثة الطالب خلال ثوانٍ وتبقى في رسائله، ورده يصلك في «💬 رسائل الطلاب»…"></textarea>
         <div class="row" style="gap:.4rem;justify-content:flex-end;margin-top:.4rem"><span id="onl-st" class="muted" style="font-size:.8rem;margin-inline-end:auto"></span><button class="btn tick" onclick="onlSend()">📣 أرسل للمحددين</button></div></div>`
     :`<div class="empty" style="padding:1.2rem"><span class="big">🌙</span>لا أحد من طلابك${ONL.cls?' في هذا الفصل':''} في البوابة الآن.</div>`}
     ${recent.length?`<details style="margin-top:.6rem"><summary class="muted" style="cursor:pointer;font-size:.82rem">ظهروا خلال آخر نصف ساعة (${recent.length})</summary><div class="onl-recent">${recent.slice(0,40).map(r=>`<span class="chip ghost" title="${esc(r.w||'')}">${esc(r.s.name)} · ${esc(onlAgo(r.age))}</span>`).join('')}</div></details>`:''}
@@ -82,7 +82,7 @@ async function onlSend(){
   try{ const j=await (await fetch(onlApi()+'/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:getTok(),title:'رسالة من معلمك',body,type:'message',priority:'normal',audience:'students',
       recipients:[...ONL.sel].map(id=>{ const s=onlStu(id); return {id,name:s?s.name:''}; }),live:true})})).json();
     if(!j||!j.ok) throw new Error(j&&j.error||'فشل');
-    toast(j.live?`📣 أُرسلت إلى ${j.count} — تظهر لهم خلال ثوانٍ وتبقى في رسائلهم`:`📨 وصلت لرسائل ${j.count} — انشر worker.js الأخير لتظهر نافذةً فورية`,'good'); ta.value=''; ONL.sel.clear(); await onlLoad(); onlRender();
+    toast(j.live?`📣 أُرسلت إلى ${j.count} — تظهر لهم خلال ثوانٍ وتبقى في رسائلهم`:`📨 وصلت لرسائل ${j.count} — انشر worker.js الأخير لتصلهم فورًا`,'good'); ta.value=''; ONL.sel.clear(); await onlLoad(); onlRender();
   }catch(e){ st.textContent='تعذّر الإرسال: '+(e.message||''); }
 }
 /* تحديث العدّاد: كل 30 ث واللوحة ظاهرة، وفورًا عند العودة إليها */

@@ -324,7 +324,7 @@ function cleanStudentPrefs(o) {
    بوابة الطالب ترسل نبضًا كل ~30 ث ما دامت ظاهرة على الشاشة (sid + ما يفعله الآن)، فتعرف اللوحة من متصل الآن.
    النبض في D1 لا KV (حد الكتابة اليومي في KV صغير)، ولا يقرأ KV إطلاقًا.
    لا نظام رسائل ثانٍ هنا: «الرسالة الفورية» رسالة عادية من /messages (تُحفظ في رسائل الطالب ويصله إشعارها)
-   مع live:true، فيُسجَّل لها في D1 سطر تسليم لكل طالب، ويأخذها الطالب المتصل في رد نبضه التالي فتظهر له نافذةً.
+   مع live:true، فيُسجَّل لها في D1 سطر تسليم لكل طالب، ويأخذها الطالب المتصل في رد نبضه التالي فتظهر في صندوقه العائم بتنبيه أحمر.
    ورد الطالب منها يذهب إلى «رسائل الطلاب» (/ask مع re = معرّف الرسالة) كأي سؤال، ويرد عليه المعلم من هناك. */
 const PRES_ONLINE_MS = 90000, PRES_LIVE_TTL = 6 * 3600000;
 const _presReady = new WeakMap();
@@ -5586,7 +5586,7 @@ export default {
           await env.HW.put(identityKey('msg:', st), JSON.stringify(arr), { expirationTtl: 60 * 60 * 24 * 180 });
           await dropLegacy(env, 'msg:', st);
           try { const rev = parseInt(await env.HW.get('meta:rev'), 10) || 0; await env.HW.put('meta:rev', String(rev + 1)); } catch {}
-          // 📣 المتصل الآن يرى الرد نافذةً خلال ثوانٍ ويرد منها (استمرار المحادثة)
+          // 📣 المتصل الآن يرى الرد في صندوقه العائم خلال ثوانٍ (استمرار المحادثة)
           if (st.id && /^[\w-]{1,64}$/.test(String(st.id)) && await presReady(env).catch(() => false))
             await env.DB.prepare('INSERT OR IGNORE INTO livemsg (mid, sid, title, body, at) VALUES (?1, ?2, ?3, ?4, ?5)').bind(id, String(st.id), msg.title, reply, now).run().catch(() => {});
           if (st.id) notifyStudents(env, ctx, new Set([String(st.id)]), { title: '📩 ردّ معلمك على سؤالك', body: reply.slice(0, 140), tag: `ask-${q.id}`,
@@ -5686,7 +5686,7 @@ export default {
           cat: '', hw: '', hwTitle: '', text: body, at: now, status: 'closed', closedAt: now, reply: '', repliedAt: 0 }));
         all.unshift(...chat); await askSave(env, all);
       }
-      // 📣 فورية: الطالب المتصل يراها نافذةً خلال ثوانٍ (عبر نبض الحضور)، وتبقى في رسائله كأي رسالة
+      // 📣 فورية: الطالب المتصل يرى تنبيهها على صندوقه العائم خلال ثوانٍ (عبر نبض الحضور)، وتبقى في رسائله كأي رسالة
       let live = 0;
       if (b.live && !(visibleFrom && new Date(visibleFrom).getTime() > Date.now()) && await presReady(env).catch(() => false)) {
         const sids = [...new Set(delivered.map(x => String(x.sid || '')).filter(x => /^[\w-]{1,64}$/.test(x)))], now = Date.now();

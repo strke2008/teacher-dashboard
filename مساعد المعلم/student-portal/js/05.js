@@ -128,7 +128,7 @@ async function myAskLoad(){
   try{ const r=await fetch(askApi()+'/ask-mine?'+new URLSearchParams(w).toString(),{cache:'no-store'}); const j=await r.json();
     if(j&&j.ok){ ASK_ROWS=askMergePushed(j.rows||[]); ASK_ROWS.forEach(x=>{ if(x.fresh) ASK_UI.fresh.add(x.id); }); if(j.keepDays) ASK_META.keepDays=j.keepDays; askDropNotices(j.gone); if(j.cats) ASK_META={...ASK_META,cats:j.cats,maxLen:j.maxLen||600,maxOpen:j.maxOpen||3}; ASK_META.mode=j.mode||'card'; } }catch(e){}
   if(String(mySid||'')!==w.sid) return;
-  askRender(); try{ stuFabRender(); if(SFAB.open){ stuFabPanel(); ASK_ROWS.forEach(x=>{ if(sfabNew(x)) SFAB.seen.add(x.id); }); sfabSaveSeen(); stuFabRender(); } }catch(e){}
+  askRender(); try{ stuFabRender(); if(SFAB.open){ stuFabPanel(); sfabSeenAll(); stuFabRender(); } }catch(e){}
 }
 function askRender(){
   const box=document.getElementById('space-ask'); if(!box) return;
@@ -264,11 +264,17 @@ async function myPlanLoad(){
 
 /* ═══ 💬 زر «راسل معلمك» العائم: يُظهره المعلم من لوحته للجميع.
    يظهر في الصفحة الرئيسية فقط — يختفي أثناء حل نشاط أو لعبة أو مسابقة أو أي نافذة، حتى لا يعيق الطالب. ═══ */
-const SFAB={open:false,shown:new Set(),seen:new Set((()=>{ try{ return JSON.parse(localStorage.getItem('sfab_seen_v1')||'[]'); }catch(e){ return []; } })())};
+const SFAB={open:false,live:new Map(),seen:new Set((()=>{ try{ return JSON.parse(localStorage.getItem('sfab_seen_v1')||'[]'); }catch(e){ return []; } })())};
 function sfabSaveSeen(){ try{ localStorage.setItem('sfab_seen_v1',JSON.stringify([...SFAB.seen].slice(-80))); }catch(e){} }
-/* رسالة من المعلم لم تُفتح بعد: رسالته الخاصة (kind:t) أو رده الجديد */
-function sfabNew(x){ return !SFAB.seen.has(x.id)&&!SFAB.shown.has(x.kind==='t'?x.mid:x.rmid)&&(x.kind==='t'||ASK_UI.fresh.has(x.id)); }
-function sfabHasTeacher(){ return ASK_ROWS.some(x=>x.kind==='t'||x.reply); }
+/* ما وصل للتو مع نبض الحضور يظهر في الصندوق فورًا (SFAB.live) حتى تصل نسخته من الخادم — قراءته قد تتأخر دقيقة */
+function sfabRows(){ const have=new Set(ASK_ROWS.flatMap(x=>[x.mid,x.rmid]).filter(Boolean));
+  [...SFAB.live.keys()].forEach(m=>{ if(have.has(m)) SFAB.live.delete(m); });
+  return ASK_ROWS.concat([...SFAB.live.values()]); }
+/* رسالة من المعلم لم تُفتح بعد: رسالته الخاصة (kind:t) أو رده الجديد — تُعرف بمعرّف رسالته فلا تعود «جديدة» حين تصل نسختها من الخادم */
+function sfabMid(x){ return x.kind==='t'?x.mid:x.rmid; }
+function sfabNew(x){ return !SFAB.seen.has(x.id)&&!SFAB.seen.has('m:'+sfabMid(x))&&(x.kind==='t'||ASK_UI.fresh.has(x.id)); }
+function sfabSeenAll(){ sfabRows().forEach(x=>{ if(sfabNew(x)){ SFAB.seen.add(x.id); if(sfabMid(x)) SFAB.seen.add('m:'+sfabMid(x)); } }); sfabSaveSeen(); }
+function sfabHasTeacher(){ return sfabRows().some(x=>x.kind==='t'||x.reply); }
 function stuFabWanted(){
   // يظهر إن اختاره المعلم، أو متى كان بينه وبين الطالب محادثة (رسالة أو رد من المعلم)
   if(ASK_META.mode!=='fab'&&ASK_META.mode!=='both'&&!sfabHasTeacher()) return false;
@@ -283,7 +289,7 @@ function stuFabRender(){
   let b=document.getElementById('sfab-btn');
   if(!stuFabWanted()){ if(b) b.remove(); if(SFAB.open){ SFAB.open=false; document.getElementById('sfab-pan')?.remove(); } return; }
   if(!b){ b=document.createElement('button'); b.type='button'; b.id='sfab-btn'; b.className='sfab-btn'; b.setAttribute('aria-label','راسل معلمك'); b.onclick=()=>stuFabToggle(); document.body.appendChild(b); }
-  const fresh=ASK_ROWS.filter(sfabNew).length;
+  const fresh=sfabRows().filter(sfabNew).length;
   const html=`<span>💬</span>${fresh?`<b class="sfab-n">${fresh}</b>`:''}`;
   if(b.innerHTML!==html) b.innerHTML=html;
   b.title=fresh?`${fresh===1?'رسالة جديدة':fresh+' رسائل جديدة'} من معلمك`:'محادثتك مع معلمك';
@@ -292,13 +298,13 @@ function stuFabRender(){
 function stuFabToggle(on){
   SFAB.open=on===undefined?!SFAB.open:!!on;
   document.getElementById('sfab-pan')?.remove();
-  if(SFAB.open){ ASK_ROWS.forEach(x=>{ if(sfabNew(x)) SFAB.seen.add(x.id); }); sfabSaveSeen(); stuFabPanel(); }
+  if(SFAB.open){ sfabSeenAll(); stuFabPanel(); }
   stuFabRender();
 }
 /* 💬 محادثتك مع معلمك: خيط واحد — أسئلتك وردوده ورسائله الخاصة وردودك عليها */
 function sfabBubbles(){
   const out=[];
-  ASK_ROWS.forEach(x=>{
+  sfabRows().forEach(x=>{
     if(x.kind==='t') out.push({who:'t',text:x.text,at:x.at,mid:x.mid});
     else { out.push({who:'me',text:x.text,at:x.at,open:x.status==='open'}); if(x.reply) out.push({who:'t',text:x.reply,at:x.repliedAt||x.at,mid:x.rmid}); }
   });
@@ -370,10 +376,9 @@ addEventListener('focus',()=>{ if(Date.now()-LIVE_REF.at>15000) portalLiveRefres
 /* 🟢 الحضور + 📣 الرسالة الفورية من المعلم
    نبض كل ~30 ث ما دامت البوابة ظاهرة (لا يُرسل والصفحة في الخلفية): يعرف المعلم من متصل الآن وماذا يفعل.
    رد النبض يحمل رسائل المعلم الفورية فتظهر نافذة فوق كل شيء، ويرد الطالب منها مباشرة. */
-const PRES={t:0,busy:false,q:[],open:false};
-/* ↩️ رد الطالب على رسالة معلمه من «محادثاتك»: نفس نافذة الرسالة الفورية */
-function askReplyTo(mid,id){ const x=(ASK_ROWS||[]).find(r=>r.id===id); if(!x||!mid) return;
-  PRES.q.unshift({mid,title:'رسالة من معلمك',body:x.kind==='t'?x.text:x.reply,at:x.kind==='t'?x.at:x.repliedAt}); presNext(); setTimeout(()=>document.querySelector('.pres-r')?.focus(),60); }
+const PRES={t:0,busy:false};
+/* ↩️ رد الطالب على رسالة معلمه من «محادثاتك»: يفتح الصندوق العائم على المحادثة */
+function askReplyTo(){ stuFabToggle(true); setTimeout(()=>document.getElementById('sfab-txt')?.focus(),60); }
 function presWhere(){
   try{ if(typeof LIVE!=='undefined'&&LIVE&&LIVE.cur&&!LIVE.done) return '🎮 في المسابقة المباشرة'; }catch(e){}
   const vis=id=>{ const e=document.getElementById(id); return !!(e&&!e.classList.contains('hide')&&e.offsetParent!==null); };
@@ -388,33 +393,12 @@ async function presPing(){
     const api=((typeof HW!=='undefined'&&HW&&HW.api)||API||'').replace(/\/+$/,''); if(!api) return;
     const r=await fetch(api+'/presence',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sid:mySid,w:presWhere()})});
     const j=await r.json().catch(()=>null);
-    const lv=(j&&Array.isArray(j.live)?j.live:[]); lv.forEach(n=>PRES.q.push(n)); presNext(); if(lv.length) setTimeout(()=>{ try{ myAskLoad(); }catch(e){} },1500);
+    const lv=(j&&Array.isArray(j.live)?j.live:[]);
+    if(lv.length){ lv.forEach(n=>{ if(n&&n.mid) SFAB.live.set(n.mid,{id:'lv-'+n.mid,kind:'t',mid:n.mid,text:String(n.body||''),at:Number(n.at)||Date.now(),status:'closed'}); });
+      try{ navigator.vibrate&&navigator.vibrate([120,60,120]); }catch(e){}
+      try{ stuFabRender(); if(SFAB.open){ stuFabPanel(); sfabSeenAll(); stuFabRender(); } }catch(e){}
+      setTimeout(()=>{ try{ myAskLoad(); }catch(e){} },1500); }
   }catch(e){} finally{ PRES.busy=false; }
-}
-function presNext(){
-  if(PRES.open||!PRES.q.length) return;
-  const n=PRES.q.shift(); PRES.open=true; if(n.mid) SFAB.shown.add(n.mid);
-  const ov=document.createElement('div'); ov.className='pres-ov'; ov.setAttribute('role','dialog'); ov.setAttribute('aria-modal','true');
-  ov.innerHTML=`<div class="pres-card"><div class="pres-h">📣 رسالة من معلمك</div><b class="pres-ti"></b><p class="pres-b"></p><small class="pres-t"></small>
-    <textarea class="pres-r" rows="2" maxlength="600" placeholder="اكتب ردّك لمعلمك (اختياري)"></textarea><div class="pres-msg" aria-live="polite"></div>
-    <div class="pres-a"><button type="button" class="pres-send">إرسال الرد</button><button type="button" class="pres-ok">حسنًا</button></div></div>`;
-  const ti=String(n.title||''); if(ti&&ti!=='رسالة من معلمك') ov.querySelector('.pres-ti').textContent=ti; else ov.querySelector('.pres-ti').remove();
-  ov.querySelector('.pres-b').textContent=String(n.body||'');
-  try{ ov.querySelector('.pres-t').textContent=new Date(Number(n.at)).toLocaleTimeString('ar-SA',{hour:'numeric',minute:'2-digit'}); }catch(e){}
-  const close=()=>{ ov.remove(); PRES.open=false; setTimeout(presNext,300); };
-  ov.querySelector('.pres-ok').onclick=close;
-  ov.querySelector('.pres-send').onclick=async()=>{
-    const ta=ov.querySelector('.pres-r'), msg=ov.querySelector('.pres-msg'), text=ta.value.trim();
-    if(!text){ msg.textContent='اكتب ردّك أولًا'; ta.focus(); return; }
-    msg.textContent='جارٍ الإرسال…';
-    try{ const api=((typeof HW!=='undefined'&&HW&&HW.api)||API||'').replace(/\/+$/,'');
-      // الرد يدخل «راسل معلمك» نفسه: يراه المعلم في رسائل الطلاب، ويعود رده لك هناك
-      const j=await (await fetch(api+'/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...askWho(),re:n.mid,text})})).json();
-      if(j&&j.ok){ msg.textContent='✓ وصل ردّك لمعلمك'; try{ myAskLoad(); }catch(e){} setTimeout(close,900); } else msg.textContent=(j&&j.error&&/[\u0600-\u06FF]/.test(j.error))?j.error:'تعذّر الإرسال — أعد المحاولة';
-    }catch(e){ msg.textContent='تعذّر الإرسال — تحقق من الاتصال'; }
-  };
-  document.body.appendChild(ov);
-  try{ navigator.vibrate&&navigator.vibrate([120,60,120]); }catch(e){}
 }
 setInterval(()=>{ if(!document.hidden&&Date.now()-PRES.t>28000) presPing(); },5000);
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&Date.now()-PRES.t>5000) presPing(); });
