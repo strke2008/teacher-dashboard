@@ -5625,10 +5625,13 @@ export default {
           // رد واحد لكل سؤال: تعديل الرد أو إعادة إرساله يستبدل رسالته السابقة لا يكررها
           const prevIds = new Set((q.msgIds || []).map(String));
           q.msgIds = [id]; await askSave(env, all);
-          let arr = (await readMessages(env, st)).filter(m => !(m && m.type === 'reply' && prevIds.has(String(m.id))));
-          arr.unshift(msg); arr = arr.slice(0, 40);
-          await env.HW.put(identityKey('msg:', st), JSON.stringify(arr), { expirationTtl: 60 * 60 * 24 * 180 });
-          await dropLegacy(env, 'msg:', st);
+          // ردك في الدردشة يبقى في صندوق المحادثة؛ رد السؤال العادي يصل تنبيهاته كما كان
+          if (q.cat !== 'reply') {
+            let arr = (await readMessages(env, st)).filter(m => !(m && m.type === 'reply' && prevIds.has(String(m.id))));
+            arr.unshift(msg); arr = arr.slice(0, 40);
+            await env.HW.put(identityKey('msg:', st), JSON.stringify(arr), { expirationTtl: 60 * 60 * 24 * 180 });
+            await dropLegacy(env, 'msg:', st);
+          }
           try { const rev = parseInt(await env.HW.get('meta:rev'), 10) || 0; await env.HW.put('meta:rev', String(rev + 1)); } catch {}
           // 📣 المتصل الآن يرى الرد في صندوقه العائم خلال ثوانٍ (استمرار المحادثة)
           if (st.id && /^[\w-]{1,64}$/.test(String(st.id)) && await presReady(env).catch(() => false))
@@ -5690,11 +5693,14 @@ export default {
         const key = identityKey('msg:', st);
         // اقرأ بالهوية (المعرف ثم الاسم) لا بالمفتاح الجديد وحده — وإلا
         // ضاعت رسائل الطالب القديمة المخزَّنة باسمه عند أول رسالة جديدة.
-        let arr = await readMessages(env, st);
-        arr.unshift(msg);
-        arr = arr.slice(0, 40);
-        await env.HW.put(key, JSON.stringify(arr), { expirationTtl: 60 * 60 * 24 * 180 });
-        await dropLegacy(env, 'msg:', st);
+        // 💬 رسالة الدردشة الخاصة لا تُحفظ في تنبيهات الطالب (تكثر وتزحمها) — مكانها صندوق المحادثة وحده
+        if (!b.chat) {
+          let arr = await readMessages(env, st);
+          arr.unshift(msg);
+          arr = arr.slice(0, 40);
+          await env.HW.put(key, JSON.stringify(arr), { expirationTtl: 60 * 60 * 24 * 180 });
+          await dropLegacy(env, 'msg:', st);
+        }
         count++;
         delivered.push({ sid: st.id || '', name: st.name || String(r.name || ''), cls: st.cls || '' });
       }
@@ -5719,7 +5725,7 @@ export default {
           title: lead + (type === 'exam' ? 'تذكير اختبار: ' : 'رسالة من معلمك: ') + title.slice(0, 70),
           body: (type === 'exam' && examDate && !body.includes('⟨EX⟩') ? `📅 ${examDate}\n` : '') + body.replace(/⟨(WK|EX)⟩[\s\S]*$/, '').trim().slice(0, 140),
           tag: `msg-${id}`,
-          data: { type: 'message', id, url: './?open=notices' }
+          data: { type: 'message', id, url: b.chat ? './?open=ask' : './?open=notices' }
         }, (await sha256Hex(`msg|${id}`)).slice(0, 32));
       }
       // 💬 محادثة خاصة: تُسجَّل رسالة المعلم في «رسائل الطلاب» نفسها (kind:'t') فتظهر في محادثته مع الطالب
