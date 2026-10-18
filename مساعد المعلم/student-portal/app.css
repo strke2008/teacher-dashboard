@@ -1845,3 +1845,10 @@ a.rmd-go{text-decoration:none;display:inline-block;background:linear-gradient(#1
   html.chat-open,html.chat-open body{overflow:hidden!important}
   html.chat-open .sfab-btn{display:none!important}
 }
+
+/* 📱 خلف لوحة المفاتيح (شريطها شفاف في iOS) لا تظهر الصفحة، وبلا هامش الشريط السفلي والكيبورد ظاهر */
+@media screen and (max-width:700px){
+  html.chat-open::after{content:'';position:fixed;left:0;right:0;top:-50vh;bottom:-50vh;background:#F6F8FC;z-index:2147481999}
+  html.kb-open .sfab-pan .sfab-foot{padding-bottom:.45rem}
+  html.kb-open .sfab-chat-on{display:none}
+}

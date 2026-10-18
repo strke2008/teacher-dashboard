@@ -161,6 +161,7 @@ function askFabToggle(on){
 /* 📱 على الجوال يملأ الصندوق الشاشة الظاهرة فوق لوحة المفاتيح (visualViewport) — مثل تطبيقات المحادثة */
 function chVV(){ const vv=window.visualViewport, r=document.documentElement.style; if(!vv) return;
   r.setProperty('--vvh',Math.round(vv.height)+'px'); r.setProperty('--vvt',Math.round(vv.offsetTop)+'px');
+  document.documentElement.classList.toggle('kb-open',window.innerHeight-vv.height>120);   // لوحة المفاتيح ظاهرة
   const th=document.getElementById('ch-thread'); if(th&&document.activeElement&&/^chr-/.test(document.activeElement.id||'')) th.scrollTop=th.scrollHeight; }
 if(window.visualViewport){ visualViewport.addEventListener('resize',chVV); visualViewport.addEventListener('scroll',chVV); }
 function chStu(sid){ return (STUDENTS||[]).find(s=>String(s.id)===String(sid))||null; }

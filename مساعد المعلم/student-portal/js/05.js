@@ -297,6 +297,7 @@ function stuFabRender(){
 /* 📱 على الجوال يملأ صندوق المحادثة الشاشة الظاهرة فوق لوحة المفاتيح */
 function sfabVV(){ const vv=window.visualViewport, r=document.documentElement.style; if(!vv) return;
   r.setProperty('--vvh',Math.round(vv.height)+'px'); r.setProperty('--vvt',Math.round(vv.offsetTop)+'px');
+  document.documentElement.classList.toggle('kb-open',window.innerHeight-vv.height>120);   // لوحة المفاتيح ظاهرة
   const th=document.getElementById('sfab-thread'); if(th&&document.activeElement&&document.activeElement.id==='sfab-txt') th.scrollTop=th.scrollHeight; }
 if(window.visualViewport){ visualViewport.addEventListener('resize',sfabVV); visualViewport.addEventListener('scroll',sfabVV); }
 function stuFabToggle(on){
