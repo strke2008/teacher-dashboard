@@ -1732,15 +1732,20 @@ async function ctLevels(box, force){
   const tone={ 'متقن':'tick','قريب من الإتقان':'warn','يحتاج دعم':'bad' };
   const order=x=>!x.l.measured?3:x.l.status==='يحتاج دعم'?0:x.l.status==='قريب من الإتقان'?1:2;
   rows.sort((a,b)=>order(a)-order(b)||((a.l.rate??999)-(b.l.rate??999)));
+  // 🔎 بطاقات العدّ مرشِّحات: الضغط على «يحتاج دعم» يعرض هؤلاء فقط (والضغط ثانيةً يلغي)
+  const F=window._ctLvF||'', shown=F?rows.filter(x=>F==='__un'?!x.l.measured:x.l.status===F):rows, tot=Math.max(1,rows.length);
+  const kpi=(key,label,c,tn)=>`<button type="button" class="ct-kpi ${tn||''} ${F===key?'on':''}" onclick="window._ctLvF=${JSON.stringify(F===key?'':key).replace(/"/g,'&quot;')};renderClassTools()" title="اعرض ${label} فقط"><b>${c}</b><span>${label}</span></button>`;
   box.innerHTML=`<div class="row ct-tools">${ctClassSel('ct-lv-cls',cls,"window._ctLvCls=this.value;renderClassTools()")}
       <input class="inp" type="search" placeholder="🔍 ابحث بالاسم" value="${esc(q)}" oninput="window._ctLvQ=this.value;clearTimeout(window._ctLvT);window._ctLvT=setTimeout(()=>{renderClassTools();setTimeout(()=>{const e=document.querySelector('#ct-body input[type=search]');if(e){e.focus();e.setSelectionRange(e.value.length,e.value.length)}},0)},250)" style="flex:1;min-width:160px">
       <span class="muted" style="font-size:.78rem">الفصل ${sem===1?'الأول':'الثاني'} · الفترة ${per===1?'الأولى':'الثانية'}</span></div>
-    <div class="ct-kpis">${groups.map(g=>`<div class="ct-kpi ${tone[g]}"><b>${cnt(g)}</b><span>${g}</span></div>`).join('')}<div class="ct-kpi"><b>${un}</b><span>لم يُقَس بعد</span></div></div>
+    <div class="ct-kpis lv-kpis">${groups.map(g=>kpi(g,g,cnt(g),tone[g])).join('')}${kpi('__un','لم يُقَس بعد',un,'')}</div>
+    <div class="sk-bar lv-bar" role="img" aria-label="${groups.map(g=>g+' '+cnt(g)).join('، ')}، لم يُقَس ${un}">${cnt('متقن')?`<i class="ok" style="flex:${cnt('متقن')}"></i>`:''}${cnt('قريب من الإتقان')?`<i class="mid" style="flex:${cnt('قريب من الإتقان')}"></i>`:''}${cnt('يحتاج دعم')?`<i class="weak" style="flex:${cnt('يحتاج دعم')}"></i>`:''}${un?`<i class="un" style="flex:${un}"></i>`:''}</div>
+    <div class="sk-leg" style="margin:.3rem 0 .2rem"><span class="ok">متقن ${Math.round(cnt('متقن')/tot*100)}%</span><span class="mid">قريب ${Math.round(cnt('قريب من الإتقان')/tot*100)}%</span><span class="weak">يحتاج دعم ${Math.round(cnt('يحتاج دعم')/tot*100)}%</span>${F?`<span class="muted">يُعرض: ${F==='__un'?'لم يُقَس بعد':esc(F)} فقط — اضغط البطاقة ثانيةً لعرض الكل</span>`:''}</div>
     <div class="muted" style="font-size:.76rem;margin:.2rem 0 .6rem">من نسبة الإجابات الصحيحة في أنشطة الفترة: ${M.excellent}% فأكثر «متقن» · ${M.near}%–${M.excellent-1}% «قريب من الإتقان» · أقل «يحتاج دعم». الاتجاه: أول أنشطة الفترة مقابل آخرها.</div>
     ${!cls?ctClassCompare():''}
     ${(()=>{const dn=rows.filter(x=>x.l.measured&&x.s&&ctG(x.s.id).trend&&ctG(x.s.id).trend.measurable&&ctG(x.s.id).trend.change<=-10&&x.l.status!=='يحتاج دعم');return dn.length?`<div class="ct-warn" style="margin-bottom:.6rem">⚠️ يتراجعون قبل أن يصلوا «يحتاج دعم»: ${dn.map(x=>ctNameLink(x.s)+' '+ctTrendHTML(ctG(x.s.id).trend)).join(' · ')}</div>`:''})()}
     <div class="ct-table"><table><thead><tr><th>الطالب</th><th>الفصل</th><th>المستوى</th><th>النسبة</th><th>الاتجاه</th><th>الأساس</th><th></th></tr></thead><tbody>
-    ${rows.map(x=>`<tr><td><b>${ctNameLink(x.s)}</b></td><td class="muted">${esc(x.s.cls||'')}</td>
+    ${shown.map(x=>`<tr><td><b>${ctNameLink(x.s)}</b></td><td class="muted">${esc(x.s.cls||'')}</td>
       <td>${x.l.measured?`<span class="chip ${tone[x.l.status]||'ghost'}">${esc(x.l.status||x.l.label||'')}</span>`:'<span class="chip ghost">لم يُقَس</span>'}</td>
       <td>${x.l.measured?`<b>${x.l.rate}%</b>`:'—'}</td><td>${ctTrendHTML(ctG(x.s.id).trend)}</td>
       <td class="muted" style="font-size:.78rem">${x.l.measured?`${x.l.correct} من ${x.l.total} سؤالًا في ${x.l.count} نشاط`:'لم يحل أي نشاط في الفترة'}</td>
@@ -2178,22 +2183,71 @@ function ctTodayHTML(){
     return `<button type="button" class="ct-per ${done(c)?'done':''}" onclick="window._ctRcCls='${esc(c)}';window._ctRcD='${d}';window._ctRcView='day';ctGo('records')" title="افتح سجل ${esc(c)} لليوم">الحصة ${p} · <b>${esc(c)}</b> ${done(c)?'✓ رُصد':'— لم يُرصد'}</button>`; }).join('')}</div>`;
 }
 
-/* ── 🧭 خريطة المهارات: الطالب × المهارة ── */
+/* ── 🧭 خريطة المهارات — ثلاث قراءات للبيانات نفسها:
+   «حسب المهارة» (الافتراضي): بطاقة لكل مهارة من الأضعف، فيها متوسط الفصل وكم أتقنها/قريب/لم يتقن، والقرار المناسب
+     (إعادة شرح للفصل كله · خطة جماعية · طالب واحد · الفصل متمكّن) — بدل جدول أرقام يُفسَّر بالعين.
+   «حسب الطالب»: كل طالب ومهاراته المفقودة كشارات، مرتبًا بالأكثر احتياجًا.
+   «الجدول الكامل»: مصفوفة الطالب × المهارة لمن يريد التفاصيل، بدليل ألوان واضح.
+   الطالب يُحسب في المهارة إذا أجاب عن سؤالين فأكثر فيها؛ الحدود: أتقن ≥ SKILL_TARGET_UI، لم يتقن < SKILL_GAP_UI. ── */
+function ctSkBand(rate){ return rate>=SKILL_TARGET_UI?'ok':rate>=SKILL_GAP_UI?'mid':'weak'; }
+function ctSkChip(name,rate,band,onclick){ return `<button type="button" class="sk-chip ${band}" ${onclick?`onclick="${onclick}"`:''} title="${rate}%">${esc(name)} <b>${rate}%</b></button>`; }
 async function ctSkills(box,force){
   await ctEnsureGrades(force);
   const cls=window._ctSkCls??(ctClasses()[0]||''), roster=ctRoster(cls);
   const all={}; roster.forEach(s=>Object.entries(ctG(s.id).skills||{}).forEach(([k,v])=>{ const a=all[k]||(all[k]={c:0,t:0,n:0}); a.c+=v.c; a.t+=v.t; a.n++; }));
   const skills=Object.keys(all).filter(k=>all[k].t>=3).sort((a,b)=>all[a].c/all[a].t-all[b].c/all[b].t);
-  if(!skills.length){ box.innerHTML=`<div class="row ct-tools">${ctClassSel('ct-sk-cls',cls,"window._ctSkCls=this.value;renderClassTools()",false)}</div><div class="ct-warn">لا توجد أسئلة مصنّفة بالمهارات لهذا الفصل في الفترة. صنّف أسئلة الأنشطة من «🩹 العلاج التلقائي» في تبويب الخطط العلاجية (زر «🏷️ صنّف الآن»).</div>`; return; }
-  const avg=k=>Math.round(all[k].c/all[k].t*100);
-  box.innerHTML=`<div class="row ct-tools">${ctClassSel('ct-sk-cls',cls,"window._ctSkCls=this.value;renderClassTools()",false)}
-      <span class="muted" style="font-size:.78rem">${skills.length} مهارة مرتبة من الأضعف · اللون من الأحمر (ضعيف) إلى الأخضر (متقن) · المهارة التي ضعفت عند معظم الفصل تحتاج إعادة شرح، لا خطة فردية</span></div>
-    <div class="ct-table"><table class="ct-heat"><thead><tr><th>الطالب</th>${skills.map(k=>`<th title="${esc(k)}"><div class="ct-sk-h">${esc(k)}</div></th>`).join('')}</tr>
-      <tr class="ct-avg"><th>متوسط الفصل</th>${skills.map(k=>`<td style="${ctHeat(avg(k))}"><b>${avg(k)}%</b></td>`).join('')}</tr>
-      <tr><th></th>${skills.map(k=>{ const weak=roster.filter(s=>{const v=ctG(s.id).skills?.[k];return v&&v.t>=2&&v.rate<60}); const wide=weak.length>=Math.max(3,roster.length*0.6);
-        return `<td>${weak.length>=2?`<button class="btn ghost sm" title="${wide?'معظم الفصل ضعيف فيها — الأنسب إعادة شرحها للفصل كله':'خطة جماعية لمن هم دون 60% فيها'}" onclick='ctGroupPlan(${JSON.stringify(k)},${JSON.stringify(weak.map(s=>String(s.id)))})'>${wide?'⚠️':'👥'} ${weak.length}</button>`:''}</td>`; }).join('')}</tr></thead><tbody>
+  const tools=`<div class="row ct-tools">${ctClassSel('ct-sk-cls',cls,"window._ctSkCls=this.value;renderClassTools()",false)}`;
+  if(!skills.length){ box.innerHTML=`${tools}</div><div class="ct-warn">لا توجد أسئلة مصنّفة بالمهارات لهذا الفصل في الفترة. صنّف أسئلة الأنشطة من «🩹 العلاج التلقائي» في تبويب الخطط العلاجية (زر «صنّف المهارات»)، أو انشر اختبارًا تشخيصيًا بمهارات.</div>`; return; }
+  const T=SKILL_TARGET_UI, G=SKILL_GAP_UI, first=n=>String(n||'').split(' ').slice(0,2).join(' ');
+  const R=skills.map(k=>{
+    const seen=roster.map(s=>({s,v:ctG(s.id).skills?.[k]})).filter(x=>x.v&&x.v.t>=2).sort((a,b)=>a.v.rate-b.v.rate);
+    const ok=seen.filter(x=>x.v.rate>=T), mid=seen.filter(x=>x.v.rate>=G&&x.v.rate<T), weak=seen.filter(x=>x.v.rate<G);
+    const act=!seen.length?'none':weak.length>=Math.max(3,Math.ceil(seen.length*0.6))?'reteach':weak.length>=2?'group':weak.length===1?'one':'ok';
+    return {k,avg:Math.round(all[k].c/all[k].t*100),t:all[k].t,seen,ok,mid,weak,act};
+  });
+  const view=window._ctSkView||'skill', n=a=>R.filter(r=>a.includes(r.act)).length;
+  const planBtn=(r,label,cls2)=>`<button class="btn ${cls2||'tick'} sm" onclick='ctGroupPlan(${JSON.stringify(r.k)},${JSON.stringify(r.weak.map(x=>String(x.s.id)))})'>${label}</button>`;
+  const actHTML=r=>r.act==='reteach'?`<div class="sk-act reteach"><span>⚠️ <b>${r.weak.length} من ${r.seen.length}</b> لم يتقنوها — الأرجح أن الشرح لم يصل: <b>أعد شرحها للفصل كله</b> ثم قِس من جديد.</span>${planBtn(r,`👥 خطة للـ${r.weak.length}`,'ghost')}</div>`
+    :r.act==='group'?`<div class="sk-act group"><span>👥 <b>${r.weak.length} طلاب</b> لم يتقنوها — يكفيهم تدخّل واحد.</span>${planBtn(r,'＋ خطة جماعية')}</div>`
+    :r.act==='one'?`<div class="sk-act one"><span>👤 طالب واحد لم يتقنها: <b>${esc(first(r.weak[0].s.name))}</b> (${r.weak[0].v.rate}%).</span>${planBtn(r,'＋ خطة فردية','ghost')}</div>`
+    :r.act==='ok'?`<div class="sk-act ok"><span>✅ الفصل متمكّن منها${r.mid.length?` — ${r.mid.length} قريبون يكفيهم تدريب قصير`:''}.</span></div>`
+    :`<div class="sk-act none"><span>لا توجد إجابات كافية بعد (سؤالان لكل طالب على الأقل).</span></div>`;
+  const people=(arr,band)=>arr.map(x=>ctSkChip(first(x.s.name),x.v.rate,band,`ctOpenProfile('${esc(x.s.id)}')`)).join('');
+  const card=r=>{ const tot=Math.max(1,r.seen.length);
+    return `<div class="sk-card ${r.act}">
+      <div class="sk-head"><div class="sk-name"><b>${esc(r.k)}</b><small>${r.seen.length} طالبًا · ${r.t} إجابة</small></div>
+        <div class="sk-avg ${ctSkBand(r.avg)}"><b>${r.avg}%</b><small>متوسط الفصل</small></div></div>
+      <div class="sk-bar" role="img" aria-label="أتقن ${r.ok.length}، قريب ${r.mid.length}، لم يتقن ${r.weak.length}">${r.ok.length?`<i class="ok" style="flex:${r.ok.length}"></i>`:''}${r.mid.length?`<i class="mid" style="flex:${r.mid.length}"></i>`:''}${r.weak.length?`<i class="weak" style="flex:${r.weak.length}"></i>`:''}${r.seen.length?'':'<i class="none" style="flex:1"></i>'}</div>
+      <div class="sk-leg"><span class="ok">أتقن <b>${r.ok.length}</b></span><span class="mid">قريب <b>${r.mid.length}</b></span><span class="weak">لم يتقن <b>${r.weak.length}</b></span><span class="muted">${Math.round(r.ok.length/tot*100)}% من الفصل أتقنها</span></div>
+      ${actHTML(r)}
+      ${r.weak.length||r.mid.length?`<details class="sk-who"><summary>من يحتاجها؟ (${r.weak.length+r.mid.length})</summary><div class="sk-chips">${people(r.weak,'weak')}${people(r.mid,'mid')}</div></details>`:''}
+    </div>`; };
+  const byStudent=()=>{ const rows=roster.map(s=>{ const sk=Object.entries(ctG(s.id).skills||{}).filter(([k,v])=>skills.includes(k)&&v.t>=2);
+      return {s,weak:sk.filter(([,v])=>v.rate<G).sort((a,b)=>a[1].rate-b[1].rate),mid:sk.filter(([,v])=>v.rate>=G&&v.rate<T).sort((a,b)=>a[1].rate-b[1].rate),n:sk.length}; })
+      .sort((a,b)=>b.weak.length-a.weak.length||b.mid.length-a.mid.length);
+    return `<div class="sk-students">${rows.map(x=>`<div class="sk-st ${x.weak.length?'weak':x.mid.length?'mid':x.n?'ok':'none'}">
+      <div class="sk-st-n">${ctNameLink(x.s)}<small>${x.n?(x.weak.length?`${x.weak.length} مهارة لم يتقنها`:x.mid.length?'قريب في بعض المهارات':'✅ أتقن كل مهاراته'):'لم يُقَس بعد'}</small></div>
+      <div class="sk-chips">${x.weak.map(([k,v])=>ctSkChip(k,v.rate,'weak')).join('')}${x.mid.map(([k,v])=>ctSkChip(k,v.rate,'mid')).join('')}</div>
+      ${x.weak.length?`<button class="btn tick sm" onclick="ctPlanStudent('${esc(x.s.id)}')">＋ خطة</button>`:''}</div>`).join('')}</div>`; };
+  const table=()=>`<div class="ct-table"><table class="ct-heat"><thead><tr><th>الطالب</th>${skills.map(k=>`<th title="${esc(k)}"><div class="ct-sk-h">${esc(k)}</div></th>`).join('')}</tr>
+      <tr class="ct-avg"><th>متوسط الفصل</th>${R.map(r=>`<td style="${ctHeat(r.avg)}"><b>${r.avg}%</b></td>`).join('')}</tr>
+      <tr><th>لم يتقنها</th>${R.map(r=>`<td>${r.weak.length?`<b>${r.weak.length}</b>`:'—'}</td>`).join('')}</tr></thead><tbody>
     ${roster.map(s=>`<tr><td>${ctNameLink(s)}</td>${skills.map(k=>{ const v=ctG(s.id).skills?.[k]; return v?`<td style="${ctHeat(v.rate)}" title="${v.c} من ${v.t}">${v.rate}%</td>`:'<td class="muted">—</td>'; }).join('')}</tr>`).join('')}
     </tbody></table></div>`;
+  const tab=(k,l)=>`<button type="button" class="${view===k?'on':''}" onclick="window._ctSkView='${k}';renderClassTools()">${l}</button>`;
+  box.innerHTML=`${tools}<div class="sk-views" role="tablist">${tab('skill','🧩 حسب المهارة')}${tab('student','👤 حسب الطالب')}${tab('table','▦ الجدول الكامل')}</div></div>
+    <div class="sk-sum">
+      <div class="sk-sum-c reteach"><b>${n(['reteach'])}</b><span>⚠️ تحتاج إعادة شرح للفصل</span></div>
+      <div class="sk-sum-c group"><b>${n(['group','one'])}</b><span>👥 تحتاج علاجًا لبعض الطلاب</span></div>
+      <div class="sk-sum-c ok"><b>${n(['ok'])}</b><span>✅ الفصل متمكّن منها</span></div>
+    </div>
+    <div class="sk-legend"><span class="ok">أتقن ${T}% فأكثر</span><span class="mid">قريب ${G}–${T-1}%</span><span class="weak">لم يتقن أقل من ${G}%</span><span class="muted">من إجابات الطلاب في أنشطة الفترة والتشخيصي · الطالب يُحسب في المهارة إذا أجاب عن سؤالين فأكثر فيها</span></div>
+    ${view==='student'?byStudent():view==='table'?table():`<div class="sk-grid">${R.map(card).join('')}</div>`}`;
+}
+/* خطة فردية من «حسب الطالب»: يُختار الطالب في النموذج فتُملأ فجواته تلقائيًا */
+function ctPlanStudent(sid){
+  goTab('plans');
+  setTimeout(()=>{ try{ openPlanForm(); const sel=document.getElementById('pf-student'); if(sel){ sel.value=String(sid); sel.dispatchEvent(new Event('change',{bubbles:true})); } }catch(e){ console.warn(e); } },700);
 }
 function ctGroupPlan(skill,ids){
   goTab('plans');
