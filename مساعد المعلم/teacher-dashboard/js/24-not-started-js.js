@@ -41,7 +41,7 @@ async function asksLoad(){
 function askAgo(t){ const m=Math.round((Date.now()-t)/60000); return m<1?'الآن':m<60?`قبل ${m} د`:m<1440?`قبل ${Math.round(m/60)} س`:`قبل ${Math.round(m/1440)} يوم`; }
 function asksOpen(keep){
   if(ASKS===null){ toast('جارٍ جلب الرسائل…'); asksLoad().then(()=>asksOpen()); return; }
-  const open=ASKS.filter(x=>x.status==='open'), done=ASKS.filter(x=>x.status!=='open').slice(0,30);
+  const open=ASKS.filter(x=>x.status==='open'), done=ASKS.filter(x=>x.status!=='open'&&x.kind!=='t').slice(0,30);
   const card=x=>`<div class="ask-t" id="askc-${thEsc(x.id)}">
       <div class="ask-t-h">${askNameHTML(x)}<span class="muted">${thEsc(x.cls||'')}</span><span class="ask-cat">${thEsc((ASK_CATS[x.cat]||(x.cat==='reply'?ASK_REPLY_CAT:''))||'')}</span><span class="muted">${askAgo(x.at)}</span></div>
       ${x.hwTitle?`<div class="muted" style="font-size:.78rem">📚 «${thEsc(x.hwTitle)}»</div>`:''}
@@ -67,7 +67,7 @@ function asksOpen(keep){
 const ASK_CARD_OPEN=new Set(), ASK_DRAFT={};
 function asksCardHTML(){
   if(ASKS===null) return `<div class="td-card askc-card"><div class="td-card-h"><b>💬 رسائل الطلاب</b></div><div class="muted" style="padding:.5rem">⏳ جارٍ الجلب…</div></div>`;
-  const open=ASKS.filter(x=>x.status==='open').sort((a,b)=>(a.at||0)-(b.at||0)), done=ASKS.filter(x=>x.status!=='open');
+  const open=ASKS.filter(x=>x.status==='open').sort((a,b)=>(a.at||0)-(b.at||0)), done=ASKS.filter(x=>x.status!=='open'&&x.kind!=='t');
   const item=x=>{ const id=thEsc(x.id), ex=ASK_CARD_OPEN.has(x.id);
     return `<div class="askc ${ex?'ex':''}"><div class="askc-h">${askNameHTML(x)}<span class="muted">${thEsc(x.cls||'')}</span>${(ASK_CATS[x.cat]||(x.cat==='reply'?ASK_REPLY_CAT:''))?`<span class="ask-cat">${thEsc((ASK_CATS[x.cat]||(x.cat==='reply'?ASK_REPLY_CAT:'')))}</span>`:''}<span class="muted askc-t">${askAgo(x.at)}</span></div>
       ${x.hwTitle?`<div class="muted askc-hw">📚 «${thEsc(x.hwTitle)}»</div>`:''}
@@ -121,7 +121,7 @@ function nsOpen(){
 }
 
 /* 💬 صندوق رسائل الطلاب العائم: زر ثابت في كل الصفحات عليه عدد الرسائل المفتوحة، يفتح لوحة للرد السريع */
-const ASKF={open:false,seen:0,ex:'',on:(()=>{ try{ return localStorage.getItem('askf_on_v1')==='1'; }catch(e){ return false; } })()};
+const ASKF={open:false,seen:0,ex:'',on:(()=>{ try{ return localStorage.getItem('askf_on_v1')!=='0'; }catch(e){ return true; } })(),view:'',q:''};
 /* اسم الطالب في الرسائل: يفتح ملفه الشامل مباشرة (إن كان في الكشف) */
 function askNameHTML(x){ const ok=(STUDENTS||[]).some(s=>String(s.id)===String(x.sid));
   return ok?`<b class="ask-nm" role="link" tabindex="0" title="افتح ملف الطالب" onclick="ctOpenProfile('${thEsc(x.sid)}')">${thEsc(x.name)}</b>`:`<b>${thEsc(x.name)}</b>`; }
@@ -129,7 +129,7 @@ function askNameHTML(x){ const ok=(STUDENTS||[]).some(s=>String(s.id)===String(x
 function askFabSet(on){ ASKF.on=!!on; try{ localStorage.setItem('askf_on_v1',on?'1':'0'); }catch(e){}
   if(!on){ ASKF.open=false; document.getElementById('askf-pan')?.remove(); document.getElementById('askf-btn')?.remove(); }
   askFabRender(); try{ askCardRender(); }catch(e){} if(document.getElementById('ask-inbox')) try{ asksOpen(true); }catch(e){}
-  toast(on?'📌 ظهر صندوق الرسائل العائم — تصل إليه من أي صفحة':'أُخفي صندوق الرسائل العائم','good'); }
+  if(!arguments[1]) toast(on?'📌 ظهر صندوق المحادثات العائم — تصل إليه من أي صفحة':'أُخفي صندوق المحادثات العائم','good'); }
 function askFabToggleBtn(){ return `<button type="button" class="askf-pin${ASKF.on?' on':''}" onclick="askFabSet(${!ASKF.on})" title="${ASKF.on?'إخفاء الزر العائم':'إظهار زر عائم للرسائل في كل الصفحات'}">📌 ${ASKF.on?'عائم عندي ✓':'عائم عندي'}</button>`; }
 function askFabRender(){
   if(!document.body) return;
@@ -140,8 +140,9 @@ function askFabRender(){
   const open=Array.isArray(ASKS)?ASKS.filter(x=>x.status==='open'):[], n=open.length;
   if(n>ASKF.seen && ASKF.seen>=0 && Array.isArray(ASKS)){ b.classList.remove('ping'); void b.offsetWidth; b.classList.add('ping'); }
   ASKF.seen=n;
-  b.innerHTML=`<span class="askf-ic">💬</span>${n?`<b class="askf-n">${n>99?'99+':n}</b>`:''}`;
-  b.title=n?`${n} ${n===1?'رسالة تنتظر ردك':'رسائل تنتظر ردك'}`:'رسائل الطلاب';
+  const onN=typeof onlRows==='function'?onlRows().on.length:0;
+  b.innerHTML=`<span class="askf-ic">💬</span>${n?`<b class="askf-n">${n>99?'99+':n}</b>`:''}${onN?`<i class="askf-on" title="${onN} متصل الآن"></i>`:''}`;
+  b.title=(n?`${n} ${n===1?'رسالة تنتظر ردك':'رسائل تنتظر ردك'}`:'المحادثات')+(onN?` · ${onN} متصل الآن`:'');
   b.classList.toggle('has',!!n);
   if(ASKF.open) askFabPanel();
 }
@@ -152,30 +153,95 @@ function askFabToggle(on){
   if(ASKS===null) asksLoad();
   askFabPanel(); document.getElementById('askf-btn')?.classList.add('on');
 }
+/* 💬 صندوق المحادثات العائم: كل ما بينك وبين كل طالب في خيط واحد —
+   أسئلته من «راسل معلمك» وردودك عليها، ورسائلك الخاصة له (kind:'t') وردوده عليها. مصدر واحد: ASKS.
+   ردك في خيط فيه سؤال مفتوح = رد على السؤال (/ask-reply)؛ وإلا = رسالة خاصة جديدة (/messages chat+live).
+   الطالب المتصل الآن يراها نافذةً خلال ثوانٍ، وغير المتصل يجدها في رسائله ومعها إشعار. */
+function chStu(sid){ return (STUDENTS||[]).find(s=>String(s.id)===String(sid))||null; }
+function chOn(sid){ try{ return typeof onlRows==='function'&&onlRows().on.some(r=>String(r.sid)===String(sid)); }catch(e){ return false; } }
+function chThreads(){
+  const by=new Map();
+  (Array.isArray(ASKS)?ASKS:[]).forEach(x=>{ const k=String(x.sid||('n:'+x.name)); let t=by.get(k);
+    if(!t){ const s=chStu(x.sid); t={sid:String(x.sid||''),name:s?s.name:x.name,cls:s?s.cls:x.cls,items:[],last:0,open:0}; by.set(k,t); }
+    t.items.push(x); t.last=Math.max(t.last,x.at||0,x.repliedAt||0); if(x.status==='open') t.open++; });
+  return [...by.values()].sort((a,b)=>(b.open>0)-(a.open>0)||b.last-a.last);
+}
+function chBubbles(items){
+  const out=[];
+  items.forEach(x=>{
+    if(x.kind==='t') out.push({who:'t',text:x.text,at:x.at});
+    else { const ctx=[x.cat==='reply'?'':(ASK_CATS[x.cat]||''),x.hwTitle?`📚 «${x.hwTitle}»`:''].filter(Boolean).join(' · ');
+      out.push({who:'s',text:x.text,at:x.at,ctx,open:x.status==='open'});
+      if(x.reply) out.push({who:'t',text:x.reply,at:x.repliedAt||x.at,seen:!!x.seenAt}); }
+  });
+  return out.sort((a,b)=>a.at-b.at);
+}
+function chTime(t){ try{ const d=new Date(t), today=new Date().toDateString()===d.toDateString();
+  return (today?'':d.toLocaleDateString('ar-SA',{day:'numeric',month:'short'})+' · ')+d.toLocaleTimeString('ar-SA',{hour:'numeric',minute:'2-digit'}); }catch(e){ return ''; } }
+function chOpen(sid){ if(!ASKF.on) askFabSet(true,true); ASKF.view=String(sid); ASKF.q=''; askFabToggle(true); setTimeout(()=>document.getElementById('chr-'+sid)?.focus(),60); }
 function askFabPanel(){
   let p=document.getElementById('askf-pan');
   if(!p){ p=document.createElement('div'); p.id='askf-pan'; p.className='askf-pan'; p.setAttribute('role','dialog'); document.body.appendChild(p); }
   const focus=document.activeElement&&p.contains(document.activeElement)?document.activeElement.id:'';
-  const open=Array.isArray(ASKS)?ASKS.filter(x=>x.status==='open').sort((a,b)=>(a.at||0)-(b.at||0)):[];
-  const done=Array.isArray(ASKS)?ASKS.filter(x=>x.status!=='open').length:0;
-  const item=x=>{ const id=thEsc(x.id);
-    return `<div class="askf-it"><div class="askf-h">${askNameHTML(x)}<span class="muted">${thEsc(x.cls||'')}</span><span class="muted askf-t">${askAgo(x.at)}</span></div>
-      ${(ASK_CATS[x.cat]||(x.cat==='reply'?ASK_REPLY_CAT:''))||x.hwTitle?`<div class="askf-meta">${(ASK_CATS[x.cat]||(x.cat==='reply'?ASK_REPLY_CAT:''))?`<span class="ask-cat">${thEsc((ASK_CATS[x.cat]||(x.cat==='reply'?ASK_REPLY_CAT:'')))}</span>`:''}${x.hwTitle?`<span class="muted">📚 «${thEsc(x.hwTitle)}»</span>`:''}</div>`:''}
-      <div class="askf-q">${thEsc(x.text)}</div>
-      ${ASKF.ex===x.id?`<div class="ask-quick">${ASK_QUICK.slice(0,4).map(t=>`<button type="button" onclick="askQuick('${id}',this.textContent,'askfr-')">${thEsc(t)}</button>`).join('')}</div>
-      <textarea class="inp" id="askfr-${id}" rows="2" maxlength="1000" placeholder="اكتب ردك… يصل الطالب في تنبيهاته" oninput="ASK_DRAFT['${id}']=this.value">${thEsc(ASK_DRAFT[x.id]||'')}</textarea>
-      <div class="askf-b"><button type="button" class="btn tick sm" onclick="askSend('${id}',false,'askfr-')">📩 أرسل</button><button type="button" class="btn ghost sm" onclick="ASKF.ex='';askFabPanel()">إلغاء</button></div>`
-      :`<div class="askf-b"><button type="button" class="btn sm" onclick="ASKF.ex='${id}';askFabPanel();setTimeout(()=>document.getElementById('askfr-${id}')?.focus(),30)">✍️ رد</button>
-        <button type="button" class="btn ghost sm" title="حللتها معه في الفصل — لا يُرسل شيء" onclick="askSend('${id}',true)">✓ أُغلق دون رد</button>
-`}</div></div>`; };
-  p.innerHTML=`<div class="askf-top"><b>💬 رسائل الطلاب</b>${open.length?`<span class="chip bad">${open.length} تنتظر ردك</span>`:''}<button type="button" class="askf-x" onclick="askFabToggle(false)" aria-label="إغلاق">✕</button></div>
-    <div class="askf-list">${ASKS===null?'<div class="muted" style="padding:1rem;text-align:center">⏳ جارٍ الجلب…</div>':open.length?open.map(item).join(''):`<div class="askf-empty">🌿 لا رسائل تنتظر ردك${done?`<small>ردَدت على ${done}</small>`:''}</div>`}</div>
-    <div class="askf-foot"><button type="button" class="btn ghost sm" onclick="askFabToggle(false);asksOpen()">كل الرسائل والسابقة</button><button type="button" class="btn ghost sm" onclick="asksLoad()">🔄 تحديث</button><button type="button" class="btn ghost sm" onclick="askFabSet(false)" title="يمكنك إظهاره مجددًا من بطاقة «رسائل الطلاب»">إخفاء الزر</button></div>`;
+  const TH=chThreads(), openN=TH.reduce((a,t)=>a+t.open,0);
+  const foot=`<div class="askf-foot"><button type="button" class="btn ghost sm" onclick="askFabToggle(false);asksOpen()">كل الأسئلة والسابقة</button><button type="button" class="btn ghost sm" onclick="asksLoad()">🔄 تحديث</button><button type="button" class="btn ghost sm" onclick="askFabSet(false)" title="يمكنك إظهاره مجددًا من بطاقة «رسائل الطلاب»">إخفاء الزر</button></div>`;
+  if(ASKF.view){
+    const sid=ASKF.view, s=chStu(sid), t=TH.find(x=>x.sid===sid), on=chOn(sid), id=thEsc(sid), B=chBubbles(t?t.items:[]), hasOpen=!!(t&&t.open);
+    const nm=s?s.name:(t?t.name:'طالب');
+    p.innerHTML=`<div class="askf-top ch-top"><button type="button" class="askf-x" onclick="ASKF.view='';askFabPanel()" aria-label="رجوع">→</button>
+        <div class="ch-who"><b>${s?`<span class="ask-nm" role="link" tabindex="0" onclick="ctOpenProfile('${id}')" title="افتح ملف الطالب">${thEsc(nm)}</span>`:thEsc(nm)}</b>
+        <small>${on?'<i class="onl-dot on"></i> متصل الآن':'غير متصل'}${s&&s.cls?' · '+thEsc(s.cls):''}</small></div>
+        <button type="button" class="askf-x" onclick="askFabToggle(false)" aria-label="إغلاق">✕</button></div>
+      <div class="askf-list ch-thread" id="ch-thread">${B.length?B.map(m=>`<div class="ch-b ${m.who}${m.open?' open':''}">${m.ctx?`<small class="ch-ctx">${thEsc(m.ctx)}</small>`:''}<div>${thEsc(m.text)}</div>
+          <small class="ch-t">${chTime(m.at)}${m.who==='t'&&m.seen?' · 👁️ قرأها':''}${m.open?' · ⏳ ينتظر ردك':''}</small></div>`).join('')
+        :`<div class="askf-empty">💬 ابدأ محادثة مع ${thEsc(nm)}<small>${on?'متصل الآن — تظهر له رسالتك نافذةً خلال ثوانٍ':'تصله في رسائله ومعها إشعار، وتظهر له نافذةً أول ما يفتح البوابة'}</small></div>`}</div>
+      <div class="ch-comp">${hasOpen?`<div class="ask-quick">${ASK_QUICK.slice(0,4).map(q=>`<button type="button" onclick="askQuick('${id}',this.textContent,'chr-')">${thEsc(q)}</button>`).join('')}</div>`:''}
+        <div class="ch-row"><textarea class="inp" id="chr-${id}" rows="2" maxlength="1000" placeholder="${hasOpen?'ردك على سؤاله…':on?'رسالة خاصة — تظهر له فورًا…':'رسالة خاصة — تصله في رسائله…'}" oninput="ASK_DRAFT['ch:${id}']=this.value"
+          onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();chSend('${id}')}">${thEsc(ASK_DRAFT['ch:'+sid]||'')}</textarea>
+        <button type="button" class="btn tick ch-send" onclick="chSend('${id}')" aria-label="إرسال">📩</button></div>
+        ${hasOpen?`<button type="button" class="btn ghost sm" style="margin-top:.3rem" title="حللتها معه في الفصل — لا يُرسل شيء" onclick="chClose('${id}')">✓ أُغلق سؤاله دون رد</button>`:''}</div>`;
+    const th=document.getElementById('ch-thread'); if(th) th.scrollTop=th.scrollHeight;
+  } else {
+    const q=ASKF.q.trim(), onl=typeof onlRows==='function'?onlRows().on:[];
+    const found=q?(STUDENTS||[]).filter(s=>String(s.name||'').includes(q)).slice(0,8):[];
+    const row=t=>{ const last=t.items.slice().sort((a,b)=>Math.max(b.at||0,b.repliedAt||0)-Math.max(a.at||0,a.repliedAt||0))[0];
+      const lastTxt=last?(last.kind==='t'?'أنت: '+last.text:last.reply&&last.repliedAt>=last.at?'أنت: '+last.reply:last.text):'';
+      return `<button type="button" class="ch-it${t.open?' open':''}" onclick="chOpen('${thEsc(t.sid)}')"><span class="ch-nm">${chOn(t.sid)?'<i class="onl-dot on"></i>':''}<b>${thEsc(t.name)}</b><small>${thEsc(t.cls||'')}</small>
+        <small class="ch-tm">${askAgo(t.last)}</small></span><span class="ch-last">${thEsc(String(lastTxt).slice(0,90))}</span>${t.open?`<b class="ch-n">${t.open}</b>`:''}</button>`; };
+    p.innerHTML=`<div class="askf-top"><b>💬 المحادثات</b>${openN?`<span class="chip bad">${openN} تنتظر ردك</span>`:''}<button type="button" class="askf-x" onclick="askFabToggle(false)" aria-label="إغلاق">✕</button></div>
+      <div class="ch-search"><input class="inp" id="ch-q" type="search" placeholder="🔍 ابدأ محادثة مع أي طالب…" value="${thEsc(ASKF.q)}" oninput="ASKF.q=this.value;askFabPanel()"></div>
+      <div class="askf-list">${q?(found.length?found.map(s=>`<button type="button" class="ch-it" onclick="chOpen('${thEsc(s.id)}')"><span class="ch-nm">${chOn(s.id)?'<i class="onl-dot on"></i>':''}<b>${thEsc(s.name)}</b><small>${thEsc(s.cls||'')}</small></span></button>`).join(''):'<div class="askf-empty">لا طالب بهذا الاسم</div>')
+        :`${onl.length?`<div class="ch-onl"><small>🟢 متصلون الآن</small>${onl.slice(0,12).map(r=>`<button type="button" class="chip ghost" onclick="chOpen('${thEsc(r.sid)}')">${thEsc(r.s.name.split(' ')[0])}</button>`).join('')}</div>`:''}
+          ${ASKS===null?'<div class="muted" style="padding:1rem;text-align:center">⏳ جارٍ الجلب…</div>':TH.length?TH.slice(0,40).map(row).join(''):'<div class="askf-empty">🌿 لا محادثات بعد<small>ابحث عن طالب بالأعلى لتبدأ</small></div>'}`}</div>`;
+  }
+  p.insertAdjacentHTML('beforeend',foot);
   if(focus){ const el=document.getElementById(focus); if(el){ el.focus(); try{ el.setSelectionRange(el.value.length,el.value.length); }catch(e){} } }
 }
+async function chSend(sid){
+  const ta=document.getElementById('chr-'+sid), text=String(ta&&ta.value||'').trim(); if(!text){ ta&&ta.focus(); return; }
+  const t=chThreads().find(x=>x.sid===String(sid)), open=t?t.items.filter(x=>x.status==='open').sort((a,b)=>a.at-b.at):[];
+  const api=getApi().replace(/\/+$/,''), post=(path,b)=>fetch(api+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:getTok(),...b})}).then(r=>r.json());
+  ta.disabled=true;
+  try{
+    if(open.length){ // رد واحد على أحدث سؤال مفتوح، والأقدم منها تُغلق (الرد في المحادثة يجيب عنها معًا)
+      const j=await post('/ask-reply',{id:open[open.length-1].id,reply:text}); if(!j.ok) throw new Error(j.error||'');
+      const i=ASKS.findIndex(x=>x.id===j.item.id); if(i>=0) ASKS[i]=j.item;
+      for(const x of open.slice(0,-1)){ try{ const k=await post('/ask-reply',{id:x.id,close:true}); const n=ASKS.findIndex(y=>y.id===x.id); if(k.ok&&n>=0) ASKS[n]=k.item; }catch(e){} }
+    } else {
+      const s=chStu(sid); const j=await post('/messages',{title:'رسالة من معلمك',body:text,type:'message',priority:'normal',audience:'students',recipients:[{id:String(sid),name:s?s.name:''}],live:true,chat:true});
+      if(!j.ok) throw new Error(j.error||''); (j.chat||[]).forEach(it=>{ ASK_PUSHED.set(it.id,{at:Date.now(),item:it}); if(!ASKS.some(x=>x.id===it.id)) ASKS.unshift(it); });
+      if(!(j.chat||[]).length) toast('وصلت لرسائله — انشر worker.js الأخير لتظهر في المحادثة','bad');
+    }
+    delete ASK_DRAFT['ch:'+sid]; ta.value='';
+    askFabRender(); askFabPanel(); try{ askCardRender(); thDraw(); }catch(e){}
+    setTimeout(()=>document.getElementById('chr-'+sid)?.focus(),30);
+  }catch(e){ toast(r404(e)?'ارفع worker.js الأخير':'تعذّر الإرسال — تحقق من الاتصال','bad'); }
+  finally{ const el=document.getElementById('chr-'+sid); if(el) el.disabled=false; }
+}
+async function chClose(sid){ const t=chThreads().find(x=>x.sid===String(sid)); if(!t) return; for(const x of t.items.filter(x=>x.status==='open')) await askSend(x.id,true); askFabPanel(); }
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&ASKF.open) askFabToggle(false); });
 (function(){ const o=window.thDraw; if(typeof o==='function') window.thDraw=function(){ try{ return o.apply(this,arguments); } finally { try{ askFabRender(); }catch(e){} } }; })();
 /* ⚡ الرسائل حيّة حتى بلا إشعار: عند العودة للوحة، وكل دقيقة والصندوق العائم ظاهر */
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&Date.now()-ASK_LAST>30000) try{ asksLoad(); }catch(e){} });
-setInterval(()=>{ if(!document.hidden&&ASKF.on&&Date.now()-ASK_LAST>55000) try{ asksLoad(); }catch(e){} },20000);
+setInterval(()=>{ if(!document.hidden&&ASKF.on&&Date.now()-ASK_LAST>(ASKF.open?15000:55000)) try{ asksLoad(); }catch(e){} },5000);
 if(document.readyState!=='loading') askFabRender(); else document.addEventListener('DOMContentLoaded',()=>askFabRender());

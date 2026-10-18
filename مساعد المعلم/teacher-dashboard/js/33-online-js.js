@@ -20,7 +20,7 @@ async function onlLoad(){
   if(!api||!tok) return; ONL.busy=true;
   try{ const r=await fetch(api+'/presence?t='+encodeURIComponent(tok),{cache:'no-store'}); const j=await r.json().catch(()=>null);
     if(j&&j.ok){ ONL.data=j; ONL.at=Date.now(); } }catch(e){} finally{ ONL.busy=false; }
-  onlChip(); if(ONL.open) onlRender();
+  onlChip(); if(ONL.open) onlRender(); try{ askFabRender(); }catch(e){}
 }
 function onlChip(){
   const host=document.querySelector('.masthead-in'); if(!host) return;
@@ -43,8 +43,6 @@ function onlOpen(){
   Promise.all([onlLoad(),onlAsks()]).then(()=>onlRender());
 }
 async function onlAsks(){ if(typeof asksLoad!=='function') return; await asksLoad(); if(ONL.open) onlRender(); onlChip(); }
-function onlReplyOpen(id){ closeModal(); setTimeout(()=>{ asksOpen(); setTimeout(()=>document.getElementById('askc-'+id)?.scrollIntoView({block:'center'}),80); },60);
-}
 function onlRender(){
   const box=document.getElementById('onl-box'); if(!box) return;
   const {on,recent}=onlRows(), D=ONL.data;
@@ -62,7 +60,7 @@ function onlRender(){
     ${list.length?`<div class="row" style="justify-content:space-between;align-items:center;margin-bottom:.3rem"><label class="muted" style="font-size:.8rem"><input type="checkbox" ${list.every(r=>ONL.sel.has(String(r.sid)))?'checked':''} onchange="onlSelAll(this.checked)"> تحديد الكل (${list.length})</label><span class="muted" style="font-size:.78rem">${ONL.sel.size} محدد</span></div>
       <div class="onl-list">${list.map(r=>`<label class="onl-row"><input type="checkbox" ${ONL.sel.has(String(r.sid))?'checked':''} onchange="onlSel('${esc(r.sid)}',this.checked)">
         <i class="onl-dot on"></i><span class="onl-n"><b>${esc(r.s.name)}</b><small>${esc(r.s.cls||'')} · متصل ${esc(onlAgo(r.dur))}</small></span>
-        <span class="onl-w">${esc(r.w||'')}</span></label>`).join('')}</div>
+        <span class="onl-w">${esc(r.w||'')}</span><button type="button" class="btn ghost sm" title="محادثة خاصة" onclick="event.preventDefault();closeModal();chOpen('${esc(r.sid)}')">💬</button></label>`).join('')}</div>
       <div class="onl-send"><div class="onl-tpl">${tpl.map(t=>`<button type="button" class="chip ghost" onclick="document.getElementById('onl-msg').value=${JSON.stringify(t).replace(/"/g,'&quot;')};document.getElementById('onl-msg').focus()">${esc(t)}</button>`).join('')}</div>
         <textarea id="onl-msg" class="inp" rows="2" maxlength="1000" placeholder="تظهر للطالب نافذةً خلال ثوانٍ وتبقى في رسائله، ورده يصلك في «💬 رسائل الطلاب»…"></textarea>
         <div class="row" style="gap:.4rem;justify-content:flex-end;margin-top:.4rem"><span id="onl-st" class="muted" style="font-size:.8rem;margin-inline-end:auto"></span><button class="btn tick" onclick="onlSend()">📣 أرسل للمحددين</button></div></div>`
@@ -70,7 +68,7 @@ function onlRender(){
     ${recent.length?`<details style="margin-top:.6rem"><summary class="muted" style="cursor:pointer;font-size:.82rem">ظهروا خلال آخر نصف ساعة (${recent.length})</summary><div class="onl-recent">${recent.slice(0,40).map(r=>`<span class="chip ghost" title="${esc(r.w||'')}">${esc(r.s.name)} · ${esc(onlAgo(r.age))}</span>`).join('')}</div></details>`:''}
     <div class="onl-hist"><b>📨 رسائلك الفورية (آخر 6 ساعات)</b>${Object.values(groups).length?Object.values(groups).sort((a,b)=>b.at-a.at).slice(0,12).map(g=>`<div class="onl-g"><div class="onl-gh"><span>«${esc(g.body)}»</span><small>${esc(onlAgo(Date.now()-g.at))} · وصلت ${g.items.filter(n=>n.seen_at).length} من ${g.items.length}</small></div>
       ${reps.filter(x=>x.re===g.mid).map(x=>`<div class="onl-rep ${x.status==='open'?'new':''}"><b>${esc(x.name||name(x.sid))}:</b> ${esc(x.text)}
-        <button type="button" class="btn ghost sm" onclick="onlReplyOpen('${esc(x.id)}')">${x.status==='open'?'✍️ رد عليه':'✓ تم الرد'}</button></div>`).join('')}
+        <button type="button" class="btn ghost sm" onclick="closeModal();chOpen('${esc(x.sid)}')">${x.status==='open'?'💬 رد عليه':'💬 المحادثة'}</button></div>`).join('')}
       ${g.items.filter(n=>!n.seen_at).length?`<div class="muted" style="font-size:.74rem">⏳ لم تصل بعد: ${g.items.filter(n=>!n.seen_at).map(n=>esc(name(n.sid))).join('، ')}</div>`:''}</div>`).join(''):'<div class="muted" style="font-size:.8rem">لم ترسل رسالة فورية بعد.</div>'}</div>
     <div class="modal-foot"><button class="btn ghost" onclick="closeModal()">إغلاق</button></div>`;
 }

@@ -134,15 +134,16 @@ function askRender(){
   const box=document.getElementById('space-ask'); if(!box) return;
   // 🎓 معلمك يختار: البطاقة، أو الزر العائم وحده، أو يغلق التواصل
   if(ASK_META.mode==='fab'||ASK_META.mode==='off'){ box.innerHTML=''; return; }
-  const ST={open:'⏳ بانتظار الرد',answered:'✅ ردّ معلمك',closed:'أُغلق'};
+  const ST={open:'⏳ بانتظار الرد',answered:'✅ ردّ معلمك',closed:'أُغلق'}, STT=x=>x.kind==='t'?'📣 رسالة من معلمك':(ST[x.status]||'');
   const kd=(ASK_META.keepDays||3)*864e5;
   const rows=ASK_ROWS.filter(x=>x.status==='open'||Date.now()-(x.seenAt||x.repliedAt||x.at)<kd).sort((a,b)=>(b.repliedAt||b.at)-(a.repliedAt||a.at));
   const fresh=rows.filter(x=>ASK_UI.fresh.has(x.id)), waiting=rows.filter(x=>x.status==='open').length;
   const item=(x,full)=>`<div class="askc-it${ASK_UI.fresh.has(x.id)?' new':''}${full?' open':''}" onclick="askToggle('${esc(x.id)}',event)">
       ${x.status!=='open'?`<button type="button" class="askc-x" onclick="event.stopPropagation();askHide('${esc(x.id)}',this)" title="إخفاء" aria-label="إخفاء الرد">✕</button>`:''}
-      <div class="askc-q">❓ ${esc(x.text)}</div>
+      ${x.kind==='t'?`<div class="askc-r"><b>📣 معلمك:</b> ${esc(x.text)}</div>`:`<div class="askc-q">${x.cat==='reply'?'↩️':'❓'} ${esc(x.text)}</div>`}
       ${x.reply?`<div class="askc-r"><b>📩 ردّ المعلم:</b> ${esc(x.reply)}</div>`:''}
-      <div class="askc-meta"><span class="ask-st ${esc(x.status)}">${ST[x.status]||''}</span> ${esc(ASK_META.cats[x.cat]||(x.cat==='reply'?'↩️ ردّك على رسالة معلمك':''))}${x.hwTitle?` · «${esc(x.hwTitle)}»`:''}${x.reText?` · «${esc(x.reText.slice(0,60))}»`:''} · ${askWhen(x.at)}${ASK_UI.fresh.has(x.id)?'<span class="askc-new">رد جديد</span>':''}</div></div>`;
+      ${(x.kind==='t'&&x.mid)||(x.reply&&x.rmid)?`<button type="button" class="askc-re" onclick="event.stopPropagation();askReplyTo('${esc(x.kind==='t'?x.mid:x.rmid)}','${esc(x.id)}')">↩️ رد على معلمك</button>`:''}
+      <div class="askc-meta"><span class="ask-st ${esc(x.kind==='t'?'answered':x.status)}">${STT(x)}</span> ${esc(ASK_META.cats[x.cat]||(x.cat==='reply'?'↩️ ردّك على رسالة معلمك':''))}${x.hwTitle?` · «${esc(x.hwTitle)}»`:''}${x.reText?` · «${esc(x.reText.slice(0,60))}»`:''} · ${askWhen(x.at)}${ASK_UI.fresh.has(x.id)?'<span class="askc-new">رد جديد</span>':''}</div></div>`;
   let body='';
   if(rows.length){
     body+=`<button type="button" class="askc-sum" onclick="ASK_UI.open=!ASK_UI.open;askRender()" aria-expanded="${ASK_UI.open}"><span>📩 محادثاتك (${rows.length})</span><b>${ASK_UI.open?'إخفاء ⌃':'عرض ⌄'}</b>${fresh.length||waiting?`<span class="askc-chips">${fresh.length?`<em>${fresh.length} ${fresh.length===1?'رد جديد':'ردود جديدة'}</em>`:''}${waiting?`<i>⏳ ${waiting} بانتظار الرد</i>`:''}</span>`:''}</button>`;
@@ -291,10 +292,10 @@ function stuFabToggle(on){
 }
 function stuFabPanel(){
   const p=document.createElement('div'); p.id='sfab-pan'; p.className='sfab-pan'; p.setAttribute('role','dialog');
-  const ST={open:'⏳ بانتظار الرد',answered:'✅ ردّ معلمك',closed:'أُغلق'};
+  const ST={open:'⏳ بانتظار الرد',answered:'✅ ردّ معلمك',closed:'أُغلق'}, STT=x=>x.kind==='t'?'📣 رسالة من معلمك':(ST[x.status]||'');
   const rows=ASK_ROWS.slice().sort((a,b)=>(b.repliedAt||b.at)-(a.repliedAt||a.at)).slice(0,6);
   p.innerHTML=`<div class="sfab-top"><b>💬 محادثاتك مع معلمك</b><button type="button" class="sfab-x" onclick="stuFabToggle(false)" aria-label="إغلاق">✕</button></div>
-    <div class="sfab-list">${rows.length?rows.map(x=>`<div class="sfab-it${ASK_UI.fresh.has(x.id)?' new':''}"><div class="sfab-q">❓ ${esc(x.text)}</div>${x.reply?`<div class="sfab-r"><b>📩 ردّ المعلم:</b> ${esc(x.reply)}</div>`:''}<div class="sfab-m"><span class="ask-st ${esc(x.status)}">${ST[x.status]||''}</span> · ${askWhen(x.at)}</div></div>`).join(''):'<div class="sfab-empty">لا محادثات بعد — عندك سؤال؟ اكتب لمعلمك 👇</div>'}</div>
+    <div class="sfab-list">${rows.length?rows.map(x=>`<div class="sfab-it${ASK_UI.fresh.has(x.id)?' new':''}">${x.kind==='t'?`<div class="sfab-r"><b>📣 معلمك:</b> ${esc(x.text)}</div>`:`<div class="sfab-q">${x.cat==='reply'?'↩️':'❓'} ${esc(x.text)}</div>`}${x.reply?`<div class="sfab-r"><b>📩 ردّ المعلم:</b> ${esc(x.reply)}</div>`:''}${(x.kind==='t'&&x.mid)||(x.reply&&x.rmid)?`<button type="button" class="askc-re" onclick="event.stopPropagation();askReplyTo('${esc(x.kind==='t'?x.mid:x.rmid)}','${esc(x.id)}')">↩️ رد على معلمك</button>`:''}<div class="sfab-m"><span class="ask-st ${esc(x.kind==='t'?'answered':x.status)}">${STT(x)}</span> · ${askWhen(x.at)}</div></div>`).join(''):'<div class="sfab-empty">لا محادثات بعد — عندك سؤال؟ اكتب لمعلمك 👇</div>'}</div>
     <div class="sfab-foot"><button type="button" class="sfab-go" onclick="stuFabToggle(false);askOpen()">✍️ راسل معلمك</button></div>`;
   document.body.appendChild(p);
 }
@@ -333,6 +334,9 @@ addEventListener('focus',()=>{ if(Date.now()-LIVE_REF.at>15000) portalLiveRefres
    نبض كل ~30 ث ما دامت البوابة ظاهرة (لا يُرسل والصفحة في الخلفية): يعرف المعلم من متصل الآن وماذا يفعل.
    رد النبض يحمل رسائل المعلم الفورية فتظهر نافذة فوق كل شيء، ويرد الطالب منها مباشرة. */
 const PRES={t:0,busy:false,q:[],open:false};
+/* ↩️ رد الطالب على رسالة معلمه من «محادثاتك»: نفس نافذة الرسالة الفورية */
+function askReplyTo(mid,id){ const x=(ASK_ROWS||[]).find(r=>r.id===id); if(!x||!mid) return;
+  PRES.q.unshift({mid,title:'رسالة من معلمك',body:x.kind==='t'?x.text:x.reply,at:x.kind==='t'?x.at:x.repliedAt}); presNext(); setTimeout(()=>document.querySelector('.pres-r')?.focus(),60); }
 function presWhere(){
   try{ if(typeof LIVE!=='undefined'&&LIVE&&LIVE.cur&&!LIVE.done) return '🎮 في المسابقة المباشرة'; }catch(e){}
   const vis=id=>{ const e=document.getElementById(id); return !!(e&&!e.classList.contains('hide')&&e.offsetParent!==null); };
@@ -347,7 +351,7 @@ async function presPing(){
     const api=((typeof HW!=='undefined'&&HW&&HW.api)||API||'').replace(/\/+$/,''); if(!api) return;
     const r=await fetch(api+'/presence',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sid:mySid,w:presWhere()})});
     const j=await r.json().catch(()=>null);
-    (j&&Array.isArray(j.live)?j.live:[]).forEach(n=>PRES.q.push(n)); presNext();
+    const lv=(j&&Array.isArray(j.live)?j.live:[]); lv.forEach(n=>PRES.q.push(n)); presNext(); if(lv.length) setTimeout(()=>{ try{ myAskLoad(); }catch(e){} },1500);
   }catch(e){} finally{ PRES.busy=false; }
 }
 function presNext(){

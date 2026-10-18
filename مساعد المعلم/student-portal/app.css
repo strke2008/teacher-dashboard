@@ -1833,3 +1833,4 @@ a.rmd-go{text-decoration:none;display:inline-block;background:linear-gradient(#1
 .pres-a button{flex:1;border:0;border-radius:12px;padding:.65rem;font:inherit;font-weight:800;cursor:pointer}
 .pres-send{background:#2E6BB8;color:#fff}.pres-ok{background:var(--chip,#EEF2F7);color:inherit}
 @keyframes presIn{from{opacity:0}to{opacity:1}}
+.askc-re{margin-top:.35rem;border:1px solid #BFD3F2;background:#F2F7FF;color:#1F4FA8;border-radius:99px;padding:.2rem .7rem;font:inherit;font-size:.78rem;font-weight:800;cursor:pointer}

@@ -1991,7 +1991,7 @@ const ASK = { maxLen: 600, maxOpen: 3, perDay: 5, keep: 600, keepSeenDays: 3,
 async function askLoad(env) { try { const a = JSON.parse(await env.HW.get('asks')); return Array.isArray(a) ? a : []; } catch { return []; } }
 async function askSave(env, all) { await env.HW.put('asks', JSON.stringify(all.slice(0, ASK.keep))); }
 function askMine(x, st) { return !!x && ((st.id && x.sid && String(x.sid) === String(st.id)) || (!x.sid && x.name === st.name)); }
-function askPublic(x) { return { id: x.id, cat: x.cat, hwTitle: x.hwTitle || '', re: x.re || '', reText: x.reText || '', text: x.text, at: x.at, status: x.status, reply: x.reply || '', repliedAt: x.repliedAt || 0, seenAt: x.seenAt || 0 }; }
+function askPublic(x) { return { id: x.id, kind: x.kind || '', mid: x.mid || '', rmid: (x.msgIds && x.msgIds[0]) || '', cat: x.cat, hwTitle: x.hwTitle || '', re: x.re || '', reText: x.reText || '', text: x.text, at: x.at, status: x.status, reply: x.reply || '', repliedAt: x.repliedAt || 0, seenAt: x.seenAt || 0 }; }
 // 🧹 الرد يبقى عند الطالب ASK.keepSeenDays بعد أن يراه، أو يخفيه بنفسه — ومعه تنبيهه، فلا يتكرر ولا يزدحم
 function askGoneForStudent(x, now) {
   if (!x || x.status === 'open') return false;
@@ -5502,7 +5502,7 @@ export default {
       const cat = ASK.cats[String(b.cat || '')] ? String(b.cat) : 'other';
       const all = await askLoad(env), me = all.filter(x => askMine(x, st)), now = Date.now();
       if (me.filter(x => x.status === 'open').length >= ASK.maxOpen) return json({ ok: false, error: `لديك ${ASK.maxOpen} أسئلة تنتظر رد معلمك — انتظر الرد أولًا` }, 429);
-      if (me.filter(x => now - x.at < 86400000).length >= ASK.perDay) return json({ ok: false, error: 'وصلت للحد اليومي للرسائل — حاول غدًا' }, 429);
+      if (me.filter(x => x.kind !== 't' && now - x.at < 86400000).length >= ASK.perDay) return json({ ok: false, error: 'وصلت للحد اليومي للرسائل — حاول غدًا' }, 429);
       let hwTitle = '';
       const hw = String(b.hw || '').slice(0, 24);
       if (hw) { try { const p = JSON.parse(await env.HW.get(`hw:${hw}`)); if (p && rosterHas(p, st)) hwTitle = String(p.t || '').slice(0, 120); } catch {} }
@@ -5586,6 +5586,9 @@ export default {
           await env.HW.put(identityKey('msg:', st), JSON.stringify(arr), { expirationTtl: 60 * 60 * 24 * 180 });
           await dropLegacy(env, 'msg:', st);
           try { const rev = parseInt(await env.HW.get('meta:rev'), 10) || 0; await env.HW.put('meta:rev', String(rev + 1)); } catch {}
+          // 📣 المتصل الآن يرى الرد نافذةً خلال ثوانٍ ويرد منها (استمرار المحادثة)
+          if (st.id && /^[\w-]{1,64}$/.test(String(st.id)) && await presReady(env).catch(() => false))
+            await env.DB.prepare('INSERT OR IGNORE INTO livemsg (mid, sid, title, body, at) VALUES (?1, ?2, ?3, ?4, ?5)').bind(id, String(st.id), msg.title, reply, now).run().catch(() => {});
           if (st.id) notifyStudents(env, ctx, new Set([String(st.id)]), { title: '📩 ردّ معلمك على سؤالك', body: reply.slice(0, 140), tag: `ask-${q.id}`,
             // ⚡ الرد نفسه مع الإشعار: تعرضه البوابة المفتوحة فورًا (قراءة الخادم قد تتأخر دقيقة بعد الكتابة)
             data: { type: 'message', id, url: './?open=ask', ask: { id: q.id, cat: q.cat, hwTitle: q.hwTitle || '', text: q.text.slice(0, 200), at: q.at, status: 'answered', reply: reply.slice(0, 600), repliedAt: now } } }, (await sha256Hex(`askr|${q.id}|${now}`)).slice(0, 32));
@@ -5649,7 +5652,7 @@ export default {
         await env.HW.put(key, JSON.stringify(arr), { expirationTtl: 60 * 60 * 24 * 180 });
         await dropLegacy(env, 'msg:', st);
         count++;
-        delivered.push({ sid: st.id || '', name: st.name || String(r.name || '') });
+        delivered.push({ sid: st.id || '', name: st.name || String(r.name || ''), cls: st.cls || '' });
       }
       // 💌 رسالة شكر من طلب متجر: نسجّل في الطلب نفسه أنها أُرسلت لمساحة الطالب (يراها المعلم من أي جهاز)
       if (type === 'thanks' && count) {
@@ -5675,13 +5678,21 @@ export default {
           data: { type: 'message', id, url: './?open=notices' }
         }, (await sha256Hex(`msg|${id}`)).slice(0, 32));
       }
+      // 💬 محادثة خاصة: تُسجَّل رسالة المعلم في «رسائل الطلاب» نفسها (kind:'t') فتظهر في محادثته مع الطالب
+      let chat = [];
+      if (b.chat) {
+        const all = await askLoad(env), now = Date.now();
+        chat = delivered.map((d0, i) => ({ id: 't' + now.toString(36) + i + Math.random().toString(36).slice(2, 5), kind: 't', mid: id, sid: String(d0.sid || ''), name: d0.name, cls: d0.cls || '',
+          cat: '', hw: '', hwTitle: '', text: body, at: now, status: 'closed', closedAt: now, reply: '', repliedAt: 0 }));
+        all.unshift(...chat); await askSave(env, all);
+      }
       // 📣 فورية: الطالب المتصل يراها نافذةً خلال ثوانٍ (عبر نبض الحضور)، وتبقى في رسائله كأي رسالة
       let live = 0;
       if (b.live && !(visibleFrom && new Date(visibleFrom).getTime() > Date.now()) && await presReady(env).catch(() => false)) {
         const sids = [...new Set(delivered.map(x => String(x.sid || '')).filter(x => /^[\w-]{1,64}$/.test(x)))], now = Date.now();
         if (sids.length) { await env.DB.batch(sids.map(sid => env.DB.prepare('INSERT OR IGNORE INTO livemsg (mid, sid, title, body, at) VALUES (?1, ?2, ?3, ?4, ?5)').bind(id, sid, title, body, now))); live = sids.length; }
       }
-      return json({ ok: true, id, count, live, requested: recipients.length, delivered, skipped });
+      return json({ ok: true, id, count, live, chat, requested: recipients.length, delivered, skipped });
     }
 
     // ── 💌 مشاركة رسالة الشكر مع الأهل: مرتان كحد أقصى خلال 7 أيام من صدورها، مع رابط تحقق ──
