@@ -10944,6 +10944,28 @@ async function saveExamShopPolicy(){
   const body={t:tok,semester:sem,enabled:document.getElementById('esp-enabled')?.value!=='0',maxPerStudent:Math.min(20,Math.max(0,Number(document.getElementById('esp-max')?.value)||0)),startAt,endAt,students};
   try{const r=await fetch(`${api}/exam-shop-policy`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const j=await r.json();if(!r.ok||!j.ok){toast(j.error==='bad_window'?'موعد الإتاحة غير صحيح':'تعذّر حفظ الإعدادات','bad');return;}EXAM_SHOP_POLICY=j.policy;renderExamShopStatus();renderExamShopStudents();toast(`تم حفظ إعدادات الفصل الدراسي ${sem} ✅`,'good');}catch(e){toast('تعذّر الاتصال بالخادم','bad');}
 }
+/* ↩️ مشتريات رفع الاختبار التي تجاوزت 20 فلم تُضف درجة: يسترجع المعلم نقاط الجزء الضائع (الخادم يحسبها من سجل الشراء) */
+let EBW_ROWS=null;
+async function ebwLoad(){
+  const box=document.getElementById('ebw-box'); if(!box) return; const api=getApi(),tok=getTok(); if(!api||!tok){toast('اضبط عنوان الخادم وكلمة السر أولًا','bad');return;}
+  box.textContent='⏳ جارٍ الفحص…';
+  try{ const j=await (await fetch(`${api.replace(/\/+$/,'')}/exam-bonus-waste?t=${encodeURIComponent(tok)}&_=${Date.now()}`,{cache:'no-store'})).json(); if(!j.ok) throw new Error(j.error||''); EBW_ROWS=j.rows||[]; ebwRender(); }
+  catch(e){ box.textContent=/unauthorized|not found|404/.test(String(e.message))?'انشر worker.js الأخير أولًا.':'تعذّر الفحص — تحقق من الاتصال.'; }
+}
+function ebwRender(){
+  const box=document.getElementById('ebw-box'); if(!box||!EBW_ROWS) return;
+  if(!EBW_ROWS.length){ box.innerHTML='✅ لا توجد مشتريات ضائعة — كل بطاقة اشتراها طالب أضافت درجة فعلًا.'; return; }
+  const n=v=>String(Math.round(Number(v)*100)/100);
+  box.innerHTML=`<div style="display:grid;gap:.45rem">${EBW_ROWS.map((r,i)=>`<div class="exam-shop-student"><div><b>${esc(r.name)}</b><small>${esc(r.cls||'')} · الفصل ${r.semester} · الفترة ${r.period} · درجته ${n(r.base)}/20 + بطاقات ${n(r.bonus)} ⇒ ضاع ${n(r.over)} درجة</small></div>
+    <button class="btn tick sm" type="button" onclick="ebwRefund(${i})">↩️ استرجع ${r.refund} نقطة</button></div>`).join('')}</div>`;
+}
+async function ebwRefund(i){
+  const r=EBW_ROWS&&EBW_ROWS[i]; if(!r) return;
+  if(!confirm(`استرجاع ${r.refund} نقطة إلى ${r.name}؟\nتُحذف من بطاقاته الـ${String(r.over)} درجة الزائدة عن 20 (لم تكن تُحسب أصلًا).`)) return;
+  try{ const j=await (await fetch(`${getApi().replace(/\/+$/,'')}/exam-bonus-refund`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:getTok(),sid:r.sid,semester:r.semester,period:r.period})})).json();
+    if(!j.ok) throw new Error(j.error||''); toast(`↩️ رجعت ${j.refund} نقطة إلى ${r.name} — رصيده الآن ${j.bal}`,'good'); EBW_ROWS.splice(i,1); ebwRender();
+  }catch(e){ toast(String(e.message)==='nothing'?'لا يوجد ما يُسترجع — ربما استُرجع من قبل':'تعذّر الاسترجاع','bad'); ebwLoad(); }
+}
 function clearExamShopWindow(){if(document.getElementById('esp-enabled'))document.getElementById('esp-enabled').value='1';if(document.getElementById('esp-start'))document.getElementById('esp-start').value='';if(document.getElementById('esp-end'))document.getElementById('esp-end').value='';}
 function setAllExamShopStudentsToDefault(){if(!confirm(`إزالة جميع الحدود الخاصة لطلاب الفصل الدراسي ${espSemester()}؟`))return;EXAM_SHOP_POLICY.students={};document.querySelectorAll('[data-esp-sid]').forEach(el=>el.value='');renderExamShopStudents();}
 

@@ -681,6 +681,28 @@ async function addExamBonus(env, data, sid, sem, per, add, extra) {
   setBonusInData(data, sid, sem, per, entry);
   return entry;
 }
+/* 🎓 المتاح فعلًا لبطاقة رفع الاختبار = الأقل من (الباقي من حد المعلم للفترة) و(الباقي حتى 20).
+   بدونه يدفع صاحب الـ20/20 نقاطه على درجة لا تُضاف (الدرجة تُقصّ عند 20). */
+function examRemaining(policy, bonus, g) {
+  const cap = Math.max(0, Math.min(Number(policy.maxPerStudent) || 0, 20) - (Number(bonus.points) || 0));
+  const head = g && g.score != null ? Math.max(0, 20 - Number(g.score)) : cap;   // لا درجة بعد: يبقى حد المعلم ظاهرًا (والشراء نفسه يُمنع حتى تُرصد)
+  return gRound(Math.min(cap, head));
+}
+const EXAM_CARD_PRICE = { exam05: 250, exam1: 450, exam2: 750, exam3: 1000 };
+/* ما دُفع على درجة لم تُضف: الزيادة فوق 20، تُسترد من أحدث المشتريات أولًا بنسبة ما ضاع من كل بطاقة */
+function examWaste(bonus, g) {
+  const over = g && g.baseScore != null ? gRound(Math.max(0, Number(g.baseScore) + (Number(bonus.points) || 0) - 20)) : 0;
+  let left = over, refund = 0; const parts = [];
+  const hist = Array.isArray(bonus.history) ? bonus.history : [];
+  for (let i = hist.length - 1; i >= 0 && left > 0; i--) {
+    const h = hist[i] || {}, pts = Number(h.points) || 0, done = Number(h.refunded) || 0, avail = pts - done;
+    if (avail <= 0) continue;
+    const take = Math.min(left, avail), price = Number(h.price) || EXAM_CARD_PRICE[h.card] || 0;
+    const pay = pts ? Math.round(price * take / pts) : 0;
+    parts.push({ i, take, pay }); refund += pay; left = gRound(left - take);
+  }
+  return { over, refund, parts };
+}
 // ⚡ ختم آخر تعديل على tstate:main (مفتاح صغير): /rev يعيده فتعرف اللوحة بطلب صغير هل تغيّرت بيانات الطلاب والأنشطة
 //    بدل تنزيل اللقطة كاملة كل 5 ثوانٍ. يُستدعى بعد كل كتابة لـ tstate:main.
 async function stateStamp(env) { try { await env.HW.put('meta:stateAt', String(Date.now())); } catch {} }
@@ -7110,10 +7132,44 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       setBonusInData(data,st.id,sem,period,bonus);
       const g=gradeExam(data,st.id,sem,period);
       const closed=academic.semesters?.[String(sem)]?.status==='closed';
-      const remaining=gRound(Math.max(0,Math.min(policy.maxPerStudent,20)-bonus.points));
-      policy.remaining=remaining;
+      const remaining=examRemaining(policy,bonus,g), full=g.score!=null&&g.score>=20;
+      policy.remaining=remaining; policy.full=full;
       if(!g.measured || g.score==null || closed || !policy.available || policy.maxPerStudent<=0) return json({ok:true,exams:[],semester:sem,period,policy,score:g.score??null,hasExam:!!(g.measured&&g.score!=null),closed});
-      return json({ok:true,semester:sem,period,policy,exams:[{semester:sem,period,label:`الفصل ${sem} · الفترة ${period}`,score:g.score,baseScore:g.baseScore,bonus:bonus.points,remaining}]});
+      return json({ok:true,semester:sem,period,policy,exams:[{semester:sem,period,label:`الفصل ${sem} · الفترة ${period}`,score:g.score,baseScore:g.baseScore,bonus:bonus.points,remaining,full}]});
+    }
+
+    // ── ↩️ للمعلم: مشتريات رفع الاختبار التي لم تُضف درجةً (تجاوزت 20) واسترداد نقاطها ──
+    if (url.pathname === '/exam-bonus-waste' && request.method === 'GET') {
+      if (!env.TEACHER_TOKEN || url.searchParams.get('t') !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
+      let data={}; try{const raw=await env.HW.get('teacher:classroom'); if(raw)data=JSON.parse(raw)||{};}catch{}
+      const roster=await loadRoster(env), nameOf=new Map(roster.map(s=>[String(s.id),s])), rows=[];
+      for (const k of await listAllKeys(env, 'xb:')) {
+        const m=/^xb:([12]):([12]):(.+)$/.exec(k); if(!m) continue;
+        const bonus=await readExamBonus(env,data,m[3],m[1],m[2]); setBonusInData(data,m[3],m[1],m[2],bonus);
+        const g=gradeExam(data,m[3],m[1],m[2]), w=examWaste(bonus,g);
+        if(w.over>0&&w.refund>0){ const s0=nameOf.get(String(m[3])); rows.push({sid:m[3],name:s0?s0.name:m[3],cls:s0?s0.cls||'':'',semester:+m[1],period:+m[2],base:g.baseScore,bonus:bonus.points,over:w.over,refund:w.refund}); }
+      }
+      return json({ ok: true, rows });
+    }
+    if (url.pathname === '/exam-bonus-refund' && request.method === 'POST') {
+      let b; try{b=await request.json();}catch{return json({error:'bad json'},400);}
+      if (!env.TEACHER_TOKEN || b.t !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
+      const sem=Number(b.semester)===2?2:1, per=Number(b.period)===2?2:1;
+      const st=await resolveStudent(env,{id:String(b.sid||'').slice(0,64)}); if(!st.id) return json({ok:false,error:'student not found'},404);
+      return studentLocked(env,st,async()=>{
+        let data={}; try{const raw=await env.HW.get('teacher:classroom'); if(raw)data=JSON.parse(raw)||{};}catch{}
+        const bonus=await readExamBonus(env,data,st.id,sem,per); setBonusInData(data,st.id,sem,per,bonus);
+        const g=gradeExam(data,st.id,sem,per), w=examWaste(bonus,g);
+        if(!(w.over>0&&w.refund>0)) return json({ok:false,error:'nothing'},200);
+        const hist=bonus.history.slice(); w.parts.forEach(pt=>{ hist[pt.i]={...hist[pt.i],refunded:gRound((Number(hist[pt.i].refunded)||0)+pt.take)}; });
+        const entry={points:gRound(Math.max(0,bonus.points-w.over)),history:hist};
+        await env.HW.put(xbKey(sem,per,st.id),JSON.stringify(entry));
+        const bal=await readBal(env,st)+w.refund;
+        await env.HW.put(identityKey('bal:',st),String(bal)); await dropLegacy(env,'bal:',st);
+        await plogAdd(env,st,{k:'refund',gain:w.refund,bal,why:`استرداد بطاقة رفع اختبار لم تُضف درجة (درجتك كانت مكتملة 20)`});
+        await bumpRev(env);
+        return json({ok:true,refund:w.refund,over:w.over,bal,bonus:entry.points});
+      });
     }
 
     // ── 🎓 استخدام بطاقة رفع درجة الاختبارات — سقف لكل فترة ──
@@ -7137,14 +7193,15 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         const g=gradeExam(data,st.id,sem,per);
         if(!g.measured||g.score==null) return json({ok:false,error:'noexam'},200);
         const own=await readOwn(env,st); if(!(own[card]>0)) return json({ok:false,error:'none'},200);
-        const remaining=gRound(Math.max(0,Math.min(policy.maxPerStudent,20)-bonus.points));
+        const remaining=examRemaining(policy,bonus,g);
+        if(g.score>=20) return json({ok:false,error:'full',remaining:0,score:g.score},200);
         if(add>remaining) return json({ok:false,error:'limit',remaining},200);
         own[card]--; if(own[card]<=0) delete own[card];
         await writeOwn(env,st,own);
         const entry=await addExamBonus(env,data,st.id,sem,per,add,{card});
         await bumpRev(env);
         const after=gradeExam(data,st.id,sem,per);
-        return json({ok:true,added:add,bonus:entry.points,remaining:gRound(Math.max(0,policy.maxPerStudent-entry.points)),score:after.score,pts:await readBal(env,st),perks:own});
+        return json({ok:true,added:add,bonus:entry.points,remaining:examRemaining(policy,entry,after),score:after.score,pts:await readBal(env,st),perks:own});
       });
     }
 
@@ -7213,7 +7270,8 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         if(!g.measured||g.score==null) return json({ok:false,error:'noexam'},200);
         const policy=examShopPolicy(data,st.id,Date.now(),sem);
         if(!policy.available||policy.maxPerStudent<=0) return json({ok:false,error:'window',reason:policy.reason},200);
-        const remaining=gRound(Math.max(0,Math.min(policy.maxPerStudent,20)-bonus.points));
+        const remaining=examRemaining(policy,bonus,g);
+        if(g.score>=20) return json({ok:false,error:'full',remaining:0,score:g.score,pts:await readBal(env,st)},200);
         if(cfg.add>remaining) return json({ok:false,error:'limit',remaining,score:g.score,pts:await readBal(env,st)},200);
         const bal=await readBal(env,st);
         if(bal<cfg.price) return json({ok:false,error:'low',pts:bal},200);
@@ -7230,7 +7288,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         const purchaseLog={name:reqName,sid:st.id,card,price:cfg.price,add:cfg.add,kind:'exam-bonus',semester:sem,period:per,at:purchaseAt};
         await env.HW.put(`req:${purchaseAt}:${reqName}`,JSON.stringify(purchaseLog),{expirationTtl:60*60*24*120});
         await env.HW.put(`shoplog:${purchaseAt}:${st.id}:${Math.random().toString(36).slice(2,8)}`,JSON.stringify(purchaseLog),{expirationTtl:60*60*24*365});
-        return json({ok:true,pts:newBal,perks:await readOwn(env,st),sid:st.id,name:reqName,added:cfg.add,bonus:entry.points,remaining:gRound(Math.max(0,policy.maxPerStudent-entry.points)),score:after.score,baseScore:after.baseScore});
+        return json({ok:true,pts:newBal,perks:await readOwn(env,st),sid:st.id,name:reqName,added:cfg.add,bonus:entry.points,remaining:examRemaining(policy,entry,after),score:after.score,baseScore:after.baseScore});
       });
     }
 

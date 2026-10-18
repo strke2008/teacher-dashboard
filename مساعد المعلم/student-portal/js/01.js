@@ -6182,6 +6182,7 @@ async function fetchExamBonusOptions(){
     if(j && j.policy) EXAM_SHOP_POLICY=j.policy;
     const ex=(j && j.ok && Array.isArray(j.exams) && j.exams.length) ? j.exams[0] : null;
     EXAM_SHOP_HAS_SCORE=!!(j && j.hasExam);
+    window.EXAM_SHOP_FULL=!!((ex&&ex.full)||(j&&j.policy&&j.policy.full));   // درجته كاملة 20/20: لا فائدة من بطاقات الرفع
     EXAM_SHOP_REMAINING=ex ? Number(ex.remaining||0) : Number(j?.policy?.remaining ?? (j?.policy?.maxPerStudent ?? 0));
     if(!Number.isFinite(EXAM_SHOP_REMAINING)) EXAM_SHOP_REMAINING=0;
     EXAM_SHOP_REMAINING=Math.max(0,Math.min(20,EXAM_SHOP_REMAINING));
@@ -6199,13 +6200,14 @@ async function useExamBonus(cardId, target){
   }
   const ex=exams[0];
   const api=((HW&&HW.api)||API||'').replace(/\/+$/,'');
+  if(ex.full){ await note('درجتك في الاختبارات كاملة 20/20 — البطاقة لن تضيف شيئًا. احتفظ بها لفترة قادمة.','درجتك كاملة 🌟','🎓'); return; }
   if(Number(ex.remaining)<c.examBonus){ toast(`المتاح لك حاليًا ${ex.remaining} درجة فقط، وهذه البطاقة تضيف ${c.examBonus}.`,'bad'); return; }
   const ok=await ask({icon:c.ic,title:'تأكيد استخدام البطاقة',msg:`سيُضاف ${c.examBonus} درجة مباشرة إلى درجة الاختبارات في ${ex.label||'هذه الفترة'} .\nدرجتك الحالية: ${ex.score}/20\nالدرجة بعد الإضافة: ${Math.min(20,Number(ex.score)+c.examBonus).toFixed(2).replace(/\.00$/,'')}/20`,yes:'استخدم البطاقة',no:'إلغاء'});
   if(!ok) return;
   try{
     const r=await storeFetch(api+'/use-exam-bonus',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:String(myName||lockedName()||'').trim(),sid:mySid||'',card:cardId,semester:ex.semester,period:ex.period})});
     const j=await r.json().catch(()=>({}));
-    if(!r.ok||!j.ok){ toast(j.error==='limit'?`المتاح لك ${j.remaining??0} درجة فقط`:storeErrText(j,'تعذّر استخدام البطاقة'),'bad'); return; }
+    if(!r.ok||!j.ok){ toast(j.error==='full'?'درجتك كاملة 20/20 — البطاقة لن تضيف شيئًا، فلم تُستهلك':j.error==='limit'?`المتاح لك ${j.remaining??0} درجة فقط`:storeErrText(j,'تعذّر استخدام البطاقة'),'bad'); return; }
     MYPERKS=j.perks||MYPERKS; MYPTS=Number(j.pts??MYPTS); syncBalanceUI();
     await note(`تمت إضافة ${j.added} درجة مباشرة إلى درجة الاختبارات.\nدرجتك الآن: ${j.score}/20\nالمتبقي لك: ${j.remaining} درجة.`,`تم رفع درجة الاختبار مباشرة ✅`,c.ic);
     if(target==='pre-store') await loadStore(true); else renderStore(target);
@@ -6220,6 +6222,7 @@ async function buyExamBonusDirect(card, target){
     return;
   }
   const ex=exams[0];
+  if(ex.full){ await note('درجتك في الاختبارات كاملة 20/20 — ما تحتاج بطاقات الرفع، ونقاطك محفوظة لك.','درجتك كاملة 🌟','🎓'); return; }
   if(Number(ex.remaining)<Number(card.examBonus)){
     await note(`درجتك الحالية ${ex.score}/20، وقد استخدمت ${ex.bonus||0} من أصل الحد المسموح له. المتبقي ${ex.remaining} درجة، لذلك بطاقة ${card.examBonus} درجة غير متاحة لك حاليًا.`,'الحد المتبقي أقل من قيمة البطاقة','⚠️');
     return;
@@ -6235,6 +6238,7 @@ async function buyExamBonusDirect(card, target){
       const msg=j.error==='low'?`رصيدك لا يكفي. رصيدك الحالي ${j.pts??MYPTS} نقطة.`:
         (j.error==='window'||j.error==='closed')?(j.reason||'شراء درجات الاختبارات غير متاح حاليًا.'):
         j.error==='noexam'?'لا توجد درجة اختبار متاحة حاليًا.':
+        j.error==='full'?'درجتك كاملة 20/20 — ما تحتاج البطاقة، ولم تُخصم نقاطك.':
         j.error==='limit'?`المتاح للرفع ${j.remaining??0} درجة فقط.`:
         storeErrText(j,'تعذّر إتمام الشراء، ولم تُخصم النقاط.');
       toast(msg,'bad');
@@ -6288,13 +6292,13 @@ function renderStore(target){
   const examKnown = EXAM_SHOP_LOADED;
   const examRemaining=examKnown ? Math.max(0,Number(EXAM_SHOP_REMAINING)||0) : 0;
   const examAvailable=examKnown && EXAM_SHOP_POLICY?.available!==false && examRemaining>0;
-  const examNotice=!examKnown ? '⏳ جارٍ التحقق من درجاتك…' : (EXAM_SHOP_POLICY?.reason||(!EXAM_SHOP_HAS_SCORE && examAvailable ? '🎓 الحد المسموح محفوظ لك، وتُحدد الدرجات المتبقية بعد ظهور درجة الاختبار.' : (examRemaining<=0 && EXAM_SHOP_HAS_SCORE ? '🎓 استخدمت كامل الحد المسموح لرفع درجة الاختبار.' : examShopMessage())));
+  const examNotice=!examKnown ? '⏳ جارٍ التحقق من درجاتك…' : window.EXAM_SHOP_FULL ? '🌟 درجتك في الاختبارات كاملة 20/20 — ما تحتاج بطاقات الرفع، ونقاطك محفوظة لك.' : (EXAM_SHOP_POLICY?.reason||(!EXAM_SHOP_HAS_SCORE && examAvailable ? '🎓 الحد المسموح محفوظ لك، وتُحدد الدرجات المتبقية بعد ظهور درجة الاختبار.' : (examRemaining<=0 && EXAM_SHOP_HAS_SCORE ? '🎓 استخدمت كامل الحد المسموح لرفع درجة الاختبار.' : examShopMessage())));
   const cardBtn=c=>{
           const remainingEnough=!c.examBonus || examRemaining>=Number(c.examBonus);
           const ownedOnce = c.once && MYPERKS[c.id] > 0;
           const pr = cardPrice(c);
           const can = !ownedOnce && (MYPTS >= pr || (c.mad && MYPERKS[c.id] > 0)) && (!c.examBonus || (examAvailable && remainingEnough));
-          const examLine=c.examBonus ? (!examKnown ? '⏳ جارٍ التحقق…' : (examRemaining<=0 && EXAM_SHOP_HAS_SCORE) ? 'استخدمت كامل الحد' : remainingEnough && examAvailable ? `المتاح لك الآن ${String(examRemaining).replace(/\.0$/,'')} درجة` : (examAvailable ? `المتبقي ${String(examRemaining).replace(/\.0$/,'')} درجة · البطاقة تحتاج ${c.examBonus}` : 'غير متاح حاليًا')) : '';
+          const examLine=c.examBonus ? (!examKnown ? '⏳ جارٍ التحقق…' : window.EXAM_SHOP_FULL ? 'درجتك كاملة 20/20 ✓' : (examRemaining<=0 && EXAM_SHOP_HAS_SCORE) ? 'استخدمت كامل الحد' : remainingEnough && examAvailable ? `المتاح لك الآن ${String(examRemaining).replace(/\.0$/,'')} درجة` : (examAvailable ? `المتبقي ${String(examRemaining).replace(/\.0$/,'')} درجة · البطاقة تحتاج ${c.examBonus}` : 'غير متاح حاليًا')) : '';
           return `<button data-c="${c.id}" data-p="${pr}" ${can?'':'disabled'}>
             ${c.ic} ${esc(c.shop||c.name)}
             <span style="display:block;font-size:.74rem;font-weight:500;color:var(--ink-soft);line-height:1.4;margin-top:.15rem">${esc(c.d||'')}</span>
