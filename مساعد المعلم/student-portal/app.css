@@ -1834,3 +1834,15 @@ a.rmd-go{text-decoration:none;display:inline-block;background:linear-gradient(#1
 .pres-send{background:#2E6BB8;color:#fff}.pres-ok{background:var(--chip,#EEF2F7);color:inherit}
 @keyframes presIn{from{opacity:0}to{opacity:1}}
 .askc-re{margin-top:.35rem;border:1px solid #BFD3F2;background:#F2F7FF;color:#1F4FA8;border-radius:99px;padding:.2rem .7rem;font:inherit;font-size:.78rem;font-weight:800;cursor:pointer}
+/* 💬 محادثة الطالب مع معلمه في الصندوق العائم */
+.sfab-thread{background:#F6F8FC;gap:.4rem;min-height:140px}
+.sfab-b{max-width:85%;padding:.4rem .65rem;border-radius:14px;font-size:.9rem;line-height:1.65;white-space:pre-line;display:grid;gap:.05rem}
+.sfab-b small{font-size:.68rem;opacity:.7}
+.sfab-b.me{justify-self:start;background:#3157C8;color:#fff;border-start-start-radius:4px}
+.sfab-b.t{justify-self:end;background:#fff;border:1px solid #DDE6F3;border-start-end-radius:4px}
+.sfab-row{display:flex;gap:.4rem;align-items:flex-end}
+.sfab-row textarea{flex:1;resize:none;border:1px solid #D3DDEC;border-radius:12px;padding:.5rem .6rem;font:inherit;font-size:.92rem;color:#1C2333;background:#fff;min-height:44px}
+.sfab-send{border:0;border-radius:12px;min-width:48px;height:44px;font-size:1.15rem;background:#3157C8;color:#fff;cursor:pointer}.sfab-send:disabled{opacity:.6}
+.sfab-err{color:#B3203D;font-size:.78rem;min-height:0}.sfab-err:empty{display:none}
+.sfab-more{margin-top:.4rem;border:0;background:none;color:#3157C8;font:inherit;font-size:.8rem;font-weight:800;cursor:pointer;padding:0}
+.sfab-off{font-size:.85rem;color:#5B6B82;text-align:center}
