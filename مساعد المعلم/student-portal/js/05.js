@@ -312,6 +312,7 @@ function sfabBubbles(){
 }
 function stuFabPanel(){
   const keep=document.getElementById('sfab-txt'), draft=keep?keep.value:(SFAB.draft||''), hadFocus=keep&&document.activeElement===keep;
+  const th0=document.getElementById('sfab-thread'), stick=!th0||th0.scrollHeight-th0.scrollTop-th0.clientHeight<60, top0=th0?th0.scrollTop:0;
   document.getElementById('sfab-pan')?.remove();
   const p=document.createElement('div'); p.id='sfab-pan'; p.className='sfab-pan'; p.setAttribute('role','dialog');
   const B=sfabBubbles(), lastT=B.filter(m=>m.who==='t'&&m.mid).pop(), off=ASK_META.mode==='off';
@@ -325,7 +326,7 @@ function stuFabPanel(){
         ${off?'':`<button type="button" class="sfab-more" onclick="stuFabToggle(false);askOpen()">📝 سؤال عن نشاط محدد</button>`}`}</div>`;
   document.body.appendChild(p);
   const ta=document.getElementById('sfab-txt'); if(ta){ ta.value=draft; if(hadFocus) ta.focus(); }
-  const th=document.getElementById('sfab-thread'); if(th) th.scrollTop=th.scrollHeight;
+  const th=document.getElementById('sfab-thread'); if(th) th.scrollTop=stick?th.scrollHeight:top0;
 }
 /* إرسال من المحادثة: إن كان آخر ما كتبه المعلم رسالة ⇒ ردٌّ عليها (يصل حتى لو أغلق الأسئلة)، وإلا سؤال جديد */
 async function sfabSend(){

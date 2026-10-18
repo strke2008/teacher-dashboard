@@ -183,6 +183,9 @@ function askFabPanel(){
   let p=document.getElementById('askf-pan');
   if(!p){ p=document.createElement('div'); p.id='askf-pan'; p.className='askf-pan'; p.setAttribute('role','dialog'); document.body.appendChild(p); }
   const focus=document.activeElement&&p.contains(document.activeElement)?document.activeElement.id:'';
+  // موضع التمرير قبل إعادة الرسم: من كان عند آخر رسالة يبقى عندها، ومن صعد يقرأ القديم لا يُسحب
+  const th0=document.getElementById('ch-thread'), sameView=p.dataset.view===ASKF.view;
+  const stick=!th0||!sameView||th0.scrollHeight-th0.scrollTop-th0.clientHeight<60, top0=th0?th0.scrollTop:0;
   const TH=chThreads(), openN=TH.reduce((a,t)=>a+t.open,0);
   const foot=`<div class="askf-foot"><button type="button" class="btn ghost sm" onclick="askFabToggle(false);asksOpen()">كل الأسئلة والسابقة</button><button type="button" class="btn ghost sm" onclick="asksLoad()">🔄 تحديث</button><button type="button" class="btn ghost sm" onclick="askFabSet(false)" title="يمكنك إظهاره مجددًا من بطاقة «رسائل الطلاب»">إخفاء الزر</button></div>`;
   if(ASKF.view){
@@ -200,7 +203,6 @@ function askFabPanel(){
           onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();chSend('${id}')}">${thEsc(ASK_DRAFT['ch:'+sid]||'')}</textarea>
         <button type="button" class="btn tick ch-send" onclick="chSend('${id}')" aria-label="إرسال">📩</button></div>
         ${hasOpen?`<button type="button" class="btn ghost sm" style="margin-top:.3rem" title="حللتها معه في الفصل — لا يُرسل شيء" onclick="chClose('${id}')">✓ أُغلق سؤاله دون رد</button>`:''}</div>`;
-    const th=document.getElementById('ch-thread'); if(th) th.scrollTop=th.scrollHeight;
   } else {
     const q=ASKF.q.trim(), onl=typeof onlRows==='function'?onlRows().on:[];
     const found=q?(STUDENTS||[]).filter(s=>String(s.name||'').includes(q)).slice(0,8):[];
@@ -214,7 +216,9 @@ function askFabPanel(){
         :`${onl.length?`<div class="ch-onl"><small>🟢 متصلون الآن</small>${onl.slice(0,12).map(r=>`<button type="button" class="chip ghost" onclick="chOpen('${thEsc(r.sid)}')">${thEsc(r.s.name.split(' ')[0])}</button>`).join('')}</div>`:''}
           ${ASKS===null?'<div class="muted" style="padding:1rem;text-align:center">⏳ جارٍ الجلب…</div>':TH.length?TH.slice(0,40).map(row).join(''):'<div class="askf-empty">🌿 لا محادثات بعد<small>ابحث عن طالب بالأعلى لتبدأ</small></div>'}`}</div>`;
   }
-  p.insertAdjacentHTML('beforeend',foot);
+  p.insertAdjacentHTML('beforeend',foot); p.dataset.view=ASKF.view;
+  // بعد إضافة الذيل (يغيّر ارتفاع القائمة) لا قبله — وإلا توقفت قبل آخر رسالة
+  const th=document.getElementById('ch-thread'); if(th) th.scrollTop=stick?th.scrollHeight:top0;
   if(focus){ const el=document.getElementById(focus); if(el){ el.focus(); try{ el.setSelectionRange(el.value.length,el.value.length); }catch(e){} } }
 }
 async function chSend(sid){
