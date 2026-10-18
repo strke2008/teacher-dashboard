@@ -2305,6 +2305,7 @@ html body .rep-page.nfp{border:0;box-shadow:none}
 .sk-avg{flex:none;text-align:center;border-radius:12px;padding:.3rem .6rem;min-width:4.6rem}
 .sk-avg b{display:block;font-size:1.35rem;line-height:1.1}.sk-avg small{font-size:.66rem;opacity:.85}
 .sk-avg.ok{background:rgba(46,158,107,.14);color:#1E7A50}.sk-avg.mid{background:rgba(233,185,73,.2);color:#8A5D00}.sk-avg.weak{background:rgba(214,69,91,.14);color:#A8243A}
+.sk-avg.none{background:rgba(154,168,184,.16);color:#5B6B82}
 .sk-bar{display:flex;height:.8rem;border-radius:999px;overflow:hidden;gap:2px;background:var(--ui-surface-2,#EEF2F7)}
 .sk-bar i{display:block;height:100%}.sk-bar .ok{background:#2E9E6B}.sk-bar .mid{background:#E9B949}.sk-bar .weak{background:#D6455B}.sk-bar .none{background:transparent}
 .sk-leg{display:flex;flex-wrap:wrap;gap:.3rem .8rem;font-size:.78rem}.sk-leg .muted{margin-inline-start:auto}

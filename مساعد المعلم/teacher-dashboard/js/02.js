@@ -1784,7 +1784,7 @@ async function ctLvReportPick(cls){
       <button class="btn ghost sm" onclick="lvrPickSet('none')">إلغاء الكل</button>
       <span id="lvr-cnt" class="chip ghost" style="margin-inline-start:auto"></span></div>
     <div class="lvr-pick">${R.map((r,i)=>`<label class="lvr-pk ${r.act}"><input type="checkbox" class="lvr-sk-cb" value="${esc(r.k)}" data-i="${i}" data-act="${r.act}" ${on(r.k)?'checked':''} onchange="lvrPickCount()">
-      <span class="lvr-pk-n">${esc(r.k)}</span><b>${r.avg}%</b><small>${tag[r.act]}</small></label>`).join('')}</div>
+      <span class="lvr-pk-n">${esc(r.k)}</span><b>${r.avg==null?'—':r.avg+'%'}</b><small>${tag[r.act]}</small></label>`).join('')}</div>
     <div class="modal-foot"><button class="btn ghost" onclick="closeModal()">إلغاء</button><button class="btn tick" onclick="lvrPickGo(${JSON.stringify(String(cls||'')).replace(/"/g,'&quot;')})">🖨️ إنشاء التقرير</button></div>`);
   lvrPickCount();
 }
@@ -1815,7 +1815,8 @@ async function ctLvReport(cls,only){
   const reteach=R.filter(r=>r.act==='reteach'), grp=R.filter(r=>r.act==='group'||r.act==='one'), okS=R.filter(r=>r.act==='ok');
   const concl=[];
   if(avg!=null) concl.push(`متوسط الإتقان ${avg}%، و${pct(c('متقن')+c('قريب من الإتقان'))}% من الطلاب المقيسين في مستوى «متقن» أو «قريب من الإتقان».`);
-  if(R.length) concl.push(`أضعف مهارة «${R[0].k}» (${R[0].avg}%)${R.length>1?`، وأقواها «${R[R.length-1].k}» (${R[R.length-1].avg}%)`:''}.`);
+  { const RM=R.filter(r=>r.avg!=null);   // المقيسة فقط
+    if(RM.length) concl.push(`أضعف مهارة «${RM[0].k}» (${RM[0].avg}%)${RM.length>1?`، وأقواها «${RM[RM.length-1].k}» (${RM[RM.length-1].avg}%)`:''}.`); }
   if(reteach.length) concl.push(`${reteach.length===1?'مهارة':reteach.length+' مهارات'} لم يتقنها أكثر الفصل (${reteach.map(r=>'«'+r.k+'»').join('، ')}): يُعاد شرحها للفصل كله قبل الخطط الفردية.`);
   if(grp.length) concl.push(`${grp.length} ${grp.length===1?'مهارة تحتاج':'مهارات تحتاج'} علاجًا لمجموعة محددة من الطلاب.`);
   if(need.length) concl.push(`${need.length} ${need.length===1?'طالب يحتاج':'طلاب يحتاجون'} دعمًا${down.length?`، و${down.length} يتراجعون (10 نقاط فأكثر)`:''}.`);
@@ -1837,7 +1838,7 @@ async function ctLvReport(cls,only){
           :`<div class="lvr-trend"><div><b style="color:${LVR_C.ok}">${up.length}</b><span>▲ تحسّنوا 10 نقاط فأكثر</span></div><div><b style="color:${LVR_C.weak}">${down.length}</b><span>▼ تراجعوا 10 نقاط فأكثر</span></div><div><b>${meas.length-up.length-down.length}</b><span>● مستقرون</span></div></div><div class="lvr-note">الاتجاه: أول أنشطة الفترة مقابل آخرها</div>`}</div>
       </div>
       ${R.length?`<div class="rep-sec">المهارات: كم طالبًا أتقن كل مهارة؟ (من الأضعف${R.length<RA.length?` · ${R.length} مهارات مختارة من ${RA.length}`:''})</div>
-      <div class="rep-box"><div class="lvr-sk">${R.map(r=>`<div class="lvr-skr"><span class="lvr-skn">${esc(r.k)}</span>${lvrStack([{l:'أتقن',n:r.ok.length,c:LVR_C.ok},{l:'قريب',n:r.mid.length,c:LVR_C.mid},{l:'لم يتقن',n:r.weak.length,c:LVR_C.weak}])}<b class="lvr-ska">${r.avg}%</b><span class="lvr-act ${r.act}">${actTxt[r.act]}</span></div>`).join('')}</div>
+      <div class="rep-box"><div class="lvr-sk">${R.map(r=>`<div class="lvr-skr"><span class="lvr-skn">${esc(r.k)}</span>${lvrStack([{l:'أتقن',n:r.ok.length,c:LVR_C.ok},{l:'قريب',n:r.mid.length,c:LVR_C.mid},{l:'لم يتقن',n:r.weak.length,c:LVR_C.weak}])}<b class="lvr-ska">${r.avg==null?'—':r.avg+'%'}</b><span class="lvr-act ${r.act}">${actTxt[r.act]}</span></div>`).join('')}</div>
         ${leg([{l:`أتقن ${SKILL_TARGET_UI}%+`,n:'',c:LVR_C.ok},{l:`قريب ${SKILL_GAP_UI}–${SKILL_TARGET_UI-1}%`,n:'',c:LVR_C.mid},{l:`لم يتقن أقل من ${SKILL_GAP_UI}%`,n:'',c:LVR_C.weak}])}
         <div class="lvr-note">داخل الشريط: عدد الطلاب · النسبة: متوسط الفصل في المهارة · القرار: إعادة شرح إذا لم يتقنها 60% من الفصل فأكثر</div></div>`:''}
       <div class="lvr-row">
@@ -2294,14 +2295,17 @@ function ctSkChip(name,rate,band,onclick){ return `<button type="button" class="
 /* صفوف المهارات لمجموعة طلاب: متوسط الفصل، ومن أتقن/قريب/لم يتقن، والقرار — تشترك فيها الخريطة والتقرير المختصر */
 function ctSkillRows(roster){
   const all={}; roster.forEach(s=>Object.entries(ctG(s.id).skills||{}).forEach(([k,v])=>{ const a=all[k]||(all[k]={c:0,t:0,n:0}); a.c+=v.c; a.t+=v.t; a.n++; }));
-  const skills=Object.keys(all).filter(k=>all[k].t>=3).sort((a,b)=>all[a].c/all[a].t-all[b].c/all[b].t);
+  let skills=Object.keys(all).filter(k=>all[k].t>=3);
   const T=SKILL_TARGET_UI, G=SKILL_GAP_UI;
   const R=skills.map(k=>{
     const seen=roster.map(s=>({s,v:ctG(s.id).skills?.[k]})).filter(x=>x.v&&x.v.t>=2).sort((a,b)=>a.v.rate-b.v.rate);
     const ok=seen.filter(x=>x.v.rate>=T), mid=seen.filter(x=>x.v.rate>=G&&x.v.rate<T), weak=seen.filter(x=>x.v.rate<G);
     const act=!seen.length?'none':weak.length>=Math.max(3,Math.ceil(seen.length*0.6))?'reteach':weak.length>=2?'group':weak.length===1?'one':'ok';
-    return {k,avg:Math.round(all[k].c/all[k].t*100),t:all[k].t,seen,ok,mid,weak,act};
-  });
+    // متوسط الفصل من الطلاب المقيسين فقط (سؤالان فأكثر): إجابات متفرقة بلا طالب مقيس لا تُعرض كمتوسط للفصل
+    const sc=seen.reduce((a,x)=>a+x.v.c,0), st=seen.reduce((a,x)=>a+x.v.t,0);
+    return {k,avg:st?Math.round(sc/st*100):null,t:all[k].t,seen,ok,mid,weak,act};
+  }).sort((a,b)=>(a.avg==null)-(b.avg==null)||(a.avg??0)-(b.avg??0));   // غير المقيسة في الآخر
+  skills=R.map(r=>r.k);
   return {skills,R};
 }
 async function ctSkills(box,force){
@@ -2322,7 +2326,7 @@ async function ctSkills(box,force){
   const card=r=>{ const tot=Math.max(1,r.seen.length);
     return `<div class="sk-card ${r.act}">
       <div class="sk-head"><div class="sk-name"><b>${esc(r.k)}</b><small>${r.seen.length} طالبًا · ${r.t} إجابة</small></div>
-        <div class="sk-avg ${ctSkBand(r.avg)}"><b>${r.avg}%</b><small>متوسط الفصل</small></div></div>
+        <div class="sk-avg ${r.avg==null?'none':ctSkBand(r.avg)}"><b>${r.avg==null?'—':r.avg+'%'}</b><small>${r.avg==null?'لم يُقَس بعد':'متوسط الفصل'}</small></div></div>
       <div class="sk-bar" role="img" aria-label="أتقن ${r.ok.length}، قريب ${r.mid.length}، لم يتقن ${r.weak.length}">${r.ok.length?`<i class="ok" style="flex:${r.ok.length}"></i>`:''}${r.mid.length?`<i class="mid" style="flex:${r.mid.length}"></i>`:''}${r.weak.length?`<i class="weak" style="flex:${r.weak.length}"></i>`:''}${r.seen.length?'':'<i class="none" style="flex:1"></i>'}</div>
       <div class="sk-leg"><span class="ok">أتقن <b>${r.ok.length}</b></span><span class="mid">قريب <b>${r.mid.length}</b></span><span class="weak">لم يتقن <b>${r.weak.length}</b></span><span class="muted">${Math.round(r.ok.length/tot*100)}% من الفصل أتقنها</span></div>
       ${actHTML(r)}
@@ -2336,7 +2340,7 @@ async function ctSkills(box,force){
       <div class="sk-chips">${x.weak.map(([k,v])=>ctSkChip(k,v.rate,'weak')).join('')}${x.mid.map(([k,v])=>ctSkChip(k,v.rate,'mid')).join('')}</div>
       ${x.weak.length?`<button class="btn tick sm" onclick="ctPlanStudent('${esc(x.s.id)}')">＋ خطة</button>`:''}</div>`).join('')}</div>`; };
   const table=()=>`<div class="ct-table"><table class="ct-heat"><thead><tr><th>الطالب</th>${skills.map(k=>`<th title="${esc(k)}"><div class="ct-sk-h">${esc(k)}</div></th>`).join('')}</tr>
-      <tr class="ct-avg"><th>متوسط الفصل</th>${R.map(r=>`<td style="${ctHeat(r.avg)}"><b>${r.avg}%</b></td>`).join('')}</tr>
+      <tr class="ct-avg"><th>متوسط الفصل</th>${R.map(r=>r.avg==null?'<td class="muted">—</td>':`<td style="${ctHeat(r.avg)}"><b>${r.avg}%</b></td>`).join('')}</tr>
       <tr><th>لم يتقنها</th>${R.map(r=>`<td>${r.weak.length?`<b>${r.weak.length}</b>`:'—'}</td>`).join('')}</tr></thead><tbody>
     ${roster.map(s=>`<tr><td>${ctNameLink(s)}</td>${skills.map(k=>{ const v=ctG(s.id).skills?.[k]; return v?`<td style="${ctHeat(v.rate)}" title="${v.c} من ${v.t}">${v.rate}%</td>`:'<td class="muted">—</td>'; }).join('')}</tr>`).join('')}
     </tbody></table></div>`;
@@ -9160,6 +9164,8 @@ function renderStylesPanel(){
   const order = STYLE_ORDER.slice();
   Object.keys(counts).forEach(k=>{ if(order.indexOf(k)<0) order.push(k); });
   const n = rows.length;
+  // النمط الغالب = الأكثر طلابًا (لا أول نمط في الترتيب الثابت)
+  const topK = order.reduce((b,k)=>(counts[k]||0)>(counts[b]||0)?k:b, order[0]);
   const cnt = k => counts[k] || 0;
 
   const TIPS = {
@@ -9177,7 +9183,7 @@ function renderStylesPanel(){
           <div>الاختبار<b>${esc(h.title)}</b></div>
           <div>الفصل<b>${esc(hwClsLabel(h))}</b></div>
           <div>أجاب<b>${n} من ${pool.length}</b></div>
-          <div>النمط الغالب<b style="color:${STYLE_COLOR[order[0]]}">${STYLE_ICON[order[0]]||''} ${esc(order[0])}</b></div>
+          <div>النمط الغالب<b style="color:${STYLE_COLOR[topK]}">${STYLE_ICON[topK]||''} ${esc(topK)}</b></div>
         </div>
         <div class="rep-band">🧠 تقرير أنماط التعلّم — كيف يتعلّم طلابك</div>
 
@@ -9205,7 +9211,7 @@ function renderStylesPanel(){
             </tr>`).join('')}
           </tbody></table>
           <div style="margin-top:.5rem;font-size:.88rem">
-            <b>الأولوية: ${STYLE_ICON[order[0]]||''} ${esc(order[0])}</b>
+            <b>الأولوية: ${STYLE_ICON[topK]||''} ${esc(topK)}</b>
             <span class="muted"> — ابدأ به ثم نوّع ليشمل البقية.</span>
           </div>
         </div>
@@ -9405,6 +9411,8 @@ function openStylesReport(id){
   const order = STYLE_ORDER.slice();
   Object.keys(counts).forEach(k=>{ if(order.indexOf(k)<0) order.push(k); });
   const n = rows.length;
+  // النمط الغالب = الأكثر طلابًا (لا أول نمط في الترتيب الثابت)
+  const topK = order.reduce((b,k)=>(counts[k]||0)>(counts[b]||0)?k:b, order[0]);
 
   openModal(`
     <h2>🧠 أنماط التعلّم — ${esc(h.title)}</h2>
@@ -9424,7 +9432,7 @@ function openStylesReport(id){
         </div>`;
       }).join('')}
       <div style="margin-top:.6rem;padding-top:.5rem;border-top:1px solid var(--rule);font-size:.86rem">
-        <b>النمط الغالب: ${STYLE_ICON[order[0]]||''} ${esc(order[0])}</b>
+        <b>النمط الغالب: ${STYLE_ICON[topK]||''} ${esc(topK)}</b>
         <span class="muted"> — راعِ ذلك في تخطيط دروسك.</span>
       </div>
     </div>
