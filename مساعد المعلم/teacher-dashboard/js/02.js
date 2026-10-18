@@ -1737,7 +1737,7 @@ async function ctLevels(box, force){
   const kpi=(key,label,c,tn)=>`<button type="button" class="ct-kpi ${tn||''} ${F===key?'on':''}" onclick="window._ctLvF=${JSON.stringify(F===key?'':key).replace(/"/g,'&quot;')};renderClassTools()" title="اعرض ${label} فقط"><b>${c}</b><span>${label}</span></button>`;
   box.innerHTML=`<div class="row ct-tools">${ctClassSel('ct-lv-cls',cls,"window._ctLvCls=this.value;renderClassTools()")}
       <input class="inp" type="search" placeholder="🔍 ابحث بالاسم" value="${esc(q)}" oninput="window._ctLvQ=this.value;clearTimeout(window._ctLvT);window._ctLvT=setTimeout(()=>{renderClassTools();setTimeout(()=>{const e=document.querySelector('#ct-body input[type=search]');if(e){e.focus();e.setSelectionRange(e.value.length,e.value.length)}},0)},250)" style="flex:1;min-width:160px">
-      <span class="muted" style="font-size:.78rem">الفصل ${sem===1?'الأول':'الثاني'} · الفترة ${per===1?'الأولى':'الثانية'}</span></div>
+      <span class="muted" style="font-size:.78rem">الفصل ${sem===1?'الأول':'الثاني'} · الفترة ${per===1?'الأولى':'الثانية'}</span><button class="btn tick sm" onclick="ctLvReport(window._ctLvCls??'')">📊 تقرير مختصر</button></div>
     <div class="ct-kpis lv-kpis">${groups.map(g=>kpi(g,g,cnt(g),tone[g])).join('')}${kpi('__un','لم يُقَس بعد',un,'')}</div>
     <div class="sk-bar lv-bar" role="img" aria-label="${groups.map(g=>g+' '+cnt(g)).join('، ')}، لم يُقَس ${un}">${cnt('متقن')?`<i class="ok" style="flex:${cnt('متقن')}"></i>`:''}${cnt('قريب من الإتقان')?`<i class="mid" style="flex:${cnt('قريب من الإتقان')}"></i>`:''}${cnt('يحتاج دعم')?`<i class="weak" style="flex:${cnt('يحتاج دعم')}"></i>`:''}${un?`<i class="un" style="flex:${un}"></i>`:''}</div>
     <div class="sk-leg" style="margin:.3rem 0 .2rem"><span class="ok">متقن ${Math.round(cnt('متقن')/tot*100)}%</span><span class="mid">قريب ${Math.round(cnt('قريب من الإتقان')/tot*100)}%</span><span class="weak">يحتاج دعم ${Math.round(cnt('يحتاج دعم')/tot*100)}%</span>${F?`<span class="muted">يُعرض: ${F==='__un'?'لم يُقَس بعد':esc(F)} فقط — اضغط البطاقة ثانيةً لعرض الكل</span>`:''}</div>
@@ -1751,6 +1751,76 @@ async function ctLevels(box, force){
       <td class="muted" style="font-size:.78rem">${x.l.measured?`${x.l.correct} من ${x.l.total} سؤالًا في ${x.l.count} نشاط`:'لم يحل أي نشاط في الفترة'}</td>
       <td>${x.l.measured&&x.l.status==='يحتاج دعم'?`<button class="btn tick sm" onclick="ctPlanFor('${esc(x.s.id)}','${esc(String(x.l.rate))}')">＋ خطة</button>`:''}</td></tr>`).join('')||'<tr><td colspan="7" class="muted">لا يوجد طلاب.</td></tr>'}
     </tbody></table></div>`;
+}
+/* ═══ 📊 تقرير مختصر بالرسوم للمستويات والمهارات (صفحة A4 واحدة للطباعة/PDF) ═══
+   الألوان حالة لا فئات: أتقن/متقن أخضر · قريب ذهبي · يحتاج دعم/لم يتقن أحمر · لم يُقَس رمادي — ومع كل لون رقمه واسمه
+   (لا يُعتمد على اللون وحده). الحدود: المستوى من MASTERY (85/70)، والمهارة من SKILL_TARGET_UI/SKILL_GAP_UI (80/60). */
+const LVR_C={ok:'#2E9E6B',mid:'#D49A1E',weak:'#D6455B',un:'#9AA8B8'};
+function lvrDonut(parts,center,sub){
+  const tot=parts.reduce((a,p)=>a+p.n,0)||1, r=62, C=2*Math.PI*r; let off=0;
+  const segs=parts.filter(p=>p.n).map(p=>{ const len=p.n/tot*C, gap=parts.filter(x=>x.n).length>1?2:0;
+    const el=`<circle cx="80" cy="80" r="${r}" fill="none" stroke="${p.c}" stroke-width="24" stroke-dasharray="${Math.max(0,len-gap)} ${C}" stroke-dashoffset="${-off}" transform="rotate(-90 80 80)"/>`; off+=len; return el; }).join('');
+  return `<div class="lvr-donut"><svg viewBox="0 0 160 160" width="150" height="150" aria-hidden="true"><circle cx="80" cy="80" r="${r}" fill="none" stroke="#EEF2F7" stroke-width="24"/>${segs}</svg>
+    <div class="lvr-dc"><b>${center}</b><small>${sub}</small></div></div>`;
+}
+function lvrStack(parts){ const tot=parts.reduce((a,p)=>a+p.n,0);
+  return `<div class="lvr-stack">${tot?parts.filter(p=>p.n).map(p=>`<i style="flex:${p.n};background:${p.c}" title="${p.l} ${p.n}">${p.n/tot>=.05?p.n:''}</i>`).join(''):'<i style="flex:1;background:#EEF2F7"></i>'}</div>`; }
+async function ctLvReport(cls){
+  try{ await ctEnsureGrades(false); }catch(e){}
+  if(!CT_GRADES){ toast('تعذّر تحميل الدرجات','bad'); return; }
+  const {sem,per}=ctSem(), roster=ctRoster(cls||''), M=CT_GRADES.mastery||{excellent:85,near:70};
+  const L=roster.map(s=>({s,l:ctG(s.id).level||{measured:false},tr:ctG(s.id).trend}));
+  const meas=L.filter(x=>x.l.measured), c=st=>meas.filter(x=>x.l.status===st).length, un=L.length-meas.length;
+  const cor=meas.reduce((a,x)=>a+(x.l.correct||0),0), tot=meas.reduce((a,x)=>a+(x.l.total||0),0), avg=tot?Math.round(cor/tot*100):null;
+  const pct=n=>meas.length?Math.round(n/meas.length*100):0;
+  const lvParts=[{l:'متقن',n:c('متقن'),c:LVR_C.ok},{l:'قريب من الإتقان',n:c('قريب من الإتقان'),c:LVR_C.mid},{l:'يحتاج دعم',n:c('يحتاج دعم'),c:LVR_C.weak},{l:'لم يُقَس بعد',n:un,c:LVR_C.un}];
+  const {R}=ctSkillRows(roster);
+  const cmp=!cls?ctClasses().map(k=>{ const r=ctRoster(k).map(s=>ctG(s.id).level||{}).filter(l=>l.measured); const t=r.reduce((a,l)=>a+(l.total||0),0), co=r.reduce((a,l)=>a+(l.correct||0),0);
+    return {k,n:r.length,avg:t?Math.round(co/t*100):null,parts:[{l:'متقن',n:r.filter(l=>l.status==='متقن').length,c:LVR_C.ok},{l:'قريب',n:r.filter(l=>l.status==='قريب من الإتقان').length,c:LVR_C.mid},{l:'يحتاج دعم',n:r.filter(l=>l.status==='يحتاج دعم').length,c:LVR_C.weak}]}; }).filter(x=>x.n):[];
+  const need=meas.filter(x=>x.l.status==='يحتاج دعم').sort((a,b)=>a.l.rate-b.l.rate);
+  const down=meas.filter(x=>x.tr&&x.tr.measurable&&x.tr.change<=-10).sort((a,b)=>a.tr.change-b.tr.change);
+  const up=meas.filter(x=>x.tr&&x.tr.measurable&&x.tr.change>=10);
+  const first=n=>String(n||'').split(' ').slice(0,3).join(' ');
+  const actTxt={reteach:'⚠️ إعادة شرح للفصل',group:'👥 خطة جماعية',one:'👤 خطة فردية',ok:'✅ متمكّن',none:'—'};
+  const reteach=R.filter(r=>r.act==='reteach'), grp=R.filter(r=>r.act==='group'||r.act==='one'), okS=R.filter(r=>r.act==='ok');
+  const concl=[];
+  if(avg!=null) concl.push(`متوسط الإتقان ${avg}%، و${pct(c('متقن')+c('قريب من الإتقان'))}% من الطلاب المقيسين في مستوى «متقن» أو «قريب من الإتقان».`);
+  if(R.length) concl.push(`أضعف مهارة «${R[0].k}» (${R[0].avg}%)${R.length>1?`، وأقواها «${R[R.length-1].k}» (${R[R.length-1].avg}%)`:''}.`);
+  if(reteach.length) concl.push(`${reteach.length===1?'مهارة':reteach.length+' مهارات'} لم يتقنها أكثر الفصل (${reteach.map(r=>'«'+r.k+'»').join('، ')}): يُعاد شرحها للفصل كله قبل الخطط الفردية.`);
+  if(grp.length) concl.push(`${grp.length} ${grp.length===1?'مهارة تحتاج':'مهارات تحتاج'} علاجًا لمجموعة محددة من الطلاب.`);
+  if(need.length) concl.push(`${need.length} ${need.length===1?'طالب يحتاج':'طلاب يحتاجون'} دعمًا${down.length?`، و${down.length} يتراجعون (10 نقاط فأكثر)`:''}.`);
+  if(un) concl.push(`${un} لم يُقَس مستواهم بعد (لم يحلّوا أي نشاط في الفترة).`);
+  const dt=new Date(), today=`${dt.getFullYear()}/${String(dt.getMonth()+1).padStart(2,'0')}/${String(dt.getDate()).padStart(2,'0')}`;
+  const leg=parts=>`<div class="lvr-leg">${parts.map(p=>`<span><i style="background:${p.c}"></i>${p.l} <b>${p.n}</b></span>`).join('')}</div>`;
+  ensureLogo();
+  let box=document.getElementById('plan-print'); if(!box){ box=document.createElement('div'); box.id='plan-print'; box.className='rep'; document.body.appendChild(box); }
+  box.innerHTML=`<div class="rep-page plan-doc lvr">${repHead('المستويات والمهارات','تقرير مختصر')}
+    <div class="rep-in">
+      <div class="rep-info"><div>المادة<b>${esc(rcGet('subject')||'العلوم')}</b></div><div>الفصل<b>${esc(cls||'كل الفصول')}</b></div><div>الفترة<b>${sem===1?'الفصل الأول':'الفصل الثاني'} · ${per===1?'الأولى':'الثانية'}</b></div><div>تاريخ التقرير<b>${today}</b></div>
+        <div>عدد الطلاب<b>${L.length}</b></div><div>قيس مستواهم<b>${meas.length}</b></div><div>متوسط الإتقان<b>${avg==null?'—':avg+'%'}</b></div><div>المهارات المقيسة<b>${R.length}</b></div></div>
+      <div class="lvr-row">
+        <div class="rep-box lvr-card"><div class="lvr-h">توزيع الطلاب على المستويات</div>
+          <div class="lvr-dwrap">${lvrDonut(lvParts,avg==null?'—':avg+'%','متوسط الإتقان')}${leg(lvParts)}</div>
+          <div class="lvr-note">متقن ${M.excellent}% فأكثر · قريب ${M.near}–${M.excellent-1}% · يحتاج دعم أقل من ${M.near}%</div></div>
+        <div class="rep-box lvr-card"><div class="lvr-h">${cmp.length>1?'مقارنة الفصول':'اتجاه المستوى خلال الفترة'}</div>
+          ${cmp.length>1?`<div class="lvr-bars">${cmp.map(x=>`<div class="lvr-br"><span class="lvr-bn">${esc(x.k)}</span>${lvrStack(x.parts)}<b>${x.avg==null?'—':x.avg+'%'}</b></div>`).join('')}</div>${leg([{l:'متقن',n:'',c:LVR_C.ok},{l:'قريب',n:'',c:LVR_C.mid},{l:'يحتاج دعم',n:'',c:LVR_C.weak}])}<div class="lvr-note">الرقم بجانب الشريط: متوسط إتقان الفصل · داخل الشريط: عدد الطلاب</div>`
+          :`<div class="lvr-trend"><div><b style="color:${LVR_C.ok}">${up.length}</b><span>▲ تحسّنوا 10 نقاط فأكثر</span></div><div><b style="color:${LVR_C.weak}">${down.length}</b><span>▼ تراجعوا 10 نقاط فأكثر</span></div><div><b>${meas.length-up.length-down.length}</b><span>● مستقرون</span></div></div><div class="lvr-note">الاتجاه: أول أنشطة الفترة مقابل آخرها</div>`}</div>
+      </div>
+      ${R.length?`<div class="rep-sec">المهارات: كم طالبًا أتقن كل مهارة؟ (من الأضعف)</div>
+      <div class="rep-box"><div class="lvr-sk">${R.map(r=>`<div class="lvr-skr"><span class="lvr-skn">${esc(r.k)}</span>${lvrStack([{l:'أتقن',n:r.ok.length,c:LVR_C.ok},{l:'قريب',n:r.mid.length,c:LVR_C.mid},{l:'لم يتقن',n:r.weak.length,c:LVR_C.weak}])}<b class="lvr-ska">${r.avg}%</b><span class="lvr-act ${r.act}">${actTxt[r.act]}</span></div>`).join('')}</div>
+        ${leg([{l:`أتقن ${SKILL_TARGET_UI}%+`,n:'',c:LVR_C.ok},{l:`قريب ${SKILL_GAP_UI}–${SKILL_TARGET_UI-1}%`,n:'',c:LVR_C.mid},{l:`لم يتقن أقل من ${SKILL_GAP_UI}%`,n:'',c:LVR_C.weak}])}
+        <div class="lvr-note">داخل الشريط: عدد الطلاب · النسبة: متوسط الفصل في المهارة · القرار: إعادة شرح إذا لم يتقنها 60% من الفصل فأكثر</div></div>`:''}
+      <div class="lvr-row">
+        <div class="rep-box lvr-card"><div class="lvr-h">يحتاجون دعمًا (${need.length})</div>
+          ${need.length?`<div class="lvr-names">${need.slice(0,14).map(x=>`<span>${esc(first(x.s.name))} <b>${x.l.rate}%</b></span>`).join('')}${need.length>14?`<span>+${need.length-14}</span>`:''}</div>`:'<div class="lvr-note">لا يوجد — كل الطلاب المقيسين فوق حد الدعم.</div>'}
+          ${down.length?`<div class="lvr-h" style="margin-top:.4rem">يتراجعون (${down.length})</div><div class="lvr-names">${down.slice(0,8).map(x=>`<span>${esc(first(x.s.name))} <b>${x.tr.change}</b></span>`).join('')}</div>`:''}</div>
+        <div class="rep-box lvr-card"><div class="lvr-h">الخلاصة والتوصيات</div><ul class="lvr-ul">${concl.map(t=>`<li>${esc(t)}</li>`).join('')||'<li>لا توجد بيانات كافية بعد.</li>'}</ul></div>
+      </div>
+      <div class="plan-sign"><div>معلم المادة<b>${esc(rcGet('teacher')||'')}</b><span>التوقيع: ....................</span></div>
+        <div>المشرف التربوي<b>&nbsp;</b><span>التوقيع: ....................</span></div>
+        <div>مدير المدرسة<b>${esc(rcGet('principal')||'')}</b><span>التوقيع: ....................</span></div></div>
+    </div></div>`;
+  unifiedA4Print({bodyClass:'printing-plans',title:'تقرير المستويات والمهارات',selector:'#plan-print',orientation:'portrait',margin:'8mm'});
 }
 /* مقارنة الفصول: متوسط الإتقان وتوزيع المستويات */
 function ctClassCompare(){
@@ -2191,20 +2261,26 @@ function ctTodayHTML(){
    الطالب يُحسب في المهارة إذا أجاب عن سؤالين فأكثر فيها؛ الحدود: أتقن ≥ SKILL_TARGET_UI، لم يتقن < SKILL_GAP_UI. ── */
 function ctSkBand(rate){ return rate>=SKILL_TARGET_UI?'ok':rate>=SKILL_GAP_UI?'mid':'weak'; }
 function ctSkChip(name,rate,band,onclick){ return `<button type="button" class="sk-chip ${band}" ${onclick?`onclick="${onclick}"`:''} title="${rate}%">${esc(name)} <b>${rate}%</b></button>`; }
-async function ctSkills(box,force){
-  await ctEnsureGrades(force);
-  const cls=window._ctSkCls??(ctClasses()[0]||''), roster=ctRoster(cls);
+/* صفوف المهارات لمجموعة طلاب: متوسط الفصل، ومن أتقن/قريب/لم يتقن، والقرار — تشترك فيها الخريطة والتقرير المختصر */
+function ctSkillRows(roster){
   const all={}; roster.forEach(s=>Object.entries(ctG(s.id).skills||{}).forEach(([k,v])=>{ const a=all[k]||(all[k]={c:0,t:0,n:0}); a.c+=v.c; a.t+=v.t; a.n++; }));
   const skills=Object.keys(all).filter(k=>all[k].t>=3).sort((a,b)=>all[a].c/all[a].t-all[b].c/all[b].t);
-  const tools=`<div class="row ct-tools">${ctClassSel('ct-sk-cls',cls,"window._ctSkCls=this.value;renderClassTools()",false)}`;
-  if(!skills.length){ box.innerHTML=`${tools}</div><div class="ct-warn">لا توجد أسئلة مصنّفة بالمهارات لهذا الفصل في الفترة. صنّف أسئلة الأنشطة من «🩹 العلاج التلقائي» في تبويب الخطط العلاجية (زر «صنّف المهارات»)، أو انشر اختبارًا تشخيصيًا بمهارات.</div>`; return; }
-  const T=SKILL_TARGET_UI, G=SKILL_GAP_UI, first=n=>String(n||'').split(' ').slice(0,2).join(' ');
+  const T=SKILL_TARGET_UI, G=SKILL_GAP_UI;
   const R=skills.map(k=>{
     const seen=roster.map(s=>({s,v:ctG(s.id).skills?.[k]})).filter(x=>x.v&&x.v.t>=2).sort((a,b)=>a.v.rate-b.v.rate);
     const ok=seen.filter(x=>x.v.rate>=T), mid=seen.filter(x=>x.v.rate>=G&&x.v.rate<T), weak=seen.filter(x=>x.v.rate<G);
     const act=!seen.length?'none':weak.length>=Math.max(3,Math.ceil(seen.length*0.6))?'reteach':weak.length>=2?'group':weak.length===1?'one':'ok';
     return {k,avg:Math.round(all[k].c/all[k].t*100),t:all[k].t,seen,ok,mid,weak,act};
   });
+  return {skills,R};
+}
+async function ctSkills(box,force){
+  await ctEnsureGrades(force);
+  const cls=window._ctSkCls??(ctClasses()[0]||''), roster=ctRoster(cls);
+  const {skills,R}=ctSkillRows(roster);
+  const tools=`<div class="row ct-tools">${ctClassSel('ct-sk-cls',cls,"window._ctSkCls=this.value;renderClassTools()",false)}<button class="btn tick sm" onclick="ctLvReport(window._ctSkCls??(ctClasses()[0]||''))">📊 تقرير مختصر</button>`;
+  if(!skills.length){ box.innerHTML=`${tools}</div><div class="ct-warn">لا توجد أسئلة مصنّفة بالمهارات لهذا الفصل في الفترة. صنّف أسئلة الأنشطة من «🩹 العلاج التلقائي» في تبويب الخطط العلاجية (زر «صنّف المهارات»)، أو انشر اختبارًا تشخيصيًا بمهارات.</div>`; return; }
+  const T=SKILL_TARGET_UI, G=SKILL_GAP_UI, first=n=>String(n||'').split(' ').slice(0,2).join(' ');
   const view=window._ctSkView||'skill', n=a=>R.filter(r=>a.includes(r.act)).length;
   const planBtn=(r,label,cls2)=>`<button class="btn ${cls2||'tick'} sm" onclick='ctGroupPlan(${JSON.stringify(r.k)},${JSON.stringify(r.weak.map(x=>String(x.s.id)))})'>${label}</button>`;
   const actHTML=r=>r.act==='reteach'?`<div class="sk-act reteach"><span>⚠️ <b>${r.weak.length} من ${r.seen.length}</b> لم يتقنوها — الأرجح أن الشرح لم يصل: <b>أعد شرحها للفصل كله</b> ثم قِس من جديد.</span>${planBtn(r,`👥 خطة للـ${r.weak.length}`,'ghost')}</div>`

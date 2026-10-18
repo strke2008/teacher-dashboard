@@ -2334,3 +2334,33 @@ button.sk-chip:not([onclick]){cursor:default}
 .lv-bar{margin-top:.6rem}.sk-bar .un{background:#C3CCD6}
 .sk-views button{white-space:nowrap}
 @media (max-width:900px){.sk-views{width:100%}.sk-views button{flex:1;padding:.4rem .3rem;font-size:.76rem}}
+
+/* ═══ 📊 تقرير المستويات والمهارات المختصر (صفحة A4) ═══ */
+.lvr,.lvr *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+.lvr-row{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin:.45rem 0}
+.lvr-card{margin:0!important}
+.lvr-h{font-weight:800;font-size:.9em;color:#12223D;margin-bottom:.35rem}
+.lvr-dwrap{display:flex;align-items:center;gap:.8rem}
+.lvr-donut{position:relative;width:150px;height:150px;flex:none}
+.lvr-dc{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.lvr-dc b{font-size:1.5em;color:#12223D;line-height:1.1}.lvr-dc small{font-size:.7em;color:#5A6B84}
+.lvr-leg{display:flex;flex-wrap:wrap;gap:.25rem .8rem;font-size:.78em;color:#33445A;margin-top:.3rem}
+.lvr-dwrap .lvr-leg{flex-direction:column;gap:.35rem;font-size:.85em}
+.lvr-leg i{display:inline-block;width:.75em;height:.75em;border-radius:3px;margin-inline-end:.3em;vertical-align:-1px}
+.lvr-note{font-size:.72em;color:#5A6B84;margin-top:.3rem;line-height:1.5}
+.lvr-stack{flex:1;display:flex;gap:2px;height:18px;border-radius:5px;overflow:hidden;background:#EEF2F7;min-width:0}
+.lvr-stack i{display:flex;align-items:center;justify-content:center;color:#fff;font-style:normal;font-size:.74em;font-weight:800}
+.lvr-bars,.lvr-sk{display:flex;flex-direction:column;gap:.38rem}
+.lvr-br,.lvr-skr{display:flex;align-items:center;gap:.5rem;font-size:.82em}
+.lvr-bn{width:3.4rem;flex:none;font-weight:700}
+.lvr-br b,.lvr-ska{width:2.8rem;flex:none;text-align:center;font-weight:800;color:#12223D}
+.lvr-skn{width:9.5rem;flex:none;font-weight:700;line-height:1.3}
+.lvr-act{width:8.4rem;flex:none;font-size:.86em;font-weight:700;border-radius:999px;padding:.12rem .4rem;text-align:center}
+.lvr-act.reteach{background:#FBE3E7;color:#A8243A}.lvr-act.group,.lvr-act.one{background:#FBEFD6;color:#7A5200}.lvr-act.ok{background:#DDF2E7;color:#1E7A50}.lvr-act.none{color:#5A6B84}
+.lvr-trend{display:grid;grid-template-columns:repeat(3,1fr);gap:.4rem;text-align:center;margin-top:.4rem}
+.lvr-trend b{display:block;font-size:1.7em;line-height:1.1}.lvr-trend span{font-size:.75em;color:#33445A}
+.lvr-names{display:flex;flex-wrap:wrap;gap:.25rem}
+.lvr-names span{font-size:.76em;background:#FBE3E7;color:#7E1C2E;border-radius:999px;padding:.1rem .45rem}
+.lvr-names span b{font-weight:800}
+.lvr-ul{margin:0;padding-inline-start:1.1rem;font-size:.8em;line-height:1.65;color:#22324A}
+@media (max-width:700px){.lvr-row{grid-template-columns:1fr}.lvr-skn{width:6.5rem}.lvr-act{width:6.8rem}}
