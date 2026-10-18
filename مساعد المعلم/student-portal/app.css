@@ -1834,3 +1834,14 @@ a.rmd-go{text-decoration:none;display:inline-block;background:linear-gradient(#1
 .sfab-more{margin-top:.4rem;border:0;background:none;color:#3157C8;font:inherit;font-size:.8rem;font-weight:800;cursor:pointer;padding:0}
 .sfab-off{font-size:.85rem;color:#5B6B82;text-align:center}
 .sfab-chat-on{font-size:.76rem;color:#1B7A4E;font-weight:800;margin-bottom:.35rem}
+
+/* 📱 محادثة الطالب على الجوال: شاشة كاملة فوق لوحة المفاتيح، وخط 16px حتى لا يكبّر iOS الصفحة */
+@media screen and (max-width:700px){
+  .sfab-pan{left:0!important;right:0!important;top:var(--vvt,0px)!important;bottom:auto!important;width:100%!important;height:var(--vvh,100dvh)!important;max-height:none!important;border-radius:0!important;border:0!important;z-index:2147482000!important;animation:none!important}
+  .sfab-top{padding-top:calc(.6rem + env(safe-area-inset-top,0px))}
+  .sfab-pan .sfab-list{flex:1;min-height:0}
+  .sfab-pan .sfab-foot{padding-bottom:calc(.6rem + env(safe-area-inset-bottom,0px))}
+  .sfab-pan textarea{font-size:16px!important;min-height:44px;max-height:120px}
+  html.chat-open,html.chat-open body{overflow:hidden!important}
+  html.chat-open .sfab-btn{display:none!important}
+}

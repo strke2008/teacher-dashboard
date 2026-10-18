@@ -127,13 +127,13 @@ function askNameHTML(x){ const ok=(STUDENTS||[]).some(s=>String(s.id)===String(x
   return ok?`<b class="ask-nm" role="link" tabindex="0" title="افتح ملف الطالب" onclick="ctOpenProfile('${thEsc(x.sid)}')">${thEsc(x.name)}</b>`:`<b>${thEsc(x.name)}</b>`; }
 /* 📌 الصندوق العائم اختياري: المعلم يُظهره أو يخفيه (يُحفظ على هذا الجهاز) */
 function askFabSet(on){ ASKF.on=!!on; try{ localStorage.setItem('askf_on_v1',on?'1':'0'); }catch(e){}
-  if(!on){ ASKF.open=false; document.getElementById('askf-pan')?.remove(); document.getElementById('askf-btn')?.remove(); }
+  if(!on){ ASKF.open=false; document.getElementById('askf-pan')?.remove(); document.getElementById('askf-btn')?.remove(); document.documentElement.classList.remove('chat-open'); }
   askFabRender(); try{ askCardRender(); }catch(e){} if(document.getElementById('ask-inbox')) try{ asksOpen(true); }catch(e){}
   if(!arguments[1]) toast(on?'📌 ظهر صندوق المحادثات العائم — تصل إليه من أي صفحة':'أُخفي صندوق المحادثات العائم','good'); }
 function askFabToggleBtn(){ return `<button type="button" class="askf-pin${ASKF.on?' on':''}" onclick="askFabSet(${!ASKF.on})" title="${ASKF.on?'إخفاء الزر العائم':'إظهار زر عائم للرسائل في كل الصفحات'}">📌 ${ASKF.on?'عائم عندي ✓':'عائم عندي'}</button>`; }
 function askFabRender(){
   if(!document.body) return;
-  if(!ASKF.on){ document.getElementById('askf-btn')?.remove(); document.getElementById('askf-pan')?.remove(); return; }
+  if(!ASKF.on){ document.getElementById('askf-btn')?.remove(); document.getElementById('askf-pan')?.remove(); document.documentElement.classList.remove('chat-open'); return; }
   let b=document.getElementById('askf-btn');
   if(!b){ b=document.createElement('button'); b.type='button'; b.id='askf-btn'; b.className='askf-btn'; b.setAttribute('aria-label','رسائل الطلاب');
     b.onclick=()=>askFabToggle(); document.body.appendChild(b); }
@@ -149,6 +149,7 @@ function askFabRender(){
 function askFabToggle(on){
   ASKF.open=on===undefined?!ASKF.open:!!on;
   const p=document.getElementById('askf-pan');
+  document.documentElement.classList.toggle('chat-open',ASKF.open); chVV();
   if(!ASKF.open){ if(p) p.remove(); document.getElementById('askf-btn')?.classList.remove('on'); return; }
   if(ASKS===null) asksLoad();
   askFabPanel(); document.getElementById('askf-btn')?.classList.add('on');
@@ -157,6 +158,11 @@ function askFabToggle(on){
    أسئلته من «راسل معلمك» وردودك عليها، ورسائلك الخاصة له (kind:'t') وردوده عليها. مصدر واحد: ASKS.
    ردك في خيط فيه سؤال مفتوح = رد على السؤال (/ask-reply)؛ وإلا = رسالة خاصة جديدة (/messages chat+live).
    الطالب المتصل الآن يرى تنبيهًا أحمر على صندوقه العائم خلال ثوانٍ، وغير المتصل يجدها في رسائله ومعها إشعار. */
+/* 📱 على الجوال يملأ الصندوق الشاشة الظاهرة فوق لوحة المفاتيح (visualViewport) — مثل تطبيقات المحادثة */
+function chVV(){ const vv=window.visualViewport, r=document.documentElement.style; if(!vv) return;
+  r.setProperty('--vvh',Math.round(vv.height)+'px'); r.setProperty('--vvt',Math.round(vv.offsetTop)+'px');
+  const th=document.getElementById('ch-thread'); if(th&&document.activeElement&&/^chr-/.test(document.activeElement.id||'')) th.scrollTop=th.scrollHeight; }
+if(window.visualViewport){ visualViewport.addEventListener('resize',chVV); visualViewport.addEventListener('scroll',chVV); }
 function chStu(sid){ return (STUDENTS||[]).find(s=>String(s.id)===String(sid))||null; }
 /* 💬 الدردشة مفتوحة مع هذا الطالب؟ (تأتي مع /presence كل 30 ث) */
 function chIsOpen(sid){ return !!(typeof ONL!=='undefined'&&ONL.data&&(ONL.data.chats||[]).some(c=>String(c.sid)===String(sid))); }
@@ -226,7 +232,7 @@ function askFabPanel(){
         :`${onl.length?`<div class="ch-onl"><small>🟢 متصلون الآن</small>${onl.slice(0,12).map(r=>`<button type="button" class="chip ghost" onclick="chOpen('${thEsc(r.sid)}')">${thEsc(r.s.name.split(' ')[0])}</button>`).join('')}</div>`:''}
           ${ASKS===null?'<div class="muted" style="padding:1rem;text-align:center">⏳ جارٍ الجلب…</div>':TH.length?TH.slice(0,40).map(row).join(''):'<div class="askf-empty">🌿 لا محادثات بعد<small>ابحث عن طالب بالأعلى لتبدأ</small></div>'}`}</div>`;
   }
-  p.insertAdjacentHTML('beforeend',foot); p.dataset.view=ASKF.view;
+  p.insertAdjacentHTML('beforeend',foot); p.dataset.view=ASKF.view; p.classList.toggle('thr',!!ASKF.view);
   // بعد إضافة الذيل (يغيّر ارتفاع القائمة) لا قبله — وإلا توقفت قبل آخر رسالة
   const th=document.getElementById('ch-thread'); if(th) th.scrollTop=stick?th.scrollHeight:top0;
   if(focus){ const el=document.getElementById(focus); if(el){ el.focus(); try{ el.setSelectionRange(el.value.length,el.value.length); }catch(e){} } }

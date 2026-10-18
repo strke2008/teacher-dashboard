@@ -2420,3 +2420,20 @@ button.sk-chip:not([onclick]){cursor:default}
 .ch-lock.on{background:#E7F6EE;border-color:#9FD6B9;color:#1B7A4E}
 .ch-top .ch-lock+.askf-x{margin-inline-start:0}
 .ch-open{font-style:normal;font-size:.7rem;font-weight:800;color:#1B7A4E;background:#E7F6EE;border-radius:99px;padding:0 .45rem}
+
+/* 📱 المحادثة على الجوال: شاشة كاملة فوق لوحة المفاتيح، وخط 16px حتى لا يكبّر iOS الصفحة عند الكتابة */
+@media screen and (max-width:700px){
+  .askf-pan{left:0!important;right:0!important;top:var(--vvt,0px)!important;bottom:auto!important;width:100%!important;height:var(--vvh,100dvh)!important;max-height:none!important;border-radius:0!important;border:0!important;z-index:2147482000!important;animation:none!important}
+  .askf-pan .askf-top{padding-top:calc(.6rem + env(safe-area-inset-top,0px))}
+  .askf-pan .askf-list{flex:1;min-height:0}
+  .askf-pan.thr .askf-foot{display:none}
+  .askf-pan .ch-comp{padding-bottom:calc(.5rem + env(safe-area-inset-bottom,0px))}
+  .askf-pan .ch-comp .ask-quick{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:.15rem}
+  .askf-pan .ch-comp .ask-quick::-webkit-scrollbar{display:none}
+  .askf-pan .ch-comp .ask-quick button{white-space:nowrap;flex:none}
+  .askf-pan textarea,.askf-pan input{font-size:16px!important}
+  .askf-pan .ch-row textarea{min-height:44px;max-height:120px}
+  .askf-pan .ch-b{max-width:88%}
+  html.chat-open,html.chat-open body{overflow:hidden!important}
+  html.chat-open .askf-btn{display:none!important}
+}

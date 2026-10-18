@@ -286,7 +286,7 @@ function stuFabWanted(){
 }
 function stuFabRender(){
   let b=document.getElementById('sfab-btn');
-  if(!stuFabWanted()){ if(b) b.remove(); if(SFAB.open){ SFAB.open=false; document.getElementById('sfab-pan')?.remove(); } return; }
+  if(!stuFabWanted()){ if(b) b.remove(); if(SFAB.open){ SFAB.open=false; document.getElementById('sfab-pan')?.remove(); document.documentElement.classList.remove('chat-open'); } return; }
   if(!b){ b=document.createElement('button'); b.type='button'; b.id='sfab-btn'; b.className='sfab-btn'; b.setAttribute('aria-label','راسل معلمك'); b.onclick=()=>stuFabToggle(); document.body.appendChild(b); }
   const fresh=sfabRows().filter(sfabNew).length;
   const html=`<span>💬</span>${fresh?`<b class="sfab-n">${fresh}</b>`:''}`;
@@ -294,8 +294,14 @@ function stuFabRender(){
   b.title=fresh?`${fresh===1?'رسالة جديدة':fresh+' رسائل جديدة'} من معلمك`:'محادثتك مع معلمك';
   b.classList.toggle('has',!!fresh); b.classList.toggle('on',SFAB.open);
 }
+/* 📱 على الجوال يملأ صندوق المحادثة الشاشة الظاهرة فوق لوحة المفاتيح */
+function sfabVV(){ const vv=window.visualViewport, r=document.documentElement.style; if(!vv) return;
+  r.setProperty('--vvh',Math.round(vv.height)+'px'); r.setProperty('--vvt',Math.round(vv.offsetTop)+'px');
+  const th=document.getElementById('sfab-thread'); if(th&&document.activeElement&&document.activeElement.id==='sfab-txt') th.scrollTop=th.scrollHeight; }
+if(window.visualViewport){ visualViewport.addEventListener('resize',sfabVV); visualViewport.addEventListener('scroll',sfabVV); }
 function stuFabToggle(on){
   SFAB.open=on===undefined?!SFAB.open:!!on;
+  document.documentElement.classList.toggle('chat-open',SFAB.open); sfabVV();
   document.getElementById('sfab-pan')?.remove();
   if(SFAB.open){ sfabSeenAll(); stuFabPanel(); }
   stuFabRender();
