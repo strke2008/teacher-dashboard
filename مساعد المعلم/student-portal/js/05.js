@@ -328,3 +328,51 @@ document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&Date.now
 // والزر العائم ظاهر: فحص أسرع (كل ~25 ثانية) حتى يظهر الرقم ولو لم يصل الإشعار للصفحة
 setInterval(()=>{ if(document.hidden) return; const fast=!!document.getElementById('sfab-btn'); if(Date.now()-LIVE_REF.at>(fast?25000:55000)) portalLiveRefresh(false); },10000);
 addEventListener('focus',()=>{ if(Date.now()-LIVE_REF.at>15000) portalLiveRefresh(true); });
+
+/* 🟢 الحضور + 📣 الرسالة الفورية من المعلم
+   نبض كل ~30 ث ما دامت البوابة ظاهرة (لا يُرسل والصفحة في الخلفية): يعرف المعلم من متصل الآن وماذا يفعل.
+   رد النبض يحمل رسائل المعلم الفورية فتظهر نافذة فوق كل شيء، ويرد الطالب منها مباشرة. */
+const PRES={t:0,busy:false,q:[],open:false};
+function presWhere(){
+  try{ if(typeof LIVE!=='undefined'&&LIVE&&LIVE.cur&&!LIVE.done) return '🎮 في المسابقة المباشرة'; }catch(e){}
+  const vis=id=>{ const e=document.getElementById(id); return !!(e&&!e.classList.contains('hide')&&e.offsetParent!==null); };
+  if(vis('gate-space')) return '🏠 الصفحة الرئيسية';
+  try{ if(typeof HW!=='undefined'&&HW&&HW.t) return '✏️ يحل: '+String(HW.t).slice(0,60); }catch(e){}
+  return '📱 في البوابة';
+}
+async function presPing(){
+  if(document.hidden||PRES.busy||!mySid) return;
+  PRES.busy=true; PRES.t=Date.now();
+  try{
+    const api=((typeof HW!=='undefined'&&HW&&HW.api)||API||'').replace(/\/+$/,''); if(!api) return;
+    const r=await fetch(api+'/presence',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sid:mySid,session:getStoreSession(),w:presWhere()})});
+    const j=await r.json().catch(()=>null);
+    (j&&Array.isArray(j.nudges)?j.nudges:[]).forEach(n=>PRES.q.push(n)); presNext();
+  }catch(e){} finally{ PRES.busy=false; }
+}
+function presNext(){
+  if(PRES.open||!PRES.q.length) return;
+  const n=PRES.q.shift(); PRES.open=true;
+  const ov=document.createElement('div'); ov.className='pres-ov'; ov.setAttribute('role','dialog'); ov.setAttribute('aria-modal','true');
+  ov.innerHTML=`<div class="pres-card"><div class="pres-h">📣 رسالة من معلمك</div><p class="pres-b"></p><small class="pres-t"></small>
+    <textarea class="pres-r" rows="2" maxlength="300" placeholder="اكتب ردّك لمعلمك (اختياري)"></textarea><div class="pres-msg" aria-live="polite"></div>
+    <div class="pres-a"><button type="button" class="pres-send">إرسال الرد</button><button type="button" class="pres-ok">حسنًا</button></div></div>`;
+  ov.querySelector('.pres-b').textContent=String(n.body||'');
+  try{ ov.querySelector('.pres-t').textContent=new Date(Number(n.at)).toLocaleTimeString('ar-SA',{hour:'numeric',minute:'2-digit'}); }catch(e){}
+  const close=()=>{ ov.remove(); PRES.open=false; setTimeout(presNext,300); };
+  ov.querySelector('.pres-ok').onclick=close;
+  ov.querySelector('.pres-send').onclick=async()=>{
+    const ta=ov.querySelector('.pres-r'), msg=ov.querySelector('.pres-msg'), text=ta.value.trim();
+    if(!text){ msg.textContent='اكتب ردّك أولًا'; ta.focus(); return; }
+    msg.textContent='جارٍ الإرسال…';
+    try{ const api=((typeof HW!=='undefined'&&HW&&HW.api)||API||'').replace(/\/+$/,'');
+      const j=await (await fetch(api+'/presence/reply',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sid:mySid,session:getStoreSession(),id:n.id,text})})).json();
+      if(j&&j.ok){ msg.textContent='✓ وصل ردّك لمعلمك'; setTimeout(close,900); } else msg.textContent='تعذّر الإرسال — أعد المحاولة';
+    }catch(e){ msg.textContent='تعذّر الإرسال — تحقق من الاتصال'; }
+  };
+  document.body.appendChild(ov);
+  try{ navigator.vibrate&&navigator.vibrate([120,60,120]); }catch(e){}
+}
+setInterval(()=>{ if(!document.hidden&&Date.now()-PRES.t>28000) presPing(); },5000);
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&Date.now()-PRES.t>5000) presPing(); });
+setTimeout(presPing,2500);

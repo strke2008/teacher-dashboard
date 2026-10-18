@@ -320,6 +320,37 @@ function cleanStudentPrefs(o) {
   const nc = String(o.nc || 'rainbow'); out.nc = NAME_COLORS.includes(nc) ? nc : 'rainbow';   // 🌈 لون الاسم (لمن اشترى «اسم ملوّن»)
   return out;
 }
+/* ═══ 🟢 المتصلون الآن + 📣 رسالة فورية ═══
+   بوابة الطالب ترسل نبضًا كل ~30 ث ما دامت ظاهرة على الشاشة (sid + ما يفعله الآن)، فتعرف اللوحة من متصل الآن.
+   النبض في D1 لا KV (حد الكتابة اليومي في KV صغير)، ولا يقرأ KV إطلاقًا: يُتحقق من توقيع الجلسة فقط.
+   الرسالة الفورية (nudge) تُسلَّم في رد النبض التالي للطالب (خلال ثوانٍ وهو متصل)، ويرد عليها من النافذة نفسها.
+   لا تُسلَّم رسالة إلا لجلسة موقّعة لنفس الطالب — فلا يقرأ أحد رسائل غيره. */
+const PRES_ONLINE_MS = 90000, PRES_NUDGE_TTL = 6 * 3600000;
+const _presReady = new WeakMap();
+async function presReady(env) {
+  if (!env.DB) return false;
+  let p = _presReady.get(env.DB);
+  if (!p) {
+    p = env.DB.batch([
+      env.DB.prepare('CREATE TABLE IF NOT EXISTS presence (sid TEXT PRIMARY KEY, at INTEGER NOT NULL, since INTEGER NOT NULL, w TEXT, signed INTEGER NOT NULL DEFAULT 0)'),
+      env.DB.prepare('CREATE TABLE IF NOT EXISTS nudges (id TEXT PRIMARY KEY, sid TEXT NOT NULL, body TEXT NOT NULL, at INTEGER NOT NULL, seen_at INTEGER, reply TEXT, reply_at INTEGER)'),
+      env.DB.prepare('CREATE INDEX IF NOT EXISTS nudges_sid ON nudges (sid, at)'),
+    ]).then(() => true).catch(e => { _presReady.delete(env.DB); throw e; });
+    _presReady.set(env.DB, p);
+  }
+  return p;
+}
+/* توقيع جلسة الطالب فقط (بلا قراءة KV) — يكفي للنبض الخفيف؛ العمليات الحساسة تبقى على requireStudentSession */
+async function sessionSidLite(env, token) {
+  const key = await sessionKey(env); if (!key) return '';
+  token = String(token || ''); const dot = token.indexOf('.');
+  if (dot < 1 || token.length > 600) return '';
+  try {
+    if (!(await crypto.subtle.verify('HMAC', key, b64urlToBytes(token.slice(dot + 1)), _enc.encode(token.slice(0, dot))))) return '';
+    const p = JSON.parse(new TextDecoder().decode(b64urlToBytes(token.slice(0, dot))));
+    return p && p.v === 1 && p.sid && Number(p.exp) > Date.now() ? String(p.sid) : '';
+  } catch { return ''; }
+}
 async function requireStudentSession(env, b) {
   const deny = (error = 'auth', status = 401) => ({ res: json({ ok: false, error }, status) });
   const key = await sessionKey(env);
@@ -5330,6 +5361,56 @@ export default {
     }
 
     // ── 💬 رسائل مساحة الطالب ──
+
+    // ── 🟢 نبض الحضور من بوابة الطالب، ويعود معه ما ينتظره من رسائل فورية ──
+    if (url.pathname === '/presence' && request.method === 'POST') {
+      let b; try { b = await request.json(); } catch { return json({ ok: false }, 400); }
+      const sid = String(b.sid || '').trim();
+      if (!/^[\w-]{1,64}$/.test(sid)) return json({ ok: false, error: 'sid' }, 400);
+      if (!(await presReady(env).catch(() => false))) return json({ ok: false, error: 'no_db' }, 503);
+      const now = Date.now(), signed = (await sessionSidLite(env, b.session)) === sid ? 1 : 0, w = String(b.w || '').slice(0, 90);
+      await env.DB.prepare('INSERT INTO presence (sid, at, since, w, signed) VALUES (?1, ?2, ?2, ?3, ?4) ON CONFLICT(sid) DO UPDATE SET since = CASE WHEN ?2 - presence.at > ?5 THEN ?2 ELSE presence.since END, at = ?2, w = ?3, signed = ?4')
+        .bind(sid, now, w, signed, PRES_ONLINE_MS).run();
+      let nudges = [];
+      if (signed) {
+        const r = await env.DB.prepare('SELECT id, body, at FROM nudges WHERE sid = ?1 AND seen_at IS NULL AND at > ?2 ORDER BY at LIMIT 5').bind(sid, now - PRES_NUDGE_TTL).all();
+        nudges = (r && r.results) || [];
+        if (nudges.length) await env.DB.batch(nudges.map(n => env.DB.prepare('UPDATE nudges SET seen_at = ?1 WHERE id = ?2').bind(now, n.id)));
+      }
+      return json({ ok: true, signed: !!signed, nudges });
+    }
+    if (url.pathname === '/presence/reply' && request.method === 'POST') {
+      let b; try { b = await request.json(); } catch { return json({ ok: false }, 400); }
+      const sid = String(b.sid || '').trim(), text = String(b.text || '').trim().slice(0, 300);
+      if (!sid || (await sessionSidLite(env, b.session)) !== sid) return json({ ok: false, error: 'auth' }, 401);
+      if (!text) return json({ ok: false, error: 'empty' }, 400);
+      if (!(await presReady(env).catch(() => false))) return json({ ok: false, error: 'no_db' }, 503);
+      const r = await env.DB.prepare('UPDATE nudges SET reply = ?1, reply_at = ?2 WHERE id = ?3 AND sid = ?4').bind(text, Date.now(), String(b.id || ''), sid).run();
+      return json({ ok: !!(r && r.meta && r.meta.changes) });
+    }
+    // ── للمعلم: من متصل الآن، وآخر الرسائل الفورية وردودها ──
+    if (url.pathname === '/presence' && request.method === 'GET') {
+      if (!env.TEACHER_TOKEN || url.searchParams.get('t') !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
+      if (!(await presReady(env).catch(() => false))) return json({ ok: false, error: 'no_db' }, 503);
+      const now = Date.now();
+      const [pr, nu] = await Promise.all([
+        env.DB.prepare('SELECT sid, at, since, w, signed FROM presence WHERE at > ?1 ORDER BY at DESC LIMIT 300').bind(now - 30 * 60000).all(),
+        env.DB.prepare('SELECT id, sid, body, at, seen_at, reply, reply_at FROM nudges WHERE at > ?1 ORDER BY at DESC LIMIT 200').bind(now - PRES_NUDGE_TTL).all(),
+      ]);
+      if (Math.random() < 0.02) ctx.waitUntil(env.DB.batch([env.DB.prepare('DELETE FROM nudges WHERE at < ?1').bind(now - 7 * 864e5), env.DB.prepare('DELETE FROM presence WHERE at < ?1').bind(now - 30 * 864e5)]).catch(() => {}));
+      return json({ ok: true, now, onlineMs: PRES_ONLINE_MS, presence: (pr && pr.results) || [], nudges: (nu && nu.results) || [] });
+    }
+    if (url.pathname === '/nudge' && request.method === 'POST') {
+      let b; try { b = await request.json(); } catch { return json({ ok: false }, 400); }
+      if (!env.TEACHER_TOKEN || b.t !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
+      const body = String(b.body || '').trim().slice(0, 300);
+      const sids = [...new Set((Array.isArray(b.sids) ? b.sids : []).map(x => String(x || '').trim()).filter(x => /^[\w-]{1,64}$/.test(x)))].slice(0, 80);
+      if (!body || !sids.length) return json({ ok: false, error: 'missing' }, 400);
+      if (!(await presReady(env).catch(() => false))) return json({ ok: false, error: 'no_db' }, 503);
+      const now = Date.now();
+      await env.DB.batch(sids.map((sid, i) => env.DB.prepare('INSERT INTO nudges (id, sid, body, at) VALUES (?1, ?2, ?3, ?4)').bind(now.toString(36) + '-' + i + '-' + Math.random().toString(36).slice(2, 7), sid, body, now)));
+      return json({ ok: true, count: sids.length });
+    }
     if (url.pathname === '/messages' && request.method === 'GET') {
       const name = String(url.searchParams.get('name') || '').slice(0, 80).trim();
       const sidIn = String(url.searchParams.get('sid') || url.searchParams.get('id') || '').trim();

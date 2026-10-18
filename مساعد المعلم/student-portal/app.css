@@ -1819,3 +1819,16 @@ html[data-pt] body,html[data-pt] .sheet,html[data-pt] .btn,html[data-pt] .studen
 .nf-tile.up{border-style:dashed;border-color:var(--tick);box-shadow:inset 0 0 0 1px rgba(27,156,107,.25)}
 /* 📱 «حلّه ←» رابط الواجب نفسه في مدرستي */
 a.rmd-go{text-decoration:none;display:inline-block;background:linear-gradient(#1FAE76,#13734F);box-shadow:0 3px 0 #0E5A3D}
+
+/* 📣 رسالة المعلم الفورية */
+.pres-ov{position:fixed;inset:0;z-index:2147483000;background:rgba(10,20,35,.55);display:flex;align-items:center;justify-content:center;padding:16px;animation:presIn .2s ease-out}
+.pres-card{width:min(440px,100%);background:var(--card,#fff);color:var(--ink,#16233A);border-radius:20px;padding:20px 18px 16px;box-shadow:0 24px 60px rgba(0,0,0,.3);border-top:6px solid #2E6BB8}
+.pres-h{font-weight:800;font-size:1.05rem;margin-bottom:.4rem}
+.pres-b{font-size:1.02rem;line-height:1.7;margin:0 0 .2rem;white-space:pre-line}
+.pres-t{display:block;color:var(--ink-soft,#5A6B84);font-size:.78rem;margin-bottom:.6rem}
+.pres-r{width:100%;box-sizing:border-box;border:1.5px solid var(--line,#D5E0E8);border-radius:12px;padding:.55rem .7rem;font:inherit;font-size:16px;background:transparent;color:inherit;resize:vertical}
+.pres-msg{min-height:1.2em;font-size:.82rem;color:var(--ink-soft,#5A6B84);margin:.3rem 0}
+.pres-a{display:flex;gap:.5rem}
+.pres-a button{flex:1;border:0;border-radius:12px;padding:.65rem;font:inherit;font-weight:800;cursor:pointer}
+.pres-send{background:#2E6BB8;color:#fff}.pres-ok{background:var(--chip,#EEF2F7);color:inherit}
+@keyframes presIn{from{opacity:0}to{opacity:1}}
