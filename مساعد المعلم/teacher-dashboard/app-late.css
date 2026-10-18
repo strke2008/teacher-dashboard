@@ -2416,3 +2416,7 @@ button.sk-chip:not([onclick]){cursor:default}
 .ch-row{display:flex;gap:.4rem;align-items:flex-end}.ch-row textarea{flex:1;resize:none;font-size:.88rem}
 .ch-send{height:42px;min-width:46px;padding:0 .7rem;font-size:1.1rem}
 .ch-comp .ask-quick{margin-bottom:.35rem}
+.ch-lock{margin-inline-start:auto;border:1px solid #D6E0F0;background:#fff;border-radius:99px;padding:.25rem .65rem;font:inherit;font-size:.74rem;font-weight:800;color:#5B6B82;cursor:pointer;white-space:nowrap}
+.ch-lock.on{background:#E7F6EE;border-color:#9FD6B9;color:#1B7A4E}
+.ch-top .ch-lock+.askf-x{margin-inline-start:0}
+.ch-open{font-style:normal;font-size:.7rem;font-weight:800;color:#1B7A4E;background:#E7F6EE;border-radius:99px;padding:0 .45rem}

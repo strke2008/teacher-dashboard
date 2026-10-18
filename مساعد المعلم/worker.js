@@ -263,6 +263,18 @@ async function sha256Hex(text) {
   return [...new Uint8Array(d)].map(x => x.toString(16).padStart(2, '0')).join('');
 }
 let _sessKeyCache = { secret: '', key: null };
+/* 💬 الدردشة الحرة مع طالب: يفتحها المعلم ويغلقها. مفتوحة ⇒ يكتب الطالب متى شاء بلا حدود الأسئلة؛
+   مغلقة ⇒ يعود لنظام «راسل معلمك» العادي (حسب الإعداد، وقد يكون مغلقًا). */
+async function chatIsOpen(env, sid) {
+  if (!sid || !(await presReady(env).catch(() => false))) return false;
+  try { return !!(await env.DB.prepare('SELECT 1 FROM chatopen WHERE sid = ?1').bind(String(sid)).first()); } catch { return false; }
+}
+async function chatSet(env, sids, open) {
+  if (!sids.length || !(await presReady(env).catch(() => false))) return;
+  const now = Date.now();
+  await env.DB.batch(sids.map(sid => open ? env.DB.prepare('INSERT OR REPLACE INTO chatopen (sid, at) VALUES (?1, ?2)').bind(String(sid), now)
+    : env.DB.prepare('DELETE FROM chatopen WHERE sid = ?1').bind(String(sid))));
+}
 async function sessionKey(env) {
   const secret = env.SESSION_SECRET ? String(env.SESSION_SECRET) : (env.TEACHER_TOKEN ? 'hw-student-session|' + env.TEACHER_TOKEN : '');
   if (!secret) return null;
@@ -336,6 +348,7 @@ async function presReady(env) {
       env.DB.prepare('CREATE TABLE IF NOT EXISTS presence (sid TEXT PRIMARY KEY, at INTEGER NOT NULL, since INTEGER NOT NULL, w TEXT, signed INTEGER NOT NULL DEFAULT 0)'),
       env.DB.prepare('CREATE TABLE IF NOT EXISTS livemsg (mid TEXT NOT NULL, sid TEXT NOT NULL, title TEXT, body TEXT, at INTEGER NOT NULL, seen_at INTEGER, PRIMARY KEY (mid, sid))'),
       env.DB.prepare('CREATE INDEX IF NOT EXISTS livemsg_sid ON livemsg (sid, at)'),
+      env.DB.prepare('CREATE TABLE IF NOT EXISTS chatopen (sid TEXT PRIMARY KEY, at INTEGER NOT NULL)'),
     ]).then(() => true).catch(e => { _presReady.delete(env.DB); throw e; });
     _presReady.set(env.DB, p);
   }
@@ -5365,7 +5378,7 @@ export default {
       const r = await env.DB.prepare('SELECT mid, title, body, at FROM livemsg WHERE sid = ?1 AND seen_at IS NULL AND at > ?2 ORDER BY at LIMIT 5').bind(sid, now - PRES_LIVE_TTL).all();
       const live = (r && r.results) || [];
       if (live.length) await env.DB.batch(live.map(n => env.DB.prepare('UPDATE livemsg SET seen_at = ?1 WHERE mid = ?2 AND sid = ?3').bind(now, n.mid, sid)));
-      return json({ ok: true, live });
+      return json({ ok: true, live, chat: await chatIsOpen(env, sid) });
     }
     // ── للمعلم: من متصل الآن، وتسليم آخر الرسائل الفورية (الردود في «رسائل الطلاب») ──
     if (url.pathname === '/presence' && request.method === 'GET') {
@@ -5377,7 +5390,16 @@ export default {
         env.DB.prepare('SELECT mid, sid, body, at, seen_at FROM livemsg WHERE at > ?1 ORDER BY at DESC LIMIT 300').bind(now - PRES_LIVE_TTL).all(),
       ]);
       if (Math.random() < 0.02) ctx.waitUntil(env.DB.batch([env.DB.prepare('DELETE FROM livemsg WHERE at < ?1').bind(now - 7 * 864e5), env.DB.prepare('DELETE FROM presence WHERE at < ?1').bind(now - 30 * 864e5)]).catch(() => {}));
-      return json({ ok: true, now, onlineMs: PRES_ONLINE_MS, presence: (pr && pr.results) || [], live: (lv && lv.results) || [] });
+      let chats = []; try { chats = ((await env.DB.prepare('SELECT sid, at FROM chatopen').all()).results || []); } catch {}
+      return json({ ok: true, now, onlineMs: PRES_ONLINE_MS, presence: (pr && pr.results) || [], live: (lv && lv.results) || [], chats });
+    }
+    if (url.pathname === '/chat-open' && request.method === 'POST') {
+      let b; try { b = await request.json(); } catch { return json({ ok: false }, 400); }
+      if (!env.TEACHER_TOKEN || b.t !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
+      const sid = String(b.sid || '').trim(); if (!/^[\w-]{1,64}$/.test(sid)) return json({ ok: false, error: 'sid' }, 400);
+      if (!(await presReady(env).catch(() => false))) return json({ ok: false, error: 'no_db' }, 503);
+      await chatSet(env, [sid], !!b.open);
+      return json({ ok: true, sid, open: !!b.open });
     }
 
     if (url.pathname === '/messages' && request.method === 'GET') {
@@ -5473,23 +5495,23 @@ export default {
       let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
       const st = await resolveStudent(env, { id: String(b.sid || '').slice(0, 40), name: String(b.name || '').slice(0, 80) });
       if (!st.known) return json({ ok: false, error: 'student not recognized' }, 403);
-      // ↩️ رد على رسالة من المعلم: يدخل «رسائل الطلاب» نفسها، بلا حدود الأسئلة (المعلم هو من بدأ الحديث)
+      // 💬 رسالة دردشة: تُقبل فقط والمعلم فاتح الدردشة مع هذا الطالب — بلا حدود الأسئلة. أُغلقت ⇒ نظام السؤال العادي
       const re = String(b.re || '').slice(0, 40);
-      if (re) {
-        const m = (await readMessages(env, st)).find(x => x && String(x.id) === re);
-        if (!m) return json({ ok: false, error: 'not found' }, 404);
+      if (b.chat || re) {
+        if (!(await chatIsOpen(env, st.id))) return json({ ok: false, code: 'chat_closed', error: 'أغلق معلمك الدردشة — تقدر ترسل له سؤالًا من «راسل معلمك»' }, 403);
+        const m = re ? (await readMessages(env, st)).find(x => x && String(x.id) === re) : null;
         const text = String(b.text || '').trim().slice(0, ASK.maxLen);
         if (!text) return json({ ok: false, error: 'اكتب ردّك أولًا' }, 400);
         const all = await askLoad(env), now = Date.now();
-        let q = all.find(x => x.re === re && x.status === 'open' && askMine(x, st));
+        let q = all.find(x => x.cat === 'reply' && x.status === 'open' && askMine(x, st) && (x.re || '') === (m ? re : ''));
         if (q) { q.text = (q.text + '\n' + text).slice(-ASK.maxLen); q.at = now; }
         else { q = { id: 'q' + now.toString(36) + Math.random().toString(36).slice(2, 6), sid: String(st.id || ''), name: String(st.name || ''), cls: String(st.cls || ''),
-          cat: 'reply', hw: '', hwTitle: '', re, reText: String(m.body || m.title || '').replace(/⟨(WK|EX)⟩[\s\S]*$/, '').trim().slice(0, 160), text, at: now, status: 'open', reply: '', repliedAt: 0 }; all.unshift(q); }
+          cat: 'reply', hw: '', hwTitle: '', re: m ? re : '', reText: !m ? '' : String(m.body || m.title || '').replace(/⟨(WK|EX)⟩[\s\S]*$/, '').trim().slice(0, 160), text, at: now, status: 'open', reply: '', repliedAt: 0 }; all.unshift(q); }
         await askSave(env, all);
         const task = (async () => {
           if (!pushConfigured(env)) return; const subs = await pushListSubs(env); if (!subs.length) return;
           const eventId = (await sha256Hex(`ask|${q.id}|${now}`)).slice(0, 32); if (!(await pushClaimEvent(env, eventId))) return;
-          await pushDeliver(env, { title: `↩️ ${q.name} ردّ على رسالتك`, body: text.slice(0, 140), tag: `ask-${q.id}`,
+          await pushDeliver(env, { title: `💬 ${q.name}`, body: text.slice(0, 140), tag: `ask-${q.id}`,
             data: { type: 'ask', id: q.id, url: './?open=asks', item: { ...q, text: q.text.slice(0, 500) } } }, eventId, subs);
         })().catch(() => {});
         if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(task);
@@ -5534,7 +5556,7 @@ export default {
       }
       if (dirty) await askSave(env, all);
       const rows = mine.filter(x => !askGoneForStudent(x, now)).slice(0, 10).map(x => ({ ...askPublic(x), fresh: fresh.has(x.id) }));
-      return json({ ok: true, rows, gone, keepDays: ASK.keepSeenDays, cats: ASK.cats, maxLen: ASK.maxLen, maxOpen: ASK.maxOpen, mode: await askMode() });
+      return json({ ok: true, rows, gone, keepDays: ASK.keepSeenDays, cats: ASK.cats, maxLen: ASK.maxLen, maxOpen: ASK.maxOpen, mode: await askMode(), chat: await chatIsOpen(env, st.id) });
     }
     if (url.pathname === '/ask-hide' && request.method === 'POST') {
       let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
@@ -5685,6 +5707,7 @@ export default {
         chat = delivered.map((d0, i) => ({ id: 't' + now.toString(36) + i + Math.random().toString(36).slice(2, 5), kind: 't', mid: id, sid: String(d0.sid || ''), name: d0.name, cls: d0.cls || '',
           cat: '', hw: '', hwTitle: '', text: body, at: now, status: 'closed', closedAt: now, reply: '', repliedAt: 0 }));
         all.unshift(...chat); await askSave(env, all);
+        await chatSet(env, [...new Set(chat.map(x => x.sid).filter(x => /^[\w-]{1,64}$/.test(x)))], true).catch(() => {});   // رسالتك الخاصة تفتح الدردشة معه
       }
       // 📣 فورية: الطالب المتصل يرى تنبيهها على صندوقه العائم خلال ثوانٍ (عبر نبض الحضور)، وتبقى في رسائله كأي رسالة
       let live = 0;

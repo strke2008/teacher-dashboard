@@ -126,7 +126,7 @@ async function myAskLoad(){
   const box=document.getElementById('space-ask'); if(!box) return;
   const w=askWho(); if(!w.sid&&!w.name){ box.innerHTML=''; return; }
   try{ const r=await fetch(askApi()+'/ask-mine?'+new URLSearchParams(w).toString(),{cache:'no-store'}); const j=await r.json();
-    if(j&&j.ok){ ASK_ROWS=askMergePushed(j.rows||[]); ASK_ROWS.forEach(x=>{ if(x.fresh) ASK_UI.fresh.add(x.id); }); if(j.keepDays) ASK_META.keepDays=j.keepDays; askDropNotices(j.gone); if(j.cats) ASK_META={...ASK_META,cats:j.cats,maxLen:j.maxLen||600,maxOpen:j.maxOpen||3}; ASK_META.mode=j.mode||'card'; } }catch(e){}
+    if(j&&j.ok){ ASK_ROWS=askMergePushed(j.rows||[]); ASK_ROWS.forEach(x=>{ if(x.fresh) ASK_UI.fresh.add(x.id); }); if(j.keepDays) ASK_META.keepDays=j.keepDays; askDropNotices(j.gone); if(j.cats) ASK_META={...ASK_META,cats:j.cats,maxLen:j.maxLen||600,maxOpen:j.maxOpen||3}; ASK_META.mode=j.mode||'card'; ASK_META.chat=!!j.chat; } }catch(e){}
   if(String(mySid||'')!==w.sid) return;
   askRender(); try{ stuFabRender(); if(SFAB.open){ stuFabPanel(); sfabSeenAll(); stuFabRender(); } }catch(e){}
 }
@@ -142,8 +142,8 @@ function askRender(){
       ${x.status!=='open'?`<button type="button" class="askc-x" onclick="event.stopPropagation();askHide('${esc(x.id)}',this)" title="إخفاء" aria-label="إخفاء الرد">✕</button>`:''}
       ${x.kind==='t'?`<div class="askc-r"><b>📣 معلمك:</b> ${esc(x.text)}</div>`:`<div class="askc-q">${x.cat==='reply'?'↩️':'❓'} ${esc(x.text)}</div>`}
       ${x.reply?`<div class="askc-r"><b>📩 ردّ المعلم:</b> ${esc(x.reply)}</div>`:''}
-      ${(x.kind==='t'&&x.mid)||(x.reply&&x.rmid)?`<button type="button" class="askc-re" onclick="event.stopPropagation();askReplyTo('${esc(x.kind==='t'?x.mid:x.rmid)}','${esc(x.id)}')">↩️ رد على معلمك</button>`:''}
-      <div class="askc-meta"><span class="ask-st ${esc(x.kind==='t'?'answered':x.status)}">${STT(x)}</span> ${esc(ASK_META.cats[x.cat]||(x.cat==='reply'?'↩️ ردّك على رسالة معلمك':''))}${x.hwTitle?` · «${esc(x.hwTitle)}»`:''}${x.reText?` · «${esc(x.reText.slice(0,60))}»`:''} · ${askWhen(x.at)}${ASK_UI.fresh.has(x.id)?'<span class="askc-new">رد جديد</span>':''}</div></div>`;
+      ${ASK_META.chat&&((x.kind==='t'&&x.mid)||(x.reply&&x.rmid))?`<button type="button" class="askc-re" onclick="event.stopPropagation();askReplyTo('${esc(x.kind==='t'?x.mid:x.rmid)}','${esc(x.id)}')">↩️ رد على معلمك</button>`:''}
+      <div class="askc-meta"><span class="ask-st ${esc(x.kind==='t'?'answered':x.status)}">${STT(x)}</span> ${esc(ASK_META.cats[x.cat]||(x.cat==='reply'?'💬 دردشة مع معلمك':''))}${x.hwTitle?` · «${esc(x.hwTitle)}»`:''}${x.reText?` · «${esc(x.reText.slice(0,60))}»`:''} · ${askWhen(x.at)}${ASK_UI.fresh.has(x.id)?'<span class="askc-new">رد جديد</span>':''}</div></div>`;
   let body='';
   if(rows.length){
     body+=`<button type="button" class="askc-sum" onclick="ASK_UI.open=!ASK_UI.open;askRender()" aria-expanded="${ASK_UI.open}"><span>📩 محادثاتك (${rows.length})</span><b>${ASK_UI.open?'إخفاء ⌃':'عرض ⌄'}</b>${fresh.length||waiting?`<span class="askc-chips">${fresh.length?`<em>${fresh.length} ${fresh.length===1?'رد جديد':'ردود جديدة'}</em>`:''}${waiting?`<i>⏳ ${waiting} بانتظار الرد</i>`:''}</span>`:''}</button>`;
@@ -274,10 +274,9 @@ function sfabRows(){ const have=new Set(ASK_ROWS.flatMap(x=>[x.mid,x.rmid]).filt
 function sfabMid(x){ return x.kind==='t'?x.mid:x.rmid; }
 function sfabNew(x){ return !SFAB.seen.has(x.id)&&!SFAB.seen.has('m:'+sfabMid(x))&&(x.kind==='t'||ASK_UI.fresh.has(x.id)); }
 function sfabSeenAll(){ sfabRows().forEach(x=>{ if(sfabNew(x)){ SFAB.seen.add(x.id); if(sfabMid(x)) SFAB.seen.add('m:'+sfabMid(x)); } }); sfabSaveSeen(); }
-function sfabHasTeacher(){ return sfabRows().some(x=>x.kind==='t'||x.reply); }
 function stuFabWanted(){
-  // يظهر إن اختاره المعلم، أو متى كان بينه وبين الطالب محادثة (رسالة أو رد من المعلم)
-  if(ASK_META.mode!=='fab'&&ASK_META.mode!=='both'&&!sfabHasTeacher()) return false;
+  // يظهر إن اختاره المعلم، أو والمعلم فاتح الدردشة مع هذا الطالب
+  if(ASK_META.mode!=='fab'&&ASK_META.mode!=='both'&&!ASK_META.chat) return false;
   const vis=id=>{ const e=document.getElementById(id); return !!(e&&!e.classList.contains('hide')&&e.offsetParent!==null); };
   if(!vis('gate-space')) return false;
   if(document.getElementById('ask-veil')||vis('live-room')) return false;
@@ -313,29 +312,31 @@ function sfabBubbles(){
 function stuFabPanel(){
   const keep=document.getElementById('sfab-txt'), draft=keep?keep.value:(SFAB.draft||''), hadFocus=keep&&document.activeElement===keep;
   const th0=document.getElementById('sfab-thread'), stick=!th0||th0.scrollHeight-th0.scrollTop-th0.clientHeight<60, top0=th0?th0.scrollTop:0;
-  document.getElementById('sfab-pan')?.remove();
-  const p=document.createElement('div'); p.id='sfab-pan'; p.className='sfab-pan'; p.setAttribute('role','dialog');
+  const was=document.getElementById('sfab-pan'); if(was) was.remove();
+  const p=document.createElement('div'); p.id='sfab-pan'; p.className='sfab-pan'; p.setAttribute('role','dialog'); if(was) p.style.animation='none';   // إعادة الرسم بلا وميض
   const B=sfabBubbles(), lastT=B.filter(m=>m.who==='t'&&m.mid).pop(), off=ASK_META.mode==='off';
   const tm=t=>{ try{ return new Date(t).toLocaleTimeString('ar-SA',{hour:'numeric',minute:'2-digit'}); }catch(e){ return ''; } };
   p.innerHTML=`<div class="sfab-top"><b>💬 محادثتك مع معلمك</b><button type="button" class="sfab-x" onclick="stuFabToggle(false)" aria-label="إغلاق">✕</button></div>
     <div class="sfab-list sfab-thread" id="sfab-thread">${B.length?B.map(m=>`<div class="sfab-b ${m.who}"><div>${esc(m.text)}</div><small>${m.who==='t'?'معلمك · ':''}${tm(m.at)}${m.open?' · ⏳ بانتظار الرد':''}</small></div>`).join('')
       :'<div class="sfab-empty">لا محادثات بعد — عندك سؤال؟ اكتب لمعلمك 👇</div>'}</div>
-    <div class="sfab-foot">${off&&!lastT?'<div class="sfab-off">أوقف معلمك استقبال الرسائل حاليًا — اسأله في الحصة</div>'
-      :`<div class="sfab-row"><textarea id="sfab-txt" rows="2" maxlength="${ASK_META.maxLen||600}" placeholder="${lastT?'اكتب ردّك لمعلمك…':'اكتب سؤالك لمعلمك…'}" oninput="SFAB.draft=this.value"></textarea>
+    <div class="sfab-foot">${!ASK_META.chat?(off?'<div class="sfab-off">أوقف معلمك استقبال الرسائل حاليًا — اسأله في الحصة</div>'
+        :'<div class="sfab-off">🔒 الدردشة مغلقة — عندك سؤال؟</div><button type="button" class="sfab-go" style="margin-top:.4rem" onclick="stuFabToggle(false);askOpen()">✍️ راسل معلمك</button>')
+      :`<div class="sfab-chat-on">🔓 معلمك فاتح الدردشة — اكتب له متى شئت</div><div class="sfab-row"><textarea id="sfab-txt" rows="2" maxlength="${ASK_META.maxLen||600}" placeholder="اكتب لمعلمك…" oninput="SFAB.draft=this.value"></textarea>
         <button type="button" class="sfab-send" id="sfab-send" onclick="sfabSend()" aria-label="إرسال">📨</button></div><div class="sfab-err" id="sfab-err" aria-live="polite"></div>
-        ${off?'':`<button type="button" class="sfab-more" onclick="stuFabToggle(false);askOpen()">📝 سؤال عن نشاط محدد</button>`}`}</div>`;
+`}</div>`;
   document.body.appendChild(p);
   const ta=document.getElementById('sfab-txt'); if(ta){ ta.value=draft; if(hadFocus) ta.focus(); }
   const th=document.getElementById('sfab-thread'); if(th) th.scrollTop=stick?th.scrollHeight:top0;
 }
-/* إرسال من المحادثة: إن كان آخر ما كتبه المعلم رسالة ⇒ ردٌّ عليها (يصل حتى لو أغلق الأسئلة)، وإلا سؤال جديد */
+/* إرسال من الدردشة (والمعلم فاتحها): رسالة حرة، مرتبطة بآخر رسالة منه إن وُجدت */
 async function sfabSend(){
   const ta=document.getElementById('sfab-txt'), err=document.getElementById('sfab-err'), btn=document.getElementById('sfab-send'); if(!ta) return;
   const text=ta.value.trim(); if(text.length<2){ err.textContent='اكتب رسالتك أولًا.'; ta.focus(); return; }
   const lastT=sfabBubbles().filter(m=>m.who==='t'&&m.mid).pop();
   btn.disabled=true; err.textContent='';
-  try{ const r=await fetch(askApi()+'/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(lastT?{...askWho(),re:lastT.mid,text}:{...askWho(),cat:'other',text})});
+  try{ const r=await fetch(askApi()+'/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...askWho(),chat:true,re:lastT?lastT.mid:'',text})});
     const j=await r.json().catch(()=>({}));
+    if(j&&j.code==='chat_closed'){ ASK_META.chat=false; SFAB.draft=''; stuFabPanel(); try{ askRender(); stuFabRender(); toast(j.error); }catch(e){} return; }
     if(!r.ok||!j.ok){ err.textContent=j.error||'تعذّر الإرسال — حاول مجددًا'; return; }
     if(j.item){ const i=ASK_ROWS.findIndex(x=>x.id===j.item.id); if(i>=0) ASK_ROWS[i]=j.item; else ASK_ROWS.unshift(j.item); }
     SFAB.draft=''; ta.value=''; stuFabPanel(); document.getElementById('sfab-txt')?.focus(); try{ askRender(); }catch(e){}
@@ -394,6 +395,7 @@ async function presPing(){
     const api=((typeof HW!=='undefined'&&HW&&HW.api)||API||'').replace(/\/+$/,''); if(!api) return;
     const r=await fetch(api+'/presence',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sid:mySid,w:presWhere()})});
     const j=await r.json().catch(()=>null);
+    if(j&&typeof j.chat==='boolean'&&j.chat!==!!ASK_META.chat){ ASK_META.chat=j.chat; try{ askRender(); stuFabRender(); if(SFAB.open) stuFabPanel(); }catch(e){} }
     const lv=(j&&Array.isArray(j.live)?j.live:[]);
     if(lv.length){ lv.forEach(n=>{ if(n&&n.mid) SFAB.live.set(n.mid,{id:'lv-'+n.mid,kind:'t',mid:n.mid,text:String(n.body||''),at:Number(n.at)||Date.now(),status:'closed'}); });
       try{ navigator.vibrate&&navigator.vibrate([120,60,120]); }catch(e){}

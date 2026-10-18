@@ -7,7 +7,7 @@ function nsList(){
 }
 /* ═══ 💬 رسائل الطلاب: سؤال أو مشكلة من «راسل معلمك» في البوابة، والرد يصل الطالب في تنبيهاته ═══ */
 let ASKS=null, ASK_CATS={activity:'سؤال عن نشاط',tech:'مشكلة في البوابة',grade:'درجة أو تصحيح',lesson:'استفسار عن الدرس',other:'أخرى'};
-const ASK_REPLY_CAT='↩️ ردّ على رسالتك';
+const ASK_REPLY_CAT='💬 دردشة';
 const ASK_QUICK=['تم حل المشكلة — جرّب الآن ✅','سأشرحها لك في الحصة القادمة إن شاء الله','راجع شرح الدرس في الكتاب ثم أعد المحاولة','فتحت لك محاولة إضافية في النشاط','راجعت درجتك وهي صحيحة','أحسنت على سؤالك 👏 — '];
 const ASK_PUSHED=new Map();
 let ASK_LAST=0;
@@ -158,6 +158,15 @@ function askFabToggle(on){
    ردك في خيط فيه سؤال مفتوح = رد على السؤال (/ask-reply)؛ وإلا = رسالة خاصة جديدة (/messages chat+live).
    الطالب المتصل الآن يرى تنبيهًا أحمر على صندوقه العائم خلال ثوانٍ، وغير المتصل يجدها في رسائله ومعها إشعار. */
 function chStu(sid){ return (STUDENTS||[]).find(s=>String(s.id)===String(sid))||null; }
+/* 💬 الدردشة مفتوحة مع هذا الطالب؟ (تأتي مع /presence كل 30 ث) */
+function chIsOpen(sid){ return !!(typeof ONL!=='undefined'&&ONL.data&&(ONL.data.chats||[]).some(c=>String(c.sid)===String(sid))); }
+async function chToggle(sid,open){
+  try{ const j=await (await fetch(getApi().replace(/\/+$/,'')+'/chat-open',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:getTok(),sid:String(sid),open:!!open})})).json();
+    if(!j.ok) throw new Error(j.error||'');
+    if(ONL.data){ const c=(ONL.data.chats||[]).filter(x=>String(x.sid)!==String(sid)); if(open) c.push({sid:String(sid),at:Date.now()}); ONL.data.chats=c; }
+    toast(open?'🔓 فُتحت الدردشة — يكتب لك متى شاء':'🔒 أُغلقت الدردشة — يعود لنظام السؤال العادي','good'); askFabPanel();
+  }catch(e){ toast(r404(e)||/unauthorized|no_db/.test(String(e&&e.message))?'انشر worker.js الأخير أولًا':'تعذّر — تحقق من الاتصال','bad'); }
+}
 function chOn(sid){ try{ return typeof onlRows==='function'&&onlRows().on.some(r=>String(r.sid)===String(sid)); }catch(e){ return false; } }
 function chThreads(){
   const by=new Map();
@@ -194,12 +203,13 @@ function askFabPanel(){
     p.innerHTML=`<div class="askf-top ch-top"><button type="button" class="askf-x" onclick="ASKF.view='';askFabPanel()" aria-label="رجوع">→</button>
         <div class="ch-who"><b>${s?`<span class="ask-nm" role="link" tabindex="0" onclick="ctOpenProfile('${id}')" title="افتح ملف الطالب">${thEsc(nm)}</span>`:thEsc(nm)}</b>
         <small>${on?'<i class="onl-dot on"></i> متصل الآن':'غير متصل'}${s&&s.cls?' · '+thEsc(s.cls):''}</small></div>
+        <button type="button" class="ch-lock ${chIsOpen(sid)?'on':''}" onclick="chToggle('${id}',${!chIsOpen(sid)})" title="${chIsOpen(sid)?'الطالب يكتب لك متى شاء — اضغط للإغلاق':'الطالب لا يبدأ الكتابة إلا بأسئلة «راسل معلمك» — اضغط للفتح'}">${chIsOpen(sid)?'🔓 الدردشة مفتوحة':'🔒 الدردشة مغلقة'}</button>
         <button type="button" class="askf-x" onclick="askFabToggle(false)" aria-label="إغلاق">✕</button></div>
       <div class="askf-list ch-thread" id="ch-thread">${B.length?B.map(m=>`<div class="ch-b ${m.who}${m.open?' open':''}">${m.ctx?`<small class="ch-ctx">${thEsc(m.ctx)}</small>`:''}<div>${thEsc(m.text)}</div>
           <small class="ch-t">${chTime(m.at)}${m.who==='t'&&m.seen?' · 👁️ قرأها':''}${m.open?' · ⏳ ينتظر ردك':''}</small></div>`).join('')
         :`<div class="askf-empty">💬 ابدأ محادثة مع ${thEsc(nm)}<small>${on?'متصل الآن — يظهر له تنبيه أحمر على صندوق المحادثة خلال ثوانٍ':'تصله في رسائله ومعها إشعار، وتظهر في صندوق محادثته أول ما يفتح البوابة'}</small></div>`}</div>
       <div class="ch-comp">${hasOpen?`<div class="ask-quick">${ASK_QUICK.slice(0,4).map(q=>`<button type="button" onclick="askQuick('${id}',this.textContent,'chr-')">${thEsc(q)}</button>`).join('')}</div>`:''}
-        <div class="ch-row"><textarea class="inp" id="chr-${id}" rows="2" maxlength="1000" placeholder="${hasOpen?'ردك على سؤاله…':on?'رسالة خاصة — تظهر له فورًا…':'رسالة خاصة — تصله في رسائله…'}" oninput="ASK_DRAFT['ch:${id}']=this.value"
+        <div class="ch-row"><textarea class="inp" id="chr-${id}" rows="2" maxlength="1000" placeholder="${hasOpen?'ردك عليه…':chIsOpen(sid)?(on?'اكتب له — يصله فورًا…':'اكتب له — يصله في رسائله…'):'رسالة خاصة — إرسالها يفتح الدردشة معه…'}" oninput="ASK_DRAFT['ch:${id}']=this.value"
           onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();chSend('${id}')}">${thEsc(ASK_DRAFT['ch:'+sid]||'')}</textarea>
         <button type="button" class="btn tick ch-send" onclick="chSend('${id}')" aria-label="إرسال">📩</button></div>
         ${hasOpen?`<button type="button" class="btn ghost sm" style="margin-top:.3rem" title="حللتها معه في الفصل — لا يُرسل شيء" onclick="chClose('${id}')">✓ أُغلق سؤاله دون رد</button>`:''}</div>`;
@@ -208,7 +218,7 @@ function askFabPanel(){
     const found=q?(STUDENTS||[]).filter(s=>String(s.name||'').includes(q)).slice(0,8):[];
     const row=t=>{ const last=t.items.slice().sort((a,b)=>Math.max(b.at||0,b.repliedAt||0)-Math.max(a.at||0,a.repliedAt||0))[0];
       const lastTxt=last?(last.kind==='t'?'أنت: '+last.text:last.reply&&last.repliedAt>=last.at?'أنت: '+last.reply:last.text):'';
-      return `<button type="button" class="ch-it${t.open?' open':''}" onclick="chOpen('${thEsc(t.sid)}')"><span class="ch-nm">${chOn(t.sid)?'<i class="onl-dot on"></i>':''}<b>${thEsc(t.name)}</b><small>${thEsc(t.cls||'')}</small>
+      return `<button type="button" class="ch-it${t.open?' open':''}" onclick="chOpen('${thEsc(t.sid)}')"><span class="ch-nm">${chOn(t.sid)?'<i class="onl-dot on"></i>':''}<b>${thEsc(t.name)}</b><small>${thEsc(t.cls||'')}</small>${chIsOpen(t.sid)?'<em class="ch-open">🔓 دردشة</em>':''}
         <small class="ch-tm">${askAgo(t.last)}</small></span><span class="ch-last">${thEsc(String(lastTxt).slice(0,90))}</span>${t.open?`<b class="ch-n">${t.open}</b>`:''}</button>`; };
     p.innerHTML=`<div class="askf-top"><b>💬 المحادثات</b>${openN?`<span class="chip bad">${openN} تنتظر ردك</span>`:''}<button type="button" class="askf-x" onclick="askFabToggle(false)" aria-label="إغلاق">✕</button></div>
       <div class="ch-search"><input class="inp" id="ch-q" type="search" placeholder="🔍 ابدأ محادثة مع أي طالب…" value="${thEsc(ASKF.q)}" oninput="ASKF.q=this.value;askFabPanel()"></div>
@@ -235,6 +245,7 @@ async function chSend(sid){
       const s=chStu(sid); const j=await post('/messages',{title:'رسالة من معلمك',body:text,type:'message',priority:'normal',audience:'students',recipients:[{id:String(sid),name:s?s.name:''}],live:true,chat:true});
       if(!j.ok) throw new Error(j.error||''); (j.chat||[]).forEach(it=>{ ASK_PUSHED.set(it.id,{at:Date.now(),item:it}); if(!ASKS.some(x=>x.id===it.id)) ASKS.unshift(it); });
       if(!(j.chat||[]).length) toast('وصلت لرسائله — انشر worker.js الأخير لتظهر في المحادثة','bad');
+      else if(typeof ONL!=='undefined'&&ONL.data&&!chIsOpen(sid)){ (ONL.data.chats=ONL.data.chats||[]).push({sid:String(sid),at:Date.now()}); toast('🔓 فُتحت الدردشة معه — يرد عليك متى شاء حتى تغلقها','good'); }
     }
     delete ASK_DRAFT['ch:'+sid]; ta.value='';
     askFabRender(); askFabPanel(); try{ askCardRender(); thDraw(); }catch(e){}
