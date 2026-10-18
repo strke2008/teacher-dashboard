@@ -17551,7 +17551,8 @@ async function parEdit(sid){
    الحاسب: القائمة يمينًا وملف الطالب الكامل بجانبها (يُختار الطالب فيُفتح ملفه مكانه).
    الجوال: القائمة أولًا، والضغط على طالب يفتح ملفه بملء الشاشة مع زر «→ القائمة».
    الملف نفسه هو ctProfile (نظرة شاملة، الأنشطة، النقاط، الخط الزمني، التواصل، التقارير) — بلا نسخة ثانية. */
-let STC_SHOWN='', STC_SEQ=0;
+// var بلا قيمة ابتدائية: قد يُستدعى رسم الملف أثناء تحميل الملف قبل هذا السطر (let كانت ترمي «before initialization»)
+var STC_SHOWN, STC_SEQ;
 function stcPanel(){ return document.getElementById('p-students'); }
 function stcActive(){ const p=stcPanel(); return !!(p&&p.classList.contains('on')); }
 function stcMobile(){ try{ return window.matchMedia('(max-width:900px)').matches; }catch(e){ return false; } }
@@ -17560,7 +17561,7 @@ async function renderStudentCenterDetail(force){
   const box=document.getElementById('student-center-detail'), s=byId(STUDENT_CENTER_SELECTED);
   if(!box||!s) return;
   if(!force && STC_SHOWN===String(s.id) && box.querySelector('.stc-file')) return;
-  const seq=++STC_SEQ; STC_SHOWN=String(s.id);
+  const seq=STC_SEQ=(STC_SEQ||0)+1; STC_SHOWN=String(s.id);
   if(String(window._ctPfSid)!==String(s.id)) window._ctPfSub=window._ctPfSub||'overview';
   window._ctPfSid=String(s.id); window._ctPfCls=String(s.cls||'');
   // لا نسختان من الملف (معرّفاته فريدة): إن بقي ملف قديم في «أدوات الفصل» يُفرَّغ
