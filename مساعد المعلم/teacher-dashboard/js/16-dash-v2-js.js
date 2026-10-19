@@ -23,35 +23,41 @@ function cfSkills(cls){
   return Object.entries(all).filter(([,a])=>a.t>=3).map(([k,a])=>({k,rate:Math.round(a.c/a.t*100),weak:a.weak})).sort((a,b)=>a.rate-b.rate);
 }
 
-/* 🎯 حصر الطلاب الضعاف دراسيًا: الاختبار (الدرجة قبل بطاقات المتجر) + المهارات (دون 60% من سؤالين فأكثر) + مستوى الإتقان.
-   الأولوية: ضعف في الاختبار والمهارات معًا ← الاختبار وحده ← المهارات وحدها. ومعه حالة الخطة العلاجية لكل طالب. */
-const CF_EXAM_GAP=12;   // أقل من 12 من 20 (60%) = ضعيف في الاختبار
+/* 🎯 حصر الطلاب الضعاف دراسيًا — الأولوية بقرار المعلم:
+   ① درجة الاختبار أقل من 10 من 20 (قبل بطاقات المتجر) ← ② لم يحل أي نشاط منشور له ← ③ إتقان المهارات أقل من 50%.
+   الطالب في أعلى فئة تنطبق عليه، والشروط الأخرى تظهر وسومًا بجانبه. ومعه حالة الخطة العلاجية. */
+const CF_EXAM_GAP=10, CF_SKILL_GAP=50;
 function cfWeakList(cls){
   const plans=(CT_GRADES&&CT_GRADES.plans)||[];
   const planOf=sid=>plans.find(p=>p.status!=='done'&&(p.members||[]).some(m=>String(m.studentId)===String(sid)));
-  const rows=ctRoster(cls).map(s=>{ const g=ctG(s.id), e=g.exam||{};
+  const acts=HW.filter(h=>hwFor(h,cls)&&(typeof activityReady!=='function'||activityReady(h)));
+  return ctRoster(cls).map(s=>{ const g=ctG(s.id), e=g.exam||{};
     const exam=e.measured&&e.score!=null?Number(e.base??e.baseScore??e.score):null;
     const lv=g.level&&g.level.measured?g.level:null;
-    const sk=Object.entries(g.skills||{}).filter(([,v])=>v.t>=2&&v.rate<SKILL_GAP_UI).sort((a,b)=>a[1].rate-b[1].rate);
-    const exW=exam!=null&&exam<CF_EXAM_GAP, skW=sk.length>=2||(lv&&lv.status==='يحتاج دعم');
-    return {s,exam,lv,sk,exW,skW,cat:exW&&skW?1:exW?2:skW?3:0,plan:planOf(s.id)}; }).filter(x=>x.cat)
-    .sort((a,b)=>a.cat-b.cat||(a.exam??99)-(b.exam??99)||b.sk.length-a.sk.length);
-  return rows;
+    const skAll=Object.entries(g.skills||{}).filter(([,v])=>v.t>=2), skC=skAll.reduce((a,[,v])=>a+v.c,0), skT=skAll.reduce((a,[,v])=>a+v.t,0);
+    const mastery=lv?lv.rate:skT?Math.round(skC/skT*100):null;
+    const sk=skAll.filter(([,v])=>v.rate<SKILL_GAP_UI).sort((a,b)=>a[1].rate-b[1].rate);
+    const done=acts.filter(h=>h.subs&&h.subs[s.id]).length;
+    const f={exam:exam!=null&&exam<CF_EXAM_GAP, none:acts.length>0&&!done, skill:mastery!=null&&mastery<CF_SKILL_GAP};
+    return {s,exam,mastery,sk,done,acts:acts.length,f,cat:f.exam?1:f.none?2:f.skill?3:0,plan:planOf(s.id)}; }).filter(x=>x.cat)
+    .sort((a,b)=>a.cat-b.cat||(a.exam??99)-(b.exam??99)||(a.mastery??101)-(b.mastery??101));
 }
 function cfWeakHTML(cls,print){
   const R=cfWeakList(cls); const n=c=>R.filter(x=>x.cat===c).length, noPlan=R.filter(x=>!x.plan).length;
-  const CAT={1:['bad','ضعف في الاختبار والمهارات'],2:['warn','ضعف في الاختبار'],3:['warn','ضعف في المهارات']};
+  const CAT={1:['bad',`الاختبار أقل من ${CF_EXAM_GAP}`],2:['bad','لم يحل أي نشاط'],3:['warn',`المهارات أقل من ${CF_SKILL_GAP}%`]};
+  const tags=x=>[x.cat!==1&&x.f.exam?CAT[1][1]:'',x.cat!==2&&x.f.none?CAT[2][1]:'',x.cat!==3&&x.f.skill?CAT[3][1]:''].filter(Boolean).map(t=>`<small class="cf-weak-also">+ ${t}</small>`).join('');
   const name=s=>print?esc(s.name):ctNameLink(s);
   return `<div class="ct-card cf-weak" style="margin-top:.7rem"><b>🎯 حصر الطلاب الضعاف دراسيًا (${R.length})</b>
-    <div class="muted" style="font-size:.78rem;margin:.2rem 0 .45rem">ضعيف في الاختبار: أقل من ${CF_EXAM_GAP} من 20 (قبل بطاقات المتجر) · ضعيف في المهارات: مهارتان فأكثر دون ${SKILL_GAP_UI}% (من سؤالين فأكثر) أو مستوى «يحتاج دعم».</div>
-    ${R.length?`<div class="cf-weak-sum"><span class="chip bad">🔴 الاختبار والمهارات ${n(1)}</span><span class="chip warn">🟠 الاختبار فقط ${n(2)}</span><span class="chip warn">🟡 المهارات فقط ${n(3)}</span>${noPlan?`<span class="chip ghost">${noPlan} بلا خطة علاجية</span>`:''}</div>
-    <div class="ct-table"><table class="cf-weak-t"><thead><tr><th>#</th><th>الطالب</th><th>التصنيف</th><th>الاختبار</th><th>الإتقان</th><th>أضعف المهارات</th><th>الخطة</th></tr></thead><tbody>
-    ${R.map((x,i)=>`<tr class="c${x.cat}"><td>${i+1}</td><td>${name(x.s)}</td><td><span class="chip ${CAT[x.cat][0]}">${CAT[x.cat][1]}</span></td>
-      <td class="${x.exW?'bad':''}">${x.exam!=null?`<b>${x.exam}</b>/20`:'<span class="muted">—</span>'}</td>
-      <td class="${x.lv&&x.lv.status==='يحتاج دعم'?'bad':''}">${x.lv?x.lv.rate+'%':'<span class="muted">—</span>'}</td>
+    <div class="muted" style="font-size:.78rem;margin:.2rem 0 .45rem">الأولوية: ① درجة الاختبار أقل من ${CF_EXAM_GAP} من 20 (قبل بطاقات المتجر) ← ② لم يحل أي نشاط منشور له ← ③ إتقان المهارات أقل من ${CF_SKILL_GAP}%.</div>
+    ${R.length?`<div class="cf-weak-sum"><span class="chip bad">① الاختبار ${n(1)}</span><span class="chip bad">② بلا أنشطة ${n(2)}</span><span class="chip warn">③ المهارات ${n(3)}</span>${noPlan?`<span class="chip ghost">${noPlan} بلا خطة علاجية</span>`:''}</div>
+    <div class="ct-table"><table class="cf-weak-t"><thead><tr><th>#</th><th>الطالب</th><th>الأولوية</th><th>الاختبار</th><th>الأنشطة</th><th>الإتقان</th><th>أضعف المهارات</th><th>الخطة</th></tr></thead><tbody>
+    ${R.map((x,i)=>`<tr class="c${x.cat}"><td>${i+1}</td><td>${name(x.s)}${tags(x)}</td><td><span class="chip ${CAT[x.cat][0]}">${'①②③'[x.cat-1]} ${CAT[x.cat][1]}</span></td>
+      <td class="${x.f.exam?'bad':''}">${x.exam!=null?`<b>${x.exam}</b>/20`:'<span class="muted">—</span>'}</td>
+      <td class="${x.f.none?'bad':''}">${x.done} من ${x.acts}</td>
+      <td class="${x.f.skill?'bad':''}">${x.mastery!=null?x.mastery+'%':'<span class="muted">لم يُقَس</span>'}</td>
       <td class="cf-weak-sk">${x.sk.slice(0,3).map(([k,v])=>`<span>${esc(String(k).replace(/^نافس:\s*/,''))} <b>${v.rate}%</b></span>`).join('')||'<span class="muted">—</span>'}</td>
       <td>${x.plan?'<span class="chip tick">🩺 خطة جارية</span>':print?'<span class="muted">لا توجد</span>':`<button class="btn tick sm" onclick="ctPlanStudent('${esc(x.s.id)}')">＋ خطة</button>`}</td></tr>`).join('')}
-    </tbody></table></div>`:'<div class="muted" style="font-size:.84rem">✅ لا يوجد طلاب ضعاف دراسيًا في الاختبار أو المهارات حسب البيانات الحالية.</div>'}</div>`;
+    </tbody></table></div>`:'<div class="muted" style="font-size:.84rem">✅ لا يوجد طالب درجته أقل من 10، أو بلا أنشطة، أو مهاراته أقل من 50% حسب البيانات الحالية.</div>'}</div>`;
 }
 
 /* ═════════ 🏫 ملف الفصل ═════════ */

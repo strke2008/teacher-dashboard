@@ -2465,3 +2465,5 @@ button.sk-chip:not([onclick]){cursor:default}
 .cf-weak-t td.bad{color:#B3203D;font-weight:700}
 .cf-weak-sk span{display:inline-block;background:#FFF1F3;color:#8E1C33;border-radius:99px;padding:.05rem .45rem;margin:.1rem 0 .1rem .25rem;font-size:.74rem}
 @media print{.cf-weak-t{font-size:9pt}.cf-weak-t th,.cf-weak-t td{padding:2pt 4pt}}
+.cf-weak-also{display:block;font-size:.7rem;color:#B3203D;font-weight:700}
+.cf-weak-t tr.c2 td:first-child{box-shadow:inset -4px 0 0 #D6455B}.cf-weak-t tr.c3 td:first-child{box-shadow:inset -4px 0 0 #D49A1E}
