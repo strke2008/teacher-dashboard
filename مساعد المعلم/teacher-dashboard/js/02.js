@@ -2146,7 +2146,9 @@ async function ctCertTplPush(){
 /* التاريخ هجريًا (أم القرى) مع الميلادي، والفصل يُذكر فقط إن كان فصلًا فعليًا (مثل 2/1) */
 function ctCertDateLine(d){
   const g=String(d||'').replace(/-/g,'/').replace(/\d/g,x=>'٠١٢٣٤٥٦٧٨٩'[x]); let h='';
-  try{ const t=Date.parse(String(d||'')+'T12:00:00Z'); if(t) h=new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura',{day:'numeric',month:'numeric',year:'numeric'}).format(new Date(t)).replace(/\s*هـ$/,'').replace(/\u200f/g,''); }catch(e){}
+  // الهجري بترتيب الميلادي نفسه (سنة/شهر/يوم) حتى لا يظهر مقلوبًا بجانبه
+  try{ const t=Date.parse(String(d||'')+'T12:00:00Z'); if(t){ const P=Object.fromEntries(new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura',{day:'numeric',month:'numeric',year:'numeric'}).formatToParts(new Date(t)).map(x=>[x.type,x.value]));
+    if(P.year&&P.month&&P.day) h=`${P.year}/${P.month}/${P.day}`.replace(/\s*هـ/,'').replace(/\u200f/g,''); } }catch(e){}
   return h?`حُررت في ${h}هـ الموافق ${g}م`:(g?`حُررت في ${g}م`:'');
 }
 function ctCertCls(cls){ cls=String(cls||'').trim(); return /\d/.test(cls)?cls:''; }

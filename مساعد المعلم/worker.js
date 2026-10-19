@@ -480,8 +480,9 @@ const PCERT_DEF = { pre: 'يتقدم معلم المادة بالشكر والت
   rTitle: 'معلم المادة', rName: '', lTitle: 'مدير المدرسة', lName: '', reason: 'تميّزه واجتهاده في الأنشطة' };
 function certDateLine(at) {
   const d = ksaDay(at), g = d.replace(/-/g, '/').replace(/\d/g, x => '٠١٢٣٤٥٦٧٨٩'[x]); let h = '';
-  try { h = new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura', { day: 'numeric', month: 'numeric', year: 'numeric', timeZone: 'Asia/Riyadh' })
-    .format(new Date(at)).replace(/\s*هـ$/, '').replace(/\u200f/g, ''); } catch {}
+  // الهجري بترتيب الميلادي نفسه (سنة/شهر/يوم): صيغة Intl الافتراضية يوم/شهر/سنة فتظهر مقلوبة بجانب الميلادي
+  try { const P = Object.fromEntries(new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura', { day: 'numeric', month: 'numeric', year: 'numeric', timeZone: 'Asia/Riyadh' })
+    .formatToParts(new Date(at)).map(x => [x.type, x.value])); if (P.year && P.month && P.day) h = `${P.year}/${P.month}/${P.day}`.replace(/\s*هـ/, '').replace(/\u200f/g, ''); } catch {}
   return h ? `حُررت في ${h}هـ الموافق ${g}م` : `حُررت في ${g}م`;
 }
 async function certTplRead(env) { try { return JSON.parse(await env.HW.get('certtpl') || '{}') || {}; } catch { return {}; } }
