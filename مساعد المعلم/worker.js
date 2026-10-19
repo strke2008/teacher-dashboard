@@ -1155,7 +1155,10 @@ async function loadSkillAlias(env) { try { const o = JSON.parse(await env.HW.get
 /* أسماء مصفوفة مهارات الأسئلة بأسماء المهارات المطلوبة (targets) متى التقت معها في الناتج نفسه */
 function skAsTargets(sk, targets) {
   if (!sk) return sk; const by = {}; (targets || []).forEach(t => { by[skCanon(t)] = t; });
-  return sk.map(v => v ? (by[skCanon(v)] || skCanon(v)) : v);
+  const f = v => v ? (by[skCanon(v)] || skCanon(v)) : v;
+  // تصنيف الذكاء الاصطناعي محفوظ كائنًا {رقم السؤال: مهارة}، ومهارات التشخيص/نافس مصفوفة
+  if (Array.isArray(sk)) return sk.map(f);
+  const o = {}; for (const [i, v] of Object.entries(sk)) o[i] = f(v); return o;
 }
 async function attachSkills(env, data) {
   await loadSkillAlias(env);
