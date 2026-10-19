@@ -2452,3 +2452,7 @@ button.sk-chip:not([onclick]){cursor:default}
 .ska-n{font-size:.88rem;font-weight:700;min-width:0;overflow-wrap:anywhere}.ska-new{font-size:.68rem;color:#B7791F;font-weight:800}
 .ska-arr{color:#8A99AE}.ska-r select{font-size:.84rem;padding:.3rem .4rem;min-width:0}
 @media (max-width:640px){.ska-r{grid-template-columns:1fr}.ska-arr{display:none}}
+.sk-unmeasured{margin-top:.9rem;border:1px dashed #C9D3E0;border-radius:14px;padding:.7rem .85rem;background:#F8FAFD}
+.sk-um-h{display:flex;flex-wrap:wrap;gap:.4rem .7rem;align-items:center}.sk-um-h .muted{font-size:.8rem;flex:1 1 320px}
+.sk-unmeasured details{margin-top:.4rem}.sk-unmeasured summary{cursor:pointer;font-size:.8rem}
+.sk-chip.none{background:#EEF2F7;color:#5B6B82}

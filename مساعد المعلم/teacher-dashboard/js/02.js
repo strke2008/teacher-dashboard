@@ -2353,7 +2353,11 @@ async function ctSkills(box,force){
       <div class="sk-sum-c ok"><b>${n(['ok'])}</b><span>✅ الفصل متمكّن منها</span></div>
     </div>
     <div class="sk-legend"><span class="ok">أتقن ${T}% فأكثر</span><span class="mid">قريب ${G}–${T-1}%</span><span class="weak">لم يتقن أقل من ${G}%</span><span class="muted">من إجابات الطلاب في أنشطة الفترة والتشخيصي · الطالب يُحسب في المهارة إذا أجاب عن سؤالين فأكثر فيها</span></div>
-    ${view==='student'?byStudent():view==='table'?table():`<div class="sk-grid">${R.map(card).join('')}</div>`}`;
+    ${view==='student'?byStudent():view==='table'?table():(()=>{ const M=R.filter(r=>r.seen.length), U=R.filter(r=>!r.seen.length);
+      // مهارات بلا طالب مقيس (سؤال واحد لكل طالب): أسماء متفرقة لفكرة واحدة — تُجمع في صندوق مطوي بدل بطاقات فارغة
+      return `${M.length?`<div class="sk-grid">${M.map(card).join('')}</div>`:'<div class="ct-warn">لا توجد مهارة قيس فيها طالب بسؤالين فأكثر بعد.</div>'}
+      ${U.length?`<div class="sk-unmeasured"><div class="sk-um-h"><b>🔎 ${U.length} مهارة لم تُقَس بعد</b><span class="muted">كل طالب أجاب فيها عن سؤال واحد فقط — غالبًا أسماء متفرقة لفكرة واحدة صنّفها الذكاء الاصطناعي لكل سؤال على حدة. وحّدها على نواتج نافس فتُجمع إجاباتها وتُقاس.</span>${typeof skAliasOpen==='function'?'<button class="btn tick sm" onclick="skAliasOpen()">🎯 توحيد على نواتج نافس</button>':''}</div>
+        <details><summary class="muted">عرض أسمائها</summary><div class="sk-chips">${U.map(r=>`<span class="sk-chip none">${esc(r.k)} <small>${r.t} إجابة</small></span>`).join('')}</div></details></div>`:''}`; })()}`;
 }
 /* خطة فردية من «حسب الطالب»: يُختار الطالب في النموذج فتُملأ فجواته تلقائيًا */
 function ctPlanStudent(sid){
