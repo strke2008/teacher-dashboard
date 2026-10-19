@@ -2456,3 +2456,12 @@ button.sk-chip:not([onclick]){cursor:default}
 .sk-um-h{display:flex;flex-wrap:wrap;gap:.4rem .7rem;align-items:center}.sk-um-h .muted{font-size:.8rem;flex:1 1 320px}
 .sk-unmeasured details{margin-top:.4rem}.sk-unmeasured summary{cursor:pointer;font-size:.8rem}
 .sk-chip.none{background:#EEF2F7;color:#5B6B82}
+/* 🎯 حصر الطلاب الضعاف دراسيًا في ملف الفصل */
+.cf-weak-sum{display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:.45rem}
+.cf-weak-t{width:100%;border-collapse:collapse;font-size:.84rem}
+.cf-weak-t th,.cf-weak-t td{padding:.38rem .45rem;border-bottom:1px solid #E6ECF5;text-align:start;vertical-align:middle}
+.cf-weak-t th{background:#F3F6FA;font-weight:800;font-size:.78rem;color:#41516B}
+.cf-weak-t tr.c1 td:first-child{box-shadow:inset -4px 0 0 #D6455B}.cf-weak-t tr.c2 td:first-child,.cf-weak-t tr.c3 td:first-child{box-shadow:inset -4px 0 0 #D49A1E}
+.cf-weak-t td.bad{color:#B3203D;font-weight:700}
+.cf-weak-sk span{display:inline-block;background:#FFF1F3;color:#8E1C33;border-radius:99px;padding:.05rem .45rem;margin:.1rem 0 .1rem .25rem;font-size:.74rem}
+@media print{.cf-weak-t{font-size:9pt}.cf-weak-t th,.cf-weak-t td{padding:2pt 4pt}}

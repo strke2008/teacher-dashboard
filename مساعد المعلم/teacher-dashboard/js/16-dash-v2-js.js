@@ -23,6 +23,37 @@ function cfSkills(cls){
   return Object.entries(all).filter(([,a])=>a.t>=3).map(([k,a])=>({k,rate:Math.round(a.c/a.t*100),weak:a.weak})).sort((a,b)=>a.rate-b.rate);
 }
 
+/* 🎯 حصر الطلاب الضعاف دراسيًا: الاختبار (الدرجة قبل بطاقات المتجر) + المهارات (دون 60% من سؤالين فأكثر) + مستوى الإتقان.
+   الأولوية: ضعف في الاختبار والمهارات معًا ← الاختبار وحده ← المهارات وحدها. ومعه حالة الخطة العلاجية لكل طالب. */
+const CF_EXAM_GAP=12;   // أقل من 12 من 20 (60%) = ضعيف في الاختبار
+function cfWeakList(cls){
+  const plans=(CT_GRADES&&CT_GRADES.plans)||[];
+  const planOf=sid=>plans.find(p=>p.status!=='done'&&(p.members||[]).some(m=>String(m.studentId)===String(sid)));
+  const rows=ctRoster(cls).map(s=>{ const g=ctG(s.id), e=g.exam||{};
+    const exam=e.measured&&e.score!=null?Number(e.base??e.baseScore??e.score):null;
+    const lv=g.level&&g.level.measured?g.level:null;
+    const sk=Object.entries(g.skills||{}).filter(([,v])=>v.t>=2&&v.rate<SKILL_GAP_UI).sort((a,b)=>a[1].rate-b[1].rate);
+    const exW=exam!=null&&exam<CF_EXAM_GAP, skW=sk.length>=2||(lv&&lv.status==='يحتاج دعم');
+    return {s,exam,lv,sk,exW,skW,cat:exW&&skW?1:exW?2:skW?3:0,plan:planOf(s.id)}; }).filter(x=>x.cat)
+    .sort((a,b)=>a.cat-b.cat||(a.exam??99)-(b.exam??99)||b.sk.length-a.sk.length);
+  return rows;
+}
+function cfWeakHTML(cls,print){
+  const R=cfWeakList(cls); const n=c=>R.filter(x=>x.cat===c).length, noPlan=R.filter(x=>!x.plan).length;
+  const CAT={1:['bad','ضعف في الاختبار والمهارات'],2:['warn','ضعف في الاختبار'],3:['warn','ضعف في المهارات']};
+  const name=s=>print?esc(s.name):ctNameLink(s);
+  return `<div class="ct-card cf-weak" style="margin-top:.7rem"><b>🎯 حصر الطلاب الضعاف دراسيًا (${R.length})</b>
+    <div class="muted" style="font-size:.78rem;margin:.2rem 0 .45rem">ضعيف في الاختبار: أقل من ${CF_EXAM_GAP} من 20 (قبل بطاقات المتجر) · ضعيف في المهارات: مهارتان فأكثر دون ${SKILL_GAP_UI}% (من سؤالين فأكثر) أو مستوى «يحتاج دعم».</div>
+    ${R.length?`<div class="cf-weak-sum"><span class="chip bad">🔴 الاختبار والمهارات ${n(1)}</span><span class="chip warn">🟠 الاختبار فقط ${n(2)}</span><span class="chip warn">🟡 المهارات فقط ${n(3)}</span>${noPlan?`<span class="chip ghost">${noPlan} بلا خطة علاجية</span>`:''}</div>
+    <div class="ct-table"><table class="cf-weak-t"><thead><tr><th>#</th><th>الطالب</th><th>التصنيف</th><th>الاختبار</th><th>الإتقان</th><th>أضعف المهارات</th><th>الخطة</th></tr></thead><tbody>
+    ${R.map((x,i)=>`<tr class="c${x.cat}"><td>${i+1}</td><td>${name(x.s)}</td><td><span class="chip ${CAT[x.cat][0]}">${CAT[x.cat][1]}</span></td>
+      <td class="${x.exW?'bad':''}">${x.exam!=null?`<b>${x.exam}</b>/20`:'<span class="muted">—</span>'}</td>
+      <td class="${x.lv&&x.lv.status==='يحتاج دعم'?'bad':''}">${x.lv?x.lv.rate+'%':'<span class="muted">—</span>'}</td>
+      <td class="cf-weak-sk">${x.sk.slice(0,3).map(([k,v])=>`<span>${esc(String(k).replace(/^نافس:\s*/,''))} <b>${v.rate}%</b></span>`).join('')||'<span class="muted">—</span>'}</td>
+      <td>${x.plan?'<span class="chip tick">🩺 خطة جارية</span>':print?'<span class="muted">لا توجد</span>':`<button class="btn tick sm" onclick="ctPlanStudent('${esc(x.s.id)}')">＋ خطة</button>`}</td></tr>`).join('')}
+    </tbody></table></div>`:'<div class="muted" style="font-size:.84rem">✅ لا يوجد طلاب ضعاف دراسيًا في الاختبار أو المهارات حسب البيانات الحالية.</div>'}</div>`;
+}
+
 /* ═════════ 🏫 ملف الفصل ═════════ */
 function ctClassFileBody(cls,print){
   const st=cfStats(cls), kpi=(t,v,sub,tone='')=>`<div class="ct-kpi ${tone}"><b>${v??'—'}</b><span>${t}</span>${sub?`<small>${sub}</small>`:''}</div>`;
@@ -51,6 +82,7 @@ function ctClassFileBody(cls,print){
       <div class="cf-dist"><i class="t" style="flex:${d.t}"></i><i class="w" style="flex:${d.w}"></i><i class="b" style="flex:${d.b}"></i><i class="u" style="flex:${d.u}"></i></div>
       <div class="cf-legend"><span>🟢 متقن ${d.t} (${Math.round(d.t/tot*100)}%)</span><span>🟡 قريب ${d.w}</span><span>🔴 يحتاج دعم ${d.b}</span><span>⚪ لم يُقَس ${d.u}</span>
         <span>· السلوك ${st.beh??'—'}/10 · الاختبارات ${st.exam??'—'}/20</span></div></div>
+    ${cfWeakHTML(cls,print)}
     <div class="cf-grid">
       <div class="ct-card"><b>🔻 أضعف المهارات</b>${weak.length?weak.map(x=>`<div class="ct-bar"><span>${esc(x.k)}</span><i><u style="width:${x.rate}%;${ctHeat(x.rate)}"></u></i><b>${x.rate}%</b></div>
           ${btn(x.weak.length>=2?`<div style="margin:-.1rem 0 .4rem"><button class="btn ghost sm" onclick='ctGroupPlan(${JSON.stringify(x.k)},${JSON.stringify(x.weak)})'>🩺 خطة جماعية لـ ${x.weak.length} طلاب</button></div>`:'')}`).join(''):'<div class="muted" style="font-size:.82rem">لا أسئلة مصنّفة بالمهارات بعد.</div>'}
