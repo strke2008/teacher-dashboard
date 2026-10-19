@@ -15,8 +15,13 @@ function skOutcomes(term) {
 function skAllOutcomes() { const t = (typeof ctSem === 'function' && ctSem().sem) || 1; return skOutcomes(t).concat(skOutcomes(t === 1 ? 2 : 1)); }
 function skNorm(s) {
   return String(s || '').replace(/^نافس:\s*/, '').replace(/[ً-ْـ]/g, '').replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي')
-    .replace(/[«»"'().،,:؛\-–]/g, ' ').split(/\s+/).map(w => w.replace(/^(وال|بال|كال|فال|لل|ال)/, '')).filter(w => w.length > 1).join(' ').trim();
+    .replace(/[«»"'().،,:؛\-–]/g, ' ').split(/\s+/).map(w => w.replace(/^(وال|بال|كال|فال|لل|ال)/, '')).filter(w => w.length > 1)
+    .map(w => SK_STEM[w] || w).join(' ').trim();
 }
+/* جموع ومترادفات شائعة في أسماء المهارات ← مفرد واحد، حتى يلتقي «النموذج» و«النماذج» */
+const SK_STEM = { نماذج: 'نموذج', نموذجي: 'نموذج', قوانين: 'قانون', متغيرات: 'متغير', مخاليط: 'مخلوط', صخور: 'صخر', معادن: 'معدن', ملاحظات: 'ملاحظه',
+  تنبو: 'توقع', تنبؤ: 'توقع', توقعات: 'توقع', استدلال: 'ملاحظه', تصنيفات: 'تصنيف', فرع: 'فروع', وفروع: 'فروع', قوي: 'قوه', نظريه: 'تفسير', تفسيرات: 'تفسير', فرضيه: 'تفسير' };
+const SK_WEAK = new Set(['علمي', 'علميه', 'علم', 'مفهوم', 'تعريف', 'انواع', 'نوع', 'حساب', 'خصائص', 'قوه', 'تصنيف', 'استخدام']);   // كلمات عامة لا تكفي وحدها للمطابقة
 function skCanon(s) { const k = String(s || '').trim(), v = SKILL_ALIAS[k]; return v && v !== '__off__' ? v : k; }
 const skIsOutcome = k => typeof nafsIsSkill === 'function' && nafsIsSkill(k);
 /* اسم أعاده الذكاء الاصطناعي ← الناتج الرسمي إن طابقه نصًا، وإلا «خارج النواتج» باسمه */
@@ -30,8 +35,9 @@ function skFromAI(v) {
 function skGuess(name) {
   const a = new Set(skNorm(name).split(' ').filter(Boolean)); if (!a.size) return '';
   let best = '', bs = 0;
-  skAllOutcomes().forEach(o => { const b = new Set(skNorm(o.short).split(' ').filter(Boolean)); let i = 0; a.forEach(w => { if (b.has(w)) i++; });
-    const sc = i / Math.max(a.size, b.size); if (sc > bs) { bs = sc; best = o.key; } });
+  skAllOutcomes().forEach(o => { const b = new Set(skNorm(o.short).split(' ').filter(Boolean)); let i = 0, strong = 0; a.forEach(w => { if (b.has(w)) { i++; if (!SK_WEAK.has(w)) strong++; } });
+    if (!strong) return;   // لا مطابقة بكلمة عامة وحدها
+    const sc = Math.max(i / Math.max(a.size, b.size), b.size <= 2 ? strong / b.size : 0); if (sc > bs) { bs = sc; best = o.key; } });
   return bs >= 0.5 ? best : '';
 }
 /* تعليمات التصنيف للذكاء الاصطناعي: قائمة مغلقة من نواتج الفصل الدراسي */
