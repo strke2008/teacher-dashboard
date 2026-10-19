@@ -2445,3 +2445,10 @@ button.sk-chip:not([onclick]){cursor:default}
   html.kb-open .askf-pan .ch-comp{padding-bottom:.45rem}
   html.kb-open .askf-pan .ch-comp>.btn{display:none}
 }
+/* 🎯 توحيد المهارات على نواتج نافس */
+.ska-list{display:grid;gap:.35rem;max-height:58vh;overflow:auto;padding:.1rem}
+.ska-r{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1.2fr);gap:.5rem;align-items:center;border:1px solid #E3E9F3;border-radius:12px;padding:.4rem .6rem;background:#FBFCFF}
+.ska-r.on{border-color:#9FD6B9;background:#F3FBF6}
+.ska-n{font-size:.88rem;font-weight:700;min-width:0;overflow-wrap:anywhere}.ska-new{font-size:.68rem;color:#B7791F;font-weight:800}
+.ska-arr{color:#8A99AE}.ska-r select{font-size:.84rem;padding:.3rem .4rem;min-width:0}
+@media (max-width:640px){.ska-r{grid-template-columns:1fr}.ska-arr{display:none}}

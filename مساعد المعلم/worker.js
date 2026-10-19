@@ -1146,7 +1146,19 @@ function masteryWindow(assignments, sid, from, to, skipRemedial, cut) {
    — ويُنبَّه عليه، لأن رصد اختبار قديم بعد بدء الخطة يُحسب خطأً في القياس البعدي. */
 /* 🏷️ المهارات: لكل سؤال في نشاط مهارتُه (يصنّفها الذكاء الاصطناعي عند النشر) في skills:<hw>.
    تُحمَّل مع بيانات الفصل فيصبح التشخيص والقياس على المهارة نفسها لا على النشاط كله. */
+/* 🎯 توحيد المهارات على نواتج نافس: جدول «اسم قديم ← الناتج الرسمي» (skill-alias) يضعه المعلم مرة واحدة.
+   لا تُعاد كتابة التصنيفات المحفوظة: المطابقة تتم عند المقارنة، فتلتقي إجابات الاسم القديم والناتج تحت اسم واحد،
+   وتبقى الخطط القديمة (بأسماء مهاراتها القديمة) تُقاس على الناتج نفسه. */
+let SKILL_ALIAS = {};
+const skCanon = s => { const k = String(s || '').trim(), v = SKILL_ALIAS[k]; return v && v !== '__off__' ? v : k; };   // __off__ = «خارج النواتج» بقرار المعلم
+async function loadSkillAlias(env) { try { const o = JSON.parse(await env.HW.get('skill-alias') || '{}'); SKILL_ALIAS = o && typeof o === 'object' ? o : {}; } catch { SKILL_ALIAS = {}; } return SKILL_ALIAS; }
+/* أسماء مصفوفة مهارات الأسئلة بأسماء المهارات المطلوبة (targets) متى التقت معها في الناتج نفسه */
+function skAsTargets(sk, targets) {
+  if (!sk) return sk; const by = {}; (targets || []).forEach(t => { by[skCanon(t)] = t; });
+  return sk.map(v => v ? (by[skCanon(v)] || skCanon(v)) : v);
+}
 async function attachSkills(env, data) {
+  await loadSkillAlias(env);
   const map = {};
   try {
     const keys = await listAllKeys(env, 'skills:');
@@ -1167,7 +1179,7 @@ function skillWindow(data, assignments, sid, from, to, only, cut) {
     const kind = h && (h.kind || 'normal');
     if (!h || (kind !== 'normal' && kind !== 'diag') || h.remedial) continue;
     // مهارة مكتوبة على السؤال نفسه (التشخيصي، ونواتج نافس) أولًا، وإلا تصنيف الذكاء الاصطناعي
-    const sk = diagSkillMap(h) || (kind === 'diag' ? null : map[String(h.sid || '')]); if (!sk) continue;
+    const sk = skAsTargets(diagSkillMap(h) || (kind === 'diag' ? null : map[String(h.sid || '')]), only); if (!sk) continue;
     const sub = h.subs && h.subs[String(sid)]; if (!sub || !sub.d) continue;
     const d = planSubDay(sub.at, cut);
     if (from && d < from) continue;
@@ -3035,7 +3047,7 @@ async function planRemedialSend(env, planId, sids, round, state) {
   const metFor = sid => { try { const m = memberReport(sid, plan, students, state.assignments || [], cd);
     return new Set(((m.skill && m.skill.items) || []).filter(x => x.after && x.after.total >= 2 && x.after.rate >= SKILL_TARGET).map(x => x.skill)); } catch { return new Set(); } };
   const skAsg = (Array.isArray(state.assignments) ? state.assignments : []).filter(h => h && h.sid && ['normal', 'diag'].includes(h.kind || 'normal') && !h.remedial);
-  const skFor = h => (diagSkillMap(h) || ((h.kind || 'normal') === 'diag' ? null : skMap[String(h.sid)]));
+  const skFor = h => skAsTargets(diagSkillMap(h) || ((h.kind || 'normal') === 'diag' ? null : skMap[String(h.sid)]), targets);
   const results = [];
   for (const sid of sids) {
     const s = students.find(x => String(x.id) === String(sid));
@@ -6647,7 +6659,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
           let met = new Set(); try { const m = memberReport(sid, plan, students, state.assignments || [], cd);
             met = new Set(((m.skill && m.skill.items) || []).filter(x => x.after && x.after.total >= 2 && x.after.rate >= SKILL_TARGET).map(x => x.skill)); } catch {}
           const left = targets.filter(k => !met.has(k)), cnt = Object.fromEntries(left.map(k => [k, 0]));
-          for (const h of asg) { const sub = h.subs && h.subs[sid], sk = diagSkillMap(h) || skMap[String(h.sid)]; if (!sub || !sk || !sub.d) continue;
+          for (const h of asg) { const sub = h.subs && h.subs[sid], sk = skAsTargets(diagSkillMap(h) || skMap[String(h.sid)], targets); if (!sub || !sk || !sub.d) continue;
             const d = String(sub.d);
             for (let i = 0; i < d.length; i++) { const k = sk[i]; if (d[i] !== '0' || !(k in cnt) || cnt[k] >= 3) continue; cnt[k]++;
               if (!(await hasTwin(String(h.sid), i))) need.set(String(h.sid), (need.get(String(h.sid)) || 0) + 1); } }
@@ -6712,7 +6724,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       if (!env.TEACHER_TOKEN || b.t !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
       const hw = String(b.hw || '').slice(0, 24); if (!hw || !b.map || typeof b.map !== 'object') return json({ error: 'missing fields' }, 400);
       const map = {};
-      for (const [k, v] of Object.entries(b.map).slice(0, 120)) { const i = parseInt(k, 10), s = String(v || '').trim().slice(0, 40); if (Number.isInteger(i) && i >= 0 && s) map[i] = s; }
+      for (const [k, v] of Object.entries(b.map).slice(0, 120)) { const i = parseInt(k, 10), s = String(v || '').trim().slice(0, 60); if (Number.isInteger(i) && i >= 0 && s) map[i] = s; }
       await env.HW.put(`skills:${hw}`, JSON.stringify({ at: Date.now(), hash: String(b.hash || '').slice(0, 40), map }));
       return json({ ok: true, n: Object.keys(map).length });
     }
@@ -6722,7 +6734,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       const keys = await listAllKeys(env, 'skills:'), maps = {};
       const raws = await inBatches(keys, 25, k => env.HW.get(k));
       keys.forEach((k, i) => { try { const o = JSON.parse(raws[i]); if (o && o.map) maps[k.slice(7)] = o.map; } catch {} });
-      return json({ ok: true, maps });
+      return json({ ok: true, maps, alias: await loadSkillAlias(env) });
     }
     if (url.pathname === '/skills-list' && request.method === 'GET') {
       if (!env.TEACHER_TOKEN || url.searchParams.get('t') !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
@@ -6733,7 +6745,19 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         const raws = await inBatches(keys, 25, k => env.HW.get(k));
         raws.forEach(r => { try { const o = JSON.parse(r); if (o && o.map) Object.values(o.map).forEach(v => { const s = String(v || '').trim(); if (s) names.add(s); }); } catch {} });
       } catch {}
-      return json({ ok: true, hw: keys.map(k => k.slice(7)), names: [...names].slice(0, 500) });
+      return json({ ok: true, hw: keys.map(k => k.slice(7)), names: [...names].slice(0, 1000), alias: await loadSkillAlias(env) });
+    }
+    // 🎯 جدول توحيد المهارات على نواتج نافس: { t, map:{ قديم: ناتج } } — "" يحذف المطابقة
+    if (url.pathname === '/skill-alias' && request.method === 'POST') {
+      let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
+      if (!env.TEACHER_TOKEN || b.t !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
+      const cur = await loadSkillAlias(env), add = b.map && typeof b.map === 'object' ? b.map : {};
+      for (const [k0, v0] of Object.entries(add).slice(0, 2000)) {
+        const k = String(k0 || '').trim().slice(0, 60), v = String(v0 || '').trim().slice(0, 80);
+        if (!k) continue; if (!v || v === k) delete cur[k]; else cur[k] = v;
+      }
+      await env.HW.put('skill-alias', JSON.stringify(cur)); SKILL_ALIAS = cur;
+      return json({ ok: true, n: Object.keys(cur).length, alias: cur });
     }
     // ── 🏅 شهاداتي: الشهادات التي أرسلها المعلم إلى بوابة الطالب (نصّها النهائي محفوظ مع الشهادة) ──
     // ⚙️ نص شهادة المعلم (العبارات والتوقيعات بعد ملء المدرسة والمعلم والمدير) — لشهادات المتجر

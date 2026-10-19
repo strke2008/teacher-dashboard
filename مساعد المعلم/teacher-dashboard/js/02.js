@@ -958,7 +958,8 @@ async function loadComprehensiveClassroom(force=false){
    3) هذه اللوحة تعرض ما حدث، وتُبرز فقط من يحتاج تدخلك.
    ═══════════════════════════════════════════════════════════════ */
 /* أسماء المهارات المعروفة (التشخيصي أولًا) تُعطى للذكاء الاصطناعي ليعيد استخدامها حرفيًا — فتُقاس الخطة على المهارة نفسها */
-function skillNamesHint(){try{const n=knownSkillNames().slice(0,80);return n.length?`\nإن كان السؤال يقيس إحدى هذه المهارات الموجودة فاستخدم اسمها حرفيًا دون تغيير: ${JSON.stringify(n)}`:''}catch(e){return ''}}
+/* 🎯 المهارة = ناتج تعلم نافس من قائمة مغلقة (34-skill-outcomes-js.js) — لا أسماء جديدة لكل نشاط */
+function skillNamesHint(){try{return typeof skOutcomeHint==='function'?skOutcomeHint():''}catch(e){return ''}}
 function twinHash(h){let s=0;const str=JSON.stringify((h.qs||[]).map(q=>[q.t||'q',q.q,q.a,q.o]));for(let i=0;i<str.length;i++)s=(s*31+str.charCodeAt(i))|0;return String(s>>>0)}
 function twinEligible(h){return !!(h&&h.published&&h.sid&&!h.noRem&&(h.kind||'normal')==='normal'&&!h.remedial&&Array.isArray(h.qs)&&h.qs.some(q=>['q','tf','f'].includes(q.t||'q')))}
 let REM_ON=true; // مفتاح العلاج التلقائي العام (من الخادم)
@@ -1030,7 +1031,7 @@ async function twinPump(){
       if(!r.ok||!j||!j.ok)throw new Error('تعذّر حفظ الأسئلة في الخادم ('+r.status+')');
       h.twinsHash=twinHash(h);h.twinsAt=Date.now();h.twinsN=j.n;save(K.hw,HW);
       // 🏷️ مهارات الأسئلة تُحفظ مع الأسئلة البديلة (بلا تكلفة إضافية)
-      try{const map={};items.forEach(it=>{if(it.skill)map[it.i]=it.skill});
+      try{const map={};items.forEach(it=>{const v=it.skill&&(typeof skFromAI==='function'?skFromAI(it.skill):it.skill);if(v)map[it.i]=v});
         if(Object.keys(map).length){await fetch(getApi().replace(/\/+$/,'')+'/skills',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:getTok(),hw:h.sid,hash:twinHash(h),map})});h.skillsHash=twinHash(h);save(K.hw,HW);}}catch(_){}
       if(REM_TWINS)REM_TWINS.add(String(h.sid));TWIN_OK++;
     }catch(e){
@@ -1179,7 +1180,7 @@ async function renderAutoRem(){
   try{const r=await fetch(getApi().replace(/\/+$/,'')+'/remedials?t='+encodeURIComponent(getTok()));const j=await r.json();rows=(j&&j.rows)||[];REM_ROWS=rows.slice();setTimeout(()=>{try{planSyncRemActions()}catch(e){}},0);
     if(j&&Array.isArray(j.twins)){REM_TWINS=new Set(j.twins.map(String))}
     if(j&&typeof j.enabled==='boolean')REM_ON=j.enabled;}catch(e){}
-  try{const rs=await fetch(getApi().replace(/\/+$/,'')+'/skills-list?t='+encodeURIComponent(getTok()));const js=await rs.json();if(js&&Array.isArray(js.hw))SKILL_SERVER=new Set(js.hw.map(String));if(js&&Array.isArray(js.names))SKILL_NAMES=js.names.map(String).filter(Boolean)}catch(e){}
+  try{const rs=await fetch(getApi().replace(/\/+$/,'')+'/skills-list?t='+encodeURIComponent(getTok()));const js=await rs.json();if(js&&Array.isArray(js.hw))SKILL_SERVER=new Set(js.hw.map(String));if(js&&Array.isArray(js.names))SKILL_NAMES=js.names.map(String).filter(Boolean);if(js&&js.alias&&typeof SKILL_ALIAS!=='undefined')SKILL_ALIAS=js.alias}catch(e){}
   remApplyMaster();autoRemStatus();
   const clsF=(document.getElementById('plan-class')||{}).value||'';
   if(clsF)rows=rows.filter(x=>String(x.cls||'')===clsF);
@@ -1561,12 +1562,12 @@ async function skillTagOne(h){
   const map={};
   for(let k=0;k<src.length;k+=15){
     const chunk=src.slice(k,k+15),p=readingAIPickProvider(),model=twinModel(p);
-    const prompt=`صنّف كل سؤال علوم (المرحلة المتوسطة) بالمهارة أو المفهوم الذي يقيسه في 2–5 كلمات، واستخدم الاسم نفسه للأسئلة التي تقيس الشيء نفسه.${skillNamesHint()}
+    const prompt=`صنّف كل سؤال علوم (المرحلة المتوسطة) بناتج التعلم الذي يقيسه، واستخدم الاسم نفسه للأسئلة التي تقيس الشيء نفسه.${skillNamesHint()}
 أخرج JSON فقط: {"skills":{"0":"اسم المهارة","1":"..."}}
 الأسئلة:
 ${JSON.stringify(chunk)}`;
     const raw=await readingAICall(p,model,prompt,new AbortController().signal);const d=aiSafeJson(raw)||{};
-    const s=d.skills||{};for(const c of chunk){const v=String(s[c.i]??s[String(c.i)]??'').trim().slice(0,40);if(v)map[c.i]=v}
+    const s=d.skills||{};for(const c of chunk){const raw=String(s[c.i]??s[String(c.i)]??'').trim(),v=typeof skFromAI==='function'?skFromAI(raw):raw.slice(0,40);if(v)map[c.i]=v}
   }
   if(!Object.keys(map).length)throw new Error('لم يُرجع الذكاء الاصطناعي تصنيفًا صالحًا');
   const r=await fetch(getApi().replace(/\/+$/,'')+'/skills',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:getTok(),hw:h.sid,hash:twinHash(h),map})});
@@ -2312,7 +2313,7 @@ async function ctSkills(box,force){
   await ctEnsureGrades(force);
   const cls=window._ctSkCls??(ctClasses()[0]||''), roster=ctRoster(cls);
   const {skills,R}=ctSkillRows(roster);
-  const tools=`<div class="row ct-tools">${ctClassSel('ct-sk-cls',cls,"window._ctSkCls=this.value;renderClassTools()",false)}<button class="btn tick sm" onclick="ctLvReportPick(window._ctSkCls??(ctClasses()[0]||''))">📊 تقرير مختصر</button>`;
+  const tools=`<div class="row ct-tools">${ctClassSel('ct-sk-cls',cls,"window._ctSkCls=this.value;renderClassTools()",false)}<button class="btn tick sm" onclick="ctLvReportPick(window._ctSkCls??(ctClasses()[0]||''))">📊 تقرير مختصر</button>${typeof skAliasOpen==='function'?(()=>{const n=skUnmappedCount();return `<button class="btn ${n?'':'ghost'} sm" onclick="skAliasOpen()" title="مطابقة المهارات القديمة بنواتج تعلم نافس">🎯 توحيد على نواتج نافس${n?` <span class="chip bad">${n}</span>`:''}</button>`})():''}`;
   if(!skills.length){ box.innerHTML=`${tools}</div><div class="ct-warn">لا توجد أسئلة مصنّفة بالمهارات لهذا الفصل في الفترة. صنّف أسئلة الأنشطة من «🩹 العلاج التلقائي» في تبويب الخطط العلاجية (زر «صنّف المهارات»)، أو انشر اختبارًا تشخيصيًا بمهارات.</div>`; return; }
   const T=SKILL_TARGET_UI, G=SKILL_GAP_UI, first=n=>String(n||'').split(' ').slice(0,2).join(' ');
   const view=window._ctSkView||'skill', n=a=>R.filter(r=>a.includes(r.act)).length;
@@ -2818,7 +2819,8 @@ function skActions(skill,rate){const n=`«${skill}»`;return (rate!=null&&rate<4
   :[`دعم ${n}: شرح موجّه لأخطائه فيها ثم مثال محلول معه`,`ورقة تدريب قصيرة على ${n} (5 أسئلة) وتصحيحها معه`]}
 /* كل أسماء المهارات المعروفة: المصنّفة في الأنشطة + مهارات أسئلة الاختبارات التشخيصية */
 function knownSkillNames(){const d=(typeof HW!=='undefined'?HW:[]).filter(h=>h&&h.kind==='diag').flatMap(h=>(h.qs||[]).map(q=>String(q&&q.skill||'').trim())).filter(Boolean);
-  return [...new Set([...(SKILL_NAMES||[]),...d])]}
+  const C=typeof skCanon==='function'?skCanon:(x=>x), O=typeof skOutcomes==='function'?skOutcomes().map(o=>o.key):[];   // نواتج الفصل أولًا، والقديمة بأسمائها الموحّدة
+  return [...new Set([...O,...(SKILL_NAMES||[]).map(C),...d.map(C)])]}
 /* ملف المهارات للطالب أو للمجموعة (متوسط الأعضاء، وعدد من تنقصه المهارة) */
 function planGapProfile(){
   const D=(PLAN_DATA&&PLAN_DATA.diagnoses)||{}, grp=!!document.getElementById('pf-group')?.checked;
@@ -3453,10 +3455,11 @@ async function printPlanSheet(id){
 const DRILL={plan:null,skill:'',n:5,key:true,cache:null};
 async function drillPool(p,skill){
   const api=getApi().replace(/\/+$/,''), tok=encodeURIComponent(getTok());
-  if(!DRILL.cache){ const j=await (await fetch(`${api}/skills-maps?t=${tok}`)).json(); if(!j||!j.ok) throw new Error('maps'); DRILL.cache={maps:j.maps||{},twins:{}}; }
+  if(!DRILL.cache){ const j=await (await fetch(`${api}/skills-maps?t=${tok}`)).json(); if(!j||!j.ok) throw new Error('maps'); DRILL.cache={maps:j.maps||{},twins:{}}; if(j.alias&&typeof SKILL_ALIAS!=='undefined') SKILL_ALIAS=j.alias; }
   const M=DRILL.cache.maps, sids=(p.group?(p.members||[]).map(m=>String(m.studentId)):[String(p.studentId)]);
   const hits=[]; (HW||[]).forEach(h=>{ const m=h&&h.sid&&M[h.sid]; if(!m) return;
-    Object.entries(m).forEach(([i,sk])=>{ if(String(sk).trim()!==skill) return; const q=(h.qs||[])[+i]; if(!q||!['q','tf','f',undefined].includes(q.t)) return;
+    const C=typeof skCanon==='function'?skCanon:(x=>String(x).trim());
+    Object.entries(m).forEach(([i,sk])=>{ if(C(sk)!==C(skill)) return; const q=(h.qs||[])[+i]; if(!q||!['q','tf','f',undefined].includes(q.t)) return;
       const wrong=sids.some(sid=>{const d=String(h.subs&&h.subs[sid]&&h.subs[sid].d||''); return d.length>+i&&d[+i]==='0'}); hits.push({h,i:+i,q,wrong}); }); });
   const need=[...new Set(hits.map(x=>x.h.sid))].filter(sid=>!(sid in DRILL.cache.twins));
   await Promise.all(need.map(async sid=>{ try{ const j=await (await fetch(`${api}/twins?hw=${encodeURIComponent(sid)}&t=${tok}`)).json(); DRILL.cache.twins[sid]=(j&&j.twins&&j.twins.items)||[]; }catch(e){ DRILL.cache.twins[sid]=[]; } }));
