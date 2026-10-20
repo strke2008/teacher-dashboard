@@ -16916,8 +16916,13 @@ function lvRowHTML(g){
 /* ═══ 🔁 المسابقة اليومية التلقائية: الخادم ينشئها كل يوم في الموعد، بأسئلة عشوائية من كل أنشطتك المنشورة ═══ */
 let LVD = null;
 const LV_DOW = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
-function lvDailyBank(){
-  const pub = HW.filter(h => h && (h.published || h.sid) && (h.kind || 'normal') !== 'nafs' && !(h.nafs && h.nafs.length));
+/* 📚 مصدر أسئلة المسابقة اليومية: «auto» كل الأنشطة المنشورة · «pick» أنشطة يحددها المعلم فقط */
+const lvActId = h => String(h.sid || h.id || '');
+function lvDailyActs(){ return HW.filter(h => h && (h.published || h.sid) && !['nafs', 'style'].includes(h.kind || 'normal') && !(h.nafs && h.nafs.length))
+  .map(h => ({ h, id: lvActId(h), n: lvBankOf(h).filter(q => !/<img|\[صورة|!\[/.test(q.q)).length })).filter(x => x.id && x.n); }
+function lvDailyBank(D){
+  D = D || LVD || {}; const pick = D.src === 'pick' ? new Set((D.srcIds || []).map(String)) : null;
+  const pub = HW.filter(h => h && (h.published || h.sid) && !['nafs', 'style'].includes(h.kind || 'normal') && !(h.nafs && h.nafs.length) && (!pick || pick.has(lvActId(h))));
   const seen = new Set(), bank = []; let acts = 0;
   for(const h of pub){ const qs = lvBankOf(h).filter(q => !/<img|\[صورة|!\[/.test(q.q)); if(qs.length) acts++;
     for(const q of qs){ const k = q.q.replace(/\s+/g, ' '); if(!seen.has(k)){ seen.add(k); bank.push(q); } } }
@@ -16949,7 +16954,7 @@ function lvDailyBar(){
   el.innerHTML = `<div class="lvd-bar ${D.on ? 'on' : ''}" onclick="lvDailyOpen()" role="button" tabindex="0">
     <span class="lvd-ic">🔁</span>
     <span class="lvd-tx"><b>المسابقة اليومية التلقائية ${D.on ? '<em>مفعّلة</em>' : '<i>متوقفة</i>'}</b>
-      <small>${D.on ? `${days} · ⏰ ${esc(lvDailyTimes(D).map(lvTime12).join(' و '))} · ❓ ${D.n || 10} أسئلة من ${D.bankN || 0} في البنك${D.next ? ` · القادمة: ${lvWhen(D.next)}` : ''}${D.lastErr ? ' · ⚠️ ' + (D.lastErr === 'no_questions' ? 'لا أسئلة في البنك' : esc(D.lastErr)) : ''}` : 'مسابقة كل يوم في وقت ثابت بأسئلة عشوائية من كل دروسك — اضغط للإعداد'}</small></span>
+      <small>${D.on ? `${days} · ⏰ ${esc(lvDailyTimes(D).map(lvTime12).join(' و '))} · ❓ ${D.n || 10} أسئلة من ${D.bankN || 0} في البنك${D.src === 'pick' ? ` (${(D.srcIds || []).length} ${(D.srcIds || []).length > 10 ? 'نشاطًا محددًا' : 'أنشطة محددة'})` : ''}${D.next ? ` · القادمة: ${lvWhen(D.next)}` : ''}${D.lastErr ? ' · ⚠️ ' + (D.lastErr === 'no_questions' ? 'لا أسئلة في البنك' : esc(D.lastErr)) : ''}` : 'مسابقة كل يوم في وقت ثابت بأسئلة عشوائية من كل دروسك — اضغط للإعداد'}</small></span>
     <span class="lvd-go">${D.on ? '⚙️ تعديل' : 'إعداد ←'}</span></div>${lvDailyLastHTML()}`;
 }
 /* 📊 آخر مسابقة يومية: حالتها وعدد من لعب، وضغطة تفتح نتائجها */
@@ -16987,14 +16992,33 @@ function lvDailyOpen(){
     <div class="field"><label>🎁 الجوائز</label><div class="lv-prizes">
       ${[0, 1, 2].map(i => `<span>${['🥇','🥈','🥉'][i]} <input class="inp" type="number" id="lvd-p${i + 1}" value="${(D.prizes || [])[i] ?? pv('lv-p' + (i + 1), [150, 100, 50][i])}" min="0" max="10000"></span>`).join('')}</div></div>
     <label class="lv-shuf" style="margin:.1rem 0 .6rem"><input type="checkbox" id="lvd-notify" ${D.notify === false ? '' : 'checked'}> 🔔 إشعار الطلاب تلقائيًا (فتح التسجيل وقبل البداية)</label>
-    <div class="lvd-bank">📚 بنك الأسئلة الآن: <b>${bank.length}</b> سؤالًا من <b>${acts}</b> ${acts > 10 ? 'نشاطًا' : 'أنشطة'} — يتحدّث تلقائيًا كلما نشرت نشاطًا جديدًا وفتحت هذه الصفحة.</div>
+    <div class="field"><label>📚 مصدر الأسئلة</label>
+      <div class="lvd-src">
+        <label class="${D.src === 'pick' ? '' : 'on'}"><input type="radio" name="lvd-src" value="auto" ${D.src === 'pick' ? '' : 'checked'} onchange="lvdSrc()"><b>⚡ تلقائي</b><small>من كل أنشطتك المنشورة، ويضاف كل نشاط جديد تنشره</small></label>
+        <label class="${D.src === 'pick' ? 'on' : ''}"><input type="radio" name="lvd-src" value="pick" ${D.src === 'pick' ? 'checked' : ''} onchange="lvdSrc()"><b>🎯 أنشطة أحددها</b><small>مثل دروس الوحدة الحالية فقط — النشاط الجديد لا يُضاف إلا إذا حددته</small></label>
+      </div>
+      <div id="lvd-picks" class="lvd-picks" style="${D.src === 'pick' ? '' : 'display:none'}">
+        <div class="lvd-picks-bar"><input class="inp" id="lvd-pq" placeholder="🔎 ابحث عن نشاط…" oninput="lvdPickFilter()"><button type="button" class="btn ghost sm" onclick="lvdPickAll(true)">تحديد الكل</button><button type="button" class="btn ghost sm" onclick="lvdPickAll(false)">إلغاء</button></div>
+        <div class="lvd-picks-list">${lvDailyActs().map(x => `<label data-t="${esc(x.h.title || '')}"><input type="checkbox" value="${esc(x.id)}" ${(D.srcIds || []).map(String).includes(x.id) ? 'checked' : ''} onchange="lvdBankNote()"><span>${esc(x.h.title || 'نشاط')}</span><small>${x.n} ${x.n > 10 ? 'سؤالًا' : 'أسئلة'}</small></label>`).join('') || '<div class="muted">لا أنشطة فيها أسئلة اختيار من متعدد أو صح/خطأ.</div>'}</div></div></div>
+    <div class="lvd-bank" id="lvd-bank">📚 بنك الأسئلة الآن: <b>${bank.length}</b> سؤالًا من <b>${acts}</b> ${acts > 10 ? 'نشاطًا' : 'أنشطة'} — يتحدّث تلقائيًا كلما نشرت نشاطًا جديدًا وفتحت هذه الصفحة.</div>
     ${D.lastId ? `<p class="muted" style="font-size:.8rem;margin:.4rem 0 0">آخر مسابقة يومية أُنشئت ${esc(D.last || '')}.</p>` : ''}
     <div class="modal-foot"><button class="btn ghost" onclick="closeModal()">إلغاء</button><button class="btn tick" id="lvd-go" onclick="lvDailySave()">حفظ</button></div>`);
+  lvdBankNote();
 }
+function lvdSrcRead(){ const src = (document.querySelector('input[name="lvd-src"]:checked') || {}).value === 'pick' ? 'pick' : 'auto';
+  return { src, srcIds: [...document.querySelectorAll('#lvd-picks input[type=checkbox]:checked')].map(x => x.value) }; }
+function lvdSrc(){ const { src } = lvdSrcRead(); const p = document.getElementById('lvd-picks'); if(p) p.style.display = src === 'pick' ? '' : 'none';
+  document.querySelectorAll('.lvd-src label').forEach(l => l.classList.toggle('on', l.querySelector('input').checked)); lvdBankNote(); }
+function lvdBankNote(){ const el = document.getElementById('lvd-bank'); if(!el) return; const S = lvdSrcRead(), { bank, acts } = lvDailyBank(S);
+  el.innerHTML = S.src === 'pick' ? `🎯 بنك الأسئلة من الأنشطة المحددة: <b>${bank.length}</b> سؤالًا من <b>${acts}</b> ${acts > 10 ? 'نشاطًا' : 'أنشطة'}${bank.length && bank.length < 20 ? ' — <b>قليل</b>: ستتكرر الأسئلة كثيرًا، حدّد أنشطة أكثر' : ''}.`
+    : `📚 بنك الأسئلة الآن: <b>${bank.length}</b> سؤالًا من <b>${acts}</b> ${acts > 10 ? 'نشاطًا' : 'أنشطة'} — يتحدّث تلقائيًا كلما نشرت نشاطًا جديدًا وفتحت هذه الصفحة.`; }
+function lvdPickFilter(){ const q = String((document.getElementById('lvd-pq') || {}).value || '').trim(); document.querySelectorAll('.lvd-picks-list label').forEach(l => { l.style.display = !q || (l.dataset.t || '').includes(q) ? '' : 'none'; }); }
+function lvdPickAll(on){ document.querySelectorAll('.lvd-picks-list label').forEach(l => { if(l.style.display !== 'none') l.querySelector('input').checked = on; }); lvdBankNote(); }
 async function lvDailySave(){
   const v = id => (document.getElementById(id) || {}).value, num = (id, d) => { const n = parseInt(v(id), 10); return Number.isFinite(n) ? n : d; };
   const days = [...document.querySelectorAll('.lvd-days input:checked')].map(x => +x.value), on = !!document.getElementById('lvd-on')?.checked;
-  const { bank, acts } = lvDailyBank();
+  const SRC = lvdSrcRead(), { bank, acts } = lvDailyBank(SRC);
+  if(on && SRC.src === 'pick' && !SRC.srcIds.length){ toast('حدّد نشاطًا واحدًا على الأقل، أو اختر «تلقائي»', 'bad'); return; }
   if(on && !days.length){ toast('اختر يومًا واحدًا على الأقل', 'bad'); return; }
   const tms = [...new Set([...document.querySelectorAll('#lvd-times input')].map(i => i.value).filter(Boolean))].sort();
   if(on && !tms.length){ toast('حدّد موعدًا واحدًا على الأقل', 'bad'); return; }
@@ -17006,7 +17030,7 @@ async function lvDailySave(){
   const cfg = { on, days, title: String(v('lvd-title') || '').trim() || 'التحدي اليومي 🔥', times: [...new Set([...document.querySelectorAll('#lvd-times input')].map(i => i.value).filter(Boolean))].sort(), onePerDay: !!document.getElementById('lvd-once')?.checked, regOpenMin: num('lvd-regopen', 30), regCloseMin: 1,
     n: num('lvd-n', 10), qSec: num('lvd-qsec', 20), revealSec: 4, fee: num('lvd-fee', 0), prizes: [num('lvd-p1', 0), num('lvd-p2', 0), num('lvd-p3', 0)],
     minPlayers: num('lvd-min', 0), minAction: 'extend', skin: v('lvd-skin') || 'classic', notify: !!document.getElementById('lvd-notify')?.checked,
-    classes: clsList.length ? clsList : (cls ? [cls] : []) };
+    classes: clsList.length ? clsList : (cls ? [cls] : []), src: SRC.src, srcIds: SRC.srcIds };
   const go = document.getElementById('lvd-go'); if(go){ go.disabled = true; go.textContent = 'جارٍ الحفظ…'; }
   try{ const j = await lvPost('/live/daily', { op: 'set', cfg, bank, acts }); LVD = j.daily || {}; try{ localStorage.setItem('lvd_sig', lvDailySig(bank)); }catch(e){}
     closeModal(); lvDailyBar(); toast(on ? `🔁 المسابقة اليومية مفعّلة${LVD.next ? ' — القادمة ' + lvWhen(LVD.next) : ''}` : 'أُوقفت المسابقة اليومية', 'good');

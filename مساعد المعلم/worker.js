@@ -4429,7 +4429,9 @@ async function handleLive(url, request, env, ctx) {
         prizes: (Array.isArray(c.prizes) ? c.prizes : []).slice(0, 10).map(x => clampInt(x, 0, 10000, 0)), maxPlayers: clampInt(c.maxPlayers, 0, 500, 0),
         minPlayers: clampInt(c.minPlayers, 0, 50, 0), minAction: c.minAction === 'cancel' ? 'cancel' : 'extend',
         skin: LIVE_SKINS.includes(String(c.skin)) ? String(c.skin) : 'classic', notify: c.notify !== false,
-        classes: (Array.isArray(c.classes) ? c.classes : []).map(String).filter(Boolean).slice(0, 30) };
+        classes: (Array.isArray(c.classes) ? c.classes : []).map(String).filter(Boolean).slice(0, 30),
+        // 📚 مصدر الأسئلة: تلقائي من كل الأنشطة، أو أنشطة يحددها المعلم (البنك نفسه يُرسل من لوحته)
+        src: c.src === 'pick' ? 'pick' : 'auto', srcIds: (Array.isArray(c.srcIds) ? c.srcIds : []).map(x => String(x).slice(0, 60)).filter(Boolean).slice(0, 500) };
     }
     if ((b.op === 'set' || b.op === 'bank') && Array.isArray(b.bank)) { D.bank = cleanBank(b.bank); D.bankAt = now; D.bankActs = clampInt(b.acts, 0, 5000, 0); }
     if (b.op === 'set' || b.op === 'bank') await env.HW.put('live:daily', JSON.stringify(D));

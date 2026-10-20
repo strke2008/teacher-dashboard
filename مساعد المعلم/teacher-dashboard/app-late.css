@@ -2553,3 +2553,14 @@ button.sk-chip:not([onclick]){cursor:default}
 .lvd-times{display:flex;flex-wrap:wrap;gap:.45rem}
 .lvd-t{display:inline-flex;align-items:center;gap:.25rem;border:1px solid #D6E0F0;border-radius:12px;padding:.2rem .3rem;background:#F7F9FC}
 .lvd-t .inp{width:auto;min-width:7.5rem;margin:0}
+/* 📚 مصدر أسئلة المسابقة اليومية */
+.lvd-src{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
+.lvd-src label{display:flex;flex-direction:column;gap:.15rem;border:1.5px solid #D6E0F0;border-radius:12px;padding:.6rem .7rem;cursor:pointer;background:#fff;position:relative}
+.lvd-src label.on{border-color:#1B9C6B;background:#F0FAF5;box-shadow:inset 0 0 0 1px #1B9C6B}
+.lvd-src input{position:absolute;opacity:0;pointer-events:none}.lvd-src b{font-size:.92rem}.lvd-src small{font-size:.74rem;color:var(--ink-soft)}
+.lvd-picks{margin-top:.5rem;border:1px solid #D6E0F0;border-radius:12px;padding:.5rem;background:#F8FAFD}
+.lvd-picks-bar{display:flex;gap:.35rem;align-items:center;margin-bottom:.4rem}.lvd-picks-bar .inp{flex:1;margin:0}
+.lvd-picks-list{max-height:220px;overflow:auto;display:flex;flex-direction:column;gap:.25rem}
+.lvd-picks-list label{display:flex;align-items:center;gap:.45rem;padding:.35rem .5rem;border-radius:9px;background:#fff;border:1px solid #E6ECF5;cursor:pointer;font-size:.86rem}
+.lvd-picks-list label span{flex:1}.lvd-picks-list label small{color:var(--ink-soft);font-size:.72rem;white-space:nowrap}
+@media (max-width:560px){.lvd-src{grid-template-columns:1fr}}
