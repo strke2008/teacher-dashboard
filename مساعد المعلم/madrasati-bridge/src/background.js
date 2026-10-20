@@ -115,13 +115,14 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
           await chrome.storage.local.set({ mb_noor_grades: sheet });
           const tabs = await chrome.tabs.query({ url: 'https://noor.moe.gov.sa/*' });
           if (!tabs.length) { reply({ ok: true, saved: rows.length, tabs: 0, filled: 0 }); return; }
-          let filled = 0, unmatched = null, tried = 0;
+          // صفحة الرصد تفتح «معاينة» ولا تكتب شيئًا قبل موافقة المعلم
+          let preview = 0, ready = 0, approx = 0, tried = 0;
           for (const t of tabs) {
             const r = await new Promise(res => chrome.tabs.sendMessage(t.id, { type: 'mb:noorFill', payload: sheet }, x => { void chrome.runtime.lastError; res(x || null); }));
             tried++;
-            if (r && r.filled) { filled += r.filled; unmatched = r.unmatched || unmatched; }
+            if (r && r.preview) { preview += r.preview; ready += r.ready || 0; approx += r.approx || 0; }
           }
-          reply({ ok: true, saved: rows.length, tabs: tried, filled, unmatched });
+          reply({ ok: true, saved: rows.length, tabs: tried, filled: 0, preview, ready, approx });
         } catch (e) { reply({ ok: false, error: String(e && e.message || e) }); }
       })();
       return true;
