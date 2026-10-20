@@ -60,6 +60,30 @@ function cfWeakHTML(cls,print){
     </tbody></table></div>`:'<div class="muted" style="font-size:.84rem">✅ لا يوجد طالب درجته أقل من 10، أو بلا أنشطة، أو مهاراته أقل من 50% حسب البيانات الحالية.</div>'}</div>`;
 }
 
+/* 🏆 العشرة الأوائل: بمجموع كشف الدرجات من 60 (أعمال السنة 40 + الاختبار 20)، والاختبار بدرجته قبل بطاقات المتجر
+   حتى لا تُشترى المرتبة · التعادل يُحسم بالإتقان ثم الاختبار · من لم تصل بياناته من الخادم لا يدخل */
+function cfTopList(cls,n=10){
+  const G=CT_GRADES||{}, term=G.term, r1=v=>Math.round((Number(v)||0)*10)/10;
+  return ctRoster(cls).filter(s=>G.map&&G.map[String(s.id)]).map(s=>{ const g=ctG(s.id), e=g.exam||{};
+    const acts=compActivitiesForStudent(s,term), done=compSubmissionCount(acts,s,term);
+    const a=acts.length?Math.round(done/acts.length*100)/10:10;
+    const exam=e.measured&&e.score!=null?r1(e.base??e.baseScore??e.score):null;
+    const work=r1((g.participation?.score??0)+(g.homework?.score??0)+(g.behavior?.score??0)+a);
+    const lv=g.level&&g.level.measured?g.level.rate:null;
+    return {s,work,exam,total:r1(work+(exam??0)),mastery:lv,done,acts:acts.length}; })
+    .filter(x=>x.done>0||x.exam!=null)
+    .sort((a,b)=>b.total-a.total||(b.mastery??-1)-(a.mastery??-1)||(b.exam??-1)-(a.exam??-1)).slice(0,n);
+}
+function cfTopHTML(cls,print){
+  const R=cfTopList(cls), name=s=>print?esc(s.name):ctNameLink(s), medal=i=>['🥇','🥈','🥉'][i]||(i+1);
+  return `<div class="ct-card cf-top" style="margin-top:.7rem"><b>🏆 العشرة الأوائل</b>
+    <div class="muted" style="font-size:.78rem;margin:.2rem 0 .45rem">الترتيب بالمجموع من 60 (أعمال السنة 40 + الاختبار 20) — الاختبار بدرجته قبل بطاقات المتجر، والتعادل يُحسم بالإتقان ثم الاختبار.</div>
+    ${R.length?`<div class="ct-table"><table class="cf-top-t"><thead><tr><th>#</th><th>الطالب</th><th>المجموع</th><th>أعمال السنة</th><th>الاختبار</th><th>الأنشطة</th><th>الإتقان</th></tr></thead><tbody>
+    ${R.map((x,i)=>`<tr class="${i<3?'top3':''}"><td>${medal(i)}</td><td>${name(x.s)}</td><td><b>${x.total}</b>/60</td><td>${x.work}/40</td>
+      <td>${x.exam!=null?`${x.exam}/20`:'<span class="muted">لم يُرصد</span>'}</td><td>${x.done} من ${x.acts}</td><td>${x.mastery!=null?x.mastery+'%':'<span class="muted">لم يُقَس</span>'}</td></tr>`).join('')}
+    </tbody></table></div>`:'<div class="muted" style="font-size:.84rem">لا توجد درجات مرصودة بعد لهذا الفصل.</div>'}</div>`;
+}
+
 /* ═════════ 🏫 ملف الفصل ═════════ */
 function ctClassFileBody(cls,print){
   const st=cfStats(cls), kpi=(t,v,sub,tone='')=>`<div class="ct-kpi ${tone}"><b>${v??'—'}</b><span>${t}</span>${sub?`<small>${sub}</small>`:''}</div>`;
@@ -88,6 +112,7 @@ function ctClassFileBody(cls,print){
       <div class="cf-dist"><i class="t" style="flex:${d.t}"></i><i class="w" style="flex:${d.w}"></i><i class="b" style="flex:${d.b}"></i><i class="u" style="flex:${d.u}"></i></div>
       <div class="cf-legend"><span>🟢 متقن ${d.t} (${Math.round(d.t/tot*100)}%)</span><span>🟡 قريب ${d.w}</span><span>🔴 يحتاج دعم ${d.b}</span><span>⚪ لم يُقَس ${d.u}</span>
         <span>· السلوك ${st.beh??'—'}/10 · الاختبارات ${st.exam??'—'}/20</span></div></div>
+    ${cfTopHTML(cls,print)}
     ${cfWeakHTML(cls,print)}
     <div class="cf-grid">
       <div class="ct-card"><b>🔻 أضعف المهارات</b>${weak.length?weak.map(x=>`<div class="ct-bar"><span>${esc(x.k)}</span><i><u style="width:${x.rate}%;${ctHeat(x.rate)}"></u></i><b>${x.rate}%</b></div>

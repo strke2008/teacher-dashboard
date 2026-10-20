@@ -2467,3 +2467,10 @@ button.sk-chip:not([onclick]){cursor:default}
 @media print{.cf-weak-t{font-size:9pt}.cf-weak-t th,.cf-weak-t td{padding:2pt 4pt}}
 .cf-weak-also{display:block;font-size:.7rem;color:#B3203D;font-weight:700}
 .cf-weak-t tr.c2 td:first-child{box-shadow:inset -4px 0 0 #D6455B}.cf-weak-t tr.c3 td:first-child{box-shadow:inset -4px 0 0 #D49A1E}
+/* 🏆 العشرة الأوائل في ملف الفصل */
+.cf-top-t{width:100%;border-collapse:collapse;font-size:.84rem}
+.cf-top-t th,.cf-top-t td{padding:.38rem .45rem;border-bottom:1px solid #E6ECF5;text-align:start;vertical-align:middle}
+.cf-top-t th{background:#F3F6FA;font-weight:800;font-size:.78rem;color:#41516B}
+.cf-top-t td:first-child{font-weight:800;text-align:center;width:2.2rem}
+.cf-top-t tr.top3 td{background:#FFFBEB}.cf-top-t tr.top3 td:first-child{box-shadow:inset -4px 0 0 #D4A017;font-size:1.05rem}
+@media print{.cf-top-t{font-size:9pt}.cf-top-t th,.cf-top-t td{padding:2pt 4pt}}
