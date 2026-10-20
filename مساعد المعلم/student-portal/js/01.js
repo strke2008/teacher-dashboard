@@ -6167,8 +6167,8 @@ let EXAM_SHOP_LOADED=false, EXAM_SHOP_LOADING=null;
 const HONOR_IDS=['cert','thanks'];
 let HONOR=null, HONOR_LOADING=null;
 function honorLock(h){
-  const lowLv = !['ممتاز','جيد جدًا'].includes(h.level), lowM = h.mastery!=null && h.mastery < (h.needMastery||70);
-  return '🔒 تُفتح عند ' + [lowLv?`مستوى «جيد جدًا» فأعلى${h.level?` (مستواك «${h.level}»)`:''}`:'', lowM?`إتقان ${h.needMastery||70}% فأعلى في الأنشطة (إتقانك ${h.mastery}%)`:''].filter(Boolean).join(' و') ;
+  const lowLv = !['ممتاز','جيد جدًا'].includes(h.level), lowM = h.mastery==null || h.mastery < (h.needMastery||70);
+  return '🔒 تُفتح عند ' + [lowLv?`مستوى «جيد جدًا» فأعلى${h.level?` (مستواك «${h.level}»)`:''}`:'', lowM?(h.mastery==null?`حل الأنشطة بإتقان ${h.needMastery||70}% فأعلى (لم تحل نشاطًا بعد)`:`إتقان ${h.needMastery||70}% فأعلى في الأنشطة (إتقانك ${h.mastery}%)`):''].filter(Boolean).join(' و') ;
 }
 function honorLoad(){
   const api=((HW && HW.api) || API || '').replace(/\/+$/,''), nm=String(myName || lockedName() || '').trim();

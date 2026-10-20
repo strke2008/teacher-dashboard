@@ -592,9 +592,9 @@ async function honorEligibility(env, st) {
     parts.push([R.behavior.score, 10]);
     const t = parts.reduce((a, x) => a + n1(x[0]), 0) / parts.reduce((a, x) => a + x[1], 0) * 60;
     const level = t >= 54 ? 'ممتاز' : t >= 48 ? 'جيد جدًا' : t >= 42 ? 'جيد' : t >= 30 ? 'يحتاج متابعة' : 'يحتاج دعم';
-    // 🎯 إتقان الأنشطة (نسبة إجاباته الصحيحة في أنشطة الفترة) — لا يمنع إن لم يحل نشاطًا يُقاس
+    // 🎯 إتقان الأنشطة (نسبة إجاباته الصحيحة في أنشطة الفترة) — ومن لم يحل نشاطًا يُقاس لا تكريم له
     const lv = gradeLevel(state.assignments, sid, gradeTermRange(data, per, sem)), mastery = lv.measured ? lv.rate : null;
-    const lowM = mastery != null && mastery < MASTERY.near;
+    const lowM = mastery == null || mastery < MASTERY.near;
     return { ok: true, eligible: t >= HONOR_MIN && !lowM, level, mastery, needMastery: MASTERY.near };
   } catch (e) { return { ok: false, eligible: false, level: '' }; }
 }
