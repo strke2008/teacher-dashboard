@@ -6183,7 +6183,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
          واحدة، ولا يمكن أن تُنتج درجة خاطئة. */
       if (myClass) {
         try {
-          const cRaw = await env.HW.get(`bcache:${myClass}`);
+          const cRaw = await env.HW.get(`bcache2:${myClass}`);
           if (cRaw) {
             const c = JSON.parse(cRaw);
             const i = (c.rows || []).findIndex(r => r.nm === name);
@@ -6265,7 +6265,10 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         if (mst.id) { suffixToMate.set(mst.id, nm); idSuffixes.add(mst.id); }
         suffixToMate.set(nm, nm);
       }
-      const myPages = pages.filter(p => Array.isArray(p.s) && p.s.some(x => mates.has(x)));
+      /* 🏆 الصدارة على أنشطة الفصل المحتسبة فقط: لا المهام العلاجية الشخصية، ولا ما لا درجة له (أنماط/تشخيصي/ألعاب/نافس)،
+         والترتيب بالنسبة لا بمجموع النقاط — وإلا تقدّم من أُسند إليه أنشطة أكثر لا من أدّى أفضل */
+      const boardCounts = p => ['normal', 'reading', 'lab'].includes(p.kind || 'normal') && !p.remedial && !p.ng && !p.nf;
+      const myPages = pages.filter(p => boardCounts(p) && Array.isArray(p.s) && p.s.some(x => mates.has(x)));
       for (const p of myPages) {
         const hMax = parseInt(p.mx, 10) || 20;
         for (const nm of p.s) if (mates.has(nm)) rows[rowIdx.get(nm)].max += hMax;
@@ -6313,8 +6316,8 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         }
       }
       for (const r of rows) r.pct = r.max ? Math.round(r.pts / r.max * 100) : 0;
-      // الأعلى درجةً، ثم الأكثر تسليماً عند التساوي
-      rows.sort((a, b) => (b.pts - a.pts) || (b.done - a.done));
+      // الأعلى نسبةً، ثم الأكثر نقاطًا، ثم الأكثر تسليمًا عند التساوي
+      rows.sort((a, b) => (b.pct - a.pct) || (b.pts - a.pts) || (b.done - a.done));
 
       const myRank = rows.findIndex(r => r.nm === name) + 1;
       // أول ثلاثة بالأسماء، والباقي مجهّل
@@ -6329,7 +6332,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       // خزّن الحساب لبقية زملاء الفصل. فشل التخزين لا يضرّ: يعيد التالي الحساب.
       if (myClass) {
         try {
-          await env.HW.put(`bcache:${myClass}`, JSON.stringify({ rows, top }),
+          await env.HW.put(`bcache2:${myClass}`, JSON.stringify({ rows, top }),
                            { expirationTtl: 60 });
         } catch {}
       }
@@ -6643,7 +6646,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
 
       // ابطال ذاكرة صدارة الفصل فورًا: الطالب الذي سلّم للتوّ يجب أن يرى
       // ترتيبه الجديد لا ترتيبًا عمره دقيقة. الفشل هنا غير مؤذٍ — المهلة تكفلها.
-      if (myCls) { try { await env.HW.delete(`bcache:${myCls}`); } catch {} }
+      if (myCls) { try { await env.HW.delete(`bcache2:${myCls}`); } catch {} }
 
       // 🩹 العلاج التلقائي: فتح علاج عند الإخفاق، أو حسم مهمة علاجية قائمة
       let remedial = null;
@@ -7085,7 +7088,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         await env.HW.put(identityKey('bal:', st), String(prev + gain));
         await plogAdd(env, st, { k: 'lab', hw, t: String(activity.t || '').slice(0, 80), score: graded.score, max: maxPts, pts, mult, best, gain, bal: prev + gain, re: found.value ? 1 : 0 });
         try { const rev = parseInt(await env.HW.get('meta:rev'), 10) || 0; await env.HW.put('meta:rev', String(rev + 1)); } catch {}
-        if (myCls) { try { await env.HW.delete(`bcache:${myCls}`); } catch {} }
+        if (myCls) { try { await env.HW.delete(`bcache2:${myCls}`); } catch {} }
         notifyTeacherOfSubmission(env, ctx, { hwId: hw, activity, st,
           record: { at, correct, total, name: st.name }, resubmitted: !!found.value });
         const mx = Number(activity.mx) > 0 ? Number(activity.mx) : 20;

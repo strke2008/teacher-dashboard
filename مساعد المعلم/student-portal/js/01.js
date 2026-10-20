@@ -4577,7 +4577,7 @@ async function gateLoad(nm, opts){
         <div class="sheet" style="padding:.85rem 1rem">
           <div class="center muted" style="font-size:.82rem;margin-bottom:.5rem">
             🏆 صدارة ${b.cls ? esc(b.cls) : 'فصلك'}
-            <div style="font-size:.72rem;opacity:.85">حسب الدرجات</div>
+            <div style="font-size:.72rem;opacity:.85">بنسبة درجاتك في أنشطة الفصل</div>
           </div>
 
           ${(b.top||[]).map((r,i)=>`
@@ -4585,14 +4585,14 @@ async function gateLoad(nm, opts){
               ${r.name===nm?'font-weight:700;color:var(--tick)':''}">
               <span>${medal[i]||''}</span>
               <span style="flex:1"><span class="${nmCls(r.glow)}">${esc(r.name)}</span>${r.title?` <span style="font-size:.88rem" title="لقب">${titleLabel(r.title)}</span>`:''}</span>
-              <span class="muted">${r.pts}${r.max?'<span style="opacity:.7">/'+r.max+'</span>':''}</span>
+              <span style="text-align:end;line-height:1.15"><b>${r.max?r.pct+'%':'—'}</b>${r.max?`<small class="muted" style="display:block;font-size:.68rem">${r.pts}/${r.max}</small>`:''}</span>
             </div>
           `).join('')}
 
           <div style="border-top:1px solid var(--rule);margin-top:.45rem;
             padding-top:.45rem;text-align:center;font-size:.88rem">
             ترتيبك <b style="color:var(--ink)">${b.myRank}</b> من ${b.total}
-            ${b.myMax ? `<span class="muted" style="font-size:.8rem"> · درجاتك ${b.myPts}/${b.myMax}</span>` : ''}
+            ${b.myMax ? `<span class="muted" style="font-size:.8rem"> · نسبتك <b>${b.myPct}%</b> (${b.myPts}/${b.myMax})</span>` : ''}
           </div>
         </div>`;
     }
