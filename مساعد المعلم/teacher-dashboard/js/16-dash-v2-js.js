@@ -75,18 +75,20 @@ function cfTopList(cls,n=10){
     .sort((a,b)=>b.total-a.total||(b.mastery??-1)-(a.mastery??-1)||(b.exam??-1)-(a.exam??-1)).slice(0,n);
 }
 function cfTopHTML(cls,print){
-  const R=cfTopList(cls), name=s=>print?esc(s.name):ctNameLink(s), medal=i=>['🥇','🥈','🥉'][i]||(i+1);
-  return `<div class="ct-card cf-top" style="margin-top:.7rem"><b>🏆 العشرة الأوائل</b>
-    <div class="muted" style="font-size:.78rem;margin:.2rem 0 .45rem">الترتيب بالمجموع من 60 (أعمال السنة 40 + الاختبار 20) — الاختبار بدرجته قبل بطاقات المتجر، والتعادل يُحسم بالإتقان ثم الاختبار.</div>
-    ${R.length?`<div class="ct-table"><table class="cf-top-t"><thead><tr><th>#</th><th>الطالب</th><th>المجموع</th><th>أعمال السنة</th><th>الاختبار</th><th>الأنشطة</th><th>الإتقان</th></tr></thead><tbody>
-    ${R.map((x,i)=>`<tr class="${i<3?'top3':''}"><td>${medal(i)}</td><td>${name(x.s)}</td><td><b>${x.total}</b>/60</td><td>${x.work}/40</td>
-      <td>${x.exam!=null?`${x.exam}/20`:'<span class="muted">لم يُرصد</span>'}</td><td>${x.done} من ${x.acts}</td><td>${x.mastery!=null?x.mastery+'%':'<span class="muted">لم يُقَس</span>'}</td></tr>`).join('')}
-    </tbody></table></div>`:'<div class="muted" style="font-size:.84rem">لا توجد درجات مرصودة بعد لهذا الفصل.</div>'}</div>`;
+  const R=cfTopList(cls), name=s=>print?esc(s.name):ctNameLink(s);
+  const meta=x=>`<span>📝 ${x.exam!=null?x.exam+'/20':'—'}</span><span>📚 ${x.work}/40</span><span>🎯 ${x.mastery!=null?x.mastery+'%':'—'}</span>`;
+  const pod=R.slice(0,3), rest=R.slice(3), M=['🥇','🥈','🥉'];
+  return `<div class="cf2-card cf2-top"><div class="cf2-h"><b>🏆 العشرة الأوائل — فصل ${esc(cls)}</b><small>بالمجموع من 60 · الاختبار قبل بطاقات المتجر · التعادل بالإتقان ثم الاختبار</small></div>
+    ${R.length?`<div class="cf2-podium">${pod.map((x,i)=>`<div class="cf2-pod p${i+1}"><div class="cf2-medal">${M[i]}</div><div class="cf2-pn">${name(x.s)}</div>
+        <div class="cf2-ps"><b>${x.total}</b><small>/60</small></div><div class="cf2-pm">${meta(x)}</div></div>`).join('')}</div>
+      ${rest.length?`<ol class="cf2-rank" start="4">${rest.map((x,i)=>`<li><span class="cf2-rn">${i+4}</span><span class="cf2-rname">${name(x.s)}</span>
+        <span class="cf2-rbar"><u style="width:${Math.round(x.total/60*100)}%"></u></span><b class="cf2-rt">${x.total}<small>/60</small></b><span class="cf2-rmeta">${meta(x)}</span></li>`).join('')}</ol>`:''}`
+    :'<div class="cf2-empty">لا توجد درجات مرصودة بعد لهذا الفصل.</div>'}</div>`;
 }
 
 /* ═════════ 🏫 ملف الفصل ═════════ */
 function ctClassFileBody(cls,print){
-  const st=cfStats(cls), kpi=(t,v,sub,tone='')=>`<div class="ct-kpi ${tone}"><b>${v??'—'}</b><span>${t}</span>${sub?`<small>${sub}</small>`:''}</div>`;
+  const st=cfStats(cls);
   const sk=cfSkills(cls), weak=sk.slice(0,3), strong=sk.slice(-3).reverse().filter(x=>x.rate>=70);
   const support=st.G.filter(x=>(x.g.level&&x.g.level.status==='يحتاج دعم')||(x.g.trend&&x.g.trend.measurable&&x.g.trend.change<=-10));
   let cands=[]; try{ cands=ctCertCandidates(cls); }catch(e){}
@@ -98,35 +100,61 @@ function ctClassFileBody(cls,print){
   const best=k=>{ const v=all.map(x=>x[k]).filter(Number.isFinite); return v.length>1?[Math.max(...v),Math.min(...v)]:[null,null]; };
   const d=st.dist, tot=Math.max(1,st.n), btn=h=>print?'':h;
   const name=s=>print?esc(s.name):ctNameLink(s);
-  return `
+  const {sem,per}=ctSem();
+  // 🎨 لون الحالة من النسبة: أخضر ≥85 · أصفر ≥70 · أحمر دونها
+  const tone=p=>p==null?'':p>=85?'g':p>=70?'y':'r';
+  const tile=(ic,t,v,max,unit,sub)=>{ const p=v==null?null:Math.round(v/max*100);
+    return `<div class="cf2-tile ${tone(p)}"><div class="cf2-ti">${ic}</div><div class="cf2-tv"><b>${v??'—'}</b><small>${v==null?'':unit}</small></div><div class="cf2-tl">${t}</div>
+      <div class="cf2-tb"><u style="width:${p??0}%"></u></div>${sub?`<div class="cf2-ts">${sub}</div>`:''}</div>`; };
+  const ring=st.mastery;
+  const seg=(k,n,l)=>n?`<i class="${k}" style="flex:${n}" title="${l} ${n}">${n/tot>=.08?n:''}</i>`:'';
+  const sec=(ic,t,sub)=>`<div class="cf2-sec"><span>${ic}</span><b>${t}</b>${sub?`<small>${sub}</small>`:''}</div>`;
+  const li=(a,b)=>`<div class="cf2-li"><span>${a}</span>${b}</div>`;
+  const bar=x=>`<div class="cf2-sk ${tone(x.rate)}"><span>${esc(String(x.k).replace(/^نافس:\s*/,''))}</span><i><u style="width:${x.rate}%"></u></i><b>${x.rate}%</b></div>`;
+  return `<div class="cf2">
+    <div class="cf2-hero">
+      <div class="cf2-ring ${tone(ring)}" style="--p:${ring??0}"><b>${ring!=null?ring+'%':'—'}</b><small>الإتقان</small></div>
+      <div class="cf2-hi"><div class="cf2-ht">🏫 فصل ${esc(cls)}</div>
+        <div class="cf2-hs">الفصل ${sem===1?'الأول':'الثاني'} · الفترة ${per===1?'الأولى':'الثانية'} · ${st.n} طالبًا (قيس منهم ${st.measured}) · ${st.acts} نشاطًا</div>
+        <div class="cf2-dist">${seg('t',d.t,'متقن')}${seg('w',d.w,'قريب')}${seg('b',d.b,'يحتاج دعم')}${seg('u',d.u,'لم يُقَس')}</div>
+        <div class="cf2-lg"><span class="t">متقن <b>${d.t}</b></span><span class="w">قريب <b>${d.w}</b></span><span class="b">يحتاج دعم <b>${d.b}</b></span><span class="u">لم يُقَس <b>${d.u}</b></span></div></div>
+    </div>
     ${typeof ctCmpClassHTML==='function'?ctCmpClassHTML(cls):''}
-    <div class="ct-kpis ct-kpis6">
-      ${kpi('الطلاب',st.n,`قيس منهم ${st.measured}`)}
-      ${kpi('الإتقان',st.mastery!=null?st.mastery+'%':null,'من إجابات الأنشطة',st.mastery==null?'':st.mastery>=85?'tick':st.mastery>=70?'warn':'bad')}
-      ${kpi('التسليم',st.sub!=null?st.sub+'%':null,`${st.acts} نشاط`)}
-      ${kpi('الحضور',st.att!=null?st.att+'%':null,'',st.att!=null&&st.att<90?'warn':'')}
-      ${kpi('المشاركة',st.part!=null?st.part+'/10':null)}
-      ${kpi('الواجبات',st.hw!=null?st.hw+'/10':null)}
+    <div class="cf2-tiles">
+      ${tile('📤','التسليم',st.sub,100,'%',`${st.acts} نشاط`)}
+      ${tile('🗓️','الحضور',st.att,100,'%')}
+      ${tile('🙋','المشاركة',st.part,10,'/10')}
+      ${tile('📘','الواجبات',st.hw,10,'/10')}
+      ${tile('🌟','السلوك',st.beh,10,'/10')}
+      ${tile('📝','الاختبارات',st.exam,20,'/20')}
     </div>
-    <div class="ct-card" style="margin-top:.6rem"><b>📊 توزيع المستويات</b>
-      <div class="cf-dist"><i class="t" style="flex:${d.t}"></i><i class="w" style="flex:${d.w}"></i><i class="b" style="flex:${d.b}"></i><i class="u" style="flex:${d.u}"></i></div>
-      <div class="cf-legend"><span>🟢 متقن ${d.t} (${Math.round(d.t/tot*100)}%)</span><span>🟡 قريب ${d.w}</span><span>🔴 يحتاج دعم ${d.b}</span><span>⚪ لم يُقَس ${d.u}</span>
-        <span>· السلوك ${st.beh??'—'}/10 · الاختبارات ${st.exam??'—'}/20</span></div></div>
+
+    ${sec('🏆','التميّز','الأوائل ومن يستحق التكريم')}
     ${cfTopHTML(cls,print)}
+    <div class="cf2-card"><div class="cf2-h"><b>🌟 مرشحون للتكريم (${cands.length})</b><small>إتقان أو تحسّن أو خطة ناجحة أو انضباط كامل</small></div>
+      ${cands.length?`<div class="cf2-chips">${cands.slice(0,16).map(x=>`<div class="cf2-cand"><span>${name(x.s)}<small>${esc(x.why.map(w=>w[0]).join('، '))}</small></span>${x.had?'<em>🏅 لديه شهادة</em>':btn(`<button class="btn ghost sm" onclick="ctCertQuick('${esc(x.s.id)}',CT_CERT_REASON['${esc(x.why[0][0])}']||'تميّزه')">🏅 شهادة</button>`)}</div>`).join('')}</div>`:'<div class="cf2-empty">لا مرشحين حاليًا.</div>'}</div>
+
+    ${sec('🎯','المتابعة والعلاج','من يحتاج تدخّلًا الآن')}
     ${cfWeakHTML(cls,print)}
-    <div class="cf-grid">
-      <div class="ct-card"><b>🔻 أضعف المهارات</b>${weak.length?weak.map(x=>`<div class="ct-bar"><span>${esc(x.k)}</span><i><u style="width:${x.rate}%;${ctHeat(x.rate)}"></u></i><b>${x.rate}%</b></div>
-          ${btn(x.weak.length>=2?`<div style="margin:-.1rem 0 .4rem"><button class="btn ghost sm" onclick='ctGroupPlan(${JSON.stringify(x.k)},${JSON.stringify(x.weak)})'>🩺 خطة جماعية لـ ${x.weak.length} طلاب</button></div>`:'')}`).join(''):'<div class="muted" style="font-size:.82rem">لا أسئلة مصنّفة بالمهارات بعد.</div>'}
-        ${weak.length&&weak[0].rate<60&&weak[0].weak.length>=st.n*0.6?'<div class="ct-warn" style="margin-top:.4rem;font-size:.8rem">معظم الفصل ضعيف في «'+esc(weak[0].k)+'» — الأنسب إعادة شرحها للفصل كله.</div>':''}</div>
-      <div class="ct-card"><b>🔺 نقاط القوة</b>${strong.length?strong.map(x=>`<div class="ct-bar"><span>${esc(x.k)}</span><i><u style="width:${x.rate}%;${ctHeat(x.rate)}"></u></i><b>${x.rate}%</b></div>`).join(''):'<div class="muted" style="font-size:.82rem">—</div>'}</div>
-      <div class="ct-card"><b>🆘 يحتاجون دعمًا (${support.length})</b>${support.slice(0,12).map(x=>`<div class="ct-li"><span>${name(x.s)}</span><span class="chip ${x.g.level&&x.g.level.status==='يحتاج دعم'?'bad':'warn'}">${x.g.level&&x.g.level.status==='يحتاج دعم'?esc(x.g.level.rate+'%'):'يتراجع '+esc(x.g.trend.change)}</span></div>`).join('')||'<div class="muted" style="font-size:.82rem">لا أحد 🌿</div>'}</div>
-      <div class="ct-card"><b>🌟 المتميزون (${cands.length})</b>${cands.slice(0,12).map(x=>`<div class="ct-li"><span>${name(x.s)} <small class="muted">${esc(x.why.map(w=>w[0]).join('، '))}</small></span>${x.had?'<span class="chip ghost">🏅 لديه شهادة</span>':btn(`<button class="btn ghost sm" onclick="ctCertQuick('${esc(x.s.id)}',CT_CERT_REASON['${esc(x.why[0][0])}']||'تميّزه')">🏅 شهادة</button>`)}</div>`).join('')||'<div class="muted" style="font-size:.82rem">لا مرشحين بعد.</div>'}</div>
-      <div class="ct-card"><b>🩺 الخطط العلاجية</b><div class="ct-li"><span>جارية</span><b>${act.length}</b></div><div class="ct-li"><span>منتهية</span><b>${plans.length-act.length}</b></div><div class="ct-li"><span>حكمها «تحسّن»</span><b>${imp}</b></div></div>
-      <div class="ct-card"><b>🔔 تنبيهات الانضباط (${al.length})</b>${al.slice(0,8).map(a=>`<div class="ct-al ${a.lvl}">${name(a.s)} — ${esc(a.t)}</div>`).join('')||'<div class="muted" style="font-size:.82rem">لا تنبيهات.</div>'}</div>
+    <div class="cf2-grid3">
+      <div class="cf2-card"><div class="cf2-h"><b>🆘 يحتاجون دعمًا (${support.length})</b></div>${support.slice(0,12).map(x=>li(name(x.s),`<span class="chip ${x.g.level&&x.g.level.status==='يحتاج دعم'?'bad':'warn'}">${x.g.level&&x.g.level.status==='يحتاج دعم'?esc(x.g.level.rate+'%'):'يتراجع '+esc(x.g.trend.change)}</span>`)).join('')||'<div class="cf2-empty">لا أحد ✅</div>'}</div>
+      <div class="cf2-card"><div class="cf2-h"><b>🔔 تنبيهات الانضباط (${al.length})</b></div>${al.slice(0,8).map(a=>`<div class="cf2-al ${a.lvl}">${name(a.s)}<small>${esc(a.t)}</small></div>`).join('')||'<div class="cf2-empty">لا تنبيهات ✅</div>'}</div>
+      <div class="cf2-card"><div class="cf2-h"><b>🩺 الخطط العلاجية</b></div>
+        <div class="cf2-nums"><div><b>${act.length}</b><small>جارية</small></div><div><b>${plans.length-act.length}</b><small>منتهية</small></div><div class="g"><b>${imp}</b><small>تحسّن</small></div></div></div>
     </div>
-    ${all.length>1?`<div class="ct-card" style="margin-top:.7rem"><b>⚖️ مقارنة بالفصول الأخرى</b><div class="ct-table"><table class="cf-cmp"><thead><tr><th>الفصل</th><th>الطلاب</th>${cols.map(c=>`<th>${c[1]}</th>`).join('')}</tr></thead><tbody>
+
+    ${sec('🧠','المهارات','من إجابات الطلاب في الأنشطة')}
+    <div class="cf2-grid2">
+      <div class="cf2-card"><div class="cf2-h"><b>🔻 أضعف المهارات</b></div>${weak.length?weak.map(x=>bar(x)+btn(x.weak.length>=2?`<button class="btn ghost sm cf2-gp" onclick='ctGroupPlan(${JSON.stringify(x.k)},${JSON.stringify(x.weak)})'>🩺 خطة جماعية لـ ${x.weak.length} طلاب</button>`:'')).join(''):'<div class="cf2-empty">لا أسئلة مصنّفة بمهارات بعد.</div>'}
+        ${weak.length&&weak[0].rate<60&&weak[0].weak.length>=st.n*0.6?'<div class="ct-warn" style="margin-top:.5rem;font-size:.8rem">معظم الفصل ضعيف في «'+esc(weak[0].k)+'» — الأنسب إعادة شرحها للفصل كله.</div>':''}</div>
+      <div class="cf2-card"><div class="cf2-h"><b>🔺 نقاط القوة</b></div>${strong.length?strong.map(bar).join(''):'<div class="cf2-empty">لا مهارة بلغت 70% بعد.</div>'}</div>
+    </div>
+
+    ${all.length>1?`${sec('⚖️','مقارنة بالفصول الأخرى','الأخضر أعلى فصل والأحمر أدناه في كل عنصر')}
+    <div class="cf2-card"><div class="ct-table"><table class="cf-cmp"><thead><tr><th>الفصل</th><th>الطلاب</th>${cols.map(c=>`<th>${c[1]}</th>`).join('')}</tr></thead><tbody>
       ${all.map(x=>`<tr><td class="${x.cls===cls?'me':''}"><b>${esc(x.cls)}</b></td><td class="${x.cls===cls?'me':''}">${x.n}</td>${cols.map(([k,,u])=>{ const [hi,lo]=best(k), v=x[k]; return `<td class="${x.cls===cls?'me ':''}${v!=null&&v===hi?'best':v!=null&&v===lo?'worst':''}">${v!=null?v+(u==='%'?'%':''):'—'}</td>`; }).join('')}</tr>`).join('')}
-    </tbody></table></div><div class="muted" style="font-size:.74rem;margin-top:.3rem">الأخضر أعلى فصل والأحمر أدناه في كل عنصر.</div></div>`:''}`;
+    </tbody></table></div></div>`:''}
+  </div>`;
 }
 async function ctClassFile(box,force){
   try{ await ctEnsureGrades(force); }catch(e){}
