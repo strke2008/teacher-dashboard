@@ -197,7 +197,7 @@
     }).filter(sel => sel.options.length > 1);
     const classPicker = classSelects[0] || null;
     const classOptions = classPicker ? '' : `<option value="">${safe(sheet.cls || 'الفصل المحدد في الكشف')}</option>`;
-    bar.innerHTML = `<span class="mbn-drag" title="اسحب لتحريك الصندوق" style="cursor:move;touch-action:none;user-select:none;flex:1 1 100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;font-size:11px;opacity:.95">⠿ كشف مساعد المعلم: <b>${sheet.rows.length}</b> طالب${sheet.cls ? ' · ' + safe(sheet.cls) : ''}${sheet.label ? ' · ' + safe(sheet.label) : ''}${when ? ' · ' + when : ''} <span style="opacity:.7">(اسحب من هنا)</span></span>
+    bar.innerHTML = `<span class="mbn-drag" title="اسحب لتحريك الصندوق" style="cursor:move;touch-action:none;user-select:none;flex:1 1 100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;font-size:11px;opacity:.95">⠿ كشف مساعد المعلم: <b>${sheet.rows.length}</b> طالب${sheet.cls ? ' · ' + safe(sheet.cls) : ''}${sheet.label ? ' · ' + safe(sheet.label) : ''}${when ? ' · ' + when : ''} <span style="opacity:.7">(اسحب من هنا) · v${(() => { try { return chrome.runtime.getManifest().version; } catch (_) { return ''; } })()}</span></span>
       <label style="display:flex;gap:5px;align-items:center">الفصل <select class="mbn-class" ${classPicker ? '' : 'disabled'} style="border-radius:7px;padding:3px 5px;font:inherit;color:#16233A;max-width:150px;max-height:30px">${classOptions}</select></label>
       <select class="mbn-mode" style="border-radius:7px;padding:3px 5px;font:inherit;color:#16233A;max-width:220px;max-height:30px">
         <option value="both">الخانتان: أعمال السنة 40 ثم الاختبار 20</option>

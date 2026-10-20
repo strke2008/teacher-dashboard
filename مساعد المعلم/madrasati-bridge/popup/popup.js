@@ -1,3 +1,5 @@
+/* رقم النسخة من manifest دائمًا — حتى لا يبقى رقم قديم مكتوبًا يدويًا */
+try { const v = document.getElementById('mb-ver'); if (v) v.textContent = 'v' + chrome.runtime.getManifest().version; } catch (_) {}
 const $ = id => document.getElementById(id);
 
 async function currentTab() {
