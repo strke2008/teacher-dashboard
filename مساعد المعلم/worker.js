@@ -571,7 +571,7 @@ function madReportPart(m) {
     pendingList: items.filter(x => x.st === 'pending').map(x => ({ title: t(x), daysLeft: x.daysLeft || 1, dueAt: x.dueAt || 0 })).slice(0, 15) };
 }
 /* 🏅 أهلية بطاقات «تكريمك» (شهادة/شكر للأهل): نفس حساب مستوى بوابة ولي الأمر للفترة الجارية،
-   والاختبار بدرجته الأصلية قبل بطاقات المتجر — فالنقاط وحدها لا تشتري تكريمًا. المطلوب «جيد جدًا» فأعلى (48 من 60) */
+   والاختبار بدرجته الأصلية قبل بطاقات المتجر — فالنقاط وحدها لا تشتري تكريمًا. المطلوب «جيد جدًا» فأعلى (48 من 60) وإتقان الأنشطة 70% فأعلى */
 const HONOR_MIN = 48;
 async function honorEligibility(env, st) {
   try {
@@ -592,7 +592,10 @@ async function honorEligibility(env, st) {
     parts.push([R.behavior.score, 10]);
     const t = parts.reduce((a, x) => a + n1(x[0]), 0) / parts.reduce((a, x) => a + x[1], 0) * 60;
     const level = t >= 54 ? 'ممتاز' : t >= 48 ? 'جيد جدًا' : t >= 42 ? 'جيد' : t >= 30 ? 'يحتاج متابعة' : 'يحتاج دعم';
-    return { ok: true, eligible: t >= HONOR_MIN, level };
+    // 🎯 إتقان الأنشطة (نسبة إجاباته الصحيحة في أنشطة الفترة) — لا يمنع إن لم يحل نشاطًا يُقاس
+    const lv = gradeLevel(state.assignments, sid, gradeTermRange(data, per, sem)), mastery = lv.measured ? lv.rate : null;
+    const lowM = mastery != null && mastery < MASTERY.near;
+    return { ok: true, eligible: t >= HONOR_MIN && !lowM, level, mastery, needMastery: MASTERY.near };
   } catch (e) { return { ok: false, eligible: false, level: '' }; }
 }
 function studentReportBuild(data, g, semester, period, teacherNote, acts) {
@@ -7501,7 +7504,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       const st = auth.st;
       return studentLocked(env, st, async () => {
         const bal = await readBal(env, st);
-        if (card === 'cert' || card === 'thanks') { const E = await honorEligibility(env, st); if (!E.eligible) return json({ ok: false, error: 'honor_level', level: E.level, pts: bal }, 200); }
+        if (card === 'cert' || card === 'thanks') { const E = await honorEligibility(env, st); if (!E.eligible) return json({ ok: false, error: 'honor_level', level: E.level, mastery: E.mastery, needMastery: E.needMastery, pts: bal }, 200); }
         if ((card.startsWith('theme_') || card === 'frame' || card === 'namecolor' || card === 'avatars') && ((await readOwn(env, st))[card] > 0)) return json({ ok: false, error: 'owned', pts: bal }, 200);
         if (bal < price) return json({ ok: false, error: 'low', pts: bal }, 200);
         await env.HW.put(identityKey('bal:', st), String(bal - price));

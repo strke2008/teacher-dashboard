@@ -6140,7 +6140,7 @@ const SHOP_CATS = [
   { ic:'🎓', t:'درجاتك', d:'ترفع درجة الاختبارات أو تمسح خصم واجب', ids:['exam3','exam2','exam1','exam05','hwforgive','madforgive'] },
   { ic:'🧩', t:'مساعدات الأنشطة', d:'تساعدك أثناء الحل وبعده', ids:['dbl','retry','early','fifty','hint','ticket'] },
   { ic:'🎨', t:'مظهرك وتميّزك', d:'لك دائمًا — تُشترى مرة واحدة', ids:['namecolor','avatars','theme_gold','theme_diamond','theme_saudi','theme_spaceweek','frame','title'] },
-  { ic:'🏅', t:'تكريمك', d:'شهادة باسمك ورسالة شكر لأهلك — للمتميزين بمستوى «جيد جدًا» فأعلى', ids:['cert','thanks'] }
+  { ic:'🏅', t:'تكريمك', d:'شهادة باسمك ورسالة شكر لأهلك — للمتميزين: «جيد جدًا» فأعلى وإتقان 70% فأعلى', ids:['cert','thanks'] }
 ];
 
 // 🏅 الألقاب المتاحة — لكل لقب أيقونته
@@ -6166,6 +6166,10 @@ let EXAM_SHOP_LOADED=false, EXAM_SHOP_LOADING=null;
 /* 🏅 بطاقات «تكريمك» لمن مستواه «جيد جدًا» فأعلى — يحسمها الخادم، وهنا للعرض فقط */
 const HONOR_IDS=['cert','thanks'];
 let HONOR=null, HONOR_LOADING=null;
+function honorLock(h){
+  const lowLv = !['ممتاز','جيد جدًا'].includes(h.level), lowM = h.mastery!=null && h.mastery < (h.needMastery||70);
+  return '🔒 تُفتح عند ' + [lowLv?`مستوى «جيد جدًا» فأعلى${h.level?` (مستواك «${h.level}»)`:''}`:'', lowM?`إتقان ${h.needMastery||70}% فأعلى في الأنشطة (إتقانك ${h.mastery}%)`:''].filter(Boolean).join(' و') ;
+}
 function honorLoad(){
   const api=((HW && HW.api) || API || '').replace(/\/+$/,''), nm=String(myName || lockedName() || '').trim();
   if(!api || !nm){ HONOR={}; return Promise.resolve(); }
@@ -6308,7 +6312,7 @@ function renderStore(target){
           const pr = cardPrice(c);
           const honor = HONOR_IDS.includes(c.id), honorOk = !honor || !!(HONOR && HONOR.eligible);
           const can = !ownedOnce && honorOk && (MYPTS >= pr || (c.mad && MYPERKS[c.id] > 0)) && (!c.examBonus || (examAvailable && remainingEnough));
-          const honorLine = !honor ? '' : !HONOR ? '⏳ جارٍ التحقق من مستواك…' : honorOk ? `✓ متاحة لك — مستواك «${HONOR.level}»` : (HONOR.none ? '🔒 تُفتح بعد رصد درجاتك إذا كان مستواك «جيد جدًا» فأعلى' : `🔒 تُفتح عند وصولك «جيد جدًا» فأعلى${HONOR.level?` — مستواك الآن «${HONOR.level}»`:''}`);
+          const honorLine = !honor ? '' : !HONOR ? '⏳ جارٍ التحقق من مستواك…' : honorOk ? `✓ متاحة لك — مستواك «${HONOR.level}»` : (HONOR.none ? '🔒 تُفتح بعد رصد درجاتك إذا كان مستواك «جيد جدًا» فأعلى' : honorLock(HONOR));
           const examLine=c.examBonus ? (!examKnown ? '⏳ جارٍ التحقق…' : window.EXAM_SHOP_FULL ? 'درجتك كاملة 20/20 ✓' : (examRemaining<=0 && EXAM_SHOP_HAS_SCORE) ? 'استخدمت كامل الحد' : remainingEnough && examAvailable ? `المتاح لك الآن ${String(examRemaining).replace(/\.0$/,'')} درجة` : (examAvailable ? `المتبقي ${String(examRemaining).replace(/\.0$/,'')} درجة · البطاقة تحتاج ${c.examBonus}` : 'غير متاح حاليًا')) : '';
           return `<button data-c="${c.id}" data-p="${pr}" ${can?'':'disabled'}>
             ${c.ic} ${esc(c.shop||c.name)}
@@ -6356,8 +6360,8 @@ async function buyCard(btn, target){
     const r = await storeFetch(api + '/buy', { method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ name: String(myName || lockedName() || '').trim(), sid: mySid||'', card: id }) });
     const j = await r.json();
-    if(j.error==='honor_level'){ HONOR={ok:true,eligible:false,level:j.level||''}; renderStore(target);
-      await note(`بطاقات «تكريمك» للمتميزين: تُفتح عند وصول مستواك «جيد جدًا» فأعلى${j.level?` — مستواك الآن «${j.level}»`:''}.\nارفع مستواك بحل الأنشطة والواجبات والمشاركة، ولم يُخصم شيء من نقاطك.`,'تكريمك للمتميزين','🏅'); return; }
+    if(j.error==='honor_level'){ HONOR={ok:true,eligible:false,level:j.level||'',mastery:j.mastery??null,needMastery:j.needMastery||70}; renderStore(target);
+      await note(`بطاقات «تكريمك» للمتميزين: مستوى «جيد جدًا» فأعلى وإتقان ${HONOR.needMastery}% فأعلى في الأنشطة.\n${honorLock(HONOR)}\nارفع مستواك بحل الأنشطة والواجبات والمشاركة، ولم يُخصم شيء من نقاطك.`,'تكريمك للمتميزين','🏅'); return; }
     if(!j.ok){ toast(j.error==='low' ? 'رصيدك لا يكفي' : j.error==='owned' ? 'تملك هذه البطاقة من قبل' : storeErrText(j, 'تعذّر إتمام الشراء — لم يُخصم شيء'),'bad'); MYPTS = j.pts ?? MYPTS; renderStore(target); return; }
     MYPTS = j.pts; MYPERKS = j.perks || MYPERKS;
     if(target==='pre-store'){
