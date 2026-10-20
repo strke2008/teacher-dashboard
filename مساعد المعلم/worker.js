@@ -5957,6 +5957,36 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       await env.HW.put('ann:list', JSON.stringify(list.filter(x => x.id !== a.id)));
       return json({ ok: true });
     }
+    // ✏️ تعديل إعلان منشور: العنوان والنص والفصول، وحذف مرفقات أو إضافة جديدة — يبقى تاريخه ووقت ظهوره
+    if (url.pathname === '/ann-edit' && request.method === 'POST') {
+      let fd; try { fd = await request.formData(); } catch { return json({ error: 'bad form' }, 400); }
+      if (!env.TEACHER_TOKEN || String(fd.get('t') || '') !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
+      const list = await annList(env), a = list.find(x => x.id === String(fd.get('id') || ''));
+      if (!a) return json({ ok: false, error: 'not_found' }, 404);
+      let classes = a.classes || []; try { classes = JSON.parse(String(fd.get('classes') || '[]')).map(String).slice(0, 40); } catch {}
+      let drop = []; try { drop = JSON.parse(String(fd.get('remove') || '[]')).map(Number); } catch {}
+      const title = String(fd.get('title') || '').trim().slice(0, 140), body = String(fd.get('body') || '').replace(/\r\n?/g, '\n').trim().slice(0, 3000);
+      const keep = (a.files || []).filter((_, i) => !drop.includes(i));
+      const add = fd.getAll('files').filter(x => x && typeof x.arrayBuffer === 'function');
+      if (keep.length + add.length > ANN.maxFiles) return json({ ok: false, error: 'too_many', max: ANN.maxFiles }, 400);
+      if (!title && !body && !keep.length && !add.length) return json({ ok: false, error: 'empty' }, 400);
+      if (add.length && !env.FILES) return json({ ok: false, error: 'R2 binding FILES is missing' }, 500);
+      const saved = [];
+      for (const f of add) {
+        const type = String(f.type || '').toLowerCase(), kind = annKind(type);
+        if (!kind) return json({ ok: false, error: 'bad_type', name: f.name }, 400);
+        if (f.size > ANN.max[kind]) return json({ ok: false, error: 'too_big', name: f.name, max: ANN.max[kind] }, 413);
+        const safe = String(f.name || 'file').replace(/[^\p{L}\p{N}._-]+/gu, '_').slice(-80);
+        const key = `ann/${a.id}/e${Date.now().toString(36)}${saved.length}-${safe}`;
+        await env.FILES.put(key, f.stream(), { httpMetadata: { contentType: type, contentDisposition: `inline; filename*=UTF-8''${encodeURIComponent(f.name || safe)}` } });
+        saved.push({ key, name: String(f.name || safe).slice(0, 120), type, kind, size: f.size });
+      }
+      if (env.FILES) for (const f of (a.files || []).filter((_, i) => drop.includes(i))) { try { await env.FILES.delete(f.key); } catch {} }
+      Object.assign(a, { title, body, classes, files: keep.concat(saved), editedAt: Date.now() });
+      await env.HW.put('ann:list', JSON.stringify(list));
+      try { const rev = parseInt(await env.HW.get('meta:rev'), 10) || 0; await env.HW.put('meta:rev', String(rev + 1)); } catch {}
+      return json({ ok: true, files: a.files.length });
+    }
     // ⏰ تعديل وقت ظهور إعلان منشور (إظهار الآن · إخفاء الآن · جدولة)
     if (url.pathname === '/ann-time' && request.method === 'POST') {
       let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }

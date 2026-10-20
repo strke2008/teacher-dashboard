@@ -1499,7 +1499,7 @@ async function annLoad(){
   ANN_ROWS=rows;
   el.innerHTML=rows.map(a=>{const st=annState(a);return `<div class="ann-row ${st.k}"><div style="min-width:0;flex:1"><b>${esc(a.title||'(بلا عنوان)')}</b>
     <span class="ann-st ${st.k}">${st.t}</span>
-    <small class="muted">أُنشئ ${new Date(a.at).toLocaleString('ar-SA',{dateStyle:'medium',timeStyle:'short'})} · ${a.classes&&a.classes.length?esc(a.classes.join('، ')):'كل الطلاب'}</small>
+    <small class="muted">أُنشئ ${new Date(a.at).toLocaleString('ar-SA',{dateStyle:'medium',timeStyle:'short'})}${a.editedAt?` · ✏️ عُدّل ${new Date(a.editedAt).toLocaleString('ar-SA',{dateStyle:'medium',timeStyle:'short'})}`:''} · ${a.classes&&a.classes.length?esc(a.classes.join('، ')):'كل الطلاب'}</small>
     ${a.body?`<div class="muted" style="font-size:.84rem;white-space:pre-wrap">${esc(a.body.slice(0,160))}${a.body.length>160?'…':''}</div>`:''}
     ${(()=>{ const u=i=>`${base}/ann-file?a=${encodeURIComponent(a.id)}&f=${i}&t=${tk}`, fs=(a.files||[]).map((f,i)=>({...f,i}));
       // 🖼️ معاينة كما يراها الطلاب: الصور مصغّرة (تُفتح كاملة بالضغط) والفيديو يعمل هنا، وبقية الملفات روابط
@@ -1509,10 +1509,61 @@ async function annLoad(){
     <div class="ann-edit hide" id="ann-ed-${esc(a.id)}"><label>يظهر من<input class="inp" type="datetime-local" value="${a.showFrom?annLocal(a.showFrom):''}"></label><label>ويختفي في<input class="inp" type="datetime-local" value="${a.showUntil?annLocal(a.showUntil):''}"></label>
       <button class="btn tick sm" type="button" onclick="annTimeSave('${esc(a.id)}')">حفظ الوقت</button></div></div>
     <div class="ann-acts">${st.k==='on'?`<button class="btn ghost sm" onclick="annTimeSet('${esc(a.id)}','hide')">⏹️ أخفِ الآن</button>`:`<button class="btn ghost sm" onclick="annTimeSet('${esc(a.id)}','show')">▶️ أظهر الآن</button>`}
+      <button class="btn ghost sm" onclick="annEditOpen('${esc(a.id)}')">✏️ تعديل</button>
       <button class="btn ghost sm" onclick="document.getElementById('ann-ed-${esc(a.id)}').classList.toggle('hide')">⏰ الوقت</button>
       <button class="btn ghost sm" onclick="annDelete('${esc(a.id)}')">🗑️ حذف</button></div></div>`}).join('');
 }
 let ANN_ROWS=[];
+/* ✏️ تعديل إعلان منشور: العنوان والنص والفصول والمرفقات (حذف/إضافة) — يبقى تاريخه ووقت ظهوره كما هو */
+let ANN_ED=null;
+function annEditOpen(id){
+  const a=ANN_ROWS.find(x=>x.id===id); if(!a) return;
+  ANN_ED={ id, drop:new Set(), add:[] };
+  const cls=[...new Set((STUDENTS||[]).map(s=>String(s.cls||'')).filter(Boolean))].sort((x,y)=>x.localeCompare(y,'ar')), on=new Set(a.classes||[]);
+  openModal(`<h2>✏️ تعديل الإعلان</h2><p class="muted" style="margin:-.2rem 0 .8rem;font-size:.84rem">يتحدّث عند الطلاب فورًا، ويبقى تاريخه ووقت ظهوره كما هو.</p>
+    <div class="field"><label>العنوان</label><input class="inp" id="ae-title" maxlength="140" value="${esc(a.title||'')}"></div>
+    <div class="field"><label>النص <small class="muted">— الروابط تظهر للطلاب أزرارًا</small></label><textarea class="inp" id="ae-body" rows="5" maxlength="3000">${esc(a.body||'')}</textarea></div>
+    <div class="field"><label>يظهر لـ</label><div class="ann-cls" id="ae-classes"><label class="ann-chip"><input type="checkbox" value="" ${on.size?'':'checked'}> كل الطلاب</label>${cls.map(c=>`<label class="ann-chip"><input type="checkbox" value="${esc(c)}" ${on.has(c)?'checked':''}> ${esc(c)}</label>`).join('')}</div></div>
+    <div class="field"><label>المرفقات</label><div id="ae-files" class="ae-files"></div>
+      <label class="btn ghost sm" style="margin-top:.4rem">📎 إضافة مرفق<input type="file" id="ae-add" accept="image/*,video/mp4,video/webm,video/quicktime,application/pdf" multiple hidden></label></div>
+    <div class="ann-progress hide" id="ae-progress"><i></i><span></span></div>
+    <div class="modal-foot"><button class="btn ghost" onclick="closeModal()">إلغاء</button><button class="btn tick" id="ae-save" onclick="annEditSave()">💾 حفظ التعديل</button></div>`);
+  const box=document.getElementById('ae-classes');
+  box.addEventListener('change',e=>{const all=box.querySelector('input[value=""]');if(e.target===all&&all.checked)box.querySelectorAll('input:not([value=""])').forEach(x=>x.checked=false);else if(e.target!==all&&e.target.checked)all.checked=false;
+    if(![...box.querySelectorAll('input')].some(x=>x.checked))all.checked=true});
+  document.getElementById('ae-add').addEventListener('change',e=>{
+    for(const f of e.target.files){const k=annKindOf(f.type);
+      if(!k){toast(`«${f.name}» نوع غير مدعوم — صورة أو فيديو أو PDF فقط`,'bad');continue}
+      if(f.size>ANN_LIM[k]*1048576){toast(`«${f.name}» أكبر من ${ANN_LIM[k]}MB`,'bad');continue}
+      ANN_ED.add.push(f)}
+    e.target.value=''; annEditFiles(); });
+  annEditFiles();
+}
+function annEditFiles(){
+  const a=ANN_ROWS.find(x=>x.id===ANN_ED.id), el=document.getElementById('ae-files'); if(!a||!el) return;
+  const old=(a.files||[]).map((f,i)=>`<span class="ann-file ${ANN_ED.drop.has(i)?'gone':''}">${annIcon(f.kind)} ${esc(f.name)}${ANN_ED.drop.has(i)?' <small>سيُحذف</small>':''}<button type="button" onclick="ANN_ED.drop.has(${i})?ANN_ED.drop.delete(${i}):ANN_ED.drop.add(${i});annEditFiles()" title="${ANN_ED.drop.has(i)?'تراجع':'حذف'}">${ANN_ED.drop.has(i)?'↩️':'✕'}</button></span>`);
+  const neu=ANN_ED.add.map((f,i)=>`<span class="ann-file new">${annIcon(annKindOf(f.type))} ${esc(f.name)} <small>جديد · ${annMB(f.size)}</small><button type="button" onclick="ANN_ED.add.splice(${i},1);annEditFiles()">✕</button></span>`);
+  el.innerHTML=old.concat(neu).join('')||'<span class="muted" style="font-size:.84rem">لا مرفقات.</span>';
+}
+function annEditSave(){
+  const a=ANN_ROWS.find(x=>x.id===ANN_ED.id); if(!a) return;
+  const title=document.getElementById('ae-title').value.trim(), body=document.getElementById('ae-body').value.trim();
+  const left=(a.files||[]).length-ANN_ED.drop.size+ANN_ED.add.length;
+  if(!title&&!body&&!left){toast('اكتب عنوانًا أو أبقِ مرفقًا','bad');return}
+  if(left>6){toast('الحد 6 مرفقات','bad');return}
+  const classes=[...document.querySelectorAll('#ae-classes input:checked')].map(x=>x.value).filter(Boolean);
+  const fd=new FormData(); fd.append('t',getTok()); fd.append('id',a.id); fd.append('title',title); fd.append('body',body); fd.append('classes',JSON.stringify(classes)); fd.append('remove',JSON.stringify([...ANN_ED.drop]));
+  ANN_ED.add.forEach(f=>fd.append('files',f,f.name));
+  const pr=document.getElementById('ae-progress'), btn=document.getElementById('ae-save'); btn.disabled=true; if(ANN_ED.add.length) pr.classList.remove('hide');
+  const xhr=new XMLHttpRequest(); xhr.open('POST',getApi().replace(/\/+$/,'')+'/ann-edit');
+  xhr.upload.onprogress=e=>{if(e.lengthComputable){const p=Math.round(e.loaded/e.total*100);pr.querySelector('i').style.width=p+'%';pr.querySelector('span').textContent=`جارٍ الرفع ${p}%`}};
+  xhr.onload=()=>{btn.disabled=false; pr.classList.add('hide'); let j={}; try{j=JSON.parse(xhr.responseText)}catch(e){}
+    if(xhr.status===404&&!j.error){toast('ارفع worker.js الأخير ثم أعد المحاولة','bad');return}
+    if(!j.ok){toast(j.error==='too_big'?`«${j.name}» أكبر من المسموح`:j.error==='bad_type'?`«${j.name}» نوع غير مدعوم`:j.error==='too_many'?'الحد 6 مرفقات':'تعذّر حفظ التعديل','bad');return}
+    closeModal(); toast('✏️ عُدّل الإعلان — تحدّث عند الطلاب','good'); annLoad(); };
+  xhr.onerror=()=>{btn.disabled=false; pr.classList.add('hide'); toast('انقطع الاتصال','bad')};
+  xhr.send(fd);
+}
 async function annTimePost(id,from,until,msg){
   try{const r=await fetch(getApi().replace(/\/+$/,'')+'/ann-time',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:getTok(),id,from:from||0,until:until||0})});
     if(r.status===404){toast('ارفع worker.js الأخير ثم أعد المحاولة','bad');return}

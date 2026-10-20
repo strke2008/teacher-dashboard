@@ -2581,3 +2581,6 @@ button.sk-chip:not([onclick]){cursor:default}
 .t3-pvh{display:flex;justify-content:space-between;align-items:center;padding:.45rem .7rem;background:#fff}
 .t3-pv iframe{display:block;width:100%;aspect-ratio:297/214;border:0;background:#EEF2F7}
 .ct-kpi small .ct-why{display:block;color:#9A6400;font-size:.7rem;line-height:1.45;margin-top:.15rem}
+/* ✏️ تعديل إعلان */
+.ae-files{display:flex;flex-wrap:wrap;gap:.35rem}
+.ae-files .ann-file.gone{opacity:.55;text-decoration:line-through}.ae-files .ann-file.new{border-color:#86D3A6;background:#F0FAF5}
