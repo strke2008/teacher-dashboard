@@ -38,11 +38,18 @@
   function indexSheet(rows) {
     return rows.map(r => { const n = norm(r.name); return { r, n, t: n.split(' ').filter(Boolean) }; }).filter(x => x.t.length);
   }
+  // كلمات القصير كلها بترتيبها داخل الطويل؟ (نور يزيد القبيلة آخر الاسم: «آل ضيف الله القحطاني»)
+  function inOrder(short, long) { let j = 0; for (const w of long) if (w === short[j]) j++; return j === short.length; }
   function score(a, b) {             // a,b: مصفوفتا أجزاء الاسم
     if (a.join(' ') === b.join(' ')) return 100;
-    if (a[0] !== b[0] || a[a.length - 1] !== b[b.length - 1]) return 0;
-    const midA = a.slice(1, -1), midB = new Set(b.slice(1, -1));
-    return 10 + midA.filter(x => midB.has(x)).length;
+    if (a[0] !== b[0]) return 0;
+    if (a[a.length - 1] === b[b.length - 1]) {
+      const midA = a.slice(1, -1), midB = new Set(b.slice(1, -1));
+      return 10 + midA.filter(x => midB.has(x)).length;
+    }
+    // الاسم الأقصر (3 كلمات فأكثر) موجود كاملًا وبترتيبه في الأطول — أضعف من تطابق الأول والأخير، ويُرفض عند التعادل
+    const [sh, lg] = a.length <= b.length ? [a, b] : [b, a];
+    return sh.length >= 3 && inOrder(sh, lg) ? 5 + sh.length / 10 : 0;
   }
   // يرجع {m} عند التطابق، أو {why} بسبب الرفض: none (ليس في الكشف) · tie (أكثر من طالب بالاسم نفسه)
   function match(name, idx, used) {
@@ -50,7 +57,12 @@
     let bs = 0, top = [];
     for (const x of idx) { if (used.has(x)) continue; const s = score(t, x.t);
       if (s > bs) { bs = s; top = [x]; } else if (s && s === bs) top.push(x); }
-    if (!bs) return { why: 'none' };
+    if (!bs) {
+      // أقرب اسم في الكشف (الاسم الأول نفسه وأكثر كلمات مشتركة) — تلميح للمعلم ليصحّح الاسم في مساعد المعلم
+      let hint = null, hs = 1;
+      for (const x of idx) { if (used.has(x) || x.t[0] !== t[0]) continue; const c = x.t.filter(w => t.includes(w)).length; if (c > hs) { hs = c; hint = x; } }
+      return { why: 'none', hint: hint ? hint.r.name : '' };
+    }
     // الاسم مكرر في الكشف (طالب أُدخل مرتين) بدرجات متطابقة: لا التباس في الدرجة فيُعبّأ
     const same = top.every(x => fmt(x.r.work40) === fmt(top[0].r.work40) && fmt(x.r.exam20) === fmt(top[0].r.exam20));
     if (top.length > 1 && !same) return { why: 'tie', n: top.length };
@@ -126,7 +138,7 @@
         const name = rowName(tr); if (!name) continue;
         rowsSeen++;
         const mm = match(name, idx, used), m = mm.m;
-        if (!m) { ambiguous++; missed.push({ name, why: mm.why }); markRow(tr, mm.why); continue; }
+        if (!m) { ambiguous++; missed.push({ name, why: mm.why, hint: mm.hint || '' }); markRow(tr, mm.why); if (mm.hint) tr.title += ' — أقرب اسم في الكشف: ' + mm.hint; continue; }
         used.add(m); (mm.also || []).forEach(x => used.add(x));
         const targets = gradeInputs(tr);
         if (targets.unknown) { noCols++; continue; }
@@ -174,7 +186,7 @@
       box = document.createElement('div'); box.className = 'mbn-miss';
       box.style.cssText = 'flex-basis:100%;background:#3A1E28;border-radius:8px;padding:5px 8px;font-weight:500;font-size:11px;line-height:1.5;max-height:110px;overflow:auto';
       const short = { none: 'غير موجود في الكشف', tie: 'اسم مكرر في الكشف', empty: 'بلا درجة في الكشف', nocell: 'لم أجد خانته', locked: 'خانة مقفلة' };
-      box.textContent = `🔴 لم تُعبّأ درجات ${r.missed.length} في هذه الصفحة (بإطار أحمر): ` + r.missed.map(x => `${x.name.split(' ').filter(w => w !== 'بن').slice(0, 2).join(' ')} — ${short[x.why]}`).join(' · ');
+      box.textContent = `🔴 لم تُعبّأ درجات ${r.missed.length} في هذه الصفحة (بإطار أحمر): ` + r.missed.map(x => `${x.name.split(' ').filter(w => w !== 'بن').slice(0, 2).join(' ')} — ${short[x.why]}${x.hint ? ` (أقرب اسم: ${x.hint})` : ''}`).join(' · ');
       bar.appendChild(box);
     }
   }
