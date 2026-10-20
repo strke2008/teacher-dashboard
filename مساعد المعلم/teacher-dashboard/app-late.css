@@ -2580,3 +2580,4 @@ button.sk-chip:not([onclick]){cursor:default}
 .t3-pv{margin-top:.7rem;border:1px solid var(--ui-border,#E2E8F0);border-radius:14px;overflow:hidden;background:#EEF2F7}
 .t3-pvh{display:flex;justify-content:space-between;align-items:center;padding:.45rem .7rem;background:#fff}
 .t3-pv iframe{display:block;width:100%;aspect-ratio:297/214;border:0;background:#EEF2F7}
+.ct-kpi small .ct-why{display:block;color:#9A6400;font-size:.7rem;line-height:1.45;margin-top:.15rem}

@@ -2642,6 +2642,22 @@ async function sfPeriod(el,sid){
     el.innerHTML=`<div class="muted no-print" style="font-size:.8rem;margin-bottom:.5rem">هكذا يظهر التقرير للطالب في بوابته. الإرسال لكل الفصل من «الكشوف ← 📤 تقارير الطلاب».</div>${srxHTML(j.report)}`;
   }catch(e){ el.innerHTML='<div class="ct-warn">تعذّر إعداد تقرير الفترة — يحتاج اتصالًا بالخادم.</div>'; }
 }
+/* 🔍 لماذا «لم يُقَس» الإتقان؟ نفس شروط الخادم (gradeLevel): نشاط عادي/مختبر · له أسئلة · تاريخ تسليمه داخل الفترة.
+   إن وجدنا هنا تسليمات تصلح للقياس والخادم لم يقسها فنسخة الخادم ناقصة. */
+function ctMasteryWhy(sid){
+  const R=(CT_GRADES&&CT_GRADES.term)||null, S=String(sid), c={kind:0,noq:0,nodate:0,out:0,ok:0}, okN=[];
+  const inR=at=>{ if(!R) return true; const d=new Date(Number(at)||0).toISOString().slice(0,10); if(!d||(R.start&&d<R.start)||(R.end&&d>R.end)) return false;
+    const t=Number(at)||0; if(t&&R.startAt&&t<R.startAt) return false; if(t&&R.endAt&&t>=R.endAt) return false; return true; };
+  for(const h of HW||[]){ const v=h&&h.subs&&h.subs[S]; if(!v) continue;
+    if(!['normal','lab'].includes(h.kind||'normal')){ c.kind++; continue; }
+    if(!(Number(v.total)>0)){ c.noq++; continue; }
+    if(!Number(v.at)){ c.nodate++; continue; }
+    if(!inR(v.at)){ c.out++; continue; }
+    c.ok++; okN.push(h.title||''); }
+  const why=[c.kind?`${c.kind} من نوع لا يُقاس (قراءة/مشروع/لعبة/تشخيصي)`:'',c.noq?`${c.noq} بلا أسئلة`:'',c.nodate?`${c.nodate} بلا تاريخ تسليم`:'',c.out?`${c.out} سُلّمت خارج الفترة`:''].filter(Boolean);
+  if(c.ok) return `⚠️ عنده ${c.ok} تسليم يصلح للقياس لكن نسخة الخادم لم تحسبه — اضغط «🔄 تحديث» أعلى الصفحة ثم افتح الملف مجددًا`;
+  return why.length?'لم يُقس لأن تسليماته: '+why.join(' · '):'لم يسلّم نشاطًا عاديًا بأسئلة في هذه الفترة';
+}
 function ctProfileBody(sid){
   const s=(STUDENTS||[]).find(x=>String(x.id)===String(sid))||{}, g=ctG(sid), D=CT_DATA||{}, {sem,per}=ctSem();
   const L=g.level||{}, A=g.attendance||{}, H=g.homework||{}, P=g.participation||{}, B=g.behavior||{}, E=g.exam||{};
@@ -2658,7 +2674,7 @@ function ctProfileBody(sid){
     <div class="par-box" id="par-box" data-sid="${esc(String(sid))}">${parBoxHTML(String(sid))}</div>
     ${typeof ctCmpStudentHTML==='function'?ctCmpStudentHTML(sid):''}
     <div class="ct-kpis ct-kpis6">
-      ${kpi('الإتقان',L.measured?L.rate+'%':'—',L.measured?`${L.correct}/${L.total} في ${L.count} نشاط`:'',tone)}
+      ${kpi('الإتقان',L.measured?L.rate+'%':'—',L.measured?`${L.correct}/${L.total} في ${L.count} نشاط`:`<span class="ct-why">${esc(ctMasteryWhy(sid))}</span>`,tone)}
       ${kpi('الاختبارات',E.measured&&E.score!=null?`${E.score}/20`:'—','')}
       ${kpi('المشاركة',P.measured?`${P.score}/10`:'—',P.measured?`شارك ${P.yes} · لم يشارك ${P.no}`:'')}
       ${kpi('الواجبات',H.measured?`${H.score}/10`:'—',H.measured?`أنجز ${H.done||0} · لم ينجز ${H.missed||0}`:'')}
