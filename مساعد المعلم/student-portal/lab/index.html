@@ -4304,107 +4304,288 @@ const CHEMCHG={
 };
 CONTENT.chemchg=CHEMCHG;
 
-/* ---- المشهد: طاولة التفاعل (أ) والميزان (ب) — رسم ومؤثرات بالـ canvas ---- */
-const CCW=440,CCH=280;
-const ccS={j:0,ph:'idle',t:0,temp:CC.T0,bub:[],fx:[],goggles:false,tongs:false,cb:null,
-  mj:0,mph:'idle',mt:0,disp:0,vel:0,stable:0,cbM:null};
-function ccBeaker(c,x,y,w,h,lvl,liq,col){c.save();
-  if(lvl>0){c.fillStyle=liq;c.beginPath();c.moveTo(x-w/2+3,y-lvl);c.lineTo(x+w/2-3,y-lvl);c.lineTo(x+w/2-3,y-3);c.quadraticCurveTo(x+w/2-3,y,x+w/2-8,y);c.lineTo(x-w/2+8,y);c.quadraticCurveTo(x-w/2+3,y,x-w/2+3,y-3);c.fill()}
-  c.strokeStyle='#5D7A8C';c.lineWidth=2;c.beginPath();c.moveTo(x-w/2-4,y-h);c.lineTo(x-w/2,y-h+4);c.lineTo(x-w/2,y-4);c.quadraticCurveTo(x-w/2,y,x-w/2+5,y);c.lineTo(x+w/2-5,y);c.quadraticCurveTo(x+w/2,y,x+w/2,y-4);c.lineTo(x+w/2,y-h+4);c.lineTo(x+w/2+4,y-h);c.stroke();
-  c.strokeStyle='rgba(93,122,140,.35)';c.lineWidth=1;for(let k=1;k<4;k++){c.beginPath();c.moveTo(x+w/2-12,y-h*k/4);c.lineTo(x+w/2-3,y-h*k/4);c.stroke()}c.restore()}
+/* ---- 🎛️ محرّك مشاهد التغيرات الكيميائية: يمسك الطالب الأدوات بإصبعه ويؤدي الفعل بنفسه؛
+   الحبيبات والقطرات تسقط بالجاذبية، والفقاعات تطفو وتتمايل وتنفجر عند السطح، والرغوة تتراكم وتفيض إن سُكب بسرعة،
+   والراسب يتكوّن حيث يختلط السائلان ثم يهبط ببطء ويتراكم، والمغنيسيوم يشتعل حين يبقى طرفه في اللهب، والميزان نابض يهتز ثم يثبت ---- */
+const CCW=440,CCH=300,CCG=262,CCg=900;
+const ccP=[];                                   // الجسيمات: grain · drop · bub · ppt · spark · smoke · ash · stream · splash
+const ccClamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+function ccPt(o){ccP.push(Object.assign({vx:0,vy:0,r:2,age:0,life:30},o))}
 function ccThermo(c,x,y,T,col){c.save();const H=110,top=y-H,ty=y-14-(T-10)/30*(H-28);
   c.fillStyle='#fff';c.strokeStyle='#8BA3B3';c.lineWidth=1.5;c.beginPath();c.roundRect?c.roundRect(x-6,top,12,H-12,6):c.rect(x-6,top,12,H-12);c.fill();c.stroke();
   c.fillStyle='#D64545';c.beginPath();c.arc(x,y-8,9,0,7);c.fill();c.fillRect(x-2.5,ty,5,y-8-ty);
-  c.fillStyle=col.ink;c.font='700 13px system-ui,sans-serif';c.textAlign='left';c.fillText(`${T.toFixed(1)}°C`,x+12,top+14);c.restore()}
+  c.fillStyle=col.ink;c.font='700 13px system-ui,sans-serif';c.textAlign='right';c.fillText(`${T.toFixed(1)}°C`,x-12,top+14);c.restore()}
 function ccBurner(c,x,y,t){c.save();c.fillStyle='#6B7B88';c.fillRect(x-14,y-26,28,26);c.fillRect(x-5,y-44,10,18);
-  for(let k=0;k<3;k++){const h=26+6*Math.sin(t*14+k);c.fillStyle=['rgba(80,140,255,.85)','rgba(120,180,255,.6)','rgba(255,200,80,.5)'][k];c.beginPath();c.moveTo(x-6+k*2,y-44);c.quadraticCurveTo(x,y-44-h,x+6-k*2,y-44);c.fill()}c.restore()}
-function ccBal(c,x,y,val,stable,col){c.save();c.fillStyle='#E9EEF2';c.strokeStyle='#8BA3B3';c.lineWidth=1.5;c.beginPath();c.rect(x-70,y-20,140,20);c.fill();c.stroke();
-  c.fillStyle='#CBD6DE';c.fillRect(x-58,y-26,116,6);c.fillStyle='#1F2D36';c.fillRect(x-34,y-16,68,13);
-  c.fillStyle='#7CF3B4';c.font='700 11px ui-monospace,monospace';c.textAlign='center';c.fillText(`${val.toFixed(1)} g`,x,y-6);
-  c.fillStyle=stable?col.ok:'#B9C6CF';c.beginPath();c.arc(x+56,y-10,4,0,7);c.fill();c.restore()}
-function ccStep(dt){const S=ccS,R=CC.rx[S.j];
-  if(S.ph==='run'){S.t+=dt;
-    if(R.k==='soda'){S.temp+=(R.tA-S.temp)*Math.min(1,dt*.9);if(S.t<3.2)for(let i=0;i<5;i++)S.bub.push({x:150+(Math.random()-.5)*70,y:236,r:1.5+Math.random()*3,v:40+Math.random()*60})}
-    if(R.k==='salt'&&S.t<2.4&&Math.random()<.5)S.bub.push({x:150+(Math.random()-.5)*50,y:150,r:1.5,v:-50,salt:1});
-    if(R.k==='mg'&&S.t<2.6&&Math.random()<.9)for(let i=0;i<3;i++)S.fx.push({x:260,y:120,vx:(Math.random()-.5)*160,vy:(Math.random()-.8)*140,l:.6});
-    if(S.t>=(R.k==='soda'?3.6:R.k==='mg'?3:2.6)){S.ph='done';const cb=S.cb;S.cb=null;cb&&cb(S.j)}}
-  S.bub=S.bub.filter(b=>{b.y-=b.v*dt;return b.salt?b.y<236&&(b.r-=dt*.4)>0:b.y>150});
-  S.fx=S.fx.filter(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=200*dt;return(p.l-=dt)>0})}
-function ccDrawA(c,col,t,dt){dt=Math.min(dt||.016,.033);ccStep(dt);const S=ccS,R=CC.rx[S.j],k=R.k,done=S.ph==='done',run=S.ph==='run',e=done?1:run?Math.min(1,S.t/2.4):0;
-  c.fillStyle='#F1E6D6';c.fillRect(0,250,CCW,30);c.fillStyle='#E2D2BC';c.fillRect(0,248,CCW,3);
-  if(k==='mg'){ccBurner(c,260,250,t);
-    const lit=run&&S.t>.4&&S.t<2.8;if(lit){const g=c.createRadialGradient(260,120,4,260,120,150);g.addColorStop(0,'rgba(255,255,255,.98)');g.addColorStop(.25,'rgba(255,255,235,.75)');g.addColorStop(1,'rgba(255,255,220,0)');c.fillStyle=g;c.fillRect(0,0,CCW,CCH)}
-    c.strokeStyle='#5D6A74';c.lineWidth=4;c.lineCap='round';c.beginPath();c.moveTo(80,150);c.lineTo(240,122);c.stroke();
-    c.strokeStyle=S.tongs?'#5D6A74':'rgba(93,106,116,.25)';c.setLineDash(S.tongs?[]:[4,4]);c.beginPath();c.moveTo(70,154);c.lineTo(110,146);c.stroke();c.setLineDash([]);
-    const ash=done||(run&&S.t>2.2);c.strokeStyle=ash?'#F4F4F2':'#C9D1D8';c.lineWidth=5;c.beginPath();c.moveTo(240,122);c.lineTo(282,116);c.stroke();
-    if(ash){c.fillStyle='#F7F7F5';for(let i=0;i<10;i++){c.beginPath();c.arc(262+i*2,248,1.8,0,7);c.fill()}}
-    S.fx.forEach(p=>{c.fillStyle=`rgba(255,250,210,${p.l*1.4})`;c.beginPath();c.arc(p.x,p.y,1.8,0,7);c.fill()});
-    if(!S.goggles){c.fillStyle='rgba(195,71,62,.9)';c.font='700 12px system-ui,sans-serif';c.textAlign='center';c.fillText('🥽 النظارة غير ملبوسة',CCW/2,26)}
-    c.fillStyle=col.ink;c.font='600 12px system-ui,sans-serif';c.textAlign='center';c.fillText(lit?'🌡️ حرارة شديدة وضوء ساطع':done?'تحوّل الشريط إلى مسحوق أبيض':'',CCW/2,272);return}
-  // كأس على الطاولة
-  const lvl=k==='iodine'?0:70,base={soda:'rgba(232,226,200,.55)',precip:'rgba(205,230,240,.5)',salt:'rgba(180,215,235,.5)'}[k]||'rgba(205,230,240,.5)';
-  if(k==='iodine'){ // شريحة بطاطس على طبق، وقطّارة يود
-    c.fillStyle='#E8EEF2';c.beginPath();c.ellipse(170,244,80,9,0,0,7);c.fill();
-    c.fillStyle='#EBD9A5';c.beginPath();c.ellipse(170,232,58,15,0,0,7);c.fill();
-    if(e>0){c.fillStyle=`rgba(32,32,92,${.95*e})`;c.beginPath();c.ellipse(170,232,14+34*e,5+8*e,0,0,7);c.fill()}
-    c.fillStyle='#7A4A1C';c.fillRect(165,60,10,70);c.fillStyle='#3C2A1A';c.beginPath();c.ellipse(170,58,10,8,0,0,7);c.fill();
-    if(run&&S.t<1.6){const dy=((S.t*3)%1)*90;c.fillStyle='#7A4A1C';c.beginPath();c.ellipse(170,134+dy,3,4,0,0,7);c.fill()}
-  } else {
-    // الراسب: عكارة بيضاء تظهر ثم تهبط وتتجمّع طبقةً في القاع، ويصفو ما فوقها قليلًا
-    const sink=k==='precip'&&done?Math.min(1,(S.t2=(S.t2||0)+dt)/3):0;
-    let liq=base;if(k==='precip'&&e>0)liq=`rgba(${190+30*e*(1-sink)},${222+12*e*(1-sink)},${236},${.55+.25*e*(1-.7*sink)})`;
-    ccBeaker(c,150,250,96,110,lvl+(k==='soda'&&run?12*Math.min(1,S.t):0),liq,col);
-    if(k==='precip'&&e>0){const bot=246-11*sink,top=bot-(66*(1-sink)+4);c.fillStyle='#FFFFFF';c.strokeStyle='rgba(110,130,145,.45)';c.lineWidth=.8;
-      const n=Math.round(80*e*(1-.8*sink));for(let i=0;i<n;i++){const px=106+((i*37)%88),py=top+((i*29)%Math.max(4,bot-top))+Math.sin(t*2+i)*1.5*(1-sink);c.beginPath();c.arc(px,py,2,0,7);c.fill();c.stroke()}
-      if(sink>0){c.fillStyle='#FBFBF8';c.beginPath();c.moveTo(105,247);c.lineTo(105,247-11*sink);for(let x=105;x<=195;x+=6)c.lineTo(x,247-11*sink-1.5*Math.sin(x));c.lineTo(195,247);c.closePath();c.fill();c.strokeStyle='rgba(110,130,145,.5)';c.stroke();
-        c.fillStyle='#4F6879';c.font='600 11px system-ui,sans-serif';c.textAlign='center';c.fillText('↓ راسب',150,247-11*sink-6)}}
-    if(k==='soda'&&(run||done)){c.fillStyle='rgba(255,255,255,.75)';for(let i=0;i<9;i++){const fy=250-lvl-12*Math.min(1,S.t)-(done?0:4*Math.sin(t*9+i));c.beginPath();c.arc(108+i*10,fy,6,0,7);c.fill()}}
-    S.bub.forEach(b=>{c.strokeStyle=b.salt?'rgba(255,255,255,.9)':'rgba(255,255,255,.95)';c.fillStyle=b.salt?'rgba(255,255,255,.85)':'transparent';c.lineWidth=1;c.beginPath();c.arc(b.x,b.y,b.r,0,7);b.salt?c.fill():c.stroke()});
-    if(k==='precip'&&run&&S.t<1.4){c.fillStyle='rgba(205,230,240,.8)';c.fillRect(196,120+60*S.t,6,40)}
-    if((k==='soda'||k==='salt')&&run&&S.t<1){c.fillStyle='#F4F4F0';for(let i=0;i<8;i++){c.beginPath();c.arc(146+(i%4)*3,120+(S.t*120)+(i>>2)*4,2,0,7);c.fill()}}
-    ccThermo(c,330,250,S.temp,col);
-  }
-  c.fillStyle=col.ink;c.font='600 12px system-ui,sans-serif';c.textAlign='center';
-  c.fillText(done?R.to:run?'راقب جيدًا…':R.from,CCW/2,272);
+  for(let k=0;k<3;k++){const h=30+7*Math.sin(t*14+k)+3*Math.sin(t*31+k*2);c.fillStyle=['rgba(80,140,255,.85)','rgba(120,180,255,.6)','rgba(255,200,80,.5)'][k];c.beginPath();c.moveTo(x-6+k*2,y-44);c.quadraticCurveTo(x+Math.sin(t*9)*2,y-44-h,x+6-k*2,y-44);c.fill()}c.restore()}
+/* ═══ المشهد (أ): طاولة التفاعل ═══ */
+const cA={k:null,tools:[],held:null,off:{x:0,y:0},tgt:{x:0,y:0},last:{x:0,y:0,t:0},bk:null,temp:25,react:0,reacted:0,total:1,foam:0,spilt:0,
+  pile:0,stains:[],plateSp:[],sed:0,cloud:0,heat:0,burn:-1,light:0,goggles:false,warn:null,done:false,doneT:0,cb:null,safFlag:0};
+const ccSurf=()=>CCG-cA.bk.lvl;
+const ccInMouth=(x,y,b)=>Math.abs(x-b.x)<b.w/2-8&&y<CCG-b.h-2&&y>CCG-b.h-95;
+function ccWarn(t,cl){cA.warn={t,cl:cl||'#C3473E',until:performance.now()+2400}}
+function ccSetupA(k){
+  ccP.length=0;Object.assign(cA,{k,held:null,temp:CC.T0,react:0,reacted:0,foam:0,spilt:0,pile:0,stains:[],plateSp:[],sed:0,cloud:0,heat:0,burn:-1,light:0,warn:null,done:false,doneT:0,safFlag:0});
+  cA.bk=k==='iodine'||k==='mg'?null:{x:165,w:100,h:118,lvl:62,col:k==='soda'?[238,231,202,.6]:[200,228,240,.5],amp:0};
+  const T=[];
+  if(k==='soda'||k==='salt'){T.push({id:'spoon',kind:'pour',x:330,y:CCG-8,w:62,h:14,tilt:0,load:20,cap:20,rest:{x:330,y:CCG-8},vx:0,vy:0,st:'rest'});cA.total=20}
+  if(k==='salt')T.push({id:'rod',kind:'rod',x:395,y:CCG-5,w:84,h:6,rest:{x:395,y:CCG-5},vx:0,vy:0,st:'rest',ang:0});
+  if(k==='iodine')T.push({id:'dropper',kind:'dropper',x:340,y:CCG-36,w:18,h:66,load:8,rest:{x:340,y:CCG-36},vx:0,vy:0,st:'rest',drip:0});
+  if(k==='precip')T.push({id:'bk2',kind:'pourBk',x:345,y:CCG-40,w:58,h:78,tilt:0,vol:40,cap:40,rest:{x:345,y:CCG-40},vx:0,vy:0,st:'rest'});
+  if(k==='mg'){T.push({id:'rib',kind:'rib',x:95,y:CCG-3,len:64,grip:'none',rest:{x:95,y:CCG-3},vx:0,vy:0,st:'rest'});
+    T.push({id:'tongs',kind:'tongs',x:40,y:CCG-5,w:54,h:8,rest:{x:40,y:CCG-5},vx:0,vy:0,st:'rest'})}
+  cA.tools=T;
 }
-function ccStepB(dt){const S=ccS,M=CC.mass[S.mj];let target=M.b;
-  if(S.mph==='run'){S.mt+=dt;const k=Math.min(1,S.mt/4);target=M.b+(M.a-M.b)*k;if(S.mt>=4.4){S.mph='done';const cb=S.cbM;S.cbM=null;cb&&cb(S.mj)}}
-  else if(S.mph==='done')target=M.a;
-  S.vel+=(target-S.disp)*90*dt;S.vel*=Math.exp(-10*dt);S.disp+=S.vel*dt;S.stable=Math.abs(S.vel)<.02&&Math.abs(target-S.disp)<.03&&S.mph!=='run'}
-function ccDrawB(c,col,t,dt){dt=Math.min(dt||.016,.033);if(!ccS.disp)ccS.disp=CC.mass[ccS.mj].b;ccStepB(dt);const S=ccS,M=CC.mass[S.mj],run=S.mph==='run',done=S.mph==='done',e=done?1:run?Math.min(1,S.mt/3):0;
-  c.fillStyle='#F1E6D6';c.fillRect(0,250,CCW,30);ccBal(c,CCW/2,250,Math.round(S.disp*10)/10,S.stable,col);
-  if(M.k==='open'){ccBeaker(c,CCW/2,224,80,96,46+8*(run?Math.min(1,S.mt):0),'rgba(232,226,200,.55)',col);
-    if(run&&S.mt<3.4){for(let i=0;i<4;i++)S.bub.push({x:CCW/2+(Math.random()-.5)*60,y:214,r:1.5+Math.random()*2.5,v:40+Math.random()*50});
-      c.fillStyle='rgba(200,215,225,.45)';for(let i=0;i<6;i++){c.beginPath();c.arc(CCW/2-30+i*12,110-((S.mt*40+i*17)%60),7,0,7);c.fill()}
-      c.fillStyle=col.ink2;c.font='600 11px system-ui,sans-serif';c.textAlign='center';c.fillText('↑ الغاز يخرج إلى الهواء',CCW/2,92)}
-    S.bub=S.bub.filter(b=>{b.y-=b.v*dt;return b.y>176});S.bub.forEach(b=>{c.strokeStyle='rgba(255,255,255,.95)';c.lineWidth=1;c.beginPath();c.arc(b.x,b.y,b.r,0,7);c.stroke()});
-    if(!run&&!done){c.fillStyle='#F4F4F0';c.fillRect(CCW/2+50,196,26,6);c.fillStyle=col.ink2;c.font='11px system-ui,sans-serif';c.fillText('صودا',CCW/2+63,190)}}
-  else{const bx=CCW/2,by=226;c.strokeStyle='#5D7A8C';c.lineWidth=2;c.fillStyle='rgba(232,226,200,.55)';c.beginPath();c.moveTo(bx-30,by);c.lineTo(bx-30,by-50);c.quadraticCurveTo(bx-30,by-66,bx-10,by-74);c.lineTo(bx-10,by-92);c.lineTo(bx+10,by-92);c.lineTo(bx+10,by-74);c.quadraticCurveTo(bx+30,by-66,bx+30,by-50);c.lineTo(bx+30,by);c.closePath();c.stroke();
-    c.fillRect(bx-28,by-36,56,34);const rad=10+34*e;c.fillStyle='rgba(225,80,90,.85)';c.beginPath();c.ellipse(bx,by-92-rad*.9,rad*.8,rad,0,0,7);c.fill();
-    if(run&&S.mt<3.2){for(let i=0;i<3;i++)S.bub.push({x:bx+(Math.random()-.5)*44,y:by-4,r:1.5+Math.random()*2,v:30+Math.random()*30})}
-    S.bub=S.bub.filter(b=>{b.y-=b.v*dt;return b.y>by-36});S.bub.forEach(b=>{c.strokeStyle='rgba(255,255,255,.95)';c.lineWidth=1;c.beginPath();c.arc(b.x,b.y,b.r,0,7);c.stroke()});
-    c.fillStyle=col.ink2;c.font='600 11px system-ui,sans-serif';c.textAlign='center';c.fillText(done?'انتفخ البالون: الغاز محبوس داخل النظام':run?'الغاز يملأ البالون…':'الصودا داخل البالون',bx,40)}
-  c.fillStyle=col.ink;c.font='600 12px system-ui,sans-serif';c.textAlign='center';c.fillText(S.stable?'القراءة ثابتة ●':'انتظر حتى تثبت القراءة…',CCW/2,272)}
+function ccToolHit(t,p){
+  if(t.kind==='dropper')return Math.abs(p.x-t.x)<16&&p.y>t.y-t.h/2-6&&p.y<t.y+t.h/2+6;
+  if(t.kind==='rib'){const gx=t.x,gy=t.y;return p.x>gx-8&&p.x<gx+t.len+6&&Math.abs(p.y-gy)<12}
+  if(t.kind==='pourBk')return Math.abs(p.x-t.x)<t.w/2+6&&p.y>t.y-t.h/2-8&&p.y<t.y+t.h/2+6;
+  return Math.abs(p.x-t.x)<t.w/2+8&&Math.abs(p.y-t.y)<t.h/2+12}
+function ccPickA(p){if(cA.done||ccS.lock)return null;for(let i=cA.tools.length-1;i>=0;i--){const t=cA.tools[i];if(t.attached)continue;if(ccToolHit(t,p))return t}return null}
+const ccHA={
+  hit(p){return !!ccPickA(p)},
+  down(p){const t=ccPickA(p);if(!t)return;
+    if(t.kind==='rib'&&t.grip==='none'){t.grip='hand'}                                   // أمسك الشريط بيده مباشرة
+    cA.held=t;t.st='held';cA.off={x:t.x-p.x,y:t.y-p.y};cA.tgt={x:t.x,y:t.y};cA.last={x:p.x,y:p.y,t:performance.now()}},
+  move(p){if(!cA.held)return;cA.tgt={x:p.x+cA.off.x,y:p.y+cA.off.y}},
+  up(){const t=cA.held;if(!t)return;cA.held=null;
+    if(t.kind==='tongs'){const r=cA.tools.find(x=>x.kind==='rib');if(r&&r.grip!=='tongs'&&Math.hypot(t.x+t.w/2-r.x,t.y-r.y)<26){r.grip='tongs';t.attached=true;ccWarn('✓ أمسكت الشريط بالماسك','#1E8A5C');return}}
+    if(t.kind==='rib'&&t.grip==='hand')t.grip='none';
+    t.st='fall';t.vy=0}};
+/* حركة الأداة الممسوكة: تتبع الإصبع بنابض ناعم، ولا تخترق جدار الكأس ولا الطاولة */
+function ccMoveTool(t,dt){
+  const px=t.x,py=t.y,k=Math.min(1,dt*16);let nx=t.x+(cA.tgt.x-t.x)*k,ny=t.y+(cA.tgt.y-t.y)*k;
+  nx=ccClamp(nx,14,CCW-14);ny=ccClamp(ny,24,CCG-(t.h?t.h/2:4));
+  const b=cA.bk;if(b&&t.kind!=='rod'&&Math.abs(nx-b.x)<b.w/2+(t.w||10)/2&&ny>CCG-b.h-(t.h||10)/2-2)ny=CCG-b.h-(t.h||10)/2-2;
+  if(t.kind==='rod'&&b){const inX=Math.abs(nx-b.x)<b.w/2-6;if(!inX&&ny>CCG-b.h-6&&Math.abs(nx-b.x)<b.w/2+30)ny=Math.min(ny,CCG-b.h-6);if(inX)ny=Math.min(ny,CCG-14)}
+  t.vx=(nx-px)/Math.max(dt,1e-3);t.vy=(ny-py)/Math.max(dt,1e-3);t.x=nx;t.y=ny;
+  if(t.kind==='rib'){const tg=cA.tools.find(x=>x.kind==='tongs');if(tg&&tg.attached){tg.x=t.x-tg.w/2+2;tg.y=t.y}}}
+function ccFallTool(t,dt){t.vy+=CCg*dt;t.y+=t.vy*dt;const b=cA.bk,restY=t.rest.y;
+  if(b&&Math.abs(t.x-b.x)<b.w/2+(t.w||10)/2+4)t.x+=(t.x>b.x?1:-1)*240*dt;                   // لا تسقط داخل الكأس: تنزلق جانبًا
+  if(t.y>=restY){t.y=restY;t.vy=0;t.st='rest';if(t.kind==='pourBk'||t.kind==='pour')t.tilt=0}
+  if(t.kind==='rib'){const tg=cA.tools.find(x=>x.kind==='tongs');if(tg&&tg.attached){tg.x=t.x-tg.w/2+2;tg.y=t.y}}}
+function ccLip(t){const a=-t.tilt*1.15;if(t.kind==='pourBk')return{x:t.x-t.w/2*Math.cos(a)+t.h/2*Math.sin(a)*.9,y:t.y-t.h/2*Math.cos(a)*.95-t.w/2*Math.sin(-a)*.4};return{x:t.x-t.w/2*Math.cos(a),y:t.y+t.w/2*Math.sin(a)}}
+function ccStepA(dt){
+  const b=cA.bk,now=performance.now();
+  cA.tools.forEach(t=>{if(t===cA.held)ccMoveTool(t,dt);else if(t.st==='fall'&&!t.attached)ccFallTool(t,dt)});
+  // 🥄 الصبّ: تميل الأداة تلقائيًا ما دامت فوق فوهة الكأس، وتنسكب الحبيبات أو السائل بمعدل يزيد مع الميل
+  cA.tools.forEach(t=>{if(t.kind!=='pour'&&t.kind!=='pourBk')return;const over=t===cA.held&&b&&ccInMouth(t.x,t.y,b);
+    t.tilt=ccClamp(t.tilt+(over?1.3:-2.2)*dt,0,1);
+    if(t.tilt>.38){const lip=ccLip(t),rate=(t.tilt-.38)/.62;
+      if(t.kind==='pour'&&t.load>0){t.acc=(t.acc||0)+rate*22*dt;while(t.acc>=1&&t.load>0){t.acc--;t.load--;
+        for(let i=0;i<3;i++)ccPt({type:'grain',x:lip.x+(Math.random()-.5)*4,y:lip.y,vx:t.vx*.05+(Math.random()-.5)*14,vy:10+Math.random()*20,r:1.4+Math.random(),mat:cA.k})}}
+      if(t.kind==='pourBk'&&t.vol>0){t.acc=(t.acc||0)+rate*26*dt;while(t.acc>=1&&t.vol>0){t.acc--;t.vol--;ccPt({type:'stream',x:lip.x,y:lip.y,vx:-18+(Math.random()-.5)*6,vy:30,r:2.4})}}}});
+  // 💧 القطّارة: تقطر حين تُمسك ثابتة فوق شريحة البطاطس
+  const dp=cA.tools.find(t=>t.kind==='dropper');
+  if(dp&&dp===cA.held){const sp=Math.hypot(dp.vx,dp.vy),over=Math.abs(dp.x-165)<70&&dp.y<CCG-40;dp.drip+=dt;
+    if(sp<70&&dp.y<CCG-36&&dp.load>0&&dp.drip>.55){dp.drip=0;dp.load--;ccPt({type:'drop',x:dp.x,y:dp.y+dp.h/2+2,vx:0,vy:20,r:3.2,on:over})}}
+  // 🪄 التحريك: سرعة القضيب داخل السائل تذيب كومة الملح وتحرّك السائل
+  const rod=cA.tools.find(t=>t.kind==='rod');
+  if(rod&&rod===cA.held&&b){const tipY=rod.y+rod.w/2*.75,inL=Math.abs(rod.x-b.x)<b.w/2-6&&tipY>ccSurf();rod.ang=inL?-1.25:0;
+    if(inL){const sp=Math.min(400,Math.abs(rod.vx)+Math.abs(rod.vy)*.5);b.amp=Math.min(5,b.amp+sp*dt*.02);
+      if(cA.pile>0&&sp>25){const d=Math.min(cA.pile,sp*dt*.03);cA.pile-=d;if(Math.random()<.6)ccPt({type:'swirl',x:b.x+(Math.random()-.5)*b.w*.6,y:CCG-8-Math.random()*20,vx:rod.vx*.3,vy:-30*Math.random(),r:1.3,life:.9})}}}
+  else if(rod)rod.ang=0;
+  // 🔥 المغنيسيوم: الطرف داخل اللهب مدة كافية ← يشتعل (بالنظارة والماسك فقط)
+  const rib=cA.tools.find(t=>t.kind==='rib');
+  if(rib){const tipX=rib.x+rib.len-(cA.burn>0?cA.burn:0),tipY=rib.y,inF=Math.abs(tipX-285)<11&&tipY>CCG-92&&tipY<CCG-48;
+    if(cA.burn<0&&inF){
+      if(!cA.goggles||rib.grip!=='tongs'){if(!cA.safFlag){cA.safFlag=1;ccS.onUnsafe&&ccS.onUnsafe(!cA.goggles,rib.grip!=='tongs')}
+        ccWarn(!cA.goggles?'🥽 توقّف! البس النظارة الواقية أولًا':'🔧 توقّف! أمسك الشريط بالماسك لا بيدك');rib.x-=40;cA.tgt.x-=40}
+      else{cA.heat+=dt;if(Math.random()<.4)ccPt({type:'smoke',x:tipX,y:tipY-4,vx:(Math.random()-.5)*10,vy:-25,r:3,life:1});if(cA.heat>.7){cA.burn=0;cA.safFlag=0}}}
+    else if(cA.burn<0)cA.heat=Math.max(0,cA.heat-dt*.5);
+    if(cA.burn>=0&&!cA.done){cA.burn+=dt*15;const fx=rib.x+rib.len-cA.burn;cA.light=.75+.25*Math.random();
+      for(let i=0;i<4;i++)ccPt({type:'spark',x:fx,y:rib.y,vx:(Math.random()-.5)*240,vy:-60-Math.random()*200,r:1.4,life:.4+Math.random()*.5});
+      if(Math.random()<.5)ccPt({type:'smoke',x:fx,y:rib.y-6,vx:(Math.random()-.5)*14,vy:-30-Math.random()*20,r:4,life:1.6});
+      if(Math.random()<.18)ccPt({type:'ash',x:fx+3,y:rib.y+2,vx:(Math.random()-.5)*20,vy:0,r:2.2});
+      if(cA.burn>=rib.len-10){cA.burn=rib.len-10;cA.light=0;ccFinishA()}}
+    else cA.light*=Math.exp(-6*dt)}
+  // ⚗️ التفاعل في الكأس: كل حبيبة صودا تطلق فقاعات وتنقص، والرغوة تتراكم وتفيض إن أسرعت في الصب
+  if(b){
+    if(cA.react>0){const rel=Math.min(cA.react,cA.react*.7*dt+dt*.05);cA.react-=rel;cA.reacted+=rel;
+      const br=Math.min(60,cA.react*9+2);cA.bacc=(cA.bacc||0)+br*dt;while(cA.bacc>=1){cA.bacc--;ccPt({type:'bub',x:b.x+(Math.random()-.5)*(b.w-16),y:CCG-6-Math.random()*(b.lvl-10),vy:-(30+Math.random()*30),r:1.2+Math.random()*2.6,ph:Math.random()*6})}}
+    if(cA.k==='soda'){const tT=CC.T0-4*Math.min(1,cA.reacted/cA.total);cA.temp+=(tT-cA.temp)*Math.min(1,dt*.7)}
+    cA.foam=Math.max(0,cA.foam-cA.foam*.22*dt);
+    if(cA.foam>1.05){cA.foam=1.05;if(Math.random()<.3){const s=Math.random()<.5?-1:1;ccPt({type:'foamOut',x:b.x+s*(b.w/2+2),y:CCG-b.h,vx:s*20,vy:0,r:4,life:2})}}
+    b.amp*=Math.exp(-2.4*dt)}
+  // الجسيمات
+  for(let i=ccP.length-1;i>=0;i--){const q=ccP[i];q.age+=dt;
+    if(q.type==='grain'||q.type==='drop'||q.type==='stream'||q.type==='ash'||q.type==='foamOut'){
+      q.vy+=CCg*dt*(q.type==='foamOut'?.4:1);q.x+=q.vx*dt;q.y+=q.vy*dt;
+      if(b&&q.type!=='ash'&&q.type!=='foamOut'&&Math.abs(q.x-b.x)<b.w/2-3&&q.y>=ccSurf()){
+        b.amp=Math.min(5,b.amp+(q.type==='stream'?.06:.12));
+        if(q.type==='grain'&&q.mat==='soda'){cA.react+=1;cA.foam+=.035;ccPt({type:'sink',x:q.x,y:q.y,vy:30,r:q.r,life:.7,col:'rgba(250,250,245,.9)'})}
+        else if(q.type==='grain'&&q.mat==='salt'){ccPt({type:'sink',x:q.x,y:q.y,vy:55,r:q.r,life:9,salt:1,col:'rgba(255,255,255,.95)'})}
+        else if(q.type==='stream'){b.lvl=Math.min(b.h-14,b.lvl+.42);for(let j=0;j<3;j++)ccPt({type:'ppt',x:q.x+(Math.random()-.5)*10,y:q.y+4+Math.random()*10,vx:(Math.random()-.5)*50,vy:20+Math.random()*30,r:1.6+Math.random()*.6})}
+        ccP.splice(i,1);continue}
+      if(q.type==='drop'&&q.y>=CCG-24&&Math.abs(q.x-165)<58){const onP=Math.abs(q.x-165)<52;
+        if(onP)cA.stains.push({x:q.x,y:CCG-24+(Math.random()-.5)*6,r:2,age:0});else cA.plateSp.push({x:q.x,y:CCG-12});ccP.splice(i,1);continue}
+      if(q.y>=CCG-2){if(q.type==='grain'){cA.spilt++;ccPt({type:'dust',x:q.x,y:CCG-2,r:q.r,life:30})}
+        if(q.type==='drop')cA.plateSp.push({x:q.x,y:CCG-4});
+        if(q.type==='ash')ccPt({type:'dust',x:q.x,y:CCG-2,r:2.2,life:60,col:'#F2F2EE'});
+        ccP.splice(i,1);continue}}
+    else if(q.type==='sink'){q.y+=q.vy*dt;q.r=q.salt?q.r:Math.max(0,q.r-dt*2.4);const bot=CCG-6-cA.pile*.5;
+      if(q.salt&&q.y>=bot){cA.pile+=1/3;ccP.splice(i,1);continue}if(q.age>q.life||q.r<=0){ccP.splice(i,1);continue}}
+    else if(q.type==='bub'){q.y+=q.vy*dt;q.x+=Math.sin(q.age*9+q.ph)*.35;q.vy-=20*dt;if(q.y<=ccSurf()+2){cA.foam=Math.min(1.2,cA.foam+.004);ccP.splice(i,1);continue}}
+    else if(q.type==='ppt'){q.vx*=Math.exp(-3*dt);q.vy+=(14-q.vy*2.2)*dt+(Math.random()-.5)*40*dt;q.vx+=(Math.random()-.5)*60*dt;q.x+=q.vx*dt;q.y+=q.vy*dt;
+      if(b){q.x=ccClamp(q.x,b.x-b.w/2+5,b.x+b.w/2-5);q.y=Math.max(q.y,ccSurf()+3);if(q.y>=CCG-5-cA.sed){cA.sed=Math.min(16,cA.sed+.045);ccP.splice(i,1);continue}}}
+    else if(q.type==='spark'){q.vy+=CCg*.6*dt;q.x+=q.vx*dt;q.y+=q.vy*dt;if(q.y>CCG-2){q.y=CCG-2;q.vy*=-.35;q.vx*=.6}if(q.age>q.life){ccP.splice(i,1);continue}}
+    else if(q.type==='smoke'){q.x+=q.vx*dt;q.y+=q.vy*dt;q.r+=dt*6;if(q.age>q.life){ccP.splice(i,1);continue}}
+    else if(q.type==='swirl'){q.x+=q.vx*dt;q.y+=q.vy*dt;q.vx*=.96;if(q.age>q.life){ccP.splice(i,1);continue}}
+    else if(q.type==='dust'){if(q.age>q.life){ccP.splice(i,1);continue}}}
+  cA.stains.forEach(s=>{s.age+=dt;s.r=Math.min(15,s.r+dt*(18-s.r)*1.1)});
+  // نهاية كل تفاعل
+  if(!cA.done){const sp=cA.tools.find(t=>t.kind==='pour'),bk2=cA.tools.find(t=>t.kind==='pourBk');
+    const fin=cA.k==='soda'?sp.load===0&&cA.react<.15&&!ccP.some(q=>q.type==='grain'||q.type==='sink')
+      :cA.k==='salt'?sp.load===0&&!ccP.some(q=>q.type==='grain'||q.type==='sink')&&cA.pile<=.3
+      :cA.k==='iodine'?cA.stains.length>=5&&cA.stains.every(s=>s.age>.9)
+      :cA.k==='precip'?bk2.vol===0&&!ccP.some(q=>q.type==='stream')&&ccP.filter(q=>q.type==='ppt').length<6:false;
+    if(fin){cA.doneT+=dt;if(cA.doneT>.8)ccFinishA()}else cA.doneT=0}
+}
+function ccFinishA(){if(cA.done)return;cA.done=true;cA.held=null;const cb=cA.cb;cA.cb=null;cb&&cb()}
+/* رسم */
+function ccDrawBeaker(c,b,t,col,base){const G=base||CCG,top=G-b.h,L=b.x-b.w/2,R=b.x+b.w/2,sy=G-b.lvl;
+  const fill=a=>`rgba(${b.col[0]},${b.col[1]},${b.col[2]},${a})`;
+  c.save();c.beginPath();c.moveTo(L+3,sy);for(let x=L+3;x<=R-3;x+=4)c.lineTo(x,sy+Math.sin(x*.18+t*7)*b.amp);c.lineTo(R-3,G-4);c.quadraticCurveTo(R-3,G-1,R-8,G-1);c.lineTo(L+8,G-1);c.quadraticCurveTo(L+3,G-1,L+3,G-4);c.closePath();
+  const g=c.createLinearGradient(0,sy,0,G);g.addColorStop(0,fill(b.col[3]*.85));g.addColorStop(1,fill(Math.min(1,b.col[3]+.15)));c.fillStyle=g;c.fill();c.restore();
+  c.strokeStyle='#5D7A8C';c.lineWidth=2;c.beginPath();c.moveTo(L-4,top);c.lineTo(L,top+4);c.lineTo(L,G-4);c.quadraticCurveTo(L,G,L+5,G);c.lineTo(R-5,G);c.quadraticCurveTo(R,G,R,G-4);c.lineTo(R,top+4);c.lineTo(R+4,top);c.stroke();
+  c.strokeStyle='rgba(93,122,140,.35)';c.lineWidth=1;for(let k=1;k<5;k++){c.beginPath();c.moveTo(R-14,G-b.h*k/5);c.lineTo(R-3,G-b.h*k/5);c.stroke()}
+  c.fillStyle='rgba(255,255,255,.25)';c.fillRect(L+6,top+8,5,b.h-20)}
+function ccDrawSpoon(c,t,col){c.save();c.translate(t.x,t.y);c.rotate(-t.tilt*1.15);c.fillStyle='#9AA7B2';c.fillRect(-2,-2,t.w/2+4,4);
+  c.fillStyle='#C2CCD4';c.beginPath();c.ellipse(-t.w/4,0,t.w/4,7,0,0,7);c.fill();
+  if(t.load>0){c.fillStyle='#FAFAF6';c.beginPath();c.ellipse(-t.w/4,-2,t.w/4.6*(.4+.6*t.load/t.cap),4*(.4+.6*t.load/t.cap),0,Math.PI,0);c.fill()}c.restore()}
+function ccDrawBk2(c,t){c.save();c.translate(t.x,t.y);c.rotate(-t.tilt*1.15);const w=t.w,h=t.h,lv=h*.75*t.vol/t.cap;
+  if(lv>0){c.fillStyle='rgba(200,228,240,.65)';const ty=h/2-lv;c.beginPath();c.moveTo(-w/2+2,Math.max(-h/2+4,ty));c.lineTo(w/2-2,Math.max(-h/2+4,ty));c.lineTo(w/2-2,h/2-2);c.lineTo(-w/2+2,h/2-2);c.fill()}
+  c.strokeStyle='#5D7A8C';c.lineWidth=2;c.beginPath();c.moveTo(-w/2-4,-h/2);c.lineTo(-w/2,-h/2+4);c.lineTo(-w/2,h/2);c.lineTo(w/2,h/2);c.lineTo(w/2,-h/2);c.stroke();c.restore()}
+function ccDrawDropper(c,t){c.save();c.fillStyle='#3C2A1A';c.beginPath();c.ellipse(t.x,t.y-t.h/2+8,9,10,0,0,7);c.fill();
+  c.fillStyle='rgba(205,225,235,.8)';c.strokeStyle='#7E95A3';c.lineWidth=1.2;c.beginPath();c.rect(t.x-5,t.y-t.h/2+16,10,t.h-24);c.fill();c.stroke();
+  c.fillStyle='#7A4A1C';const lv=(t.h-30)*t.load/8;c.fillRect(t.x-4,t.y+t.h/2-10-lv,8,lv);
+  c.beginPath();c.moveTo(t.x-3,t.y+t.h/2-8);c.lineTo(t.x,t.y+t.h/2+2);c.lineTo(t.x+3,t.y+t.h/2-8);c.fillStyle='rgba(205,225,235,.9)';c.fill();c.restore()}
+function ccDrawRod(c,t){c.save();c.translate(t.x,t.y);c.rotate(t.ang||0);c.lineCap='round';c.lineWidth=5;c.strokeStyle='rgba(170,205,225,.95)';c.beginPath();c.moveTo(-t.w/2,0);c.lineTo(t.w/2,0);c.stroke();c.restore()}
+function ccDrawA(c,col,t,dt){dt=Math.min(dt||.016,.033);ccStepA(dt);const b=cA.bk;
+  c.fillStyle='#F1E6D6';c.fillRect(0,CCG,CCW,CCH-CCG);c.fillStyle='#E2D2BC';c.fillRect(0,CCG-2,CCW,3);
+  if(cA.k==='mg'){const L=cA.light;if(L>.02){const g=c.createRadialGradient(285,CCG-70,4,285,CCG-70,190);g.addColorStop(0,`rgba(255,255,255,${.98*L})`);g.addColorStop(.3,`rgba(255,255,236,${.6*L})`);g.addColorStop(1,'rgba(255,255,220,0)');c.fillStyle=g;c.fillRect(0,0,CCW,CCH)}
+    ccBurner(c,285,CCG,t);}
+  if(b){if(cA.k==='soda')ccThermo(c,400,CCG,cA.temp,col);if(cA.k==='salt'||cA.k==='precip')ccThermo(c,400,CCG,CC.T0,col);
+    ccDrawBeaker(c,b,t,col);
+    if(cA.pile>0){c.fillStyle='#FFFFFF';c.strokeStyle='rgba(120,140,150,.5)';c.lineWidth=.8;const w=Math.min(60,10+cA.pile*2.2),h=Math.min(12,2+cA.pile*.5);c.beginPath();c.ellipse(b.x,CCG-4,w/2,h,0,Math.PI,0);c.fill();c.stroke()}
+    if(cA.sed>0){c.fillStyle='#FBFBF8';c.strokeStyle='rgba(110,130,145,.5)';c.beginPath();c.moveTo(b.x-b.w/2+3,CCG-2);c.lineTo(b.x-b.w/2+3,CCG-3-cA.sed);for(let x=b.x-b.w/2+3;x<=b.x+b.w/2-3;x+=5)c.lineTo(x,CCG-3-cA.sed-1.2*Math.sin(x));c.lineTo(b.x+b.w/2-3,CCG-2);c.closePath();c.fill();c.stroke()}
+    if(cA.foam>.02){const sy=ccSurf(),n=Math.round(10*Math.min(1,cA.foam));c.fillStyle='rgba(255,255,250,.88)';
+      for(let i=0;i<14;i++){const fx=b.x-b.w/2+8+i*((b.w-16)/13);const hh=4+14*cA.foam*(.6+.4*Math.sin(i*1.7+t*3));c.beginPath();c.arc(fx,sy-hh*.4,5+3*cA.foam,0,7);c.fill()}
+      if(n>3){c.fillStyle='rgba(255,255,250,.7)';c.fillRect(b.x-b.w/2+4,sy-6*cA.foam,b.w-8,6*cA.foam+3)}}}
+  if(cA.k==='iodine'){c.fillStyle='#E8EEF2';c.beginPath();c.ellipse(165,CCG-8,84,9,0,0,7);c.fill();
+    c.fillStyle='#EBD9A5';c.beginPath();c.ellipse(165,CCG-22,56,13,0,0,7);c.fill();c.strokeStyle='#D8C48C';c.lineWidth=1;c.stroke();
+    c.save();c.beginPath();c.ellipse(165,CCG-22,56,13,0,0,7);c.clip();
+    cA.stains.forEach(s=>{const k=Math.min(1,s.age/.7);c.fillStyle=`rgba(${Math.round(122-92*k)},${Math.round(74-44*k)},${Math.round(28+64*k)},.92)`;c.beginPath();c.ellipse(s.x,s.y,s.r,s.r*.45,0,0,7);c.fill()});c.restore();
+    cA.plateSp.forEach(s=>{c.fillStyle='rgba(122,74,28,.75)';c.beginPath();c.ellipse(s.x,s.y,5,2,0,0,7);c.fill()})}
+  // الجسيمات
+  ccP.forEach(q=>{c.globalAlpha=1;
+    if(q.type==='grain'||q.type==='sink'||q.type==='swirl'||q.type==='dust'){c.fillStyle=q.col||'#FAFAF6';c.beginPath();c.arc(q.x,q.y,Math.max(.5,q.r),0,7);c.fill()}
+    else if(q.type==='drop'){c.fillStyle='#7A4A1C';c.beginPath();c.ellipse(q.x,q.y,q.r*.8,q.r,0,0,7);c.fill()}
+    else if(q.type==='stream'){c.fillStyle='rgba(190,222,236,.85)';c.beginPath();c.ellipse(q.x,q.y,q.r,q.r*1.6,0,0,7);c.fill()}
+    else if(q.type==='bub'){c.strokeStyle='rgba(255,255,255,.95)';c.lineWidth=1;c.beginPath();c.arc(q.x,q.y,q.r,0,7);c.stroke()}
+    else if(q.type==='ppt'){c.fillStyle='#FFFFFF';c.strokeStyle='rgba(110,130,145,.45)';c.lineWidth=.7;c.beginPath();c.arc(q.x,q.y,q.r,0,7);c.fill();c.stroke()}
+    else if(q.type==='spark'){c.fillStyle=`rgba(255,250,210,${1-q.age/q.life})`;c.beginPath();c.arc(q.x,q.y,q.r,0,7);c.fill()}
+    else if(q.type==='smoke'){c.fillStyle=`rgba(235,235,232,${.5*(1-q.age/q.life)})`;c.beginPath();c.arc(q.x,q.y,q.r,0,7);c.fill()}
+    else if(q.type==='ash'){c.fillStyle='#F4F4F0';c.fillRect(q.x-2,q.y-1,4,2.4)}
+    else if(q.type==='foamOut'){c.fillStyle=`rgba(255,255,250,${.9*(1-q.age/q.life)})`;c.beginPath();c.arc(q.x,q.y,q.r,0,7);c.fill()}});c.globalAlpha=1;
+  // الأدوات
+  cA.tools.forEach(tl=>{
+    if(tl.kind==='pour')ccDrawSpoon(c,tl,col);else if(tl.kind==='pourBk')ccDrawBk2(c,tl);else if(tl.kind==='dropper')ccDrawDropper(c,tl);else if(tl.kind==='rod')ccDrawRod(c,tl);
+    else if(tl.kind==='rib'){const burnt=cA.burn>0?cA.burn:0,x0=tl.x,x1=tl.x+tl.len-burnt;c.lineCap='butt';c.lineWidth=4;c.strokeStyle='#C9D1D8';c.beginPath();c.moveTo(x0,tl.y);c.lineTo(x1,tl.y);c.stroke();
+      if(burnt>0&&!cA.done){c.fillStyle='#FFFFFF';c.beginPath();c.arc(x1,tl.y,5+2*Math.random(),0,7);c.fill()}
+      if(tl.grip==='hand'){c.font='18px system-ui';c.textAlign='center';c.fillText('✋',x0-4,tl.y+6)}}
+    else if(tl.kind==='tongs'){c.save();c.strokeStyle='#5D6A74';c.lineWidth=3;c.lineCap='round';c.beginPath();c.moveTo(tl.x-tl.w/2,tl.y-4);c.lineTo(tl.x+tl.w/2,tl.y-1);c.moveTo(tl.x-tl.w/2,tl.y+4);c.lineTo(tl.x+tl.w/2,tl.y+1);c.stroke();c.restore()}});
+  if(cA.k==='mg'&&!cA.goggles){c.fillStyle='rgba(195,71,62,.9)';c.font='700 12px system-ui,sans-serif';c.textAlign='center';c.fillText('🥽 النظارة غير ملبوسة',CCW/2,22)}
+  if(cA.warn&&performance.now()<cA.warn.until){c.font='700 13px system-ui,sans-serif';c.textAlign='center';const w=c.measureText(cA.warn.t).width+24;c.fillStyle=cA.warn.cl;c.beginPath();c.roundRect?c.roundRect(CCW/2-w/2,34,w,26,13):c.rect(CCW/2-w/2,34,w,26);c.fill();c.fillStyle='#fff';c.fillText(cA.warn.t,CCW/2,52)}
+  if(cA.spilt>4&&!cA.spiltWarned){cA.spiltWarned=1;ccWarn('انسكب بعض المسحوق خارج الكأس: قرّب الملعقة من الفوهة','#B7791F')}
+  if(cA.k==='soda'&&cA.foam>1&&!cA.foamWarned){cA.foamWarned=1;ccWarn('فاضت الرغوة! اسكب أبطأ في المرة القادمة','#B7791F')}
+  c.fillStyle=col.ink;c.font='600 12px system-ui,sans-serif';c.textAlign='center';
+  const R=CC.rx[ccS.j];c.fillText(cA.done?R.to:cA.k==='mg'&&cA.burn>=0?'🌡️ حرارة شديدة وضوء ساطع — لا تنظر مباشرة':'',CCW/2,CCH-12)}
+/* ═══ المشهد (ب): الميزان — طبق الصودا والكأس على الكفة نفسها · القارورة والبالون ═══ */
+const cB={j:0,disp:205,vel:0,stable:false,stT:0,held:null,off:{x:0,y:0},tgt:{x:0,y:0},react:0,reacted:0,total:20,gas:0,balloon:0,done:false,doneT:0,cb:null,touch:0,warn:null,dish:null,bal:null,lvl:58};
+const CCB={x:205,pan:CCG-26};
+function ccSetupB(j){ccP.length=0;const M=CC.mass[j];Object.assign(cB,{j,disp:M.b,vel:0,stable:false,stT:0,held:null,react:0,reacted:0,gas:0,balloon:0,done:false,doneT:0,touch:0,warn:null,bacc:0});
+  if(M.k==='open'){cB.dish={x:CCB.x+52,y:CCB.pan-6,w:44,h:10,tilt:0,load:20,cap:20,rest:{x:CCB.x+52,y:CCB.pan-6},vx:0,vy:0,st:'rest',onPan:true};cB.bal=null}
+  else{cB.dish=null;cB.bal={x:CCB.x,y:CCB.pan-112,ry:CCB.pan-112,lift:0,load:20,st:'rest'}}}
+function ccPickB(p){if(cB.done)return null;if(cB.dish&&Math.abs(p.x-cB.dish.x)<30&&Math.abs(p.y-cB.dish.y)<18)return 'dish';
+  if(cB.bal&&Math.hypot(p.x-cB.bal.x,p.y-(cB.bal.y-14))<26)return 'bal';return null}
+const ccHB={hit(p){return !!ccPickB(p)},
+  down(p){const k=ccPickB(p);if(!k)return;cB.held=k;const o=k==='dish'?cB.dish:cB.bal;cB.off={x:o.x-p.x,y:o.y-p.y};cB.tgt={x:o.x,y:o.y};if(k==='dish'){o.st='held';o.onPan=false}},
+  move(p){if(cB.held)cB.tgt={x:p.x+cB.off.x,y:p.y+cB.off.y}},
+  up(){const k=cB.held;cB.held=null;if(k==='dish'){cB.dish.st='fall';cB.dish.vy=0}if(k==='bal'){cB.bal.st='back'}}};
+function ccStepB(dt){const M=CC.mass[cB.j],d=cB.dish,bl=cB.bal,bx=CCB.x-18,bw=80,top=CCB.pan-96;
+  if(d){if(cB.held==='dish'){const k=Math.min(1,dt*16),px=d.x,py=d.y;d.x=ccClamp(d.x+(cB.tgt.x-d.x)*k,20,CCW-20);d.y=ccClamp(d.y+(cB.tgt.y-d.y)*k,30,CCB.pan-6);
+      if(Math.abs(d.x-bx)<bw/2+22&&d.y>top-8)d.y=top-8;d.vx=(d.x-px)/dt;
+      const over=Math.abs(d.x-bx)<bw/2-6&&d.y<top-2&&d.y>top-90;d.tilt=ccClamp(d.tilt+(over?1.3:-2.2)*dt,0,1);
+      if(d.tilt>.38&&d.load>0){d.acc=(d.acc||0)+(d.tilt-.38)/.62*20*dt;while(d.acc>=1&&d.load>0){d.acc--;d.load--;const a=-d.tilt*1.15;
+        for(let i=0;i<3;i++)ccPt({type:'grain',x:d.x-d.w/2*Math.cos(a)+(Math.random()-.5)*4,y:d.y+d.w/2*Math.sin(a),vx:(Math.random()-.5)*12,vy:15,r:1.5,mat:'soda'})}}}
+    else if(d.st==='fall'){d.tilt=0;d.vy+=CCg*dt;d.y+=d.vy*dt;if(Math.abs(d.x-bx)<bw/2+24)d.x+=(d.x>bx?1:-1)*240*dt;
+      const onPanX=Math.abs(d.x-CCB.x)<62,floor=onPanX?CCB.pan-6:CCG-6;if(d.y>=floor){d.y=floor;d.vy=0;d.st='rest';d.onPan=onPanX;if(!onPanX)cB.warn={t:'الطبق خارج الميزان! أعده إلى الكفة لتكون القراءة صحيحة',cl:'#B7791F',until:performance.now()+2600}}}}
+  if(bl){if(cB.held==='bal'){bl.lift=ccClamp((bl.ry-(cB.tgt.y))/40,0,1);cB.touch=1}else{bl.lift=Math.max(0,bl.lift-dt*3);cB.touch=Math.max(0,cB.touch-dt*4)}
+    if(bl.lift>.5&&bl.load>0){bl.acc=(bl.acc||0)+(bl.lift-.5)*2*30*dt;while(bl.acc>=1&&bl.load>0){bl.acc--;bl.load--;ccPt({type:'grain',x:CCB.x+(Math.random()-.5)*6,y:CCB.pan-96,vx:(Math.random()-.5)*20,vy:30,r:1.5,mat:'soda',bottle:1})}}}
+  if(cB.react>0){const rel=Math.min(cB.react,cB.react*.7*dt+dt*.05);cB.react-=rel;cB.reacted+=rel;const br=Math.min(50,cB.react*8+2);cB.bacc=(cB.bacc||0)+br*dt;
+    const cx=bl?CCB.x:bx,w=bl?50:bw-16;while(cB.bacc>=1){cB.bacc--;ccPt({type:'bub',x:cx+(Math.random()-.5)*w,y:CCB.pan-4-Math.random()*(bl?24:cB.lvl-8),vy:-(30+Math.random()*25),r:1.2+Math.random()*2.2,ph:Math.random()*6})}
+    if(!bl&&Math.random()<cB.react*.08)ccPt({type:'gas',x:bx+(Math.random()-.5)*50,y:top-4,vx:(Math.random()-.5)*12,vy:-26,r:6,life:2.2})}
+  const frac=Math.min(1,cB.reacted/cB.total);if(bl)cB.balloon+=((10+36*frac)-cB.balloon)*Math.min(1,dt*3);
+  for(let i=ccP.length-1;i>=0;i--){const q=ccP[i];q.age+=dt;
+    if(q.type==='grain'){q.vy+=CCg*dt;q.x+=q.vx*dt;q.y+=q.vy*dt;const surf=CCB.pan-(bl?30:cB.lvl),inside=bl||Math.abs(q.x-bx)<bw/2-3;
+      if(inside&&q.y>=surf){cB.react+=1;ccP.splice(i,1);continue}
+      if(!inside&&q.y>=(Math.abs(q.x-CCB.x)<66?CCB.pan:CCG)-1){ccP.splice(i,1);continue}}
+    else if(q.type==='bub'){q.y+=q.vy*dt;q.x+=Math.sin(q.age*9+q.ph)*.3;if(q.y<=CCB.pan-(bl?30:cB.lvl)){ccP.splice(i,1);continue}}
+    else if(q.type==='gas'){q.x+=q.vx*dt;q.y+=q.vy*dt;q.r+=dt*5;if(q.age>q.life){ccP.splice(i,1);continue}}}
+  // القراءة: الكأس + الطبق (إن كان على الكفة) − الغاز الذي خرج · واليد على البالون تضغط
+  const dishM=d?3+5*d.load/d.cap:0,gasOut=bl?0:(M.b-M.a)*frac;let target=M.b-gasOut-(d&&!d.onPan?dishM:0)+(bl?cB.touch*(.4+.3*Math.sin(performance.now()/90)):0);
+  const jit=Math.min(.25,cB.react*.02);cB.vel+=(target+(Math.random()-.5)*jit-cB.disp)*90*dt;cB.vel*=Math.exp(-10*dt);cB.disp+=cB.vel*dt;
+  cB.stable=Math.abs(cB.vel)<.03&&Math.abs(target-cB.disp)<.05&&cB.react<.05&&!cB.held&&!cB.touch;
+  if(!cB.done){const fin=(d?d.load===0&&d.onPan&&d.st==='rest':bl.load===0)&&cB.react<.05&&!ccP.some(q=>q.type==='grain')&&cB.stable;
+    if(fin){cB.doneT+=dt;if(cB.doneT>.6){cB.done=true;const cb=cB.cb;cB.cb=null;cb&&cb(cB.j)}}else cB.doneT=0}}
+function ccDrawB(c,col,t,dt){dt=Math.min(dt||.016,.033);ccStepB(dt);const M=CC.mass[cB.j],d=cB.dish,bl=cB.bal;
+  c.fillStyle='#F1E6D6';c.fillRect(0,CCG,CCW,CCH-CCG);
+  c.fillStyle='#E9EEF2';c.strokeStyle='#8BA3B3';c.lineWidth=1.5;c.beginPath();c.rect(CCB.x-78,CCG-20,156,20);c.fill();c.stroke();c.fillStyle='#CBD6DE';c.fillRect(CCB.x-66,CCB.pan,132,6);
+  c.fillStyle='#1F2D36';c.fillRect(CCB.x-34,CCG-16,68,13);c.fillStyle='#7CF3B4';c.font='700 11px ui-monospace,monospace';c.textAlign='center';c.fillText(`${(Math.round(cB.disp*10)/10).toFixed(1)} g`,CCB.x,CCG-6);
+  c.fillStyle=cB.stable?col.ok:'#B9C6CF';c.beginPath();c.arc(CCB.x+60,CCG-10,4,0,7);c.fill();
+  if(!bl)ccDrawBeaker(c,{x:CCB.x-18,w:80,h:96,lvl:cB.lvl,col:[238,231,202,.6],amp:Math.min(3,cB.react*.2)},t,col,CCB.pan);
+  else{const bx=CCB.x,by=CCB.pan;c.strokeStyle='#5D7A8C';c.lineWidth=2;c.fillStyle='rgba(238,231,202,.6)';
+    c.fillRect(bx-28,by-32,56,30);c.beginPath();c.moveTo(bx-30,by);c.lineTo(bx-30,by-50);c.quadraticCurveTo(bx-30,by-66,bx-10,by-74);c.lineTo(bx-10,by-92);c.lineTo(bx+10,by-92);c.lineTo(bx+10,by-74);c.quadraticCurveTo(bx+30,by-66,bx+30,by-50);c.lineTo(bx+30,by);c.closePath();c.stroke();
+    // 🎈 بالون مطاطي على عنق القارورة: يُرفع بالإصبع فتنسكب الصودا، ثم ينتفخ بالغاز (نصف قطره يتبع كمية الغاز بنابض)
+    const r=cB.balloon||10,lift=bl.lift;c.save();c.translate(bx,by-92);
+    const neckH=10+lift*14,cy=-neckH-r*.92,wob=Math.sin(t*6)*(cB.react>.2?1.2:0);
+    const g=c.createRadialGradient(-r*.35,cy-r*.4,2,0,cy,r*1.1);g.addColorStop(0,'rgba(255,150,155,.95)');g.addColorStop(1,'rgba(205,55,70,.92)');
+    c.fillStyle='rgba(205,55,70,.92)';c.beginPath();c.moveTo(-9,2);c.lineTo(-7,-neckH);c.lineTo(7,-neckH);c.lineTo(9,2);c.closePath();c.fill();
+    c.fillStyle=g;c.beginPath();c.ellipse(wob*.5,cy,r*.86+wob,r+lift*2,0,0,7);c.fill();
+    c.fillStyle='rgba(255,255,255,.35)';c.beginPath();c.ellipse(-r*.35,cy-r*.45,r*.18,r*.28,-.5,0,7);c.fill();
+    if(bl.load>0){c.fillStyle='rgba(250,250,245,.95)';c.beginPath();c.ellipse(0,cy+r*.45,r*.55,3+5*bl.load/20,0,0,7);c.fill()}c.restore();
+    const h=neckH+r*1.9;
+    if(cB.touch>.1){c.font='18px system-ui';c.textAlign='center';c.fillText('✋',bx+24,by-92-h)}}
+  if(d){c.save();c.translate(d.x,d.y);c.rotate(-d.tilt*1.15);c.fillStyle='#E4E9EE';c.strokeStyle='#8BA3B3';c.beginPath();c.ellipse(0,0,d.w/2,5,0,0,7);c.fill();c.stroke();
+    if(d.load>0){c.fillStyle='#FAFAF6';c.beginPath();c.ellipse(0,-2,d.w/2.6*(.4+.6*d.load/d.cap),4,0,Math.PI,0);c.fill()}c.restore()}
+  ccP.forEach(q=>{if(q.type==='grain'){c.fillStyle='#FAFAF6';c.beginPath();c.arc(q.x,q.y,q.r,0,7);c.fill()}
+    else if(q.type==='bub'){c.strokeStyle='rgba(255,255,255,.95)';c.lineWidth=1;c.beginPath();c.arc(q.x,q.y,q.r,0,7);c.stroke()}
+    else if(q.type==='gas'){c.fillStyle=`rgba(200,215,225,${.45*(1-q.age/q.life)})`;c.beginPath();c.arc(q.x,q.y,q.r,0,7);c.fill()}});
+  if(!bl&&cB.react>.3){c.fillStyle=col.ink2;c.font='600 11px system-ui,sans-serif';c.textAlign='center';c.fillText('↑ الغاز يخرج إلى الهواء',CCB.x-18,CCB.pan-112)}
+  if(cB.warn&&performance.now()<cB.warn.until){c.font='700 12px system-ui,sans-serif';c.textAlign='center';const w=c.measureText(cB.warn.t).width+24;c.fillStyle=cB.warn.cl;c.beginPath();c.roundRect?c.roundRect(CCW/2-w/2,20,w,24,12):c.rect(CCW/2-w/2,20,w,24);c.fill();c.fillStyle='#fff';c.fillText(cB.warn.t,CCW/2,37)}
+  c.fillStyle=col.ink;c.font='600 12px system-ui,sans-serif';c.textAlign='center';
+  c.fillText(cB.held||cB.touch>.1?'يدك على الأداة: القراءة لا تُعتمد':d&&!d.onPan&&d.st==='rest'?'الطبق ليس على الكفة':cB.stable?'القراءة ثابتة ●':'انتظر حتى تثبت القراءة…',CCW/2,CCH-12)}
 
 /* ---- شاشة التجربة ---- */
+const ccS={j:0,lock:false,onUnsafe:null};
 function renderCC(){
   const r=APP.run;
   if(!r.cc) r.cc={pred:null,saf:0,r:CC.rx.map(()=>({done:false,sg:[],ch:[],sgOk:false,chOk:false})),m:CC.mass.map(()=>({done:false,m:[],ok:false}))};
   if(r.step==='safety') r.step='predict';
-  Object.assign(ccS,{j:0,ph:'idle',t:0,temp:CC.T0,bub:[],fx:[],goggles:false,tongs:false,mj:0,mph:'idle',mt:0,disp:0,vel:0});
+  Object.assign(ccS,{j:0,lock:true});cA.goggles=false;
   app.innerHTML=`<div id="cyc"></div>
   <section class="bench">${inGuideBox()}
     <h3 class="inh">الجزء الأول: خمسة تغيّرات على الطاولة — هل تتكوّن مادة جديدة؟</h3>
+    <p class="note" style="margin:0 2px 6px">أمسك الأدوات بإصبعك أو بالفأرة ونفّذ بنفسك: قرّب الملعقة من فوهة الكأس فتميل وتنسكب، وأمسك القطّارة ثابتة فوق البطاطس لتقطر، وحرّك القضيب داخل الماء.</p>
     <div class="frbar" id="ccTabs">${CC.rx.map((x,i)=>`<span class="chip" id="cct${i}" style="cursor:default">${i+1}. ${x.sh}</span>`).join('')}</div>
-    <div class="beakerzone frzone"><canvas id="ccA" class="pcfit" aria-label="طاولة تجارب عليها كأس ومحرار وأدوات التفاعل"></canvas></div>
+    <div class="beakerzone frzone"><canvas id="ccA" class="pcfit" aria-label="طاولة تجارب عليها كأس ومحرار وأدوات التفاعل يحرّكها الطالب"></canvas></div>
     <div class="frbar" id="ccActs"></div>
     <div id="ccRec" class="panel" style="margin-top:8px;padding:10px 12px;display:none"></div>
     <div class="tablewrap" style="margin-top:10px"><table class="frtab"><thead><tr><th>التغيّر</th><th>قبل ← بعد</th><th>العلامات</th><th>مادة جديدة؟</th></tr></thead><tbody>
       ${CC.rx.map((x,i)=>`<tr><td><b>${x.t}</b></td><td id="ccw${i}">—</td><td id="ccs${i}">—</td><td id="ccd${i}">—</td></tr>`).join('')}</tbody></table></div>
     <div id="ccPartB" class="hide-b">
       <h3 class="inh" style="margin-top:16px">الجزء الثاني: هل تتغيّر الكتلة في التفاعل الكيميائي؟</h3>
-      <div class="beakerzone frzone"><canvas id="ccB" class="pcfit" aria-label="ميزان رقمي عليه كأس أو قارورة يحدث فيها تفاعل"></canvas></div>
-      <div class="frbar" id="ccActsB"></div>
+      <div class="beakerzone frzone"><canvas id="ccB" class="pcfit" aria-label="ميزان رقمي عليه كأس خل وطبق صودا، أو قارورة ببالون"></canvas></div>
       <div class="tablewrap" style="margin-top:10px"><table class="frtab"><thead><tr><th>الوعاء</th><th>الكتلة قبل</th><th>الكتلة بعد</th></tr></thead><tbody>
       ${CC.mass.map((m,j)=>`<tr><td><b>${m.t}</b></td><td class="num">${m.b.toFixed(1)} g</td><td><span style="display:inline-flex;gap:6px;align-items:center"><input type="text" inputmode="decimal" autocomplete="off" class="frin" id="ccm${j}" disabled placeholder="٠"> جم <button class="btn ghost sm-btn" id="ccm${j}r" disabled>سجّل</button><span id="ccm${j}o"></span></span></td></tr>`).join('')}
       </tbody></table></div>
@@ -4412,25 +4593,22 @@ function renderCC(){
   </section>
   <div id="obsPanel" class="frobs"></div>
   <div class="panel safety" style="margin-top:12px"><h3>قواعد السلامة</h3><ul>${CHEMCHG.safety.map(x=>`<li>${x}</li>`).join('')}</ul></div>`;
-  WMSIM.mount($('#ccA'),CCW,CCH,ccDrawA,null);
+  ccSetupA('soda');
+  WMSIM.mount($('#ccA'),CCW,CCH,ccDrawA,ccHA);$('#ccA').style.touchAction='none';
+  ccS.onUnsafe=(noG,noT)=>{r.cc.saf=(r.cc.saf||0)+1;r.mist.safety++;r.log.push(`حاول إشعال المغنيسيوم دون ${noG?'النظارة الواقية':''}${noG&&noT?' و':''}${noT?'الماسك':''}`)};
   $$('.frin').forEach(x=>x.addEventListener('input',()=>{const v=arNum(x.value.replace(/[,،]/g,'.'));if(v!==x.value)x.value=v}));
   CC.mass.forEach((m,j)=>{$('#ccm'+j+'r').onclick=()=>ccRecM(j);$('#ccm'+j).addEventListener('keydown',e=>{if(e.key==='Enter')ccRecM(j)})});
   ccGuide();
 }
 const ccCurA=()=>APP.run.cc.r.findIndex(w=>!(w.sgOk&&w.chOk));
 const ccCurB=()=>APP.run.cc.m.findIndex(w=>!w.ok);
-function ccSetA(j){Object.assign(ccS,{j,ph:'idle',t:0,t2:0,temp:CC.T0,bub:[],fx:[],goggles:ccS.goggles,tongs:false});
-  CC.rx.forEach((_,i)=>{const e=$('#cct'+i);if(e){e.setAttribute('aria-pressed',i===j?'true':'false');e.style.opacity=APP.run.cc.r[i].sgOk&&APP.run.cc.r[i].chOk?'.6':'1'}});ccActs()}
-function ccActs(){const box=$('#ccActs'),r=APP.run;if(!box)return;const j=ccS.j,R=CC.rx[j],w=r.cc.r[j];
-  if(r.step!=='rx'||w.done){box.innerHTML='';return}
-  box.innerHTML=(R.k==='mg'?`<button class="btn ghost" id="ccGog" aria-pressed="${ccS.goggles}">${ccS.goggles?'✓ ':''}🥽 ارتدِ النظارة</button><button class="btn ghost" id="ccTon" aria-pressed="${ccS.tongs}">${ccS.tongs?'✓ ':''}🔧 أمسكه بالماسك</button>`:'')+
-    `<button class="btn amber" id="ccGo" ${ccS.ph!=='idle'?'disabled':''}>${R.act}</button>`;
-  if(R.k==='mg'){$('#ccGog').onclick=()=>{ccS.goggles=true;ccActs()};$('#ccTon').onclick=()=>{ccS.tongs=true;ccActs()}}
-  $('#ccGo').onclick=()=>{
-    if(R.k==='mg'&&(!ccS.goggles||!ccS.tongs)){r.cc.saf=(r.cc.saf||0)+1;r.mist.safety++;r.log.push(`حاول إشعال المغنيسيوم دون ${!ccS.goggles?'النظارة الواقية':''}${!ccS.goggles&&!ccS.tongs?' و':''}${!ccS.tongs?'الماسك':''}`);
-      return note(`توقّف! ${!ccS.goggles?'البس النظارة الواقية 🥽':''}${!ccS.goggles&&!ccS.tongs?' و':''}${!ccS.tongs?'أمسك الشريط بالماسك 🔧 لا بيدك':''} قبل الإشعال.`,true)}
-    ccS.ph='run';ccS.t=0;ccS.cb=jj=>{const ww=r.cc.r[jj];ww.done=true;$('#ccw'+jj).textContent=`${CC.rx[jj].from} ← ${CC.rx[jj].to}`;ccActs();ccRecUI(jj);ccGuide()};ccActs();ccGuide()};
-}
+function ccSetA(j){const r=APP.run;ccS.j=j;ccS.lock=false;const g=cA.goggles;ccSetupA(CC.rx[j].k);cA.goggles=g;
+  cA.cb=()=>{const w=r.cc.r[j];w.done=true;$('#ccw'+j).textContent=`${CC.rx[j].from} ← ${CC.rx[j].to}`;ccActs();ccRecUI(j);ccGuide()};
+  CC.rx.forEach((_,i)=>{const e=$('#cct'+i);if(e){e.setAttribute('aria-pressed',i===j?'true':'false');e.style.opacity=r.cc.r[i].sgOk&&r.cc.r[i].chOk?'.6':'1'}});ccActs()}
+function ccActs(){const box=$('#ccActs'),r=APP.run;if(!box)return;const R=CC.rx[ccS.j],w=r.cc.r[ccS.j];
+  if(r.step!=='rx'||w.done||R.k!=='mg'){box.innerHTML='';return}
+  box.innerHTML=`<button class="btn ghost" id="ccGog" aria-pressed="${cA.goggles}">${cA.goggles?'✓ النظارة ملبوسة 🥽':'🥽 ارتدِ النظارة الواقية'}</button>`;
+  $('#ccGog').onclick=()=>{cA.goggles=true;ccActs();ccGuide()}}
 function ccRecUI(j){const box=$('#ccRec'),w=APP.run.cc.r[j];if(!box)return;box.style.display='';
   const sel=new Set();
   box.innerHTML=`<b>📝 التغيّر ${j+1}: ما العلامات التي لاحظتها؟</b> <span class="note" style="margin:0">(اختر كل ما ينطبق)</span>
@@ -4447,7 +4625,7 @@ function ccRecUI(j){const box=$('#ccRec'),w=APP.run.cc.r[j];if(!box)return;box.s
     if(ccSignsOk(R,v))fin('✓');
     else if(w.sg.length<3){APP.run.log.push(`علامات غير دقيقة في «${R.t}»: ${v.map(x=>CC.signs[x]).join('، ')}`);
       const miss=R.req.filter(x=>!sel.has(x)),extra=v.filter(x=>!R.req.includes(x)&&!R.opt.includes(x));
-      note(miss.length?`فاتتك علامة. أعد التجربة في ذهنك: ${R.k==='soda'?'ماذا خرج من السائل؟':R.k==='iodine'?'ماذا حدث للون البطاطس؟':R.k==='precip'?'ماذا ظهر في المحلولين الشفافين؟':R.k==='mg'?'ماذا انبعث من الشريط وهو يحترق؟':'هل ظهرت أي علامة فعلًا؟'}`:`اخترت علامة لم تحدث: ${extra.map(x=>CC.signs[x]).join('، ')}.`,true)}
+      note(miss.length?`فاتتك علامة. تذكّر ما شاهدته: ${R.k==='soda'?'ماذا خرج من السائل؟':R.k==='iodine'?'ماذا حدث للون البطاطس حيث سقطت القطرات؟':R.k==='precip'?'ماذا ظهر حين اختلط المحلولان الشفافان؟':R.k==='mg'?'ماذا انبعث من الشريط وهو يحترق؟':'هل ظهرت أي علامة فعلًا؟'}`:`اخترت علامة لم تحدث: ${extra.map(x=>CC.signs[x]).join('، ')}.`,true)}
     else{sel.clear();R.req.forEach(x=>sel.add(x));$$('[data-sg]',box).forEach(b=>b.setAttribute('aria-pressed',sel.has(b.dataset.sg)?'true':'false'));fin(`الصحيح: ${R.req.map(x=>CC.signs[x]).join('، ')}`)}
     ccGuide()};
   $$('[data-ch]',box).forEach(b=>b.onclick=()=>{if(w.chOk||!w.sgOk)return;const R=CC.rx[j],v=b.dataset.ch;w.ch.push(v);
@@ -4459,18 +4637,14 @@ function ccRecUI(j){const box=$('#ccRec'),w=APP.run.cc.r[j];if(!box)return;box.s
     ccGuide()});
   box.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
-function ccShowB(){const box=$('#ccPartB');if(!box||box.dataset.on)return;box.dataset.on='1';box.classList.remove('hide-b');
-  WMSIM.mount($('#ccB'),CCW,CCH,ccDrawB,null);ccS.disp=CC.mass[0].b;ccActsB();box.scrollIntoView({behavior:'smooth',block:'nearest'})}
-function ccActsB(){const box=$('#ccActsB'),r=APP.run;if(!box)return;const j=ccS.mj,w=r.cc.m[j];
-  if(w.done){box.innerHTML='';return}
-  box.innerHTML=`<button class="btn amber" id="ccGoB" ${ccS.mph!=='idle'?'disabled':''}>${CC.mass[j].k==='open'?'🥄 اسكب صودا الخبز في الخل':'🎈 ارفع البالون لتسقط الصودا في الخل'}</button>`;
-  $('#ccGoB').onclick=()=>{ccS.mph='run';ccS.mt=0;ccS.bub=[];ccS.cbM=jj=>{r.cc.m[jj].done=true;$('#ccm'+jj).disabled=false;$('#ccm'+jj+'r').disabled=false;ccActsB();ccGuide()};ccActsB();ccGuide()};
-}
+function ccShowB(){const box=$('#ccPartB');if(!box||box.dataset.on)return;box.dataset.on='1';box.classList.remove('hide-b');ccS.lock=true;
+  ccSetB(0);WMSIM.mount($('#ccB'),CCW,CCH,ccDrawB,ccHB);$('#ccB').style.touchAction='none';box.scrollIntoView({behavior:'smooth',block:'nearest'})}
+function ccSetB(j){const r=APP.run;ccSetupB(j);cB.cb=jj=>{r.cc.m[jj].done=true;$('#ccm'+jj).disabled=false;$('#ccm'+jj+'r').disabled=false;ccGuide()}}
 function ccRecM(j){const r=APP.run,w=r.cc.m[j],M=CC.mass[j];if(!w.done||w.ok)return;
-  if(!ccS.stable)return note('انتظر حتى تثبت القراءة (النقطة الخضراء) ثم اكتبها.');
+  if(!cB.stable)return note('انتظر حتى تثبت القراءة (النقطة الخضراء) ولا تلمس شيئًا، ثم اكتبها.');
   const v=parseNum($('#ccm'+j).value);if(!isFinite(v)||v<=0)return note('اكتب قراءة الميزان بالجرام، مثل ٢٠٥٫٠');
   w.m.push(Math.round(v*10)/10);const fin=tx=>{w.ok=true;$('#ccm'+j+'o').textContent=tx;$('#ccm'+j).disabled=true;$('#ccm'+j+'r').disabled=true;
-    const n2=ccCurB();if(n2>=0)setTimeout(()=>{Object.assign(ccS,{mj:n2,mph:'idle',mt:0,bub:[],disp:CC.mass[n2].b,vel:0});ccActsB();ccGuide()},700)};
+    const n2=ccCurB();if(n2>=0)setTimeout(()=>{ccSetB(n2);ccGuide()},700)};
   if(Math.abs(v-M.a)<=.15)fin('✓');
   else if(w.m.length<3){r.log.push(`قراءة كتلة غير دقيقة بعد «${M.t}»: ${v} g`);note(Math.abs(v-M.b)<=.15&&M.a!==M.b?'هذه قراءة ما قبل التفاعل. انظر إلى الشاشة الآن بعد أن ثبتت.':'اقرأ الرقم على شاشة الميزان كما هو بعد ظهور النقطة الخضراء.',true)}
   else{$('#ccm'+j).value=arNum(M.a.toFixed(1));fin(`الصحيح ${M.a.toFixed(1)}`)}
@@ -4487,7 +4661,12 @@ function ccGuide(){
   if(r.step==='rx'){
     const j=ccCurA();if(j<0){r.step='mass';ccShowB();return ccGuide()}
     const w=x.r[j],R=CC.rx[j];
-    if(!w.done){t.textContent=bidi(ccS.ph==='run'?'راقب ما يحدث جيدًا: الفقاعات، واللون، والمحرار، والضوء.':R.k==='mg'?`التغيّر ${j+1}: ${R.t}. البس النظارة الواقية، وأمسك الشريط بالماسك، ثم قرّبه من اللهب. لا تنظر مباشرة إلى الضوء.`:`التغيّر ${j+1}: ${R.t}. المحرار يقرأ ${CC.T0}°C. اضغط «${R.act}» وراقب.`);return}
+    if(!w.done){const how={soda:`المحرار يقرأ ${CC.T0}°C. أمسك الملعقة وقرّبها من فوهة الكأس فتميل وتنسكب الصودا في الخل. اسكب ببطء، وراقب السائل والمحرار.`,
+        iodine:'أمسك القطّارة وارفعها فوق شريحة البطاطس، وأبقها ثابتة لتسقط القطرات واحدة بعد أخرى (خمس قطرات على الأقل). راقب اللون حيث تسقط.',
+        precip:'أمسك الكأس الصغيرة وقرّبها من فوهة الكأس الكبيرة فتميل ويُصبّ المحلول. راقب ما يحدث حيث يختلط المحلولان، ثم انتظر قليلًا.',
+        mg:`${cA.goggles?'✓ النظارة ملبوسة.':'البس النظارة الواقية أولًا (الزر تحت الرسم).'} اسحب الماسك وضع فكّيه على طرف الشريط الأيسر ثم اتركه ليمسكه، ثم حرّك الشريط حتى يدخل طرفه في اللهب وأبقه هناك. لا تنظر مباشرة إلى الضوء.`,
+        salt:'اسكب الملح بالملعقة في الماء، ثم أمسك القضيب الزجاجي وحرّكه داخل الماء حتى يذوب الملح كله.'}[R.k];
+      t.textContent=bidi(`التغيّر ${j+1}: ${R.t}. ${how}`);return}
     if(!w.sgOk){t.textContent='سجّل العلامات التي لاحظتها تحت الرسم، ثم تحقّق.';return}
     t.textContent='الآن احكم: هل تكوّنت مادة جديدة؟';return;
   }
@@ -4496,8 +4675,9 @@ function ccGuide(){
     if(j<0){t.textContent='أكملت الجزأين. قارن قراءتي الميزان، ثم سجّل ملاحظاتك.';
       act.innerHTML='<button class="btn amber" id="ccObsGo">سجّل ملاحظاتي</button>';$('#ccObsGo').onclick=()=>{r.step='observe';ccGuide();wmObs(CC_OBS,CC_OBS_SET,'chemchg')};return}
     const w=x.m[j],M=CC.mass[j];
-    if(!w.done){t.textContent=bidi(ccS.mph==='run'?'راقب شاشة الميزان أثناء التفاعل…':`${M.t}. الميزان يقرأ ${M.b.toFixed(1)} g قبل التفاعل. ابدأ التفاعل وراقب القراءة.`);return}
-    t.textContent=bidi('انتظر النقطة الخضراء، ثم اكتب قراءة الميزان بعد التفاعل في الجدول.');return;
+    if(!w.done){t.textContent=bidi(M.k==='open'?`الكأس وطبق الصودا معًا على الميزان: ${M.b.toFixed(1)} g. ارفع الطبق وقرّبه من فوهة الكأس فيميل ويُسكب، ثم أعده إلى الكفة ولا تلمس شيئًا وانتظر النقطة الخضراء. (لاحظ ماذا يحدث للقراءة حين ترفع الطبق!)`
+      :`القارورة مغلقة ببالون فيه صودا: ${M.b.toFixed(1)} g. ارفع البالون بإصبعك لأعلى لتسقط الصودا في الخل، ثم ارفع يدك وراقب البالون والقراءة.`);return}
+    t.textContent=bidi('القراءة ثابتة. اكتب قراءة الميزان بعد التفاعل في الجدول.');return;
   }
   if(r.step==='observe')t.textContent='ماذا لاحظت؟ اختر ملاحظاتك تحت الجدول.';
 }
