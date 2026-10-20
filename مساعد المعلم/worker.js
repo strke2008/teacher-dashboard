@@ -5278,6 +5278,27 @@ export default {
       await env.HW.put('parents', JSON.stringify(P));
       return json({ ok: true, matched, unmatched: unmatched.slice(0, 100), ambiguous: ambiguous.slice(0, 50), total: Object.keys(P).length });
     }
+    /* 🏆 تكريم الثلاثة الأوائل في كل فصل: المعلم يرسلها فتظهر شهادة خاصة في صفحة ولي الأمر
+       KV «top3»: { sid: [ {rank, cls, total, max, label, sem, per, at, date} ] } — شهادة واحدة لكل فترة لكل طالب */
+    if (url.pathname === '/honor-top3' && (request.method === 'POST' || request.method === 'GET')) {
+      let b = {}; if (request.method === 'POST') { try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); } }
+      const tok = request.method === 'POST' ? b.t : url.searchParams.get('t');
+      if (!env.TEACHER_TOKEN || tok !== env.TEACHER_TOKEN) return json({ ok: false, error: 'unauthorized' }, 401);
+      let T = {}; try { T = JSON.parse(await env.HW.get('top3') || '{}') || {}; } catch {}
+      if (request.method === 'GET') return json({ ok: true, top3: T, tpl: certText(await certTplRead(env), '') });
+      const sem = b.sem === 2 ? 2 : 1, per = b.per === 2 ? 2 : 1, now = Date.now();
+      if (b.op === 'revoke') { const sid = String(b.sid || ''); T[sid] = (T[sid] || []).filter(x => !(x.sem === sem && x.per === per)); if (!T[sid].length) delete T[sid];
+        await env.HW.put('top3', JSON.stringify(T)); return json({ ok: true, top3: T }); }
+      const roster = await loadRoster(env), known = new Set(roster.map(x => String(x.id)));
+      const items = (Array.isArray(b.items) ? b.items : []).slice(0, 60).filter(x => x && known.has(String(x.sid)) && [1, 2, 3].includes(Number(x.rank)));
+      if (!items.length) return json({ ok: false, error: 'no_items' }, 400);
+      const date = certDateLine(now), label = String(b.label || '').slice(0, 80);
+      for (const x of items) { const sid = String(x.sid);
+        const e = { rank: Number(x.rank), cls: String(x.cls || '').slice(0, 30), total: Math.max(0, Math.min(60, Number(x.total) || 0)), max: Number(x.max) === 40 ? 40 : 60, label, sem, per, at: now, date };
+        T[sid] = [e, ...(T[sid] || []).filter(y => !(y.sem === sem && y.per === per))].slice(0, 6); }
+      await env.HW.put('top3', JSON.stringify(T));
+      return json({ ok: true, sent: items.length, top3: T });
+    }
     /* 👪 بوابة ولي الأمر: اسم الطالب + جوال ولي الأمر ← تقرير ابنه (للقراءة فقط). 8 محاولات خاطئة في الساعة لكل جهاز */
     if (url.pathname === '/parent/report' && request.method === 'POST') {
       let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
@@ -5314,7 +5335,8 @@ export default {
         if (g) { const pub = reports.find(r => r.semester === sem && r.period === per);
           live = studentReportBuild(data, g, sem, per, pub ? pub.teacherNote : '', srepActsLive(state, data, sid, st.name, cls, sem, per)); } else liveErr = 'not_in_grades'; } catch (e) { liveErr = String(e && e.message || e).slice(0, 120); }
       if (fails) await env.HW.delete(fk);
-      return json({ ok: true, live, ...(liveErr ? { liveErr } : {}), student: { name: st.name, cls }, siblings, acts: { total: acts.length, done: done.sort((a, c) => c.at - a.at).slice(0, 15), doneN: done.length, missing: missing.slice(0, 20) }, reports, weekly,
+      let top3 = []; try { top3 = ((JSON.parse(await env.HW.get('top3') || '{}') || {})[sid] || []).slice(0, 3); } catch {}
+      return json({ ok: true, live, ...(liveErr ? { liveErr } : {}), top3, student: { name: st.name, cls }, siblings, acts: { total: acts.length, done: done.sort((a, c) => c.at - a.at).slice(0, 15), doneN: done.length, missing: missing.slice(0, 20) }, reports, weekly,
         cert: { ...certText(await certTplRead(env), /\d/.test(cls) ? cls : ''), date: certDateLine(Date.now()), cls: /\d/.test(cls) ? cls : '' },
         teacher: String((state.repcfg && state.repcfg.teacher) || ''), subject: String((state.repcfg && state.repcfg.subject) || ''), school: String((state.repcfg && state.repcfg.school) || '') });
     }

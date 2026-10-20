@@ -91,6 +91,27 @@ footer{text-align:center;color:var(--soft);font-size:.78rem;padding:10px 0 30px}
 .mc-sig span{font-weight:700;min-height:1.2em}.mc-sig.r{right:13%!important;left:auto!important}.mc-sig.l{left:13%!important;right:auto!important}
 .pc-btns{display:flex;gap:8px;margin-top:12px}.pc-btns button{flex:1;background:#1F6B54}.pc-btns button.ghost{background:#EEF3FB;color:#1F6B54}
 #pc-print{display:none}
+/* 🏆 شهادة الأوائل: القالب نفسه + إطار ذهبي وميدالية المركز وإكليل وشريط اسم بلون المركز */
+.mc-cert.mc-top .mc-pre{margin:0 22%}
+.mc-cert>.mc-frame{position:absolute;inset:1.5%;z-index:1;border:.55cqw solid transparent;border-radius:.9cqw;pointer-events:none;
+  background:linear-gradient(135deg,#FCEFB4,#C9932E 30%,#FFF4C7 50%,#B8860B 70%,#F7E08A) border-box;-webkit-mask:linear-gradient(#000 0 0) padding-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
+.mc-cert>.mc-frame2{position:absolute;inset:2.6%;z-index:1;border:.16cqw solid rgba(201,147,46,.55);border-radius:.6cqw;pointer-events:none}
+.mc-cert>.mc-band{position:absolute;left:23.6%!important;right:23.6%!important;top:43.5%;height:6.4%;border-radius:99px;z-index:1;box-shadow:0 .25cqw .9cqw rgba(120,80,0,.25),inset 0 0 0 .22cqw rgba(255,255,255,.55)}
+.mc-top.r1>.mc-band{background:linear-gradient(180deg,#FFF1A8,#F2C53D 45%,#C99419)}
+.mc-top.r2>.mc-band{background:linear-gradient(180deg,#FFFFFF,#D9DFE6 45%,#9EA8B4)}
+.mc-top.r3>.mc-band{background:linear-gradient(180deg,#FFD9B5,#E0955A 45%,#A9612C)}
+.mc-top>.mc-name{color:#3B2A05!important;text-shadow:0 1px 0 rgba(255,255,255,.6)!important;z-index:2}
+.mc-top.r2>.mc-name{color:#2D3540!important}.mc-top.r3>.mc-name{color:#3E1F08!important}
+.mc-cert>img.mc-medal{position:absolute;left:6%;top:26.5%;width:14%;height:auto;max-width:none;z-index:2;filter:drop-shadow(0 .5cqw .7cqw rgba(0,0,0,.22))}
+.mc-cert>img.mc-laurel{position:absolute;right:5.5%;top:27.5%;width:15.5%;height:auto;max-width:none;z-index:2}
+.mc-cert>.mc-rank{position:absolute;right:5.5%!important;left:auto!important;top:27.5%;width:15.5%;height:21.9%;z-index:3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.1cqw;line-height:1.15}
+.mc-rank small{font-size:1.15cqw;font-weight:700;color:#6E6E6E}.mc-rank b{font-size:2.6cqw;font-weight:900}
+.mc-top.r1 .mc-rank b{color:#A87A0E}.mc-top.r2 .mc-rank b{color:#6B7684}.mc-top.r3 .mc-rank b{color:#9A5426}
+.mc-cert>img.mc-spark{position:absolute;inset:0;width:100%;height:100%;max-width:none;z-index:1;pointer-events:none}
+.pc-sec.top{border:2px solid #E9C46A;background:linear-gradient(180deg,#FFFBEB,#fff 40%)}
+.pc-sec.top h2{color:#8A6110}
+.mc-cert>.mc-pv{position:absolute;top:3.4%;left:3.4%!important;right:auto!important;z-index:4;background:#B91C1C;color:#fff;font-weight:800;font-size:1.3cqw;padding:.3cqw 1.2cqw;border-radius:99px;opacity:.92}
+body.t3pv{background:#EEF2F7}body.t3pv>*:not(#t3pv){display:none!important}#t3pv{padding:10px}
 @media print{
   @page{size:A4 landscape;margin:0}
   body.pc-printing>*:not(#pc-print){display:none!important}
@@ -165,18 +186,53 @@ $('nm').addEventListener('input',()=>{
 });
 /* 🏅 شهادة التميّز: قالب شهادات الشكر نفسه (الخلفية، ونص المعلم وتوقيعاته كما ضبطها في اللوحة) */
 const PC_BG='/cert-bg.jpg', PC_STAMP='/stamp.png';   // 🔵 ختم المدرسة على شهادة التميّز (تقدير «ممتاز»)
-let PC=null;
+const PCS={};   // x: شهادة التميّز (ممتاز) · t: شهادة الأوائل
+const ORD=['الأول','الثاني','الثالث'];
+const METAL={1:['#FFF6C2','#F4C542','#C8961E','#7A5408'],2:['#FFFFFF','#E3E8EE','#A8B2BF','#5E6874'],3:['#FFE3C9','#E59E62','#B06A32','#6E3A14']};
+/* 🥇 ميدالية بلون المركز (SVG واحد للشاشة والطباعة والصورة المحفوظة) */
+function medalSVG(r){ const M=METAL[r]||METAL[1], n='١٢٣'[r-1]||'١'; let sc='';
+  for(let i=0;i<20;i++){ const a=i/20*Math.PI*2; sc+=`<circle cx="${(100+74*Math.cos(a)).toFixed(1)}" cy="${(108+74*Math.sin(a)).toFixed(1)}" r="13" fill="url(#m)"/>`; }
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 250"><defs><linearGradient id="m" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${M[0]}"/><stop offset=".45" stop-color="${M[1]}"/><stop offset="1" stop-color="${M[2]}"/></linearGradient>
+    <radialGradient id="c" cx=".4" cy=".35" r=".75"><stop offset="0" stop-color="${M[0]}"/><stop offset=".6" stop-color="${M[1]}"/><stop offset="1" stop-color="${M[2]}"/></radialGradient></defs>
+    <path d="M62 150 L34 246 L62 228 L84 248 L104 160Z" fill="#0F8A7E"/><path d="M138 150 L166 246 L138 228 L116 248 L96 160Z" fill="#0B6B62"/>
+    ${sc}<circle cx="100" cy="108" r="76" fill="url(#m)"/><circle cx="100" cy="108" r="60" fill="url(#c)" stroke="${M[3]}" stroke-opacity=".35" stroke-width="3"/>
+    <circle cx="100" cy="108" r="52" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="2" stroke-dasharray="3 5"/>
+    <text x="100" y="134" text-anchor="middle" font-family="Tahoma,Arial,sans-serif" font-size="76" font-weight="700" fill="${M[3]}">${n}</text></svg>`; }
+/* 🌿 إكليل غار بلون المركز — النص في وسطه يُكتب فوقه */
+function laurelSVG(r){ const M=METAL[r]||METAL[1]; let lv='';
+  // ورقتان لكل فرع على دائرة نصف قطرها 86 حول (110,110): الأيسر من 115° إلى 243° والأيمن من 65° إلى −63°، ويلتقيان أسفلها
+  for(let i=0;i<9;i++) for(const [t0,dir,tilt] of [[115,1,25],[65,-1,-25]]){ const th=t0+dir*i*16, a=th*Math.PI/180, cx=110+86*Math.cos(a), cy=110+86*Math.sin(a);
+    lv+=`<ellipse cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" rx="8.5" ry="19" transform="rotate(${(th+tilt).toFixed(1)} ${cx.toFixed(1)} ${cy.toFixed(1)})" fill="url(#l)"/>`; }
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 220"><defs><linearGradient id="l" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${M[0]}"/><stop offset=".5" stop-color="${M[1]}"/><stop offset="1" stop-color="${M[2]}"/></linearGradient></defs>
+    <circle cx="110" cy="110" r="70" fill="#fff" fill-opacity=".92" stroke="${M[1]}" stroke-width="3"/>${lv}
+    <path d="M86 200 Q110 186 134 200" stroke="${M[2]}" stroke-width="5" fill="none" stroke-linecap="round"/></svg>`; }
+/* ✨ نجوم ذهبية خفيفة حول الإطار (بنفس نسبة الشهادة) */
+function sparkSVG(){ const st=(x,y,s,o)=>`<path transform="translate(${x} ${y}) scale(${s})" d="M0 -10 L2.4 -2.4 L10 0 L2.4 2.4 L0 10 L-2.4 2.4 L-10 0 L-2.4 -2.4Z" fill="#E2B33C" opacity="${o}"/>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 297 210" preserveAspectRatio="none">${[[22,58,.55,.9],[48,52,.35,.7],[16,112,.3,.6],[275,58,.5,.9],[250,52,.32,.7],[282,110,.3,.6],[60,98,.25,.5],[238,100,.25,.5]].map(a=>st(...a)).join('')}</svg>`; }
+const svgUrl=x=>'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(x);
 function certHTML(s, R, j, exOn, out, max){
   const k=j.cert||{}, subj=j.subject||'العلوم';
-  PC={ name:s.name, cls:k.cls||'', date:k.date||'', pre:k.pre||'يتقدم معلم المادة بالشكر والتقدير للطالب', dua:k.dua||'سائلين المولى له دوام التوفيق والنجاح',
+  const PC=PCS.x={ name:s.name, cls:k.cls||'', date:k.date||'', pre:k.pre||'يتقدم معلم المادة بالشكر والتقدير للطالب', dua:k.dua||'سائلين المولى له دوام التوفيق والنجاح',
     reason:`تحقيقه تقدير «ممتاز» في مادة ${subj}${R.label?` — ${R.label}`:''}`, rTitle:k.rTitle??'معلم المادة', rName:k.rName??(j.teacher||''), lTitle:k.lTitle??'مدير المدرسة', lName:k.lName??'' };
   return `<section class="card pc-sec"><h2>🏅 شهادة تميّز</h2><p class="muted" style="margin:-.3rem 0 .8rem">مبروك! حقق ابنكم تقدير «ممتاز» (${out} من ${max}${exOn?'':' في أعمال السنة'}) — هذه شهادته، احفظوها صورة أو اطبعوها.</p>
-    <div class="pc-wrap">${pcCertHTML(PC)}<div class="pc-btns"><button type="button" onclick="pcSave()">⬇️ حفظ صورة</button><button type="button" class="ghost" onclick="pcPrint()">🖨️ طباعة</button></div></div></section>`;
+    <div class="pc-wrap">${pcCertHTML(PC)}<div class="pc-btns"><button type="button" onclick="pcSave('x')">⬇️ حفظ صورة</button><button type="button" class="ghost" onclick="pcPrint('x')">🖨️ طباعة</button></div></div></section>`;
+}
+/* 🏆 شهادة الأوائل: يرسلها المعلم للثلاثة الأوائل في كل فصل — أحدث شهادة تظهر هنا */
+function top3HTML(s, j){
+  const e=(j.top3||[])[0]; if(!e) return '';
+  const k=j.cert||{}, subj=j.subject||'العلوم', ord=ORD[e.rank-1]||'';
+  PCS.t={ rank:e.rank, name:s.name, cls:e.cls||k.cls||'', date:e.date||'', pre:k.pre||'يتقدم معلم المادة بالشكر والتقدير للطالب', dua:k.dua||'سائلين المولى له دوام التوفيق والنجاح',
+    reason:`حصوله على المركز ${ord} على طلاب الفصل ${e.cls||''} في مادة ${subj}${e.label?` — ${e.label}`:''}`, total:e.total, max:e.max||60,
+    rTitle:k.rTitle??'معلم المادة', rName:k.rName??(j.teacher||''), lTitle:k.lTitle??'مدير المدرسة', lName:k.lName??'' };
+  return `<section class="card pc-sec top"><h2>🏆 شهادة الأوائل — المركز ${ord}</h2><p class="muted" style="margin:-.3rem 0 .8rem">ألف مبروك! حصل ابنكم على <b>المركز ${ord}</b> على طلاب فصله ${esc(e.cls||'')} في مادة ${esc(subj)}${e.label?` (${esc(e.label)})`:''}. هذه شهادته — احفظوها صورة أو اطبعوها.</p>
+    <div class="pc-wrap">${pcCertHTML(PCS.t)}<div class="pc-btns"><button type="button" onclick="pcSave('t')">⬇️ حفظ صورة</button><button type="button" class="ghost" onclick="pcPrint('t')">🖨️ طباعة</button></div></div></section>`;
 }
 function pcCertHTML(c){
-  return `<div class="mc-cert"><img class="mc-bg" src="${PC_BG}" alt=""><img class="mc-stamp" src="${PC_STAMP}" alt="ختم المدرسة">
+  const r=c.rank, top=r?`<div class="mc-frame"></div><div class="mc-frame2"></div><img class="mc-spark" src="${svgUrl(sparkSVG())}" alt=""><div class="mc-band"></div>
+    <img class="mc-medal" src="${svgUrl(medalSVG(r))}" alt="ميدالية المركز ${ORD[r-1]}"><img class="mc-laurel" src="${svgUrl(laurelSVG(r))}" alt=""><div class="mc-rank"><small>المركز</small><b>${ORD[r-1]}</b><small>على الفصل</small></div>`:'';
+  return `<div class="mc-cert${r?` mc-top r${r}`:''}"><img class="mc-bg" src="${PC_BG}" alt="">${top}<img class="mc-stamp" src="${PC_STAMP}" alt="ختم المدرسة">
     <div class="mc-pre" data-fs="2.02">${esc(c.pre)}</div><div class="mc-name"><span data-fs="2.38">${esc(c.name)}</span></div>
-    <div class="mc-body"><div data-fs="1.96">وذلك نظير ${esc(c.reason)}</div><div data-fs="1.96">${esc(c.dua)}</div><div class="mc-date" data-fs="1.37">${/\d/.test(c.cls||'')?`الفصل ${esc(c.cls)} · `:''}${esc(c.date)}</div></div>
+    <div class="mc-body"><div data-fs="1.96">وذلك نظير ${esc(c.reason)}</div><div data-fs="1.96">${esc(c.dua)}</div><div class="mc-date" data-fs="1.37">${/\d/.test(c.cls||'')?`الفصل ${esc(c.cls)} · `:''}${c.rank&&c.total?`المجموع ${esc(c.total)} من ${esc(c.max||60)} · `:''}${esc(c.date)}</div></div>
     <div class="mc-sig r"><b data-fs="1.78">${esc(c.rTitle)}</b><span data-fs="1.78">${esc(c.rName)}</span></div>
     <div class="mc-sig l"><b data-fs="1.78">${esc(c.lTitle)}</b><span data-fs="1.78">${esc(c.lName)}</span></div></div>`;
 }
@@ -186,8 +242,8 @@ function pcFit(root){
     const base=parseFloat(el.dataset.fs)||2; let k=1,n=0; el.style.fontSize=base+'cqw'; if(!el.clientWidth) return;
     while(el.scrollWidth>el.clientWidth+1&&k>0.4&&n++<40){ k*=0.95; el.style.fontSize=(base*k)+'cqw'; } });
 }
-function pcPrint(){
-  if(!PC) return; let w=document.getElementById('pc-print'); if(!w){ w=document.createElement('div'); w.id='pc-print'; document.body.appendChild(w); }
+function pcPrint(key){
+  const PC=PCS[key||'x']; if(!PC) return; let w=document.getElementById('pc-print'); if(!w){ w=document.createElement('div'); w.id='pc-print'; document.body.appendChild(w); }
   w.innerHTML=pcCertHTML(PC);
   w.style.cssText='display:block;position:absolute;left:-20000px;top:0;width:297mm;visibility:hidden'; w.querySelector('.mc-cert').style.width='297mm'; pcFit(w); w.style.cssText=''; w.querySelector('.mc-cert').style.width='';
   document.body.classList.add('pc-printing');
@@ -200,17 +256,37 @@ function pcPrint(){
 /* حفظ صورة: تُرسم الشهادة على لوحة بدقة الطباعة. تُجهَّز مسبقًا بعد ظهورها، فيبقى الضغط «إيماءة مستخدم» يقبلها سفاري:
    iPhone/iPad ← قائمة المشاركة («حفظ الصورة» إلى الصور) · غيره ← تنزيل ملف PNG */
 let PC_BLOB=null, PC_BLOB_KEY='';
+const pcImg=src=>new Promise(r=>{ const im=new Image(); im.onload=()=>r(im); im.onerror=()=>r(null); im.src=src; });
 async function pcRender(c){
   try{ await document.fonts.ready; }catch(e){}
   const img=new Image(); img.src=PC_BG; await new Promise(r=>{ if(img.complete) r(); else { img.onload=r; img.onerror=r; } });
   const W=2000,H=1412,cv=document.createElement('canvas'); cv.width=W; cv.height=H; const x=cv.getContext('2d');
   x.drawImage(img,0,0,W,H); x.direction='rtl'; x.textAlign='center'; x.textBaseline='middle';
+  const r=c.rank;
+  if(r){ // 🏆 إضافات شهادة الأوائل بنفس مواضعها على الشاشة
+    const gold=x.createLinearGradient(0,0,W,H); [['0','#FCEFB4'],['.3','#C9932E'],['.5','#FFF4C7'],['.7','#B8860B'],['1','#F7E08A']].forEach(([o,c2])=>gold.addColorStop(+o,c2));
+    const rr=(X,Y,w,h,rad)=>{ x.beginPath(); x.moveTo(X+rad,Y); x.arcTo(X+w,Y,X+w,Y+h,rad); x.arcTo(X+w,Y+h,X,Y+h,rad); x.arcTo(X,Y+h,X,Y,rad); x.arcTo(X,Y,X+w,Y,rad); x.closePath(); };
+    // inset بالنسبة المئوية: الأفقي من العرض والرأسي من الارتفاع — مثل CSS تمامًا
+    const fw=W*0.0055, fx=W*0.015, fy=H*0.015; x.lineWidth=fw; x.strokeStyle=gold; rr(fx+fw/2,fy+fw/2,W-2*fx-fw,H-2*fy-fw,W*0.009); x.stroke();
+    x.lineWidth=W*0.0016; x.strokeStyle='rgba(201,147,46,.55)'; rr(W*0.026,H*0.026,W*(1-0.052),H*(1-0.052),W*0.006); x.stroke();
+    const sp=await pcImg(svgUrl(sparkSVG())); if(sp) x.drawImage(sp,0,0,W,H);
+    const M=METAL[r], bx=W*0.236, by=H*0.435, bw=W*(1-0.472), bh=H*0.064, bg=x.createLinearGradient(0,by,0,by+bh);
+    bg.addColorStop(0,M[0]); bg.addColorStop(.45,M[1]); bg.addColorStop(1,M[2]);
+    x.save(); x.shadowColor='rgba(120,80,0,.25)'; x.shadowBlur=18; x.shadowOffsetY=5; x.fillStyle=bg; rr(bx,by,bw,bh,bh/2); x.fill(); x.restore();
+    x.lineWidth=W*0.0022; x.strokeStyle='rgba(255,255,255,.55)'; rr(bx+2,by+2,bw-4,bh-4,bh/2-2); x.stroke();
+    const md=await pcImg(svgUrl(medalSVG(r))); if(md){ const mw=W*0.14; x.save(); x.shadowColor='rgba(0,0,0,.22)'; x.shadowBlur=14; x.shadowOffsetY=10; x.drawImage(md,W*0.06,H*0.265,mw,mw*1.25); x.restore(); }
+    const lr=await pcImg(svgUrl(laurelSVG(r))); const lw=W*0.155, lx=W*(1-0.055)-lw, ly=H*0.275; if(lr) x.drawImage(lr,lx,ly,lw,lw);
+    const cx=lx+lw/2, cy=ly+lw/2, F0="'Readex Pro','Tajawal','Segoe UI',Tahoma,sans-serif";
+    x.fillStyle='#6E6E6E'; x.font=`700 ${W*0.0115}px ${F0}`; x.fillText('المركز',cx,cy-lw*0.2); x.fillText('على الفصل',cx,cy+lw*0.2);
+    x.fillStyle=({1:'#A87A0E',2:'#6B7684',3:'#9A5426'})[r]; x.font=`900 ${W*0.026}px ${F0}`; x.fillText(ORD[r-1],cx,cy+2);
+  }
   const F="'Readex Pro','Tajawal','Segoe UI',Tahoma,sans-serif";
   const line=(t,cx,cy,size,color,weight=800,maxW=W*0.66)=>{ if(!t) return; x.fillStyle=color; let s=size; do{ x.font=`${weight} ${s}px ${F}`; s-=2; }while(x.measureText(t).width>maxW&&s>14); x.fillText(t,cx,cy); };
-  line(c.pre,W/2,H*0.392,46,'#6E6E6E');
-  x.save(); x.shadowColor='rgba(0,0,0,.2)'; x.shadowBlur=3; line(c.name,W/2,H*0.469,56,'#FFFFFF',800,W*0.48); x.restore();
+  line(c.pre,W/2,H*0.392,46,'#6E6E6E',800,r?W*0.56:W*0.66);
+  if(r) line(c.name,W/2,H*0.469,56,({1:'#3B2A05',2:'#2D3540',3:'#3E1F08'})[r],800,W*0.48);
+  else { x.save(); x.shadowColor='rgba(0,0,0,.2)'; x.shadowBlur=3; line(c.name,W/2,H*0.469,56,'#FFFFFF',800,W*0.48); x.restore(); }
   line('وذلك نظير '+c.reason,W/2,H*0.565,44,'#6E6E6E'); line(c.dua,W/2,H*0.623,44,'#6E6E6E');
-  line((/\d/.test(c.cls||'')?`الفصل ${c.cls} · `:'')+c.date,W/2,H*0.672,30,'#8A8A8A',700);
+  line((/\d/.test(c.cls||'')?`الفصل ${c.cls} · `:'')+(r&&c.total?`المجموع ${c.total} من ${c.max||60} · `:'')+c.date,W/2,H*0.672,30,'#8A8A8A',700);
   line(c.rTitle,W*0.74,H*0.815,40,'#6E6E6E',800,W*0.26); line(c.rName,W*0.74,H*0.87,38,'#6E6E6E',700,W*0.26);
   line(c.lTitle,W*0.26,H*0.815,40,'#6E6E6E',800,W*0.26); line(c.lName,W*0.26,H*0.87,38,'#6E6E6E',700,W*0.26);
   // الختم في الصورة المحفوظة بنفس موضعه على الشاشة (منتصف الأسفل، مائل قليلًا)
@@ -219,22 +295,31 @@ async function pcRender(c){
     x.translate(W*0.5,H*0.70+sh/2); x.rotate(-8*Math.PI/180); x.drawImage(st,-sw/2,-sh/2,sw,sh); x.restore(); }
   return new Promise(r=>{ try{ cv.toBlob(b=>r(b),'image/png'); }catch(e){ r(null); } });
 }
-async function pcPrepare(){ if(!PC) return; const k=JSON.stringify(PC); if(PC_BLOB&&PC_BLOB_KEY===k) return; PC_BLOB=await pcRender(PC); PC_BLOB_KEY=k; }
-async function pcSave(){
-  const c=PC; if(!c) return;
-  const fname=`شهادة-تميز-${(c.name||'').replace(/\s+/g,'-')}.png`;
-  let blob=(PC_BLOB&&PC_BLOB_KEY===JSON.stringify(c))?PC_BLOB:null;
+const PC_BLOBS={};
+async function pcPrepare(){ for(const key of Object.keys(PCS)){ const c=PCS[key], k=JSON.stringify(c); if(PC_BLOBS[key]&&PC_BLOBS[key].k===k) continue; PC_BLOBS[key]={ k, b: await pcRender(c) }; } }
+async function pcSave(key){
+  key=key||'x'; const c=PCS[key]; if(!c) return;
+  const fname=`${c.rank?'شهادة-الأوائل':'شهادة-تميز'}-${(c.name||'').replace(/\s+/g,'-')}.png`;
+  let blob=(PC_BLOBS[key]&&PC_BLOBS[key].k===JSON.stringify(c))?PC_BLOBS[key].b:null;
   const ios=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
   if(blob&&ios&&navigator.canShare){
     const f=new File([blob],fname,{type:'image/png'});
-    if(navigator.canShare({files:[f]})){ try{ await navigator.share({files:[f],title:'شهادة تميّز'}); return; }catch(e){ if(e&&e.name==='AbortError') return; } }
+    if(navigator.canShare({files:[f]})){ try{ await navigator.share({files:[f],title:c.rank?'شهادة الأوائل':'شهادة تميّز'}); return; }catch(e){ if(e&&e.name==='AbortError') return; } }
   }
   if(!blob) blob=await pcRender(c);
   if(!blob){ alert('تعذّر حفظ الصورة — استخدموا «طباعة» ثم «حفظ كـ PDF»'); return; }
   const url=URL.createObjectURL(blob), a=document.createElement('a'); a.href=url; a.download=fname;
   document.body.appendChild(a); a.click(); setTimeout(()=>{ a.remove(); URL.revokeObjectURL(url); },1500);
 }
-window.addEventListener('resize',()=>{ if(PC) pcFit($('out')); });
+window.addEventListener('resize',()=>{ if(Object.keys(PCS).length) pcFit($('out')); if($('t3pv')) pcFit($('t3pv')); });
+/* 👁️ معاينة شهادة الأوائل للمعلم داخل لوحته فقط (إطار iframe): بيانات تصل برسالة، وعليها شارة «معاينة» — لا رابط يمكن تداوله */
+if(/[?&]preview=top3\b/.test(location.search) && window.parent!==window){
+  document.body.classList.add('t3pv'); const box=document.createElement('div'); box.id='t3pv'; document.body.appendChild(box);
+  window.addEventListener('message',ev=>{ const d=ev.data; if(!d||d.type!=='mb-top3-preview'||!d.c||![1,2,3].includes(+d.c.rank)) return;
+    const c={...d.c, rank:+d.c.rank}; box.innerHTML=pcCertHTML(c).replace('<div class="mc-cert','<div class="mc-cert').replace(/<\/div>$/,'<div class="mc-pv">معاينة</div></div>');
+    requestAnimationFrame(()=>pcFit(box)); box.querySelectorAll('img').forEach(im=>im.onload=()=>pcFit(box)); });
+  window.parent.postMessage({type:'mb-top3-ready'},'*');
+}
 const LEVELS=[[90,'ممتاز','#13734F'],[80,'جيد جدًا','#1F7A5A'],[65,'جيد','#1F5FC8'],[50,'مقبول','#B7791F'],[0,'يحتاج متابعة','#B4232F']];
 const lvl=p=>LEVELS.find(x=>p>=x[0]);
 function bar(label, val, max, sub, icon, key){
@@ -309,6 +394,8 @@ function render(j, phone){
       return `<p class="muted" style="margin:.6rem 0 0">⏳ لديه <b>${n}</b> ${n===1?'مهمة متاحة':'مهام متاحة'} للحل الآن${cs?` — أقربها ${esc(cs.txt)}`:''}. اضغط بطاقة «واجبات مدرستي» أو «المهام الأدائية» للتفاصيل.</p>`; })()}
     ${(j.siblings||[]).length?`<div class="sib"><span class="muted">إخوته:</span>${j.siblings.map(n=>`<button class="ghost sm" type="button" data-sib="${esc(n)}">${esc(n)}</button>`).join('')}</div>`:''}</section>`;
   // 🏅 شهادة تلقائية لمن بلغ تقدير «ممتاز» — تظهر وتختفي مع المستوى الحي، وتُطبع أو تُحفظ PDF
+  Object.keys(PCS).forEach(k=>delete PCS[k]);
+  h+=top3HTML(s, j);
   if(R && LV[0]==='ممتاز') h+=certHTML(s, R, j, exOn, out, max);
   if(R){
     h+=`<section class="card"><h2>📚 أعمال السنة <span class="h-sc">${work} من 40</span></h2><p class="muted" style="margin:-.3rem 0 .7rem">اضغط أي بطاقة لمعرفة سبب درجتها.</p><div class="tiles">
@@ -331,7 +418,7 @@ function render(j, phone){
   const old=(j.reports||[]).filter(r=>!R||r.semester!==R.semester||r.period!==R.period);
   if(old.length) h+=`<section class="card"><details><summary><b>📄 تقارير الفترات السابقة (${old.length})</b></summary>${old.map(r=>`<div class="row"><span>${esc(r.label||'')}</span><span class="muted">مشاركة ${r.participation?r.participation.score:'—'} · واجبات ${r.homework?r.homework.score:'—'} · سلوك ${r.behavior?r.behavior.score:'—'}${r.exam&&r.exam.measured?` · اختبارات ${r.exam.score}/${r.exam.max}`:''}</span></div>`).join('')}</details></section>`;
   $('out').innerHTML=h;
-  if(PC){ requestAnimationFrame(()=>pcFit($('out'))); const im=$('out').querySelector('.mc-bg'); if(im) im.onload=()=>pcFit($('out')); setTimeout(()=>pcPrepare().catch(()=>{}),600); }
+  if(Object.keys(PCS).length){ requestAnimationFrame(()=>pcFit($('out'))); $('out').querySelectorAll('.mc-bg').forEach(im=>im.onload=()=>pcFit($('out'))); setTimeout(()=>pcPrepare().catch(()=>{}),600); }
   const DET=parentDetails(R, A);
   $('out').querySelectorAll('.tile[data-k]').forEach(t=>{ const open=()=>{ const d=$('det'), k=t.dataset.k, was=t.classList.contains('on');
       $('out').querySelectorAll('.tile.on').forEach(x=>x.classList.remove('on'));

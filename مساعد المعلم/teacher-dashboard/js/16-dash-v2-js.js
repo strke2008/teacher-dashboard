@@ -78,12 +78,80 @@ function cfTopHTML(cls,print){
   const R=cfTopList(cls), name=s=>print?esc(s.name):ctNameLink(s);
   const meta=x=>`<span>📝 ${x.exam!=null?x.exam+'/20':'—'}</span><span>📚 ${x.work}/40</span><span>🎯 ${x.mastery!=null?x.mastery+'%':'—'}</span>`;
   const pod=R.slice(0,3), rest=R.slice(3), M=['🥇','🥈','🥉'];
-  return `<div class="cf2-card cf2-top"><div class="cf2-h"><b>🏆 العشرة الأوائل — فصل ${esc(cls)}</b><small>بالمجموع من 60 · الاختبار قبل بطاقات المتجر · التعادل بالإتقان ثم الاختبار</small></div>
+  return `<div class="cf2-card cf2-top"><div class="cf2-h"><b>🏆 العشرة الأوائل — فصل ${esc(cls)}</b><small>بالمجموع من 60 · الاختبار قبل بطاقات المتجر · التعادل بالإتقان ثم الاختبار</small>
+      ${!print && R.length ? `<button class="btn tick sm cf2-honor" onclick="t3Open('${esc(cls)}')">🏅 تكريم الثلاثة الأوائل</button>` : ''}</div>
     ${R.length?`<div class="cf2-podium">${pod.map((x,i)=>`<div class="cf2-pod p${i+1}"><div class="cf2-medal">${M[i]}</div><div class="cf2-pn">${name(x.s)}</div>
         <div class="cf2-ps"><b>${x.total}</b><small>/60</small></div><div class="cf2-pm">${meta(x)}</div></div>`).join('')}</div>
       ${rest.length?`<ol class="cf2-rank" start="4">${rest.map((x,i)=>`<li><span class="cf2-rn">${i+4}</span><span class="cf2-rname">${name(x.s)}</span>
         <span class="cf2-rbar"><u style="width:${Math.round(x.total/60*100)}%"></u></span><b class="cf2-rt">${x.total}<small>/60</small></b><span class="cf2-rmeta">${meta(x)}</span></li>`).join('')}</ol>`:''}`
     :'<div class="cf2-empty">لا توجد درجات مرصودة بعد لهذا الفصل.</div>'}</div>`;
+}
+
+/* ═════════ 🏅 تكريم الثلاثة الأوائل: شهادة خاصة تظهر في صفحة ولي الأمر + تهنئة واتساب ═════════ */
+const T3_ORD=['الأول','الثاني','الثالث'], T3_MED=['🥇','🥈','🥉'];
+let T3={ sent:{}, tpl:null, cls:'', all:false, pv:null };
+const t3Api=()=>getApi().replace(/\/+$/,'');
+function t3Label(){ const {sem,per}=ctSem(); return { sem, per, label:`${sem===1?'الفصل الأول':'الفصل الثاني'} — ${per===1?'الفترة الأولى':'الفترة الثانية'}` }; }
+/* الثلاثة الأوائل للفصل من «العشرة الأوائل» نفسها — مع تنبيه إن تعادل الثالث والرابع في المجموع */
+function t3Of(cls){ const L=cfTopList(cls,4), top=L.slice(0,3); return { cls, top, tie: L.length>3 && L[3].total===L[2].total ? L[3] : null }; }
+function t3SentFor(sid){ const {sem,per}=ctSem(); return ((T3.sent||{})[String(sid)]||[]).find(e=>e.sem===sem&&e.per===per)||null; }
+async function t3Load(){ try{ const r=await fetch(t3Api()+'/honor-top3?t='+encodeURIComponent(getTok())); const j=await r.json(); if(j&&j.ok){ T3.sent=j.top3||{}; T3.tpl=j.tpl||null; } }catch(e){} }
+async function t3Open(cls){
+  T3.cls=cls; T3.all=false; T3.pv=null;
+  openModal(`<div class="t3"><div class="muted">⏳ جارٍ التحميل…</div></div>`);
+  await Promise.all([t3Load(), typeof parLoad==='function'?parLoad():null]); t3Draw();
+}
+function t3Draw(){
+  const box=document.querySelector('.t3'); if(!box) return;
+  const L=t3Label(), groups=(T3.all?ctClasses():[T3.cls]).map(t3Of).filter(g=>g.top.length);
+  const toSend=groups.flatMap(g=>g.top.map((x,i)=>({x,i,cls:g.cls}))).filter(o=>{ const e=t3SentFor(o.x.s.id); return !e||e.rank!==o.i+1; });
+  const ph=sid=>PARENTS&&PARENTS[String(sid)];
+  box.innerHTML=`<div class="t3-hd"><div><h2>🏅 تكريم الثلاثة الأوائل</h2><p>شهادة خاصة باسم الطالب ومركزه تظهر لولي أمره في صفحة ولي الأمر · ${esc(L.label)}</p></div></div>
+    <div class="t3-seg"><button class="${T3.all?'':'on'}" onclick="T3.all=false;t3Draw()">فصل ${esc(T3.cls)}</button><button class="${T3.all?'on':''}" onclick="T3.all=true;t3Draw()">كل الفصول (${ctClasses().length})</button></div>
+    <div class="t3-body">${groups.map(g=>`<div class="t3-cls"><div class="t3-ch"><b>🏫 ${esc(g.cls)}</b>${g.tie?`<span class="t3-tie">⚠️ تعادل في المجموع بين الثالث و«${esc(g.tie.s.name.split(' ')[0])}» (${g.tie.total}) — الترتيب حسمه الإتقان ثم الاختبار</span>`:''}</div>
+      ${g.top.map((x,i)=>{ const e=t3SentFor(x.s.id), ok=e&&e.rank===i+1, p=ph(x.s.id);
+        return `<div class="t3-row r${i+1}"><span class="t3-m">${T3_MED[i]}</span><div class="t3-n"><b>${esc(x.s.name)}</b><small>المركز ${T3_ORD[i]} · ${x.total} من ${x.exam!=null?60:40}${x.mastery!=null?` · إتقان ${x.mastery}%`:''}</small></div>
+          <span class="chip ${ok?'tick':'ghost'}">${ok?'✓ أُرسلت':e?'أُرسلت بمركز آخر':'لم تُرسل'}</span>
+          <div class="t3-act"><button class="btn ghost sm" onclick="t3Preview('${esc(x.s.id)}','${esc(g.cls)}',${i+1},${x.total},${x.exam!=null?60:40})">👁️ معاينة</button>
+            ${ok?`<button class="btn sm ${p?'tick':'ghost'}" onclick="t3Wa('${esc(x.s.id)}','${esc(g.cls)}',${i+1})" title="${p?'تهنئة على جوال ولي الأمر':'لا يوجد جوال محفوظ — تختار المحادثة بنفسك'}">💬 تهنئة واتساب</button>
+              <button class="btn ghost sm" onclick="t3Revoke('${esc(x.s.id)}')" title="سحب الشهادة من صفحة ولي الأمر">↩️</button>`:''}</div></div>`; }).join('')}</div>`).join('')||'<div class="muted">لا درجات مرصودة بعد.</div>'}</div>
+    ${T3.pv?`<div class="t3-pv"><div class="t3-pvh"><b>👁️ معاينة شهادة ${esc(T3.pv.name)}</b><button class="btn ghost sm" onclick="T3.pv=null;t3Draw()">إغلاق المعاينة</button></div><iframe id="t3-frame" src="${esc(getSite().replace(/\/+$/,''))}/parent.html?preview=top3" title="معاينة الشهادة"></iframe></div>`:''}
+    <div class="modal-foot"><button class="btn ghost" onclick="closeModal()">إغلاق</button>
+      <button class="btn tick" id="t3-send" ${toSend.length?'':'disabled'} onclick="t3Send()">${toSend.length?`📨 إرسال ${toSend.length} ${toSend.length>2&&toSend.length<11?'شهادات':'شهادة'} لأولياء الأمور`:'✓ أُرسلت كلها'}</button></div>`;
+  T3.queue=toSend;
+}
+/* المعاينة: صفحة ولي الأمر نفسها في إطار، تصلها بيانات الشهادة برسالة (عليها شارة «معاينة») */
+function t3Cert(sid,cls,rank,total,max){
+  const s=(STUDENTS||[]).find(v=>String(v.id)===String(sid))||{}, k=T3.tpl||{}, subj=rcGet('subject')||'العلوم', L=t3Label();
+  return { rank, name:s.name||'', cls, date:ctCertDateLine(ctToday()), pre:k.pre||'يتقدم معلم المادة بالشكر والتقدير للطالب', dua:k.dua||'سائلين المولى له دوام التوفيق والنجاح',
+    reason:`حصوله على المركز ${T3_ORD[rank-1]} على طلاب الفصل ${cls} في مادة ${subj} — ${L.label}`, total, max,
+    rTitle:k.rTitle||'معلم المادة', rName:k.rName||rcGet('teacher')||'', lTitle:k.lTitle||'مدير المدرسة', lName:k.lName||rcGet('principal')||'' };
+}
+function t3Preview(sid,cls,rank,total,max){
+  const c=t3Cert(sid,cls,rank,total,max); T3.pv=c; t3Draw();
+  const f=document.getElementById('t3-frame'), send=()=>{ try{ f.contentWindow.postMessage({type:'mb-top3-preview',c},'*'); }catch(e){} };
+  if(f){ f.onload=()=>setTimeout(send,150); f.scrollIntoView({behavior:'smooth',block:'nearest'}); }
+}
+window.addEventListener('message',ev=>{ if(ev.data&&ev.data.type==='mb-top3-ready'&&T3.pv){ const f=document.getElementById('t3-frame'); if(f&&ev.source===f.contentWindow) f.contentWindow.postMessage({type:'mb-top3-preview',c:T3.pv},'*'); } });
+async function t3Send(){
+  const q=T3.queue||[]; if(!q.length) return; const b=document.getElementById('t3-send'); if(b){ b.disabled=true; b.textContent='⏳ جارٍ الإرسال…'; }
+  const L=t3Label();
+  try{ const r=await fetch(t3Api()+'/honor-top3',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:getTok(),op:'send',sem:L.sem,per:L.per,label:L.label,
+      items:q.map(o=>({sid:o.x.s.id,rank:o.i+1,cls:o.cls,total:o.x.total,max:o.x.exam!=null?60:40}))})});
+    const j=await r.json(); if(!j.ok) throw new Error(j.error||r.status); T3.sent=j.top3||T3.sent;
+    toast(`🏅 أُرسلت ${j.sent} ${j.sent>2&&j.sent<11?'شهادات':'شهادة'} — تظهر الآن في صفحة ولي الأمر. أرسل التهنئة بالواتساب من زر كل طالب.`,'good'); t3Draw();
+  }catch(e){ toast('تعذّر الإرسال: '+(/404|not_found/.test(String(e.message))?'انشر worker.js الأخير':e.message),'bad'); t3Draw(); }
+}
+async function t3Revoke(sid){
+  const s=(STUDENTS||[]).find(v=>String(v.id)===String(sid))||{}; if(!confirm(`سحب شهادة الأوائل من صفحة ولي أمر ${s.name||''}؟`)) return;
+  const L=t3Label();
+  try{ const r=await fetch(t3Api()+'/honor-top3',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:getTok(),op:'revoke',sid,sem:L.sem,per:L.per})});
+    const j=await r.json(); if(j.ok){ T3.sent=j.top3||{}; toast('سُحبت الشهادة','good'); } }catch(e){ toast('تعذّر السحب','bad'); }
+  t3Draw();
+}
+function t3Wa(sid,cls,rank){
+  const s=(STUDENTS||[]).find(v=>String(v.id)===String(sid))||{}, subj=rcGet('subject')||'العلوم';
+  parWaOpen(sid,`السلام عليكم ولي أمر الطالب ${String(s.name||'').split(/\s+/)[0]}،\nيسعدنا تهنئتكم بحصول ابنكم على *المركز ${T3_ORD[rank-1]}* على طلاب فصل ${cls} في مادة ${subj} 🏆\nشهادة التكريم بانتظاركم في صفحة ولي الأمر:\n${parLink()}\n(الدخول باسم الطالب ورقم جوالكم المسجّل في المدرسة)\nبارك الله فيه ونفع به.`);
 }
 
 /* ═════════ 🏫 ملف الفصل ═════════ */

@@ -2564,3 +2564,19 @@ button.sk-chip:not([onclick]){cursor:default}
 .lvd-picks-list label{display:flex;align-items:center;gap:.45rem;padding:.35rem .5rem;border-radius:9px;background:#fff;border:1px solid #E6ECF5;cursor:pointer;font-size:.86rem}
 .lvd-picks-list label span{flex:1}.lvd-picks-list label small{color:var(--ink-soft);font-size:.72rem;white-space:nowrap}
 @media (max-width:560px){.lvd-src{grid-template-columns:1fr}}
+/* 🏅 تكريم الثلاثة الأوائل */
+.cf2-honor{margin-inline-start:auto}
+.t3-hd h2{margin:0}.t3-hd p{margin:.2rem 0 .7rem;color:var(--ink-soft);font-size:.84rem}
+.t3-seg{display:inline-flex;gap:4px;background:#EEF2F7;border-radius:12px;padding:4px;margin-bottom:.7rem}
+.t3-seg button{border:0;background:transparent;border-radius:9px;padding:.4rem .9rem;font:inherit;font-weight:700;color:var(--ink-soft);cursor:pointer}
+.t3-seg button.on{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(15,27,45,.12)}
+.t3-body{display:flex;flex-direction:column;gap:.7rem;max-height:52vh;overflow:auto}
+.t3-cls{border:1px solid var(--ui-border,#E2E8F0);border-radius:14px;padding:.6rem .7rem;background:#fff}
+.t3-ch{display:flex;flex-wrap:wrap;gap:.3rem .7rem;align-items:center;margin-bottom:.4rem}.t3-tie{font-size:.74rem;color:#9A6400;background:#FFF6DB;border-radius:8px;padding:.15rem .5rem}
+.t3-row{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem .7rem;padding:.5rem .55rem;border-radius:12px;margin-top:.35rem;background:#F7F9FC;border-inline-start:4px solid #CBD5E1}
+.t3-row.r1{border-color:#D4A017;background:#FFFBEB}.t3-row.r2{border-color:#9EA8B4}.t3-row.r3{border-color:#B06A32;background:#FFF7F0}
+.t3-m{font-size:1.6rem;line-height:1}.t3-n{flex:1;min-width:10rem;display:flex;flex-direction:column}.t3-n small{color:var(--ink-soft);font-size:.76rem}
+.t3-act{display:flex;gap:.3rem;flex-wrap:wrap}
+.t3-pv{margin-top:.7rem;border:1px solid var(--ui-border,#E2E8F0);border-radius:14px;overflow:hidden;background:#EEF2F7}
+.t3-pvh{display:flex;justify-content:space-between;align-items:center;padding:.45rem .7rem;background:#fff}
+.t3-pv iframe{display:block;width:100%;aspect-ratio:297/214;border:0;background:#EEF2F7}
