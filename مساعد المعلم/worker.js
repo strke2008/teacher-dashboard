@@ -571,7 +571,7 @@ function madReportPart(m) {
     pendingList: items.filter(x => x.st === 'pending').map(x => ({ title: t(x), daysLeft: x.daysLeft || 1, dueAt: x.dueAt || 0 })).slice(0, 15) };
 }
 /* 🏅 أهلية بطاقات «تكريمك» (شهادة/شكر للأهل): نفس حساب مستوى بوابة ولي الأمر للفترة الجارية،
-   والاختبار بدرجته الأصلية قبل بطاقات المتجر — فالنقاط وحدها لا تشتري تكريمًا. المطلوب «جيد جدًا» فأعلى (48 من 60) وإتقان الأنشطة 70% فأعلى */
+   والاختبار بدرجة كشف الدرجات نفسها (رصد موحّد)، ومعه شرط إتقان الأنشطة 70% — فالنقاط وحدها لا تشتري تكريمًا. المطلوب «جيد جدًا» فأعلى (48 من 60) وإتقان الأنشطة 70% فأعلى */
 const HONOR_MIN = 48;
 async function honorEligibility(env, st) {
   try {
@@ -587,7 +587,7 @@ async function honorEligibility(env, st) {
     const hm = [H.classPart, H.madrasati].filter(x => x && x.measured);
     if (hm.length) parts.push([hm.reduce((a, x) => a + n1(x.score), 0), hm.reduce((a, x) => a + (Number(x.max) || 5), 0)]);
     if (A && A.n) parts.push([A.score, 10]);
-    if (R.exam.measured && R.exam.score != null) parts.push([R.exam.base != null ? R.exam.base : R.exam.score, 20]);
+    if (R.exam.measured && R.exam.score != null) parts.push([R.exam.score, 20]);   // درجة الكشف نفسها (رصد موحّد مع كشف الدرجات)
     if (!parts.length) return { ok: true, eligible: false, level: '', none: true };
     parts.push([R.behavior.score, 10]);
     const t = parts.reduce((a, x) => a + n1(x[0]), 0) / parts.reduce((a, x) => a + x[1], 0) * 60;

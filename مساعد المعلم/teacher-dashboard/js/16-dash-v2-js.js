@@ -24,7 +24,7 @@ function cfSkills(cls){
 }
 
 /* 🎯 حصر الطلاب الضعاف دراسيًا — الأولوية بقرار المعلم:
-   ① درجة الاختبار أقل من 10 من 20 (قبل بطاقات المتجر) ← ② لم يحل أي نشاط منشور له ← ③ إتقان المهارات أقل من 50%.
+   ① درجة الاختبار أقل من 10 من 20 (كما في كشف الدرجات) ← ② لم يحل أي نشاط منشور له ← ③ إتقان المهارات أقل من 50%.
    الطالب في أعلى فئة تنطبق عليه، والشروط الأخرى تظهر وسومًا بجانبه. ومعه حالة الخطة العلاجية. */
 const CF_EXAM_GAP=10, CF_SKILL_GAP=50;
 function cfWeakList(cls){
@@ -32,7 +32,7 @@ function cfWeakList(cls){
   const planOf=sid=>plans.find(p=>p.status!=='done'&&(p.members||[]).some(m=>String(m.studentId)===String(sid)));
   const acts=HW.filter(h=>hwFor(h,cls)&&(typeof activityReady!=='function'||activityReady(h)));
   return ctRoster(cls).map(s=>{ const g=ctG(s.id), e=g.exam||{};
-    const exam=e.measured&&e.score!=null?Number(e.base??e.baseScore??e.score):null;
+    const exam=e.measured&&e.score!=null?Number(e.score):null;   // درجة الكشف نفسها (مع بطاقات المتجر) — رصد موحّد
     const lv=g.level&&g.level.measured?g.level:null;
     const skAll=Object.entries(g.skills||{}).filter(([,v])=>v.t>=2), skC=skAll.reduce((a,[,v])=>a+v.c,0), skT=skAll.reduce((a,[,v])=>a+v.t,0);
     const mastery=lv?lv.rate:skT?Math.round(skC/skT*100):null;
@@ -48,7 +48,7 @@ function cfWeakHTML(cls,print){
   const tags=x=>[x.cat!==1&&x.f.exam?CAT[1][1]:'',x.cat!==2&&x.f.none?CAT[2][1]:'',x.cat!==3&&x.f.skill?CAT[3][1]:''].filter(Boolean).map(t=>`<small class="cf-weak-also">+ ${t}</small>`).join('');
   const name=s=>print?esc(s.name):ctNameLink(s);
   return `<div class="ct-card cf-weak" style="margin-top:.7rem"><b>🎯 حصر الطلاب الضعاف دراسيًا (${R.length})</b>
-    <div class="muted" style="font-size:.78rem;margin:.2rem 0 .45rem">الأولوية: ① درجة الاختبار أقل من ${CF_EXAM_GAP} من 20 (قبل بطاقات المتجر) ← ② لم يحل أي نشاط منشور له ← ③ إتقان المهارات أقل من ${CF_SKILL_GAP}%.</div>
+    <div class="muted" style="font-size:.78rem;margin:.2rem 0 .45rem">الأولوية: ① درجة الاختبار أقل من ${CF_EXAM_GAP} من 20 (كما في كشف الدرجات) ← ② لم يحل أي نشاط منشور له ← ③ إتقان المهارات أقل من ${CF_SKILL_GAP}%.</div>
     ${R.length?`<div class="cf-weak-sum"><span class="chip bad">① الاختبار ${n(1)}</span><span class="chip bad">② بلا أنشطة ${n(2)}</span><span class="chip warn">③ المهارات ${n(3)}</span>${noPlan?`<span class="chip ghost">${noPlan} بلا خطة علاجية</span>`:''}</div>
     <div class="ct-table"><table class="cf-weak-t"><thead><tr><th>#</th><th>الطالب</th><th>الأولوية</th><th>الاختبار</th><th>الأنشطة</th><th>الإتقان</th><th>أضعف المهارات</th><th>الخطة</th></tr></thead><tbody>
     ${R.map((x,i)=>`<tr class="c${x.cat}"><td>${i+1}</td><td>${name(x.s)}${tags(x)}</td><td><span class="chip ${CAT[x.cat][0]}">${'①②③'[x.cat-1]} ${CAT[x.cat][1]}</span></td>
@@ -60,14 +60,14 @@ function cfWeakHTML(cls,print){
     </tbody></table></div>`:'<div class="muted" style="font-size:.84rem">✅ لا يوجد طالب درجته أقل من 10، أو بلا أنشطة، أو مهاراته أقل من 50% حسب البيانات الحالية.</div>'}</div>`;
 }
 
-/* 🏆 العشرة الأوائل: بمجموع كشف الدرجات من 60 (أعمال السنة 40 + الاختبار 20)، والاختبار بدرجته قبل بطاقات المتجر
+/* 🏆 العشرة الأوائل: بمجموع كشف الدرجات من 60 (أعمال السنة 40 + الاختبار 20)، والاختبار بدرجة الكشف نفسها (مع بطاقات المتجر)
    حتى لا تُشترى المرتبة · التعادل يُحسم بالإتقان ثم الاختبار · من لم تصل بياناته من الخادم لا يدخل */
 function cfTopList(cls,n=10){
   const G=CT_GRADES||{}, term=G.term, r1=v=>Math.round((Number(v)||0)*10)/10;
   return ctRoster(cls).filter(s=>G.map&&G.map[String(s.id)]).map(s=>{ const g=ctG(s.id), e=g.exam||{};
     const acts=compActivitiesForStudent(s,term), done=compSubmissionCount(acts,s,term);
     const a=acts.length?Math.round(done/acts.length*100)/10:10;
-    const exam=e.measured&&e.score!=null?r1(e.base??e.baseScore??e.score):null;
+    const exam=e.measured&&e.score!=null?r1(e.score):null;   // درجة الكشف نفسها (مع بطاقات المتجر) فيطابق المجموع كشف الدرجات ونور
     const work=r1((g.participation?.score??0)+(g.homework?.score??0)+(g.behavior?.score??0)+a);
     const lv=g.level&&g.level.measured?g.level.rate:null;
     return {s,work,exam,total:r1(work+(exam??0)),mastery:lv,done,acts:acts.length}; })
@@ -78,7 +78,7 @@ function cfTopHTML(cls,print){
   const R=cfTopList(cls), name=s=>print?esc(s.name):ctNameLink(s);
   const meta=x=>`<span>📝 ${x.exam!=null?x.exam+'/20':'—'}</span><span>📚 ${x.work}/40</span><span>🎯 ${x.mastery!=null?x.mastery+'%':'—'}</span>`;
   const pod=R.slice(0,3), rest=R.slice(3), M=['🥇','🥈','🥉'];
-  return `<div class="cf2-card cf2-top"><div class="cf2-h"><b>🏆 العشرة الأوائل — فصل ${esc(cls)}</b><small>بالمجموع من 60 · الاختبار قبل بطاقات المتجر · التعادل بالإتقان ثم الاختبار</small>
+  return `<div class="cf2-card cf2-top"><div class="cf2-h"><b>🏆 العشرة الأوائل — فصل ${esc(cls)}</b><small>بالمجموع من 60 · مطابق لكشف الدرجات · التعادل بالإتقان ثم الاختبار</small>
       ${!print && R.length ? `<button class="btn tick sm cf2-honor" onclick="t3Open('${esc(cls)}')">🏅 تكريم الثلاثة الأوائل</button>` : ''}</div>
     ${R.length?`<div class="cf2-podium">${pod.map((x,i)=>`<div class="cf2-pod p${i+1}"><div class="cf2-medal">${M[i]}</div><div class="cf2-pn">${name(x.s)}</div>
         <div class="cf2-ps"><b>${x.total}</b><small>/60</small></div><div class="cf2-pm">${meta(x)}</div></div>`).join('')}</div>
