@@ -22,7 +22,9 @@
     return out;
   }
   const visible = el => !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
-  const editable = i => i && !i.disabled && !i.readOnly && /^(text|number|tel|)$/i.test(i.type || '') && visible(i);
+  const isField = i => i && /^(text|number|tel|)$/i.test(i.type || '') && visible(i);
+  // الخانة المقفلة في نور (معتمدة/معفى/محسوبة) لا تُكتب: نور لا يرسلها عند الحفظ، فتظهر معبّأة وهي لم تُحفظ
+  const editable = i => isField(i) && !i.disabled && !i.readOnly;
   function rowName(tr) {
     let best = '';
     for (const td of tr.querySelectorAll('td,th')) {
@@ -56,28 +58,74 @@
     inp.style.background = '#E6F7EE';
   }
   const fmt = v => (v == null || v === '' ? '' : String(Math.round(Number(v) * 100) / 100));
+  // «التقويمات التحريرية» فيها «ال» قبل الكلمة الثانية — بدونها لا يُعرف العمود أبدًا
+  const WORK_RE = /مهام\s*(?:ال)?أدائية|مشاركة\s*و\s*(?:ال)?تفاعل/, EXAM_RE = /تقويمات\s*(?:ال)?تحريرية|اختبارات\s*(?:ال)?تحريرية/;
+  // شبكة أعمدة الجدول مع colspan/rowspan: كل خلية ← رقم عمودها الفعلي (الرؤوس ذات المستويين تزيح الترقيم)
+  const gridCache = new WeakMap();
+  function grid(table) {
+    if (gridCache.has(table)) return gridCache.get(table);
+    const pos = new Map(), taken = [];
+    [...table.rows].forEach((row, r) => {
+      let c = 0;
+      for (const cell of row.cells) {
+        while (taken[r] && taken[r][c]) c++;
+        const cs = Math.max(1, cell.colSpan || 1), rs = Math.max(1, cell.rowSpan || 1);
+        pos.set(cell, { c, cs });
+        for (let y = r; y < r + rs; y++) { taken[y] = taken[y] || []; for (let x = c; x < c + cs; x++) taken[y][x] = 1; }
+        c += cs;
+      }
+    });
+    const heads = { work: [], exam: [] };
+    for (const [cell, p] of pos) {
+      if (cell.querySelector('input,select,textarea')) continue;
+      const t = (cell.innerText || cell.textContent || '').replace(/\s+/g, ' ').trim();
+      if (t.length > 80) continue;
+      if (EXAM_RE.test(t)) heads.exam.push(p); else if (WORK_RE.test(t)) heads.work.push(p);
+    }
+    const g = { pos, heads }; gridCache.set(table, g); return g;
+  }
+  // يحدد خانتي «أعمال السنة» و«الاختبار» من عناوين الأعمدة فقط — لا تخمين بالترتيب:
+  // إن لم يُعرف العمود، أو طابقه أكثر من خانة، تُترك الخانة فارغة ويُبلَّغ المعلم
+  function gradeInputs(tr) {
+    const table = tr.closest('table'); if (!table) return { work: null, exam: null, unknown: true };
+    const { pos, heads } = grid(table);
+    if (!heads.work.length || !heads.exam.length) return { work: null, exam: null, unknown: true };
+    const under = (inp, hs) => { const p = pos.get(inp.closest('td,th')); return p && hs.some(h => p.c >= h.c && p.c < h.c + h.cs); };
+    const fields = [...tr.querySelectorAll('input')].filter(isField);
+    const w = fields.filter(i => under(i, heads.work)), e = fields.filter(i => under(i, heads.exam));
+    return { work: w.length === 1 ? w[0] : null, exam: e.length === 1 ? e[0] : null, unknown: false, multi: w.length > 1 || e.length > 1 };
+  }
   function fill(sheet, mode) {
     mode = ['both', 'work40', 'exam20'].includes(mode) ? mode : 'both';
     const idx = indexSheet(Array.isArray(sheet && sheet.rows) ? sheet.rows : []), used = new Set();
-    let filled = 0, rowsSeen = 0, ambiguous = 0;
+    let filled = 0, rowsSeen = 0, ambiguous = 0, fields = 0, locked = 0, noCols = 0, multiCols = 0;
     for (const doc of (isTop ? docsOf(document) : [document])) {
       for (const tr of doc.querySelectorAll('tr')) {
-        const inputs = [...tr.querySelectorAll('input')].filter(editable);
+        const inputs = [...tr.querySelectorAll('input')].filter(isField);
         if (!inputs.length) continue;
         const name = rowName(tr); if (!name) continue;
         rowsSeen++;
         const m = match(name, idx, used);
         if (!m) { ambiguous++; continue; }
         used.add(m);
+        const targets = gradeInputs(tr);
+        if (targets.unknown) { noCols++; continue; }
+        if (targets.multi) multiCols++;
         const w = fmt(m.r.work40), e = fmt(m.r.exam20);
-        if (mode === 'both') { if (w !== '') setVal(inputs[0], w); if (inputs[1] && e !== '') setVal(inputs[1], e); }
-        else if (mode === 'work40') { if (w !== '') setVal(inputs[0], w); }
-        else { if (e === '') continue; setVal(inputs.length >= 2 ? inputs[1] : inputs[0], e); }   // اختبار لم يُرصد: لا يُكتب صفرًا
-        filled++;
+        let rowFilled = false;
+        const put = (inp, val) => {
+          if (!inp || val === '') return;
+          if (!editable(inp)) { locked++; return; }
+          setVal(inp, val); fields++; rowFilled = true;
+        };
+        if (mode === 'both') { put(targets.work, w); put(targets.exam, e); }
+        else if (mode === 'work40') put(targets.work, w);
+        else put(targets.exam, e);
+        if (rowFilled) filled++;
       }
     }
     const unmatched = idx.filter(x => !used.has(x)).map(x => x.r.name);
-    return { filled, rowsSeen, unmatched, ambiguous };
+    return { filled, fields, rowsSeen, unmatched, ambiguous, locked, noCols, multiCols };
   }
 
   chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
@@ -92,7 +140,9 @@
   function toastBar(r) {
     if (!bar) return;
     const st = bar.querySelector('.mbn-st');
-    if (st) st.textContent = r.filled ? `✅ عُبّئت درجات ${r.filled} طالب${r.unmatched && r.unmatched.length ? ` · لم يُطابَق ${r.unmatched.length}` : ''} — راجعها ثم احفظ من نور` : '⚠️ لم أجد صفوف طلاب بخانات إدخال في هذه الصفحة — افتح صفحة رصد الدرجات أولًا';
+    const warn = [r.locked ? `🔒 ${r.locked} خانة مقفلة في نور لم تُكتب` : '', r.multiCols ? '⚠️ بعض الصفوف فيها أكثر من خانة تحت العمود نفسه فتُركت' : ''].filter(Boolean).join(' · ');
+    if (st && !r.filled && r.noCols) { st.textContent = '⚠️ لم أتعرف على عمودي «أعمال السنة» و«التقويمات التحريرية» في هذا الجدول — لم يُكتب شيء حتى لا تنعكس الدرجات. أرسل صورة الجدول للمطوّر.'; return; }
+    if (st) st.textContent = (warn ? warn + ' — ' : '') + (r.filled ? `✅ عُبّئت ${r.fields || 0} خانة درجات لـ ${r.filled} طالب${r.unmatched && r.unmatched.length ? ` · لم يُطابَق ${r.unmatched.length}` : ''} — راجعها ثم احفظ من نور` : `⚠️ لم تُعبّأ أي درجة (صفوف مفحوصة: ${r.rowsSeen || 0}). تأكد أنك داخل جدول رصد الدرجات وأن الكشف المصدّر يحتوي درجات.`);
     if (st && r.unmatched && r.unmatched.length) st.title = 'لم يُطابَق: ' + r.unmatched.join('، ');
   }
   async function showBar() {
@@ -101,19 +151,71 @@
     if (!sheet || !Array.isArray(sheet.rows) || !sheet.rows.length) return;
     bar = document.createElement('div');
     bar.setAttribute('dir', 'rtl');
-    bar.style.cssText = 'position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:2147483647;background:#16233A;color:#fff;border-radius:14px;padding:10px 14px;box-shadow:0 10px 30px rgba(0,0,0,.3);font:600 13px Tahoma,Arial,sans-serif;display:flex;gap:10px;align-items:center;flex-wrap:wrap;max-width:min(96vw,760px)';
+    bar.style.cssText = 'position:fixed;left:max(8px, calc(50% - 300px));bottom:12px;z-index:2147483647;background:#16233A;color:#fff;border-radius:12px;padding:7px 9px;box-shadow:0 8px 24px rgba(0,0,0,.28);font:600 12px Tahoma,Arial,sans-serif;display:flex;gap:7px;align-items:center;flex-wrap:wrap;width:max-content;max-width:min(94vw,650px);box-sizing:border-box;';
     const when = sheet.at ? new Date(sheet.at).toLocaleString('ar-SA-u-ca-gregory-nu-latn', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : '';
-    bar.innerHTML = `<span>🏛️ كشف مساعد المعلم: <b>${sheet.rows.length}</b> طالب${sheet.cls ? ' · ' + String(sheet.cls).replace(/[<>&]/g, '') : ''}${sheet.label ? ' · ' + String(sheet.label).replace(/[<>&]/g, '') : ''}${when ? ' · ' + when : ''}</span>
-      <select class="mbn-mode" style="border-radius:8px;padding:4px 6px;font:inherit;color:#16233A">
+    const safe = v => String(v || '').replace(/[<>&]/g, '');
+    // اكتشاف قائمة الفصل الأصلية في نور، إن كانت موجودة في الصفحة الحالية.
+    const classSelects = [...document.querySelectorAll('select')].filter(sel => {
+      const meta = `${sel.id || ''} ${sel.name || ''} ${sel.getAttribute('aria-label') || ''} ${sel.closest('td,th')?.innerText || ''}`;
+      const opts = [...sel.options].map(o => (o.textContent || '').replace(/\s+/g, ' ').trim());
+      const allOpts = opts.join(' ');
+      // لا تعتبر اختيار الفترة/الدور فصلًا دراسيًا؛ مثل «الفصل الأول - الدور الأول».
+      const isTermPicker = opts.some(t => /الفصل\s*(الأول|الثاني|الثالث)\s*[-–—]?\s*الدور\s*(الأول|الثاني)/.test(t)) ||
+        (/الدور\s*(الأول|الثاني)/.test(allOpts) && /الفصل\s*(الأول|الثاني)/.test(allOpts));
+      const hasClassOption = opts.some(t => /(?:أول|ثاني|ثالث)\s*(?:ابتدائي|متوسط|ثانوي)|\b[1-6]\s*[/\-]\s*[1-6]\b|شعبة\s*\S+/.test(t));
+      const classMeta = /class|section|classroom|اسم.?الصف|الشعبة|الفصل الدراسي/i.test(meta);
+      return !isTermPicker && (classMeta || hasClassOption);
+    }).filter(sel => sel.options.length > 1);
+    const classPicker = classSelects[0] || null;
+    const classOptions = classPicker ? '' : `<option value="">${safe(sheet.cls || 'الفصل المحدد في الكشف')}</option>`;
+    bar.innerHTML = `<span class="mbn-drag" title="اسحب لتحريك الصندوق" style="cursor:move;touch-action:none;user-select:none;flex:1 1 100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;font-size:11px;opacity:.95">⠿ كشف مساعد المعلم: <b>${sheet.rows.length}</b> طالب${sheet.cls ? ' · ' + safe(sheet.cls) : ''}${sheet.label ? ' · ' + safe(sheet.label) : ''}${when ? ' · ' + when : ''} <span style="opacity:.7">(اسحب من هنا)</span></span>
+      <label style="display:flex;gap:5px;align-items:center">الفصل <select class="mbn-class" ${classPicker ? '' : 'disabled'} style="border-radius:7px;padding:3px 5px;font:inherit;color:#16233A;max-width:150px;max-height:30px">${classOptions}</select></label>
+      <select class="mbn-mode" style="border-radius:7px;padding:3px 5px;font:inherit;color:#16233A;max-width:220px;max-height:30px">
         <option value="both">الخانتان: أعمال السنة 40 ثم الاختبار 20</option>
         <option value="work40">أعمال السنة (40) فقط</option>
         <option value="exam20">الاختبار (20) فقط</option></select>
-      <button type="button" class="mbn-go" style="background:#1B9C6B;color:#fff;border:0;border-radius:9px;padding:6px 12px;font:inherit;cursor:pointer">✍️ تعبئة الدرجات الآن</button>
-      <button type="button" class="mbn-x" title="إخفاء" style="background:transparent;color:#fff;border:0;font-size:16px;cursor:pointer">✕</button>
-      <span class="mbn-st" style="flex-basis:100%;font-weight:500;font-size:12px;opacity:.9">راجع الدرجات بعد التعبئة ثم اضغط «حفظ» في نور — الإضافة لا تحفظ عنك.</span>`;
+      <button type="button" class="mbn-go" style="background:#1B9C6B;color:#fff;border:0;border-radius:8px;padding:5px 9px;font:inherit;cursor:pointer;white-space:nowrap">✍️ تعبئة الدرجات الآن</button>
+      <button type="button" class="mbn-x" title="إخفاء" style="background:transparent;color:#fff;border:0;font-size:16px;cursor:pointer;padding:2px 5px">✕</button>
+      <span class="mbn-st" style="flex-basis:100%;font-weight:500;font-size:10px;opacity:.9;line-height:1.35">راجع الدرجات بعد التعبئة ثم اضغط «حفظ» في نور — الإضافة لا تحفظ عنك.</span>`;
+    const classUi = bar.querySelector('.mbn-class');
+    if (classPicker && classUi) {
+      for (const o of classPicker.options) classUi.add(new Option((o.textContent || '').trim(), o.value));
+      classUi.value = classPicker.value;
+      classUi.addEventListener('change', () => {
+        classPicker.value = classUi.value;
+        classPicker.dispatchEvent(new Event('input', { bubbles: true }));
+        classPicker.dispatchEvent(new Event('change', { bubbles: true }));
+        const st = bar.querySelector('.mbn-st');
+        if (st) st.textContent = 'تم اختيار الفصل في نور. انتظر تحديث جدول الطلاب، ثم اضغط «تعبئة الدرجات الآن».';
+      });
+    }
     bar.querySelector('.mbn-go').onclick = () => toastBar(fill(sheet, bar.querySelector('.mbn-mode').value));
     bar.querySelector('.mbn-x').onclick = () => { bar.remove(); bar = null; };
     document.body.appendChild(bar);
+    // سحب الصندوق لأي مكان في الشاشة باستخدام شريط العنوان، مع تقييده بحدود نافذة المتصفح.
+    const dragHandle = bar.querySelector('.mbn-drag');
+    if (dragHandle) {
+      let dragging = false, startX = 0, startY = 0, startLeft = 0, startTop = 0;
+      dragHandle.addEventListener('pointerdown', ev => {
+        if (ev.button !== 0) return;
+        dragging = true;
+        const rect = bar.getBoundingClientRect();
+        startX = ev.clientX; startY = ev.clientY; startLeft = rect.left; startTop = rect.top;
+        bar.style.left = `${rect.left}px`; bar.style.top = `${rect.top}px`; bar.style.bottom = 'auto';
+        dragHandle.setPointerCapture?.(ev.pointerId);
+        ev.preventDefault();
+      });
+      dragHandle.addEventListener('pointermove', ev => {
+        if (!dragging) return;
+        const rect = bar.getBoundingClientRect();
+        const left = Math.max(0, Math.min(window.innerWidth - rect.width, startLeft + ev.clientX - startX));
+        const top = Math.max(0, Math.min(window.innerHeight - rect.height, startTop + ev.clientY - startY));
+        bar.style.left = `${left}px`; bar.style.top = `${top}px`;
+      });
+      const stopDrag = () => { dragging = false; };
+      dragHandle.addEventListener('pointerup', stopDrag);
+      dragHandle.addEventListener('pointercancel', stopDrag);
+    }
   }
   if (isTop) {
     if (document.body) showBar(); else document.addEventListener('DOMContentLoaded', showBar, { once: true });
