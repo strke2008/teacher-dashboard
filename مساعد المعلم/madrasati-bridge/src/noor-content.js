@@ -52,10 +52,20 @@
     return sh.length >= 3 && inOrder(sh, lg) ? 5 + sh.length / 10 : 0;
   }
   // يرجع {m} عند التطابق، أو {why} بسبب الرفض: none (ليس في الكشف) · tie (أكثر من طالب بالاسم نفسه)
+  /* 🔗 ربط يدوي محفوظ: اسم نور (مطبَّع) ← اسم الكشف (مطبَّع). يُحفظ عند اختيار المعلم أو تأكيده مطابقة تقريبية */
+  let ALIAS = {};
+  const aliasLoad = async () => { try { ALIAS = (await chrome.storage.local.get('mb_noor_alias')).mb_noor_alias || {}; } catch (_) { ALIAS = {}; } };
+  const aliasSave = () => { try { chrome.storage.local.set({ mb_noor_alias: ALIAS }); } catch (_) {} };
+  aliasLoad();
   function match(name, idx, used) {
+    // الربط اليدوي أولًا — ولا يأخذ غيرُه طالبًا مربوطًا إلا بتطابق تام
+    const an = ALIAS[norm(name)];
+    if (an) { const x = idx.find(y => y.n === an && !used.has(y)); if (x) return { m: x, also: [], exact: true, alias: true }; }
+    const reserved = new Set(Object.values(ALIAS));
     const t = norm(name).split(' ').filter(Boolean); if (t.length < 2) return { why: 'none' };
     let bs = 0, top = [];
     for (const x of idx) { if (used.has(x)) continue; const s = score(t, x.t);
+      if (s < 100 && reserved.has(x.n)) continue;
       if (s > bs) { bs = s; top = [x]; } else if (s && s === bs) top.push(x); }
     if (!bs) {
       // أقرب اسم في الكشف (الاسم الأول نفسه وأكثر كلمات مشتركة) — تلميح للمعلم ليصحّح الاسم في مساعد المعلم
@@ -127,7 +137,7 @@
   /* opts.dry: خطة بلا كتابة (للمعاينة) · opts.only: Set صفوف وافق عليها المعلم — لا يُكتب غيرها */
   function fill(sheet, mode, opts = {}) {
     mode = ['both', 'work40', 'exam20'].includes(mode) ? mode : 'both';
-    const plan = [];
+    const plan = [], seenCls = [];
     const idx = indexSheet(Array.isArray(sheet && sheet.rows) ? sheet.rows : []), used = new Set();
     let filled = 0, rowsSeen = 0, ambiguous = 0, fields = 0, locked = 0, noCols = 0, multiCols = 0;
     const missed = [];
@@ -143,7 +153,7 @@
         if (!m) { ambiguous++; missed.push({ name, why: mm.why, hint: mm.hint || '' });
           if (opts.dry) { plan.push({ tr, name, why: mm.why, hint: mm.hint || '' }); continue; }
           markRow(tr, mm.why); if (mm.hint) tr.title += ' — أقرب اسم في الكشف: ' + mm.hint; continue; }
-        used.add(m); (mm.also || []).forEach(x => used.add(x));
+        used.add(m); (mm.also || []).forEach(x => used.add(x)); seenCls.push(m.r.cls || '');
         const targets = gradeInputs(tr);
         if (targets.unknown) { noCols++; continue; }
         if (targets.multi) multiCols++;
@@ -153,7 +163,7 @@
           const lk = (wantW && targets.work && !editable(targets.work)) || (wantE && targets.exam && !editable(targets.exam));
           const nc = (wantW && !targets.work) || (wantE && !targets.exam);
           const why = !wantW && !wantE ? 'empty' : lk ? 'locked' : nc ? 'nocell' : '';
-          plan.push({ tr, name, sheetName: m.r.name, exact: !!mm.exact, w: wantW ? w : '', e: wantE ? e : '', why,
+          plan.push({ tr, name, sheetName: m.r.name, sheetN: m.n, cls: m.r.cls || '', exact: !!mm.exact, alias: !!mm.alias, w: wantW ? w : '', e: wantE ? e : '', why,
             oldW: targets.work ? targets.work.value : '', oldE: targets.exam ? targets.exam.value : '' });
           continue;
         }
@@ -162,6 +172,7 @@
         const put = (inp, val) => {
           if (!inp || val === '') return;
           if (!editable(inp)) { locked++; rowLocked = true; return; }
+          if (opts.undo) opts.undo.push({ inp, old: inp.value, bg: inp.style.background });
           setVal(inp, val); fields++; rowFilled = true;
         };
         if (mode === 'both') { put(targets.work, w); put(targets.exam, e); }
@@ -175,40 +186,56 @@
       }
     }
     const unmatched = idx.filter(x => !used.has(x)).map(x => x.r.name);
-    if (opts.dry) return { plan, rowsSeen, noCols, unmatched };
-    return { filled, fields, rowsSeen, unmatched, ambiguous, locked, noCols, multiCols, missed: missed.slice(0, 60) };
+    // 🏫 فصل الصفحة = الأكثر بين المطابَقين؛ ومن الكشف: طلاب هذا الفصل الذين لم يظهروا في الصفحة
+    const cnt = {}; seenCls.forEach(c => { if (c) cnt[c] = (cnt[c] || 0) + 1; });
+    const cls = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0] || '';
+    const free = idx.filter(x => !used.has(x));
+    const clsMissing = cls ? free.filter(x => (x.r.cls || '') === cls).map(x => x.r.name) : [];
+    if (opts.dry) return { plan, rowsSeen, noCols, unmatched, cls, clsMissing, free };
+    return { filled, fields, rowsSeen, unmatched, ambiguous, locked, noCols, multiCols, missed: missed.slice(0, 60), cls, clsMissing };
   }
 
   /* ── 👁️ معاينة قبل الكتابة: كل صف بحالته، والمعلم يختار من يُكتب ── */
   let pv = null;
   const esc = v => String(v == null ? '' : v).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
-  const PVS = { exact: ['✅', 'مطابق', '#E6F7EE', '#0E6B47'], approx: ['🟡', 'مطابقة تقريبية — تأكد', '#FFF6DB', '#8A6100'],
+  const PVS = { exact: ['✅', 'مطابق', '#E6F7EE', '#0E6B47'], alias: ['🔗', 'مربوط يدويًا', '#EAF1FF', '#1E4FB0'], approx: ['🟡', 'مطابقة تقريبية — تأكد', '#FFF6DB', '#8A6100'],
     none: ['🔴', 'غير موجود في الكشف', '#FFEDEF', '#A3263A'], tie: ['🔴', 'اسم مكرر بدرجات مختلفة', '#FFEDEF', '#A3263A'],
     empty: ['⚪', 'بلا درجة في الكشف', '#F1F4F8', '#55627A'], locked: ['🔒', 'خانة مقفلة في نور', '#F1F4F8', '#55627A'], nocell: ['🔴', 'لم أجد خانته', '#FFEDEF', '#A3263A'] };
   function closePreview() { if (!pv) return; pv.plan.forEach(x => { if (x.tr.dataset.mbPv) markRow(x.tr, ''); }); pv.el.remove(); pv = null; }
-  function openPreview(sheet, mode) {
-    closePreview();
+  function openPreview(sheet, mode, keep) {
+    const pos = pv && pv.el.style.cssText; closePreview();
     const r = fill(sheet, mode, { dry: true });
     if (!r.plan.length) return { preview: 0, rowsSeen: r.rowsSeen, noCols: r.noCols };
     const doc = document, el = doc.createElement('div'); el.setAttribute('dir', 'rtl');
-    el.style.cssText = 'position:fixed;top:12px;left:12px;z-index:2147483647;width:min(620px,calc(100vw - 24px));max-height:calc(100vh - 24px);display:flex;flex-direction:column;background:#fff;color:#16233A;border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.35);font:500 13px Tahoma,Arial,sans-serif;overflow:hidden';
-    const kind = x => x.why ? x.why : x.exact ? 'exact' : 'approx';
+    el.style.cssText = pos || 'position:fixed;top:12px;left:12px;z-index:2147483647;width:min(620px,calc(100vw - 24px));max-height:calc(100vh - 24px);display:flex;flex-direction:column;background:#fff;color:#16233A;border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.35);font:500 13px Tahoma,Arial,sans-serif;overflow:hidden';
+    const kind = x => x.why ? x.why : x.alias ? 'alias' : x.exact ? 'exact' : 'approx';
+    // مرشحو الربط اليدوي: طلاب الكشف غير المطابَقين — فصل الصفحة أولًا ثم الأقرب اسمًا
+    const cands = name => { const t = norm(name).split(' '); return r.free.map(x => ({ x, s: (x.r.cls === r.cls ? 10 : 0) + x.t.filter(w => t.includes(w)).length + (x.t[0] === t[0] ? 3 : 0) }))
+      .sort((a, b) => b.s - a.s).slice(0, 40).map(o => o.x); };
+    const linkSel = x => `<select class="pv-link" style="display:block;margin-top:3px;max-width:100%;font:inherit;font-size:11.5px;border:1px solid #CBD5E1;border-radius:6px;padding:1px 3px">
+      <option value="">🔗 اربطه بطالب من الكشف…</option>${cands(x.name).map(c => `<option value="${esc(c.n)}">${esc(c.r.name)}${c.r.cls ? ' — ' + esc(c.r.cls) : ''}</option>`).join('')}</select>`;
+    const isDef = x => { const k = kind(x); return k === 'exact' || k === 'alias'; };
+    const chk = x => keep && keep.has(x.tr) ? keep.get(x.tr) : isDef(x);
     const n = k => r.plan.filter(x => kind(x) === k).length;
     const val = (v, old) => v === '' ? '<span style="color:#9AA5B5">—</span>' : `<b>${esc(v)}</b>${old !== '' && old !== v ? `<small style="display:block;color:#B4740E;font-weight:500">كان ${esc(old)}</small>` : ''}`;
     el.innerHTML = `<div style="background:#16233A;color:#fff;padding:10px 14px;display:flex;align-items:center;gap:8px">
         <b style="font-size:14px;flex:1">👁️ معاينة الرصد قبل الكتابة</b><button type="button" class="pv-x" style="background:transparent;border:0;color:#fff;font-size:18px;cursor:pointer">✕</button></div>
       <div style="padding:8px 14px;display:flex;flex-wrap:wrap;gap:6px;border-bottom:1px solid #E5EAF1;font-size:12px">
-        ${['exact', 'approx', 'none', 'tie', 'nocell', 'locked', 'empty'].filter(k => n(k)).map(k => `<span style="background:${PVS[k][2]};color:${PVS[k][3]};border-radius:99px;padding:2px 9px;font-weight:700">${PVS[k][0]} ${PVS[k][1].split(' — ')[0]} ${n(k)}</span>`).join('')}
+        ${r.cls ? `<span style="background:#EAF1FF;color:#1E4FB0;border-radius:99px;padding:2px 9px;font-weight:700">🏫 ${esc(r.cls)}</span>` : ''}
+        ${['exact', 'alias', 'approx', 'none', 'tie', 'nocell', 'locked', 'empty'].filter(k => n(k)).map(k => `<span style="background:${PVS[k][2]};color:${PVS[k][3]};border-radius:99px;padding:2px 9px;font-weight:700">${PVS[k][0]} ${PVS[k][1].split(' — ')[0]} ${n(k)}</span>`).join('')}
         <span style="flex:1"></span><button type="button" class="pv-all" style="border:1px solid #CBD5E1;background:#fff;border-radius:8px;padding:2px 8px;cursor:pointer;font:inherit">تحديد الكل الصالح</button>
         <button type="button" class="pv-none" style="border:1px solid #CBD5E1;background:#fff;border-radius:8px;padding:2px 8px;cursor:pointer;font:inherit">إلغاء التحديد</button></div>
+      ${r.clsMissing.length ? `<div style="margin:8px 14px 0;padding:7px 10px;border-radius:9px;background:#F1F4F8;color:#41516B;font-size:12px">👥 من ${esc(r.cls)} في الكشف ولم يظهروا في هذه الصفحة (${r.clsMissing.length}): ${r.clsMissing.slice(0, 12).map(esc).join('، ')}${r.clsMissing.length > 12 ? '…' : ''} — إن كان أحدهم باسم مختلف في نور فاربطه من القائمة تحت اسمه.</div>` : ''}
       ${n('approx') ? `<div style="margin:8px 14px 0;padding:7px 10px;border-radius:9px;background:#FFF6DB;color:#6B4C00;font-size:12px">🟡 المطابقات التقريبية <b>غير محددة</b>: قارن اسم نور باسم الكشف تحته، وحدّد الصحيح منها بنفسك.</div>` : ''}
       <div style="overflow:auto;flex:1;padding:6px 8px 8px"><table style="width:100%;border-collapse:collapse;font-size:12.5px">
         <thead><tr style="position:sticky;top:0;background:#F3F6FA;color:#41516B"><th style="padding:6px;width:28px"></th><th style="padding:6px;text-align:right">الطالب في نور</th><th style="padding:6px">40</th><th style="padding:6px">20</th><th style="padding:6px;text-align:right">الحالة</th></tr></thead>
         <tbody>${r.plan.map((x, i) => { const k = kind(x), S = PVS[k], ok = !x.why;
           return `<tr data-i="${i}" style="border-bottom:1px solid #EEF2F6;background:${k === 'exact' ? '#fff' : S[2]}">
-            <td style="padding:6px;text-align:center"><input type="checkbox" class="pv-c" ${ok ? '' : 'disabled'} ${k === 'exact' ? 'checked' : ''} style="width:16px;height:16px;cursor:${ok ? 'pointer' : 'default'}"></td>
+            <td style="padding:6px;text-align:center"><input type="checkbox" class="pv-c" ${ok ? '' : 'disabled'} ${ok && chk(x) ? 'checked' : ''} style="width:16px;height:16px;cursor:${ok ? 'pointer' : 'default'}"></td>
             <td style="padding:6px"><a href="#" class="pv-go" style="color:#16233A;font-weight:700;text-decoration:none">${esc(x.name)}</a>
-              ${x.sheetName && !x.exact ? `<small style="display:block;color:#6B4C00">في الكشف: ${esc(x.sheetName)}</small>` : ''}${x.hint ? `<small style="display:block;color:#A3263A">أقرب اسم: ${esc(x.hint)}</small>` : ''}</td>
+              ${x.sheetName && (!x.exact || x.alias) && norm(x.sheetName) !== norm(x.name) ? `<small style="display:block;color:${x.alias ? '#1E4FB0' : '#6B4C00'}">في الكشف: ${esc(x.sheetName)}</small>` : ''}
+              ${x.alias ? `<a href="#" class="pv-unlink" style="font-size:11px;color:#A3263A">فك الربط</a>` : ''}
+              ${k === 'none' || k === 'tie' || k === 'approx' ? linkSel(x) : ''}</td>
             <td style="padding:6px;text-align:center">${ok || k === 'locked' || k === 'nocell' ? val(x.w, x.oldW) : ''}</td><td style="padding:6px;text-align:center">${ok || k === 'locked' || k === 'nocell' ? val(x.e, x.oldE) : ''}</td>
             <td style="padding:6px;color:${S[3]};font-weight:700;white-space:nowrap">${S[0]} ${S[1]}</td></tr>`; }).join('')}</tbody></table></div>
       <div style="padding:10px 14px;border-top:1px solid #E5EAF1;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -217,8 +244,12 @@
         <small style="color:#55627A;flex:1;min-width:180px">لا يُكتب شيء قبل الضغط على الزر — وبعد الكتابة راجع ثم اضغط «حفظ» في نور.</small></div>`;
     doc.body.appendChild(el);
     pv = { el, plan: r.plan, sheet, mode };
+    const relink = () => { const keepM = new Map(boxes.map(b => [r.plan[+b.closest('tr').dataset.i].tr, b.checked])); openPreview(sheet, mode, keepM); };
+    el.querySelectorAll('.pv-link').forEach(sl => sl.onchange = () => { if (!sl.value) return; const x = r.plan[+sl.closest('tr').dataset.i];
+      ALIAS[norm(x.name)] = sl.value; aliasSave(); const keepM = new Map(boxes.map(b => [r.plan[+b.closest('tr').dataset.i].tr, b.checked])); keepM.set(x.tr, true); openPreview(sheet, mode, keepM); });
+    el.querySelectorAll('.pv-unlink').forEach(a => a.onclick = ev => { ev.preventDefault(); const x = r.plan[+a.closest('tr').dataset.i]; delete ALIAS[norm(x.name)]; aliasSave(); relink(); });
     // الصفوف في الصفحة: أصفر للتقريبي وأحمر لما لا يُكتب، وعودتها لحالها عند الإغلاق
-    r.plan.forEach(x => { const k = kind(x); if (k !== 'exact') { x.tr.style.outline = `2px ${k === 'approx' ? 'dashed #D49A1E' : 'solid #D6455B'}`; x.tr.style.outlineOffset = '-2px'; x.tr.dataset.mbPv = k; } });
+    r.plan.forEach(x => { const k = kind(x); if (k !== 'exact' && k !== 'alias') { x.tr.style.outline = `2px ${k === 'approx' ? 'dashed #D49A1E' : 'solid #D6455B'}`; x.tr.style.outlineOffset = '-2px'; x.tr.dataset.mbPv = k; } });
     const boxes = [...el.querySelectorAll('.pv-c')], btn = el.querySelector('.pv-go-w');
     const sync = () => { const c = boxes.filter(b => b.checked).length; btn.textContent = `✍️ اكتب درجات المحددين (${c})`; btn.disabled = !c; btn.style.opacity = c ? '1' : '.5'; };
     boxes.forEach(b => b.addEventListener('change', sync)); sync();
@@ -228,11 +259,13 @@
       x.tr.scrollIntoView({ block: 'center', behavior: 'smooth' }); const o = x.tr.style.boxShadow; x.tr.style.boxShadow = 'inset 0 0 0 3px #3B82F6'; setTimeout(() => { x.tr.style.boxShadow = o; }, 1600); });
     el.querySelector('.pv-x').onclick = el.querySelector('.pv-cancel').onclick = closePreview;
     btn.onclick = () => {
-      const only = new Set(boxes.filter(b => b.checked).map(b => r.plan[+b.closest('tr').dataset.i].tr));
+      const picked = boxes.filter(b => b.checked).map(b => r.plan[+b.closest('tr').dataset.i]), only = new Set(picked.map(x => x.tr));
+      // المطابقة التقريبية التي أكّدها المعلم تُحفظ ربطًا، فتظهر «مربوط» في المرة القادمة
+      let learned = 0; picked.forEach(x => { if (kind(x) === 'approx' && x.sheetN) { ALIAS[norm(x.name)] = x.sheetN; learned++; } }); if (learned) aliasSave();
       const { sheet: sh, mode: md } = pv; closePreview();
-      const res = fill(sh, md, { only }); res.skipped = r.plan.filter(x => !x.why).length - only.size; toastBar(res);
+      const undo = []; const res = fill(sh, md, { only, undo }); res.skipped = r.plan.filter(x => !x.why).length - only.size; res.undo = undo; toastBar(res);
     };
-    return { preview: r.plan.length, ready: n('exact'), approx: n('approx'), rowsSeen: r.rowsSeen };
+    return { preview: r.plan.length, ready: n('exact') + n('alias'), approx: n('approx'), rowsSeen: r.rowsSeen };
   }
 
   chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
@@ -250,8 +283,17 @@
     const st = bar.querySelector('.mbn-st');
     const warn = [r.locked ? `🔒 ${r.locked} خانة مقفلة في نور لم تُكتب` : '', r.multiCols ? '⚠️ بعض الصفوف فيها أكثر من خانة تحت العمود نفسه فتُركت' : ''].filter(Boolean).join(' · ');
     if (st && !r.filled && r.noCols) { st.textContent = '⚠️ لم أتعرف على عمودي «أعمال السنة» و«التقويمات التحريرية» في هذا الجدول — لم يُكتب شيء حتى لا تنعكس الدرجات. أرسل صورة الجدول للمطوّر.'; return; }
-    if (st) st.textContent = (warn ? warn + ' — ' : '') + (r.filled ? `✅ عُبّئت ${r.fields || 0} خانة درجات لـ ${r.filled} طالب${r.unmatched && r.unmatched.length ? ` · ${r.unmatched.length} من الكشف ليسوا في هذه الصفحة` : ''}${r.skipped > 0 ? ` · تُرك ${r.skipped} لم تحدّدهم` : ''} — راجعها ثم احفظ من نور` : `⚠️ لم تُعبّأ أي درجة (صفوف مفحوصة: ${r.rowsSeen || 0}). تأكد أنك داخل جدول رصد الدرجات وأن الكشف المصدّر يحتوي درجات.`);
-    if (st && r.unmatched && r.unmatched.length) st.title = 'في الكشف ولم يُعثر عليهم في هذه الصفحة: ' + r.unmatched.join('، ');
+    if (st) st.textContent = (warn ? warn + ' — ' : '') + (r.filled ? `✅ عُبّئت ${r.fields || 0} خانة درجات لـ ${r.filled} طالب${r.clsMissing && r.clsMissing.length ? ` · ${r.clsMissing.length} من ${r.cls} في الكشف لم يظهروا هنا` : ''}${r.skipped > 0 ? ` · تُرك ${r.skipped} لم تحدّدهم` : ''} — راجعها ثم احفظ من نور` : `⚠️ لم تُعبّأ أي درجة (صفوف مفحوصة: ${r.rowsSeen || 0}). تأكد أنك داخل جدول رصد الدرجات وأن الكشف المصدّر يحتوي درجات.`);
+    if (st) st.title = r.clsMissing && r.clsMissing.length ? `من ${r.cls} في الكشف ولم يظهروا في هذه الصفحة: ` + r.clsMissing.join('، ') : '';
+    // ↩️ تراجع: يعيد كل خانة كتبتها هذه التعبئة إلى قيمتها السابقة (قبل الضغط على «حفظ» في نور)
+    let ub = bar && bar.querySelector('.mbn-undo'); if (ub) ub.remove();
+    if (bar && r.undo && r.undo.length) {
+      ub = document.createElement('button'); ub.type = 'button'; ub.className = 'mbn-undo'; ub.textContent = `↩️ تراجع (${r.undo.length} خانة)`;
+      ub.style.cssText = 'background:#fff;color:#16233A;border:0;border-radius:8px;padding:5px 9px;font:inherit;cursor:pointer;white-space:nowrap';
+      ub.onclick = () => { r.undo.slice().reverse().forEach(u => { setVal(u.inp, u.old); u.inp.style.background = u.bg; });
+        ub.remove(); const s2 = bar.querySelector('.mbn-st'); if (s2) s2.textContent = `↩️ أُعيدت ${r.undo.length} خانة إلى ما كانت عليه.`; const mb = bar.querySelector('.mbn-miss'); if (mb) mb.remove(); };
+      bar.querySelector('.mbn-go').after(ub);
+    }
     // طلاب هذه الصفحة الذين لم تُعبّأ درجاتهم — بالاسم والسبب (والصف نفسه بإطار أحمر)
     let box = bar && bar.querySelector('.mbn-miss'); if (box) box.remove();
     if (bar && r.missed && r.missed.length) {
@@ -336,6 +378,6 @@
   }
   if (isTop) {
     if (document.body) showBar(); else document.addEventListener('DOMContentLoaded', showBar, { once: true });
-    try { chrome.storage.onChanged.addListener((ch, area) => { if (area === 'local' && ch.mb_noor_grades) { if (bar) { bar.remove(); bar = null; } showBar(); } }); } catch (_) {}
+    try { chrome.storage.onChanged.addListener((ch, area) => { if (area === 'local' && ch.mb_noor_alias) ALIAS = ch.mb_noor_alias.newValue || {}; if (area === 'local' && ch.mb_noor_grades) { if (bar) { bar.remove(); bar = null; } showBar(); } }); } catch (_) {}
   }
 })();
