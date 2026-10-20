@@ -57,7 +57,7 @@
     return { m: top[0], also: top.slice(1) };
   }
   // يُعلَّم الصف الذي لم يُعبّأ بإطار أحمر وسبب يظهر عند الوقوف عليه
-  const WHY = { none: 'الاسم غير موجود في كشف مساعد المعلم', tie: 'أكثر من طالب بهذا الاسم في الكشف بدرجات مختلفة', empty: 'لا درجة له في الكشف', locked: 'خانته مقفلة في نور' };
+  const WHY = { none: 'الاسم غير موجود في كشف مساعد المعلم', tie: 'أكثر من طالب بهذا الاسم في الكشف بدرجات مختلفة', empty: 'لا درجة له في الكشف', nocell: 'لم أجد خانته تحت عمود الدرجة', locked: 'خانته مقفلة في نور' };
   function markRow(tr, why) {
     if (why) { tr.style.outline = '2px solid #D6455B'; tr.style.outlineOffset = '-2px'; tr.title = '⚠️ مساعد المعلم: ' + WHY[why]; tr.dataset.mbWhy = why; }
     else if (tr.dataset.mbWhy) { tr.style.outline = ''; tr.title = ''; delete tr.dataset.mbWhy; }
@@ -105,7 +105,9 @@
     const table = tr.closest('table'); if (!table) return { work: null, exam: null, unknown: true };
     const { pos, heads } = grid(table);
     if (!heads.work.length || !heads.exam.length) return { work: null, exam: null, unknown: true };
-    const under = (inp, hs) => { const p = pos.get(inp.closest('td,th')); return p && hs.some(h => p.c >= h.c && p.c < h.c + h.cs); };
+    // نور يضع الخانة وقائمة «حاضر» داخل جدول صغير في الخلية: العمود هو عمود خلية الصف نفسه، لا خلية الجدول الداخلي
+    const cellOf = inp => { let c = inp.closest('td,th'); while (c && c.parentElement !== tr) c = c.parentElement && c.parentElement.closest('td,th'); return c; };
+    const under = (inp, hs) => { const p = pos.get(cellOf(inp)); return p && hs.some(h => p.c >= h.c && p.c < h.c + h.cs); };
     const fields = [...tr.querySelectorAll('input')].filter(isField);
     const w = fields.filter(i => under(i, heads.work)), e = fields.filter(i => under(i, heads.exam));
     return { work: w.length === 1 ? w[0] : null, exam: e.length === 1 ? e[0] : null, unknown: false, multi: w.length > 1 || e.length > 1 };
@@ -140,8 +142,10 @@
         else if (mode === 'work40') put(targets.work, w);
         else put(targets.exam, e);
         if (rowFilled) filled++;
-        else { const why = rowLocked ? 'locked' : 'empty'; missed.push({ name, why }); }
-        markRow(tr, rowFilled ? '' : (rowLocked ? 'locked' : 'empty'));
+        const noCell = (mode !== 'exam20' && w !== '' && !targets.work) || (mode !== 'work40' && e !== '' && !targets.exam);
+        const why = rowLocked ? 'locked' : noCell ? 'nocell' : 'empty';
+        if (!rowFilled) missed.push({ name, why });
+        markRow(tr, rowFilled ? '' : why);
       }
     }
     const unmatched = idx.filter(x => !used.has(x)).map(x => x.r.name);
@@ -169,7 +173,7 @@
     if (bar && r.missed && r.missed.length) {
       box = document.createElement('div'); box.className = 'mbn-miss';
       box.style.cssText = 'flex-basis:100%;background:#3A1E28;border-radius:8px;padding:5px 8px;font-weight:500;font-size:11px;line-height:1.5;max-height:110px;overflow:auto';
-      const short = { none: 'غير موجود في الكشف', tie: 'اسم مكرر في الكشف', empty: 'بلا درجة في الكشف', locked: 'خانة مقفلة' };
+      const short = { none: 'غير موجود في الكشف', tie: 'اسم مكرر في الكشف', empty: 'بلا درجة في الكشف', nocell: 'لم أجد خانته', locked: 'خانة مقفلة' };
       box.textContent = `🔴 لم تُعبّأ درجات ${r.missed.length} في هذه الصفحة (بإطار أحمر): ` + r.missed.map(x => `${x.name.split(' ').filter(w => w !== 'بن').slice(0, 2).join(' ')} — ${short[x.why]}`).join(' · ');
       bar.appendChild(box);
     }
