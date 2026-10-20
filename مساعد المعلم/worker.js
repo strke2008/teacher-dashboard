@@ -640,6 +640,16 @@ function termHasTs(T, t) {
   const d = new Date(t + 3 * 3600000).toISOString().slice(0, 10);
   if ((T.explicit || T.startSet) && T.start && d < T.start) return false; if ((T.explicit || T.endSet) && T.end && d > T.end) return false; return true;
 }
+/* 🗓️ وقت إسناد النشاط (نفس hwAssignedAt في اللوحة) */
+function actAssignedAt(h) { const t = Number(h.firstPub || h.at) || 0; if (t) return t; const m = /^s([0-9a-z]{8,9})/.exec(String(h.id || '')); const x = m ? parseInt(m[1], 36) : 0; return x > 1.5e12 && x < 4e12 ? x : (Number(h.publishedAt) || 0); }
+/* 📌 تسليم ينتمي لفترة الإتقان؟ بقاعدة درجة الأنشطة نفسها: النشاط نُشر في الفترة، والتسليم قبل إغلاقها
+   (لا بتاريخ التسليم — كان التسليم المتأخر لنشاط الفترة يُحسب في الأنشطة ويسقط من الإتقان) */
+function subInPeriod(h, sub, range) {
+  if (!range) return true;
+  if (!termHasTs(range, actAssignedAt(h))) return false;
+  const cut = Number(range.closedAt || range.endAt) || 0, t = Number(sub.fat || sub.at) || 0;
+  return !cut || !t || t < cut;
+}
 /* 🔒 الفترات المغلقة (من لقطاتها): حدودها ولحظة إغلاقها — ما نُشر فيها وسُلّم بعد الإغلاق لا يُحسب لها */
 function closedTerms(data) {
   const ac = academicNormalize(data) || {}, out = [];
@@ -1020,7 +1030,7 @@ function gradeLevel(assignments, sid, range) {
     const sub = h.subs && h.subs[String(sid)];
     if (!sub) continue;
     const d = new Date(Number(sub.at) || 0).toISOString().slice(0, 10);
-    if (!gInRange(d, sub.at, range)) continue;
+    if (!subInPeriod(h, sub, range)) continue;
     const t = Number(sub.total) || 0;
     if (t <= 0) continue;
     total += t;
@@ -1205,7 +1215,7 @@ function diagSkillMap(h) {
   const qs = h && Array.isArray(h.qs) ? h.qs : [];
   return qs.some(q => q && q.skill) ? qs.map(q => (q && q.skill ? String(q.skill).trim().slice(0, 40) : '')) : null;
 }
-function skillWindow(data, assignments, sid, from, to, only, cut) {
+function skillWindow(data, assignments, sid, from, to, only, cut, period) {
   const map = (data && data.__skills) || {}, out = {};
   for (const h of (assignments || [])) {
     const kind = h && (h.kind || 'normal');
@@ -1213,9 +1223,10 @@ function skillWindow(data, assignments, sid, from, to, only, cut) {
     // مهارة مكتوبة على السؤال نفسه (التشخيصي، ونواتج نافس) أولًا، وإلا تصنيف الذكاء الاصطناعي
     const sk = skAsTargets(diagSkillMap(h) || (kind === 'diag' ? null : map[String(h.sid || '')]), only); if (!sk) continue;
     const sub = h.subs && h.subs[String(sid)]; if (!sub || !sub.d) continue;
-    const d = planSubDay(sub.at, cut);
-    if (from && d < from) continue;
-    if (to && d > to) continue;
+    if (period) { if (!subInPeriod(h, sub, period)) continue; }      // مهارات الفترة: بقاعدة الإتقان نفسها
+    else { const d = planSubDay(sub.at, cut);
+      if (from && d < from) continue;
+      if (to && d > to) continue; }
     String(sub.d).split('').forEach((c, i) => {
       const s = sk[i]; if (!s || (only && !only.includes(s))) return;
       const o = out[s] || (out[s] = { c: 0, t: 0, dt: 0 }); o.t++; if (c === '1') o.c++;
@@ -1235,7 +1246,7 @@ function skillBand(rate) {
     : rate >= 40 ? { key: 'support', name: 'فجوة تحتاج دعمًا' } : { key: 'found', name: 'يحتاج تأسيسًا' };
 }
 function skillProfile(data, assignments, sid, range) {
-  const w = skillWindow(data, assignments, sid, range && range.start, range && range.end);
+  const w = skillWindow(data, assignments, sid, range && range.start, range && range.end, null, 0, range);
   return Object.entries(w).filter(([, v]) => v.t >= 2).map(([skill, v]) => {
     const rate = Math.round((v.c / v.t) * 100), b = skillBand(rate);
     return { skill, rate, total: v.t, diag: v.dt || 0, acts: v.t - (v.dt || 0), band: b.key, bandName: b.name };
@@ -1657,7 +1668,7 @@ function weakActivities(assignments, sid, range) {
     const sub = h.subs && h.subs[String(sid)];
     if (!sub) continue;
     const d = new Date(Number(sub.at) || 0).toISOString().slice(0, 10);
-    if (!gInRange(d, sub.at, range)) continue;
+    if (!subInPeriod(h, sub, range)) continue;
     const t = Number(sub.total) || 0;
     if (t <= 0) continue;
     const rate = Math.round((Math.max(0, Math.min(t, Number(sub.correct) || 0)) / t) * 100);
@@ -2045,7 +2056,7 @@ function computeAllGrades(students, data, assignments, semester = 1, period = 1)
         // 📈 اتجاه الإتقان (النصف الأول من أنشطة الفترة مقابل الثاني) — لعرض من يتحسّن ومن يتراجع
         trend: masteryTrend(assignments, sid, range),
         // 🏷️ نسبة الطالب في كل مهارة خلال الفترة — لخريطة المهارات وملف الطالب
-        skills: Object.fromEntries(Object.entries(skillWindow(data, assignments, sid, range && range.start, range && range.end))
+        skills: Object.fromEntries(Object.entries(skillWindow(data, assignments, sid, range && range.start, range && range.end, null, 0, range))
           .map(([k, v]) => [k, { rate: Math.round((v.c / v.t) * 100), c: v.c, t: v.t }])),
         attendance: gradeAttendance(data, sid, range),
         duties: gradeDuties(data, sid, range),
