@@ -1522,7 +1522,7 @@ function annEditOpen(id){
   const cls=[...new Set((STUDENTS||[]).map(s=>String(s.cls||'')).filter(Boolean))].sort((x,y)=>x.localeCompare(y,'ar')), on=new Set(a.classes||[]);
   openModal(`<h2>✏️ تعديل الإعلان</h2><p class="muted" style="margin:-.2rem 0 .8rem;font-size:.84rem">يتحدّث عند الطلاب فورًا، ويبقى تاريخه ووقت ظهوره كما هو.</p>
     <div class="field"><label>العنوان</label><input class="inp" id="ae-title" maxlength="140" value="${esc(a.title||'')}"></div>
-    <div class="field"><label>النص <small class="muted">— الروابط تظهر للطلاب أزرارًا</small></label><textarea class="inp" id="ae-body" rows="5" maxlength="3000">${esc(a.body||'')}</textarea></div>
+    <div class="field"><label>النص</label><textarea class="inp" id="ae-body" rows="5" maxlength="3000">${esc(a.body||'')}</textarea><small class="ann-hint">🔘 الرابط يظهر للطلاب زرًّا. لتسميته اكتب الاسم ثم الرابط في السطر نفسه: <code>وثيقة المسابقة https://…</code></small></div>
     <div class="field"><label>يظهر لـ</label><div class="ann-cls" id="ae-classes"><label class="ann-chip"><input type="checkbox" value="" ${on.size?'':'checked'}> كل الطلاب</label>${cls.map(c=>`<label class="ann-chip"><input type="checkbox" value="${esc(c)}" ${on.has(c)?'checked':''}> ${esc(c)}</label>`).join('')}</div></div>
     <div class="field"><label>المرفقات</label><div id="ae-files" class="ae-files"></div>
       <label class="btn ghost sm" style="margin-top:.4rem">📎 إضافة مرفق<input type="file" id="ae-add" accept="image/*,video/mp4,video/webm,video/quicktime,application/pdf" multiple hidden></label></div>

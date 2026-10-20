@@ -22,7 +22,7 @@
 <meta content="root-cause-sync-v2" name="sync-fix-version"/>
 <link rel="stylesheet" href="app.css?v=caf855e9">
 <script src="js/01-right-sidebar-navigation-js.js?v=41ea29b3" defer></script>
-<script src="js/02.js?v=55810132" defer></script>
+<script src="js/02.js?v=3c9a4772" defer></script>
 <script src="js/03-projects-students-logic-v13.js?v=1222f001" defer></script>
 <script src="js/04.js?v=88f51ee5" defer></script>
 <script src="js/05.js?v=5e4e4410" defer></script>
@@ -481,7 +481,7 @@
 .exam-shop-status.open{background:#E4F4EC;color:#167852}.exam-shop-status.closed{background:#FFF1F2;color:#9F2538}
 @media screen and (max-width:600px){.exam-shop-kpis{grid-template-columns:1fr 1fr}.exam-shop-student{grid-template-columns:1fr 105px}.exam-shop-student small{grid-column:1}.exam-shop-student .exam-shop-used{display:none}}
 </style>
-<link rel="stylesheet" id="late-css" href="app-late.css?v=59065b5d">
+<link rel="stylesheet" id="late-css" href="app-late.css?v=129b810f">
 </head>
 <body>
 <header class="masthead">
@@ -581,7 +581,7 @@
 <div class="sheet-head" style="margin:0 0 .5rem"><div><h3 style="margin:0">📢 إعلان أو ملفات للطلاب</h3>
 <span class="sub">صورة أو فيديو أو PDF يظهر في الصفحة الرئيسية لبوابة الطالب — لإعلان مشروع أو مشاركة ملف</span></div></div>
 <div class="field"><label>العنوان</label><input class="inp" id="ann-title" maxlength="140" placeholder="مثال: مشروع الفصل — نموذج الخلية"></div>
-<div class="field"><label>النص (اختياري)</label><textarea class="inp" id="ann-body" rows="3" maxlength="3000" placeholder="تفاصيل الإعلان، المطلوب، الموعد…"></textarea></div>
+<div class="field"><label>النص (اختياري)</label><textarea class="inp" id="ann-body" rows="3" maxlength="3000" placeholder="تفاصيل الإعلان، المطلوب، الموعد…"></textarea><small class="ann-hint">🔘 الرابط يظهر للطلاب زرًّا. لتسميته اكتب الاسم ثم الرابط في السطر نفسه: <code>وثيقة المسابقة https://…</code></small></div>
 <div class="field"><label>لمن؟</label><div id="ann-classes" class="ann-cls"></div></div>
 <div class="field"><label>⏰ وقت الظهور للطلاب</label>
 <div class="ann-when"><label>يظهر من<input class="inp" type="datetime-local" id="ann-from"><small>فارغ = الآن</small></label>

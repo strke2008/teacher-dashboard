@@ -2584,3 +2584,4 @@ button.sk-chip:not([onclick]){cursor:default}
 /* ✏️ تعديل إعلان */
 .ae-files{display:flex;flex-wrap:wrap;gap:.35rem}
 .ae-files .ann-file.gone{opacity:.55;text-decoration:line-through}.ae-files .ann-file.new{border-color:#86D3A6;background:#F0FAF5}
+.ann-hint{display:block;margin-top:.3rem;font-size:.76rem;color:var(--ink-soft)}.ann-hint code{background:#EEF2F7;border-radius:6px;padding:.05rem .35rem;direction:rtl;unicode-bidi:plaintext}

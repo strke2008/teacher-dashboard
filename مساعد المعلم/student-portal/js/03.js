@@ -29,14 +29,23 @@ async function annPortalLoad(){
   setTimeout(()=>annMarkSeen(rows.slice(0,3).map(a=>a.id)),2500);
 }
 /* الروابط في نص الإعلان قابلة للضغط — يُهرَّب النص أولًا ثم تُحوَّل الروابط فقط (لا HTML من المصدر) */
+/* تسمية الزر: «الاسم ثم الرابط» في سطر واحد، أو [الاسم](الرابط) — وإلا اسم الملف من الرابط */
 function annLinkify(text){
-  const safe=esc(String(text||''));
-  return safe.replace(/(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/g,m=>{
+  const safe=esc(String(text||'')), btns=[];
+  const btn=(m,label)=>{
     const trail=(m.match(/[.,،؛:!?)\]]+$/)||[''])[0], u=trail?m.slice(0,-trail.length):m;
-    const href=(/^www\./i.test(u)?'https://':'')+u.replace(/&amp;/g,'&');
-    const L=annLinkInfo(href);
-    return `<a class="ann-btn" href="${esc(href)}" target="_blank" rel="noopener noreferrer"><span class="ann-btn-ic">${L.ic}</span><span class="ann-btn-tx"><b>${esc(L.t)}</b><small>${esc(L.sub)}</small></span><span class="ann-btn-go">فتح ←</span></a>${trail}`;
-  }).replace(/(<\/a>[.,،؛:!?)\]]*)\n/g,'$1');   // الزر سطر مستقل: لا سطر فارغ بعده
+    const href=(/^www\./i.test(u)?'https://':'')+u.replace(/&amp;/g,'&'), L=annLinkInfo(href);
+    btns.push(`<a class="ann-btn" href="${esc(href)}" target="_blank" rel="noopener noreferrer"><span class="ann-btn-ic">${L.ic}</span><span class="ann-btn-tx"><b>${label||esc(L.t)}</b><small>${esc(L.sub)}</small></span><span class="ann-btn-go">فتح ←</span></a>`);
+    return `\u0000${btns.length-1}\u0000${trail}`;
+  };
+  const URL_S='(?:https?:\\/\\/[^\\s<>"\']+|www\\.[^\\s<>"\']+)';
+  let out=safe.replace(/\[([^\]\n]{1,80})\]\((https?:\/\/[^\s)<>"']+)\)/g,(_,l,u)=>btn(u,l.trim()))   // [الاسم](الرابط)
+    .split('\n').map(line=>{
+      const m=new RegExp(`^\\s*([^\\n\\u0000]{1,80}?)\\s*[:：\\-–—]?\\s+(${URL_S})\\s*$`).exec(line);   // الاسم ثم الرابط في السطر نفسه
+      if(m && !/https?:|www\./i.test(m[1])) return btn(m[2],m[1].replace(/[:：\-–—]\s*$/,'').trim());
+      return line.replace(new RegExp(URL_S,'g'),u=>btn(u,''));
+    }).join('\n');
+  return out.replace(/\u0000(\d+)\u0000/g,(_,n)=>btns[+n]).replace(/(<\/a>[.,،؛:!?)\]]*)\n/g,'$1');   // الزر سطر مستقل: لا سطر فارغ بعده
 }
 /* 🔘 الرابط زرّ واضح بدل نص طويل مُرمَّز: اسم الملف من الرابط نفسه (مفكوك الترميز) ونوعه وأيقونته والموقع */
 const ANN_EXT={ pptx:['📊','عرض PowerPoint'], ppt:['📊','عرض PowerPoint'], docx:['📄','مستند Word'], doc:['📄','مستند Word'], pdf:['📕','ملف PDF'],
