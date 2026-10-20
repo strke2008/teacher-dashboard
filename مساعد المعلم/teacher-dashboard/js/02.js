@@ -2645,16 +2645,18 @@ async function sfPeriod(el,sid){
 /* 🔍 لماذا «لم يُقَس» الإتقان؟ نفس شروط الخادم (gradeLevel): نشاط عادي/مختبر · له أسئلة · تاريخ تسليمه داخل الفترة.
    إن وجدنا هنا تسليمات تصلح للقياس والخادم لم يقسها فنسخة الخادم ناقصة. */
 function ctMasteryWhy(sid){
-  const R=(CT_GRADES&&CT_GRADES.term)||null, S=String(sid), c={kind:0,noq:0,nodate:0,out:0,ok:0}, okN=[];
-  const inR=at=>{ if(!R) return true; const d=new Date(Number(at)||0).toISOString().slice(0,10); if(!d||(R.start&&d<R.start)||(R.end&&d>R.end)) return false;
-    const t=Number(at)||0; if(t&&R.startAt&&t<R.startAt) return false; if(t&&R.endAt&&t>=R.endAt) return false; return true; };
+  const R=(CT_GRADES&&CT_GRADES.term)||null, S=String(sid), c={kind:0,noq:0,nodate:0,out:0,ok:0,before:0,after:0}, okN=[], outD=[];
+  // -1 قبل بداية الفترة · 1 بعد نهايتها · 0 داخلها
+  const side=at=>{ if(!R) return 0; const d=new Date(Number(at)||0).toISOString().slice(0,10), t=Number(at)||0;
+    if((R.start&&d<R.start)||(t&&R.startAt&&t<R.startAt)) return -1; if((R.end&&d>R.end)||(t&&R.endAt&&t>=R.endAt)) return 1; return 0; };
+  const inR=at=>side(at)===0;
   for(const h of HW||[]){ const v=h&&h.subs&&h.subs[S]; if(!v) continue;
     if(!['normal','lab'].includes(h.kind||'normal')){ c.kind++; continue; }
     if(!(Number(v.total)>0)){ c.noq++; continue; }
     if(!Number(v.at)){ c.nodate++; continue; }
-    if(!inR(v.at)){ c.out++; continue; }
+    if(!inR(v.at)){ c.out++; side(v.at)<0?c.before++:c.after++; outD.push(new Date(Number(v.at)).toISOString().slice(0,10)); continue; }
     c.ok++; okN.push(h.title||''); }
-  const why=[c.kind?`${c.kind} من نوع لا يُقاس (قراءة/مشروع/لعبة/تشخيصي)`:'',c.noq?`${c.noq} بلا أسئلة`:'',c.nodate?`${c.nodate} بلا تاريخ تسليم`:'',c.out?`${c.out} سُلّمت خارج الفترة`:''].filter(Boolean);
+  const why=[c.kind?`${c.kind} من نوع لا يُقاس (قراءة/مشروع/لعبة/تشخيصي)`:'',c.noq?`${c.noq} بلا أسئلة`:'',c.nodate?`${c.nodate} بلا تاريخ تسليم`:'',c.out?`${c.out} سُلّمت خارج الفترة (${c.before?`${c.before} قبل بدايتها`:''}${c.before&&c.after?' و':''}${c.after?`${c.after} بعد نهايتها`:''}) — الفترة من ${R&&R.start||'؟'} إلى ${R&&R.end||'؟'}، وتسليماته بين ${outD.sort()[0]} و${outD.sort().slice(-1)[0]}`:''].filter(Boolean);
   if(c.ok) return `⚠️ عنده ${c.ok} تسليم يصلح للقياس لكن نسخة الخادم لم تحسبه — اضغط «🔄 تحديث» أعلى الصفحة ثم افتح الملف مجددًا`;
   return why.length?'لم يُقس لأن تسليماته: '+why.join(' · '):'لم يسلّم نشاطًا عاديًا بأسئلة في هذه الفترة';
 }
