@@ -6761,7 +6761,7 @@ async function liveJoin(id){
   try{ const r = await storeFetch(liveApi() + '/live/join', { body: JSON.stringify({ game: id }) }); j = await r.json().catch(() => ({})); }
   catch(e){ toast('تعذّر الاتصال — لم يُخصم شيء، حاول مجددًا', 'bad'); return; }
   if(!j.ok){
-    const m = { insufficient: `رصيدك ${j.bal ?? MYPTS} لا يكفي — الدخول ${g.fee} نقطة`, registration_closed: 'انتهى التسجيل', full: 'اكتمل عدد اللاعبين', not_allowed: 'هذه المسابقة ليست لفصلك', auth_cancel: '' }[j.error];
+    const m = { insufficient: `رصيدك ${j.bal ?? MYPTS} لا يكفي — الدخول ${g.fee} نقطة`, registration_closed: 'انتهى التسجيل', daily_once: `لعبت (أو سجّلت) في التحدي اليومي اليوم${j.at ? ' — موعدك ' + new Date(j.at).toLocaleTimeString('ar-SA', { hour: 'numeric', minute: '2-digit' }) : ''}. موعد واحد في اليوم، وغدًا موعد جديد 🔥`, full: 'اكتمل عدد اللاعبين', not_allowed: 'هذه المسابقة ليست لفصلك', auth_cancel: '' }[j.error];
     if(m !== '') toast(m || 'تعذّر الدخول', 'bad'); return;
   }
   if(typeof j.bal === 'number'){ MYPTS = j.bal; try{ syncBalanceUI(); }catch(e){} }

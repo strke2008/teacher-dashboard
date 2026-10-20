@@ -4339,21 +4339,28 @@ async function liveCreateGame(env, b, now) {
       skin: LIVE_SKINS.includes(String(b.skin)) ? String(b.skin) : 'classic', notify: b.notify !== false,
       // 👥 حد أدنى للاعبين: يُفحص عند إغلاق التسجيل — تمديد (حتى مرتين) أو إلغاء مع استرداد الرسوم
       minPlayers: clampInt(b.minPlayers, 0, 50, 0), minAction: b.minAction === 'cancel' ? 'cancel' : 'extend',
-      extendMin: clampInt(b.extendMin, 1, 30, 5), maxExtends: clampInt(b.maxExtends, 0, 5, 2), extends: 0 };
+      extendMin: clampInt(b.extendMin, 1, 30, 5), maxExtends: clampInt(b.maxExtends, 0, 5, 2), extends: 0,
+      ...(b.daily ? { daily: true, onePerDay: !!b.onePerDay } : {}) };
     const id = 'lg' + now.toString(36) + Math.random().toString(36).slice(2, 7);
     await env.DB.prepare('INSERT INTO live_games (id, title, cfg, status, reg_open, reg_close, start_at, q_ms, reveal_ms, n, fee, max_players, created_at) VALUES (?1, ?2, ?3, \'SCHEDULED\', ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)')
       .bind(id, String(b.title || 'مسابقة').slice(0, 80), JSON.stringify(cfg), regOpen, regClose, startAt, qMs, revealMs, qs.length, clampInt(b.fee, 0, 10000, 0), clampInt(b.maxPlayers, 0, 500, 0), now).run();
     return { ok: true, id };
 }
 /* 🔁 المسابقة اليومية: موعد اليوم/التالي بتوقيت السعودية */
-function liveDailyStartFor(D, dayMs) {
-  const k = new Date(dayMs + 3 * 3600000), [hh, mm] = String(D.time || '20:00').split(':').map(Number);
+/* ⏰ أوقات المسابقة اليومية (حتى 4 في اليوم، مثل 16:00 و20:00) — «time» القديم يبقى أول وقت للتوافق */
+function liveDailyTimes(D) {
+  const t = (Array.isArray(D && D.times) && D.times.length ? D.times : [(D && D.time) || '20:00']).filter(x => /^([01]\d|2[0-3]):[0-5]\d$/.test(String(x)));
+  return [...new Set(t.length ? t : ['20:00'])].sort();
+}
+function liveDailyStartFor(D, dayMs, time) {
+  const k = new Date(dayMs + 3 * 3600000), [hh, mm] = String(time || liveDailyTimes(D)[0]).split(':').map(Number);
   return Date.UTC(k.getUTCFullYear(), k.getUTCMonth(), k.getUTCDate(), hh, mm) - 3 * 3600000;
 }
 function liveDailyNext(D, now) {
   if (!D || !D.on || !(D.days || []).length) return 0;
-  for (let i = 0; i < 8; i++) { const day = now + i * 864e5, dow = new Date(day + 3 * 3600000).getUTCDay(), st = liveDailyStartFor(D, day);
-    if ((D.days || []).includes(dow) && st > now + 60000) return st; }
+  for (let i = 0; i < 8; i++) { const day = now + i * 864e5, dow = new Date(day + 3 * 3600000).getUTCDay();
+    if (!(D.days || []).includes(dow)) continue;
+    for (const t of liveDailyTimes(D)) { const st = liveDailyStartFor(D, day, t); if (st > now + 60000) return st; } }
   return 0;
 }
 async function liveDailyTick(env, now) {
@@ -4361,13 +4368,17 @@ async function liveDailyTick(env, now) {
   if (!D || !D.on || !(D.days || []).length) return;
   const k = new Date(now + 3 * 3600000), today = k.toISOString().slice(0, 10);
   if (!(D.days || []).includes(k.getUTCDay())) return;
-  const startAt = liveDailyStartFor(D, now), regOpen = startAt - (D.regOpenMin || 30) * 60000;
-  // 🔑 مرة واحدة لكل موعد (لا لكل يوم): لو غيّر المعلم الوقت في نفس اليوم تُنشأ مسابقة الموعد الجديد.
-  //    كان «D.last === today» يمنعها إن سبقتها مسابقة (أو محاولة فاشلة) في وقت آخر من اليوم.
-  if (D.lastSlot === startAt || (!D.lastSlot && D.last === today && D.lastAt && D.lastAt >= regOpen - 180000)) return;
-  if (now < regOpen - 120000 || now > startAt - 30000) return;          // تُنشأ قبل فتح التسجيل بدقيقتين
+  // ⏰ أول موعد من أوقات اليوم دخل نافذة الإنشاء ولم يُنشأ بعد (كل موعد مرة واحدة، والمواعيد المتعددة مستقلة)
+  const done = new Set([...(Array.isArray(D.slots) ? D.slots : []), D.lastSlot].filter(Boolean));
+  let startAt = 0, regOpen = 0;
+  for (const t of liveDailyTimes(D)) { const st = liveDailyStartFor(D, now, t), ro = st - (D.regOpenMin || 30) * 60000;
+    if (done.has(st)) continue;
+    if (now < ro - 120000 || now > st - 30000) continue;                // تُنشأ قبل فتح التسجيل بدقيقتين
+    startAt = st; regOpen = ro; break; }
+  if (!startAt) return;
   const bank = Array.isArray(D.bank) ? D.bank : [];
   D.last = today; D.lastSlot = startAt; D.lastAt = now;                 // مرة واحدة لكل موعد حتى لو فشل الإنشاء
+  D.slots = [...done, startAt].filter(x => now - x < 2 * 864e5).slice(-12);
   if (!bank.length) { D.lastErr = 'no_questions'; await env.HW.put('live:daily', JSON.stringify(D)); return; }
   // أسئلة عشوائية لم تُستخدم في آخر 7 أيام (إن نفدت يُكمَل من المستخدم سابقًا)
   const hq = q => String(q.q).replace(/\s+/g, ' ').slice(0, 120);
@@ -4381,7 +4392,7 @@ async function liveDailyTick(env, now) {
   const regClose = Math.max(regOpen, startAt - (D.regCloseMin ?? 1) * 60000);
   const r = await liveCreateGame(env, { title: D.title, classes: D.classes, questions: pick, fee: D.fee, prizes: D.prizes, maxPlayers: D.maxPlayers,
     minPlayers: D.minPlayers, minAction: D.minAction, qSec: D.qSec, revealSec: D.revealSec, regOpen: Math.max(regOpen, now), regClose, startAt,
-    skin: D.skin, notify: D.notify, source: '🔁 مسابقة يومية تلقائية', daily: true }, now);
+    skin: D.skin, notify: D.notify, source: '🔁 مسابقة يومية تلقائية', daily: true, onePerDay: D.onePerDay !== false }, now);
   if (r.ok) { D.lastId = r.id; delete D.lastErr; D.lastErrAt = 0; D.recent = recent.concat(pick.map(q => ({ h: hq(q), at: now }))).slice(-500); }
   else D.lastErr = r.error;
   await env.HW.put('live:daily', JSON.stringify(D));
@@ -4408,8 +4419,10 @@ async function handleLive(url, request, env, ctx) {
     const cleanBank = arr => (Array.isArray(arr) ? arr : []).slice(0, 1500).map(q => ({ q: String(q && q.q || '').slice(0, 600), o: (Array.isArray(q && q.o) ? q.o : []).slice(0, 6).map(x => String(x || '').slice(0, 200)), a: parseInt(q && q.a, 10) }))
       .filter(q => q.q && q.o.length >= 2 && q.o.every(Boolean) && Number.isInteger(q.a) && q.a >= 0 && q.a < q.o.length);
     if (b.op === 'set' && b.cfg && typeof b.cfg === 'object') {
-      const c = b.cfg, t = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(c.time)) ? String(c.time) : '20:00';
-      D = { ...D, on: !!c.on, title: String(c.title || 'التحدي اليومي 🔥').slice(0, 80), time: t,
+      const c = b.cfg, okT = x => /^([01]\d|2[0-3]):[0-5]\d$/.test(String(x));
+      const times = [...new Set((Array.isArray(c.times) ? c.times : [c.time]).map(String).filter(okT))].sort().slice(0, 4);
+      if (!times.length) times.push('20:00');
+      D = { ...D, on: !!c.on, title: String(c.title || 'التحدي اليومي 🔥').slice(0, 80), time: times[0], times, onePerDay: c.onePerDay !== false,
         days: (Array.isArray(c.days) ? c.days : []).map(x => parseInt(x, 10)).filter(x => x >= 0 && x <= 6),
         regOpenMin: clampInt(c.regOpenMin, 1, 600, 30), regCloseMin: clampInt(c.regCloseMin, 0, 60, 1), n: clampInt(c.n, 1, 50, 10),
         qSec: clampInt(c.qSec, 5, 120, 20), revealSec: clampInt(c.revealSec, 2, 15, 4), fee: clampInt(c.fee, 0, 10000, 0),
@@ -4531,6 +4544,15 @@ async function handleLive(url, request, env, ctx) {
     return studentLocked(env, st, async () => {
       const had = await env.DB.prepare('SELECT sid FROM live_players WHERE game = ?1 AND sid = ?2').bind(g.id, st.id).first();
       if (had) return json({ ok: true, already: true, bal: await liveBal(env, st) });
+      // 🔁 المسابقة اليومية بأكثر من موعد: الطالب يختار موعدًا واحدًا في اليوم (لا تُضاعف النقاط والجوائز)
+      if (g.cfgObj && g.cfgObj.daily && g.cfgObj.onePerDay) {
+        const k = new Date(g.start_at + 3 * 3600000), d0 = Date.UTC(k.getUTCFullYear(), k.getUTCMonth(), k.getUTCDate()) - 3 * 3600000;
+        const other = await env.DB.prepare("SELECT g.start_at AS at FROM live_players p JOIN live_games g ON g.id = p.game WHERE p.sid = ?1 AND g.id <> ?2 AND g.start_at >= ?3 AND g.start_at < ?4 AND g.status NOT IN ('CANCELLED','DELETED') AND g.cfg LIKE '%\"daily\":true%'"
+          // من سجّل في موعد سابق ولم يجب ولا سؤالًا (غاب) لا يُحرم من الموعد التالي
+          + " AND (g.start_at > ?5 OR EXISTS (SELECT 1 FROM live_answers a WHERE a.game = g.id AND a.sid = p.sid)) LIMIT 1")
+          .bind(st.id, g.id, d0, d0 + 864e5, now).first();
+        if (other) return json({ ok: false, error: 'daily_once', at: other.at }, 409);
+      }
       const bal = await liveBal(env, st);
       // 🎟️ تذكرة مسابقة: تُستخدم تلقائيًا بدل الرسوم إن كان يملكها (وتُعاد إن أُلغيت المسابقة)
       const own0 = g.fee > 0 ? await readOwn(env, st) : {};

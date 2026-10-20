@@ -16932,13 +16932,24 @@ async function lvDailyLoad(){
     if(bank.length && localStorage.getItem('lvd_sig') !== sig){ const j = await lvPost('/live/daily', { op: 'bank', bank, acts }); LVD = j.daily || LVD; localStorage.setItem('lvd_sig', sig); } }catch(e){} }
   lvDailyBar();
 }
+/* ⏰ أوقات المسابقة اليومية: حتى 4 مواعيد في اليوم — الطالب يختار الأنسب له */
+function lvDailyTimes(D){ const t = (D && Array.isArray(D.times) && D.times.length ? D.times : [(D && D.time) || '20:00']).filter(Boolean); return [...new Set(t)].sort(); }
+function lvTime12(t){ const [h, m] = String(t).split(':').map(Number); if(!Number.isFinite(h)) return t; const pm = h >= 12, hh = h % 12 || 12;
+  return `${hh}${m ? ':' + String(m).padStart(2, '0') : ''} ${h < 12 ? 'صباحًا' : h < 15 ? 'ظهرًا' : h < 18 ? 'عصرًا' : 'مساءً'}`; }
+function lvdTimeRow(t){ return `<span class="lvd-t"><input class="inp" type="time" value="${esc(t)}"><button type="button" class="btn ghost sm" title="حذف" onclick="lvdTimeDel(this)">✕</button></span>`; }
+function lvdTimeAdd(){ const box = document.getElementById('lvd-times'); if(!box) return; const n = box.querySelectorAll('.lvd-t').length;
+  if(n >= 4){ toast('أقصى حد 4 مواعيد في اليوم', 'bad'); return; }
+  const last = [...box.querySelectorAll('input')].map(i => i.value).filter(Boolean).sort().pop() || '16:00';
+  const [h, m] = last.split(':').map(Number), nx = `${String(Math.min(23, h + 4)).padStart(2, '0')}:${String(m || 0).padStart(2, '0')}`;
+  box.insertAdjacentHTML('beforeend', lvdTimeRow(nx)); }
+function lvdTimeDel(b){ const box = document.getElementById('lvd-times'); if(box && box.querySelectorAll('.lvd-t').length > 1) b.closest('.lvd-t').remove(); else toast('يلزم موعد واحد على الأقل', 'bad'); }
 function lvDailyBar(){
   const el = document.getElementById('lv-daily'); if(!el || !LVD) return;
   const D = LVD, days = (D.days || []).length === 7 ? 'كل يوم' : (D.days || []).map(d => LV_DOW[d]).join('، ') || '—';
   el.innerHTML = `<div class="lvd-bar ${D.on ? 'on' : ''}" onclick="lvDailyOpen()" role="button" tabindex="0">
     <span class="lvd-ic">🔁</span>
     <span class="lvd-tx"><b>المسابقة اليومية التلقائية ${D.on ? '<em>مفعّلة</em>' : '<i>متوقفة</i>'}</b>
-      <small>${D.on ? `${days} · ⏰ ${esc(D.time || '')} · ❓ ${D.n || 10} أسئلة من ${D.bankN || 0} في البنك${D.next ? ` · القادمة: ${lvWhen(D.next)}` : ''}${D.lastErr ? ' · ⚠️ ' + (D.lastErr === 'no_questions' ? 'لا أسئلة في البنك' : esc(D.lastErr)) : ''}` : 'مسابقة كل يوم في وقت ثابت بأسئلة عشوائية من كل دروسك — اضغط للإعداد'}</small></span>
+      <small>${D.on ? `${days} · ⏰ ${esc(lvDailyTimes(D).map(lvTime12).join(' و '))} · ❓ ${D.n || 10} أسئلة من ${D.bankN || 0} في البنك${D.next ? ` · القادمة: ${lvWhen(D.next)}` : ''}${D.lastErr ? ' · ⚠️ ' + (D.lastErr === 'no_questions' ? 'لا أسئلة في البنك' : esc(D.lastErr)) : ''}` : 'مسابقة كل يوم في وقت ثابت بأسئلة عشوائية من كل دروسك — اضغط للإعداد'}</small></span>
     <span class="lvd-go">${D.on ? '⚙️ تعديل' : 'إعداد ←'}</span></div>${lvDailyLastHTML()}`;
 }
 /* 📊 آخر مسابقة يومية: حالتها وعدد من لعب، وضغطة تفتح نتائجها */
@@ -16959,10 +16970,13 @@ function lvDailyOpen(){
     <p class="muted" style="margin:.2rem 0 .8rem">ينشئها الخادم بنفسه في الموعد كل يوم تختاره — حتى ولوحتك مغلقة. الأسئلة عشوائية من <b>كل أنشطتك المنشورة</b> (اختيار من متعدد وصح/خطأ، بلا صور ولا نافس)، ولا يتكرر سؤال خلال 7 أيام ما دام في البنك غيره.</p>
     <label class="lvd-sw"><input type="checkbox" id="lvd-on" ${D.on ? 'checked' : ''}> <b>تشغيل المسابقة اليومية</b></label>
     <div class="field"><label>الأيام</label><div class="lvd-days">${LV_DOW.map((d, i) => `<label><input type="checkbox" value="${i}" ${days.includes(i) ? 'checked' : ''}> ${d}</label>`).join('')}</div></div>
+    <div class="field"><label>⏰ مواعيد البداية في اليوم <small class="muted">(حتى 4 — مسابقة مستقلة لكل موعد، بأسئلة مختلفة)</small></label>
+      <div class="lvd-times" id="lvd-times">${lvDailyTimes(D).map(lvdTimeRow).join('')}</div>
+      <button type="button" class="btn ghost sm" style="margin-top:.4rem" onclick="lvdTimeAdd()">＋ موعد آخر</button>
+      <label class="lv-shuf" style="margin:.5rem 0 0"><input type="checkbox" id="lvd-once" ${D.onePerDay === false ? '' : 'checked'}> 👤 الطالب يلعب موعدًا واحدًا فقط في اليوم <small class="muted">(يختار الأنسب له — لا تتضاعف نقاطه وجوائزه)</small></label></div>
     <div class="field"><label>اسم المسابقة</label><input class="inp" id="lvd-title" value="${esc(D.title || 'التحدي اليومي 🔥')}" maxlength="80"></div>
     <div class="field"><label>الفصول</label>${hwClsPickerHTML({ clsList: cl.length > 1 ? cl : [], cls: cl.length === 1 ? cl[0] : '' }, 'lvd-cls')}</div>
     <div class="lv-grid">
-      <div class="field"><label>وقت البداية</label><input class="inp" type="time" id="lvd-time" value="${esc(D.time || '20:00')}"></div>
       <div class="field"><label>يُفتح التسجيل قبلها (دقيقة)</label><input class="inp" type="number" id="lvd-regopen" value="${D.regOpenMin || 30}" min="1" max="600"></div>
       <div class="field"><label>عدد الأسئلة</label><input class="inp" type="number" id="lvd-n" value="${D.n || 10}" min="1" max="50"></div>
       <div class="field"><label>ثوانٍ لكل سؤال</label><input class="inp" type="number" id="lvd-qsec" value="${D.qSec || pv('lv-qsec', 20)}" min="5" max="120"></div>
@@ -16982,9 +16996,14 @@ async function lvDailySave(){
   const days = [...document.querySelectorAll('.lvd-days input:checked')].map(x => +x.value), on = !!document.getElementById('lvd-on')?.checked;
   const { bank, acts } = lvDailyBank();
   if(on && !days.length){ toast('اختر يومًا واحدًا على الأقل', 'bad'); return; }
+  const tms = [...new Set([...document.querySelectorAll('#lvd-times input')].map(i => i.value).filter(Boolean))].sort();
+  if(on && !tms.length){ toast('حدّد موعدًا واحدًا على الأقل', 'bad'); return; }
+  // تسجيل الموعد يُفتح قبله بمدة؛ إن كانت أطول من الفارق بين موعدين تتداخل فترتا التسجيل (مسموح، لكن نبّه)
+  const gap = tms.slice(1).map((t, i) => { const a = tms[i].split(':').map(Number), b = t.split(':').map(Number); return (b[0] * 60 + b[1]) - (a[0] * 60 + a[1]); });
+  if(on && gap.some(g => g < 30)){ toast('اجعل بين كل موعدين نصف ساعة على الأقل', 'bad'); return; }
   if(on && !bank.length){ toast('لا توجد أسئلة اختيار من متعدد أو صح/خطأ في أنشطتك المنشورة', 'bad'); return; }
   const { clsList, cls } = hwClsPickerRead('lvd-cls');
-  const cfg = { on, days, title: String(v('lvd-title') || '').trim() || 'التحدي اليومي 🔥', time: v('lvd-time') || '20:00', regOpenMin: num('lvd-regopen', 30), regCloseMin: 1,
+  const cfg = { on, days, title: String(v('lvd-title') || '').trim() || 'التحدي اليومي 🔥', times: [...new Set([...document.querySelectorAll('#lvd-times input')].map(i => i.value).filter(Boolean))].sort(), onePerDay: !!document.getElementById('lvd-once')?.checked, regOpenMin: num('lvd-regopen', 30), regCloseMin: 1,
     n: num('lvd-n', 10), qSec: num('lvd-qsec', 20), revealSec: 4, fee: num('lvd-fee', 0), prizes: [num('lvd-p1', 0), num('lvd-p2', 0), num('lvd-p3', 0)],
     minPlayers: num('lvd-min', 0), minAction: 'extend', skin: v('lvd-skin') || 'classic', notify: !!document.getElementById('lvd-notify')?.checked,
     classes: clsList.length ? clsList : (cls ? [cls] : []) };
