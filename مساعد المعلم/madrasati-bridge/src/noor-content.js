@@ -195,189 +195,238 @@
     return { filled, fields, rowsSeen, unmatched, ambiguous, locked, noCols, multiCols, missed: missed.slice(0, 60), cls, clsMissing };
   }
 
-  /* ── 👁️ معاينة قبل الكتابة: كل صف بحالته، والمعلم يختار من يُكتب ── */
-  let pv = null;
+  /* ═════ 🎨 الواجهة: زر صغير أسفل الصفحة ← لوحة جانبية بخطوات (Shadow DOM: لا تتأثر بتنسيق نور ولا تؤثر فيه) ═════ */
   const esc = v => String(v == null ? '' : v).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
-  const PVS = { exact: ['✅', 'مطابق', '#E6F7EE', '#0E6B47'], alias: ['🔗', 'مربوط يدويًا', '#EAF1FF', '#1E4FB0'], approx: ['🟡', 'مطابقة تقريبية — تأكد', '#FFF6DB', '#8A6100'],
-    none: ['🔴', 'غير موجود في الكشف', '#FFEDEF', '#A3263A'], tie: ['🔴', 'اسم مكرر بدرجات مختلفة', '#FFEDEF', '#A3263A'],
-    empty: ['⚪', 'بلا درجة في الكشف', '#F1F4F8', '#55627A'], locked: ['🔒', 'خانة مقفلة في نور', '#F1F4F8', '#55627A'], nocell: ['🔴', 'لم أجد خانته', '#FFEDEF', '#A3263A'] };
-  function closePreview() { if (!pv) return; pv.plan.forEach(x => { if (x.tr.dataset.mbPv) markRow(x.tr, ''); }); pv.el.remove(); pv = null; }
-  function openPreview(sheet, mode, keep) {
-    const pos = pv && pv.el.style.cssText; closePreview();
-    const r = fill(sheet, mode, { dry: true });
-    if (!r.plan.length) return { preview: 0, rowsSeen: r.rowsSeen, noCols: r.noCols };
-    const doc = document, el = doc.createElement('div'); el.setAttribute('dir', 'rtl');
-    el.style.cssText = pos || 'position:fixed;top:12px;left:12px;z-index:2147483647;width:min(620px,calc(100vw - 24px));max-height:calc(100vh - 24px);display:flex;flex-direction:column;background:#fff;color:#16233A;border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.35);font:500 13px Tahoma,Arial,sans-serif;overflow:hidden';
-    const kind = x => x.why ? x.why : x.alias ? 'alias' : x.exact ? 'exact' : 'approx';
-    // مرشحو الربط اليدوي: طلاب الكشف غير المطابَقين — فصل الصفحة أولًا ثم الأقرب اسمًا
-    const cands = name => { const t = norm(name).split(' '); return r.free.map(x => ({ x, s: (x.r.cls === r.cls ? 10 : 0) + x.t.filter(w => t.includes(w)).length + (x.t[0] === t[0] ? 3 : 0) }))
-      .sort((a, b) => b.s - a.s).slice(0, 40).map(o => o.x); };
-    const linkSel = x => `<select class="pv-link" style="display:block;margin-top:3px;max-width:100%;font:inherit;font-size:11.5px;border:1px solid #CBD5E1;border-radius:6px;padding:1px 3px">
-      <option value="">🔗 اربطه بطالب من الكشف…</option>${cands(x.name).map(c => `<option value="${esc(c.n)}">${esc(c.r.name)}${c.r.cls ? ' — ' + esc(c.r.cls) : ''}</option>`).join('')}</select>`;
-    const isDef = x => { const k = kind(x); return k === 'exact' || k === 'alias'; };
-    const chk = x => keep && keep.has(x.tr) ? keep.get(x.tr) : isDef(x);
-    const n = k => r.plan.filter(x => kind(x) === k).length;
-    const val = (v, old) => v === '' ? '<span style="color:#9AA5B5">—</span>' : `<b>${esc(v)}</b>${old !== '' && old !== v ? `<small style="display:block;color:#B4740E;font-weight:500">كان ${esc(old)}</small>` : ''}`;
-    el.innerHTML = `<div style="background:#16233A;color:#fff;padding:10px 14px;display:flex;align-items:center;gap:8px">
-        <b style="font-size:14px;flex:1">👁️ معاينة الرصد قبل الكتابة</b><button type="button" class="pv-x" style="background:transparent;border:0;color:#fff;font-size:18px;cursor:pointer">✕</button></div>
-      <div style="padding:8px 14px;display:flex;flex-wrap:wrap;gap:6px;border-bottom:1px solid #E5EAF1;font-size:12px">
-        ${r.cls ? `<span style="background:#EAF1FF;color:#1E4FB0;border-radius:99px;padding:2px 9px;font-weight:700">🏫 ${esc(r.cls)}</span>` : ''}
-        ${['exact', 'alias', 'approx', 'none', 'tie', 'nocell', 'locked', 'empty'].filter(k => n(k)).map(k => `<span style="background:${PVS[k][2]};color:${PVS[k][3]};border-radius:99px;padding:2px 9px;font-weight:700">${PVS[k][0]} ${PVS[k][1].split(' — ')[0]} ${n(k)}</span>`).join('')}
-        <span style="flex:1"></span><button type="button" class="pv-all" style="border:1px solid #CBD5E1;background:#fff;border-radius:8px;padding:2px 8px;cursor:pointer;font:inherit">تحديد الكل الصالح</button>
-        <button type="button" class="pv-none" style="border:1px solid #CBD5E1;background:#fff;border-radius:8px;padding:2px 8px;cursor:pointer;font:inherit">إلغاء التحديد</button></div>
-      ${r.clsMissing.length ? `<div style="margin:8px 14px 0;padding:7px 10px;border-radius:9px;background:#F1F4F8;color:#41516B;font-size:12px">👥 من ${esc(r.cls)} في الكشف ولم يظهروا في هذه الصفحة (${r.clsMissing.length}): ${r.clsMissing.slice(0, 12).map(esc).join('، ')}${r.clsMissing.length > 12 ? '…' : ''} — إن كان أحدهم باسم مختلف في نور فاربطه من القائمة تحت اسمه.</div>` : ''}
-      ${n('approx') ? `<div style="margin:8px 14px 0;padding:7px 10px;border-radius:9px;background:#FFF6DB;color:#6B4C00;font-size:12px">🟡 المطابقات التقريبية <b>غير محددة</b>: قارن اسم نور باسم الكشف تحته، وحدّد الصحيح منها بنفسك.</div>` : ''}
-      <div style="overflow:auto;flex:1;padding:6px 8px 8px"><table style="width:100%;border-collapse:collapse;font-size:12.5px">
-        <thead><tr style="position:sticky;top:0;background:#F3F6FA;color:#41516B"><th style="padding:6px;width:28px"></th><th style="padding:6px;text-align:right">الطالب في نور</th><th style="padding:6px">40</th><th style="padding:6px">20</th><th style="padding:6px;text-align:right">الحالة</th></tr></thead>
-        <tbody>${r.plan.map((x, i) => { const k = kind(x), S = PVS[k], ok = !x.why;
-          return `<tr data-i="${i}" style="border-bottom:1px solid #EEF2F6;background:${k === 'exact' ? '#fff' : S[2]}">
-            <td style="padding:6px;text-align:center"><input type="checkbox" class="pv-c" ${ok ? '' : 'disabled'} ${ok && chk(x) ? 'checked' : ''} style="width:16px;height:16px;cursor:${ok ? 'pointer' : 'default'}"></td>
-            <td style="padding:6px"><a href="#" class="pv-go" style="color:#16233A;font-weight:700;text-decoration:none">${esc(x.name)}</a>
-              ${x.sheetName && (!x.exact || x.alias) && norm(x.sheetName) !== norm(x.name) ? `<small style="display:block;color:${x.alias ? '#1E4FB0' : '#6B4C00'}">في الكشف: ${esc(x.sheetName)}</small>` : ''}
-              ${x.alias ? `<a href="#" class="pv-unlink" style="font-size:11px;color:#A3263A">فك الربط</a>` : ''}
-              ${k === 'none' || k === 'tie' || k === 'approx' ? linkSel(x) : ''}</td>
-            <td style="padding:6px;text-align:center">${ok || k === 'locked' || k === 'nocell' ? val(x.w, x.oldW) : ''}</td><td style="padding:6px;text-align:center">${ok || k === 'locked' || k === 'nocell' ? val(x.e, x.oldE) : ''}</td>
-            <td style="padding:6px;color:${S[3]};font-weight:700;white-space:nowrap">${S[0]} ${S[1]}</td></tr>`; }).join('')}</tbody></table></div>
-      <div style="padding:10px 14px;border-top:1px solid #E5EAF1;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <button type="button" class="pv-go-w" style="background:#1B9C6B;color:#fff;border:0;border-radius:9px;padding:8px 14px;font:700 13px Tahoma,Arial,sans-serif;cursor:pointer"></button>
-        <button type="button" class="pv-cancel" style="background:#fff;border:1px solid #CBD5E1;border-radius:9px;padding:8px 12px;font:inherit;cursor:pointer">إلغاء</button>
-        <small style="color:#55627A;flex:1;min-width:180px">لا يُكتب شيء قبل الضغط على الزر — وبعد الكتابة راجع ثم اضغط «حفظ» في نور.</small></div>`;
-    doc.body.appendChild(el);
-    pv = { el, plan: r.plan, sheet, mode };
-    const relink = () => { const keepM = new Map(boxes.map(b => [r.plan[+b.closest('tr').dataset.i].tr, b.checked])); openPreview(sheet, mode, keepM); };
-    el.querySelectorAll('.pv-link').forEach(sl => sl.onchange = () => { if (!sl.value) return; const x = r.plan[+sl.closest('tr').dataset.i];
-      ALIAS[norm(x.name)] = sl.value; aliasSave(); const keepM = new Map(boxes.map(b => [r.plan[+b.closest('tr').dataset.i].tr, b.checked])); keepM.set(x.tr, true); openPreview(sheet, mode, keepM); });
-    el.querySelectorAll('.pv-unlink').forEach(a => a.onclick = ev => { ev.preventDefault(); const x = r.plan[+a.closest('tr').dataset.i]; delete ALIAS[norm(x.name)]; aliasSave(); relink(); });
-    // الصفوف في الصفحة: أصفر للتقريبي وأحمر لما لا يُكتب، وعودتها لحالها عند الإغلاق
-    r.plan.forEach(x => { const k = kind(x); if (k !== 'exact' && k !== 'alias') { x.tr.style.outline = `2px ${k === 'approx' ? 'dashed #D49A1E' : 'solid #D6455B'}`; x.tr.style.outlineOffset = '-2px'; x.tr.dataset.mbPv = k; } });
-    const boxes = [...el.querySelectorAll('.pv-c')], btn = el.querySelector('.pv-go-w');
-    const sync = () => { const c = boxes.filter(b => b.checked).length; btn.textContent = `✍️ اكتب درجات المحددين (${c})`; btn.disabled = !c; btn.style.opacity = c ? '1' : '.5'; };
-    boxes.forEach(b => b.addEventListener('change', sync)); sync();
-    el.querySelector('.pv-all').onclick = () => { boxes.forEach(b => { if (!b.disabled) b.checked = true; }); sync(); };
-    el.querySelector('.pv-none').onclick = () => { boxes.forEach(b => { b.checked = false; }); sync(); };
-    el.querySelectorAll('.pv-go').forEach(a => a.onclick = ev => { ev.preventDefault(); const x = r.plan[+a.closest('tr').dataset.i];
-      x.tr.scrollIntoView({ block: 'center', behavior: 'smooth' }); const o = x.tr.style.boxShadow; x.tr.style.boxShadow = 'inset 0 0 0 3px #3B82F6'; setTimeout(() => { x.tr.style.boxShadow = o; }, 1600); });
-    el.querySelector('.pv-x').onclick = el.querySelector('.pv-cancel').onclick = closePreview;
-    btn.onclick = () => {
-      const picked = boxes.filter(b => b.checked).map(b => r.plan[+b.closest('tr').dataset.i]), only = new Set(picked.map(x => x.tr));
+  const ST = { exact: ['جاهز', 'ok'], alias: ['مربوط', 'link'], approx: ['يحتاج تأكيد', 'warn'], none: ['غير موجود في الكشف', 'bad'], tie: ['اسم مكرر بدرجات مختلفة', 'bad'],
+    nocell: ['لم أجد خانته', 'bad'], locked: ['خانة مقفلة في نور', 'mute'], empty: ['بلا درجة في الكشف', 'mute'] };
+  const MODES = [['both', 'الخانتان', '40 + 20'], ['work40', 'أعمال السنة', '40'], ['exam20', 'الاختبار', '20']];
+  const CSS = `
+  :host{all:initial}
+  *{box-sizing:border-box;font-family:"Segoe UI",Tahoma,Arial,sans-serif}
+  .w{--ink:#0F1B2D;--mut:#5B6B82;--line:#E3E8EF;--bg:#F5F7FA;--card:#fff;--pri:#0F766E;--pri2:#0B5F59;--ok:#15803D;--okb:#E8F6EE;--warn:#B45309;--warnb:#FEF5E2;
+    --bad:#B91C1C;--badb:#FDEDEE;--link:#1D4ED8;--linkb:#EBF1FF;--mute:#64748B;--muteb:#F1F4F8;color:var(--ink);direction:rtl;font-size:13.5px;line-height:1.5}
+  button{font:inherit;cursor:pointer}
+  .fab{position:fixed;left:20px;bottom:20px;z-index:2147483646;display:flex;align-items:center;gap:10px;padding:10px 16px 10px 12px;border:0;border-radius:999px;
+    background:var(--pri);color:#fff;box-shadow:0 10px 30px rgba(15,118,110,.35);font-weight:700;font-size:14px;transition:transform .15s}
+  .fab:hover{transform:translateY(-2px)}.fab i{font-style:normal;background:rgba(255,255,255,.2);border-radius:999px;padding:1px 9px;font-size:12px}
+  .pane{position:fixed;left:16px;top:16px;bottom:16px;width:min(430px,calc(100vw - 32px));z-index:2147483647;display:flex;flex-direction:column;background:var(--bg);
+    border-radius:20px;box-shadow:0 24px 70px rgba(15,27,45,.28),0 0 0 1px rgba(15,27,45,.06);overflow:hidden}
+  .pane.anim{animation:in .18s ease-out}
+  @keyframes in{from{opacity:0;transform:translateX(-14px)}to{opacity:1;transform:none}}
+  .hd{background:linear-gradient(135deg,#0F766E,#115E59);color:#fff;padding:16px 18px 14px}
+  .hd-top{display:flex;align-items:center;gap:10px}.logo{width:38px;height:38px;border-radius:12px;background:rgba(255,255,255,.16);display:grid;place-content:center;font-size:20px}
+  .hd h1{margin:0;font-size:16px;font-weight:800}.hd p{margin:1px 0 0;font-size:12px;opacity:.85}
+  .x{margin-inline-start:auto;width:34px;height:34px;border-radius:10px;border:0;background:rgba(255,255,255,.14);color:#fff;font-size:18px}
+  .x:hover{background:rgba(255,255,255,.26)}
+  .meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}.meta span{background:rgba(255,255,255,.14);border-radius:999px;padding:3px 10px;font-size:11.5px}
+  .meta .old{background:#FDE68A;color:#78350F;font-weight:700}
+  .bd{flex:1;overflow:auto;padding:14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px}
+  .lbl{display:flex;align-items:center;gap:8px;font-weight:800;font-size:13px;margin-bottom:10px}.lbl b{width:22px;height:22px;border-radius:50%;background:var(--pri);color:#fff;display:grid;place-content:center;font-size:12px}
+  .seg{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;background:var(--bg);padding:4px;border-radius:12px}
+  .seg button{border:0;background:transparent;border-radius:9px;padding:8px 4px;color:var(--mut);font-weight:700;font-size:12.5px;line-height:1.25}
+  .seg button small{display:block;font-weight:500;font-size:11px;opacity:.8}
+  .seg button.on{background:#fff;color:var(--pri);box-shadow:0 1px 3px rgba(15,27,45,.12)}
+  select.cls{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:#fff;font:inherit;color:var(--ink)}
+  .hint{font-size:12px;color:var(--mut);margin-top:6px}
+  .pri{width:100%;border:0;border-radius:12px;padding:12px;background:var(--pri);color:#fff;font-weight:800;font-size:14px}
+  .pri:hover{background:var(--pri2)}.pri:disabled{opacity:.45;cursor:default}
+  .sec{border:1px solid var(--line);background:#fff;border-radius:12px;padding:11px 14px;font-weight:700;color:var(--ink)}
+  .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px}
+  .tile{border:1px solid var(--line);background:#fff;border-radius:12px;padding:8px 4px;text-align:center}
+  .tile b{display:block;font-size:19px;line-height:1.2}.tile span{font-size:11px;color:var(--mut);font-weight:700}
+  .tile.on{border-color:currentColor;box-shadow:inset 0 0 0 1px currentColor}
+  .tile.all{color:var(--ink)}.tile.ok{color:var(--ok)}.tile.warn{color:var(--warn)}.tile.bad{color:var(--bad)}
+  .bar{display:flex;gap:6px;align-items:center;margin-bottom:8px}
+  .q{flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:10px;font:inherit;background:#fff}
+  .lnk{border:0;background:none;color:var(--pri);font-weight:700;font-size:12px;padding:4px 6px;border-radius:8px}.lnk:hover{background:#E6F4F2}
+  .note{border-radius:12px;padding:9px 11px;font-size:12px;margin-bottom:10px}.note.warn{background:var(--warnb);color:#78350F}.note.info{background:#EEF2F7;color:#334155}
+  .note summary{cursor:pointer;font-weight:700}
+  .row{display:grid;grid-template-columns:22px 1fr auto;gap:10px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin-bottom:6px;border-inline-start:4px solid var(--c)}
+  .row{--c:var(--line)}.row.ok{--c:#86D3A6}.row.link{--c:#93B4F5}.row.warn{--c:#F2C46B}.row.bad{--c:#F1A5AC}.row.mute{--c:#CBD5E1;opacity:.75}
+  .row input[type=checkbox]{width:18px;height:18px;accent-color:var(--pri);margin:0}
+  .nm{font-weight:700;cursor:pointer;overflow-wrap:anywhere}.nm:hover{color:var(--pri)}
+  .sub{font-size:11.5px;color:var(--mut);margin-top:1px}.sub.link{color:var(--link)}.sub.warn{color:var(--warn)}
+  .st{display:inline-block;margin-top:4px;font-size:11px;font-weight:700;border-radius:999px;padding:1px 8px}
+  .st.ok{background:var(--okb);color:var(--ok)}.st.link{background:var(--linkb);color:var(--link)}.st.warn{background:var(--warnb);color:var(--warn)}.st.bad{background:var(--badb);color:var(--bad)}.st.mute{background:var(--muteb);color:var(--mute)}
+  .gr{display:flex;gap:5px}.g{min-width:46px;text-align:center;background:var(--bg);border-radius:10px;padding:4px 6px}
+  .g small{display:block;font-size:10px;color:var(--mut);font-weight:700}.g b{font-size:15px}.g em{display:block;font-style:normal;font-size:10px;color:var(--warn)}
+  .pick{margin-top:6px;width:100%;padding:5px 7px;border:1px dashed #9DB3D9;border-radius:9px;background:#F7FAFF;font:inherit;font-size:12px;color:var(--link)}
+  .unl{border:0;background:none;color:var(--bad);font-size:11px;padding:0;margin-inline-start:6px;text-decoration:underline}
+  .ft{padding:12px 14px;background:#fff;border-top:1px solid var(--line);display:flex;gap:8px}
+  .ft .pri{flex:1}
+  .done{text-align:center;padding:22px 14px}.done .big{font-size:42px;line-height:1}.done h2{margin:8px 0 4px;font-size:18px}.done p{margin:0;color:var(--mut);font-size:12.5px}
+  .kp{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:14px 0 4px}.kp div{background:var(--bg);border-radius:12px;padding:8px}.kp b{display:block;font-size:18px}.kp span{font-size:11px;color:var(--mut)}
+  .save{display:flex;gap:8px;align-items:flex-start;background:#FFFBEB;border:1px solid #FDE68A;color:#78350F;border-radius:12px;padding:10px 12px;font-size:12.5px;font-weight:700;margin-top:12px;text-align:start}
+  .miss{font-size:12px;margin:0;padding:0;list-style:none}.miss li{display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px dashed var(--line)}.miss li:last-child{border:0}
+  .empty{text-align:center;color:var(--mut);padding:18px 8px;font-size:12.5px}
+  .ver{font-size:10.5px;opacity:.7}`;
+
+  const ui = { host: null, root: null, open: false, sheet: null, mode: 'both', view: 'home', r: null, sel: new Map(), filter: 'all', q: '', res: null, classPicker: null };
+  const kindOf = x => x.why ? x.why : x.alias ? 'alias' : x.exact ? 'exact' : 'approx';
+  const grp = k => ({ exact: 'ok', alias: 'ok', approx: 'warn', none: 'bad', tie: 'bad', nocell: 'bad', locked: 'mute', empty: 'mute' })[k];
+  const ver = () => { try { return chrome.runtime.getManifest().version; } catch (_) { return ''; } };
+  // اللوحة مفتوحة على شاشة عريضة: تُزاح صفحة نور يسارًا بعرضها فلا تغطي أعمدة الدرجات
+  let pushed = null;
+  function pushPage(on) {
+    const b = document.body; if (!b) return;
+    if (on && window.innerWidth >= 1100) { if (pushed == null) pushed = b.style.marginLeft; b.style.marginLeft = 'calc(min(430px, 100vw - 32px) + 28px)'; }
+    else if (pushed != null) { b.style.marginLeft = pushed; pushed = null; }
+  }
+  function clearMarks() { if (ui.r) ui.r.plan.forEach(x => { if (x.tr.dataset.mbPv) markRow(x.tr, ''); }); }
+  function markPlan() {
+    clearMarks();
+    ui.r.plan.forEach(x => { const k = kindOf(x), g = grp(k); if (g === 'ok') return;
+      x.tr.style.outline = `2px ${g === 'warn' ? 'dashed #D49A1E' : 'solid #D6455B'}`; x.tr.style.outlineOffset = '-2px'; x.tr.dataset.mbPv = k; });
+  }
+  function findClassPicker() {
+    return [...document.querySelectorAll('select')].filter(sel => {
+      if (ui.host && ui.host.contains(sel)) return false;
+      const meta = `${sel.id || ''} ${sel.name || ''} ${sel.getAttribute('aria-label') || ''} ${sel.closest('td,th') ? sel.closest('td,th').innerText : ''}`;
+      const opts = [...sel.options].map(o => (o.textContent || '').replace(/\s+/g, ' ').trim()), all = opts.join(' ');
+      const isTerm = opts.some(t => /الفصل\s*(الأول|الثاني|الثالث)\s*[-–—]?\s*الدور\s*(الأول|الثاني)/.test(t)) || (/الدور\s*(الأول|الثاني)/.test(all) && /الفصل\s*(الأول|الثاني)/.test(all));
+      const hasCls = opts.some(t => /(?:أول|ثاني|ثالث)\s*(?:ابتدائي|متوسط|ثانوي)|\b[1-6]\s*[/\-]\s*[1-6]\b|شعبة\s*\S+/.test(t));
+      return !isTerm && (/class|section|classroom|اسم.?الصف|الشعبة|الفصل الدراسي/i.test(meta) || hasCls) && sel.options.length > 1;
+    })[0] || null;
+  }
+  function ensureUI() {
+    if (ui.host && document.documentElement.contains(ui.host)) return;
+    ui.host = document.createElement('div'); ui.host.id = 'mb-noor-ui';
+    ui.root = ui.host.attachShadow({ mode: 'open' });
+    ui.root.innerHTML = `<style>${CSS}</style><div class="w"></div>`;
+    (document.body || document.documentElement).appendChild(ui.host);
+    ui.root.addEventListener('click', onClick); ui.root.addEventListener('change', onChange); ui.root.addEventListener('input', onInput);
+  }
+  function runPlan() {
+    ui.r = fill(ui.sheet, ui.mode, { dry: true });
+    const keep = ui.sel; ui.sel = new Map();
+    ui.r.plan.forEach(x => { const k = kindOf(x); ui.sel.set(x.tr, !x.why && (keep.has(x.tr) ? keep.get(x.tr) : (k === 'exact' || k === 'alias'))); });
+    if (ui.r.plan.length) markPlan();
+  }
+  function counts() {
+    const P = ui.r ? ui.r.plan : [], c = { all: P.length, ok: 0, warn: 0, bad: 0, mute: 0 };
+    P.forEach(x => c[grp(kindOf(x))]++); return c;
+  }
+  function rowHTML(x, i) {
+    const k = kindOf(x), g = grp(k), can = !x.why, on = ui.sel.get(x.tr);
+    const old = (v, o) => o !== '' && o !== v ? `<em>كان ${esc(o)}</em>` : '';
+    const grades = can || k === 'locked' || k === 'nocell'
+      ? `<div class="gr">${ui.mode !== 'exam20' ? `<div class="g"><small>40</small><b>${esc(x.w || '—')}</b>${old(x.w, x.oldW)}</div>` : ''}${ui.mode !== 'work40' ? `<div class="g"><small>20</small><b>${esc(x.e || '—')}</b>${old(x.e, x.oldE)}</div>` : ''}</div>` : '<div></div>';
+    const showSheet = x.sheetName && norm(x.sheetName) !== norm(x.name);
+    const cands = (k === 'none' || k === 'tie' || k === 'approx') ? (() => { const t = norm(x.name).split(' ');
+      return ui.r.free.map(c => ({ c, s: (c.r.cls === ui.r.cls ? 10 : 0) + c.t.filter(w => t.includes(w)).length + (c.t[0] === t[0] ? 3 : 0) })).sort((a, b) => b.s - a.s).slice(0, 40).map(o => o.c); })() : [];
+    return `<div class="row ${g}" data-i="${i}">
+      <input type="checkbox" class="ck" ${can ? '' : 'disabled'} ${can && on ? 'checked' : ''} aria-label="تحديد">
+      <div><div class="nm" data-go="${i}">${esc(x.name)}</div>
+        ${showSheet ? `<div class="sub ${x.alias ? 'link' : 'warn'}">في الكشف: ${esc(x.sheetName)}${x.alias ? `<button class="unl" data-unlink="${i}">فك الربط</button>` : ''}</div>` : ''}
+        ${x.hint && !cands.length ? `<div class="sub">أقرب اسم: ${esc(x.hint)}</div>` : ''}
+        <span class="st ${g === 'ok' && k === 'alias' ? 'link' : g}">${k === 'alias' ? '🔗 ' : ''}${ST[k][0]}</span>
+        ${cands.length ? `<select class="pick" data-pick="${i}"><option value="">🔗 ${k === 'approx' ? 'ليس هو؟ اربطه بطالب آخر' : 'اربطه بطالب من الكشف'}…</option>${cands.map(c => `<option value="${esc(c.n)}">${esc(c.r.name)}${c.r.cls ? ' — ' + esc(c.r.cls) : ''}</option>`).join('')}</select>` : ''}</div>
+      ${grades}</div>`;
+  }
+  function render() {
+    if (!ui.root) return;
+    const w = ui.root.querySelector('.w'), S = ui.sheet || { rows: [] };
+    const prevBd = w.querySelector('.bd'), scroll = prevBd && ui.lastView === ui.view ? prevBd.scrollTop : 0; ui.lastView = ui.view;
+    const n = (S.rows || []).length, age = S.at ? Date.now() - S.at : 0;
+    const when = S.at ? new Date(S.at).toLocaleString('ar-SA-u-ca-gregory-nu-latn', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : '';
+    pushPage(ui.open);
+    if (!ui.open) { w.innerHTML = `<button class="fab" data-act="open">🏛️ رصد مساعد المعلم <i>${n} طالب</i></button>`; return; }
+    const head = `<div class="hd"><div class="hd-top"><div class="logo">🏛️</div><div><h1>رصد الدرجات في نور</h1><p>من كشف مساعد المعلم <span class="ver">· v${esc(ver())}</span></p></div>
+        <button class="x" data-act="close" title="تصغير">–</button></div>
+      <div class="meta"><span>📄 ${n} طالب</span>${S.label ? `<span>${esc(S.label)}</span>` : ''}${S.cls ? `<span>${esc(S.cls)}</span>` : ''}${when ? `<span class="${age > 2 * 864e5 ? 'old' : ''}">${age > 2 * 864e5 ? '⚠️ صُدّر ' + esc(when) + ' — صدّره من جديد' : '🕒 ' + esc(when)}</span>` : ''}</div></div>`;
+    let body = '', foot = '';
+    if (ui.view === 'home') {
+      const cp = ui.classPicker = findClassPicker();
+      body = `<div class="card"><div class="lbl"><b>1</b>ماذا تكتب؟</div>
+          <div class="seg">${MODES.map(([k, t, s]) => `<button data-mode="${k}" class="${ui.mode === k ? 'on' : ''}">${t}<small>${s}</small></button>`).join('')}</div></div>
+        ${cp ? `<div class="card"><div class="lbl"><b>2</b>الفصل في نور</div><select class="cls" data-cls="1">${[...cp.options].map(o => `<option value="${esc(o.value)}" ${o.value === cp.value ? 'selected' : ''}>${esc((o.textContent || '').trim())}</option>`).join('')}</select>
+          <div class="hint">يغيّر اختيار الفصل في نور نفسه — انتظر ظهور الطلاب ثم اعرض المعاينة.</div></div>` : ''}
+        <div class="card"><div class="lbl"><b>${cp ? 3 : 2}</b>راجع قبل الكتابة</div><div class="hint" style="margin:0 0 10px">تُعرض درجات كل طالب في هذه الصفحة وحالته، ولا يُكتب شيء قبل موافقتك.</div>
+          <button class="pri" data-act="preview">👁️ اعرض المعاينة</button>${ui.msg ? `<div class="note warn" style="margin:10px 0 0">${esc(ui.msg)}</div>` : ''}</div>`;
+    } else if (ui.view === 'preview') {
+      const c = counts(), F = ui.filter, q = norm(ui.q);
+      const list = ui.r.plan.map((x, i) => [x, i]).filter(([x]) => (F === 'all' || grp(kindOf(x)) === F) && (!q || norm(x.name).includes(q)));
+      const selN = ui.r.plan.filter(x => !x.why && ui.sel.get(x.tr)).length;
+      body = `<div class="tiles">${[['all', 'الكل', c.all], ['ok', 'جاهز', c.ok], ['warn', 'يحتاج تأكيد', c.warn], ['bad', 'لم يُطابَق', c.bad]].map(([k, t, v]) => `<button class="tile ${k} ${F === k ? 'on' : ''}" data-filter="${k}"><b>${v}</b><span>${t}</span></button>`).join('')}</div>
+        ${c.warn ? `<div class="note warn">🟡 <b>${c.warn}</b> مطابقة تقريبية غير محددة — قارن الاسمين وحدّد الصحيح بنفسك (يُحفظ ربطه للمرات القادمة).</div>` : ''}
+        ${ui.r.cls ? `<div class="note info">${ui.r.clsMissing.length ? `<details><summary>🏫 ${esc(ui.r.cls)} · ${ui.r.clsMissing.length} من الكشف لم يظهروا في الصفحة</summary><div style="margin-top:6px">${ui.r.clsMissing.map(esc).join('، ')}<div class="hint">إن كان أحدهم باسم مختلف في نور فاربطه من القائمة تحت اسمه.</div></div></details>` : `🏫 ${esc(ui.r.cls)} · كل طلاب الفصل في الكشف ظاهرون هنا ✓`}</div>` : ''}
+        <div class="bar"><input class="q" placeholder="🔎 ابحث عن طالب…" value="${esc(ui.q)}"><button class="lnk" data-act="all">تحديد الكل</button><button class="lnk" data-act="none">إلغاء</button></div>
+        ${list.length ? list.map(([x, i]) => rowHTML(x, i)).join('') : '<div class="empty">لا طلاب في هذا التصنيف.</div>'}`;
+      foot = `<div class="ft"><button class="sec" data-act="back">رجوع</button><button class="pri" data-act="write" ${selN ? '' : 'disabled'}>✍️ اكتب درجات ${selN} طالب</button></div>`;
+    } else {
+      const R = ui.res || {}, miss = R.missed || [];
+      body = `<div class="card done"><div class="big">${R.filled ? '✅' : '⚠️'}</div><h2>${R.filled ? `كُتبت درجات ${R.filled} طالب` : 'لم يُكتب شيء'}</h2><p>${R.fields || 0} خانة في هذه الصفحة</p>
+          <div class="kp"><div><b>${R.filled || 0}</b><span>كُتب</span></div><div><b>${R.skipped > 0 ? R.skipped : 0}</b><span>تركتهم</span></div><div><b>${miss.length}</b><span>لم يُكتب</span></div></div>
+          ${R.filled ? `<div class="save">💾 <span>راجع الدرجات في الجدول ثم اضغط <u>«حفظ»</u> في نور — الإضافة لا تحفظ عنك.</span></div>` : ''}</div>
+        ${miss.length ? `<div class="card"><div class="lbl">🔴 لم تُكتب درجاتهم (بإطار أحمر في الصفحة)</div><ul class="miss">${miss.map(m => `<li><span>${esc(m.name)}</span><span class="st ${m.why === 'locked' || m.why === 'empty' ? 'mute' : 'bad'}">${esc(ST[m.why] ? ST[m.why][0] : m.why)}</span></li>`).join('')}</ul></div>` : ''}`;
+      foot = `<div class="ft">${R.undo && R.undo.length ? `<button class="sec" data-act="undo">↩️ تراجع (${R.undo.length})</button>` : ''}<button class="pri" data-act="again">👁️ معاينة جديدة</button></div>`;
+    }
+    const anim = ui.justOpened; ui.justOpened = false;
+    w.innerHTML = `<div class="pane${anim ? ' anim' : ''}" role="dialog" aria-label="رصد الدرجات في نور">${head}<div class="bd">${body}</div>${foot}</div>`;
+    const bd = w.querySelector('.bd'); if (bd && scroll) bd.scrollTop = scroll;
+    if (ui.view === 'preview' && ui.focusQ) { const qi = w.querySelector('.q'); qi.focus(); qi.setSelectionRange(qi.value.length, qi.value.length); }
+  }
+  function doPreview() {
+    ui.msg = ''; runPlan();
+    if (!ui.r.plan.length) { ui.msg = ui.r.noCols ? 'لم أتعرف على عمودي «أعمال السنة» و«التقويمات التحريرية» في هذه الصفحة — لم يُكتب شيء حتى لا تنعكس الدرجات.' : 'لم أجد جدول رصد بخانات درجات في هذه الصفحة — افتح صفحة رصد الدرجات أولًا.'; ui.view = 'home'; }
+    else { ui.view = 'preview'; ui.filter = 'all'; ui.q = ''; }
+    render();
+  }
+  function onClick(ev) {
+    const t = ev.target.closest('button,[data-go]'); if (!t) return;
+    const a = t.dataset.act;
+    if (a === 'open') { ui.open = true; ui.justOpened = true; render(); return; }
+    if (a === 'close') { ui.open = false; clearMarks(); ui.view = ui.view === 'done' ? 'done' : 'home'; render(); return; }
+    if (t.dataset.mode) { ui.mode = t.dataset.mode; render(); return; }
+    if (a === 'preview' || a === 'again') { doPreview(); return; }
+    if (a === 'back') { clearMarks(); ui.view = 'home'; render(); return; }
+    if (t.dataset.filter) { ui.filter = t.dataset.filter; render(); return; }
+    if (a === 'all' || a === 'none') { ui.r.plan.forEach(x => { if (!x.why) ui.sel.set(x.tr, a === 'all'); }); render(); return; }
+    if (t.dataset.go != null) { const x = ui.r.plan[+t.dataset.go]; x.tr.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      const o = x.tr.style.boxShadow; x.tr.style.boxShadow = 'inset 0 0 0 3px #0F766E'; setTimeout(() => { x.tr.style.boxShadow = o; }, 1600); return; }
+    if (t.dataset.unlink != null) { const x = ui.r.plan[+t.dataset.unlink]; delete ALIAS[norm(x.name)]; aliasSave(); runPlan(); render(); return; }
+    if (a === 'write') {
+      const picked = ui.r.plan.filter(x => !x.why && ui.sel.get(x.tr)), only = new Set(picked.map(x => x.tr));
       // المطابقة التقريبية التي أكّدها المعلم تُحفظ ربطًا، فتظهر «مربوط» في المرة القادمة
-      let learned = 0; picked.forEach(x => { if (kind(x) === 'approx' && x.sheetN) { ALIAS[norm(x.name)] = x.sheetN; learned++; } }); if (learned) aliasSave();
-      const { sheet: sh, mode: md } = pv; closePreview();
-      const undo = []; const res = fill(sh, md, { only, undo }); res.skipped = r.plan.filter(x => !x.why).length - only.size; res.undo = undo; toastBar(res);
-    };
-    return { preview: r.plan.length, ready: n('exact') + n('alias'), approx: n('approx'), rowsSeen: r.rowsSeen };
+      let learned = 0; picked.forEach(x => { if (kindOf(x) === 'approx' && x.sheetN) { ALIAS[norm(x.name)] = x.sheetN; learned++; } }); if (learned) aliasSave();
+      const valid = ui.r.plan.filter(x => !x.why).length; clearMarks();
+      const undo = [], res = fill(ui.sheet, ui.mode, { only, undo }); res.skipped = valid - only.size; res.undo = undo;
+      ui.res = res; ui.view = 'done'; render(); return;
+    }
+    if (a === 'undo') { const R = ui.res; R.undo.slice().reverse().forEach(u => { setVal(u.inp, u.old); u.inp.style.background = u.bg; });
+      document.querySelectorAll('tr[data-mb-why]').forEach(tr => markRow(tr, '')); ui.res = { ...R, undo: [], filled: 0, fields: 0, missed: [], undone: R.undo.length };
+      ui.view = 'home'; ui.msg = `↩️ أُعيدت ${R.undo.length} خانة إلى ما كانت عليه.`; render(); return; }
+  }
+  function onChange(ev) {
+    const t = ev.target;
+    if (t.classList.contains('ck')) { const x = ui.r.plan[+t.closest('.row').dataset.i]; ui.sel.set(x.tr, t.checked); render(); return; }
+    if (t.dataset.pick != null && t.value) { const x = ui.r.plan[+t.dataset.pick]; ALIAS[norm(x.name)] = t.value; aliasSave(); ui.sel.set(x.tr, true); runPlan(); render(); return; }
+    if (t.dataset.cls && ui.classPicker) { ui.classPicker.value = t.value; ['input', 'change'].forEach(e => ui.classPicker.dispatchEvent(new Event(e, { bubbles: true })));
+      ui.msg = 'تم اختيار الفصل في نور — انتظر ظهور الطلاب ثم اعرض المعاينة.'; render(); }
+  }
+  function onInput(ev) { if (ev.target.classList.contains('q')) { ui.q = ev.target.value; ui.focusQ = true; render(); ui.focusQ = false; } }
+  async function loadSheet() { try { ui.sheet = (await chrome.storage.local.get('mb_noor_grades')).mb_noor_grades || null; } catch (_) { ui.sheet = null; } }
+  async function showUI() {
+    await loadSheet();
+    if (!ui.sheet || !Array.isArray(ui.sheet.rows) || !ui.sheet.rows.length) { if (ui.host) ui.host.remove(); ui.host = null; return; }
+    if (['both', 'work40', 'exam20'].includes(ui.sheet.mode)) ui.mode = ui.sheet.mode;
+    ensureUI(); render();
   }
 
   chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
     if (!msg || msg.type !== 'mb:noorFill') return false;
-    // من لوحة المعلم: تُفتح المعاينة في صفحة الرصد ولا يُكتب شيء قبل موافقة المعلم
-    const r = openPreview(msg.payload || {}, (msg.payload && msg.payload.mode) || 'both');
-    if (isTop || r.preview) reply(r);   // الإطار الفرعي يرد فقط إن وجد صفوفًا
+    // من لوحة المعلم: تُفتح اللوحة على المعاينة ولا يُكتب شيء قبل موافقة المعلم
+    ui.sheet = msg.payload || {}; if (['both', 'work40', 'exam20'].includes(ui.sheet.mode)) ui.mode = ui.sheet.mode;
+    const P = fill(ui.sheet, ui.mode, { dry: true });
+    if (P.plan.length) { ensureUI(); if (!ui.open) ui.justOpened = true; ui.open = true; doPreview(); }
+    const c = P.plan.length ? counts() : { ok: 0, warn: 0 };
+    if (isTop || P.plan.length) reply({ preview: P.plan.length, ready: c.ok, approx: c.warn, rowsSeen: P.rowsSeen });
     return false;
   });
-
-  /* ── الشريط العائم (الإطار العلوي فقط) ── */
-  let bar = null;
-  function toastBar(r) {
-    if (!bar) return;
-    const st = bar.querySelector('.mbn-st');
-    const warn = [r.locked ? `🔒 ${r.locked} خانة مقفلة في نور لم تُكتب` : '', r.multiCols ? '⚠️ بعض الصفوف فيها أكثر من خانة تحت العمود نفسه فتُركت' : ''].filter(Boolean).join(' · ');
-    if (st && !r.filled && r.noCols) { st.textContent = '⚠️ لم أتعرف على عمودي «أعمال السنة» و«التقويمات التحريرية» في هذا الجدول — لم يُكتب شيء حتى لا تنعكس الدرجات. أرسل صورة الجدول للمطوّر.'; return; }
-    if (st) st.textContent = (warn ? warn + ' — ' : '') + (r.filled ? `✅ عُبّئت ${r.fields || 0} خانة درجات لـ ${r.filled} طالب${r.clsMissing && r.clsMissing.length ? ` · ${r.clsMissing.length} من ${r.cls} في الكشف لم يظهروا هنا` : ''}${r.skipped > 0 ? ` · تُرك ${r.skipped} لم تحدّدهم` : ''} — راجعها ثم احفظ من نور` : `⚠️ لم تُعبّأ أي درجة (صفوف مفحوصة: ${r.rowsSeen || 0}). تأكد أنك داخل جدول رصد الدرجات وأن الكشف المصدّر يحتوي درجات.`);
-    if (st) st.title = r.clsMissing && r.clsMissing.length ? `من ${r.cls} في الكشف ولم يظهروا في هذه الصفحة: ` + r.clsMissing.join('، ') : '';
-    // ↩️ تراجع: يعيد كل خانة كتبتها هذه التعبئة إلى قيمتها السابقة (قبل الضغط على «حفظ» في نور)
-    let ub = bar && bar.querySelector('.mbn-undo'); if (ub) ub.remove();
-    if (bar && r.undo && r.undo.length) {
-      ub = document.createElement('button'); ub.type = 'button'; ub.className = 'mbn-undo'; ub.textContent = `↩️ تراجع (${r.undo.length} خانة)`;
-      ub.style.cssText = 'background:#fff;color:#16233A;border:0;border-radius:8px;padding:5px 9px;font:inherit;cursor:pointer;white-space:nowrap';
-      ub.onclick = () => { r.undo.slice().reverse().forEach(u => { setVal(u.inp, u.old); u.inp.style.background = u.bg; });
-        ub.remove(); const s2 = bar.querySelector('.mbn-st'); if (s2) s2.textContent = `↩️ أُعيدت ${r.undo.length} خانة إلى ما كانت عليه.`; const mb = bar.querySelector('.mbn-miss'); if (mb) mb.remove(); };
-      bar.querySelector('.mbn-go').after(ub);
-    }
-    // طلاب هذه الصفحة الذين لم تُعبّأ درجاتهم — بالاسم والسبب (والصف نفسه بإطار أحمر)
-    let box = bar && bar.querySelector('.mbn-miss'); if (box) box.remove();
-    if (bar && r.missed && r.missed.length) {
-      box = document.createElement('div'); box.className = 'mbn-miss';
-      box.style.cssText = 'flex-basis:100%;background:#3A1E28;border-radius:8px;padding:5px 8px;font-weight:500;font-size:11px;line-height:1.5;max-height:110px;overflow:auto';
-      const short = { none: 'غير موجود في الكشف', tie: 'اسم مكرر في الكشف', empty: 'بلا درجة في الكشف', nocell: 'لم أجد خانته', locked: 'خانة مقفلة' };
-      box.textContent = `🔴 لم تُعبّأ درجات ${r.missed.length} في هذه الصفحة (بإطار أحمر): ` + r.missed.map(x => `${x.name.split(' ').filter(w => w !== 'بن').slice(0, 2).join(' ')} — ${short[x.why]}${x.hint ? ` (أقرب اسم: ${x.hint})` : ''}`).join(' · ');
-      bar.appendChild(box);
-    }
-  }
-  async function showBar() {
-    if (!isTop || bar) return;
-    let sheet = null; try { sheet = (await chrome.storage.local.get('mb_noor_grades')).mb_noor_grades; } catch (_) {}
-    if (!sheet || !Array.isArray(sheet.rows) || !sheet.rows.length) return;
-    bar = document.createElement('div');
-    bar.setAttribute('dir', 'rtl');
-    bar.style.cssText = 'position:fixed;left:max(8px, calc(50% - 300px));bottom:12px;z-index:2147483647;background:#16233A;color:#fff;border-radius:12px;padding:7px 9px;box-shadow:0 8px 24px rgba(0,0,0,.28);font:600 12px Tahoma,Arial,sans-serif;display:flex;gap:7px;align-items:center;flex-wrap:wrap;width:max-content;max-width:min(94vw,650px);box-sizing:border-box;';
-    const when = sheet.at ? new Date(sheet.at).toLocaleString('ar-SA-u-ca-gregory-nu-latn', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : '';
-    const safe = v => String(v || '').replace(/[<>&]/g, '');
-    // اكتشاف قائمة الفصل الأصلية في نور، إن كانت موجودة في الصفحة الحالية.
-    const classSelects = [...document.querySelectorAll('select')].filter(sel => {
-      const meta = `${sel.id || ''} ${sel.name || ''} ${sel.getAttribute('aria-label') || ''} ${sel.closest('td,th')?.innerText || ''}`;
-      const opts = [...sel.options].map(o => (o.textContent || '').replace(/\s+/g, ' ').trim());
-      const allOpts = opts.join(' ');
-      // لا تعتبر اختيار الفترة/الدور فصلًا دراسيًا؛ مثل «الفصل الأول - الدور الأول».
-      const isTermPicker = opts.some(t => /الفصل\s*(الأول|الثاني|الثالث)\s*[-–—]?\s*الدور\s*(الأول|الثاني)/.test(t)) ||
-        (/الدور\s*(الأول|الثاني)/.test(allOpts) && /الفصل\s*(الأول|الثاني)/.test(allOpts));
-      const hasClassOption = opts.some(t => /(?:أول|ثاني|ثالث)\s*(?:ابتدائي|متوسط|ثانوي)|\b[1-6]\s*[/\-]\s*[1-6]\b|شعبة\s*\S+/.test(t));
-      const classMeta = /class|section|classroom|اسم.?الصف|الشعبة|الفصل الدراسي/i.test(meta);
-      return !isTermPicker && (classMeta || hasClassOption);
-    }).filter(sel => sel.options.length > 1);
-    const classPicker = classSelects[0] || null;
-    const classOptions = classPicker ? '' : `<option value="">${safe(sheet.cls || 'الفصل المحدد في الكشف')}</option>`;
-    bar.innerHTML = `<span class="mbn-drag" title="اسحب لتحريك الصندوق" style="cursor:move;touch-action:none;user-select:none;flex:1 1 100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;font-size:11px;opacity:.95">⠿ كشف مساعد المعلم: <b>${sheet.rows.length}</b> طالب${sheet.cls ? ' · ' + safe(sheet.cls) : ''}${sheet.label ? ' · ' + safe(sheet.label) : ''}${when ? ' · ' + when : ''} <span style="opacity:.7">(اسحب من هنا) · v${(() => { try { return chrome.runtime.getManifest().version; } catch (_) { return ''; } })()}</span></span>
-      <label style="display:flex;gap:5px;align-items:center">الفصل <select class="mbn-class" ${classPicker ? '' : 'disabled'} style="border-radius:7px;padding:3px 5px;font:inherit;color:#16233A;max-width:150px;max-height:30px">${classOptions}</select></label>
-      <select class="mbn-mode" style="border-radius:7px;padding:3px 5px;font:inherit;color:#16233A;max-width:220px;max-height:30px">
-        <option value="both">الخانتان: أعمال السنة 40 ثم الاختبار 20</option>
-        <option value="work40">أعمال السنة (40) فقط</option>
-        <option value="exam20">الاختبار (20) فقط</option></select>
-      <button type="button" class="mbn-go" style="background:#1B9C6B;color:#fff;border:0;border-radius:8px;padding:5px 9px;font:inherit;cursor:pointer;white-space:nowrap">👁️ معاينة ثم تعبئة</button>
-      <button type="button" class="mbn-x" title="إخفاء" style="background:transparent;color:#fff;border:0;font-size:16px;cursor:pointer;padding:2px 5px">✕</button>
-      <span class="mbn-st" style="flex-basis:100%;font-weight:500;font-size:10px;opacity:.9;line-height:1.35">راجع الدرجات بعد التعبئة ثم اضغط «حفظ» في نور — الإضافة لا تحفظ عنك.</span>`;
-    const classUi = bar.querySelector('.mbn-class');
-    if (classPicker && classUi) {
-      for (const o of classPicker.options) classUi.add(new Option((o.textContent || '').trim(), o.value));
-      classUi.value = classPicker.value;
-      classUi.addEventListener('change', () => {
-        classPicker.value = classUi.value;
-        classPicker.dispatchEvent(new Event('input', { bubbles: true }));
-        classPicker.dispatchEvent(new Event('change', { bubbles: true }));
-        const st = bar.querySelector('.mbn-st');
-        if (st) st.textContent = 'تم اختيار الفصل في نور. انتظر تحديث جدول الطلاب، ثم اضغط «تعبئة الدرجات الآن».';
-      });
-    }
-    bar.querySelector('.mbn-go').onclick = () => { const r = openPreview(sheet, bar.querySelector('.mbn-mode').value); if (!r.preview) toastBar({ filled: 0, rowsSeen: r.rowsSeen, noCols: r.noCols }); };
-    bar.querySelector('.mbn-x').onclick = () => { bar.remove(); bar = null; };
-    document.body.appendChild(bar);
-    // سحب الصندوق لأي مكان في الشاشة باستخدام شريط العنوان، مع تقييده بحدود نافذة المتصفح.
-    const dragHandle = bar.querySelector('.mbn-drag');
-    if (dragHandle) {
-      let dragging = false, startX = 0, startY = 0, startLeft = 0, startTop = 0;
-      dragHandle.addEventListener('pointerdown', ev => {
-        if (ev.button !== 0) return;
-        dragging = true;
-        const rect = bar.getBoundingClientRect();
-        startX = ev.clientX; startY = ev.clientY; startLeft = rect.left; startTop = rect.top;
-        bar.style.left = `${rect.left}px`; bar.style.top = `${rect.top}px`; bar.style.bottom = 'auto';
-        dragHandle.setPointerCapture?.(ev.pointerId);
-        ev.preventDefault();
-      });
-      dragHandle.addEventListener('pointermove', ev => {
-        if (!dragging) return;
-        const rect = bar.getBoundingClientRect();
-        const left = Math.max(0, Math.min(window.innerWidth - rect.width, startLeft + ev.clientX - startX));
-        const top = Math.max(0, Math.min(window.innerHeight - rect.height, startTop + ev.clientY - startY));
-        bar.style.left = `${left}px`; bar.style.top = `${top}px`;
-      });
-      const stopDrag = () => { dragging = false; };
-      dragHandle.addEventListener('pointerup', stopDrag);
-      dragHandle.addEventListener('pointercancel', stopDrag);
-    }
-  }
   if (isTop) {
-    if (document.body) showBar(); else document.addEventListener('DOMContentLoaded', showBar, { once: true });
-    try { chrome.storage.onChanged.addListener((ch, area) => { if (area === 'local' && ch.mb_noor_alias) ALIAS = ch.mb_noor_alias.newValue || {}; if (area === 'local' && ch.mb_noor_grades) { if (bar) { bar.remove(); bar = null; } showBar(); } }); } catch (_) {}
+    if (document.body) showUI(); else document.addEventListener('DOMContentLoaded', showUI, { once: true });
+    try { chrome.storage.onChanged.addListener((ch, area) => { if (area !== 'local') return; if (ch.mb_noor_alias) ALIAS = ch.mb_noor_alias.newValue || {};
+      if (ch.mb_noor_grades) { ui.view = 'home'; clearMarks(); ui.r = null; showUI(); } }); } catch (_) {}
   }
 })();
