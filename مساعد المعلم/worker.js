@@ -570,6 +570,31 @@ function madReportPart(m) {
     forgiven: m.forgiven || 0, forgivenList: items.filter(x => x.st === 'forgiven').map(t).slice(0, 15),
     pendingList: items.filter(x => x.st === 'pending').map(x => ({ title: t(x), daysLeft: x.daysLeft || 1, dueAt: x.dueAt || 0 })).slice(0, 15) };
 }
+/* 🏅 أهلية بطاقات «تكريمك» (شهادة/شكر للأهل): نفس حساب مستوى بوابة ولي الأمر للفترة الجارية،
+   والاختبار بدرجته الأصلية قبل بطاقات المتجر — فالنقاط وحدها لا تشتري تكريمًا. المطلوب «جيد جدًا» فأعلى (48 من 60) */
+const HONOR_MIN = 48;
+async function honorEligibility(env, st) {
+  try {
+    const data0 = await loadClassroom(env), ac = academicNormalize(data0) || {}, sem = ac.currentSemester === 2 ? 2 : 1;
+    const per = ((ac.semesters || {})[String(sem)] || {}).activePeriod === 2 ? 2 : 1;
+    const { data, grades } = await studentReportGrades(env, sem, per), sid = String(st.id), g = grades.students.find(x => String(x.id) === sid);
+    if (!g) return { ok: false, eligible: false, level: '' };
+    let state = {}; try { state = JSON.parse(await env.HW.get('tstate:main')) || {}; } catch {}
+    const R = studentReportBuild(data, g, sem, per, '', srepActsLive(state, data, sid, st.name, String(st.cls || g.cls || ''), sem, per));
+    // الافتراضي «كاملة» لما لم يُقَس، فلا يُحتسب هنا إلا ما قيس فعلًا (والسلوك معه) — ومن لم يُقَس له شيء لا يُفتح له
+    const n1 = v => Math.round((Number(v) || 0) * 10) / 10, A = R.activities, H = R.homework, parts = [];
+    if (R.participation.measured) parts.push([R.participation.score, 10]);
+    const hm = [H.classPart, H.madrasati].filter(x => x && x.measured);
+    if (hm.length) parts.push([hm.reduce((a, x) => a + n1(x.score), 0), hm.reduce((a, x) => a + (Number(x.max) || 5), 0)]);
+    if (A && A.n) parts.push([A.score, 10]);
+    if (R.exam.measured && R.exam.score != null) parts.push([R.exam.base != null ? R.exam.base : R.exam.score, 20]);
+    if (!parts.length) return { ok: true, eligible: false, level: '', none: true };
+    parts.push([R.behavior.score, 10]);
+    const t = parts.reduce((a, x) => a + n1(x[0]), 0) / parts.reduce((a, x) => a + x[1], 0) * 60;
+    const level = t >= 54 ? 'ممتاز' : t >= 48 ? 'جيد جدًا' : t >= 42 ? 'جيد' : t >= 30 ? 'يحتاج متابعة' : 'يحتاج دعم';
+    return { ok: true, eligible: t >= HONOR_MIN, level };
+  } catch (e) { return { ok: false, eligible: false, level: '' }; }
+}
 function studentReportBuild(data, g, semester, period, teacherNote, acts) {
   const sid = String(g.id);
   const range = gradeTermRange(data, period, semester);
@@ -7151,6 +7176,12 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
     }
 
     // ── 🎓 خيارات بطاقات رفع درجة الاختبارات للطالب ──
+    // 🏅 هل تُفتح للطالب بطاقات «تكريمك»؟ (للعرض فقط — الحسم في /buy) · لا يكشف الدرجة، المستوى فقط
+    if (url.pathname === '/honor-elig' && request.method === 'GET') {
+      const st = await resolveStudent(env, { id: String(url.searchParams.get('sid') || url.searchParams.get('id') || '').slice(0, 40), name: String(url.searchParams.get('name') || '').slice(0, 80).trim() });
+      if (st.ambiguous || !st.known || !st.id) return json({ ok: false, error: 'student not recognized' }, 403);
+      return json(await honorEligibility(env, st));
+    }
     if (url.pathname === '/exam-options' && request.method === 'GET') {
       const name=String(url.searchParams.get('name')||'').slice(0,80).trim();
       const sidIn=String(url.searchParams.get('sid')||url.searchParams.get('id')||'').slice(0,40).trim();
@@ -7470,6 +7501,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       const st = auth.st;
       return studentLocked(env, st, async () => {
         const bal = await readBal(env, st);
+        if (card === 'cert' || card === 'thanks') { const E = await honorEligibility(env, st); if (!E.eligible) return json({ ok: false, error: 'honor_level', level: E.level, pts: bal }, 200); }
         if ((card.startsWith('theme_') || card === 'frame' || card === 'namecolor' || card === 'avatars') && ((await readOwn(env, st))[card] > 0)) return json({ ok: false, error: 'owned', pts: bal }, 200);
         if (bal < price) return json({ ok: false, error: 'low', pts: bal }, 200);
         await env.HW.put(identityKey('bal:', st), String(bal - price));
