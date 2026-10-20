@@ -7822,8 +7822,9 @@ const hwFormKind=h=>!h ? 'normal' : hwIsNafs(h) ? 'nafs' : (h.kind==='game' ? 'g
 const LAB_MATS=[['water','الماء'],['oil','الزيت'],['salt','الملح'],['sugar','السكر'],['sand','الرمل'],['gravel','الحصى'],['iron','برادة الحديد']];
 const labMatName=k=>(LAB_MATS.find(x=>x[0]===k)||[k,k])[1];
 /* موضوعات المختبر المتاحة — يطابق LAB_TOPICS في الـ Worker */
-const LAB_TOPICS=[['mixtures','المخاليط'],['friction','قوة الاحتكاك'],['inertia','القصور الذاتي'],['work','الشغل'],['machines','الآلات البسيطة'],['newton3','قانون نيوتن الثالث'],['physchg','الخواص والتغيرات الفيزيائية']];
+const LAB_TOPICS=[['mixtures','المخاليط'],['friction','قوة الاحتكاك'],['inertia','القصور الذاتي'],['work','الشغل'],['machines','الآلات البسيطة'],['newton3','قانون نيوتن الثالث'],['physchg','الخواص والتغيرات الفيزيائية'],['chemchg','الخواص والتغيرات الكيميائية']];
 const LAB_TOPIC_NOTE={
+  chemchg:'يتوقع ثم ينفّذ خمسة تغيّرات (الخل وصودا الخبز، اليود والنشا، محلولان يكوّنان راسبًا، احتراق المغنيسيوم بالنظارة والماسك، ذوبان الملح) فيرصد العلامات (غاز، لون، راسب، ضوء، حرارة) ويحكم: كيميائي أم فيزيائي؛ ثم يزن التفاعل في كأس مفتوحة (تنقص الكتلة) وقارورة مغلقة ببالون (ثابتة) فيكتشف حفظ الكتلة؛ ثم تحدٍّ: ميّز أربعة مساحيق بيضاء بالكواشف.',
   physchg:'يزن الطالب ثلاث عينات فلزية ويقيس حجمها بإزاحة الماء في مخبار مدرّج ويحسب الكثافة = الكتلة ÷ الحجم ويتعرّف المادة من جدول الكثافات؛ ثم يراقب الميزان أثناء انصهار الجليد وكبس ورقة ألومنيوم وذوبان السكر فيكتشف أن الكتلة محفوظة ولا تتكوّن مادة جديدة. التحدي: أي السوارين ذهب خالص؟',
   newton3:'يتوقع ثم يسحب ميزانين نابضيين متصلين (أحدهما مثبت في جدار) ثلاث سحبات بقوى مختلفة فيكتشف أن قراءتيهما متساويتان دائمًا؛ ثم يطلق نابضًا مضغوطًا بين عربتين (متساويتين ثم مختلفتين في الكتلة) فيقرأ القوة نفسها على العربتين ويحسب سرعة كل منهما = المسافة ÷ الزمن؛ ثم تحدٍّ: اجعل الحمراء أسرع بثلاث مرات.',
   mixtures:'يخلط الطالب مادتين ويلاحظ، ثم يفصلهما عمليًا.',
@@ -7845,6 +7846,7 @@ function labSummary(h){
   if(t==='machines') return '🔧 الآلات البسيطة · الرافعة والسطح المائل';
   if(t==='newton3') return '🤝 قانون نيوتن الثالث · الفعل ورد الفعل';
   if(t==='physchg') return '⚖️ الخواص والتغيرات الفيزيائية · الكثافة وحفظ الكتلة';
+  if(t==='chemchg') return '🧪 الخواص والتغيرات الكيميائية · العلامات وحفظ الكتلة';
   const p=h&&h.lab&&Array.isArray(h.lab.pair)&&h.lab.pair.length===2?h.lab.pair:null;
   return '🔬 المخاليط · '+(p?labMatName(p[0])+' + '+labMatName(p[1]):'اختيار حر');
 }
@@ -8327,7 +8329,7 @@ function labReportHTML(h, subs, byId){
         <div style="font-size:.82rem;line-height:1.85;margin-top:.35rem">
           <div><b>النتيجة:</b> ${esc(L.result||'')}</div>
           <div><b>${esc((L.practical&&L.practical.label)||'الفصل العملي')}:</b> ${(L.practical?L.practical.done:L.sepDone)?'✓ ':'✗ '}${esc((L.practical&&L.practical.text)||(L.sepDone?'اكتمل':'لم يكتمل'))}</div>
-          ${(L.steps||[]).length?`<div><b>${['friction','work','machines','newton3','physchg'].includes(L.topic)?'القياسات والحسابات':'الخطوات'}:</b> ${L.steps.map(esc).join('، ')}</div>`:''}
+          ${(L.steps||[]).length?`<div><b>${['friction','work','machines','newton3','physchg','chemchg'].includes(L.topic)?'القياسات والحسابات':'الخطوات'}:</b> ${L.steps.map(esc).join('، ')}</div>`:''}
           <div><b>الإجابات:</b> ${(L.answers||[]).map((a,i)=>`${i===3?'التطبيق':'س'+(i+1)} ${a.ok?'✓':'✗'}${a.n>1?` (${a.n} محاولات)`:''}`).join(' · ')}</div>
           ${(L.reinforce||[]).length?`<div><b style="color:var(--pen)">يحتاج تعزيزًا:</b> ${L.reinforce.map(esc).join('، ')}</div>`:''}
           ${(L.mistakes||[]).length?`<div><b>أخطاؤه أثناء التجربة:</b><br>${L.mistakes.map(esc).join('<br>')}</div>`:''}

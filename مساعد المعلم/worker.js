@@ -2278,7 +2278,7 @@ const LAB_M = {
   salt:{ n:'الملح', dissolves:true }, sugar:{ n:'السكر', dissolves:true },
   sand:{ n:'الرمل' }, gravel:{ n:'الحصى' }, iron:{ n:'برادة الحديد' }
 };
-const LAB_TOPICS = { mixtures: 'المخاليط', friction: 'قوة الاحتكاك', inertia: 'القصور الذاتي', work: 'الشغل', machines: 'الآلات البسيطة', newton3: 'قانون نيوتن الثالث', physchg: 'الخواص والتغيرات الفيزيائية' };
+const LAB_TOPICS = { mixtures: 'المخاليط', friction: 'قوة الاحتكاك', inertia: 'القصور الذاتي', work: 'الشغل', machines: 'الآلات البسيطة', newton3: 'قانون نيوتن الثالث', physchg: 'الخواص والتغيرات الفيزيائية', chemchg: 'الخواص والتغيرات الكيميائية' };
 const LAB_CONCEPTS = { het:'المخلوط غير المتجانس', hom:'المخلوط المتجانس (المحلول)', sol:'الذوبان',
   dens:'الكثافة والطفو والترسّب', prop:'احتفاظ مكونات المخلوط بخصائصها', sep:'طرق فصل المخاليط',
   obs:'دقة الملاحظة', safe:'الالتزام بالسلامة' };
@@ -2370,6 +2370,7 @@ function labScore(cfg, b) {
   if (cfg.topic === 'machines') return machinesScore(log);
   if (cfg.topic === 'newton3') return newton3Score(log);
   if (cfg.topic === 'physchg') return physchgScore(log);
+  if (cfg.topic === 'chemchg') return chemchgScore(log);
   const pair = Array.isArray(log.pair) ? log.pair.map(String) : [];
   if (pair.length !== 2 || !LAB_M[pair[0]] || !LAB_M[pair[1]] || pair[0] === pair[1]) return null;
   if (cfg.pair && [...cfg.pair].sort().join('+') !== [...pair].sort().join('+')) return null;   // الخليط الذي حدده المعلم فقط
@@ -2740,6 +2741,61 @@ function physchgScore(log) {
       return `العينة ${s.lbl}: الحجم ${last(w.v)} cm³ (الصحيح ${s.v})، الكثافة ${last(w.d)} (الصحيح ${(s.m / s.v).toFixed(1)})، المادة ${PC_MATS[w.id[w.id.length - 1]] || '—'}`; })
       .concat(chg.map((w, j) => `${PC_CHANGES[j].t}: قرأ ${last(w.m)} g (الصحيح ${PC_CHANGES[j].m})، مادة جديدة؟ ${w.ns[0] === 'no' ? 'لا ✓' : 'نعم ✗'}`))
   }, { obs: obsScore >= 0.8, pcvol: vol >= 9.99, pccalc: den >= 14.99, pcmass: cm >= 9.99 }, log);
+}
+/* 🧪 الخواص والتغيرات الكيميائية — خمسة تغيّرات (علامات + حكم) · الكتلة في كأس مفتوحة وقارورة مغلقة · تحدي المساحيق الأربعة.
+   البيانات نفسها التي في المختبر (student-portal/lab) */
+const CC_RX = [{ t: 'الخل + صودا الخبز', req: ['gas'], opt: ['temp'], chem: true }, { t: 'اليود + البطاطس', req: ['color'], opt: [], chem: true },
+  { t: 'محلولان يكوّنان راسبًا', req: ['precip'], opt: ['color'], chem: true }, { t: 'احتراق المغنيسيوم', req: ['light', 'temp'], opt: ['color'], chem: true },
+  { t: 'الملح + الماء', req: ['none'], opt: [], chem: false }];
+const CC_SIGNS = ['gas', 'color', 'precip', 'light', 'temp', 'none'];
+const CC_MASS = [{ t: 'الكأس المفتوحة', b: 205, a: 202.8 }, { t: 'القارورة المغلقة', b: 230, a: 230 }];
+const CC_POWDERS = ['soda', 'salt', 'starch', 'sugar'];
+const CC_OBS = { ok: ['cc_signs', 'cc_salt', 'cc_closed', 'cc_open'], neutral: ['cc_cold'], all: ['cc_signs', 'cc_salt', 'cc_closed', 'cc_open', 'cc_cold', 'cc_lost', 'cc_saltnew'] };
+Object.assign(LAB_CONCEPTS, { ccsign: 'علامات التغيّر الكيميائي', ccdec: 'التمييز بين التغيّر الكيميائي والفيزيائي', ccprop: 'الخواص الكيميائية والفيزيائية',
+  ccmass: 'حفظ الكتلة في التغيّر الكيميائي', ccbub: 'التمييز بين فقاعات الغليان وغاز التفاعل', cclife: 'الخواص الكيميائية في الحياة', ccsafe: 'السلامة عند الإشعال' });
+const ccSignsOk = (rx, sel) => { const s = new Set(sel); if (s.has('none') && s.size > 1) return false; return rx.req.every(x => s.has(x)) && [...s].every(x => rx.req.includes(x) || rx.opt.includes(x)); };
+function chemchgScore(log) {
+  if (!log || typeof log !== 'object') return null;
+  const rx = (Array.isArray(log.rx) ? log.rx : []).slice(0, 5).map(w => ({
+    sg: (Array.isArray(w && w.sg) ? w.sg : []).slice(0, 3).map(a => (Array.isArray(a) ? a : []).slice(0, 6).map(String).filter(x => CC_SIGNS.includes(x))),
+    ch: (Array.isArray(w && w.ch) ? w.ch : []).slice(0, 3).map(String) }));
+  if (rx.length !== 5 || rx.some(w => !w.sg.length || !w.sg[0].length || !w.ch.length)) return null;          // البوابة: نفّذ التغيّرات الخمسة
+  const ms = (Array.isArray(log.mass) ? log.mass : []).slice(0, 2).map(w => ({ m: labNums(w && w.m, 3) }));
+  if (ms.length !== 2 || ms.some(w => !w.m.length)) return null;                                                // البوابة: وزن الوعاءين
+  let sg = 0, dc = 0, mm = 0;
+  rx.forEach((w, i) => { const R = CC_RX[i];
+    sg += ccSignsOk(R, w.sg[0]) ? 3 : w.sg.some(v => ccSignsOk(R, v)) ? 1.5 : 0;
+    dc += w.ch[0] === (R.chem ? 'yes' : 'no') ? 2 : 1; });
+  ms.forEach((w, j) => { const t = CC_MASS[j].a; mm += Math.abs(w.m[0] - t) <= 0.15 ? 5 : w.m.some(x => Math.abs(x - t) <= 0.15) ? 2.5 : 0; });
+  const saf = Math.max(0, Math.min(20, parseInt(log.saf, 10) || 0));
+  const res = labAnswers(log, [{ type:'classify', concept:'ccprop', bins:[1,0,1,0,1,0] }, { type:'mcq', concept:'ccmass', ok:[0] },
+                              { type:'mcq', concept:'ccbub', ok:[0] }, { type:'mcq', concept:'cclife', ok:[0] }]);
+  if (!res) return null;
+  const { obsIn, obsScore } = labObsScore(log, CC_OBS);
+  const chal = (Array.isArray(log.chal) ? log.chal : []).slice(0, 8).map(a => (Array.isArray(a) ? a : []).slice(0, 4).map(String).join(','));
+  const ti = chal.findIndex(z => z === CC_POWDERS.join(',')), tries = ti < 0 ? 0 : ti + 1;
+  const f = r => r && r.correct ? [0, 1, 0.6, 0.3][r.attempts] : 0;
+  const parts = [
+    ['علامات التغيّر الكيميائي', sg, 15],
+    ['تمييز الكيميائي من الفيزيائي', dc, 10],
+    ['السلامة عند الإشعال', Math.max(0, 5 - 2.5 * saf), 5],
+    ['حفظ الكتلة (قراءات الميزان)', mm, 10],
+    ['دقة الملاحظة', 10 * obsScore, 10],
+    ['الإجابات', 10 * f(res[0]) + 10 * f(res[2]), 20],
+    ['تفسير النتيجة', 10 * f(res[1]), 10],
+    ['التحدي العملي', tries ? [0, 10, 6, 3][Math.min(3, tries)] : 0, 10],
+    ['التطبيق في موقف جديد', 10 * f(res[3]), 10]
+  ];
+  const SN = { gas: 'غاز', color: 'لون', precip: 'راسب', light: 'ضوء', temp: 'حرارة', none: 'لا علامة' };
+  return labFinish('chemchg', parts, res, {
+    names: ['الخواص والتغيرات الكيميائية', 'العلامات وحفظ الكتلة'],
+    result: 'غاز ولون وراسب وضوء وحرارة: أربعة تغيّرات كيميائية، وذوبان الملح فيزيائي · الكتلة 205 ← 202.8 g في الكأس المفتوحة و230 ← 230 g في القارورة المغلقة',
+    obs: obsIn, sepDone: tries > 0,
+    practical: { label: 'التحدي العملي', done: tries > 0, text: tries ? `ميّز المساحيق الأربعة في المحاولة ${tries}` : 'لم يُنجز' },
+    steps: rx.map((w, i) => `${CC_RX[i].t}: العلامات ${w.sg[0].map(x => SN[x]).join('، ')}${ccSignsOk(CC_RX[i], w.sg[0]) ? ' ✓' : ' ✗'} · ${w.ch[0] === 'yes' ? 'كيميائي' : 'فيزيائي'}${w.ch[0] === (CC_RX[i].chem ? 'yes' : 'no') ? ' ✓' : ' ✗'}`)
+      .concat(ms.map((w, j) => `${CC_MASS[j].t}: قرأ ${w.m[w.m.length - 1]} g بعد التفاعل (الصحيح ${CC_MASS[j].a})`))
+      .concat(saf ? [`حاول الإشعال دون نظارة أو ماسك (${saf})`] : [])
+  }, { obs: obsScore >= 0.8, ccsign: sg >= 14.99, ccdec: dc >= 9.99, ccmass: mm >= 9.99, ccsafe: !saf }, log);
 }
 /* 🔧 تجربة الآلات البسيطة — رافعة (حمل 60 N على 0.5 m) + سطح مائل (صندوق 40 N إلى 0.5 m) */
 const MC_ARMS = [0.5, 1, 1.5], MC_RAMPS = [0.5, 1, 2];

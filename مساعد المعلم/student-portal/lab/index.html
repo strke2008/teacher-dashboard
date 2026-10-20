@@ -605,6 +605,7 @@ const TOPICS=[
   {id:'separation',path:'phys',title:'الفصل: الترشيح والمغناطيس والتبخير',desc:'نفّذ عمليات الفصل بنفسك.'},
   {id:'states',path:'phys',title:'تغيرات الحالة',desc:'الانصهار والتبخر والتكثف.'},
   {id:'heat',path:'phys',title:'انتقال الحرارة',desc:'التوصيل والحمل والإشعاع.'},
+  {id:'chemchg',path:'chem',title:'الخواص والتغيرات الكيميائية',desc:'خمسة تغيّرات: غاز ولون وراسب وضوء، وأيها كيميائي؟ ثم الميزان: هل تفنى المادة؟ وتحدٍّ: ميّز أربعة مساحيق بيضاء بالكواشف.',ready:true},
   {id:'acids',path:'chem',title:'الأحماض والقواعد',desc:'اختبر مواد من المنزل.'},
   {id:'indicators',path:'chem',title:'المؤشرات وتغيّر اللون',desc:'كاشف الملفوف الأحمر وورق تبّاع الشمس.'},
   {id:'neutral',path:'chem',title:'التعادل',desc:'حمض مع قاعدة: ماذا ينتج؟'},
@@ -1258,7 +1259,7 @@ const app=$('#app');
 function go(screen){
   SIM.stop();SEP.stop();if(typeof FRSIM!=='undefined')FRSIM.stop();if(typeof INSIM!=='undefined')INSIM.stop();if(typeof WMSIM!=='undefined')WMSIM.stop();
   $$('.nav button').forEach(x=>{if(x.dataset.go===screen)x.setAttribute('aria-current','page');else x.removeAttribute('aria-current')});
-  ({home:renderHome,lab:renderLab,fric:renderFric,challenge:renderChal,inert:renderInert,inchal:renderInChal,work:renderWork,wkchal:renderWkChal,n3:renderN3,n3chal:renderN3Chal,pc:renderPC,pcchal:renderPCChal,mach:renderMach,mchal:renderMcChal,think:renderThink,separate:renderSeparate,learned:renderLearned,apply:renderApply,result:renderResult,records:renderRecords,teacher:renderTeacher}[screen])();
+  ({home:renderHome,lab:renderLab,fric:renderFric,challenge:renderChal,inert:renderInert,inchal:renderInChal,work:renderWork,wkchal:renderWkChal,n3:renderN3,n3chal:renderN3Chal,pc:renderPC,pcchal:renderPCChal,cc:renderCC,ccchal:renderCCChal,mach:renderMach,mchal:renderMcChal,think:renderThink,separate:renderSeparate,learned:renderLearned,apply:renderApply,result:renderResult,records:renderRecords,teacher:renderTeacher}[screen])();
   window.scrollTo({top:0});
 }
 
@@ -1570,6 +1571,7 @@ function renderLearned(){
   if(APP.run.topic==='machines') return renderMcLearned();
   if(APP.run.topic==='newton3') return renderN3Learned();
   if(APP.run.topic==='physchg') return renderPCLearned();
+  if(APP.run.topic==='chemchg') return renderCCLearned();
   const r=APP.run,C=CONTENT[r.topic],c=r.ctx,L=C.learned(c,r),rd=r.finalReading||SIM.reading();
   const set=C.obs[c.cls];
   const mine=r.obs.map(o=>`${set.ok.includes(o)||set.neutral.includes(o)?'✓':'✗'} ${OBS_CHIPS[o]}`).join('، ');
@@ -4218,6 +4220,337 @@ function renderPCLearned(){
 
 
 /* =========================================================
+   🧪 الخواص والتغيرات الكيميائية
+   الجزء الأول: خمسة تفاعلات على الطاولة — ينفّذ الطالب كلًّا منها، ويرصد العلامات، ويقرر: هل تكوّنت مادة جديدة؟
+     (الخل + صودا الخبز: غاز · اليود + النشا: لون · محلولان شفافان: راسب · احتراق المغنيسيوم: ضوء وحرارة · الملح + الماء: ضابط فيزيائي)
+   الجزء الثاني: الكتلة على الميزان — كأس مفتوحة (تنقص: الغاز يخرج) مقابل قارورة مغلقة ببالون (ثابتة): حفظ الكتلة.
+   التحدي: أربعة مساحيق بيضاء تُميَّز بالكواشف الكيميائية (الخل · اليود · التسخين).
+   ========================================================= */
+const CC={T0:25,
+  signs:{gas:'تصاعد غاز (فقاعات)',color:'تغيّر اللون',precip:'تكوّن راسب صلب',light:'انبعاث ضوء',temp:'تغيّر درجة الحرارة',none:'لا علامة: المادة نفسها'},
+  rx:[{k:'soda',t:'الخل + صودا الخبز',sh:'خل وصودا خبز',act:'🥄 أضف صودا الخبز',req:['gas'],opt:['temp'],chem:true,from:'خل شفاف',to:'فوران وفقاعات، وبرودة خفيفة',tA:21},
+      {k:'iodine',t:'محلول اليود + شريحة بطاطس',sh:'يود ونشا',act:'💧 أضف قطرات اليود',req:['color'],opt:[],chem:true,from:'بطاطس فاتحة ويود بنّي',to:'لون أزرق داكن'},
+      {k:'precip',t:'محلول كلوريد الكالسيوم + محلول كربونات الصوديوم',sh:'محلولان شفافان',act:'🧪 اسكب المحلول الثاني',req:['precip'],opt:['color'],chem:true,from:'محلولان شفافان',to:'عكارة بيضاء تترسّب'},
+      {k:'mg',t:'احتراق شريط المغنيسيوم',sh:'شريط مغنيسيوم',act:'🔥 قرّبه من اللهب',req:['light','temp'],opt:['color'],chem:true,from:'شريط فضي لامع',to:'ضوء أبيض ساطع، ثم مسحوق أبيض'},
+      {k:'salt',t:'الملح + الماء',sh:'ملح وماء',act:'🥄 أضف الملح وحرّك',req:['none'],opt:[],chem:false,from:'ماء وملح',to:'محلول شفاف بلا علامات'}],
+  mass:[{k:'open',t:'كأس مفتوحة: خل + صودا الخبز',b:205,a:202.8},{k:'closed',t:'قارورة مغلقة ببالون: خل + صودا الخبز',b:230,a:230}],
+  powders:[{lbl:'(أ)',k:'soda'},{lbl:'(ب)',k:'salt'},{lbl:'(ج)',k:'starch'},{lbl:'(د)',k:'sugar'}],
+  pnames:{salt:'ملح الطعام',sugar:'السكر',soda:'صودا الخبز',starch:'النشا'},
+  tests:{vinegar:'💧 خل',iodine:'🟤 يود',heat:'🔥 تسخين'},
+  react:{soda:{vinegar:'فوران وفقاعات غاز',iodine:'لا تغيّر',heat:'لا تغيّر واضح'},salt:{vinegar:'لا تغيّر',iodine:'لا تغيّر',heat:'لا تغيّر (طقطقة خفيفة)'},
+    starch:{vinegar:'لا تغيّر',iodine:'أزرق داكن',heat:'يصفرّ قليلًا'},sugar:{vinegar:'لا تغيّر',iodine:'لا تغيّر',heat:'ينصهر ويسودّ وتظهر رائحة (كراميل)'}}};
+/* إجابة العلامات صحيحة إن احتوت كل المطلوب ولم تحوِ غير المطلوب والمسموح — و«لا علامة» لا تُجمع مع غيرها */
+const ccSignsOk=(rx,sel)=>{const s=new Set(sel);if(s.has('none')&&s.size>1)return false;return rx.req.every(x=>s.has(x))&&[...s].every(x=>rx.req.includes(x)||rx.opt.includes(x))};
+const CC_OBS={
+  cc_signs:'ظهرت في التفاعلات الكيميائية علامات تدل على مادة جديدة: غاز أو لون جديد أو راسب أو ضوء',
+  cc_salt:'ذوبان الملح لم تظهر معه أي علامة على مادة جديدة',
+  cc_closed:'في القارورة المغلقة بقيت الكتلة كما هي وانتفخ البالون بالغاز',
+  cc_open:'في الكأس المفتوحة نقصت قراءة الميزان لأن الغاز خرج إلى الهواء',
+  cc_cold:'برد خليط الخل وصودا الخبز قليلًا',
+  cc_lost:'المادة تفنى في التفاعل الكيميائي فتنقص الكتلة دائمًا',
+  cc_saltnew:'تكوّنت مادة جديدة عند ذوبان الملح'
+};
+const CC_OBS_SET={ok:['cc_signs','cc_salt','cc_closed','cc_open'],neutral:['cc_cold']};
+Object.assign(CONCEPTS,{ccsign:'علامات التغيّر الكيميائي',ccdec:'التمييز بين التغيّر الكيميائي والفيزيائي',ccprop:'الخواص الكيميائية والفيزيائية',
+  ccmass:'حفظ الكتلة في التغيّر الكيميائي',ccbub:'التمييز بين فقاعات الغليان وغاز التفاعل',cclife:'الخواص الكيميائية في الحياة',ccsafe:'السلامة عند الإشعال'});
+const CHEMCHG={
+  id:'chemchg',title:'الخواص والتغيرات الكيميائية',screen:'cc',practical:'ccchal',
+  cycle:['التوقع','التجربة','الملاحظة','التفكير','التحدي العملي','الاستنتاج','التطبيق','التقييم'],
+  safety:['البس النظارة الواقية قبل أي إشعال، وأمسك شريط المغنيسيوم بالماسك لا بيدك.','لا تنظر مباشرة إلى ضوء المغنيسيوم وهو يحترق.','لا تتذوق أي مادة ولا تشمّها مباشرة؛ قرّب الهواء إلى أنفك بيدك.','اسكب المحاليل ببطء وأبعد الكأس عن وجهك عند الفوران.'],
+  questions(){return [
+    {type:'classify',concept:'ccprop',prompt:'صنّف كل خاصية: هل هي خاصية فيزيائية أم كيميائية؟',
+     bins:['خاصية فيزيائية','خاصية كيميائية'],
+     items:[{t:'القابلية للاشتعال',bin:1},{t:'الكثافة',bin:0},{t:'التفاعل مع الأكسجين (الصدأ)',bin:1},{t:'درجة الغليان',bin:0},{t:'التفاعل مع الخل (الحمض)',bin:1},{t:'اللون',bin:0}],
+     hints:['اسأل: هل أستطيع ملاحظة الخاصية أو قياسها والمادة باقية كما هي؟ أم لا تظهر إلا عندما تتحوّل المادة إلى مادة أخرى؟','الاشتعال والصدأ والتفاعل مع الحمض لا تظهر إلا بتكوّن مواد جديدة.'],
+     explain:'الخاصية الفيزيائية نلاحظها أو نقيسها والمادة باقية كما هي: اللون والكثافة ودرجة الغليان. أما الخاصية الكيميائية فتصف قدرة المادة على التحوّل إلى مادة جديدة: القابلية للاشتعال، والتفاعل مع الأكسجين (الصدأ)، والتفاعل مع الأحماض كالخل.'},
+    {type:'mcq',concept:'ccmass',prompt:'في الجزء الثاني نقصت قراءة الميزان في الكأس المفتوحة من 205 g إلى 202.8 g، وبقيت 230 g في القارورة المغلقة. لماذا؟',
+     options:[{t:'التفاعل كوّن غازًا خرج من الكأس المفتوحة إلى الهواء فلم يُوزن، أما في القارورة فبقي الغاز داخل البالون، فالكتلة محفوظة',ok:1},{t:'المادة فنيت في الكأس المفتوحة لأن التفاعل كيميائي'},{t:'البالون أضاف كتلة إلى القارورة'},{t:'الميزان أخطأ في الكأس المفتوحة'}],
+     hints:['ماذا شاهدت يخرج من الكأس المفتوحة؟ وأين ذهب في القارورة المغلقة؟','انتفاخ البالون يعني أن الغاز موجود وله كتلة.'],
+     explain:'التفاعل بين الخل وصودا الخبز يكوّن غاز ثاني أكسيد الكربون. في الكأس المفتوحة خرج الغاز إلى الهواء فلم يعد على الميزان، فنقصت القراءة. وفي القارورة المغلقة احتُجز الغاز في البالون فبقيت الكتلة 230 g. الذرات لا تفنى في التفاعل الكيميائي، بل يُعاد ترتيبها، والكتلة الكلية محفوظة (قانون حفظ الكتلة).'},
+    {type:'mcq',concept:'ccbub',prompt:'ظهرت فقاعات في موقفين: عند غليان الماء، وعند وضع قرص فوّار في الماء. ما الفرق بينهما؟',
+     options:[{t:'فقاعات الغليان بخار الماء نفسه (تغيّر فيزيائي)، وفقاعات القرص غاز جديد يتكوّن من تفاعل (تغيّر كيميائي)',ok:1},{t:'كلاهما تغيّر كيميائي لأن فيهما فقاعات'},{t:'كلاهما تغيّر فيزيائي لأن الماء لم يتغير'},{t:'فقاعات الغليان هواء، وفقاعات القرص بخار ماء'}],
+     hints:['العلامة وحدها لا تكفي؛ اسأل: هل تكوّنت مادة جديدة؟','بخار الماء ماء في حالة أخرى. أما القرص فيتفاعل مع الماء فيكوّن غازًا لم يكن موجودًا.'],
+     explain:'ليست كل فقاعات دليلًا على تغيّر كيميائي. فقاعات الغليان هي بخار الماء نفسه: تغيّرت حالة الماء فقط (تغيّر فيزيائي). أما القرص الفوّار فيتفاعل مع الماء ويكوّن غاز ثاني أكسيد الكربون، وهو مادة جديدة (تغيّر كيميائي). العلامات ترشدنا، والحكم الأخير: هل تكوّنت مادة جديدة؟'}
+  ]},
+  apply(){return {type:'mcq',concept:'cclife',prompt:'موقف جديد: يُمنع التدخين وإشعال النار في محطات الوقود. على أي خاصية للبنزين يعتمد هذا المنع؟',
+    options:[{t:'القابلية للاشتعال: خاصية كيميائية تظهر عندما يتفاعل البنزين مع الأكسجين ويحترق',ok:1},{t:'كثافة البنزين: خاصية فيزيائية'},{t:'لون البنزين ورائحته'},{t:'قابلية البنزين للتبخّر فقط'}],
+    hints:['ما الذي يحدث للبنزين إذا وصلت إليه شرارة؟','الاحتراق تغيّر كيميائي، والخاصية التي تصف قدرة المادة عليه خاصية كيميائية.'],
+    explain:'البنزين قابل للاشتعال: يتفاعل مع أكسجين الهواء ويحترق فينطلق ضوء وحرارة ومواد جديدة (غازات). هذه خاصية كيميائية، ولهذا تُمنع الشرارات قرب الوقود. ونتعرّف المواد بخواصها الكيميائية كما ميّزت المساحيق في التحدي.'}},
+  learned(){return {
+    lead:'الخاصية الكيميائية تصف قدرة المادة على التحوّل إلى مادة جديدة، وأن التغيّر الكيميائي تتكوّن فيه مادة جديدة لها خواص مختلفة وتدل عليه علامات (غاز، لون، راسب، ضوء وحرارة)، وأن الكتلة محفوظة في التفاعل الكيميائي.',
+    happened:'في الجزء الأول تصاعد غاز عند إضافة صودا الخبز إلى الخل وبرد الخليط قليلًا، وتحوّل اليود على البطاطس إلى أزرق داكن، وتكوّن راسب أبيض من محلولين شفافين، واحترق المغنيسيوم بضوء ساطع وحرارة وتحوّل إلى مسحوق أبيض: أربعة تغيّرات كيميائية. أما الملح فذاب بلا أي علامة: تغيّر فيزيائي. وفي الجزء الثاني نقصت الكتلة في الكأس المفتوحة من 205 إلى 202.8 g لأن الغاز خرج، وبقيت 230 g في القارورة المغلقة.',
+    why:'في التغيّر الكيميائي تنفصل الروابط بين ذرات المواد المتفاعلة ثم ترتبط الذرات من جديد بترتيب آخر، فتتكوّن مواد جديدة لها خواص جديدة؛ ولهذا نرى غازًا أو لونًا أو راسبًا أو طاقة. ولا تفنى الذرات ولا تُخلق، فمجموع كتل المواد قبل التفاعل يساوي مجموعها بعده، بشرط أن نزن كل النواتج حتى الغاز.',
+    concept:'الخاصية الكيميائية (القابلية للاشتعال، التفاعل مع الأكسجين أو الحمض) تظهر عند التحوّل إلى مادة جديدة. علامات التغيّر الكيميائي: غاز، لون جديد، راسب، ضوء أو حرارة. والكتلة محفوظة في النظام المغلق.'}},
+  score(r){
+    const f=a=>a&&a.correct?[0,1,.6,.3][a.attempts]:0,q=r.answers,x=r.cc;
+    const sg=x.r.reduce((s,w,i)=>s+(w.sg.length&&ccSignsOk(CC.rx[i],w.sg[0])?3:w.sg.some(v=>ccSignsOk(CC.rx[i],v))?1.5:0),0);
+    const dc=x.r.reduce((s,w,i)=>s+(w.ch[0]===(CC.rx[i].chem?'yes':'no')?2:w.ch.length?1:0),0);
+    const ms=x.m.reduce((s,w,j)=>s+(w.m.length&&Math.abs(w.m[0]-CC.mass[j].a)<=.15?5:w.m.some(v=>Math.abs(v-CC.mass[j].a)<=.15)?2.5:0),0);
+    const sf=Math.max(0,5-2.5*(x.saf||0));
+    const ct=r.chal||[],ok=CC.powders.map(p=>p.k).join(','),ti=ct.findIndex(z=>z.join(',')===ok),tries=ti<0?0:ti+1;
+    const parts=[['علامات التغيّر الكيميائي',sg,15],['تمييز الكيميائي من الفيزيائي',dc,10],['السلامة عند الإشعال',sf,5],['حفظ الكتلة (قراءات الميزان)',ms,10],['دقة الملاحظة',10*r.obsScore,10],
+      ['الإجابات',10*f(q[0])+10*f(q[2]),20],['تفسير النتيجة',10*f(q[1]),10],['التحدي العملي',tries?[0,10,6,3][Math.min(3,tries)]:0,10],['التطبيق في موقف جديد',10*f(q[3]),10]];
+    const total=Math.round(parts.reduce((a,p)=>a+p[1],0)),byC={};
+    q.forEach(a=>{if(!a)return;const ok1=a.correct&&a.attempts===1;byC[a.concept]=byC[a.concept]===undefined?ok1:byC[a.concept]&&ok1});
+    byC.obs=r.obsScore>=.8;byC.ccsign=sg>=14.99;byC.ccdec=dc>=9.99;byC.ccmass=(byC.ccmass===undefined?true:byC.ccmass)&&ms>=9.99;byC.ccsafe=!x.saf;
+    return {parts,total,mastered:Object.keys(byC).filter(k=>byC[k]),reinforce:Object.keys(byC).filter(k=>!byC[k])};
+  },
+  log(r){const x=r.cc;return {topic:'chemchg',pred:x.pred,rx:x.r.map(w=>({sg:w.sg.slice(0,3).map(s=>s.slice(0,6)),ch:w.ch.slice(0,3)})),saf:x.saf||0,
+    mass:x.m.map(w=>({m:w.m.slice(0,3)})),answers:r.answers.map(a=>({a:a&&a.log||[]})),obs:r.obs,chal:(r.chal||[]).slice(0,8),mistakes:r.log.slice(0,15)}},
+  next(){return 'جرّب في التدريب الحر: ضع مسمارًا من الحديد في ماء مالح وراقبه أيامًا. هل الصدأ تغيّر فيزيائي أم كيميائي؟ وما العلامة؟'},
+  record(r){return {title:`${this.title}: العلامات وحفظ الكتلة`,materials:['خل وصودا الخبز','محلول اليود وشريحة بطاطس','محلولا كلوريد الكالسيوم وكربونات الصوديوم','شريط مغنيسيوم وماسك وموقد ونظارة واقية','ملح وماء','ميزان رقمي وقارورة وبالون'],
+    result:CC.rx.map(x=>`${x.t}: ${x.to} (${x.chem?'كيميائي':'فيزيائي'})`).join('، '),
+    separation:CC.mass.map(m=>`${m.t}: ${m.b} g ← ${m.a} g`)}}
+};
+CONTENT.chemchg=CHEMCHG;
+
+/* ---- المشهد: طاولة التفاعل (أ) والميزان (ب) — رسم ومؤثرات بالـ canvas ---- */
+const CCW=440,CCH=280;
+const ccS={j:0,ph:'idle',t:0,temp:CC.T0,bub:[],fx:[],goggles:false,tongs:false,cb:null,
+  mj:0,mph:'idle',mt:0,disp:0,vel:0,stable:0,cbM:null};
+function ccBeaker(c,x,y,w,h,lvl,liq,col){c.save();
+  if(lvl>0){c.fillStyle=liq;c.beginPath();c.moveTo(x-w/2+3,y-lvl);c.lineTo(x+w/2-3,y-lvl);c.lineTo(x+w/2-3,y-3);c.quadraticCurveTo(x+w/2-3,y,x+w/2-8,y);c.lineTo(x-w/2+8,y);c.quadraticCurveTo(x-w/2+3,y,x-w/2+3,y-3);c.fill()}
+  c.strokeStyle='#5D7A8C';c.lineWidth=2;c.beginPath();c.moveTo(x-w/2-4,y-h);c.lineTo(x-w/2,y-h+4);c.lineTo(x-w/2,y-4);c.quadraticCurveTo(x-w/2,y,x-w/2+5,y);c.lineTo(x+w/2-5,y);c.quadraticCurveTo(x+w/2,y,x+w/2,y-4);c.lineTo(x+w/2,y-h+4);c.lineTo(x+w/2+4,y-h);c.stroke();
+  c.strokeStyle='rgba(93,122,140,.35)';c.lineWidth=1;for(let k=1;k<4;k++){c.beginPath();c.moveTo(x+w/2-12,y-h*k/4);c.lineTo(x+w/2-3,y-h*k/4);c.stroke()}c.restore()}
+function ccThermo(c,x,y,T,col){c.save();const H=110,top=y-H,ty=y-14-(T-10)/30*(H-28);
+  c.fillStyle='#fff';c.strokeStyle='#8BA3B3';c.lineWidth=1.5;c.beginPath();c.roundRect?c.roundRect(x-6,top,12,H-12,6):c.rect(x-6,top,12,H-12);c.fill();c.stroke();
+  c.fillStyle='#D64545';c.beginPath();c.arc(x,y-8,9,0,7);c.fill();c.fillRect(x-2.5,ty,5,y-8-ty);
+  c.fillStyle=col.ink;c.font='700 13px system-ui,sans-serif';c.textAlign='left';c.fillText(`${T.toFixed(1)}°C`,x+12,top+14);c.restore()}
+function ccBurner(c,x,y,t){c.save();c.fillStyle='#6B7B88';c.fillRect(x-14,y-26,28,26);c.fillRect(x-5,y-44,10,18);
+  for(let k=0;k<3;k++){const h=26+6*Math.sin(t*14+k);c.fillStyle=['rgba(80,140,255,.85)','rgba(120,180,255,.6)','rgba(255,200,80,.5)'][k];c.beginPath();c.moveTo(x-6+k*2,y-44);c.quadraticCurveTo(x,y-44-h,x+6-k*2,y-44);c.fill()}c.restore()}
+function ccBal(c,x,y,val,stable,col){c.save();c.fillStyle='#E9EEF2';c.strokeStyle='#8BA3B3';c.lineWidth=1.5;c.beginPath();c.rect(x-70,y-20,140,20);c.fill();c.stroke();
+  c.fillStyle='#CBD6DE';c.fillRect(x-58,y-26,116,6);c.fillStyle='#1F2D36';c.fillRect(x-34,y-16,68,13);
+  c.fillStyle='#7CF3B4';c.font='700 11px ui-monospace,monospace';c.textAlign='center';c.fillText(`${val.toFixed(1)} g`,x,y-6);
+  c.fillStyle=stable?col.ok:'#B9C6CF';c.beginPath();c.arc(x+56,y-10,4,0,7);c.fill();c.restore()}
+function ccStep(dt){const S=ccS,R=CC.rx[S.j];
+  if(S.ph==='run'){S.t+=dt;
+    if(R.k==='soda'){S.temp+=(R.tA-S.temp)*Math.min(1,dt*.9);if(S.t<3.2)for(let i=0;i<5;i++)S.bub.push({x:150+(Math.random()-.5)*70,y:236,r:1.5+Math.random()*3,v:40+Math.random()*60})}
+    if(R.k==='salt'&&S.t<2.4&&Math.random()<.5)S.bub.push({x:150+(Math.random()-.5)*50,y:150,r:1.5,v:-50,salt:1});
+    if(R.k==='mg'&&S.t<2.6&&Math.random()<.9)for(let i=0;i<3;i++)S.fx.push({x:260,y:120,vx:(Math.random()-.5)*160,vy:(Math.random()-.8)*140,l:.6});
+    if(S.t>=(R.k==='soda'?3.6:R.k==='mg'?3:2.6)){S.ph='done';const cb=S.cb;S.cb=null;cb&&cb(S.j)}}
+  S.bub=S.bub.filter(b=>{b.y-=b.v*dt;return b.salt?b.y<236&&(b.r-=dt*.4)>0:b.y>150});
+  S.fx=S.fx.filter(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=200*dt;return(p.l-=dt)>0})}
+function ccDrawA(c,col,t,dt){dt=Math.min(dt||.016,.033);ccStep(dt);const S=ccS,R=CC.rx[S.j],k=R.k,done=S.ph==='done',run=S.ph==='run',e=done?1:run?Math.min(1,S.t/2.4):0;
+  c.fillStyle='#F1E6D6';c.fillRect(0,250,CCW,30);c.fillStyle='#E2D2BC';c.fillRect(0,248,CCW,3);
+  if(k==='mg'){ccBurner(c,260,250,t);
+    const lit=run&&S.t>.4&&S.t<2.8;if(lit){const g=c.createRadialGradient(260,120,4,260,120,150);g.addColorStop(0,'rgba(255,255,255,.98)');g.addColorStop(.25,'rgba(255,255,235,.75)');g.addColorStop(1,'rgba(255,255,220,0)');c.fillStyle=g;c.fillRect(0,0,CCW,CCH)}
+    c.strokeStyle='#5D6A74';c.lineWidth=4;c.lineCap='round';c.beginPath();c.moveTo(80,150);c.lineTo(240,122);c.stroke();
+    c.strokeStyle=S.tongs?'#5D6A74':'rgba(93,106,116,.25)';c.setLineDash(S.tongs?[]:[4,4]);c.beginPath();c.moveTo(70,154);c.lineTo(110,146);c.stroke();c.setLineDash([]);
+    const ash=done||(run&&S.t>2.2);c.strokeStyle=ash?'#F4F4F2':'#C9D1D8';c.lineWidth=5;c.beginPath();c.moveTo(240,122);c.lineTo(282,116);c.stroke();
+    if(ash){c.fillStyle='#F7F7F5';for(let i=0;i<10;i++){c.beginPath();c.arc(262+i*2,248,1.8,0,7);c.fill()}}
+    S.fx.forEach(p=>{c.fillStyle=`rgba(255,250,210,${p.l*1.4})`;c.beginPath();c.arc(p.x,p.y,1.8,0,7);c.fill()});
+    if(!S.goggles){c.fillStyle='rgba(195,71,62,.9)';c.font='700 12px system-ui,sans-serif';c.textAlign='center';c.fillText('🥽 النظارة غير ملبوسة',CCW/2,26)}
+    c.fillStyle=col.ink;c.font='600 12px system-ui,sans-serif';c.textAlign='center';c.fillText(lit?'🌡️ حرارة شديدة وضوء ساطع':done?'تحوّل الشريط إلى مسحوق أبيض':'',CCW/2,272);return}
+  // كأس على الطاولة
+  const lvl=k==='iodine'?0:70,base={soda:'rgba(232,226,200,.55)',precip:'rgba(205,230,240,.5)',salt:'rgba(180,215,235,.5)'}[k]||'rgba(205,230,240,.5)';
+  if(k==='iodine'){ // شريحة بطاطس على طبق، وقطّارة يود
+    c.fillStyle='#E8EEF2';c.beginPath();c.ellipse(170,244,80,9,0,0,7);c.fill();
+    c.fillStyle='#EBD9A5';c.beginPath();c.ellipse(170,232,58,15,0,0,7);c.fill();
+    if(e>0){c.fillStyle=`rgba(32,32,92,${.95*e})`;c.beginPath();c.ellipse(170,232,14+34*e,5+8*e,0,0,7);c.fill()}
+    c.fillStyle='#7A4A1C';c.fillRect(165,60,10,70);c.fillStyle='#3C2A1A';c.beginPath();c.ellipse(170,58,10,8,0,0,7);c.fill();
+    if(run&&S.t<1.6){const dy=((S.t*3)%1)*90;c.fillStyle='#7A4A1C';c.beginPath();c.ellipse(170,134+dy,3,4,0,0,7);c.fill()}
+  } else {
+    // الراسب: عكارة بيضاء تظهر ثم تهبط وتتجمّع طبقةً في القاع، ويصفو ما فوقها قليلًا
+    const sink=k==='precip'&&done?Math.min(1,(S.t2=(S.t2||0)+dt)/3):0;
+    let liq=base;if(k==='precip'&&e>0)liq=`rgba(${190+30*e*(1-sink)},${222+12*e*(1-sink)},${236},${.55+.25*e*(1-.7*sink)})`;
+    ccBeaker(c,150,250,96,110,lvl+(k==='soda'&&run?12*Math.min(1,S.t):0),liq,col);
+    if(k==='precip'&&e>0){const bot=246-11*sink,top=bot-(66*(1-sink)+4);c.fillStyle='#FFFFFF';c.strokeStyle='rgba(110,130,145,.45)';c.lineWidth=.8;
+      const n=Math.round(80*e*(1-.8*sink));for(let i=0;i<n;i++){const px=106+((i*37)%88),py=top+((i*29)%Math.max(4,bot-top))+Math.sin(t*2+i)*1.5*(1-sink);c.beginPath();c.arc(px,py,2,0,7);c.fill();c.stroke()}
+      if(sink>0){c.fillStyle='#FBFBF8';c.beginPath();c.moveTo(105,247);c.lineTo(105,247-11*sink);for(let x=105;x<=195;x+=6)c.lineTo(x,247-11*sink-1.5*Math.sin(x));c.lineTo(195,247);c.closePath();c.fill();c.strokeStyle='rgba(110,130,145,.5)';c.stroke();
+        c.fillStyle='#4F6879';c.font='600 11px system-ui,sans-serif';c.textAlign='center';c.fillText('↓ راسب',150,247-11*sink-6)}}
+    if(k==='soda'&&(run||done)){c.fillStyle='rgba(255,255,255,.75)';for(let i=0;i<9;i++){const fy=250-lvl-12*Math.min(1,S.t)-(done?0:4*Math.sin(t*9+i));c.beginPath();c.arc(108+i*10,fy,6,0,7);c.fill()}}
+    S.bub.forEach(b=>{c.strokeStyle=b.salt?'rgba(255,255,255,.9)':'rgba(255,255,255,.95)';c.fillStyle=b.salt?'rgba(255,255,255,.85)':'transparent';c.lineWidth=1;c.beginPath();c.arc(b.x,b.y,b.r,0,7);b.salt?c.fill():c.stroke()});
+    if(k==='precip'&&run&&S.t<1.4){c.fillStyle='rgba(205,230,240,.8)';c.fillRect(196,120+60*S.t,6,40)}
+    if((k==='soda'||k==='salt')&&run&&S.t<1){c.fillStyle='#F4F4F0';for(let i=0;i<8;i++){c.beginPath();c.arc(146+(i%4)*3,120+(S.t*120)+(i>>2)*4,2,0,7);c.fill()}}
+    ccThermo(c,330,250,S.temp,col);
+  }
+  c.fillStyle=col.ink;c.font='600 12px system-ui,sans-serif';c.textAlign='center';
+  c.fillText(done?R.to:run?'راقب جيدًا…':R.from,CCW/2,272);
+}
+function ccStepB(dt){const S=ccS,M=CC.mass[S.mj];let target=M.b;
+  if(S.mph==='run'){S.mt+=dt;const k=Math.min(1,S.mt/4);target=M.b+(M.a-M.b)*k;if(S.mt>=4.4){S.mph='done';const cb=S.cbM;S.cbM=null;cb&&cb(S.mj)}}
+  else if(S.mph==='done')target=M.a;
+  S.vel+=(target-S.disp)*90*dt;S.vel*=Math.exp(-10*dt);S.disp+=S.vel*dt;S.stable=Math.abs(S.vel)<.02&&Math.abs(target-S.disp)<.03&&S.mph!=='run'}
+function ccDrawB(c,col,t,dt){dt=Math.min(dt||.016,.033);if(!ccS.disp)ccS.disp=CC.mass[ccS.mj].b;ccStepB(dt);const S=ccS,M=CC.mass[S.mj],run=S.mph==='run',done=S.mph==='done',e=done?1:run?Math.min(1,S.mt/3):0;
+  c.fillStyle='#F1E6D6';c.fillRect(0,250,CCW,30);ccBal(c,CCW/2,250,Math.round(S.disp*10)/10,S.stable,col);
+  if(M.k==='open'){ccBeaker(c,CCW/2,224,80,96,46+8*(run?Math.min(1,S.mt):0),'rgba(232,226,200,.55)',col);
+    if(run&&S.mt<3.4){for(let i=0;i<4;i++)S.bub.push({x:CCW/2+(Math.random()-.5)*60,y:214,r:1.5+Math.random()*2.5,v:40+Math.random()*50});
+      c.fillStyle='rgba(200,215,225,.45)';for(let i=0;i<6;i++){c.beginPath();c.arc(CCW/2-30+i*12,110-((S.mt*40+i*17)%60),7,0,7);c.fill()}
+      c.fillStyle=col.ink2;c.font='600 11px system-ui,sans-serif';c.textAlign='center';c.fillText('↑ الغاز يخرج إلى الهواء',CCW/2,92)}
+    S.bub=S.bub.filter(b=>{b.y-=b.v*dt;return b.y>176});S.bub.forEach(b=>{c.strokeStyle='rgba(255,255,255,.95)';c.lineWidth=1;c.beginPath();c.arc(b.x,b.y,b.r,0,7);c.stroke()});
+    if(!run&&!done){c.fillStyle='#F4F4F0';c.fillRect(CCW/2+50,196,26,6);c.fillStyle=col.ink2;c.font='11px system-ui,sans-serif';c.fillText('صودا',CCW/2+63,190)}}
+  else{const bx=CCW/2,by=226;c.strokeStyle='#5D7A8C';c.lineWidth=2;c.fillStyle='rgba(232,226,200,.55)';c.beginPath();c.moveTo(bx-30,by);c.lineTo(bx-30,by-50);c.quadraticCurveTo(bx-30,by-66,bx-10,by-74);c.lineTo(bx-10,by-92);c.lineTo(bx+10,by-92);c.lineTo(bx+10,by-74);c.quadraticCurveTo(bx+30,by-66,bx+30,by-50);c.lineTo(bx+30,by);c.closePath();c.stroke();
+    c.fillRect(bx-28,by-36,56,34);const rad=10+34*e;c.fillStyle='rgba(225,80,90,.85)';c.beginPath();c.ellipse(bx,by-92-rad*.9,rad*.8,rad,0,0,7);c.fill();
+    if(run&&S.mt<3.2){for(let i=0;i<3;i++)S.bub.push({x:bx+(Math.random()-.5)*44,y:by-4,r:1.5+Math.random()*2,v:30+Math.random()*30})}
+    S.bub=S.bub.filter(b=>{b.y-=b.v*dt;return b.y>by-36});S.bub.forEach(b=>{c.strokeStyle='rgba(255,255,255,.95)';c.lineWidth=1;c.beginPath();c.arc(b.x,b.y,b.r,0,7);c.stroke()});
+    c.fillStyle=col.ink2;c.font='600 11px system-ui,sans-serif';c.textAlign='center';c.fillText(done?'انتفخ البالون: الغاز محبوس داخل النظام':run?'الغاز يملأ البالون…':'الصودا داخل البالون',bx,40)}
+  c.fillStyle=col.ink;c.font='600 12px system-ui,sans-serif';c.textAlign='center';c.fillText(S.stable?'القراءة ثابتة ●':'انتظر حتى تثبت القراءة…',CCW/2,272)}
+
+/* ---- شاشة التجربة ---- */
+function renderCC(){
+  const r=APP.run;
+  if(!r.cc) r.cc={pred:null,saf:0,r:CC.rx.map(()=>({done:false,sg:[],ch:[],sgOk:false,chOk:false})),m:CC.mass.map(()=>({done:false,m:[],ok:false}))};
+  if(r.step==='safety') r.step='predict';
+  Object.assign(ccS,{j:0,ph:'idle',t:0,temp:CC.T0,bub:[],fx:[],goggles:false,tongs:false,mj:0,mph:'idle',mt:0,disp:0,vel:0});
+  app.innerHTML=`<div id="cyc"></div>
+  <section class="bench">${inGuideBox()}
+    <h3 class="inh">الجزء الأول: خمسة تغيّرات على الطاولة — هل تتكوّن مادة جديدة؟</h3>
+    <div class="frbar" id="ccTabs">${CC.rx.map((x,i)=>`<span class="chip" id="cct${i}" style="cursor:default">${i+1}. ${x.sh}</span>`).join('')}</div>
+    <div class="beakerzone frzone"><canvas id="ccA" class="pcfit" aria-label="طاولة تجارب عليها كأس ومحرار وأدوات التفاعل"></canvas></div>
+    <div class="frbar" id="ccActs"></div>
+    <div id="ccRec" class="panel" style="margin-top:8px;padding:10px 12px;display:none"></div>
+    <div class="tablewrap" style="margin-top:10px"><table class="frtab"><thead><tr><th>التغيّر</th><th>قبل ← بعد</th><th>العلامات</th><th>مادة جديدة؟</th></tr></thead><tbody>
+      ${CC.rx.map((x,i)=>`<tr><td><b>${x.t}</b></td><td id="ccw${i}">—</td><td id="ccs${i}">—</td><td id="ccd${i}">—</td></tr>`).join('')}</tbody></table></div>
+    <div id="ccPartB" class="hide-b">
+      <h3 class="inh" style="margin-top:16px">الجزء الثاني: هل تتغيّر الكتلة في التفاعل الكيميائي؟</h3>
+      <div class="beakerzone frzone"><canvas id="ccB" class="pcfit" aria-label="ميزان رقمي عليه كأس أو قارورة يحدث فيها تفاعل"></canvas></div>
+      <div class="frbar" id="ccActsB"></div>
+      <div class="tablewrap" style="margin-top:10px"><table class="frtab"><thead><tr><th>الوعاء</th><th>الكتلة قبل</th><th>الكتلة بعد</th></tr></thead><tbody>
+      ${CC.mass.map((m,j)=>`<tr><td><b>${m.t}</b></td><td class="num">${m.b.toFixed(1)} g</td><td><span style="display:inline-flex;gap:6px;align-items:center"><input type="text" inputmode="decimal" autocomplete="off" class="frin" id="ccm${j}" disabled placeholder="٠"> جم <button class="btn ghost sm-btn" id="ccm${j}r" disabled>سجّل</button><span id="ccm${j}o"></span></span></td></tr>`).join('')}
+      </tbody></table></div>
+    </div>
+  </section>
+  <div id="obsPanel" class="frobs"></div>
+  <div class="panel safety" style="margin-top:12px"><h3>قواعد السلامة</h3><ul>${CHEMCHG.safety.map(x=>`<li>${x}</li>`).join('')}</ul></div>`;
+  WMSIM.mount($('#ccA'),CCW,CCH,ccDrawA,null);
+  $$('.frin').forEach(x=>x.addEventListener('input',()=>{const v=arNum(x.value.replace(/[,،]/g,'.'));if(v!==x.value)x.value=v}));
+  CC.mass.forEach((m,j)=>{$('#ccm'+j+'r').onclick=()=>ccRecM(j);$('#ccm'+j).addEventListener('keydown',e=>{if(e.key==='Enter')ccRecM(j)})});
+  ccGuide();
+}
+const ccCurA=()=>APP.run.cc.r.findIndex(w=>!(w.sgOk&&w.chOk));
+const ccCurB=()=>APP.run.cc.m.findIndex(w=>!w.ok);
+function ccSetA(j){Object.assign(ccS,{j,ph:'idle',t:0,t2:0,temp:CC.T0,bub:[],fx:[],goggles:ccS.goggles,tongs:false});
+  CC.rx.forEach((_,i)=>{const e=$('#cct'+i);if(e){e.setAttribute('aria-pressed',i===j?'true':'false');e.style.opacity=APP.run.cc.r[i].sgOk&&APP.run.cc.r[i].chOk?'.6':'1'}});ccActs()}
+function ccActs(){const box=$('#ccActs'),r=APP.run;if(!box)return;const j=ccS.j,R=CC.rx[j],w=r.cc.r[j];
+  if(r.step!=='rx'||w.done){box.innerHTML='';return}
+  box.innerHTML=(R.k==='mg'?`<button class="btn ghost" id="ccGog" aria-pressed="${ccS.goggles}">${ccS.goggles?'✓ ':''}🥽 ارتدِ النظارة</button><button class="btn ghost" id="ccTon" aria-pressed="${ccS.tongs}">${ccS.tongs?'✓ ':''}🔧 أمسكه بالماسك</button>`:'')+
+    `<button class="btn amber" id="ccGo" ${ccS.ph!=='idle'?'disabled':''}>${R.act}</button>`;
+  if(R.k==='mg'){$('#ccGog').onclick=()=>{ccS.goggles=true;ccActs()};$('#ccTon').onclick=()=>{ccS.tongs=true;ccActs()}}
+  $('#ccGo').onclick=()=>{
+    if(R.k==='mg'&&(!ccS.goggles||!ccS.tongs)){r.cc.saf=(r.cc.saf||0)+1;r.mist.safety++;r.log.push(`حاول إشعال المغنيسيوم دون ${!ccS.goggles?'النظارة الواقية':''}${!ccS.goggles&&!ccS.tongs?' و':''}${!ccS.tongs?'الماسك':''}`);
+      return note(`توقّف! ${!ccS.goggles?'البس النظارة الواقية 🥽':''}${!ccS.goggles&&!ccS.tongs?' و':''}${!ccS.tongs?'أمسك الشريط بالماسك 🔧 لا بيدك':''} قبل الإشعال.`,true)}
+    ccS.ph='run';ccS.t=0;ccS.cb=jj=>{const ww=r.cc.r[jj];ww.done=true;$('#ccw'+jj).textContent=`${CC.rx[jj].from} ← ${CC.rx[jj].to}`;ccActs();ccRecUI(jj);ccGuide()};ccActs();ccGuide()};
+}
+function ccRecUI(j){const box=$('#ccRec'),w=APP.run.cc.r[j];if(!box)return;box.style.display='';
+  const sel=new Set();
+  box.innerHTML=`<b>📝 التغيّر ${j+1}: ما العلامات التي لاحظتها؟</b> <span class="note" style="margin:0">(اختر كل ما ينطبق)</span>
+    <div class="chips" style="margin-top:8px">${Object.entries(CC.signs).map(([k,t])=>`<button class="chip" data-sg="${k}" aria-pressed="false">${t}</button>`).join('')}</div>
+    <div style="margin-top:8px"><button class="btn" id="ccSgGo" disabled>تحقّق من العلامات</button> <span id="ccSgO"></span></div>
+    <div id="ccChBox" style="margin-top:10px;display:none"><b>هل تكوّنت مادة جديدة؟</b>
+      <div class="chips" style="margin-top:6px"><button class="chip" data-ch="yes">نعم: تغيّر كيميائي</button><button class="chip" data-ch="no">لا: تغيّر فيزيائي</button></div><span id="ccChO"></span></div>`;
+  $$('[data-sg]',box).forEach(b=>b.onclick=()=>{if(w.sgOk)return;const k=b.dataset.sg;
+    if(k==='none'){sel.clear();$$('[data-sg]',box).forEach(x=>x.setAttribute('aria-pressed','false'))}else if(sel.has('none')){sel.delete('none');$('[data-sg="none"]',box).setAttribute('aria-pressed','false')}
+    if(sel.has(k)){sel.delete(k);b.setAttribute('aria-pressed','false')}else{sel.add(k);b.setAttribute('aria-pressed','true')}$('#ccSgGo').disabled=!sel.size});
+  $('#ccSgGo').onclick=()=>{if(w.sgOk)return;const R=CC.rx[j],v=[...sel];w.sg.push(v);
+    const fin=tx=>{w.sgOk=true;$('#ccSgO').textContent=tx;$$('[data-sg]',box).forEach(b=>{b.disabled=true});$('#ccSgGo').disabled=true;
+      $('#ccs'+j).textContent=R.req.concat(R.opt.filter(x=>sel.has(x))).map(x=>CC.signs[x]).join('، ');$('#ccChBox').style.display=''};
+    if(ccSignsOk(R,v))fin('✓');
+    else if(w.sg.length<3){APP.run.log.push(`علامات غير دقيقة في «${R.t}»: ${v.map(x=>CC.signs[x]).join('، ')}`);
+      const miss=R.req.filter(x=>!sel.has(x)),extra=v.filter(x=>!R.req.includes(x)&&!R.opt.includes(x));
+      note(miss.length?`فاتتك علامة. أعد التجربة في ذهنك: ${R.k==='soda'?'ماذا خرج من السائل؟':R.k==='iodine'?'ماذا حدث للون البطاطس؟':R.k==='precip'?'ماذا ظهر في المحلولين الشفافين؟':R.k==='mg'?'ماذا انبعث من الشريط وهو يحترق؟':'هل ظهرت أي علامة فعلًا؟'}`:`اخترت علامة لم تحدث: ${extra.map(x=>CC.signs[x]).join('، ')}.`,true)}
+    else{sel.clear();R.req.forEach(x=>sel.add(x));$$('[data-sg]',box).forEach(b=>b.setAttribute('aria-pressed',sel.has(b.dataset.sg)?'true':'false'));fin(`الصحيح: ${R.req.map(x=>CC.signs[x]).join('، ')}`)}
+    ccGuide()};
+  $$('[data-ch]',box).forEach(b=>b.onclick=()=>{if(w.chOk||!w.sgOk)return;const R=CC.rx[j],v=b.dataset.ch;w.ch.push(v);
+    if(v===(R.chem?'yes':'no')){w.chOk=true;$$('[data-ch]',box).forEach(x=>{x.disabled=true;x.setAttribute('aria-pressed',x.dataset.ch===v?'true':'false')});$('#ccChO').textContent=' ✓';
+      $('#ccd'+j).textContent=R.chem?'نعم ✓ (كيميائي)':'لا ✓ (فيزيائي)';
+      setTimeout(()=>{const n2=ccCurA();if(n2>=0){$('#ccRec').style.display='none';ccSetA(n2)}ccGuide()},700)}
+    else{APP.run.log.push(`حكم خاطئ على «${R.t}»: ${v==='yes'?'كيميائي':'فيزيائي'}`);
+      note(R.chem?'العلامات التي سجّلتها تدل على مادة جديدة لم تكن موجودة. فكّر مرة أخرى.':'الملح ما زال ملحًا: لو بخّرت الماء لعاد الملح كما هو. هل ظهرت أي علامة على مادة جديدة؟',true)}
+    ccGuide()});
+  box.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function ccShowB(){const box=$('#ccPartB');if(!box||box.dataset.on)return;box.dataset.on='1';box.classList.remove('hide-b');
+  WMSIM.mount($('#ccB'),CCW,CCH,ccDrawB,null);ccS.disp=CC.mass[0].b;ccActsB();box.scrollIntoView({behavior:'smooth',block:'nearest'})}
+function ccActsB(){const box=$('#ccActsB'),r=APP.run;if(!box)return;const j=ccS.mj,w=r.cc.m[j];
+  if(w.done){box.innerHTML='';return}
+  box.innerHTML=`<button class="btn amber" id="ccGoB" ${ccS.mph!=='idle'?'disabled':''}>${CC.mass[j].k==='open'?'🥄 اسكب صودا الخبز في الخل':'🎈 ارفع البالون لتسقط الصودا في الخل'}</button>`;
+  $('#ccGoB').onclick=()=>{ccS.mph='run';ccS.mt=0;ccS.bub=[];ccS.cbM=jj=>{r.cc.m[jj].done=true;$('#ccm'+jj).disabled=false;$('#ccm'+jj+'r').disabled=false;ccActsB();ccGuide()};ccActsB();ccGuide()};
+}
+function ccRecM(j){const r=APP.run,w=r.cc.m[j],M=CC.mass[j];if(!w.done||w.ok)return;
+  if(!ccS.stable)return note('انتظر حتى تثبت القراءة (النقطة الخضراء) ثم اكتبها.');
+  const v=parseNum($('#ccm'+j).value);if(!isFinite(v)||v<=0)return note('اكتب قراءة الميزان بالجرام، مثل ٢٠٥٫٠');
+  w.m.push(Math.round(v*10)/10);const fin=tx=>{w.ok=true;$('#ccm'+j+'o').textContent=tx;$('#ccm'+j).disabled=true;$('#ccm'+j+'r').disabled=true;
+    const n2=ccCurB();if(n2>=0)setTimeout(()=>{Object.assign(ccS,{mj:n2,mph:'idle',mt:0,bub:[],disp:CC.mass[n2].b,vel:0});ccActsB();ccGuide()},700)};
+  if(Math.abs(v-M.a)<=.15)fin('✓');
+  else if(w.m.length<3){r.log.push(`قراءة كتلة غير دقيقة بعد «${M.t}»: ${v} g`);note(Math.abs(v-M.b)<=.15&&M.a!==M.b?'هذه قراءة ما قبل التفاعل. انظر إلى الشاشة الآن بعد أن ثبتت.':'اقرأ الرقم على شاشة الميزان كما هو بعد ظهور النقطة الخضراء.',true)}
+  else{$('#ccm'+j).value=arNum(M.a.toFixed(1));fin(`الصحيح ${M.a.toFixed(1)}`)}
+  ccGuide();
+}
+function ccGuide(){
+  const r=APP.run,x=r.cc,t=$('#gtext'),act=$('#gact');if(!t)return;act.innerHTML='';
+  const cyc=$('#cyc');if(cyc)cyc.innerHTML=cycleHTML(r.step==='predict'?0:r.step==='observe'?2:1);
+  if(r.step==='predict'){
+    t.textContent='قبل أن تجرّب: إذا تفاعل الخل مع صودا الخبز في كأس مفتوحة فوق ميزان، فإن قراءة الميزان بعد التفاعل…';
+    act.innerHTML=[['less','تنقص'],['equal','تبقى كما هي'],['more','تزيد']].map(([k,l])=>`<button class="btn amber" data-pred="${k}" style="padding:7px 14px">${l}</button>`).join('');
+    $$('[data-pred]',act).forEach(b=>b.onclick=()=>{x.pred=b.dataset.pred;r.step='rx';note('سجّلنا توقعك. ستتحقق منه في الجزء الثاني.');ccSetA(0);ccGuide()});return;
+  }
+  if(r.step==='rx'){
+    const j=ccCurA();if(j<0){r.step='mass';ccShowB();return ccGuide()}
+    const w=x.r[j],R=CC.rx[j];
+    if(!w.done){t.textContent=bidi(ccS.ph==='run'?'راقب ما يحدث جيدًا: الفقاعات، واللون، والمحرار، والضوء.':R.k==='mg'?`التغيّر ${j+1}: ${R.t}. البس النظارة الواقية، وأمسك الشريط بالماسك، ثم قرّبه من اللهب. لا تنظر مباشرة إلى الضوء.`:`التغيّر ${j+1}: ${R.t}. المحرار يقرأ ${CC.T0}°C. اضغط «${R.act}» وراقب.`);return}
+    if(!w.sgOk){t.textContent='سجّل العلامات التي لاحظتها تحت الرسم، ثم تحقّق.';return}
+    t.textContent='الآن احكم: هل تكوّنت مادة جديدة؟';return;
+  }
+  if(r.step==='mass'){
+    const j=ccCurB();
+    if(j<0){t.textContent='أكملت الجزأين. قارن قراءتي الميزان، ثم سجّل ملاحظاتك.';
+      act.innerHTML='<button class="btn amber" id="ccObsGo">سجّل ملاحظاتي</button>';$('#ccObsGo').onclick=()=>{r.step='observe';ccGuide();wmObs(CC_OBS,CC_OBS_SET,'chemchg')};return}
+    const w=x.m[j],M=CC.mass[j];
+    if(!w.done){t.textContent=bidi(ccS.mph==='run'?'راقب شاشة الميزان أثناء التفاعل…':`${M.t}. الميزان يقرأ ${M.b.toFixed(1)} g قبل التفاعل. ابدأ التفاعل وراقب القراءة.`);return}
+    t.textContent=bidi('انتظر النقطة الخضراء، ثم اكتب قراءة الميزان بعد التفاعل في الجدول.');return;
+  }
+  if(r.step==='observe')t.textContent='ماذا لاحظت؟ اختر ملاحظاتك تحت الجدول.';
+}
+/* ---- التحدي العملي: أي المساحيق البيضاء الأربعة هو؟ ---- */
+function renderCCChal(){
+  const r=APP.run;r.chal=r.chal||[];r.chalDone=false;r.ccT=r.ccT||{};
+  const keys=Object.keys(CC.pnames);
+  app.innerHTML=`${cycleHTML(4)}<section class="bench">
+    <div class="guide" role="status" aria-live="polite"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 29V4M8 5h16l-5 5 5 5H8"/></svg>
+      <div class="gt"><span class="who">التحدي العملي</span><p id="gtext">أربعة أكواب فيها مساحيق بيضاء متشابهة: ملح الطعام والسكر وصودا الخبز والنشا. لا تتذوّقها! اختبر خواصها الكيميائية بالكواشف (خل، يود، تسخين) ثم تعرّف كل مسحوق.</p><div class="gact" id="gact"></div></div></div>
+    <div class="gnote" id="gnote" role="alert"></div>
+    <div class="tablewrap"><table class="frtab"><thead><tr><th>المسحوق</th>${Object.values(CC.tests).map(x=>`<th>${x}</th>`).join('')}<th>هو…</th></tr></thead><tbody>
+      ${CC.powders.map((p,i)=>`<tr><td><b>${p.lbl}</b> <span style="display:inline-block;width:22px;height:14px;border-radius:7px;background:#F6F5F0;border:1px solid #DDD;vertical-align:middle"></span></td>
+        ${Object.keys(CC.tests).map(tk=>`<td><button class="btn ghost sm-btn" data-tst="${tk}" data-i="${i}">جرّب</button><div class="note" id="tr${i}${tk}" style="margin:2px 0 0;font-size:.78rem">${r.ccT[i+tk]?CC.react[p.k][tk]:''}</div></td>`).join('')}
+        <td><select class="inp" id="cid${i}" style="min-width:8rem"><option value="">اختر…</option>${keys.map(k=>`<option value="${k}">${CC.pnames[k]}</option>`).join('')}</select></td></tr>`).join('')}
+    </tbody></table></div>
+    <div class="frbar" style="margin-top:10px"><button class="btn amber" id="ccChk">تحقّق من تعرّفي</button></div>
+  </section>`;
+  $$('[data-tst]').forEach(b=>b.onclick=()=>{const i=+b.dataset.i,tk=b.dataset.tst,p=CC.powders[i];r.ccT[i+tk]=1;
+    const o=$('#tr'+i+tk);o.textContent='…';setTimeout(()=>{o.textContent=CC.react[p.k][tk];o.style.color=/لا تغيّر/.test(CC.react[p.k][tk])?'':'var(--ok)';o.style.fontWeight='700'},600)});
+  $('#ccChk').onclick=()=>{if(r.chalDone)return;const v=CC.powders.map((_,i)=>$('#cid'+i).value);
+    if(v.some(x=>!x))return note('اختر اسمًا لكل مسحوق أولًا.');if(new Set(v).size<4)return note('كل مسحوق مختلف عن الآخر: لا تكرر الاسم.');
+    if(Object.keys(r.ccT).length<3)return note('اختبر المساحيق بالكواشف أولًا؛ العين وحدها لا تميّزها.');
+    r.chal.push(v);const t=$('#gtext'),act=$('#gact'),wrong=v.map((x,i)=>x===CC.powders[i].k?-1:i).filter(i=>i>=0);
+    if(!wrong.length){r.chalDone=true;t.textContent=bidi('أحسنت! صودا الخبز وحدها تفور مع الخل (غاز)، والنشا وحده يزرقّ مع اليود، والسكر وحده يسودّ بالتسخين (يتحلّل إلى كربون)، والملح لا يتغيّر. ميّزتها بخواصها الكيميائية: كيف تتفاعل، لا كيف تبدو.');
+      act.innerHTML='<button class="btn amber" id="toLearn">إلى الخلاصة</button>';$('#toLearn').onclick=()=>go('learned');return}
+    r.log.push(`تعرّف خاطئ في التحدي: ${wrong.map(i=>CC.powders[i].lbl).join('، ')}`);
+    t.textContent=bidi(`${wrong.length===1?'مسحوق واحد':wrong.length+' مساحيق'} في غير مكانه: ${wrong.map(i=>CC.powders[i].lbl).join('، ')}. ارجع إلى نتائج الكواشف: أي مسحوق فار مع الخل؟ وأيها ازرقّ مع اليود؟ وأيها اسودّ بالتسخين؟`);
+    if(r.chal.length>=3){act.innerHTML='<button class="btn" id="skipCh" style="background:transparent;border:1px solid currentColor;color:inherit;padding:6px 12px">إلى الخلاصة</button>';$('#skipCh').onclick=()=>go('learned')}};
+}
+function renderCCLearned(){
+  const r=APP.run,L=CHEMCHG.learned(),x=r.cc;
+  const predName={less:'تنقص',equal:'تبقى كما هي',more:'تزيد'}[x.pred]||'—';
+  const mine=r.obs.map(o=>`${CC_OBS_SET.ok.includes(o)||CC_OBS_SET.neutral.includes(o)?'✓':'✗'} ${CC_OBS[o]}`).join('، ');
+  app.innerHTML=`${cycleHTML(5)}<article class="learn">
+    <div class="lead"><h2>🎓 ماذا تعلمت من التجربة؟</h2><p>تعلمت أن ${L.lead}</p></div>
+    <section><h3>🔎 ماذا لاحظت؟</h3>
+      <p>توقعت أن قراءة الميزان في الكأس المفتوحة «${predName}». ${x.pred==='less'?'وتحقق توقعك: نقصت لأن الغاز خرج.':'والنتيجة أنها نقصت من 205 إلى 202.8 g لأن الغاز خرج إلى الهواء، وبقيت ثابتة في القارورة المغلقة.'}</p>
+      <div class="tablewrap"><table><thead><tr><th>التغيّر</th><th>العلامات</th><th>النوع</th></tr></thead><tbody>
+      ${CC.rx.map(c=>`<tr><td>${c.t}</td><td>${c.req.concat(c.opt).map(k=>CC.signs[k]).join('، ')}</td><td>${c.chem?'كيميائي':'فيزيائي'}</td></tr>`).join('')}</tbody></table></div>
+      <div class="tablewrap" style="margin-top:8px"><table><thead><tr><th>الوعاء</th><th>قبل</th><th>بعد</th></tr></thead><tbody>
+      ${CC.mass.map(m=>`<tr><td>${m.t}</td><td class="num">${m.b.toFixed(1)} g</td><td class="num">${m.a.toFixed(1)} g</td></tr>`).join('')}</tbody></table></div>
+      ${mine?`<p class="note" style="margin-top:8px">ملاحظاتك: ${mine}.</p>`:''}</section>
+    <section><h3>🧠 ماذا حدث؟</h3><p>${bidi(L.happened)}</p></section>
+    <section><h3>💡 لماذا حدث ذلك؟</h3><p>${bidi(L.why)}</p></section>
+    <section><h3>🏠 وفي الحياة</h3><p>يصدأ الحديد المكشوف للرطوبة، ويتحوّل لون التفاحة المقطوعة إلى البني، ويرتفع العجين بغاز الخميرة، ويحترق الغاز في الموقد بلهب وحرارة: كلها تغيّرات كيميائية تتكوّن فيها مواد جديدة.</p></section>
+    <div class="concept"><h3>🎯 المفهوم الذي تعلمته</h3><p>${L.concept}</p></div>
+    <div class="actions"><button class="btn" id="toApply">اختبر فهمك في موقف جديد</button></div>
+  </article>`;
+  $('#toApply').onclick=()=>go('apply');
+}
+
+/* =========================================================
    🔗 الربط مع مساعد المعلم (بوابة الطالب + الـ Worker)
    ========================================================= */
 async function portalApi(path,opts){
@@ -4249,7 +4582,7 @@ async function portalBoot(){
   const closed=PORTAL.graded&&s.due&&s.due<today&&!(s.extra>0);
   if(closed)PORTAL.graded=false;
   const head=PORTAL.graded
-    ?`<div class="lead"><h2>🔬 ${esc(s.title||'تجربة المختبر')}</h2><p>${PORTAL.cfg.topic==='friction'?'تجربة اليوم: أثر خشونة السطح في حركة الأجسام.':PORTAL.cfg.topic==='work'?'تجربة اليوم: الشغل، متى تنجزه وكيف تحسبه.':PORTAL.cfg.topic==='machines'?'تجربة اليوم: الآلات البسيطة، الرافعة والسطح المائل.':PORTAL.cfg.topic==='newton3'?'تجربة اليوم: قانون نيوتن الثالث، الفعل ورد الفعل.':PORTAL.cfg.topic==='physchg'?'تجربة اليوم: الخواص والتغيرات الفيزيائية، الكثافة وحفظ الكتلة.':PORTAL.cfg.topic==='inertia'?'تجربة اليوم: القصور الذاتي، من حزام الأمان إلى أثر الكتلة.':pr?`تجربة اليوم: ${n(pr[0])} و${n(pr[1])}.`:'اختر بنفسك مادتين واكتشف ما يحدث.'} هذه محاولة مقيَّمة ${s.extra>0?'(سمح لك معلمك بمحاولة إضافية)':'واحدة'}، ودرجتك من ${s.mx}.</p></div>
+    ?`<div class="lead"><h2>🔬 ${esc(s.title||'تجربة المختبر')}</h2><p>${PORTAL.cfg.topic==='friction'?'تجربة اليوم: أثر خشونة السطح في حركة الأجسام.':PORTAL.cfg.topic==='work'?'تجربة اليوم: الشغل، متى تنجزه وكيف تحسبه.':PORTAL.cfg.topic==='machines'?'تجربة اليوم: الآلات البسيطة، الرافعة والسطح المائل.':PORTAL.cfg.topic==='newton3'?'تجربة اليوم: قانون نيوتن الثالث، الفعل ورد الفعل.':PORTAL.cfg.topic==='physchg'?'تجربة اليوم: الخواص والتغيرات الفيزيائية، الكثافة وحفظ الكتلة.':PORTAL.cfg.topic==='chemchg'?'تجربة اليوم: الخواص والتغيرات الكيميائية، علامات التغيّر وحفظ الكتلة.':PORTAL.cfg.topic==='inertia'?'تجربة اليوم: القصور الذاتي، من حزام الأمان إلى أثر الكتلة.':pr?`تجربة اليوم: ${n(pr[0])} و${n(pr[1])}.`:'اختر بنفسك مادتين واكتشف ما يحدث.'} هذه محاولة مقيَّمة ${s.extra>0?'(سمح لك معلمك بمحاولة إضافية)':'واحدة'}، ودرجتك من ${s.mx}.</p></div>
       <section><h3>قبل أن تبدأ</h3><p>تُحسب درجتك من: السلامة، وتنفيذ الخطوات، ودقة ملاحظتك، وإجاباتك، والفصل العملي، والتطبيق. الخطأ لا يُنهي التجربة؛ ستحصل على تلميحات.</p></section>`
     :`<div class="lead"><h2>🔬 ${esc(s.title||'تجربة المختبر')}</h2><p>${closed?'انتهى موعد هذه التجربة.':`سلّمت هذه التجربة${s.score!=null?` ونتيجتك ${s.score} من 100`:''}.`} يمكنك التدريب بحرية${PORTAL.cfg.topic!=='mixtures'?'':' على أي مادتين'}، ولن تُحتسب درجة.</p></div>`;
   portalScreen(`${head}<div class="actions"><button class="btn amber" id="pgo">${PORTAL.graded?'ابدأ التجربة':'ابدأ التدريب الحر'}</button><a class="btn ghost" href="../">العودة لبوابة الطالب</a></div>`);
