@@ -34,9 +34,23 @@ function annLinkify(text){
   return safe.replace(/(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/g,m=>{
     const trail=(m.match(/[.,،؛:!?)\]]+$/)||[''])[0], u=trail?m.slice(0,-trail.length):m;
     const href=(/^www\./i.test(u)?'https://':'')+u.replace(/&amp;/g,'&');
-    const shown=u.replace(/^https?:\/\//,'').replace(/\/$/,'');
-    return `<a class="ann-link" href="${esc(href)}" target="_blank" rel="noopener noreferrer" dir="ltr">🔗 ${shown}</a>${trail}`;
-  });
+    const L=annLinkInfo(href);
+    return `<a class="ann-btn" href="${esc(href)}" target="_blank" rel="noopener noreferrer"><span class="ann-btn-ic">${L.ic}</span><span class="ann-btn-tx"><b>${esc(L.t)}</b><small>${esc(L.sub)}</small></span><span class="ann-btn-go">فتح ←</span></a>${trail}`;
+  }).replace(/(<\/a>[.,،؛:!?)\]]*)\n/g,'$1');   // الزر سطر مستقل: لا سطر فارغ بعده
+}
+/* 🔘 الرابط زرّ واضح بدل نص طويل مُرمَّز: اسم الملف من الرابط نفسه (مفكوك الترميز) ونوعه وأيقونته والموقع */
+const ANN_EXT={ pptx:['📊','عرض PowerPoint'], ppt:['📊','عرض PowerPoint'], docx:['📄','مستند Word'], doc:['📄','مستند Word'], pdf:['📕','ملف PDF'],
+  xlsx:['📗','ملف Excel'], xls:['📗','ملف Excel'], mp4:['🎬','فيديو'], mov:['🎬','فيديو'], mp3:['🎧','ملف صوتي'], jpg:['🖼️','صورة'], jpeg:['🖼️','صورة'], png:['🖼️','صورة'], zip:['🗜️','ملف مضغوط'] };
+function annLinkInfo(href){
+  let U; try{ U=new URL(href); }catch(e){ return { ic:'🔗', t:'فتح الرابط', sub:'' }; }
+  const host=U.hostname.replace(/^www\./,''), seg=U.pathname.split('/').filter(Boolean).pop()||'';
+  let name=''; try{ name=decodeURIComponent(seg); }catch(e){ name=seg; }
+  const m=/\.([a-z0-9]{2,5})$/i.exec(name), ext=m?m[1].toLowerCase():'';
+  if(ANN_EXT[ext]){ const t=name.slice(0,-(ext.length+1)).replace(/[-_]+/g,' ').replace(/\s+/g,' ').trim(); return { ic:ANN_EXT[ext][0], t:t||ANN_EXT[ext][1], sub:`${ANN_EXT[ext][1]} · ${host}` }; }
+  if(/(^|\.)youtube\.com$|^youtu\.be$/.test(host)) return { ic:'▶️', t:'مشاهدة الفيديو', sub:'يوتيوب' };
+  if(/docs\.google\.com$/.test(host)&&/\/forms\//.test(U.pathname)||/^forms\.gle$/.test(host)) return { ic:'📝', t:'فتح النموذج', sub:'نماذج Google' };
+  if(/docs\.google\.com$|drive\.google\.com$/.test(host)) return { ic:'📁', t:'فتح الملف', sub:'Google Drive' };
+  return { ic:'🔗', t:'فتح الرابط', sub:host };
 }
 function annZoom(src){
   const ov=document.createElement('div');ov.className='ann-zoom';ov.innerHTML=`<img src="${src}" alt=""><button type="button" aria-label="إغلاق">✕</button>`;
