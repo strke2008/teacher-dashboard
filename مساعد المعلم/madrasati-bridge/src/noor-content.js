@@ -44,12 +44,23 @@
     const midA = a.slice(1, -1), midB = new Set(b.slice(1, -1));
     return 10 + midA.filter(x => midB.has(x)).length;
   }
+  // يرجع {m} عند التطابق، أو {why} بسبب الرفض: none (ليس في الكشف) · tie (أكثر من طالب بالاسم نفسه)
   function match(name, idx, used) {
-    const t = norm(name).split(' ').filter(Boolean); if (t.length < 2) return null;
-    let best = null, bs = 0, tie = false;
+    const t = norm(name).split(' ').filter(Boolean); if (t.length < 2) return { why: 'none' };
+    let bs = 0, top = [];
     for (const x of idx) { if (used.has(x)) continue; const s = score(t, x.t);
-      if (s > bs) { best = x; bs = s; tie = false; } else if (s && s === bs) tie = true; }
-    return bs && !tie ? best : null;
+      if (s > bs) { bs = s; top = [x]; } else if (s && s === bs) top.push(x); }
+    if (!bs) return { why: 'none' };
+    // الاسم مكرر في الكشف (طالب أُدخل مرتين) بدرجات متطابقة: لا التباس في الدرجة فيُعبّأ
+    const same = top.every(x => fmt(x.r.work40) === fmt(top[0].r.work40) && fmt(x.r.exam20) === fmt(top[0].r.exam20));
+    if (top.length > 1 && !same) return { why: 'tie', n: top.length };
+    return { m: top[0], also: top.slice(1) };
+  }
+  // يُعلَّم الصف الذي لم يُعبّأ بإطار أحمر وسبب يظهر عند الوقوف عليه
+  const WHY = { none: 'الاسم غير موجود في كشف مساعد المعلم', tie: 'أكثر من طالب بهذا الاسم في الكشف بدرجات مختلفة', empty: 'لا درجة له في الكشف', locked: 'خانته مقفلة في نور' };
+  function markRow(tr, why) {
+    if (why) { tr.style.outline = '2px solid #D6455B'; tr.style.outlineOffset = '-2px'; tr.title = '⚠️ مساعد المعلم: ' + WHY[why]; tr.dataset.mbWhy = why; }
+    else if (tr.dataset.mbWhy) { tr.style.outline = ''; tr.title = ''; delete tr.dataset.mbWhy; }
   }
   function setVal(inp, v) {
     const proto = Object.getPrototypeOf(inp), d = Object.getOwnPropertyDescriptor(proto, 'value');
@@ -77,8 +88,12 @@
     });
     const heads = { work: [], exam: [] };
     for (const [cell, p] of pos) {
-      if (cell.querySelector('input,select,textarea')) continue;
-      const t = (cell.innerText || cell.textContent || '').replace(/\s+/g, ' ').trim();
+      // عنوان العمود في نور قد يحوي خانة «للكل» وقائمة «-- الكل --»: يُقرأ نصه بدونها
+      let t;
+      if (cell.querySelector('input,select,textarea')) { const c = cell.cloneNode(true); c.querySelectorAll('input,select,textarea,option').forEach(x => x.remove()); t = c.textContent; }
+      else t = cell.innerText || cell.textContent;
+      t = String(t || '').replace(/\s+/g, ' ').trim();
+      if (!t) continue;
       if (t.length > 80) continue;
       if (EXAM_RE.test(t)) heads.exam.push(p); else if (WORK_RE.test(t)) heads.work.push(p);
     }
@@ -99,33 +114,38 @@
     mode = ['both', 'work40', 'exam20'].includes(mode) ? mode : 'both';
     const idx = indexSheet(Array.isArray(sheet && sheet.rows) ? sheet.rows : []), used = new Set();
     let filled = 0, rowsSeen = 0, ambiguous = 0, fields = 0, locked = 0, noCols = 0, multiCols = 0;
+    const missed = [];
     for (const doc of (isTop ? docsOf(document) : [document])) {
       for (const tr of doc.querySelectorAll('tr')) {
         const inputs = [...tr.querySelectorAll('input')].filter(isField);
         if (!inputs.length) continue;
+        // صف العناوين (فيه خانة «للكل») ليس طالبًا
+        if (!tr.querySelector('td') || EXAM_RE.test(tr.textContent || '') || WORK_RE.test(tr.textContent || '')) continue;
         const name = rowName(tr); if (!name) continue;
         rowsSeen++;
-        const m = match(name, idx, used);
-        if (!m) { ambiguous++; continue; }
-        used.add(m);
+        const mm = match(name, idx, used), m = mm.m;
+        if (!m) { ambiguous++; missed.push({ name, why: mm.why }); markRow(tr, mm.why); continue; }
+        used.add(m); (mm.also || []).forEach(x => used.add(x));
         const targets = gradeInputs(tr);
         if (targets.unknown) { noCols++; continue; }
         if (targets.multi) multiCols++;
         const w = fmt(m.r.work40), e = fmt(m.r.exam20);
-        let rowFilled = false;
+        let rowFilled = false, rowLocked = false;
         const put = (inp, val) => {
           if (!inp || val === '') return;
-          if (!editable(inp)) { locked++; return; }
+          if (!editable(inp)) { locked++; rowLocked = true; return; }
           setVal(inp, val); fields++; rowFilled = true;
         };
         if (mode === 'both') { put(targets.work, w); put(targets.exam, e); }
         else if (mode === 'work40') put(targets.work, w);
         else put(targets.exam, e);
         if (rowFilled) filled++;
+        else { const why = rowLocked ? 'locked' : 'empty'; missed.push({ name, why }); }
+        markRow(tr, rowFilled ? '' : (rowLocked ? 'locked' : 'empty'));
       }
     }
     const unmatched = idx.filter(x => !used.has(x)).map(x => x.r.name);
-    return { filled, fields, rowsSeen, unmatched, ambiguous, locked, noCols, multiCols };
+    return { filled, fields, rowsSeen, unmatched, ambiguous, locked, noCols, multiCols, missed: missed.slice(0, 60) };
   }
 
   chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
@@ -142,8 +162,17 @@
     const st = bar.querySelector('.mbn-st');
     const warn = [r.locked ? `🔒 ${r.locked} خانة مقفلة في نور لم تُكتب` : '', r.multiCols ? '⚠️ بعض الصفوف فيها أكثر من خانة تحت العمود نفسه فتُركت' : ''].filter(Boolean).join(' · ');
     if (st && !r.filled && r.noCols) { st.textContent = '⚠️ لم أتعرف على عمودي «أعمال السنة» و«التقويمات التحريرية» في هذا الجدول — لم يُكتب شيء حتى لا تنعكس الدرجات. أرسل صورة الجدول للمطوّر.'; return; }
-    if (st) st.textContent = (warn ? warn + ' — ' : '') + (r.filled ? `✅ عُبّئت ${r.fields || 0} خانة درجات لـ ${r.filled} طالب${r.unmatched && r.unmatched.length ? ` · لم يُطابَق ${r.unmatched.length}` : ''} — راجعها ثم احفظ من نور` : `⚠️ لم تُعبّأ أي درجة (صفوف مفحوصة: ${r.rowsSeen || 0}). تأكد أنك داخل جدول رصد الدرجات وأن الكشف المصدّر يحتوي درجات.`);
-    if (st && r.unmatched && r.unmatched.length) st.title = 'لم يُطابَق: ' + r.unmatched.join('، ');
+    if (st) st.textContent = (warn ? warn + ' — ' : '') + (r.filled ? `✅ عُبّئت ${r.fields || 0} خانة درجات لـ ${r.filled} طالب${r.unmatched && r.unmatched.length ? ` · ${r.unmatched.length} من الكشف ليسوا في هذه الصفحة` : ''} — راجعها ثم احفظ من نور` : `⚠️ لم تُعبّأ أي درجة (صفوف مفحوصة: ${r.rowsSeen || 0}). تأكد أنك داخل جدول رصد الدرجات وأن الكشف المصدّر يحتوي درجات.`);
+    if (st && r.unmatched && r.unmatched.length) st.title = 'في الكشف ولم يُعثر عليهم في هذه الصفحة: ' + r.unmatched.join('، ');
+    // طلاب هذه الصفحة الذين لم تُعبّأ درجاتهم — بالاسم والسبب (والصف نفسه بإطار أحمر)
+    let box = bar && bar.querySelector('.mbn-miss'); if (box) box.remove();
+    if (bar && r.missed && r.missed.length) {
+      box = document.createElement('div'); box.className = 'mbn-miss';
+      box.style.cssText = 'flex-basis:100%;background:#3A1E28;border-radius:8px;padding:5px 8px;font-weight:500;font-size:11px;line-height:1.5;max-height:110px;overflow:auto';
+      const short = { none: 'غير موجود في الكشف', tie: 'اسم مكرر في الكشف', empty: 'بلا درجة في الكشف', locked: 'خانة مقفلة' };
+      box.textContent = `🔴 لم تُعبّأ درجات ${r.missed.length} في هذه الصفحة (بإطار أحمر): ` + r.missed.map(x => `${x.name.split(' ').filter(w => w !== 'بن').slice(0, 2).join(' ')} — ${short[x.why]}`).join(' · ');
+      bar.appendChild(box);
+    }
   }
   async function showBar() {
     if (!isTop || bar) return;
