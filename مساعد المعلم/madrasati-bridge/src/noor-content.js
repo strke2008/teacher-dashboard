@@ -264,7 +264,7 @@
   .empty{text-align:center;color:var(--mut);padding:18px 8px;font-size:12.5px}
   .ver{font-size:10.5px;opacity:.7}`;
 
-  const ui = { host: null, root: null, open: false, sheet: null, mode: 'both', view: 'home', r: null, sel: new Map(), filter: 'all', q: '', res: null, classPicker: null };
+  const ui = { host: null, root: null, open: false, sheet: null, mode: 'both', view: 'home', r: null, sel: new Map(), filter: 'all', q: '', res: null, classPicker: null, periodPicker: null };
   const kindOf = x => x.why ? x.why : x.alias ? 'alias' : x.exact ? 'exact' : 'approx';
   const grp = k => ({ exact: 'ok', alias: 'ok', approx: 'warn', none: 'bad', tie: 'bad', nocell: 'bad', locked: 'mute', empty: 'mute' })[k];
   const ver = () => { try { return chrome.runtime.getManifest().version; } catch (_) { return ''; } };
@@ -316,6 +316,32 @@
       return opts.length >= 2 && opts.every(t => DIG.test(t) || /^\d\s*[/\-]\s*\d$/.test(t) || /^شعبة\s*\S+$/.test(t)); });
     return sel ? { type: 'select', sel } : null;
   }
+  /* 📅 الفترة في نور: قائمة أو أزرار بجانب عنوان «الفترة*» (أو قائمة خياراتها «الفترة الأولى…»).
+     يرجع { type:'btns', items } أو { type:'select', sel } أو null */
+  const ORD = t => { const m = String(t || '').match(/الفترة\s*(الأولى|الاولى|الأول|الثانية|الثاني|الثالثة|الثالث|[1-3١-٣])/); if (!m) return 0;
+    return /^(الأولى|الاولى|الأول|1|١)$/.test(m[1]) ? 1 : /^(الثانية|الثاني|2|٢)$/.test(m[1]) ? 2 : 3; };
+  function findPeriodPicker() {
+    const mine = el => ui.host && ui.host.contains(el);
+    const labels = [...document.querySelectorAll('label,span,td,th,div,b,strong')].filter(el => !mine(el) && el.children.length <= 2 && /^\*?\s*الفترة(\s*التقويمية)?\s*\*?\s*:?$/.test(ccTxt(el)));
+    for (const lb of labels) {
+      let box = lb.parentElement;
+      for (let up = 0; box && up < 4; up++, box = box.parentElement) {
+        const sel = [...box.querySelectorAll('select')].find(x => !mine(x) && (lb.compareDocumentPosition(x) & Node.DOCUMENT_POSITION_FOLLOWING) && x.options.length > 1);
+        if (sel) return { type: 'select', sel };
+        const cands = [...box.querySelectorAll('input[type=radio],button,a,label,li,span')].filter(el => !mine(el) && !lb.contains(el) && el !== lb && ORD(ccTxt(el) || (el.labels && el.labels[0] ? ccTxt(el.labels[0]) : '')));
+        const by = new Map(); for (const el of cands) { const k = ORD(ccTxt(el) || ccTxt(el.labels && el.labels[0])); if (!by.has(k) || by.get(k).contains(el)) by.set(k, el); }
+        if (by.size >= 2) {
+          const items = [...by.entries()].sort((a, b) => a[0] - b[0]).map(([n, el]) => ({ n, label: ccTxt(el) || ccTxt(el.labels && el.labels[0]), el }));
+          const isOn = el => { const r = el.type === 'radio' ? el : el.querySelector && el.querySelector('input[type=radio]'); return !!(r && r.checked) || (el.getAttribute('aria-checked') || el.getAttribute('aria-pressed') || el.getAttribute('aria-selected')) === 'true' || /(^|[\s_-])(active|selected|checked|current)([\s_-]|$)/i.test(String(el.className || '')); };
+          items.forEach(x => { x.on = isOn(x.el) }); return { type: 'btns', items };
+        }
+      }
+    }
+    const sel = [...document.querySelectorAll('select')].find(x => !mine(x) && [...x.options].filter(o => ORD(ccTxt(o))).length >= 2);
+    return sel ? { type: 'select', sel } : null;
+  }
+  const pickedOrd = pp => !pp ? 0 : pp.type === 'select' ? ORD(ccTxt(pp.sel.options[pp.sel.selectedIndex])) : ((pp.items.find(x => x.on) || {}).n || 0);
+
   function ensureUI() {
     if (ui.host && document.documentElement.contains(ui.host)) return;
     ui.host = document.createElement('div'); ui.host.id = 'mb-noor-ui';
@@ -364,14 +390,22 @@
       <div class="meta"><span>📄 ${n} طالب</span>${S.label ? `<span>${esc(S.label)}</span>` : ''}${S.cls ? `<span>${esc(S.cls)}</span>` : ''}${when ? `<span class="${age > 2 * 864e5 ? 'old' : ''}">${age > 2 * 864e5 ? '⚠️ صُدّر ' + esc(when) + ' — صدّره من جديد' : '🕒 ' + esc(when)}</span>` : ''}</div></div>`;
     let body = '', foot = '';
     if (ui.view === 'home') {
-      const cp = ui.classPicker = findClassPicker();
+      const cp = ui.classPicker = findClassPicker(), pp = ui.periodPicker = findPeriodPicker();
+      const want = ORD(S.label), have = pickedOrd(pp), ORDN = ['', 'الأولى', 'الثانية', 'الثالثة'];
+      let stepN = 1; const nx = () => ++stepN;
       body = `<div class="card"><div class="lbl"><b>1</b>ماذا تكتب؟</div>
           <div class="seg">${MODES.map(([k, t, s]) => `<button data-mode="${k}" class="${ui.mode === k ? 'on' : ''}">${t}<small>${s}</small></button>`).join('')}</div></div>
-        ${cp ? `<div class="card"><div class="lbl"><b>2</b>الفصل في نور</div>
+        ${cp ? `<div class="card"><div class="lbl"><b>${nx()}</b>الفصل في نور</div>
           ${cp.type === 'btns' ? `<div class="secs">${cp.items.map((x, n) => `<button class="sec-b ${x.on ? 'on' : ''}" data-sec="${n}">${esc(x.label)}</button>`).join('')}</div>`
             : `<select class="cls" data-cls="1">${[...cp.sel.options].map(o => `<option value="${esc(o.value)}" ${o.value === cp.sel.value ? 'selected' : ''}>${esc((o.textContent || '').trim())}</option>`).join('')}</select>`}
           <div class="hint">يختار الفصل في نور نفسه — بعدها اضغط «ابحث» في نور إن لزم، وانتظر ظهور الطلاب ثم اعرض المعاينة.</div></div>` : ''}
-        <div class="card"><div class="lbl"><b>${cp ? 3 : 2}</b>راجع قبل الكتابة</div><div class="hint" style="margin:0 0 10px">تُعرض درجات كل طالب في هذه الصفحة وحالته، ولا يُكتب شيء قبل موافقتك.</div>
+        ${pp ? `<div class="card"><div class="lbl"><b>${nx()}</b>الفترة في نور</div>
+          ${pp.type === 'btns' ? `<div class="seg">${pp.items.map((x, n) => `<button class="${x.on ? 'on' : ''}" data-per="${n}">${esc(x.label)}</button>`).join('')}</div>`
+            : `<select class="cls" data-per-sel="1">${[...pp.sel.options].map(o => `<option value="${esc(o.value)}" ${o.value === pp.sel.value ? 'selected' : ''}>${esc((o.textContent || '').trim())}</option>`).join('')}</select>`}
+          ${want && have && want !== have ? `<div class="note warn" style="margin:8px 0 0">⚠️ الدرجات المصدَّرة للفترة <b>${ORDN[want]}</b> لكن نور على الفترة <b>${ORDN[have]}</b> — غيّر الفترة في نور أو صدّر الفترة الصحيحة من مساعد المعلم.</div>`
+            : want && have ? `<div class="hint" style="color:var(--ok)">✓ نفس فترة الدرجات المصدَّرة (${ORDN[want]})</div>` : want ? `<div class="hint">الدرجات المصدَّرة للفترة ${ORDN[want]} — اختر نفسها في نور.</div>` : ''}</div>`
+          : want ? `<div class="note info" style="margin:0 0 10px">📅 الدرجات المصدَّرة للفترة <b>${ORDN[want]}</b> — تأكد أن نور على نفس الفترة.</div>` : ''}
+        <div class="card"><div class="lbl"><b>${nx()}</b>راجع قبل الكتابة</div><div class="hint" style="margin:0 0 10px">تُعرض درجات كل طالب في هذه الصفحة وحالته، ولا يُكتب شيء قبل موافقتك.</div>
           <button class="pri" data-act="preview">👁️ اعرض المعاينة</button>${ui.msg ? `<div class="note warn" style="margin:10px 0 0">${esc(ui.msg)}</div>` : ''}</div>`;
     } else if (ui.view === 'preview') {
       const c = counts(), F = ui.filter, q = norm(ui.q);
@@ -408,6 +442,9 @@
     if (a === 'open') { ui.open = true; ui.justOpened = true; render(); return; }
     if (a === 'close') { ui.open = false; clearMarks(); ui.view = ui.view === 'done' ? 'done' : 'home'; render(); return; }
     if (t.dataset.mode) { ui.mode = t.dataset.mode; render(); return; }
+    if (t.dataset.per != null && ui.periodPicker && ui.periodPicker.type === 'btns') { const it = ui.periodPicker.items[+t.dataset.per]; if (!it) return;
+      const r = it.el.type === 'radio' ? it.el : (it.el.querySelector && it.el.querySelector('input[type=radio]')) || it.el; r.click();
+      ui.msg = `تم اختيار ${it.label} في نور — اضغط «ابحث» في نور إن لزم، ثم اعرض المعاينة.`; setTimeout(render, 400); return; }
     if (t.dataset.sec != null && ui.classPicker && ui.classPicker.type === 'btns') { const it = ui.classPicker.items[+t.dataset.sec]; if (!it) return;
       const r = it.el.type === 'radio' ? it.el : (it.el.querySelector && it.el.querySelector('input[type=radio]')) || it.el; r.click();
       ui.msg = `تم اختيار الفصل ${it.label} في نور — اضغط «ابحث» في نور إن لم يظهر الطلاب، ثم اعرض المعاينة.`; setTimeout(render, 400); return; }
@@ -434,6 +471,8 @@
     const t = ev.target;
     if (t.classList.contains('ck')) { const x = ui.r.plan[+t.closest('.row').dataset.i]; ui.sel.set(x.tr, t.checked); render(); return; }
     if (t.dataset.pick != null && t.value) { const x = ui.r.plan[+t.dataset.pick]; ALIAS[norm(x.name)] = t.value; aliasSave(); ui.sel.set(x.tr, true); runPlan(); render(); return; }
+    if (t.dataset.perSel && ui.periodPicker && ui.periodPicker.type === 'select') { const sel = ui.periodPicker.sel; sel.value = t.value; ['input', 'change'].forEach(e => sel.dispatchEvent(new Event(e, { bubbles: true })));
+      ui.msg = 'تم اختيار الفترة في نور — انتظر تحديث الصفحة ثم اعرض المعاينة.'; setTimeout(render, 400); return; }
     if (t.dataset.cls && ui.classPicker && ui.classPicker.type === 'select') { const sel = ui.classPicker.sel; sel.value = t.value; ['input', 'change'].forEach(e => sel.dispatchEvent(new Event(e, { bubbles: true })));
       ui.msg = 'تم اختيار الفصل في نور — انتظر ظهور الطلاب ثم اعرض المعاينة.'; render(); }
   }
