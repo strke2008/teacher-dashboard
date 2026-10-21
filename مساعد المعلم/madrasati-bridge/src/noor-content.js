@@ -352,10 +352,22 @@
     for (const sel of QA('select')) { const opts = [...sel.options].map(ccTxt); if (opts.filter(F.fb).length >= 2 && !(F.k === 'sec' && opts.some(t => /المتوسط|الابتدائي|الثانوي|الفترة|الدراسي/.test(t)))) { const f = fromSel(sel, F); if (f) return f; } }
     return null;
   }
+  /* ضغط عنصر في نور: روابط «javascript:__doPostBack(...)» لا تعمل بالنقر من الإضافة (يحجبها Chrome)،
+     فيُنفَّذ ما تفعله __doPostBack نفسها: تعبئة __EVENTTARGET/__EVENTARGUMENT ثم إرسال نموذج الصفحة */
+  function press(el) {
+    const href = el && el.tagName === 'A' ? String(el.getAttribute('href') || '') : '';
+    const m = href.match(/__doPostBack\(\s*['"]([^'"]*)['"]\s*,\s*['"]([^'"]*)['"]\s*\)/);
+    const f = m && (el.closest('form') || el.ownerDocument.forms[0]);
+    if (f) {
+      const set = (n, v) => { let i = f.querySelector(`input[name="${n}"]`); if (!i) { i = el.ownerDocument.createElement('input'); i.type = 'hidden'; i.name = n; f.appendChild(i); } i.value = v; };
+      set('__EVENTTARGET', m[1]); set('__EVENTARGUMENT', m[2]); HTMLFormElement.prototype.submit.call(f); return;
+    }
+    el.click();
+  }
   const curKey = pk => ((pk && pk.items.find(x => x.on)) || {}).key || 0;
   function setField(pk, it) {
     if (pk.type === 'select') { pk.sel.value = it.el.value; ['input', 'change'].forEach(e => pk.sel.dispatchEvent(new Event(e, { bubbles: true }))); return; }
-    const r = it.el.type === 'radio' ? it.el : (it.el.querySelector && it.el.querySelector('input[type=radio]')) || it.el; r.click();
+    const r = it.el.type === 'radio' ? it.el : (it.el.querySelector && it.el.querySelector('input[type=radio]')) || it.el; press(r);
   }
   const findClassPicker = () => findField(FBY.sec), findPeriodPicker = () => findField(FBY.per);
 
@@ -400,7 +412,7 @@
   const onGradePage = () => GP_PATH.test(location.pathname) || (!/TeacherStudents\.aspx/i.test(location.pathname) && !!findField(FBY.sec));
   async function openGradePage() {
     const a = QA('a').find(x => /^(إدخال|ادخال)\s*(ال)?درجات/.test(ccTxt(x)) && visible(x));
-    if (a) { a.click(); return true; }
+    if (a) { press(a); return true; }
     let u = ''; try { u = (await chrome.storage.local.get(GP))[GP] || ''; } catch (_) {}
     location.href = u || GP_DEF; return true;
   }
@@ -538,7 +550,7 @@
         // في صفحة أسماء فصل (لا فلاتر): افتح صفحة الفصول من جديد — ولا تضغط «عرض» الخاص بطالب
         if (!ss && !byId('ibtnSearch') && tsInfo()) { if (st.back++ < 2) { tSet(st); ui.rmsg = '⏳ يفتح قائمة الفصول…'; render(); location.href = location.href.split('#')[0]; tLater(4000); return; } }
         const b = byId('ibtnSearch') || QA('input[type=submit],input[type=button],button,a').find(x => visible(x) && !x.closest('tr') && /^عرض$/.test(ccTxt(x) || String(x.value || '').trim()));
-        if (b) { ui.rmsg = '⏳ يضغط «عرض» في نور…'; render(); st.phase = 'list'; st.w = 0; tSet(st); b.click(); tLater(2500); return; }
+        if (b) { ui.rmsg = '⏳ يضغط «عرض» في نور…'; render(); st.phase = 'list'; st.w = 0; tSet(st); press(b); tLater(2500); return; }
         return stop('⚠️ لم أجد زر «عرض» — اضغطه في نور ثم اضغط السحب مرة ثانية.');
       }
       if (st.w++ < 10) { tSet(st); ui.rmsg = '⏳ ينتظر ظهور جدول الفصول…'; render(); tLater(1200); return; }
@@ -552,19 +564,19 @@
     if (st.phase === 'open') {
       if (!ct) { // في صفحة أسماء فصل سابق: ارجع للقائمة
         const b = st.back < 1 && QA('a,button,input[type=button],input[type=submit]').find(x => visible(x) && /^(عودة|رجوع|العودة)$/.test(ccTxt(x) || String(x.value || '').trim()));
-        if (b) { st.back++; tSet(st); b.click(); tLater(2200); return; }
+        if (b) { st.back++; tSet(st); press(b); tLater(2200); return; }
         // لا زر عودة: يفتح صفحة الفصول من جديد ثم «نظام الدراسة» و«عرض»، ويكمل من الفصل التالي
         if (st.back < 3 && st.url) { st.back++; st.phase = 'filter'; st.w = 0; tSet(st); ui.rmsg = '⏳ يرجع لقائمة الفصول…'; render(); location.href = st.url; tLater(4000); return; }
         return stop('⚠️ لم أستطع العودة لقائمة الفصول — افتح الصفحة من جديد واضغط السحب.'); }
       const row = ct.rows.find(r => r.grade === c.grade && r.sec === c.sec && r.gradeLabel === c.gradeLabel) || ct.rows.find(r => r.grade === c.grade && r.sec === c.sec);
       if (!row) { st.i++; tSet(st); tLater(200); return; }
-      st.prev = tsNames(ct.table).names.join('|'); st.phase = 'read'; st.acc = []; st.w = 0; st.back = 0; tSet(st); row.link.click(); tLater(1800); return;
+      st.prev = tsNames(ct.table).names.join('|'); st.phase = 'read'; st.acc = []; st.w = 0; st.back = 0; tSet(st); press(row.link); tLater(1800); return;
     }
     const got = tsNames(ct && ct.table), sig = got.names.join('|');
     if ((!got.names.length || sig === st.prev) && st.w < 8) { st.w++; tSet(st); tLater(1000); return; }
     if (got.names.length && sig !== st.prev) { got.names.forEach(nm => { if (!st.acc.includes(nm)) st.acc.push(nm); });
       st.total = tsTotal() || st.total || 0;
-      const nx = st.total && st.acc.length >= st.total ? null : tsNextPage(got.table); if (nx) { st.prev = sig; st.w = 0; tSet(st); nx.click(); tLater(1800); return; } }
+      const nx = st.total && st.acc.length >= st.total ? null : tsNextPage(got.table); if (nx) { st.prev = sig; st.w = 0; tSet(st); press(nx); tLater(1800); return; } }
     if (!st.acc.length && !got.names.length) st.miss = (st.miss || 0) + 1;
     if (st.miss >= 2 && !st.done) return stop('⚠️ ضغطت «الطلاب» لكن لم أجد جدول أسماء — صوّر لي ما يظهر بعد الضغط على «الطلاب» لفصل واحد لأضبطه.');
     if (st.acc.length && st.total && st.acc.length < st.total) (st.short = st.short || []).push(`${cl} (${st.acc.length} من ${st.total})`);
@@ -594,7 +606,7 @@
     const r = ui.sheet ? fill(ui.sheet, ui.mode, { dry: true }) : null;
     if (r && r.plan.length && (!r.cls || r.cls === g.t.cls)) { gSet(null); ui.going = ''; ensureUI(); ui.open = true; doPreview(); return; }
     if (!g.searched) { const b = QA('button,input[type=submit],input[type=button],a').find(b => visible(b) && /^(بحث|ابحث|عرض|استعراض|عرض الطلاب|بحث عن الطلاب)$/.test(ccTxt(b) || String(b.value || '').trim()));
-      if (b) { g.searched = true; g.n++; gSet(g); ui.msg = '⏳ يعرض طلاب الفصل…'; render(); b.click(); gLater(1500); return; } }
+      if (b) { g.searched = true; g.n++; gSet(g); ui.msg = '⏳ يعرض طلاب الفصل…'; render(); press(b); gLater(1500); return; } }
     // نور الجديد بلا زر بحث: الطلاب يظهرون بالضغط على زر الفصل (وقد يكون ملوّنًا مسبقًا دون تحميل)
     if (!g.secClicked) { const st = pageState(g.t).find(x => x.F.k === 'sec' && x.pk), it = st && pickItem(st.pk, 'sec', st.want);
       if (it) { g.secClicked = true; g.n++; gSet(g); ui.msg = '⏳ يحمّل طلاب الفصل…'; render(); setField(st.pk, it); gLater(1500); return; } }
