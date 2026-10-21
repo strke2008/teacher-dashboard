@@ -501,9 +501,12 @@
   const tGet = async () => { try { return (await chrome.storage.local.get(TK))[TK] || null; } catch (_) { return null; } };
   const tSet = v => { try { chrome.storage.local.set({ [TK]: v }); } catch (_) {} };
   let tTimer = 0; const tLater = ms => { clearTimeout(tTimer); tTimer = setTimeout(tsStep, ms); };
+  // عناصر الصفحة بمعرّفاتها في نور (ctl00_PlaceHolderMain_ddlStudySystem، ibtnSearch…)
+  const byId = suf => QA(`[id$="${suf}"]`)[0] || null;
   function tsStart() {
-    const ct = tsClassTable(); if (!ct) { ui.rmsg = '⚠️ لم أجد جدول الفصول — اضغط «عرض» في نور أولًا حتى يظهر.'; render(); return; }
-    tSet({ at: Date.now(), list: ct.rows.map(({ grade, gradeLabel, sec }) => ({ grade, gradeLabel, sec })), i: 0, phase: 'open', acc: [], w: 0, n: 0, done: 0, back: 0 });
+    const ct = tsClassTable();
+    // الجدول لم يظهر بعد: يختار الجسر «نظام الدراسة» ثم يضغط «عرض»
+    tSet({ at: Date.now(), list: ct ? ct.rows.map(({ grade, gradeLabel, sec }) => ({ grade, gradeLabel, sec })) : null, i: 0, phase: ct ? 'open' : 'filter', acc: [], w: 0, n: 0, done: 0, back: 0 });
     ui.rmsg = '⏳ يبدأ السحب…'; render(); tsStep();
   }
   async function tsStep() {
@@ -511,7 +514,21 @@
     const stop = m => { tSet(null); ui.sweeping = false; ui.rmsg = m; render(); };
     if (Date.now() - st.at > 8 * 60000 || st.n > 200) return stop(`⚠️ توقف السحب — حُفظ ${st.done} فصل.`);
     st.n++; ui.sweeping = true; ui.open = true;
-    const L = st.list, c = L[st.i];
+    if (st.phase === 'filter' || st.phase === 'list') {
+      const ct0 = tsClassTable();
+      if (ct0) { st.list = ct0.rows.map(({ grade, gradeLabel, sec }) => ({ grade, gradeLabel, sec })); st.phase = 'open'; st.i = 0; st.w = 0; tSet(st); tLater(200); return; }
+      if (st.phase === 'filter') {
+        const ss = byId('ddlStudySystem');
+        if (ss && !ss.disabled && (ss.value === '-99' || !ss.value) && ss.options.length > 1) { const o = [...ss.options].find(x => x.value !== '-99' && x.value);
+          if (o) { ui.rmsg = `⏳ يختار نظام الدراسة: ${ccTxt(o)}…`; render(); ss.value = o.value; ['input', 'change'].forEach(e => ss.dispatchEvent(new Event(e, { bubbles: true }))); st.w = 0; tSet(st); tLater(2500); return; } }
+        const b = byId('ibtnSearch') || QA('input[type=submit],input[type=button],button,a').find(x => visible(x) && /^عرض$/.test(ccTxt(x) || String(x.value || '').trim()));
+        if (b) { ui.rmsg = '⏳ يضغط «عرض» في نور…'; render(); st.phase = 'list'; st.w = 0; tSet(st); b.click(); tLater(2500); return; }
+        return stop('⚠️ لم أجد زر «عرض» — اضغطه في نور ثم اضغط السحب مرة ثانية.');
+      }
+      if (st.w++ < 10) { tSet(st); ui.rmsg = '⏳ ينتظر ظهور جدول الفصول…'; render(); tLater(1200); return; }
+      return stop('⚠️ لم يظهر جدول الفصول بعد «عرض» — تأكد من اختيار نظام الدراسة ثم اضغط «عرض» واضغط السحب مرة ثانية.');
+    }
+    const L = st.list || [], c = L[st.i];
     if (!c) { const R = rosterSum(await rGet()); return stop(`✅ انتهى السحب: ${st.done} فصل · المحفوظ ${R.c} فصل و${R.n} طالب. افتح مساعد المعلم ← طرق استيراد أسماء الطلاب ← «من نور».`); }
     const cl = `${GSHORT[c.grade] || c.gradeLabel} ${c.sec}`;
     ui.rmsg = `⏳ ${cl}: ${st.phase === 'open' ? 'يفتح قائمة الطلاب' : 'يقرأ الأسماء'}… (${st.i + 1}/${L.length}) · حُفظ ${st.done} فصل`; if (ui.root) render();
@@ -528,6 +545,8 @@
     if ((!got.names.length || sig === st.prev) && st.w < 8) { st.w++; tSet(st); tLater(1000); return; }
     if (got.names.length && sig !== st.prev) { got.names.forEach(nm => { if (!st.acc.includes(nm)) st.acc.push(nm); });
       const nx = tsNextPage(got.table); if (nx) { st.prev = sig; st.w = 0; tSet(st); nx.click(); tLater(1800); return; } }
+    if (!st.acc.length && !got.names.length) st.miss = (st.miss || 0) + 1;
+    if (st.miss >= 2 && !st.done) return stop('⚠️ ضغطت «الطلاب» لكن لم أجد جدول أسماء — صوّر لي ما يظهر بعد الضغط على «الطلاب» لفصل واحد لأضبطه.');
     if (st.acc.length) { await rosterSave({ grade: c.grade, sec: c.sec, stage: /المتوسط/.test(c.gradeLabel) ? 'المتوسط' : /الابتدائي/.test(c.gradeLabel) ? 'الابتدائي' : /الثانوي/.test(c.gradeLabel) ? 'الثانوي' : '', gradeLabel: c.gradeLabel, label: cl }, st.acc); st.done++; }
     st.i++; st.phase = 'open'; st.acc = []; st.w = 0; tSet(st); tLater(ct ? 300 : 100);
   }
@@ -713,16 +732,18 @@
   function onInput(ev) { if (ev.target.classList.contains('q')) { ui.q = ev.target.value; ui.focusQ = true; render(); ui.focusQ = false; } }
   async function loadSheet() { try { ui.sheet = (await chrome.storage.local.get('mb_noor_grades')).mb_noor_grades || null; } catch (_) { ui.sheet = null; } }
   async function showUI() {
-    await loadSheet(); ui.roster = await rGet(); ui.gradePage = onGradePage(); ui.tsPage = TS_PATH.test(location.pathname) || !!tsClassTable();
+    await loadSheet(); ui.roster = await rGet(); ui.gradePage = onGradePage();
+    const tsOn = await tGet(), swOn = await sGet();
+    ui.tsPage = TS_PATH.test(location.pathname) || !!tsClassTable() || !!tsOn;
     const has = ui.sheet && Array.isArray(ui.sheet.rows) && ui.sheet.rows.length;
     // بلا كشف درجات: تظهر اللوحة في صفحة إدخال الدرجات فقط (لسحب الأسماء)
-    if (!has && !ui.gradePage && !ui.tsPage) { if (ui.host) ui.host.remove(); ui.host = null; return; }
+    if (!has && !ui.gradePage && !ui.tsPage && !swOn) { if (ui.host) ui.host.remove(); ui.host = null; return; }
     if (!has) ui.sheet = null;
     if (has && ['both', 'work40', 'exam20'].includes(ui.sheet.mode)) ui.mode = ui.sheet.mode;
     ensureUI(); render();
     if (has && await gGet()) gotoStep();
-    if (await sGet()) sweepStep();
-    if (await tGet()) tsStep();
+    if (swOn) sweepStep();
+    if (tsOn) tsStep();
   }
 
   chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
