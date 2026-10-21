@@ -299,10 +299,16 @@
   const ORDN = ['', 'الأولى', 'الثانية', 'الثالثة'], ORDM = ['', 'الأول', 'الثاني', 'الثالث', 'الرابع', 'الخامس', 'السادس'];
   const QA = q => docsOf(document).flatMap(d => [...d.querySelectorAll(q)]).filter(el => !(ui.host && ui.host.contains(el)));
   const after = (a, b) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
-  const FL = /^\*?\s*(الفصل\s*الدراسي|الفترة(\s*التقويمية)?|الصف|الفصل|الشعبة|المادة|المرحلة|الحلقة|المدرسة|نوع\s*\S+)\s*\*?\s*:?$/;
+  const FL = /^\*?\s*(السنة\s*الدراسية|القسم|الفصل\s*الدراسي|الفترة(\s*التقويمية)?|الصف|الفصل|الشعبة|المادة|المرحلة|الحلقة|المدرسة|نوع\s*\S+)\s*\*?\s*:?$/;
   const secKey = t => { t = AD(t).trim(); const m = t.match(/^(\d{1,2})$/) || t.match(/^\d\s*[/\-]\s*(\d{1,2})$/) || t.match(/^شعبة\s*(\d{1,2})$/); return m ? +m[1] : 0; };
+  // السنة الحالية بالهجري (أم القرى) لاختيار «1447-1448» تلقائيًا إن لم تُختر
+  const hijriNow = () => { try { return parseInt(AD(new Intl.DateTimeFormat('en-u-ca-islamic-umalqura', { year: 'numeric' }).format(new Date())), 10) || 0; } catch (_) { return 0; } };
+  const yearKey = t => { const m = AD(t).match(/(1[34]\d\d)/); return m ? +m[1] : 0; };
+  // «الفصل الأول - الدور الأول»: الترتيب من الكلمة بعد «الفصل» لا من «الدور»
+  const semKey = t => { const m = AD(t).match(/الفصل\s*(?:الدراسي\s*)?([^\s\-–—]+)/); return m ? ORDW(m[1]) : ORDW(String(t).split(/[-–—]/)[0]); };
   const FIELDS = [
-    { k: 'sem', name: 'الفصل الدراسي', rx: /^\*?\s*الفصل\s*الدراسي\s*\*?\s*:?$/, key: ORDW, fb: t => /الفصل\s*الدراسي|^الفصل\s+(ال)?(أول|اول|ثاني|ثالث)$/.test(t) },
+    { k: 'year', name: 'السنة الدراسية', rx: /^\*?\s*السنة\s*الدراسية\s*\*?\s*:?$/, key: yearKey, fb: t => /^1[34]\d\d\s*[-/]\s*1[34]\d\d$/.test(AD(t).trim()) },
+    { k: 'sem', name: 'الفصل الدراسي', rx: /^\*?\s*الفصل\s*الدراسي\s*\*?\s*:?$/, key: semKey, fb: t => /الفصل\s*الدراسي|^الفصل\s+(ال)?(أول|اول|ثاني|ثالث)$/.test(t) },
     { k: 'per', name: 'الفترة', rx: /^\*?\s*الفترة(\s*التقويمية)?\s*\*?\s*:?$/, key: t => /الفترة/.test(t) ? ORD(t) : ORDW(t), fb: t => /الفترة/.test(t) },
     { k: 'grade', name: 'الصف', rx: /^\*?\s*الصف\s*\*?\s*:?$/, key: ORDW, fb: t => /المتوسط|الابتدائي|الثانوي/.test(t) && !/الفصل|الفترة/.test(t) },
     { k: 'sec', name: 'الفصل', rx: /^\*?\s*(الفصل|الشعبة)\s*\*?\s*:?$/, key: secKey, btns: true, fb: t => !!secKey(t) }];
@@ -368,9 +374,17 @@
     return list.map(cls => ({ cls, sem, per, ...parseCls(cls), n: S.rows.filter(r => String(r.cls || '').trim() === cls).length }))
       .filter(x => x.grade || x.sec).sort((a, b) => a.grade - b.grade || a.sec - b.sec);
   }
-  const pickItem = (pk, k, want, stage) => { const c = pk.items.filter(x => x.key === want); return (k === 'grade' && stage && c.find(x => x.label.includes(stage))) || c[0] || null; };
+  const pickItem = (pk, k, want, stage) => { const c = pk.items.filter(x => x.key === want);
+    return (k === 'grade' && stage && c.find(x => x.label.includes(stage))) || (k === 'sem' && c.find(x => !/الدور\s*(ال)?ثاني/.test(x.label))) || c[0] || null; };
+  // السنة: تُترك كما اختارها المعلم، وإلا فالسنة التي تضم السنة الهجرية الحالية (1447-1448 ← 1448)
+  function wantYear(pk) { const ks = pk.items.map(x => x.key), h = hijriNow();
+    const both = pk.items.map(x => (AD(x.label).match(/1[34]\d\d/g) || []).map(Number));
+    const i = both.findIndex(a => a[1] === h), j = both.findIndex(a => a[0] === h);
+    return i >= 0 ? ks[i] : j >= 0 ? ks[j] : Math.max(...ks); }
   // حالة الصفحة الحالية مقابل الهدف: لكل حقل ✓ أو ✗ أو «غير ظاهر»
-  function pageState(t) { return FIELDS.filter(F => t[F.k]).map(F => { const pk = findField(F), cur = curKey(pk); return { F, pk, want: t[F.k], cur, ok: !!pk && cur === t[F.k] }; }); }
+  function pageState(t) { return FIELDS.filter(F => F.k === 'year' || t[F.k]).map(F => { const pk = findField(F), cur = curKey(pk);
+    if (F.k === 'year') return { F, pk, want: cur || (pk ? wantYear(pk) : 0), cur, ok: !pk || !!cur };
+    return { F, pk, want: t[F.k], cur, ok: !!pk && cur === t[F.k] }; }); }
 
   /* الانتقال التلقائي: يضبط الحقول بالترتيب، وكل تغيير قد يعيد تحميل صفحة نور — فالحالة تُحفظ ويُستأنف بعد التحميل */
   const GK = 'mb_noor_goto';
@@ -382,14 +396,15 @@
   async function gotoStep() {
     const g = await gGet(); if (!g || !g.t) { ui.going = ''; return; }
     const stop = msg => { gSet(null); ui.going = ''; ui.msg = msg; if (ui.view !== 'home') ui.view = 'home'; render(); };
-    if (Date.now() - g.at > 120000 || g.n > 16) return stop('⚠️ لم يكتمل الانتقال تلقائيًا — أكمل الاختيار في نور ثم اعرض المعاينة.');
+    if (Date.now() - g.at > 150000 || g.n > 20) return stop('⚠️ لم يكتمل الانتقال تلقائيًا — أكمل الاختيار في نور ثم اعرض المعاينة.');
     ui.going = g.t.cls; ui.open = true;
     for (const st of pageState(g.t)) {
-      if (!st.pk) { if (st.F.k === 'sec' && g.w < 6) { g.w++; gSet(g); ui.msg = '⏳ ينتظر ظهور أزرار الفصل في نور…'; render(); gLater(1000); return; } continue; }
+      const busy = st.pk && st.pk.type === 'select' && st.pk.sel.disabled;
+      if (!st.pk || busy) { if (st.F.k !== 'per' && st.F.k !== 'year' && g.w < 10) { g.w++; gSet(g); ui.msg = `⏳ ينتظر تحميل «${st.F.name}» في نور…`; render(); gLater(1000); return; } continue; }
       if (st.ok) continue;
       const it = pickItem(st.pk, st.F.k, st.want, g.t.stage);
       if (!it) return stop(`⚠️ لم أجد «${st.F.name} ${st.F.k === 'sec' ? st.want : st.F.k === 'per' ? ORDN[st.want] || st.want : ORDM[st.want] || st.want}» في نور — اختره يدويًا.`);
-      g.n++; g.searched = false; gSet(g); ui.msg = `⏳ يختار ${st.F.name}: ${it.label}…`; render();
+      g.n++; g.searched = false; g.secClicked = st.F.k === 'sec'; g.w = 0; gSet(g); ui.msg = `⏳ يختار ${st.F.name}: ${it.label}…`; render();
       setField(st.pk, it); gLater(1300); return;
     }
     // الحقول مضبوطة: هل ظهر طلاب هذا الفصل؟
@@ -397,8 +412,11 @@
     if (r && r.plan.length && (!r.cls || r.cls === g.t.cls)) { gSet(null); ui.going = ''; ensureUI(); ui.open = true; doPreview(); return; }
     if (!g.searched) { const b = QA('button,input[type=submit],input[type=button],a').find(b => visible(b) && /^(بحث|ابحث|عرض|استعراض|عرض الطلاب|بحث عن الطلاب)$/.test(ccTxt(b) || String(b.value || '').trim()));
       if (b) { g.searched = true; g.n++; gSet(g); ui.msg = '⏳ يعرض طلاب الفصل…'; render(); b.click(); gLater(1500); return; } }
-    if ((g.w2 || 0) < 4) { g.w2 = (g.w2 || 0) + 1; gSet(g); gLater(1200); return; }
-    stop(`ضُبطت الصفحة في نور على ${g.t.cls}، لكن لم يظهر طلابه بعد — اضغط «بحث/عرض» في نور ثم «اعرض المعاينة».`);
+    // نور الجديد بلا زر بحث: الطلاب يظهرون بالضغط على زر الفصل (وقد يكون ملوّنًا مسبقًا دون تحميل)
+    if (!g.secClicked) { const st = pageState(g.t).find(x => x.F.k === 'sec' && x.pk), it = st && pickItem(st.pk, 'sec', st.want);
+      if (it) { g.secClicked = true; g.n++; gSet(g); ui.msg = '⏳ يحمّل طلاب الفصل…'; render(); setField(st.pk, it); gLater(1500); return; } }
+    if ((g.w2 || 0) < 10) { g.w2 = (g.w2 || 0) + 1; gSet(g); ui.msg = '⏳ ينتظر ظهور الطلاب…'; render(); gLater(1200); return; }
+    stop(`ضُبطت الصفحة في نور على ${g.t.cls}، لكن لم يظهر جدول طلابه بعد — اضغط زر الفصل في نور ثم «اعرض المعاينة».`);
   }
 
   function ensureUI() {
