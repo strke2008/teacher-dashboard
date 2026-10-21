@@ -414,7 +414,6 @@ function render(j, phone){
   h+=top3HTML(s, j);
   // 🏅 الشهادة على النتيجة الكاملة من 60 فقط: لا تصدر قبل رصد الاختبار (أعمال السنة وحدها من 40 لا تكفي)
   if(R && exOn && LV[0]==='ممتاز') h+=certHTML(s, R, j, exOn, out, max);
-  else if(R && !exOn && level(work*1.5)[0]==='ممتاز') h+=`<section class="card"><p class="muted" style="margin:0">🏅 أداؤه في أعمال السنة ممتاز — تصدر <b>شهادة التميّز</b> بعد رصد درجة الاختبار إن بقي مجموعه «ممتاز» من 60.</p></section>`;
   if(R){
     h+=`<section class="card"><h2>📚 أعمال السنة <span class="h-sc">${work} من 40</span></h2><p class="muted" style="margin:-.3rem 0 .7rem">اضغط أي بطاقة لمعرفة سبب درجتها.</p><div class="tiles">
       ${bar('المشاركة',pS,10,R.participation&&R.participation.absent?`غاب ${R.participation.absent} ${R.participation.absent===1?'حصة':'حصص'}`:'','🙋','part')}
