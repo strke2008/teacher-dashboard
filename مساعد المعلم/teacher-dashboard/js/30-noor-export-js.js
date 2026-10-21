@@ -198,8 +198,8 @@ async function noorRosterImport() {
   const help = msg => openModal(`<h2>🏛️ استيراد الأسماء من نور</h2>
     <p class="muted" style="font-size:.86rem;line-height:1.9;margin:.2rem 0 .8rem">${msg}</p>
     <ol style="font-size:.88rem;line-height:2;margin:0 1.2rem .8rem;padding:0">
-      <li>افتح <b>صفحة إدخال الدرجات</b> في نور واختر السنة والفصل الدراسي.</li>
-      <li>من لوحة «جسر مدرستي» في نور اضغط <b>📥 كل الصفوف والفصول</b> (أو هذا الفصل فقط) وانتظر حتى ينتهي.</li>
+      <li>افتح في نور <b>صفحة إدخال الدرجات</b> (واختر السنة والفصل الدراسي)، أو إن كان الرصد مقفلًا: صفحة <b>الطلاب حسب العلاقات التدريسية</b> واضغط «عرض».</li>
+      <li>من لوحة «جسر مدرستي» في نور اضغط <b>📥 كل الصفوف والفصول</b> أو <b>📥 اسحب أسماء كل الفصول في هذه الصفحة</b>، وانتظر حتى ينتهي.</li>
       <li>ارجع هنا واضغط <b>استيراد من نور</b> مرة ثانية.</li></ol>
     <div class="modal-foot"><button class="btn ghost" onclick="closeModal()">إغلاق</button><button class="btn" onclick="noorOpenSite()">🔗 افتح نور</button></div>`);
   if (typeof MADB === 'undefined' || !MADB.ok || typeof madbCall !== 'function') return help('هذه الطريقة تحتاج إضافة <b>جسر مدرستي 0.23.0</b> أو أحدث في هذا المتصفح — ثبّتها ثم أعد تحميل الصفحة.');

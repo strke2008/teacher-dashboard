@@ -397,7 +397,7 @@
   /* 📝 صفحة إدخال الدرجات: يُحفظ رابطها كلما فُتحت، ويُفتح من أي صفحة في نور (رابط القائمة أولًا، ثم المحفوظ) */
   const GP = 'mb_noor_gp', GP_PATH = /DegreesEducationalPathSystem\.aspx/i;
   const GP_DEF = 'https://noor.moe.gov.sa/Noor/EduWaveEducational/DegreesEducationalPathSystem.aspx';
-  const onGradePage = () => GP_PATH.test(location.pathname) || !!findField(FBY.sec);
+  const onGradePage = () => GP_PATH.test(location.pathname) || (!/TeacherStudents\.aspx/i.test(location.pathname) && !!findField(FBY.sec));
   async function openGradePage() {
     const a = QA('a').find(x => /^(إدخال|ادخال)\s*(ال)?درجات/.test(ccTxt(x)) && visible(x));
     if (a) { a.click(); return true; }
@@ -465,6 +465,71 @@
     if ((!names.length || sig === st.prev) && st.w < (names.length ? 7 : 4)) { st.w++; sSet(st); sLater(1000); return; }
     const c = curClass(); if (names.length && sig !== st.prev && c.label) { await rosterSave(c, names); st.done++; }
     st.prev = sig; st.i++; st.clicked = false; sSet(st); sLater(300);
+  }
+
+  /* 👥 بديل لصفحة الدرجات (حين يكون الرصد مقفلًا): «الطلاب حسب العلاقات التدريسية» TeacherStudents.aspx
+     جدول فصول (الصف · الفصل · رابط «الطلاب») — يفتح الجسر كل فصل ويقرأ أسماءه ثم يعود للقائمة */
+  const TS_PATH = /TeacherStudents\.aspx/i;
+  const headIdx = (tr, rx) => [...tr.cells].findIndex(c => rx.test(ccTxt(c)));
+  function tsClassTable() {
+    for (const t of QA('table')) {
+      const rows = [...t.rows]; if (rows.length < 2) continue;
+      const h = rows.find(r => headIdx(r, /^الصف/) >= 0 && headIdx(r, /^الفصل$/) >= 0); if (!h) continue;
+      const gi = headIdx(h, /^الصف/), si = headIdx(h, /^الفصل$/);
+      const out = rows.filter(r => r !== h).map(r => { const link = [...r.querySelectorAll('a,input[type=button],input[type=submit],button')].find(a => /^الطلاب$/.test(ccTxt(a) || String(a.value || '').trim()));
+        const gl = ccTxt(r.cells[gi]), sec = secKey(ccTxt(r.cells[si])); return link && sec ? { grade: ORDW(gl), gradeLabel: gl, sec, link } : null; }).filter(Boolean);
+      if (out.length) return { table: t, rows: out };
+    }
+    return null;
+  }
+  function tsNames(skip) {
+    for (const t of QA('table')) {
+      if (skip && (t === skip || t.contains(skip) || skip.contains(t))) continue;
+      const rows = [...t.rows], h = rows.find(r => headIdx(r, /اسم\s*الطالب|^الطالب$|^الاسم$|^اسم$/) >= 0); if (!h) continue;
+      const ni = headIdx(h, /اسم\s*الطالب|^الطالب$|^الاسم$|^اسم$/), out = [];
+      for (const r of rows) { if (r === h || !r.cells[ni]) continue; const nm = ccTxt(r.cells[ni]); if (nm.split(' ').length >= 3 && (nm.match(/[؀-ۿ]/g) || []).length >= 8 && !out.includes(nm)) out.push(nm); }
+      if (out.length) return { table: t, names: out };
+    }
+    return { table: null, names: [] };
+  }
+  // ترقيم صفحات الأسماء (1 2 3…): رابط الصفحة التالية داخل جدول الأسماء
+  function tsNextPage(t) {
+    if (!t) return null; const cur = [...t.querySelectorAll('span')].find(x => /^\d{1,2}$/.test(ccTxt(x)) && !x.closest('a') && x.closest('tr') && [...x.closest('tr').querySelectorAll('a')].some(a => /^\d{1,2}$|\.\.\./.test(ccTxt(a))));
+    if (!cur) return null; const n = +ccTxt(cur) + 1; return [...cur.closest('tr').querySelectorAll('a')].find(a => ccTxt(a) === String(n)) || null;
+  }
+  const TK = 'mb_noor_ts';
+  const tGet = async () => { try { return (await chrome.storage.local.get(TK))[TK] || null; } catch (_) { return null; } };
+  const tSet = v => { try { chrome.storage.local.set({ [TK]: v }); } catch (_) {} };
+  let tTimer = 0; const tLater = ms => { clearTimeout(tTimer); tTimer = setTimeout(tsStep, ms); };
+  function tsStart() {
+    const ct = tsClassTable(); if (!ct) { ui.rmsg = '⚠️ لم أجد جدول الفصول — اضغط «عرض» في نور أولًا حتى يظهر.'; render(); return; }
+    tSet({ at: Date.now(), list: ct.rows.map(({ grade, gradeLabel, sec }) => ({ grade, gradeLabel, sec })), i: 0, phase: 'open', acc: [], w: 0, n: 0, done: 0, back: 0 });
+    ui.rmsg = '⏳ يبدأ السحب…'; render(); tsStep();
+  }
+  async function tsStep() {
+    const st = await tGet(); if (!st) return;
+    const stop = m => { tSet(null); ui.sweeping = false; ui.rmsg = m; render(); };
+    if (Date.now() - st.at > 8 * 60000 || st.n > 200) return stop(`⚠️ توقف السحب — حُفظ ${st.done} فصل.`);
+    st.n++; ui.sweeping = true; ui.open = true;
+    const L = st.list, c = L[st.i];
+    if (!c) { const R = rosterSum(await rGet()); return stop(`✅ انتهى السحب: ${st.done} فصل · المحفوظ ${R.c} فصل و${R.n} طالب. افتح مساعد المعلم ← طرق استيراد أسماء الطلاب ← «من نور».`); }
+    const cl = `${GSHORT[c.grade] || c.gradeLabel} ${c.sec}`;
+    ui.rmsg = `⏳ ${cl}: ${st.phase === 'open' ? 'يفتح قائمة الطلاب' : 'يقرأ الأسماء'}… (${st.i + 1}/${L.length}) · حُفظ ${st.done} فصل`; if (ui.root) render();
+    const ct = tsClassTable();
+    if (st.phase === 'open') {
+      if (!ct) { // في صفحة أسماء فصل سابق: ارجع للقائمة
+        if (st.back++ < 3) { tSet(st); const b = QA('a,button,input[type=button],input[type=submit]').find(x => visible(x) && /^(عودة|رجوع|العودة)$/.test(ccTxt(x) || String(x.value || '').trim())); if (b) b.click(); else history.back(); tLater(2000); return; }
+        return stop('⚠️ لم أستطع العودة لقائمة الفصول — افتح الصفحة من جديد واضغط السحب.'); }
+      const row = ct.rows.find(r => r.grade === c.grade && r.sec === c.sec && r.gradeLabel === c.gradeLabel) || ct.rows.find(r => r.grade === c.grade && r.sec === c.sec);
+      if (!row) { st.i++; tSet(st); tLater(200); return; }
+      st.prev = tsNames(ct.table).names.join('|'); st.phase = 'read'; st.acc = []; st.w = 0; st.back = 0; tSet(st); row.link.click(); tLater(1800); return;
+    }
+    const got = tsNames(ct && ct.table), sig = got.names.join('|');
+    if ((!got.names.length || sig === st.prev) && st.w < 8) { st.w++; tSet(st); tLater(1000); return; }
+    if (got.names.length && sig !== st.prev) { got.names.forEach(nm => { if (!st.acc.includes(nm)) st.acc.push(nm); });
+      const nx = tsNextPage(got.table); if (nx) { st.prev = sig; st.w = 0; tSet(st); nx.click(); tLater(1800); return; } }
+    if (st.acc.length) { await rosterSave({ grade: c.grade, sec: c.sec, stage: /المتوسط/.test(c.gradeLabel) ? 'المتوسط' : /الابتدائي/.test(c.gradeLabel) ? 'الابتدائي' : /الثانوي/.test(c.gradeLabel) ? 'الثانوي' : '', gradeLabel: c.gradeLabel, label: cl }, st.acc); st.done++; }
+    st.i++; st.phase = 'open'; st.acc = []; st.w = 0; tSet(st); tLater(ct ? 300 : 100);
   }
 
   async function gotoStart(t) { gSet({ t, at: Date.now(), n: 0, w: 0 }); ui.going = t.cls; ui.msg = `⏳ ينتقل إلى صفحة ${t.cls} في نور…`; render(); gotoStep(); }
@@ -543,13 +608,14 @@
         <button class="x" data-act="close" title="تصغير">–</button></div>
       <div class="meta">${n ? `<span>📄 ${n} طالب</span>` : '<span>📥 سحب أسماء الطلاب — لا يوجد كشف درجات مُرسل</span>'}${S.label ? `<span>${esc(S.label)}</span>` : ''}${S.cls ? `<span>${esc(S.cls)}</span>` : ''}${when ? `<span class="${age > 2 * 864e5 ? 'old' : ''}">${age > 2 * 864e5 ? '⚠️ صُدّر ' + esc(when) + ' — صدّره من جديد' : '🕒 ' + esc(when)}</span>` : ''}</div></div>`;
     let body = '', foot = '';
-    ui.gradePage = onGradePage();
+    ui.gradePage = onGradePage(); if (!ui.tsPage) ui.tsPage = TS_PATH.test(location.pathname);
     const RS = rosterSum(ui.roster), cc = ui.gradePage ? curClass() : null, here = ui.gradePage ? readNames().length : 0;
-    const rosterCard = ui.gradePage ? `<div class="card"><div class="lbl">📥 سحب أسماء الطلاب لمساعد المعلم</div>
-        <div class="rbtns"><button class="btn2" data-act="r-this" ${ui.sweeping ? 'disabled' : ''}>هذا الفصل${cc && cc.label ? ` (${esc(cc.label)} · ${here} طالب)` : ''}</button>
+    const tsBtns = ui.tsPage && !ui.gradePage ? `<button class="btn2" data-act="ts-all" ${ui.sweeping ? 'disabled' : ''}>📥 اسحب أسماء كل الفصول في هذه الصفحة</button>${ui.sweeping ? '<button class="btn2" data-act="r-stop">⏹ إيقاف</button>' : ''}` : '';
+    const rosterCard = ui.gradePage || ui.tsPage ? `<div class="card"><div class="lbl">📥 سحب أسماء الطلاب لمساعد المعلم</div>
+        <div class="rbtns">${tsBtns}${ui.gradePage ? `<button class="btn2" data-act="r-this" ${ui.sweeping ? 'disabled' : ''}>هذا الفصل${cc && cc.label ? ` (${esc(cc.label)} · ${here} طالب)` : ''}</button>
           <button class="btn2" data-act="r-grade" ${ui.sweeping ? 'disabled' : ''}>كل فصول هذا الصف</button>
           <button class="btn2" data-act="r-all" ${ui.sweeping ? 'disabled' : ''}>كل الصفوف والفصول</button>
-          ${ui.sweeping ? '<button class="btn2" data-act="r-stop">⏹ إيقاف</button>' : ''}</div>
+          ${ui.sweeping ? '<button class="btn2" data-act="r-stop">⏹ إيقاف</button>' : ''}` : ''}</div>
         ${ui.rmsg ? `<div class="note ${/^✅/.test(ui.rmsg) ? 'info' : 'warn'}" style="margin:8px 0 0">${esc(ui.rmsg)}</div>` : ''}
         <div class="hint">${RS.c ? `محفوظ في الجسر: <b>${RS.c}</b> فصل · <b>${RS.n}</b> طالب ${!ui.sweeping ? '· <a href="#" data-act="r-clear">مسح</a>' : ''}<br>` : ''}يُحفظ الاسم والفصل فقط. بعدها في مساعد المعلم: ⚙️ الإعدادات ← 👥 طرق استيراد أسماء الطلاب ← <b>🏛️ من نور</b>.</div></div>` : '';
     if (ui.view === 'home' && !n) { body = rosterCard; }
@@ -611,7 +677,8 @@
     if (t.dataset.mode) { ui.mode = t.dataset.mode; render(); return; }
     if (a === 'r-this') { rosterThis(); return; }
     if (a === 'r-grade' || a === 'r-all') { sweepStart(a === 'r-all'); return; }
-    if (a === 'r-stop') { sSet(null); clearTimeout(sTimer); ui.sweeping = false; ui.rmsg = 'أُوقف السحب — ما حُفظ يبقى محفوظًا.'; render(); return; }
+    if (a === 'ts-all') { tsStart(); return; }
+    if (a === 'r-stop') { sSet(null); tSet(null); clearTimeout(sTimer); clearTimeout(tTimer); ui.sweeping = false; ui.rmsg = 'أُوقف السحب — ما حُفظ يبقى محفوظًا.'; render(); return; }
     if (a === 'r-clear') { ev.preventDefault(); try { chrome.storage.local.remove(RK); } catch (_) {} ui.roster = { classes: {} }; ui.rmsg = ''; render(); return; }
     if (a === 'gopage') { ui.msg = '⏳ يفتح صفحة إدخال الدرجات…'; render(); openGradePage(); return; }
     if (t.dataset.goto != null) { const tg = (ui.targets || [])[+t.dataset.goto]; if (tg) gotoStart(tg); return; }
@@ -646,15 +713,16 @@
   function onInput(ev) { if (ev.target.classList.contains('q')) { ui.q = ev.target.value; ui.focusQ = true; render(); ui.focusQ = false; } }
   async function loadSheet() { try { ui.sheet = (await chrome.storage.local.get('mb_noor_grades')).mb_noor_grades || null; } catch (_) { ui.sheet = null; } }
   async function showUI() {
-    await loadSheet(); ui.roster = await rGet(); ui.gradePage = onGradePage();
+    await loadSheet(); ui.roster = await rGet(); ui.gradePage = onGradePage(); ui.tsPage = TS_PATH.test(location.pathname) || !!tsClassTable();
     const has = ui.sheet && Array.isArray(ui.sheet.rows) && ui.sheet.rows.length;
     // بلا كشف درجات: تظهر اللوحة في صفحة إدخال الدرجات فقط (لسحب الأسماء)
-    if (!has && !ui.gradePage) { if (ui.host) ui.host.remove(); ui.host = null; return; }
+    if (!has && !ui.gradePage && !ui.tsPage) { if (ui.host) ui.host.remove(); ui.host = null; return; }
     if (!has) ui.sheet = null;
     if (has && ['both', 'work40', 'exam20'].includes(ui.sheet.mode)) ui.mode = ui.sheet.mode;
     ensureUI(); render();
     if (has && await gGet()) gotoStep();
     if (await sGet()) sweepStep();
+    if (await tGet()) tsStep();
   }
 
   chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
