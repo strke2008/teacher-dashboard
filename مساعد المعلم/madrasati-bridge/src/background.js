@@ -130,6 +130,21 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
       })();
       return true;
     }
+    // 🏛️ زر «افتح نور» في لوحة المعلم: يذهب لتبويب نور المفتوح أو يفتح صفحة إدخال الدرجات (آخر رابط محفوظ)
+    if (action === 'noorOpen') {
+      (async () => {
+        try {
+          const gp = (await chrome.storage.local.get('mb_noor_gp')).mb_noor_gp || 'https://noor.moe.gov.sa/Noor/EduWaveEducational/DegreesEducationalPathSystem.aspx';
+          const tabs = await chrome.tabs.query({ url: 'https://noor.moe.gov.sa/*' });
+          const t = tabs.find(x => /DegreesEducationalPathSystem/i.test(x.url || '')) || tabs[0];
+          if (t) { await chrome.tabs.update(t.id, { active: true, ...(/DegreesEducationalPathSystem/i.test(t.url || '') ? {} : { url: gp }) });
+            try { await chrome.windows.update(t.windowId, { focused: true }); } catch (_) {}
+            reply({ ok: true, focused: true }); return; }
+          await chrome.tabs.create({ url: gp }); reply({ ok: true, opened: true });
+        } catch (e) { reply({ ok: false, error: String(e && e.message || e) }); }
+      })();
+      return true;
+    }
     if (action === 'noorStatus') {
       (async () => {
         try {

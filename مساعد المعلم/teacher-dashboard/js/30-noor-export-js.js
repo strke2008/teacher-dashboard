@@ -118,6 +118,7 @@ function noorExpRender() {
         <option value="both" ${NX.fill === 'both' ? 'selected' : ''}>الخانتان (40 ثم 20)</option><option value="work40" ${NX.fill === 'work40' ? 'selected' : ''}>أعمال السنة 40 فقط</option><option value="exam20" ${NX.fill === 'exam20' ? 'selected' : ''}>الاختبار 20 فقط</option></select>
       <button class="btn sm" type="button" onclick="noorPush()" ${n ? '' : 'disabled'}>⚡ إرسال لإضافة جسر مدرستي</button>
       <button class="btn ghost sm" type="button" onclick="noorCopyFillCode()" ${n ? '' : 'disabled'} title="كود يُلصق في «Console» صفحة نور — بلا إضافة">📜 نسخ كود التعبئة المباشرة</button>
+      <button class="btn ghost sm" type="button" onclick="noorOpenSite()" title="يفتح صفحة إدخال الدرجات في نور (أو تبويب نور المفتوح)">🔗 افتح نور للرصد</button>
       <small class="muted" id="nx-push-st" style="flex-basis:100%"></small>
     </div>
     <div class="noor-exp-table-wrap"><table class="noor-exp-table">
@@ -175,6 +176,14 @@ function noorCopy(what) {
 function noorPayload() {
   return { rows: NX.rows.map(r => ({ name: r.name, cls: r.cls, work40: r.work40, exam20: r.exam20, total60: r.total60 })),
     cls: NX.cls || 'كل الفصول', label: NX.label, sem: NX.sem, per: NX.per, mode: NX.fill, round: NX.round };
+}
+/* 🏛️ افتح نظام نور للرصد: عبر جسر مدرستي (صفحة إدخال الدرجات مباشرة) وإلا موقع نور */
+async function noorOpenSite() {
+  // بلا الإضافة: يُفتح الموقع فورًا (داخل نقرة المستخدم فلا يحجبه المتصفح)
+  if (typeof MADB === 'undefined' || !MADB.ok || typeof madbCall !== 'function') { window.open('https://noor.moe.gov.sa/Noor/login.aspx', '_blank', 'noopener'); return; }
+  const r = await madbCall('noorOpen', {}, 3000).catch(() => null);
+  if (r && r.ok) { toast(r.focused ? '🏛️ انتقلت إلى تبويب نور' : '🏛️ فُتحت صفحة إدخال الدرجات في نور', 'good'); return; }
+  window.open('https://noor.moe.gov.sa/Noor/login.aspx', '_blank', 'noopener');
 }
 async function noorPush() {
   const st = document.getElementById('nx-push-st'); if (!NX.rows.length) return;
