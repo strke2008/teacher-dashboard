@@ -174,7 +174,7 @@ function noorCopy(what) {
 }
 function noorPayload() {
   return { rows: NX.rows.map(r => ({ name: r.name, cls: r.cls, work40: r.work40, exam20: r.exam20, total60: r.total60 })),
-    cls: NX.cls || 'كل الفصول', label: NX.label, mode: NX.fill, round: NX.round };
+    cls: NX.cls || 'كل الفصول', label: NX.label, sem: NX.sem, per: NX.per, mode: NX.fill, round: NX.round };
 }
 async function noorPush() {
   const st = document.getElementById('nx-push-st'); if (!NX.rows.length) return;

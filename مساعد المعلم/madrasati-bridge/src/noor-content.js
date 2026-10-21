@@ -229,6 +229,13 @@
   .seg button.on{background:#fff;color:var(--pri);box-shadow:0 1px 3px rgba(15,27,45,.12)}
   select.cls{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:#fff;font:inherit;color:var(--ink)}
   .hint{font-size:12px;color:var(--mut);margin-top:6px}
+  .tgts{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:8px}
+  .tgt{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:9px 11px;border-radius:12px;border:1.5px solid var(--line);background:#fff;text-align:right;color:var(--ink)}
+  .tgt b{font-size:14px}.tgt small{font-size:10.5px;color:var(--mut);line-height:1.5}.tgt:hover{border-color:var(--pri)}
+  .tgt.on{border-color:var(--ok);background:var(--okb)}.tgt.on b{color:var(--ok)}.tgt.go{border-color:var(--pri);box-shadow:0 0 0 3px rgba(15,118,110,.15);animation:mbpulse 1.2s infinite}
+  @keyframes mbpulse{50%{box-shadow:0 0 0 6px rgba(15,118,110,.05)}}
+  details.man{margin-top:10px;border-top:1px dashed var(--line);padding-top:8px}details.man summary{cursor:pointer;font-size:12px;color:var(--mut);font-weight:700}
+  .fld{margin-top:9px}.fld>span{display:block;font-size:11.5px;font-weight:800;color:var(--mut);margin-bottom:5px}
   .secs{display:flex;flex-wrap:wrap;gap:8px}.sec-b{width:40px;height:40px;border-radius:50%;border:1.5px solid var(--line);background:#fff;font-weight:800;font-size:14px;color:var(--ink)}
   .sec-b:hover{border-color:var(--pri)}.sec-b.on{background:var(--pri);border-color:var(--pri);color:#fff;box-shadow:0 3px 10px rgba(15,118,110,.3)}
   .pri{width:100%;border:0;border-radius:12px;padding:12px;background:var(--pri);color:#fff;font-weight:800;font-size:14px}
@@ -264,7 +271,7 @@
   .empty{text-align:center;color:var(--mut);padding:18px 8px;font-size:12.5px}
   .ver{font-size:10.5px;opacity:.7}`;
 
-  const ui = { host: null, root: null, open: false, sheet: null, mode: 'both', view: 'home', r: null, sel: new Map(), filter: 'all', q: '', res: null, classPicker: null, periodPicker: null };
+  const ui = { host: null, root: null, open: false, sheet: null, mode: 'both', view: 'home', r: null, sel: new Map(), filter: 'all', q: '', res: null, targets: [], fields: [], going: '' };
   const kindOf = x => x.why ? x.why : x.alias ? 'alias' : x.exact ? 'exact' : 'approx';
   const grp = k => ({ exact: 'ok', alias: 'ok', approx: 'warn', none: 'bad', tie: 'bad', nocell: 'bad', locked: 'mute', empty: 'mute' })[k];
   const ver = () => { try { return chrome.runtime.getManifest().version; } catch (_) { return ''; } };
@@ -281,66 +288,118 @@
     ui.r.plan.forEach(x => { const k = kindOf(x), g = grp(k); if (g === 'ok') return;
       x.tr.style.outline = `2px ${g === 'warn' ? 'dashed #D49A1E' : 'solid #D6455B'}`; x.tr.style.outlineOffset = '-2px'; x.tr.dataset.mbPv = k; });
   }
-  /* 🏫 الفصل (الشعبة) في نور: أزرار دائرية مرقّمة (1، 2، 3…) بجانب عنوان «الفصل*» — لا قائمة «الصف» (الأول المتوسط…) ولا «الفصل الدراسي».
-     يرجع { type:'btns', items:[{label, el, on}] } أو { type:'select', sel } لقائمة شُعب حقيقية، أو null */
+  /* 🧭 حقول اختيار الصفحة في نور: الفصل الدراسي، الفترة، الصف، الفصل (الشعبة: أزرار دائرية 1…6).
+     كل حقل يُوحَّد إلى { type:'select'|'btns', sel?, items:[{label, key, el, on}] } حيث key رقم (1، 2…) */
   const ccTxt = el => String((el && (el.innerText || el.textContent)) || '').replace(/\s+/g, ' ').trim();
-  const DIG = /^[0-9١-٩]{1,2}$/;
-  function findClassPicker() {
-    const mine = el => ui.host && ui.host.contains(el);
-    const labels = [...document.querySelectorAll('label,span,td,th,div,b,strong')].filter(el => !mine(el) && el.children.length <= 2 && /^\*?\s*الفصل\s*\*?\s*:?$/.test(ccTxt(el)));
-    for (const lb of labels) {
+  const AD = s => String(s || '').replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
+  const SEP = '[\\s\\-–—/*:()،,]';
+  const ORDRX = ['أول|اول|أولى|اولى', 'ثاني|ثانية|ثانيه', 'ثالث|ثالثة|ثالثه', 'رابع|رابعة', 'خامس|خامسة', 'سادس|سادسة'].map(w => new RegExp(`(^|${SEP})(ال)?(${w})(?=${SEP}|$)`));
+  const ORDW = t => { t = AD(t); for (let i = 0; i < ORDRX.length; i++) if (ORDRX[i].test(t)) return i + 1; return 0; };
+  const ORD = t => { const m = String(t || '').match(/الفترة\s*(\S+)/); return m ? (ORDW(m[1]) || +AD(m[1]) || 0) : 0; };
+  const ORDN = ['', 'الأولى', 'الثانية', 'الثالثة'], ORDM = ['', 'الأول', 'الثاني', 'الثالث', 'الرابع', 'الخامس', 'السادس'];
+  const QA = q => docsOf(document).flatMap(d => [...d.querySelectorAll(q)]).filter(el => !(ui.host && ui.host.contains(el)));
+  const after = (a, b) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+  const FL = /^\*?\s*(الفصل\s*الدراسي|الفترة(\s*التقويمية)?|الصف|الفصل|الشعبة|المادة|المرحلة|الحلقة|المدرسة|نوع\s*\S+)\s*\*?\s*:?$/;
+  const secKey = t => { t = AD(t).trim(); const m = t.match(/^(\d{1,2})$/) || t.match(/^\d\s*[/\-]\s*(\d{1,2})$/) || t.match(/^شعبة\s*(\d{1,2})$/); return m ? +m[1] : 0; };
+  const FIELDS = [
+    { k: 'sem', name: 'الفصل الدراسي', rx: /^\*?\s*الفصل\s*الدراسي\s*\*?\s*:?$/, key: ORDW, fb: t => /الفصل\s*الدراسي|^الفصل\s+(ال)?(أول|اول|ثاني|ثالث)$/.test(t) },
+    { k: 'per', name: 'الفترة', rx: /^\*?\s*الفترة(\s*التقويمية)?\s*\*?\s*:?$/, key: t => /الفترة/.test(t) ? ORD(t) : ORDW(t), fb: t => /الفترة/.test(t) },
+    { k: 'grade', name: 'الصف', rx: /^\*?\s*الصف\s*\*?\s*:?$/, key: ORDW, fb: t => /المتوسط|الابتدائي|الثانوي/.test(t) && !/الفصل|الفترة/.test(t) },
+    { k: 'sec', name: 'الفصل', rx: /^\*?\s*(الفصل|الشعبة)\s*\*?\s*:?$/, key: secKey, btns: true, fb: t => !!secKey(t) }];
+  const FBY = Object.fromEntries(FIELDS.map(f => [f.k, f]));
+  function isOn(el) {
+    const r = el.type === 'radio' ? el : el.querySelector && el.querySelector('input[type=radio]'); if (r && r.checked) return true;
+    if ((el.getAttribute('aria-checked') || el.getAttribute('aria-pressed') || el.getAttribute('aria-selected')) === 'true') return true;
+    return /(^|[\s_-])(active|selected|checked|current)([\s_-]|$)/i.test(String(el.className || ''));
+  }
+  const fromSel = (sel, F) => { const items = [...sel.options].map(o => ({ label: ccTxt(o), key: F.key(ccTxt(o)), el: o, on: o.selected })).filter(x => x.key);
+    return items.length ? { type: 'select', sel, items } : null; };
+  function findField(F) {
+    const labs = QA('label,span,td,th,div,b,strong,p,legend').filter(el => el.children.length <= 2 && FL.test(ccTxt(el)));
+    // العنصر يتبع هذا العنوان مباشرة: لا عنوان حقل آخر بينهما
+    const owns = (lb, el) => after(lb, el) && !labs.some(o => o !== lb && !o.contains(lb) && !lb.contains(o) && !o.contains(el) && after(lb, o) && after(o, el));
+    for (const lb of labs.filter(el => F.rx.test(ccTxt(el)))) {
       let box = lb.parentElement;
       for (let up = 0; box && up < 5; up++, box = box.parentElement) {
-        const cands = [...box.querySelectorAll('input[type=radio],button,a,label,li,span,div')].filter(el => !mine(el) && !lb.contains(el) && el !== lb && DIG.test(ccTxt(el) || (el.type === 'radio' ? (el.labels && el.labels[0] ? ccTxt(el.labels[0]) : el.value) : '')));
-        // أدق عنصر لكل رقم (لا الحاوية التي تضم الرقم وغيره)
+        const sel = [...box.querySelectorAll('select')].find(x => owns(lb, x) && x.options.length > 1);
+        if (sel) { const f = fromSel(sel, F); if (f) return f; }
+        if (!F.btns && F.k !== 'per') continue;
+        const txt = el => ccTxt(el) || (el.type === 'radio' ? ccTxt(el.labels && el.labels[0]) || el.value : '');
         const by = new Map();
-        for (const el of cands) { const k = el.type === 'radio' ? String((el.labels && el.labels[0] ? ccTxt(el.labels[0]) : el.value)) : ccTxt(el); if (!by.has(k) || by.get(k).contains(el)) by.set(k, el); }
+        for (const el of box.querySelectorAll('input[type=radio],button,a,label,li,span,div')) {
+          if (el === lb || lb.contains(el) || !owns(lb, el)) continue; const k = F.key(txt(el)); if (!k) continue;
+          if (!by.has(k) || by.get(k).contains(el)) by.set(k, el);
+        }
         if (by.size >= 2 && by.size <= 15) {
-          const items = [...by.entries()].map(([label, el]) => ({ label, el })).sort((a, b) => Number(a.label.replace(/[١-٩]/g, d => '١٢٣٤٥٦٧٨٩'.indexOf(d) + 1)) - Number(b.label.replace(/[١-٩]/g, d => '١٢٣٤٥٦٧٨٩'.indexOf(d) + 1)));
-          // المحدد: radio مختار، أو aria/class تدل على التحديد، أو الوحيد بلون خلفية مختلف
-          const isOn = el => { const r = el.type === 'radio' ? el : el.querySelector && el.querySelector('input[type=radio]'); if (r && r.checked) return true;
-            if ((el.getAttribute('aria-checked') || el.getAttribute('aria-pressed') || el.getAttribute('aria-selected')) === 'true') return true;
-            return /(^|[\s_-])(active|selected|checked|current|on)([\s_-]|$)/i.test(String(el.className || '')); };
+          const items = [...by.entries()].sort((a, b) => a[0] - b[0]).map(([key, el]) => ({ label: txt(el), key, el }));
           let on = items.filter(x => isOn(x.el));
-          if (on.length !== 1) { const bg = items.map(x => getComputedStyle(x.el).backgroundColor), cnt = {}; bg.forEach(c => cnt[c] = (cnt[c] || 0) + 1);
+          if (on.length !== 1) { const bg = items.map(x => (x.el.ownerDocument.defaultView || window).getComputedStyle(x.el).backgroundColor), cnt = {}; bg.forEach(c => cnt[c] = (cnt[c] || 0) + 1);
             const odd = items.filter((x, k) => cnt[bg[k]] === 1); on = odd.length === 1 ? odd : []; }
           items.forEach(x => { x.on = on.includes(x) });
           return { type: 'btns', items };
         }
       }
     }
-    // احتياط: قائمة منسدلة خياراتها شُعب (1/1، شعبة أ…) لا مراحل (الأول المتوسط…) ولا فصول دراسية
-    const sel = [...document.querySelectorAll('select')].find(sel => { if (mine(sel) || sel.options.length < 2) return false;
-      const opts = [...sel.options].map(o => ccTxt(o)).filter(t => t && !/^-+\s*اختر/.test(t));
-      if (opts.some(t => /الدور|المتوسط|الابتدائي|الثانوي|السنة|1447|1448/.test(t))) return false;
-      return opts.length >= 2 && opts.every(t => DIG.test(t) || /^\d\s*[/\-]\s*\d$/.test(t) || /^شعبة\s*\S+$/.test(t)); });
-    return sel ? { type: 'select', sel } : null;
+    // احتياط: قائمة خياراتها تدل على الحقل نفسه
+    for (const sel of QA('select')) { const opts = [...sel.options].map(ccTxt); if (opts.filter(F.fb).length >= 2 && !(F.k === 'sec' && opts.some(t => /المتوسط|الابتدائي|الثانوي|الفترة|الدراسي/.test(t)))) { const f = fromSel(sel, F); if (f) return f; } }
+    return null;
   }
-  /* 📅 الفترة في نور: قائمة أو أزرار بجانب عنوان «الفترة*» (أو قائمة خياراتها «الفترة الأولى…»).
-     يرجع { type:'btns', items } أو { type:'select', sel } أو null */
-  const ORD = t => { const m = String(t || '').match(/الفترة\s*(الأولى|الاولى|الأول|الثانية|الثاني|الثالثة|الثالث|[1-3١-٣])/); if (!m) return 0;
-    return /^(الأولى|الاولى|الأول|1|١)$/.test(m[1]) ? 1 : /^(الثانية|الثاني|2|٢)$/.test(m[1]) ? 2 : 3; };
-  function findPeriodPicker() {
-    const mine = el => ui.host && ui.host.contains(el);
-    const labels = [...document.querySelectorAll('label,span,td,th,div,b,strong')].filter(el => !mine(el) && el.children.length <= 2 && /^\*?\s*الفترة(\s*التقويمية)?\s*\*?\s*:?$/.test(ccTxt(el)));
-    for (const lb of labels) {
-      let box = lb.parentElement;
-      for (let up = 0; box && up < 4; up++, box = box.parentElement) {
-        const sel = [...box.querySelectorAll('select')].find(x => !mine(x) && (lb.compareDocumentPosition(x) & Node.DOCUMENT_POSITION_FOLLOWING) && x.options.length > 1);
-        if (sel) return { type: 'select', sel };
-        const cands = [...box.querySelectorAll('input[type=radio],button,a,label,li,span')].filter(el => !mine(el) && !lb.contains(el) && el !== lb && ORD(ccTxt(el) || (el.labels && el.labels[0] ? ccTxt(el.labels[0]) : '')));
-        const by = new Map(); for (const el of cands) { const k = ORD(ccTxt(el) || ccTxt(el.labels && el.labels[0])); if (!by.has(k) || by.get(k).contains(el)) by.set(k, el); }
-        if (by.size >= 2) {
-          const items = [...by.entries()].sort((a, b) => a[0] - b[0]).map(([n, el]) => ({ n, label: ccTxt(el) || ccTxt(el.labels && el.labels[0]), el }));
-          const isOn = el => { const r = el.type === 'radio' ? el : el.querySelector && el.querySelector('input[type=radio]'); return !!(r && r.checked) || (el.getAttribute('aria-checked') || el.getAttribute('aria-pressed') || el.getAttribute('aria-selected')) === 'true' || /(^|[\s_-])(active|selected|checked|current)([\s_-]|$)/i.test(String(el.className || '')); };
-          items.forEach(x => { x.on = isOn(x.el) }); return { type: 'btns', items };
-        }
-      }
+  const curKey = pk => ((pk && pk.items.find(x => x.on)) || {}).key || 0;
+  function setField(pk, it) {
+    if (pk.type === 'select') { pk.sel.value = it.el.value; ['input', 'change'].forEach(e => pk.sel.dispatchEvent(new Event(e, { bubbles: true }))); return; }
+    const r = it.el.type === 'radio' ? it.el : (it.el.querySelector && it.el.querySelector('input[type=radio]')) || it.el; r.click();
+  }
+  const findClassPicker = () => findField(FBY.sec), findPeriodPicker = () => findField(FBY.per);
+
+  /* 🎯 من الكشف المصدَّر: الفصل الدراسي والفترة من عنوانه، والصف والشعبة من اسم الفصل («أول 2»، «1/2»، «الأول المتوسط 3»…) */
+  function parseCls(cls) {
+    const t = AD(cls).replace(/\s+/g, ' ').trim(); let m = t.match(/^(\d)\s*[/\-_]\s*(\d{1,2})$/);
+    if (m) return { grade: +m[1], sec: +m[2], stage: '' };
+    const stage = /متوسط/.test(t) ? 'المتوسط' : /ابتدا/.test(t) ? 'الابتدائي' : /ثانو/.test(t) ? 'الثانوي' : '';
+    const g = ORDW(t), nums = t.match(/\d{1,2}/g) || [];
+    if (g) return { grade: g, sec: nums.length ? +nums[nums.length - 1] : 0, stage };
+    if (nums.length >= 2) return { grade: +nums[0], sec: +nums[nums.length - 1], stage };
+    return { grade: 0, sec: nums.length ? +nums[0] : 0, stage };
+  }
+  function sheetTargets(S) {
+    if (!S || !Array.isArray(S.rows)) return [];
+    const L = String(S.label || ''), sem = +S.sem || ORDW((L.match(/الفصل\s*(?:الدراسي\s*)?(\S+)/) || [])[1]), per = +S.per || ORD(L);
+    const list = S.cls && S.cls !== 'كل الفصول' ? [S.cls] : [...new Set(S.rows.map(r => String(r.cls || '').trim()).filter(Boolean))];
+    return list.map(cls => ({ cls, sem, per, ...parseCls(cls), n: S.rows.filter(r => String(r.cls || '').trim() === cls).length }))
+      .filter(x => x.grade || x.sec).sort((a, b) => a.grade - b.grade || a.sec - b.sec);
+  }
+  const pickItem = (pk, k, want, stage) => { const c = pk.items.filter(x => x.key === want); return (k === 'grade' && stage && c.find(x => x.label.includes(stage))) || c[0] || null; };
+  // حالة الصفحة الحالية مقابل الهدف: لكل حقل ✓ أو ✗ أو «غير ظاهر»
+  function pageState(t) { return FIELDS.filter(F => t[F.k]).map(F => { const pk = findField(F), cur = curKey(pk); return { F, pk, want: t[F.k], cur, ok: !!pk && cur === t[F.k] }; }); }
+
+  /* الانتقال التلقائي: يضبط الحقول بالترتيب، وكل تغيير قد يعيد تحميل صفحة نور — فالحالة تُحفظ ويُستأنف بعد التحميل */
+  const GK = 'mb_noor_goto';
+  const gGet = async () => { try { return (await chrome.storage.local.get(GK))[GK] || null; } catch (_) { return null; } };
+  const gSet = g => { try { chrome.storage.local.set({ [GK]: g }); } catch (_) {} };
+  let gTimer = 0;
+  const gLater = ms => { clearTimeout(gTimer); gTimer = setTimeout(gotoStep, ms); };
+  async function gotoStart(t) { gSet({ t, at: Date.now(), n: 0, w: 0 }); ui.going = t.cls; ui.msg = `⏳ ينتقل إلى صفحة ${t.cls} في نور…`; render(); gotoStep(); }
+  async function gotoStep() {
+    const g = await gGet(); if (!g || !g.t) { ui.going = ''; return; }
+    const stop = msg => { gSet(null); ui.going = ''; ui.msg = msg; if (ui.view !== 'home') ui.view = 'home'; render(); };
+    if (Date.now() - g.at > 120000 || g.n > 16) return stop('⚠️ لم يكتمل الانتقال تلقائيًا — أكمل الاختيار في نور ثم اعرض المعاينة.');
+    ui.going = g.t.cls; ui.open = true;
+    for (const st of pageState(g.t)) {
+      if (!st.pk) { if (st.F.k === 'sec' && g.w < 6) { g.w++; gSet(g); ui.msg = '⏳ ينتظر ظهور أزرار الفصل في نور…'; render(); gLater(1000); return; } continue; }
+      if (st.ok) continue;
+      const it = pickItem(st.pk, st.F.k, st.want, g.t.stage);
+      if (!it) return stop(`⚠️ لم أجد «${st.F.name} ${st.F.k === 'sec' ? st.want : st.F.k === 'per' ? ORDN[st.want] || st.want : ORDM[st.want] || st.want}» في نور — اختره يدويًا.`);
+      g.n++; g.searched = false; gSet(g); ui.msg = `⏳ يختار ${st.F.name}: ${it.label}…`; render();
+      setField(st.pk, it); gLater(1300); return;
     }
-    const sel = [...document.querySelectorAll('select')].find(x => !mine(x) && [...x.options].filter(o => ORD(ccTxt(o))).length >= 2);
-    return sel ? { type: 'select', sel } : null;
+    // الحقول مضبوطة: هل ظهر طلاب هذا الفصل؟
+    const r = ui.sheet ? fill(ui.sheet, ui.mode, { dry: true }) : null;
+    if (r && r.plan.length && (!r.cls || r.cls === g.t.cls)) { gSet(null); ui.going = ''; ensureUI(); ui.open = true; doPreview(); return; }
+    if (!g.searched) { const b = QA('button,input[type=submit],input[type=button],a').find(b => visible(b) && /^(بحث|ابحث|عرض|استعراض|عرض الطلاب|بحث عن الطلاب)$/.test(ccTxt(b) || String(b.value || '').trim()));
+      if (b) { g.searched = true; g.n++; gSet(g); ui.msg = '⏳ يعرض طلاب الفصل…'; render(); b.click(); gLater(1500); return; } }
+    if ((g.w2 || 0) < 4) { g.w2 = (g.w2 || 0) + 1; gSet(g); gLater(1200); return; }
+    stop(`ضُبطت الصفحة في نور على ${g.t.cls}، لكن لم يظهر طلابه بعد — اضغط «بحث/عرض» في نور ثم «اعرض المعاينة».`);
   }
-  const pickedOrd = pp => !pp ? 0 : pp.type === 'select' ? ORD(ccTxt(pp.sel.options[pp.sel.selectedIndex])) : ((pp.items.find(x => x.on) || {}).n || 0);
 
   function ensureUI() {
     if (ui.host && document.documentElement.contains(ui.host)) return;
@@ -390,22 +449,23 @@
       <div class="meta"><span>📄 ${n} طالب</span>${S.label ? `<span>${esc(S.label)}</span>` : ''}${S.cls ? `<span>${esc(S.cls)}</span>` : ''}${when ? `<span class="${age > 2 * 864e5 ? 'old' : ''}">${age > 2 * 864e5 ? '⚠️ صُدّر ' + esc(when) + ' — صدّره من جديد' : '🕒 ' + esc(when)}</span>` : ''}</div></div>`;
     let body = '', foot = '';
     if (ui.view === 'home') {
-      const cp = ui.classPicker = findClassPicker(), pp = ui.periodPicker = findPeriodPicker();
-      const want = ORD(S.label), have = pickedOrd(pp), ORDN = ['', 'الأولى', 'الثانية', 'الثالثة'];
-      let stepN = 1; const nx = () => ++stepN;
+      const T = ui.targets = sheetTargets(S), want = ORD(S.label);
+      const F = ui.fields = FIELDS.map(f => ({ f, pk: findField(f) })).filter(x => x.pk);
+      const pp = (F.find(x => x.f.k === 'per') || {}).pk, have = curKey(pp);
+      const states = T.map(t => pageState(t)), here = states.map(st => st.length && st.every(x => x.ok || !x.pk) && st.some(x => x.ok));
+      const manual = F.length ? F.map(({ f, pk }) => `<div class="fld"><span>${f.name}</span>${pk.type === 'btns'
+          ? `<div class="${f.k === 'sec' ? 'secs' : 'seg'}">${pk.items.map((x, n) => `<button class="${f.k === 'sec' ? 'sec-b ' : ''}${x.on ? 'on' : ''}" data-fld="${f.k}:${n}">${esc(x.label)}</button>`).join('')}</div>`
+          : `<select class="cls" data-fsel="${f.k}">${[...pk.sel.options].map(o => `<option value="${esc(o.value)}" ${o.selected ? 'selected' : ''}>${esc(ccTxt(o))}</option>`).join('')}</select>`}</div>`).join('') : '';
+      const perWarn = want && have && want !== have ? `<div class="note warn" style="margin:8px 0 0">⚠️ الدرجات المصدَّرة للفترة <b>${ORDN[want]}</b> لكن نور على الفترة <b>${ORDN[have]}</b>.</div>` : '';
       body = `<div class="card"><div class="lbl"><b>1</b>ماذا تكتب؟</div>
           <div class="seg">${MODES.map(([k, t, s]) => `<button data-mode="${k}" class="${ui.mode === k ? 'on' : ''}">${t}<small>${s}</small></button>`).join('')}</div></div>
-        ${cp ? `<div class="card"><div class="lbl"><b>${nx()}</b>الفصل في نور</div>
-          ${cp.type === 'btns' ? `<div class="secs">${cp.items.map((x, n) => `<button class="sec-b ${x.on ? 'on' : ''}" data-sec="${n}">${esc(x.label)}</button>`).join('')}</div>`
-            : `<select class="cls" data-cls="1">${[...cp.sel.options].map(o => `<option value="${esc(o.value)}" ${o.value === cp.sel.value ? 'selected' : ''}>${esc((o.textContent || '').trim())}</option>`).join('')}</select>`}
-          <div class="hint">يختار الفصل في نور نفسه — بعدها اضغط «ابحث» في نور إن لزم، وانتظر ظهور الطلاب ثم اعرض المعاينة.</div></div>` : ''}
-        ${pp ? `<div class="card"><div class="lbl"><b>${nx()}</b>الفترة في نور</div>
-          ${pp.type === 'btns' ? `<div class="seg">${pp.items.map((x, n) => `<button class="${x.on ? 'on' : ''}" data-per="${n}">${esc(x.label)}</button>`).join('')}</div>`
-            : `<select class="cls" data-per-sel="1">${[...pp.sel.options].map(o => `<option value="${esc(o.value)}" ${o.value === pp.sel.value ? 'selected' : ''}>${esc((o.textContent || '').trim())}</option>`).join('')}</select>`}
-          ${want && have && want !== have ? `<div class="note warn" style="margin:8px 0 0">⚠️ الدرجات المصدَّرة للفترة <b>${ORDN[want]}</b> لكن نور على الفترة <b>${ORDN[have]}</b> — غيّر الفترة في نور أو صدّر الفترة الصحيحة من مساعد المعلم.</div>`
-            : want && have ? `<div class="hint" style="color:var(--ok)">✓ نفس فترة الدرجات المصدَّرة (${ORDN[want]})</div>` : want ? `<div class="hint">الدرجات المصدَّرة للفترة ${ORDN[want]} — اختر نفسها في نور.</div>` : ''}</div>`
-          : want ? `<div class="note info" style="margin:0 0 10px">📅 الدرجات المصدَّرة للفترة <b>${ORDN[want]}</b> — تأكد أن نور على نفس الفترة.</div>` : ''}
-        <div class="card"><div class="lbl"><b>${nx()}</b>راجع قبل الكتابة</div><div class="hint" style="margin:0 0 10px">تُعرض درجات كل طالب في هذه الصفحة وحالته، ولا يُكتب شيء قبل موافقتك.</div>
+        ${T.length || F.length ? `<div class="card"><div class="lbl"><b>2</b>${T.length ? 'انتقل لصفحة الفصل في نور' : 'الصفحة في نور'}</div>
+          ${T.length ? `<div class="tgts">${T.map((t, i) => `<button class="tgt ${here[i] ? 'on' : ''} ${ui.going === t.cls ? 'go' : ''}" data-goto="${i}"><b>${here[i] ? '✓ ' : ''}${esc(t.cls)}</b>
+              <small>${[t.sem ? 'ف' + ['', '1', '2', '3'][t.sem] : '', t.per ? 'الفترة ' + ORDN[t.per] : '', t.grade ? 'الصف ' + ORDM[t.grade] : '', t.sec ? 'الفصل ' + t.sec : ''].filter(Boolean).join(' · ')} · ${t.n} طالب</small></button>`).join('')}</div>
+            <div class="hint">اضغط الفصل: يختار الجسر <b>الفصل الدراسي والفترة والصف والفصل</b> في نور بنفسه، ثم يعرض الطلاب ويفتح المعاينة.</div>
+            ${manual ? `<details class="man"><summary>اختيار يدوي</summary>${manual}</details>` : ''}` : manual}
+          ${perWarn}</div>` : want ? `<div class="note info" style="margin:0 0 10px">📅 الدرجات المصدَّرة للفترة <b>${ORDN[want]}</b> — تأكد أن نور على نفس الفترة.</div>` : ''}
+        <div class="card"><div class="lbl"><b>${T.length || F.length ? 3 : 2}</b>راجع قبل الكتابة</div><div class="hint" style="margin:0 0 10px">تُعرض درجات كل طالب في هذه الصفحة وحالته، ولا يُكتب شيء قبل موافقتك.</div>
           <button class="pri" data-act="preview">👁️ اعرض المعاينة</button>${ui.msg ? `<div class="note warn" style="margin:10px 0 0">${esc(ui.msg)}</div>` : ''}</div>`;
     } else if (ui.view === 'preview') {
       const c = counts(), F = ui.filter, q = norm(ui.q);
@@ -442,12 +502,9 @@
     if (a === 'open') { ui.open = true; ui.justOpened = true; render(); return; }
     if (a === 'close') { ui.open = false; clearMarks(); ui.view = ui.view === 'done' ? 'done' : 'home'; render(); return; }
     if (t.dataset.mode) { ui.mode = t.dataset.mode; render(); return; }
-    if (t.dataset.per != null && ui.periodPicker && ui.periodPicker.type === 'btns') { const it = ui.periodPicker.items[+t.dataset.per]; if (!it) return;
-      const r = it.el.type === 'radio' ? it.el : (it.el.querySelector && it.el.querySelector('input[type=radio]')) || it.el; r.click();
-      ui.msg = `تم اختيار ${it.label} في نور — اضغط «ابحث» في نور إن لزم، ثم اعرض المعاينة.`; setTimeout(render, 400); return; }
-    if (t.dataset.sec != null && ui.classPicker && ui.classPicker.type === 'btns') { const it = ui.classPicker.items[+t.dataset.sec]; if (!it) return;
-      const r = it.el.type === 'radio' ? it.el : (it.el.querySelector && it.el.querySelector('input[type=radio]')) || it.el; r.click();
-      ui.msg = `تم اختيار الفصل ${it.label} في نور — اضغط «ابحث» في نور إن لم يظهر الطلاب، ثم اعرض المعاينة.`; setTimeout(render, 400); return; }
+    if (t.dataset.goto != null) { const tg = (ui.targets || [])[+t.dataset.goto]; if (tg) gotoStart(tg); return; }
+    if (t.dataset.fld) { const [k, n] = t.dataset.fld.split(':'), x = (ui.fields || []).find(y => y.f.k === k), it = x && x.pk.items[+n]; if (!it) return;
+      setField(x.pk, it); ui.msg = `تم اختيار ${x.f.name}: ${it.label} في نور — اضغط «بحث/عرض» في نور إن لزم، ثم اعرض المعاينة.`; setTimeout(render, 400); return; }
     if (a === 'preview' || a === 'again') { doPreview(); return; }
     if (a === 'back') { clearMarks(); ui.view = 'home'; render(); return; }
     if (t.dataset.filter) { ui.filter = t.dataset.filter; render(); return; }
@@ -471,10 +528,8 @@
     const t = ev.target;
     if (t.classList.contains('ck')) { const x = ui.r.plan[+t.closest('.row').dataset.i]; ui.sel.set(x.tr, t.checked); render(); return; }
     if (t.dataset.pick != null && t.value) { const x = ui.r.plan[+t.dataset.pick]; ALIAS[norm(x.name)] = t.value; aliasSave(); ui.sel.set(x.tr, true); runPlan(); render(); return; }
-    if (t.dataset.perSel && ui.periodPicker && ui.periodPicker.type === 'select') { const sel = ui.periodPicker.sel; sel.value = t.value; ['input', 'change'].forEach(e => sel.dispatchEvent(new Event(e, { bubbles: true })));
-      ui.msg = 'تم اختيار الفترة في نور — انتظر تحديث الصفحة ثم اعرض المعاينة.'; setTimeout(render, 400); return; }
-    if (t.dataset.cls && ui.classPicker && ui.classPicker.type === 'select') { const sel = ui.classPicker.sel; sel.value = t.value; ['input', 'change'].forEach(e => sel.dispatchEvent(new Event(e, { bubbles: true })));
-      ui.msg = 'تم اختيار الفصل في نور — انتظر ظهور الطلاب ثم اعرض المعاينة.'; render(); }
+    if (t.dataset.fsel) { const x = (ui.fields || []).find(y => y.f.k === t.dataset.fsel); if (!x) return; x.pk.sel.value = t.value; ['input', 'change'].forEach(e => x.pk.sel.dispatchEvent(new Event(e, { bubbles: true })));
+      ui.msg = `تم اختيار ${x.f.name} في نور — انتظر تحديث الصفحة ثم اعرض المعاينة.`; setTimeout(render, 400); }
   }
   function onInput(ev) { if (ev.target.classList.contains('q')) { ui.q = ev.target.value; ui.focusQ = true; render(); ui.focusQ = false; } }
   async function loadSheet() { try { ui.sheet = (await chrome.storage.local.get('mb_noor_grades')).mb_noor_grades || null; } catch (_) { ui.sheet = null; } }
@@ -483,6 +538,7 @@
     if (!ui.sheet || !Array.isArray(ui.sheet.rows) || !ui.sheet.rows.length) { if (ui.host) ui.host.remove(); ui.host = null; return; }
     if (['both', 'work40', 'exam20'].includes(ui.sheet.mode)) ui.mode = ui.sheet.mode;
     ensureUI(); render();
+    if (await gGet()) gotoStep();
   }
 
   chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
