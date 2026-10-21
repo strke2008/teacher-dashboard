@@ -236,6 +236,8 @@
   @keyframes mbpulse{50%{box-shadow:0 0 0 6px rgba(15,118,110,.05)}}
   details.man{margin-top:10px;border-top:1px dashed var(--line);padding-top:8px}details.man summary{cursor:pointer;font-size:12px;color:var(--mut);font-weight:700}
   .fld{margin-top:9px}.fld>span{display:block;font-size:11.5px;font-weight:800;color:var(--mut);margin-bottom:5px}
+  .rbtns{display:flex;flex-wrap:wrap;gap:6px}.btn2{flex:1 1 auto;padding:8px 10px;border-radius:10px;border:1.5px solid var(--line);background:#fff;font-weight:700;font-size:12.5px;color:var(--ink)}
+  .btn2:hover{border-color:var(--pri);color:var(--pri)}.btn2:disabled{opacity:.5}.hint a{color:var(--pri)}
   .secs{display:flex;flex-wrap:wrap;gap:8px}.sec-b{width:40px;height:40px;border-radius:50%;border:1.5px solid var(--line);background:#fff;font-weight:800;font-size:14px;color:var(--ink)}
   .sec-b:hover{border-color:var(--pri)}.sec-b.on{background:var(--pri);border-color:var(--pri);color:#fff;box-shadow:0 3px 10px rgba(15,118,110,.3)}
   .pri{width:100%;border:0;border-radius:12px;padding:12px;background:var(--pri);color:#fff;font-weight:800;font-size:14px}
@@ -402,6 +404,69 @@
     let u = ''; try { u = (await chrome.storage.local.get(GP))[GP] || ''; } catch (_) {}
     location.href = u || GP_DEF; return true;
   }
+  /* 📥 سحب أسماء الطلاب من صفحة إدخال الدرجات إلى مساعد المعلم (الاسم والفصل فقط — بلا هوية) */
+  const RK = 'mb_noor_roster', SK = 'mb_noor_sweep', GSHORT = ['', 'أول', 'ثاني', 'ثالث', 'رابع', 'خامس', 'سادس'];
+  function readNames() {
+    const out = [], seen = new Set();
+    for (const doc of docsOf(document)) for (const tr of doc.querySelectorAll('tr')) {
+      if (ui.host && ui.host.contains(tr)) continue;
+      if (!tr.querySelector('input,select')) continue;
+      const nm = rowName(tr); if (!nm || nm.split(' ').length < 3) continue;
+      const k = norm(nm); if (seen.has(k)) continue; seen.add(k); out.push(nm);
+    }
+    return out;
+  }
+  function curClass() {
+    const gp = findField(FBY.grade), sp = findField(FBY.sec), g = curKey(gp), sec = curKey(sp);
+    const gl = ((gp && gp.items.find(x => x.on)) || {}).label || '';
+    const stage = /المتوسط/.test(gl) ? 'المتوسط' : /الابتدائي/.test(gl) ? 'الابتدائي' : /الثانوي/.test(gl) ? 'الثانوي' : '';
+    return { grade: g, sec, stage, gradeLabel: gl, label: g && sec ? `${GSHORT[g]} ${sec}` : sec ? `فصل ${sec}` : '' };
+  }
+  const rGet = async () => { try { return (await chrome.storage.local.get(RK))[RK] || { classes: {} }; } catch (_) { return { classes: {} }; } };
+  async function rosterSave(c, names) {
+    const R = await rGet(); R.classes = R.classes || {}; R.classes[c.label] = { grade: c.grade, sec: c.sec, stage: c.stage, gradeLabel: c.gradeLabel, names, at: Date.now() }; R.at = Date.now();
+    try { await chrome.storage.local.set({ [RK]: R }); } catch (_) {} ui.roster = R; return R;
+  }
+  const rosterSum = R => { const cs = Object.values((R && R.classes) || {}); return { c: cs.length, n: cs.reduce((a, x) => a + (x.names || []).length, 0) }; };
+  const sGet = async () => { try { return (await chrome.storage.local.get(SK))[SK] || null; } catch (_) { return null; } };
+  const sSet = v => { try { chrome.storage.local.set({ [SK]: v }); } catch (_) {} };
+  let sTimer = 0; const sLater = ms => { clearTimeout(sTimer); sTimer = setTimeout(sweepStep, ms); };
+  async function rosterThis() {
+    const c = curClass(), names = readNames();
+    if (!c.label) { ui.rmsg = '⚠️ اختر الصف والفصل في نور أولًا.'; render(); return; }
+    if (!names.length) { ui.rmsg = `⚠️ لا أسماء ظاهرة لـ ${c.label} — اضغط زر الفصل في نور حتى يظهر الطلاب.`; render(); return; }
+    await rosterSave(c, names); ui.rmsg = `✅ حُفظت أسماء ${c.label}: ${names.length} طالب.`; render();
+  }
+  async function sweepStart(all) {
+    const gp = findField(FBY.grade), sp = findField(FBY.sec);
+    if (!sp) { ui.rmsg = '⚠️ لم أجد أزرار الفصل في هذه الصفحة.'; render(); return; }
+    const grades = all && gp ? gp.items.map(x => x.key) : [curKey(gp)];
+    sSet({ at: Date.now(), grades, gi: 0, secs: null, i: 0, clicked: false, prev: readNames().join('|'), w: 0, n: 0, done: 0 });
+    ui.rmsg = '⏳ يبدأ السحب…'; render(); sweepStep();
+  }
+  async function sweepStep() {
+    const st = await sGet(); if (!st) return;
+    const stop = m => { sSet(null); ui.rmsg = m; ui.sweeping = false; render(); };
+    if (Date.now() - st.at > 6 * 60000 || st.n > 120) return stop(`⚠️ توقف السحب — حُفظ ${st.done} فصل. أكمل الباقي يدويًا.`);
+    ui.sweeping = true; ui.open = true; st.n++;
+    ui.rmsg = `⏳ يسحب الأسماء… ${st.grades.length > 1 ? `الصف ${st.gi + 1}/${st.grades.length} · ` : ''}الفصل ${Math.min(st.i + 1, (st.secs || []).length || 1)}/${(st.secs || []).length || '؟'} · حُفظ ${st.done} فصل`;
+    if (ui.root) render();
+    const want = st.grades[st.gi];
+    if (want) { const gp = findField(FBY.grade); if (gp && curKey(gp) !== want) { const it = pickItem(gp, 'grade', want); if (it) { st.secs = null; st.w = 0; sSet(st); ui.rmsg = `⏳ يختار ${it.label}…`; render(); setField(gp, it); sLater(1500); return; } } }
+    const sp = findField(FBY.sec);
+    if (!sp) { if (st.w++ < 10) { sSet(st); sLater(1000); return; } return stop('⚠️ لم تظهر أزرار الفصل.'); }
+    if (!st.secs) { st.secs = sp.items.map(x => x.key); st.i = 0; st.clicked = false; }
+    const sec = st.secs[st.i];
+    if (sec == null) { st.gi++; st.secs = null; if (st.gi >= st.grades.length) { const R = rosterSum(await rGet()); return stop(`✅ انتهى السحب: ${st.done} فصل في هذه الجولة · المحفوظ ${R.c} فصل و${R.n} طالب. افتح مساعد المعلم ← طرق استيراد أسماء الطلاب ← «من نور».`); } sSet(st); sLater(200); return; }
+    if (!st.clicked) { const it = sp.items.find(x => x.key === sec); st.clicked = true; st.w = 0; sSet(st); const c0 = curClass();
+      ui.rmsg = `⏳ ${c0.grade ? GSHORT[c0.grade] + ' ' : ''}${sec}: يحمّل الطلاب… (${st.i + 1}/${st.secs.length})`; render(); if (it) setField(sp, it); sLater(1500); return; }
+    const names = readNames(), sig = names.join('|');
+    // فصل بلا طلاب (لا يدرّسه المعلم): انتظار أقصر
+    if ((!names.length || sig === st.prev) && st.w < (names.length ? 7 : 4)) { st.w++; sSet(st); sLater(1000); return; }
+    const c = curClass(); if (names.length && sig !== st.prev && c.label) { await rosterSave(c, names); st.done++; }
+    st.prev = sig; st.i++; st.clicked = false; sSet(st); sLater(300);
+  }
+
   async function gotoStart(t) { gSet({ t, at: Date.now(), n: 0, w: 0 }); ui.going = t.cls; ui.msg = `⏳ ينتقل إلى صفحة ${t.cls} في نور…`; render(); gotoStep(); }
   async function gotoStep() {
     const g = await gGet(); if (!g || !g.t) { ui.going = ''; return; }
@@ -473,12 +538,22 @@
     const n = (S.rows || []).length, age = S.at ? Date.now() - S.at : 0;
     const when = S.at ? new Date(S.at).toLocaleString('ar-SA-u-ca-gregory-nu-latn', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : '';
     pushPage(ui.open);
-    if (!ui.open) { w.innerHTML = `<button class="fab" data-act="open">🏛️ رصد مساعد المعلم <i>${n} طالب</i></button>`; return; }
+    if (!ui.open) { w.innerHTML = `<button class="fab" data-act="open">🏛️ ${n ? `رصد مساعد المعلم <i>${n} طالب</i>` : 'مساعد المعلم <i>📥 الأسماء</i>'}</button>`; return; }
     const head = `<div class="hd"><div class="hd-top"><div class="logo">🏛️</div><div><h1>رصد الدرجات في نور</h1><p>من كشف مساعد المعلم <span class="ver">· v${esc(ver())}</span></p></div>
         <button class="x" data-act="close" title="تصغير">–</button></div>
-      <div class="meta"><span>📄 ${n} طالب</span>${S.label ? `<span>${esc(S.label)}</span>` : ''}${S.cls ? `<span>${esc(S.cls)}</span>` : ''}${when ? `<span class="${age > 2 * 864e5 ? 'old' : ''}">${age > 2 * 864e5 ? '⚠️ صُدّر ' + esc(when) + ' — صدّره من جديد' : '🕒 ' + esc(when)}</span>` : ''}</div></div>`;
+      <div class="meta">${n ? `<span>📄 ${n} طالب</span>` : '<span>📥 سحب أسماء الطلاب — لا يوجد كشف درجات مُرسل</span>'}${S.label ? `<span>${esc(S.label)}</span>` : ''}${S.cls ? `<span>${esc(S.cls)}</span>` : ''}${when ? `<span class="${age > 2 * 864e5 ? 'old' : ''}">${age > 2 * 864e5 ? '⚠️ صُدّر ' + esc(when) + ' — صدّره من جديد' : '🕒 ' + esc(when)}</span>` : ''}</div></div>`;
     let body = '', foot = '';
-    if (ui.view === 'home') {
+    ui.gradePage = onGradePage();
+    const RS = rosterSum(ui.roster), cc = ui.gradePage ? curClass() : null, here = ui.gradePage ? readNames().length : 0;
+    const rosterCard = ui.gradePage ? `<div class="card"><div class="lbl">📥 سحب أسماء الطلاب لمساعد المعلم</div>
+        <div class="rbtns"><button class="btn2" data-act="r-this" ${ui.sweeping ? 'disabled' : ''}>هذا الفصل${cc && cc.label ? ` (${esc(cc.label)} · ${here} طالب)` : ''}</button>
+          <button class="btn2" data-act="r-grade" ${ui.sweeping ? 'disabled' : ''}>كل فصول هذا الصف</button>
+          <button class="btn2" data-act="r-all" ${ui.sweeping ? 'disabled' : ''}>كل الصفوف والفصول</button>
+          ${ui.sweeping ? '<button class="btn2" data-act="r-stop">⏹ إيقاف</button>' : ''}</div>
+        ${ui.rmsg ? `<div class="note ${/^✅/.test(ui.rmsg) ? 'info' : 'warn'}" style="margin:8px 0 0">${esc(ui.rmsg)}</div>` : ''}
+        <div class="hint">${RS.c ? `محفوظ في الجسر: <b>${RS.c}</b> فصل · <b>${RS.n}</b> طالب ${!ui.sweeping ? '· <a href="#" data-act="r-clear">مسح</a>' : ''}<br>` : ''}يُحفظ الاسم والفصل فقط. بعدها في مساعد المعلم: ⚙️ الإعدادات ← 👥 طرق استيراد أسماء الطلاب ← <b>🏛️ من نور</b>.</div></div>` : '';
+    if (ui.view === 'home' && !n) { body = rosterCard; }
+    else if (ui.view === 'home') {
       const T = ui.targets = sheetTargets(S), want = ORD(S.label);
       const F = ui.fields = FIELDS.map(f => ({ f, pk: findField(f) })).filter(x => x.pk);
       const pp = (F.find(x => x.f.k === 'per') || {}).pk, have = curKey(pp);
@@ -498,7 +573,7 @@
             ${manual ? `<details class="man"><summary>اختيار يدوي</summary>${manual}</details>` : ''}` : manual}
           ${perWarn}</div>` : want ? `<div class="note info" style="margin:0 0 10px">📅 الدرجات المصدَّرة للفترة <b>${ORDN[want]}</b> — تأكد أن نور على نفس الفترة.</div>` : ''}
         <div class="card"><div class="lbl"><b>${T.length || F.length ? 3 : 2}</b>راجع قبل الكتابة</div><div class="hint" style="margin:0 0 10px">تُعرض درجات كل طالب في هذه الصفحة وحالته، ولا يُكتب شيء قبل موافقتك.</div>
-          <button class="pri" data-act="preview">👁️ اعرض المعاينة</button>${ui.msg ? `<div class="note warn" style="margin:10px 0 0">${esc(ui.msg)}</div>` : ''}</div>`;
+          <button class="pri" data-act="preview">👁️ اعرض المعاينة</button>${ui.msg ? `<div class="note warn" style="margin:10px 0 0">${esc(ui.msg)}</div>` : ''}</div>${rosterCard}`;
     } else if (ui.view === 'preview') {
       const c = counts(), F = ui.filter, q = norm(ui.q);
       const list = ui.r.plan.map((x, i) => [x, i]).filter(([x]) => (F === 'all' || grp(kindOf(x)) === F) && (!q || norm(x.name).includes(q)));
@@ -529,11 +604,15 @@
     render();
   }
   function onClick(ev) {
-    const t = ev.target.closest('button,[data-go]'); if (!t) return;
+    const t = ev.target.closest('button,[data-go],a[data-act]'); if (!t) return;
     const a = t.dataset.act;
     if (a === 'open') { ui.open = true; ui.justOpened = true; render(); return; }
     if (a === 'close') { ui.open = false; clearMarks(); ui.view = ui.view === 'done' ? 'done' : 'home'; render(); return; }
     if (t.dataset.mode) { ui.mode = t.dataset.mode; render(); return; }
+    if (a === 'r-this') { rosterThis(); return; }
+    if (a === 'r-grade' || a === 'r-all') { sweepStart(a === 'r-all'); return; }
+    if (a === 'r-stop') { sSet(null); clearTimeout(sTimer); ui.sweeping = false; ui.rmsg = 'أُوقف السحب — ما حُفظ يبقى محفوظًا.'; render(); return; }
+    if (a === 'r-clear') { ev.preventDefault(); try { chrome.storage.local.remove(RK); } catch (_) {} ui.roster = { classes: {} }; ui.rmsg = ''; render(); return; }
     if (a === 'gopage') { ui.msg = '⏳ يفتح صفحة إدخال الدرجات…'; render(); openGradePage(); return; }
     if (t.dataset.goto != null) { const tg = (ui.targets || [])[+t.dataset.goto]; if (tg) gotoStart(tg); return; }
     if (t.dataset.fld) { const [k, n] = t.dataset.fld.split(':'), x = (ui.fields || []).find(y => y.f.k === k), it = x && x.pk.items[+n]; if (!it) return;
@@ -567,11 +646,15 @@
   function onInput(ev) { if (ev.target.classList.contains('q')) { ui.q = ev.target.value; ui.focusQ = true; render(); ui.focusQ = false; } }
   async function loadSheet() { try { ui.sheet = (await chrome.storage.local.get('mb_noor_grades')).mb_noor_grades || null; } catch (_) { ui.sheet = null; } }
   async function showUI() {
-    await loadSheet();
-    if (!ui.sheet || !Array.isArray(ui.sheet.rows) || !ui.sheet.rows.length) { if (ui.host) ui.host.remove(); ui.host = null; return; }
-    if (['both', 'work40', 'exam20'].includes(ui.sheet.mode)) ui.mode = ui.sheet.mode;
+    await loadSheet(); ui.roster = await rGet(); ui.gradePage = onGradePage();
+    const has = ui.sheet && Array.isArray(ui.sheet.rows) && ui.sheet.rows.length;
+    // بلا كشف درجات: تظهر اللوحة في صفحة إدخال الدرجات فقط (لسحب الأسماء)
+    if (!has && !ui.gradePage) { if (ui.host) ui.host.remove(); ui.host = null; return; }
+    if (!has) ui.sheet = null;
+    if (has && ['both', 'work40', 'exam20'].includes(ui.sheet.mode)) ui.mode = ui.sheet.mode;
     ensureUI(); render();
-    if (await gGet()) gotoStep();
+    if (has && await gGet()) gotoStep();
+    if (await sGet()) sweepStep();
   }
 
   chrome.runtime.onMessage.addListener((msg, _sender, reply) => {

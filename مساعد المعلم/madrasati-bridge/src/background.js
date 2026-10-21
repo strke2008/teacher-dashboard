@@ -145,6 +145,13 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
       })();
       return true;
     }
+    // 👥 أسماء الطلاب المسحوبة من صفحة إدخال الدرجات في نور (الاسم والفصل فقط)
+    if (action === 'noorRoster') {
+      chrome.storage.local.get('mb_noor_roster').then(x => { const R = x.mb_noor_roster || { classes: {} };
+        reply({ ok: true, at: R.at || 0, classes: Object.entries(R.classes || {}).map(([label, c]) => ({ label, grade: c.grade || 0, sec: c.sec || 0, stage: c.stage || '', names: c.names || [], at: c.at || 0 })) }); })
+        .catch(e => reply({ ok: false, error: String(e && e.message || e) }));
+      return true;
+    }
     if (action === 'noorStatus') {
       (async () => {
         try {

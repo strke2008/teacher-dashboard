@@ -185,6 +185,43 @@ async function noorOpenSite() {
   if (r && r.ok) { toast(r.focused ? '🏛️ انتقلت إلى تبويب نور' : '🏛️ فُتحت صفحة إدخال الدرجات في نور', 'good'); return; }
   window.open('https://noor.moe.gov.sa/Noor/login.aspx', '_blank', 'noopener');
 }
+/* 👥 استيراد أسماء الطلاب من نور (عبر جسر مدرستي): يُطابَق فصل نور (الصف + رقم الفصل) مع فصول المعلم الحالية بأي تسمية */
+const NX_ORD = [/(^|[\s\-/])(ال)?(أول|اول|أولى)(?=[\s\-/]|$)/, /(^|[\s\-/])(ال)?(ثاني|ثانية)(?=[\s\-/]|$)/, /(^|[\s\-/])(ال)?(ثالث|ثالثة)(?=[\s\-/]|$)/, /(^|[\s\-/])(ال)?(رابع|رابعة)(?=[\s\-/]|$)/, /(^|[\s\-/])(ال)?(خامس|خامسة)(?=[\s\-/]|$)/, /(^|[\s\-/])(ال)?(سادس|سادسة)(?=[\s\-/]|$)/];
+function nxParseCls(c) {
+  const t = String(c || '').replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/\s+/g, ' ').trim();
+  let m = t.match(/^(\d)\s*[/\-_]\s*(\d{1,2})$/); if (m) return { grade: +m[1], sec: +m[2] };
+  const g = NX_ORD.findIndex(r => r.test(t)) + 1, nums = t.match(/\d{1,2}/g) || [];
+  if (g) return { grade: g, sec: nums.length ? +nums[nums.length - 1] : 0 };
+  return nums.length >= 2 ? { grade: +nums[0], sec: +nums[nums.length - 1] } : { grade: 0, sec: nums.length ? +nums[0] : 0 };
+}
+async function noorRosterImport() {
+  const help = msg => openModal(`<h2>🏛️ استيراد الأسماء من نور</h2>
+    <p class="muted" style="font-size:.86rem;line-height:1.9;margin:.2rem 0 .8rem">${msg}</p>
+    <ol style="font-size:.88rem;line-height:2;margin:0 1.2rem .8rem;padding:0">
+      <li>افتح <b>صفحة إدخال الدرجات</b> في نور واختر السنة والفصل الدراسي.</li>
+      <li>من لوحة «جسر مدرستي» في نور اضغط <b>📥 كل الصفوف والفصول</b> (أو هذا الفصل فقط) وانتظر حتى ينتهي.</li>
+      <li>ارجع هنا واضغط <b>استيراد من نور</b> مرة ثانية.</li></ol>
+    <div class="modal-foot"><button class="btn ghost" onclick="closeModal()">إغلاق</button><button class="btn" onclick="noorOpenSite()">🔗 افتح نور</button></div>`);
+  if (typeof MADB === 'undefined' || !MADB.ok || typeof madbCall !== 'function') return help('هذه الطريقة تحتاج إضافة <b>جسر مدرستي 0.23.0</b> أو أحدث في هذا المتصفح — ثبّتها ثم أعد تحميل الصفحة.');
+  const r = await madbCall('noorRoster', {}, 4000).catch(() => null);
+  if (!r || !r.ok) return help(r ? '⚠️ ' + esc(r.error || 'تعذّر القراءة') : 'لم تردّ الإضافة — حدّث «جسر مدرستي» إلى 0.23.0 أو أحدث ثم أعد تحميل الصفحة.');
+  const classes = (r.classes || []).filter(c => (c.names || []).length);
+  if (!classes.length) return help('لا توجد أسماء محفوظة في الجسر بعد.');
+  // اسم الفصل: نفس تسمية فصل المعلم الحالي المطابق (الصف + الرقم)، وإلا تسمية نور المختصرة «أول 2»
+  const mine = [...new Set((STUDENTS || []).map(s => String(s.cls || '').trim()).filter(Boolean))];
+  const mapCls = c => mine.find(x => { const p = nxParseCls(x); return p.grade === c.grade && p.sec === c.sec; }) || c.label;
+  const toks = n => normAr(n).split(' ').filter(w => w && !['بن', 'ابن', 'بنت'].includes(w));
+  const inOrder = (a, b) => { let j = 0; for (const w of b) if (w === a[j]) j++; return j === a.length; };
+  // موجود مسبقًا: نفس الاسم، أو أحدهما جزء مرتب من الآخر (3 أجزاء فأكثر)، أو نفس الأول والأخير في الفصل نفسه
+  const exists = (name, cls) => { const t = toks(name); return (STUDENTS || []).some(s => { const u = toks(s.name); if (!u.length) return false;
+    if (u.join(' ') === t.join(' ')) return true; const [a, b] = u.length <= t.length ? [u, t] : [t, u];
+    if (a.length >= 3 && inOrder(a, b)) return true; return String(s.cls || '').trim() === cls && u[0] === t[0] && u[u.length - 1] === t[t.length - 1]; }); };
+  let had = 0; const recs = [];
+  classes.sort((a, b) => a.grade - b.grade || a.sec - b.sec).forEach(c => { const cls = mapCls(c); c.names.forEach(name => { if (exists(name, cls)) had++; else recs.push({ name, cls }); }); });
+  if (!recs.length) { toast(`كل طلاب نور (${had}) موجودون مسبقًا ✓`, 'good'); return; }
+  if (had) toast(`تُجوهل ${had} طالب موجود مسبقًا`, '');
+  reviewImportedNames(recs, `نظام نور — ${classes.length} فصل`);
+}
 async function noorPush() {
   const st = document.getElementById('nx-push-st'); if (!NX.rows.length) return;
   if (st) st.textContent = '⏳ جارٍ الإرسال للإضافة…';
