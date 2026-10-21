@@ -212,15 +212,58 @@ async function noorRosterImport() {
   const mapCls = c => mine.find(x => { const p = nxParseCls(x); return p.grade === c.grade && p.sec === c.sec; }) || c.label;
   const toks = n => normAr(n).split(' ').filter(w => w && !['بن', 'ابن', 'بنت'].includes(w));
   const inOrder = (a, b) => { let j = 0; for (const w of b) if (w === a[j]) j++; return j === a.length; };
-  // موجود مسبقًا: نفس الاسم، أو أحدهما جزء مرتب من الآخر (3 أجزاء فأكثر)، أو نفس الأول والأخير في الفصل نفسه
-  const exists = (name, cls) => { const t = toks(name); return (STUDENTS || []).some(s => { const u = toks(s.name); if (!u.length) return false;
+  // موجود مسبقًا (نفس الاسم، أو أحدهما جزء مرتب من الآخر 3 أجزاء فأكثر، أو نفس الأول والأخير في الفصل نفسه): يُعرض معطّلًا مع اسمه الحالي ولا يُمسّ
+  const twin = (name, cls) => { const t = toks(name); return (STUDENTS || []).find(s => { const u = toks(s.name); if (!u.length) return false;
     if (u.join(' ') === t.join(' ')) return true; const [a, b] = u.length <= t.length ? [u, t] : [t, u];
-    if (a.length >= 3 && inOrder(a, b)) return true; return String(s.cls || '').trim() === cls && u[0] === t[0] && u[u.length - 1] === t[t.length - 1]; }); };
-  let had = 0; const recs = [];
-  classes.sort((a, b) => a.grade - b.grade || a.sec - b.sec).forEach(c => { const cls = mapCls(c); c.names.forEach(name => { if (exists(name, cls)) had++; else recs.push({ name, cls }); }); });
-  if (!recs.length) { toast(`كل طلاب نور (${had}) موجودون مسبقًا ✓`, 'good'); return; }
-  if (had) toast(`تُجوهل ${had} طالب موجود مسبقًا`, '');
-  reviewImportedNames(recs, `نظام نور — ${classes.length} فصل`);
+    if (a.length >= 3 && inOrder(a, b)) return true; return String(s.cls || '').trim() === cls && u[0] === t[0] && u[u.length - 1] === t[t.length - 1]; }) || null; };
+  NXR.groups = classes.sort((a, b) => a.grade - b.grade || a.sec - b.sec).map(c => { const cls = mapCls(c);
+    return { noor: c.label, cls, items: c.names.map(name => { const tw = twin(name, cls); return { name, on: false, dup: tw ? tw.name : '' }; }) }; });
+  NXR.added = []; NXR.mine = mine;
+  if (!NXR.groups.some(g => g.items.some(x => !x.dup))) { toast(`كل طلاب نور موجودون مسبقًا ✓ — لم يُضف شيء`, 'good'); return; }
+  nxrRender();
+}
+/* مراجعة أسماء نور: لا يُضاف إلا ما يحدده المعلم بنفسه، ولا يُحذف أو يُعدَّل أي طالب موجود */
+const NXR = { groups: [], added: [], mine: [] };
+function nxrRender() {
+  const sel = NXR.groups.reduce((a, g) => a + g.items.filter(x => x.on && !x.dup).length, 0);
+  const fresh = NXR.groups.reduce((a, g) => a + g.items.filter(x => !x.dup).length, 0);
+  openModal(`<div class="nxr"><h2>🏛️ مراجعة أسماء نور قبل الإضافة</h2>
+    <p class="nxr-safe">🔒 لن يُضاف إلا ما تحدده أنت، ولن يُحذف أو يُعدَّل أي طالب موجود في مساعد المعلم.</p>
+    <div class="nxr-bar"><span><b>${fresh}</b> اسم جديد · المحدد <b id="nxr-n">${sel}</b></span><span class="spacer"></span>
+      <button class="btn ghost sm" type="button" onclick="nxrAll(true)">✔ تحديد كل الجدد</button><button class="btn ghost sm" type="button" onclick="nxrAll(false)">إلغاء التحديد</button></div>
+    <datalist id="nxr-cls">${NXR.mine.map(c => `<option value="${esc(c)}">`).join('')}</datalist>
+    <div class="nxr-list">${NXR.groups.map((g, gi) => { const nw = g.items.filter(x => !x.dup), on = nw.filter(x => x.on).length;
+      return `<details class="nxr-g" ${nw.length ? 'open' : ''}><summary><input type="checkbox" ${nw.length && on === nw.length ? 'checked' : ''} ${nw.length ? '' : 'disabled'} onclick="event.stopPropagation()" onchange="nxrGroup(${gi},this.checked)">
+        <b>${esc(g.noor)}</b><span class="muted">نور</span> ← <input class="inp sm nxr-c" list="nxr-cls" value="${esc(g.cls)}" onclick="event.stopPropagation()" onchange="NXR.groups[${gi}].cls=this.value.trim()||NXR.groups[${gi}].cls" title="اسم الفصل في مساعد المعلم">
+        <span class="nxr-k">${on}/${nw.length} جديد${g.items.length - nw.length ? ` · ${g.items.length - nw.length} موجود` : ''}</span></summary>
+        ${g.items.map((x, i) => x.dup ? `<label class="nxr-i dup"><input type="checkbox" disabled><span>${esc(x.name)}</span><small>موجود: ${esc(x.dup)}</small></label>`
+          : `<label class="nxr-i"><input type="checkbox" ${x.on ? 'checked' : ''} onchange="nxrOne(${gi},${i},this.checked)"><span>${esc(x.name)}</span></label>`).join('')}</details>`; }).join('')}</div>
+    <div class="modal-foot"><button class="btn ghost" type="button" onclick="closeModal()">إلغاء — لا تُضف شيئًا</button>
+      <button class="btn" type="button" id="nxr-go" onclick="nxrAdd()" ${sel ? '' : 'disabled'}>✅ أضف المحددين (${sel})</button></div></div>`);
+}
+function nxrCount() { const n = NXR.groups.reduce((a, g) => a + g.items.filter(x => x.on && !x.dup).length, 0), b = document.getElementById('nxr-go'), c = document.getElementById('nxr-n');
+  if (c) c.textContent = n; if (b) { b.disabled = !n; b.textContent = `✅ أضف المحددين (${n})`; } return n; }
+function nxrOne(gi, i, v) { NXR.groups[gi].items[i].on = v; const g = NXR.groups[gi], nw = g.items.filter(x => !x.dup), on = nw.filter(x => x.on).length;
+  const d = document.querySelectorAll('.nxr-g')[gi]; if (d) { const k = d.querySelector('.nxr-k'), cb = d.querySelector('summary input[type=checkbox]'); if (cb) cb.checked = on === nw.length; if (k) k.textContent = `${on}/${nw.length} جديد${g.items.length - nw.length ? ` · ${g.items.length - nw.length} موجود` : ''}`; } nxrCount(); }
+function nxrGroup(gi, v) { NXR.groups[gi].items.forEach(x => { if (!x.dup) x.on = v; }); nxrRender(); }
+function nxrAll(v) { NXR.groups.forEach(g => g.items.forEach(x => { if (!x.dup) x.on = v; })); nxrRender(); }
+function nxrAdd() {
+  const pick = []; NXR.groups.forEach(g => g.items.forEach(x => { if (x.on && !x.dup) pick.push({ name: x.name, cls: g.cls }); }));
+  if (!pick.length) return;
+  const nc = new Set(pick.map(x => x.cls)).size;
+  if (!confirm(`سيُضاف ${pick.length} طالب جديد إلى ${nc} فصل.\nلن يُحذف أو يُعدَّل أي طالب موجود.\n\nمتابعة؟`)) return;
+  const seen = new Set((STUDENTS || []).map(s => normAr(s.name))), added = [];
+  pick.forEach(r => { const k = normAr(r.name); if (!k || seen.has(k)) return; seen.add(k); const st = { id: uid(), name: r.name, cls: r.cls, points: 0 }; STUDENTS.push(st); added.push(st.id); });
+  save(K.st, STUDENTS); renderAll(); NXR.added = added;
+  openModal(`<div class="nxr"><h2>✅ أُضيف ${added.length} طالب</h2>
+    <p class="muted" style="font-size:.88rem;line-height:1.9">لم يُحذف أو يُعدَّل أي طالب موجود. إن أضفت شيئًا بالخطأ يمكنك التراجع عن <b>هذه الإضافة فقط</b> الآن.</p>
+    <div class="modal-foot"><button class="btn ghost" type="button" onclick="nxrUndo()">↩️ تراجع عن هذه الإضافة</button><button class="btn" type="button" onclick="closeModal()">تم</button></div></div>`);
+}
+function nxrUndo() {
+  const ids = new Set(NXR.added || []); if (!ids.size) return closeModal();
+  if (!confirm(`سيُزال ${ids.size} طالب أُضيفوا الآن من نور فقط — ولا يُمسّ غيرهم. متابعة؟`)) return;
+  for (let i = STUDENTS.length - 1; i >= 0; i--) if (ids.has(STUDENTS[i].id)) STUDENTS.splice(i, 1);
+  save(K.st, STUDENTS); renderAll(); NXR.added = []; closeModal(); toast(`↩️ أُزيل ${ids.size} طالب أُضيفوا من نور`, 'good');
 }
 async function noorPush() {
   const st = document.getElementById('nx-push-st'); if (!NX.rows.length) return;

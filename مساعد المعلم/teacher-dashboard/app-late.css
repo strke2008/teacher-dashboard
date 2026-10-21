@@ -2585,3 +2585,13 @@ button.sk-chip:not([onclick]){cursor:default}
 .ae-files{display:flex;flex-wrap:wrap;gap:.35rem}
 .ae-files .ann-file.gone{opacity:.55;text-decoration:line-through}.ae-files .ann-file.new{border-color:#86D3A6;background:#F0FAF5}
 .ann-hint{display:block;margin-top:.3rem;font-size:.76rem;color:var(--ink-soft)}.ann-hint code{background:#EEF2F7;border-radius:6px;padding:.05rem .35rem;direction:rtl;unicode-bidi:plaintext}
+
+/* 🏛️ مراجعة أسماء نور قبل الإضافة */
+.nxr h2{margin:0 0 .3rem}.nxr-safe{margin:0 0 .7rem;padding:.55rem .8rem;border-radius:10px;background:#ECFDF5;color:#065F46;font-size:.84rem;font-weight:600}
+.nxr-bar{display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;margin:0 0 .6rem;font-size:.86rem}
+.nxr-list{max-height:52vh;overflow:auto;display:flex;flex-direction:column;gap:.5rem}
+.nxr-g{border:1px solid var(--line,#E5E7EB);border-radius:12px;padding:.35rem .6rem}
+.nxr-g summary{display:flex;align-items:center;gap:.45rem;cursor:pointer;flex-wrap:wrap;padding:.2rem 0}
+.nxr-c{width:auto;min-width:9rem;max-width:14rem;padding:.25rem .5rem}.nxr-k{margin-inline-start:auto;font-size:.78rem;color:var(--ink-soft,#64748B)}
+.nxr-i{display:flex;align-items:center;gap:.5rem;padding:.3rem .2rem;border-top:1px dashed var(--line,#EEF0F3);font-size:.88rem;cursor:pointer}
+.nxr-i small{margin-inline-start:auto;font-size:.74rem;color:var(--ink-soft,#64748B)}.nxr-i.dup{opacity:.6;cursor:default}
