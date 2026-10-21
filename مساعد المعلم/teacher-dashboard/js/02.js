@@ -1734,7 +1734,25 @@ async function ctSave(mutate){
   try{ if(typeof tdCacheSave==='function') tdCacheSave(); }catch(e){}
   return fresh;
 }
-function ctSem(){ const a=(typeof DASH_ACADEMIC!=='undefined'&&DASH_ACADEMIC)||{}; const s=Number(a.currentSemester)===2?2:1; return { sem:s, per:Number(a.semesters?.[s]?.activePeriod)===2?2:1, closed:(a.semesters?.[s]?.status)==='closed' }; }
+function ctSemActive(){ const a=(typeof DASH_ACADEMIC!=='undefined'&&DASH_ACADEMIC)||{}; const s=Number(a.currentSemester)===2?2:1; return { sem:s, per:Number(a.semesters?.[s]?.activePeriod)===2?2:1, closed:(a.semesters?.[s]?.status)==='closed' }; }
+/* 📅 الفترة المعروضة في كل اللوحة: الجارية افتراضيًا، أو فترة مغلقة يختارها المعلم (للتقارير وملف الفصل وشهادات الأوائل).
+   العرض فقط — الرصد الجديد (درجات الاختبارات…) يبقى على الفترة الجارية دائمًا (ctSemActive). */
+const VSP_KEY='view_sp_v1';
+function vspList(){
+  const a=(typeof DASH_ACADEMIC!=='undefined'&&DASH_ACADEMIC)||{}, cur=Number(a.currentSemester)===2?2:1, out=[];
+  for(const sn of [1,2]){ const S=(a.semesters||{})[sn]||{}; if(!S.status||S.status==='not_started') continue;
+    for(const pn of [1,2]){ const closed=S.status==='closed'||(S.periodStatus||{})[pn]==='closed'||(pn===1&&Number(S.activePeriod)===2);
+      const active=sn===cur&&S.status!=='closed'&&(Number(S.activePeriod)===2?2:1)===pn;
+      if(closed||active) out.push({sem:sn,per:pn,closed,active}); } }
+  return out;
+}
+function vspGet(){ try{ const v=JSON.parse(localStorage.getItem(VSP_KEY)||'null'); return v&&v.sem&&v.per?{sem:Number(v.sem)===2?2:1,per:Number(v.per)===2?2:1}:null; }catch(e){ return null; } }
+function vspLabel(sp){ return `${sp.sem===2?'الفصل الثاني':'الفصل الأول'} · ${sp.per===2?'الفترة الثانية':'الفترة الأولى'}`; }
+function ctSem(){
+  const a=ctSemActive(), v=vspGet(); if(!v||(v.sem===a.sem&&v.per===a.per)) return a;
+  const hit=vspList().find(x=>x.sem===v.sem&&x.per===v.per); if(!hit) return a;
+  return { sem:v.sem, per:v.per, closed:hit.closed, viewing:true };
+}
 function ctClasses(){ return [...new Set((STUDENTS||[]).map(s=>String(s.cls||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ar')); }
 function ctRoster(cls){ return (STUDENTS||[]).filter(s=>!cls||String(s.cls||'')===cls).slice().sort((a,b)=>String(a.name).localeCompare(String(b.name),'ar')); }
 function ctToday(){ return new Date(Date.now()+3*3600000).toISOString().slice(0,10); }
@@ -1926,7 +1944,7 @@ function ctBook(d,sem,per){
   b.tests=Array.isArray(b.tests)?b.tests:[]; b.scores=b.scores&&typeof b.scores==='object'?b.scores:{};
   return b;
 }
-function ctExamSP(){ const a=ctSem(); return { sem:Number(window._ctExSem||a.sem), per:Number(window._ctExPer||a.per), closed:a.closed&&Number(window._ctExSem||a.sem)===a.sem }; }
+function ctExamSP(){ const a=ctSemActive(); return { sem:Number(window._ctExSem||a.sem), per:Number(window._ctExPer||a.per), closed:a.closed&&Number(window._ctExSem||a.sem)===a.sem }; }
 function ctExams(box){
   const {sem,per,closed}=ctExamSP(), cls=window._ctExCls??(ctClasses()[0]||'');
   const b=ctBook(JSON.parse(JSON.stringify(CT_DATA)),sem,per), max=b.tests.reduce((t,x)=>t+Math.max(0,Number(x.max)||0),0);
@@ -17936,3 +17954,43 @@ function stcOpen(sid){
 }
 // الضغط على «الطلاب» في القائمة (والجوال خاصة) يعيد إلى قائمة الطلاب
 document.addEventListener('click',e=>{ if(e.target.closest&&e.target.closest('.tab[data-tab="students"],.mobile-nav button[data-tab="students"]')) stcPanel()?.classList.remove('stc-open'); },true);
+
+/* 📅 مبدّل الفترة المعروضة: زر في أعلى اللوحة + شريط تنبيه حين تُعرض فترة مغلقة */
+function vspDraw(){
+  const sp=ctSem(), b=document.getElementById('vsp-btn'), bn=document.getElementById('vsp-banner'), L=vspList();
+  if(b){ b.style.display=L.length>1?'':'none'; b.textContent=`📅 ${vspLabel(sp)}${sp.viewing?' 🔒':''}`; b.classList.toggle('on',!!sp.viewing); }
+  if(bn){ bn.classList.toggle('hide',!sp.viewing);
+    if(sp.viewing) bn.innerHTML=`<span>👁️ تعرض بيانات <b>${vspLabel(sp)}</b> (مغلقة) — في الكشوف وملف الفصل والتقارير وشهادات الأوائل. الرصد الجديد يبقى على الفترة الجارية.</span><button class="btn sm" type="button" onclick="vspSet(0)">↩️ العودة للفترة الحالية</button>`; }
+}
+function vspOpen(){
+  const L=vspList(), cur=ctSem();
+  if(L.length<2){ toast('لا توجد فترة مغلقة للعرض بعد'); return; }
+  openModal(`<h2>📅 الفترة المعروضة</h2>
+    <p class="muted" style="font-size:.86rem;margin:.1rem 0 .8rem">اختر الفترة التي تريد رؤية بياناتها في كل اللوحة: الكشوف، ملف الفصل والأوائل، المستويات، تقارير الطلاب. الرصد الجديد يبقى على الفترة الجارية دائمًا.</p>
+    <div class="vsp-list">${L.map(x=>`<button type="button" class="vsp-opt ${x.sem===cur.sem&&x.per===cur.per?'on':''}" onclick="vspSet(${x.active?0:`{sem:${x.sem},per:${x.per}}`})">
+      <b>${vspLabel(x)}</b><small>${x.active?'● الفترة الجارية':'🔒 مغلقة — بياناتها كما أُغلقت'}</small></button>`).join('')}</div>
+    <div class="modal-foot"><button class="btn ghost" type="button" onclick="closeModal()">إغلاق</button></div>`);
+}
+// أول تحميل والمعلم على فترة مغلقة: الكشف الشامل وسجل مدرستي يفتحان عليها أيضًا (مرة واحدة، ثم يبقى اختياره اليدوي)
+function vspSyncSelects(){ if(window.__vspSynced) return; const sp=ctSem(); if(!vspList().length) return; window.__vspSynced=true; if(!sp.viewing) return;
+  [['comp-semester','comp-period'],['madr-sem','madr-per']].forEach(([a,b])=>{ const x=document.getElementById(a), y=document.getElementById(b); if(x) x.value=String(sp.sem); if(y) y.value=String(sp.per); }); }
+async function vspSet(sp){
+  try{ if(sp) localStorage.setItem(VSP_KEY,JSON.stringify(sp)); else localStorage.removeItem(VSP_KEY); }catch(e){}
+  closeModal(); const now=ctSem();
+  // كل ما يتبع الفترة يُعاد تحميله: درجات الفصل، والمقارنة بالفترة السابقة، وقوائم الكشف الشامل وسجل مدرستي
+  CT_GRADES=null; try{ CT_PREV=null; }catch(e){}
+  [['comp-semester','comp-period'],['madr-sem','madr-per']].forEach(([a,b])=>{ const x=document.getElementById(a), y=document.getElementById(b); if(x) x.value=String(now.sem); if(y) y.value=String(now.per); });
+  vspDraw(); toast(now.viewing?`👁️ تعرض الآن ${vspLabel(now)}`:'↩️ عدت للفترة الحالية','good');
+  try{ await ctEnsureGrades(true); }catch(e){}
+  const on=id=>document.getElementById(id)?.classList.contains('on');
+  try{ if(document.getElementById('ct-body')) await renderClassTools(); }catch(e){}
+  try{ if(on('p-dashboard')) renderTodayHub(true); }catch(e){}
+  try{ if(document.getElementById('comp-semester')) renderComprehensive(true); }catch(e){}
+  try{ if(typeof renderAll==='function') renderAll(); }catch(e){}
+}
+(function(){
+  const lda=loadDashboardAcademic;
+  loadDashboardAcademic=async function(...a){ const r=await lda.apply(this,a); try{ vspDraw(); vspSyncSelects(); }catch(e){} return r; };
+  const go=()=>{ try{ vspDraw(); }catch(e){} };
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',go); else go();
+})();

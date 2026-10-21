@@ -46,6 +46,8 @@ button.sm{padding:6px 12px;font-size:.85rem}
 .pt{margin:.3rem 0}
 details summary{cursor:pointer;margin:.3rem 0}
 .sib{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px}
+.pchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}.pchip{font:inherit;font-size:.82rem;font-weight:700;padding:6px 12px;border-radius:999px;border:1.5px solid #D5DEE8;background:#fff;color:#334155;cursor:pointer}
+.pchip.on{background:#13734F;border-color:#13734F;color:#fff}.pchip small{font-weight:600;opacity:.75}
 
 .tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 @media(min-width:560px){.tiles{grid-template-columns:repeat(3,minmax(0,1fr))}}
@@ -147,11 +149,12 @@ const KEY='parent_login_v1';
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
 const pct=(a,b)=>b?Math.round(a/b*100):0;
+let PNAME='';
 function err(t){ const e=$('err'); e.textContent=t; e.classList.toggle('hide',!t); }
-async function go(name, phone, quiet){
+async function go(name, phone, quiet, sp){
   err(''); $('go').disabled=true; $('go').textContent='⏳ جارٍ التحقق…';
   try{
-    const r=await fetch(API+'/parent/report',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,phone})});
+    const r=await fetch(API+'/parent/report',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,phone,...(sp||{})})});
     const j=await r.json().catch(()=>({}));
     if(!j.ok){
       if(quiet){ $('login').classList.remove('hide'); return; }
@@ -159,7 +162,7 @@ async function go(name, phone, quiet){
       return;
     }
     try{ localStorage.setItem(KEY,JSON.stringify({name,phone})); }catch(e){}
-    $('login').classList.add('hide'); render(j, phone);
+    $('login').classList.add('hide'); PNAME=name; render(j, phone);
   }catch(e){ err('تعذّر الاتصال — تحقق من الإنترنت.'); }
   finally{ $('go').disabled=false; $('go').textContent='عرض التقرير'; }
 }
@@ -377,6 +380,7 @@ function parentDetails(R, A){
   return D;
 }
 function render(j, phone){
+  const CV=!!(j.view&&(j.periods||[]).find(x=>x.sem===j.view.sem&&x.per===j.view.per&&x.closed));
   const s=j.student, A=j.acts||{}, R=j.live||(j.reports||[])[0]||null, late=(A.missing||[]).filter(x=>x.late), open=(A.missing||[]).filter(x=>!x.late);
   // 🧮 مثل كشف الدرجات: أعمال السنة 40 (المشاركة 10 · الواجبات 10 · السلوك 10 · المهام الأدائية 10) + الاختبارات 20 = 60
   const n1=v=>Math.round((Number(v)||0)*10)/10, H=R&&R.homework||{}, C=H.classPart, M=H.madrasati;
@@ -387,11 +391,12 @@ function render(j, phone){
   const out=exOn?total:work, max=exOn?60:40, LV=exOn?level(total):level(work*1.5), P=Math.round(out/max*100);
   let h=`<section class="card hero"><div class="who"><div class="av">🎓</div><div style="flex:1;min-width:0"><b>${esc(s.name)}</b><div class="muted">الفصل ${esc(s.cls||'—')}${R?` · ${esc(R.label||'')}`:''}</div></div>
       <button class="ghost sm" type="button" id="out-btn">خروج</button></div>
-    ${R?`<div class="lv" style="--c:${LV[1]}"><div class="ring" style="--p:${P}"><b>${out}<small>من ${max}</small></b></div><div><span class="muted">${exOn?'مجموعه حتى الآن':'أعمال السنة حتى الآن (الاختبارات لم تُرصد)'}</span><div class="lv-t">${LV[0]}</div>
+    ${R?`<div class="lv" style="--c:${LV[1]}"><div class="ring" style="--p:${P}"><b>${out}<small>من ${max}</small></b></div><div><span class="muted">${exOn?(CV?'مجموعه في الفترة (مغلقة)':'مجموعه حتى الآن'):(CV?'أعمال السنة في الفترة':'أعمال السنة حتى الآن')+' (الاختبارات لم تُرصد)'}</span><div class="lv-t">${LV[0]}</div>
       <div class="sum"><span>📚 أعمال السنة <b>${work}</b> من 40</span><span>📝 الاختبارات <b>${exOn?exS:'—'}</b> من 20</span></div></div></div>`:''}
     ${(()=>{ const mp=(M&&M.pendingList)||[], n=open.length+mp.length; if(!n) return '';
       const cs=[...open.filter(x=>x.due).map(x=>closeIn(x.due)),...mp.map(x=>x.dueAt?closeIn(x.dueAt):{n:x.daysLeft,txt:`يُغلق خلال ${x.daysLeft} ${x.daysLeft===1?'يوم':'أيام'}`})].filter(Boolean).sort((a,b)=>a.n-b.n)[0];
       return `<p class="muted" style="margin:.6rem 0 0">⏳ لديه <b>${n}</b> ${n===1?'مهمة متاحة':'مهام متاحة'} للحل الآن${cs?` — أقربها ${esc(cs.txt)}`:''}. اضغط بطاقة «واجبات مدرستي» أو «المهام الأدائية» للتفاصيل.</p>`; })()}
+    ${(j.periods||[]).length>1?`<div class="pchips" role="tablist" aria-label="الفترة">${j.periods.map(x=>`<button type="button" class="pchip ${j.view&&x.sem===j.view.sem&&x.per===j.view.per?'on':''}" data-psp="${x.sem}:${x.per}">${x.closed?'🔒 ':''}${esc(x.label.replace('الفصل الدراسي ','الفصل '))}${x.active?' <small>الجارية</small>':''}</button>`).join('')}</div>`:''}
     ${(j.siblings||[]).length?`<div class="sib"><span class="muted">إخوته:</span>${j.siblings.map(n=>`<button class="ghost sm" type="button" data-sib="${esc(n)}">${esc(n)}</button>`).join('')}</div>`:''}</section>`;
   // 🏅 شهادة تلقائية لمن بلغ تقدير «ممتاز» — تظهر وتختفي مع المستوى الحي، وتُطبع أو تُحفظ PDF
   Object.keys(PCS).forEach(k=>delete PCS[k]);
@@ -427,6 +432,8 @@ function render(j, phone){
     t.onclick=open; t.onkeydown=e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); open(); } }; });
   $('out-btn').onclick=()=>{ try{ localStorage.removeItem(KEY); }catch(e){} $('out').innerHTML=''; $('login').classList.remove('hide'); };
   $('out').querySelectorAll('[data-sib]').forEach(b=>b.onclick=()=>go(b.dataset.sib, phone));
+  // 📅 فترة أخرى (مثل الفترة الأولى بعد إغلاقها): نفس التقرير بدرجاتها كما أُغلقت
+  $('out').querySelectorAll('[data-psp]').forEach(b=>b.onclick=()=>{ const [sem,per]=b.dataset.psp.split(':').map(Number); b.disabled=true; go(PNAME||(JSON.parse(localStorage.getItem(KEY)||'{}').name||''), phone, false, {sem,per}); });
 }
 $('f').onsubmit=e=>{ e.preventDefault(); go($('nm').value.trim(), $('ph').value.trim()); };
 try{ const s=JSON.parse(localStorage.getItem(KEY)||'null'); if(s&&s.name&&s.phone){ $('nm').value=s.name; $('ph').value=s.phone; $('login').classList.add('hide'); go(s.name,s.phone,true); } }catch(e){}

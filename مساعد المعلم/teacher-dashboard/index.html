@@ -22,7 +22,7 @@
 <meta content="root-cause-sync-v2" name="sync-fix-version"/>
 <link rel="stylesheet" href="app.css?v=caf855e9">
 <script src="js/01-right-sidebar-navigation-js.js?v=41ea29b3" defer></script>
-<script src="js/02.js?v=1136dd00" defer></script>
+<script src="js/02.js?v=b57694de" defer></script>
 <script src="js/03-projects-students-logic-v13.js?v=1222f001" defer></script>
 <script src="js/04.js?v=88f51ee5" defer></script>
 <script src="js/05.js?v=5e4e4410" defer></script>
@@ -31,7 +31,7 @@
 <script src="js/08.js?v=4847aac5" defer></script>
 <script src="js/09.js?v=ef17fc2a" defer></script>
 <script src="js/10.js?v=bbaf2a38" defer></script>
-<script src="js/11.js?v=d8522669" defer></script>
+<script src="js/11.js?v=8ccd7b33" defer></script>
 <script src="js/12.js?v=8672864f" defer></script>
 <script src="js/13.js?v=0f4a40e9" defer></script>
 <script src="js/14.js?v=0cf10ae8" defer></script>
@@ -481,7 +481,7 @@
 .exam-shop-status.open{background:#E4F4EC;color:#167852}.exam-shop-status.closed{background:#FFF1F2;color:#9F2538}
 @media screen and (max-width:600px){.exam-shop-kpis{grid-template-columns:1fr 1fr}.exam-shop-student{grid-template-columns:1fr 105px}.exam-shop-student small{grid-column:1}.exam-shop-student .exam-shop-used{display:none}}
 </style>
-<link rel="stylesheet" id="late-css" href="app-late.css?v=5df44270">
+<link rel="stylesheet" id="late-css" href="app-late.css?v=93b8ddb9">
 </head>
 <body>
 <header class="masthead">
@@ -489,8 +489,10 @@
 <button aria-controls="main-nav" aria-expanded="false" aria-label="فتح قائمة التنقل" class="nav-drawer-toggle no-print" id="nav-drawer-toggle" type="button">☰</button>
 <div class="brand brand-refresh" role="button" tabindex="0" title="اضغط لتحديث الصفحة" aria-label="تحديث الصفحة"><span class="mark"></span> مساعد المعلم</div>
 <div class="meta" id="meta-line">—</div>
-<button class="btn ghost sm no-print" id="portal-link-btn" onclick="openPortal()" style="display:none;margin-inline-start:auto" type="button">🧭 بوابة المعلم</button>
+<button class="btn ghost sm no-print vsp-btn" id="vsp-btn" onclick="vspOpen()" style="display:none;margin-inline-start:auto" title="الفترة المعروضة في اللوحة — اضغط لعرض فترة مغلقة" type="button">📅</button>
+<button class="btn ghost sm no-print" id="portal-link-btn" onclick="openPortal()" style="display:none;margin-inline-start:.4rem" type="button">🧭 بوابة المعلم</button>
 </div>
+<div class="vsp-banner hide no-print" id="vsp-banner"></div>
 </header>
 <aside aria-label="التنقل الرئيسي" class="app-sidebar" id="main-nav">
 <div class="app-sidebar-head">

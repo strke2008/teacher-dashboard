@@ -53,7 +53,7 @@ async function madRegisterLoad(first){
     let sem=Number(document.getElementById('madr-sem').value), per=Number(document.getElementById('madr-per').value);
     let bundle=await loadReportBundle(true,sem,per);
     const ac=bundle.grades&&bundle.grades.academic;
-    if(first && ac){ const cs=Number(ac.currentSemester)===2?2:1, cp=Number(ac.semesters?.[cs]?.activePeriod)===2?2:1;
+    if(first && ac){ const vs=typeof ctSem==='function'?ctSem():null, cs=vs?vs.sem:Number(ac.currentSemester)===2?2:1, cp=vs?vs.per:Number(ac.semesters?.[cs]?.activePeriod)===2?2:1;
       if(cs!==sem||cp!==per){ document.getElementById('madr-sem').value=cs; document.getElementById('madr-per').value=cp; sem=cs; per=cp; bundle=await loadReportBundle(true,sem,per); } }
     MADREG.bundle=bundle;
     madRegisterRender(cls, asgs, mids, linkNote);

@@ -369,9 +369,9 @@ function myRepRender(){
   if(!MYREP.reports.length){ box.innerHTML=hint+'<p class="muted" style="margin:.4rem 0">لم يُرسل معلمك تقرير فترة بعد.</p>'; return; }
   const r=MYREP.reports[MYREP.idx]||MYREP.reports[0];
   box.innerHTML=`${hint}<div class="myrep-bar">
-      ${MYREP.reports.length>1?`<div class="myrep-tabs">${MYREP.reports.map((x,i)=>`<button type="button" class="myrep-tab ${i===MYREP.idx?'on':''}" onclick="MYREP.idx=${i};myRepRender()">${srpEsc(x.label)}</button>`).join('')}</div>`:'<span></span>'}
+      ${MYREP.reports.length>1?`<div class="myrep-tabs">${MYREP.reports.map((x,i)=>`<button type="button" class="myrep-tab ${i===MYREP.idx?'on':''}" onclick="MYREP.idx=${i};myRepRender()">${x.auto?'🔒 ':''}${srpEsc(x.label)}</button>`).join('')}</div>`:'<span></span>'}
       <button type="button" class="btn tick" onclick="srpPrint(MYREP.reports[MYREP.idx])">🖨️ طباعة التقرير</button>
-    </div>${srxHTML(r)}`;
+    </div>${r.auto?'<p class="myrep-hint">🔒 فترة مغلقة: تقريرك بدرجاتها كما أُغلقت.</p>':''}${srxHTML(r)}`;
 }
 async function myRepLoadPeriod(){
   const pbox=document.getElementById('myrep-period'); if(!pbox) return;

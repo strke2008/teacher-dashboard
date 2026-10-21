@@ -699,7 +699,19 @@ async function studentReportGrades(env, semester, period) {
   const data = await attachMadrasati(env, await loadClassroom(env));
   let students = [], assignments = [];
   try { const st = JSON.parse(await env.HW.get('tstate:main') || '{}'); students = (st.students || []).filter(x => x && x.id); assignments = st.assignments || []; } catch {}
+  // 🔒 الفترة المغلقة: لقطتها المحفوظة لحظة الإغلاق (نفس ما يعرضه /grades للمعلم) — لا إعادة حساب بدرجات اليوم
+  const S = ((academicNormalize(data) || {}).semesters || {})[String(semester)] || {}, snap = (S.periodSnapshots || {})[String(period)];
+  if (snap && periodIsClosed(S, period)) return { data, students, grades: { ...snap, closed: true } };
   return { data, students, grades: computeAllGrades(students, data, assignments, semester, period) };
+}
+const periodIsClosed = (S, per) => S.status === 'closed' || (S.periodStatus || {})[String(per)] === 'closed' || (Number(per) === 1 && Number(S.activePeriod) === 2);
+/* 📅 الفترات المتاحة للعرض (لولي الأمر والطالب): المغلقة كلها + الجارية — لا ما لم يبدأ */
+function periodsAvail(data) {
+  const ac = academicNormalize(data) || {}, cur = ac.currentSemester === 2 ? 2 : 1, out = [];
+  for (const sn of [1, 2]) { const S = (ac.semesters || {})[String(sn)] || {}; if (!S.status || S.status === 'not_started') continue;
+    for (const pn of [1, 2]) { const closed = periodIsClosed(S, pn), active = sn === cur && S.status !== 'closed' && (Number(S.activePeriod) === 2 ? 2 : 1) === pn;
+      if (closed || active) out.push({ sem: sn, per: pn, closed, active, label: `${SREP_LABELS.sem[sn]} — ${SREP_LABELS.per[pn]}` }); } }
+  return out;
 }
 async function loadClassroom(env) {
   let data = {};
@@ -4986,6 +4998,11 @@ export default {
         const idx = await readJ(`srep:idx:${auth.st.id}`, []);
         const reports = [];
         for (const x of idx) { const r = await readJ(`srep:${x.semester}:${x.period}:${auth.st.id}`, null); if (r) reports.push(r); }
+        // 🔒 الفترة المغلقة التي لم يُرسل تقريرها: يُبنى من لقطتها ليبقى متاحًا للطالب
+        try { const closed = periodsAvail(await loadClassroom(env)).filter(x => x.closed && !reports.some(r => r.semester === x.sem && r.period === x.per));
+          if (closed.length) { let state = {}; try { state = JSON.parse(await env.HW.get('tstate:main')) || {}; } catch {}
+            for (const x of closed) { const { data, grades } = await studentReportGrades(env, x.sem, x.per), g = grades.students.find(y => String(y.id) === String(auth.st.id));
+              if (g) reports.push({ ...studentReportBuild(data, g, x.sem, x.per, '', srepActsLive(state, data, auth.st.id, g.name || auth.st.name, g.cls || auth.st.cls, x.sem, x.per)), auto: true }); } } } catch {}
         reports.sort((a, c) => (c.semester - a.semester) || (c.period - a.period));
         return json({ ok: true, reports: await srepLiveReports(env, auth.st, reports) });
       }
@@ -5396,14 +5413,17 @@ export default {
         if (w) { const i = String(w.body || '').indexOf('⟨WK⟩'); weekly = { at: w.createdAt, text: (i < 0 ? w.body : w.body.slice(0, i)).trim().slice(0, 1200), d: i < 0 ? null : (() => { try { return JSON.parse(w.body.slice(i + 4)); } catch { return null; } })() }; } } catch {}
       // 📈 مستواه الآن: نفس حساب «تقرير الفترة» للفترة الجارية (ولو لم يُنشر بعد)
       let live = null, liveErr = '';
-      try { const data0 = await loadClassroom(env), ac = academicNormalize(data0) || {}, sem = ac.currentSemester === 2 ? 2 : 1;
-        const per = ((ac.semesters || {})[String(sem)] || {}).activePeriod === 2 ? 2 : 1;
+      let periods = [], view = null;
+      try { const data0 = await loadClassroom(env); periods = periodsAvail(data0);
+        // ولي الأمر يختار الفترة (الجارية افتراضيًا، أو فترة مغلقة كالأولى بعد إغلاقها)
+        view = periods.find(x => x.sem === Number(b.sem) && x.per === Number(b.per)) || periods.find(x => x.active) || periods[periods.length - 1] || { sem: 1, per: 1 };
+        const sem = view.sem, per = view.per;
         const { data, grades } = await studentReportGrades(env, sem, per), g = grades.students.find(x => String(x.id) === sid);
         if (g) { const pub = reports.find(r => r.semester === sem && r.period === per);
           live = studentReportBuild(data, g, sem, per, pub ? pub.teacherNote : '', srepActsLive(state, data, sid, st.name, cls, sem, per)); } else liveErr = 'not_in_grades'; } catch (e) { liveErr = String(e && e.message || e).slice(0, 120); }
       if (fails) await env.HW.delete(fk);
       let top3 = []; try { top3 = ((JSON.parse(await env.HW.get('top3') || '{}') || {})[sid] || []).slice(0, 3); } catch {}
-      return json({ ok: true, live, ...(liveErr ? { liveErr } : {}), top3, student: { name: st.name, cls }, siblings, acts: { total: acts.length, done: done.sort((a, c) => c.at - a.at).slice(0, 15), doneN: done.length, missing: missing.slice(0, 20) }, reports, weekly,
+      return json({ ok: true, live, periods, view, ...(liveErr ? { liveErr } : {}), top3, student: { name: st.name, cls }, siblings, acts: { total: acts.length, done: done.sort((a, c) => c.at - a.at).slice(0, 15), doneN: done.length, missing: missing.slice(0, 20) }, reports, weekly,
         cert: { ...certText(await certTplRead(env), /\d/.test(cls) ? cls : ''), date: certDateLine(Date.now()), cls: /\d/.test(cls) ? cls : '' },
         teacher: String((state.repcfg && state.repcfg.teacher) || ''), subject: String((state.repcfg && state.repcfg.subject) || ''), school: String((state.repcfg && state.repcfg.school) || '') });
     }

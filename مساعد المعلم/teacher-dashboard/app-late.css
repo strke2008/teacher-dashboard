@@ -2595,3 +2595,11 @@ button.sk-chip:not([onclick]){cursor:default}
 .nxr-c{width:auto;min-width:9rem;max-width:14rem;padding:.25rem .5rem}.nxr-k{margin-inline-start:auto;font-size:.78rem;color:var(--ink-soft,#64748B)}
 .nxr-i{display:flex;align-items:center;gap:.5rem;padding:.3rem .2rem;border-top:1px dashed var(--line,#EEF0F3);font-size:.88rem;cursor:pointer}
 .nxr-i small{margin-inline-start:auto;font-size:.74rem;color:var(--ink-soft,#64748B)}.nxr-i.dup{opacity:.6;cursor:default}
+
+/* 📅 الفترة المعروضة */
+.vsp-btn.on{background:#FEF3C7;border-color:#F59E0B;color:#92400E}
+.vsp-banner{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;padding:.45rem 1rem;background:#FEF3C7;color:#78350F;font-size:.84rem;border-top:1px solid #FDE68A}
+.vsp-banner.hide{display:none}.vsp-banner span{flex:1;min-width:14rem}
+.vsp-list{display:flex;flex-direction:column;gap:.5rem}
+.vsp-opt{display:flex;flex-direction:column;align-items:flex-start;gap:.15rem;padding:.7rem .9rem;border-radius:12px;border:1.5px solid var(--line,#E5E7EB);background:#fff;text-align:right;cursor:pointer;font:inherit}
+.vsp-opt:hover{border-color:var(--tick,#0F766E)}.vsp-opt.on{border-color:var(--tick,#0F766E);background:#F0FDFA}.vsp-opt small{color:var(--ink-soft,#64748B);font-size:.78rem}
