@@ -710,7 +710,8 @@ function periodsAvail(data) {
   const ac = academicNormalize(data) || {}, cur = ac.currentSemester === 2 ? 2 : 1, out = [];
   for (const sn of [1, 2]) { const S = (ac.semesters || {})[String(sn)] || {}; if (!S.status || S.status === 'not_started') continue;
     for (const pn of [1, 2]) { const closed = periodIsClosed(S, pn), active = sn === cur && S.status !== 'closed' && (Number(S.activePeriod) === 2 ? 2 : 1) === pn;
-      if (closed || active) out.push({ sem: sn, per: pn, closed, active, label: `${SREP_LABELS.sem[sn]} — ${SREP_LABELS.per[pn]}` }); } }
+      const closedAt = closed ? Number((((S.periodSnapshots || {})[String(pn)] || {}).term || {}).closedAt || S.closedAt) || 0 : 0;
+      if (closed || active) out.push({ sem: sn, per: pn, closed, active, closedAt, label: `${SREP_LABELS.sem[sn]} — ${SREP_LABELS.per[pn]}` }); } }
   return out;
 }
 async function loadClassroom(env) {
@@ -5416,7 +5417,9 @@ export default {
       let periods = [], view = null;
       try { const data0 = await loadClassroom(env); periods = periodsAvail(data0);
         // ولي الأمر يختار الفترة (الجارية افتراضيًا، أو فترة مغلقة كالأولى بعد إغلاقها)
-        view = periods.find(x => x.sem === Number(b.sem) && x.per === Number(b.per)) || periods.find(x => x.active) || periods[periods.length - 1] || { sem: 1, per: 1 };
+        // بلا اختيار: خلال 3 أسابيع من إغلاق فترة تُفتح على نتيجتها النهائية (ما يهم ولي الأمر)، ثم على الجارية
+        const recent = periods.filter(x => x.closed && x.closedAt && Date.now() - x.closedAt < 21 * 864e5).sort((a, c) => c.closedAt - a.closedAt)[0];
+        view = periods.find(x => x.sem === Number(b.sem) && x.per === Number(b.per)) || recent || periods.find(x => x.active) || periods[periods.length - 1] || { sem: 1, per: 1 };
         const sem = view.sem, per = view.per;
         const { data, grades } = await studentReportGrades(env, sem, per), g = grades.students.find(x => String(x.id) === sid);
         if (g) { const pub = reports.find(r => r.semester === sem && r.period === per);

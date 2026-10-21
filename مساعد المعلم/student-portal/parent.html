@@ -46,8 +46,12 @@ button.sm{padding:6px 12px;font-size:.85rem}
 .pt{margin:.3rem 0}
 details summary{cursor:pointer;margin:.3rem 0}
 .sib{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px}
-.pchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}.pchip{font:inherit;font-size:.82rem;font-weight:700;padding:6px 12px;border-radius:999px;border:1.5px solid #D5DEE8;background:#fff;color:#334155;cursor:pointer}
-.pchip.on{background:#13734F;border-color:#13734F;color:#fff}.pchip small{font-weight:600;opacity:.75}
+.ptabs{display:flex;gap:6px;padding:5px;margin:-4px 0 14px;background:#EEF2F7;border-radius:16px}
+.ptab{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font:inherit;padding:9px 6px;border:0;border-radius:12px;background:transparent;color:#475569;cursor:pointer}
+.ptab b{font-size:.95rem}.ptab small{font-size:.74rem;font-weight:600;opacity:.85}
+.ptab.on{background:#fff;color:#13734F;box-shadow:0 2px 8px rgba(15,23,42,.12)}.ptab.on b{color:#0F5132}
+.pnudge{display:flex;align-items:center;gap:6px;flex-wrap:wrap;width:100%;margin-top:12px;padding:12px 14px;border-radius:14px;border:1.5px solid #F2C46B;background:#FFF8E6;color:#7A4B00;font:inherit;font-size:.9rem;text-align:right;cursor:pointer}
+.pnudge b{margin:0 3px}.pnudge span{margin-inline-start:auto;font-weight:800;color:#13734F;white-space:nowrap}
 
 .tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 @media(min-width:560px){.tiles{grid-template-columns:repeat(3,minmax(0,1fr))}}
@@ -389,14 +393,21 @@ function render(j, phone){
   const work=n1(pS+hS+bS+aS), exOn=!!(R&&R.exam&&R.exam.measured&&R.exam.score!=null), exS=exOn?n1(R.exam.score):0, total=n1(work+exS);
   const level=t=>t>=54?['ممتاز','#13734F']:t>=48?['جيد جدًا','#1F7A5A']:t>=42?['جيد','#1F5FC8']:t>=30?['يحتاج متابعة','#B7791F']:['يحتاج دعم','#B4232F'];
   const out=exOn?total:work, max=exOn?60:40, LV=exOn?level(total):level(work*1.5), P=Math.round(out/max*100);
-  let h=`<section class="card hero"><div class="who"><div class="av">🎓</div><div style="flex:1;min-width:0"><b>${esc(s.name)}</b><div class="muted">الفصل ${esc(s.cls||'—')}${R?` · ${esc(R.label||'')}`:''}</div></div>
+  // 📅 تبويب الفترة أعلى البطاقة: «الأولى · نهائية» و«الثانية · الآن» — ولا يُخفى خلف الدرجة
+  const PS=j.periods||[], sameSem=PS.length&&PS.every(x=>x.sem===PS[0].sem), V=j.view||{};
+  const pName=x=>(sameSem?'':(x.sem===2?'الفصل الثاني · ':'الفصل الأول · '))+(x.per===2?'الفترة الثانية':'الفترة الأولى');
+  const tabs=PS.length>1?`<div class="ptabs" role="tablist" aria-label="اختر الفترة">${PS.map(x=>{ const on=x.sem===V.sem&&x.per===V.per;
+      return `<button type="button" role="tab" aria-selected="${on}" class="ptab ${on?'on':''}" data-psp="${x.sem}:${x.per}"><b>${pName(x)}</b><small>${x.closed?'🔒 النتيجة النهائية':'⏳ الآن — مستمرة'}</small></button>`; }).join('')}</div>`:'';
+  const lastClosed=PS.filter(x=>x.closed).sort((a,c)=>(c.closedAt||0)-(a.closedAt||0))[0];
+  const nudge=!CV&&lastClosed?`<button type="button" class="pnudge" data-psp="${lastClosed.sem}:${lastClosed.per}">📄 صدرت النتيجة النهائية <b>لل${pName(lastClosed).slice(2)}</b> <span>اعرضها ←</span></button>`:'';
+  let h=`<section class="card hero">${tabs}<div class="who"><div class="av">🎓</div><div style="flex:1;min-width:0"><b>${esc(s.name)}</b><div class="muted">الفصل ${esc(s.cls||'—')}${R?` · ${esc(R.label||'')}`:''}</div></div>
       <button class="ghost sm" type="button" id="out-btn">خروج</button></div>
     ${R?`<div class="lv" style="--c:${LV[1]}"><div class="ring" style="--p:${P}"><b>${out}<small>من ${max}</small></b></div><div><span class="muted">${exOn?(CV?'مجموعه في الفترة (مغلقة)':'مجموعه حتى الآن'):(CV?'أعمال السنة في الفترة':'أعمال السنة حتى الآن')+' (الاختبارات لم تُرصد)'}</span><div class="lv-t">${LV[0]}</div>
       <div class="sum"><span>📚 أعمال السنة <b>${work}</b> من 40</span><span>📝 الاختبارات <b>${exOn?exS:'—'}</b> من 20</span></div></div></div>`:''}
+    ${nudge}
     ${(()=>{ const mp=(M&&M.pendingList)||[], n=open.length+mp.length; if(!n) return '';
       const cs=[...open.filter(x=>x.due).map(x=>closeIn(x.due)),...mp.map(x=>x.dueAt?closeIn(x.dueAt):{n:x.daysLeft,txt:`يُغلق خلال ${x.daysLeft} ${x.daysLeft===1?'يوم':'أيام'}`})].filter(Boolean).sort((a,b)=>a.n-b.n)[0];
       return `<p class="muted" style="margin:.6rem 0 0">⏳ لديه <b>${n}</b> ${n===1?'مهمة متاحة':'مهام متاحة'} للحل الآن${cs?` — أقربها ${esc(cs.txt)}`:''}. اضغط بطاقة «واجبات مدرستي» أو «المهام الأدائية» للتفاصيل.</p>`; })()}
-    ${(j.periods||[]).length>1?`<div class="pchips" role="tablist" aria-label="الفترة">${j.periods.map(x=>`<button type="button" class="pchip ${j.view&&x.sem===j.view.sem&&x.per===j.view.per?'on':''}" data-psp="${x.sem}:${x.per}">${x.closed?'🔒 ':''}${esc(x.label.replace('الفصل الدراسي ','الفصل '))}${x.active?' <small>الجارية</small>':''}</button>`).join('')}</div>`:''}
     ${(j.siblings||[]).length?`<div class="sib"><span class="muted">إخوته:</span>${j.siblings.map(n=>`<button class="ghost sm" type="button" data-sib="${esc(n)}">${esc(n)}</button>`).join('')}</div>`:''}</section>`;
   // 🏅 شهادة تلقائية لمن بلغ تقدير «ممتاز» — تظهر وتختفي مع المستوى الحي، وتُطبع أو تُحفظ PDF
   Object.keys(PCS).forEach(k=>delete PCS[k]);
