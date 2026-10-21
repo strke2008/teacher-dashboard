@@ -229,6 +229,8 @@
   .seg button.on{background:#fff;color:var(--pri);box-shadow:0 1px 3px rgba(15,27,45,.12)}
   select.cls{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:#fff;font:inherit;color:var(--ink)}
   .hint{font-size:12px;color:var(--mut);margin-top:6px}
+  .secs{display:flex;flex-wrap:wrap;gap:8px}.sec-b{width:40px;height:40px;border-radius:50%;border:1.5px solid var(--line);background:#fff;font-weight:800;font-size:14px;color:var(--ink)}
+  .sec-b:hover{border-color:var(--pri)}.sec-b.on{background:var(--pri);border-color:var(--pri);color:#fff;box-shadow:0 3px 10px rgba(15,118,110,.3)}
   .pri{width:100%;border:0;border-radius:12px;padding:12px;background:var(--pri);color:#fff;font-weight:800;font-size:14px}
   .pri:hover{background:var(--pri2)}.pri:disabled{opacity:.45;cursor:default}
   .sec{border:1px solid var(--line);background:#fff;border-radius:12px;padding:11px 14px;font-weight:700;color:var(--ink)}
@@ -279,15 +281,40 @@
     ui.r.plan.forEach(x => { const k = kindOf(x), g = grp(k); if (g === 'ok') return;
       x.tr.style.outline = `2px ${g === 'warn' ? 'dashed #D49A1E' : 'solid #D6455B'}`; x.tr.style.outlineOffset = '-2px'; x.tr.dataset.mbPv = k; });
   }
+  /* 🏫 الفصل (الشعبة) في نور: أزرار دائرية مرقّمة (1، 2، 3…) بجانب عنوان «الفصل*» — لا قائمة «الصف» (الأول المتوسط…) ولا «الفصل الدراسي».
+     يرجع { type:'btns', items:[{label, el, on}] } أو { type:'select', sel } لقائمة شُعب حقيقية، أو null */
+  const ccTxt = el => String((el && (el.innerText || el.textContent)) || '').replace(/\s+/g, ' ').trim();
+  const DIG = /^[0-9١-٩]{1,2}$/;
   function findClassPicker() {
-    return [...document.querySelectorAll('select')].filter(sel => {
-      if (ui.host && ui.host.contains(sel)) return false;
-      const meta = `${sel.id || ''} ${sel.name || ''} ${sel.getAttribute('aria-label') || ''} ${sel.closest('td,th') ? sel.closest('td,th').innerText : ''}`;
-      const opts = [...sel.options].map(o => (o.textContent || '').replace(/\s+/g, ' ').trim()), all = opts.join(' ');
-      const isTerm = opts.some(t => /الفصل\s*(الأول|الثاني|الثالث)\s*[-–—]?\s*الدور\s*(الأول|الثاني)/.test(t)) || (/الدور\s*(الأول|الثاني)/.test(all) && /الفصل\s*(الأول|الثاني)/.test(all));
-      const hasCls = opts.some(t => /(?:أول|ثاني|ثالث)\s*(?:ابتدائي|متوسط|ثانوي)|\b[1-6]\s*[/\-]\s*[1-6]\b|شعبة\s*\S+/.test(t));
-      return !isTerm && (/class|section|classroom|اسم.?الصف|الشعبة|الفصل الدراسي/i.test(meta) || hasCls) && sel.options.length > 1;
-    })[0] || null;
+    const mine = el => ui.host && ui.host.contains(el);
+    const labels = [...document.querySelectorAll('label,span,td,th,div,b,strong')].filter(el => !mine(el) && el.children.length <= 2 && /^\*?\s*الفصل\s*\*?\s*:?$/.test(ccTxt(el)));
+    for (const lb of labels) {
+      let box = lb.parentElement;
+      for (let up = 0; box && up < 5; up++, box = box.parentElement) {
+        const cands = [...box.querySelectorAll('input[type=radio],button,a,label,li,span,div')].filter(el => !mine(el) && !lb.contains(el) && el !== lb && DIG.test(ccTxt(el) || (el.type === 'radio' ? (el.labels && el.labels[0] ? ccTxt(el.labels[0]) : el.value) : '')));
+        // أدق عنصر لكل رقم (لا الحاوية التي تضم الرقم وغيره)
+        const by = new Map();
+        for (const el of cands) { const k = el.type === 'radio' ? String((el.labels && el.labels[0] ? ccTxt(el.labels[0]) : el.value)) : ccTxt(el); if (!by.has(k) || by.get(k).contains(el)) by.set(k, el); }
+        if (by.size >= 2 && by.size <= 15) {
+          const items = [...by.entries()].map(([label, el]) => ({ label, el })).sort((a, b) => Number(a.label.replace(/[١-٩]/g, d => '١٢٣٤٥٦٧٨٩'.indexOf(d) + 1)) - Number(b.label.replace(/[١-٩]/g, d => '١٢٣٤٥٦٧٨٩'.indexOf(d) + 1)));
+          // المحدد: radio مختار، أو aria/class تدل على التحديد، أو الوحيد بلون خلفية مختلف
+          const isOn = el => { const r = el.type === 'radio' ? el : el.querySelector && el.querySelector('input[type=radio]'); if (r && r.checked) return true;
+            if ((el.getAttribute('aria-checked') || el.getAttribute('aria-pressed') || el.getAttribute('aria-selected')) === 'true') return true;
+            return /(^|[\s_-])(active|selected|checked|current|on)([\s_-]|$)/i.test(String(el.className || '')); };
+          let on = items.filter(x => isOn(x.el));
+          if (on.length !== 1) { const bg = items.map(x => getComputedStyle(x.el).backgroundColor), cnt = {}; bg.forEach(c => cnt[c] = (cnt[c] || 0) + 1);
+            const odd = items.filter((x, k) => cnt[bg[k]] === 1); on = odd.length === 1 ? odd : []; }
+          items.forEach(x => { x.on = on.includes(x) });
+          return { type: 'btns', items };
+        }
+      }
+    }
+    // احتياط: قائمة منسدلة خياراتها شُعب (1/1، شعبة أ…) لا مراحل (الأول المتوسط…) ولا فصول دراسية
+    const sel = [...document.querySelectorAll('select')].find(sel => { if (mine(sel) || sel.options.length < 2) return false;
+      const opts = [...sel.options].map(o => ccTxt(o)).filter(t => t && !/^-+\s*اختر/.test(t));
+      if (opts.some(t => /الدور|المتوسط|الابتدائي|الثانوي|السنة|1447|1448/.test(t))) return false;
+      return opts.length >= 2 && opts.every(t => DIG.test(t) || /^\d\s*[/\-]\s*\d$/.test(t) || /^شعبة\s*\S+$/.test(t)); });
+    return sel ? { type: 'select', sel } : null;
   }
   function ensureUI() {
     if (ui.host && document.documentElement.contains(ui.host)) return;
@@ -340,8 +367,10 @@
       const cp = ui.classPicker = findClassPicker();
       body = `<div class="card"><div class="lbl"><b>1</b>ماذا تكتب؟</div>
           <div class="seg">${MODES.map(([k, t, s]) => `<button data-mode="${k}" class="${ui.mode === k ? 'on' : ''}">${t}<small>${s}</small></button>`).join('')}</div></div>
-        ${cp ? `<div class="card"><div class="lbl"><b>2</b>الفصل في نور</div><select class="cls" data-cls="1">${[...cp.options].map(o => `<option value="${esc(o.value)}" ${o.value === cp.value ? 'selected' : ''}>${esc((o.textContent || '').trim())}</option>`).join('')}</select>
-          <div class="hint">يغيّر اختيار الفصل في نور نفسه — انتظر ظهور الطلاب ثم اعرض المعاينة.</div></div>` : ''}
+        ${cp ? `<div class="card"><div class="lbl"><b>2</b>الفصل في نور</div>
+          ${cp.type === 'btns' ? `<div class="secs">${cp.items.map((x, n) => `<button class="sec-b ${x.on ? 'on' : ''}" data-sec="${n}">${esc(x.label)}</button>`).join('')}</div>`
+            : `<select class="cls" data-cls="1">${[...cp.sel.options].map(o => `<option value="${esc(o.value)}" ${o.value === cp.sel.value ? 'selected' : ''}>${esc((o.textContent || '').trim())}</option>`).join('')}</select>`}
+          <div class="hint">يختار الفصل في نور نفسه — بعدها اضغط «ابحث» في نور إن لزم، وانتظر ظهور الطلاب ثم اعرض المعاينة.</div></div>` : ''}
         <div class="card"><div class="lbl"><b>${cp ? 3 : 2}</b>راجع قبل الكتابة</div><div class="hint" style="margin:0 0 10px">تُعرض درجات كل طالب في هذه الصفحة وحالته، ولا يُكتب شيء قبل موافقتك.</div>
           <button class="pri" data-act="preview">👁️ اعرض المعاينة</button>${ui.msg ? `<div class="note warn" style="margin:10px 0 0">${esc(ui.msg)}</div>` : ''}</div>`;
     } else if (ui.view === 'preview') {
@@ -379,6 +408,9 @@
     if (a === 'open') { ui.open = true; ui.justOpened = true; render(); return; }
     if (a === 'close') { ui.open = false; clearMarks(); ui.view = ui.view === 'done' ? 'done' : 'home'; render(); return; }
     if (t.dataset.mode) { ui.mode = t.dataset.mode; render(); return; }
+    if (t.dataset.sec != null && ui.classPicker && ui.classPicker.type === 'btns') { const it = ui.classPicker.items[+t.dataset.sec]; if (!it) return;
+      const r = it.el.type === 'radio' ? it.el : (it.el.querySelector && it.el.querySelector('input[type=radio]')) || it.el; r.click();
+      ui.msg = `تم اختيار الفصل ${it.label} في نور — اضغط «ابحث» في نور إن لم يظهر الطلاب، ثم اعرض المعاينة.`; setTimeout(render, 400); return; }
     if (a === 'preview' || a === 'again') { doPreview(); return; }
     if (a === 'back') { clearMarks(); ui.view = 'home'; render(); return; }
     if (t.dataset.filter) { ui.filter = t.dataset.filter; render(); return; }
@@ -402,7 +434,7 @@
     const t = ev.target;
     if (t.classList.contains('ck')) { const x = ui.r.plan[+t.closest('.row').dataset.i]; ui.sel.set(x.tr, t.checked); render(); return; }
     if (t.dataset.pick != null && t.value) { const x = ui.r.plan[+t.dataset.pick]; ALIAS[norm(x.name)] = t.value; aliasSave(); ui.sel.set(x.tr, true); runPlan(); render(); return; }
-    if (t.dataset.cls && ui.classPicker) { ui.classPicker.value = t.value; ['input', 'change'].forEach(e => ui.classPicker.dispatchEvent(new Event(e, { bubbles: true })));
+    if (t.dataset.cls && ui.classPicker && ui.classPicker.type === 'select') { const sel = ui.classPicker.sel; sel.value = t.value; ['input', 'change'].forEach(e => sel.dispatchEvent(new Event(e, { bubbles: true })));
       ui.msg = 'تم اختيار الفصل في نور — انتظر ظهور الطلاب ثم اعرض المعاينة.'; render(); }
   }
   function onInput(ev) { if (ev.target.classList.contains('q')) { ui.q = ev.target.value; ui.focusQ = true; render(); ui.focusQ = false; } }
