@@ -432,8 +432,6 @@ function render(j, phone){
       ${(W.ps||[]).length?`<p class="pt">🌟 <b>أحسن في:</b> ${W.ps.map(esc).join('، ')}</p>`:''}
       ${(W.ng||[]).length?`<p class="pt">📌 <b>يحتاج انتباهًا إلى:</b> ${W.ng.map(esc).join('، ')}</p>`:''}
       ${W.st?`<p class="note">🎯 خطوته القادمة: ${esc(W.st)}</p>`:''}</section>`;
-  const old=(j.reports||[]).filter(r=>!R||r.semester!==R.semester||r.period!==R.period);
-  if(old.length) h+=`<section class="card"><details><summary><b>📄 تقارير الفترات السابقة (${old.length})</b></summary>${old.map(r=>`<div class="row"><span>${esc(r.label||'')}</span><span class="muted">مشاركة ${r.participation?r.participation.score:'—'} · واجبات ${r.homework?r.homework.score:'—'} · سلوك ${r.behavior?r.behavior.score:'—'}${r.exam&&r.exam.measured?` · اختبارات ${r.exam.score}/${r.exam.max}`:''}</span></div>`).join('')}</details></section>`;
   $('out').innerHTML=h;
   if(Object.keys(PCS).length){ requestAnimationFrame(()=>pcFit($('out'))); $('out').querySelectorAll('.mc-bg').forEach(im=>im.onload=()=>pcFit($('out'))); setTimeout(()=>pcPrepare().catch(()=>{}),600); }
   const DET=parentDetails(R, A);
