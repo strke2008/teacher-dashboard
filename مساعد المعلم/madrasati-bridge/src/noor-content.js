@@ -392,12 +392,24 @@
   const gSet = g => { try { chrome.storage.local.set({ [GK]: g }); } catch (_) {} };
   let gTimer = 0;
   const gLater = ms => { clearTimeout(gTimer); gTimer = setTimeout(gotoStep, ms); };
+  /* 📝 صفحة إدخال الدرجات: يُحفظ رابطها كلما فُتحت، ويُفتح من أي صفحة في نور (رابط القائمة أولًا، ثم المحفوظ) */
+  const GP = 'mb_noor_gp', GP_PATH = /DegreesEducationalPathSystem\.aspx/i;
+  const GP_DEF = 'https://noor.moe.gov.sa/Noor/EduWaveEducational/DegreesEducationalPathSystem.aspx';
+  const onGradePage = () => GP_PATH.test(location.pathname) || !!findField(FBY.sec);
+  async function openGradePage() {
+    const a = QA('a').find(x => /^(إدخال|ادخال)\s*(ال)?درجات/.test(ccTxt(x)) && visible(x));
+    if (a) { a.click(); return true; }
+    let u = ''; try { u = (await chrome.storage.local.get(GP))[GP] || ''; } catch (_) {}
+    location.href = u || GP_DEF; return true;
+  }
   async function gotoStart(t) { gSet({ t, at: Date.now(), n: 0, w: 0 }); ui.going = t.cls; ui.msg = `⏳ ينتقل إلى صفحة ${t.cls} في نور…`; render(); gotoStep(); }
   async function gotoStep() {
     const g = await gGet(); if (!g || !g.t) { ui.going = ''; return; }
     const stop = msg => { gSet(null); ui.going = ''; ui.msg = msg; if (ui.view !== 'home') ui.view = 'home'; render(); };
     if (Date.now() - g.at > 150000 || g.n > 20) return stop('⚠️ لم يكتمل الانتقال تلقائيًا — أكمل الاختيار في نور ثم اعرض المعاينة.');
     ui.going = g.t.cls; ui.open = true;
+    if (!onGradePage()) { if ((g.nav || 0) < 2) { g.nav = (g.nav || 0) + 1; gSet(g); ui.msg = '⏳ يفتح صفحة إدخال الدرجات في نور…'; render(); openGradePage(); gLater(4000); return; }
+      return stop('⚠️ لم تُفتح صفحة إدخال الدرجات — افتحها من قائمة نور ثم اضغط الفصل مرة ثانية.'); }
     for (const st of pageState(g.t)) {
       const busy = st.pk && st.pk.type === 'select' && st.pk.sel.disabled;
       if (!st.pk || busy) { if (st.F.k !== 'per' && st.F.k !== 'year' && g.w < 10) { g.w++; gSet(g); ui.msg = `⏳ ينتظر تحميل «${st.F.name}» في نور…`; render(); gLater(1000); return; } continue; }
@@ -470,12 +482,14 @@
       const T = ui.targets = sheetTargets(S), want = ORD(S.label);
       const F = ui.fields = FIELDS.map(f => ({ f, pk: findField(f) })).filter(x => x.pk);
       const pp = (F.find(x => x.f.k === 'per') || {}).pk, have = curKey(pp);
-      const states = T.map(t => pageState(t)), here = states.map(st => st.length && st.every(x => x.ok || !x.pk) && st.some(x => x.ok));
+      const states = T.map(t => pageState(t)), here = states.map(st => st.length && st.every(x => x.ok || !x.pk) && st.some(x => x.ok && x.pk && x.F.k !== 'year'));
       const manual = F.length ? F.map(({ f, pk }) => `<div class="fld"><span>${f.name}</span>${pk.type === 'btns'
           ? `<div class="${f.k === 'sec' ? 'secs' : 'seg'}">${pk.items.map((x, n) => `<button class="${f.k === 'sec' ? 'sec-b ' : ''}${x.on ? 'on' : ''}" data-fld="${f.k}:${n}">${esc(x.label)}</button>`).join('')}</div>`
           : `<select class="cls" data-fsel="${f.k}">${[...pk.sel.options].map(o => `<option value="${esc(o.value)}" ${o.selected ? 'selected' : ''}>${esc(ccTxt(o))}</option>`).join('')}</select>`}</div>`).join('') : '';
       const perWarn = want && have && want !== have ? `<div class="note warn" style="margin:8px 0 0">⚠️ الدرجات المصدَّرة للفترة <b>${ORDN[want]}</b> لكن نور على الفترة <b>${ORDN[have]}</b>.</div>` : '';
-      body = `<div class="card"><div class="lbl"><b>1</b>ماذا تكتب؟</div>
+      const away = !onGradePage();
+      body = `${away ? `<div class="card gp"><div class="hint" style="margin:0 0 8px">أنت لست في صفحة إدخال الدرجات — اضغط الفصل تحت وينقلك الجسر إليها ويضبطها، أو:</div><button class="pri" data-act="gopage">📝 افتح صفحة إدخال الدرجات</button></div>` : ''}
+        <div class="card"><div class="lbl"><b>1</b>ماذا تكتب؟</div>
           <div class="seg">${MODES.map(([k, t, s]) => `<button data-mode="${k}" class="${ui.mode === k ? 'on' : ''}">${t}<small>${s}</small></button>`).join('')}</div></div>
         ${T.length || F.length ? `<div class="card"><div class="lbl"><b>2</b>${T.length ? 'انتقل لصفحة الفصل في نور' : 'الصفحة في نور'}</div>
           ${T.length ? `<div class="tgts">${T.map((t, i) => `<button class="tgt ${here[i] ? 'on' : ''} ${ui.going === t.cls ? 'go' : ''}" data-goto="${i}"><b>${here[i] ? '✓ ' : ''}${esc(t.cls)}</b>
@@ -520,6 +534,7 @@
     if (a === 'open') { ui.open = true; ui.justOpened = true; render(); return; }
     if (a === 'close') { ui.open = false; clearMarks(); ui.view = ui.view === 'done' ? 'done' : 'home'; render(); return; }
     if (t.dataset.mode) { ui.mode = t.dataset.mode; render(); return; }
+    if (a === 'gopage') { ui.msg = '⏳ يفتح صفحة إدخال الدرجات…'; render(); openGradePage(); return; }
     if (t.dataset.goto != null) { const tg = (ui.targets || [])[+t.dataset.goto]; if (tg) gotoStart(tg); return; }
     if (t.dataset.fld) { const [k, n] = t.dataset.fld.split(':'), x = (ui.fields || []).find(y => y.f.k === k), it = x && x.pk.items[+n]; if (!it) return;
       setField(x.pk, it); ui.msg = `تم اختيار ${x.f.name}: ${it.label} في نور — اضغط «بحث/عرض» في نور إن لزم، ثم اعرض المعاينة.`; setTimeout(render, 400); return; }
@@ -569,6 +584,7 @@
     if (isTop || P.plan.length) reply({ preview: P.plan.length, ready: c.ok, approx: c.warn, rowsSeen: P.rowsSeen });
     return false;
   });
+  if (isTop && GP_PATH.test(location.pathname)) { try { chrome.storage.local.set({ [GP]: location.href }); } catch (_) {} }
   if (isTop) {
     if (document.body) showUI(); else document.addEventListener('DOMContentLoaded', showUI, { once: true });
     try { chrome.storage.onChanged.addListener((ch, area) => { if (area !== 'local') return; if (ch.mb_noor_alias) ALIAS = ch.mb_noor_alias.newValue || {};

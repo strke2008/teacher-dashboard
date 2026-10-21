@@ -114,7 +114,10 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
           const sheet = { ...p, rows, at: Date.now() };
           await chrome.storage.local.set({ mb_noor_grades: sheet });
           const tabs = await chrome.tabs.query({ url: 'https://noor.moe.gov.sa/*' });
-          if (!tabs.length) { reply({ ok: true, saved: rows.length, tabs: 0, filled: 0 }); return; }
+          // لا تبويب نور مفتوح: افتح صفحة إدخال الدرجات (آخر رابط محفوظ لها) لتظهر اللوحة هناك
+          if (!tabs.length) { const gp = (await chrome.storage.local.get('mb_noor_gp')).mb_noor_gp || 'https://noor.moe.gov.sa/Noor/EduWaveEducational/DegreesEducationalPathSystem.aspx';
+            let opened = false; try { await chrome.tabs.create({ url: gp }); opened = true; } catch (_) {}
+            reply({ ok: true, saved: rows.length, tabs: 0, filled: 0, opened }); return; }
           // صفحة الرصد تفتح «معاينة» ولا تكتب شيئًا قبل موافقة المعلم
           let preview = 0, ready = 0, approx = 0, tried = 0;
           for (const t of tabs) {
