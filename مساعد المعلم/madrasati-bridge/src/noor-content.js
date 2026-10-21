@@ -505,6 +505,19 @@
     return { table: null, names: [] };
   }
   // ترقيم صفحات الأسماء (1 2 3…): رابط الصفحة التالية داخل جدول الأسماء
+  /* صفحات جدول الأسماء في نور: روابط __doPostBack('…gvStudents','Page$N') — كل الأرقام روابط (حتى الصفحة الحالية أحيانًا) */
+  function tsPager() {
+    const out = new Map();
+    for (const a of QA('a[href*="Page$"]')) { const m = String(a.getAttribute('href') || '').match(/Page\$(\d+)/); if (m && !out.has(+m[1])) out.set(+m[1], a); }
+    return out;
+  }
+  // الصفحة الحالية إن ظهرت رقمًا بلا رابط بجانب روابط الصفحات
+  function tsCurPage() {
+    const a = QA('a[href*="Page$"]')[0], row = a && (a.closest('tr') || a.parentElement); if (!row) return 0;
+    const sp = [...row.querySelectorAll('span,b,strong,td')].find(x => !x.querySelector('a') && !x.closest('a') && /^\d{1,2}$/.test(ccTxt(x)));
+    return sp ? +ccTxt(sp) : 0;
+  }
+  // احتياط لترقيم بلا Page$: رقم الصفحة الحالية نص، والتالية رابط بجانبه
   function tsNextPage(t) {
     if (!t) return null; const cur = [...t.querySelectorAll('span')].find(x => /^\d{1,2}$/.test(ccTxt(x)) && !x.closest('a') && x.closest('tr') && [...x.closest('tr').querySelectorAll('a')].some(a => /^\d{1,2}$|\.\.\./.test(ccTxt(a))));
     if (!cur) return null; const n = +ccTxt(cur) + 1; return [...cur.closest('tr').querySelectorAll('a')].find(a => ccTxt(a) === String(n)) || null;
@@ -570,19 +583,29 @@
         return stop('⚠️ لم أستطع العودة لقائمة الفصول — افتح الصفحة من جديد واضغط السحب.'); }
       const row = ct.rows.find(r => r.grade === c.grade && r.sec === c.sec && r.gradeLabel === c.gradeLabel) || ct.rows.find(r => r.grade === c.grade && r.sec === c.sec);
       if (!row) { st.i++; await tSet(st); tLater(200); return; }
-      st.prev = tsNames(ct.table).names.join('|'); st.phase = 'read'; st.acc = []; st.w = 0; st.back = 0; await tSet(st); press(row.link); tLater(1800); return;
+      st.prev = tsNames(ct.table).names.join('|'); st.phase = 'read'; st.acc = []; st.seen = []; st.want = 0; st.pgN = 0; st.total = 0; st.w = 0; st.back = 0; await tSet(st); press(row.link); tLater(1800); return;
     }
     const got = tsNames(ct && ct.table), sig = got.names.join('|');
     if ((!got.names.length || sig === st.prev) && st.w < 8) { st.w++; await tSet(st); tLater(1000); return; }
-    if (got.names.length && sig !== st.prev) { got.names.forEach(nm => { if (!st.acc.includes(nm)) st.acc.push(nm); });
+    if (got.names.length) {
+      got.names.forEach(nm => { if (!st.acc.includes(nm)) st.acc.push(nm); });
       st.total = tsTotal() || st.total || 0;
-      const nx = st.total && st.acc.length >= st.total ? null : tsNextPage(got.table); if (nx) { st.prev = sig; st.w = 0; await tSet(st); press(nx); tLater(1800); return; } }
+      // كل صفحة لم تُقرأ بعد (بما فيها الأولى) تُفتح بالترتيب حتى يكتمل «عدد السجلات الكلي»
+      const cur = tsCurPage() || st.want || 0; st.seen = [...new Set([...(st.seen || []), cur])];
+      if (!(st.total && st.acc.length >= st.total)) {
+        const pg = tsPager(), nxt = [...pg.keys()].sort((a, b) => a - b).find(n => !st.seen.includes(n));
+        if (nxt && (st.pgN = (st.pgN || 0) + 1) <= 20) { st.want = nxt; st.seen.push(nxt); st.prev = sig; st.w = 0; await tSet(st);
+          ui.rmsg = `⏳ ${cl}: صفحة ${nxt} من الأسماء… (${st.acc.length}${st.total ? ' من ' + st.total : ''})`; render(); press(pg.get(nxt)); tLater(1800); return; }
+        const nx = !pg.size && sig !== st.prev ? tsNextPage(got.table) : null;
+        if (nx && (st.pgN = (st.pgN || 0) + 1) <= 20) { st.prev = sig; st.w = 0; await tSet(st); press(nx); tLater(1800); return; }
+      }
+    }
     if (!st.acc.length && !got.names.length) st.miss = (st.miss || 0) + 1;
     if (st.miss >= 2 && !st.done) return stop('⚠️ ضغطت «الطلاب» لكن لم أجد جدول أسماء — صوّر لي ما يظهر بعد الضغط على «الطلاب» لفصل واحد لأضبطه.');
     if (st.acc.length && st.total && st.acc.length < st.total) (st.short = st.short || []).push(`${cl} (${st.acc.length} من ${st.total})`);
     st.total = 0;
     if (st.acc.length) { await rosterSave({ grade: c.grade, sec: c.sec, stage: /المتوسط/.test(c.gradeLabel) ? 'المتوسط' : /الابتدائي/.test(c.gradeLabel) ? 'الابتدائي' : /الثانوي/.test(c.gradeLabel) ? 'الثانوي' : '', gradeLabel: c.gradeLabel, label: cl }, st.acc); st.done++; }
-    st.i++; st.phase = 'open'; st.acc = []; st.w = 0; await tSet(st); tLater(ct ? 300 : 100);
+    st.i++; st.phase = 'open'; st.acc = []; st.seen = []; st.want = 0; st.pgN = 0; st.w = 0; await tSet(st); tLater(ct ? 300 : 100);
   }
 
   async function gotoStart(t) { await gSet({ t, at: Date.now(), n: 0, w: 0 }); ui.going = t.cls; ui.msg = `⏳ ينتقل إلى صفحة ${t.cls} في نور…`; render(); gotoStep(); }
