@@ -226,7 +226,8 @@ function certHTML(s, R, j, exOn, out, max){
 }
 /* 🏆 شهادة الأوائل: يرسلها المعلم للثلاثة الأوائل في كل فصل — أحدث شهادة تظهر هنا */
 function top3HTML(s, j){
-  const e=(j.top3||[])[0]; if(!e) return '';
+  // شهادة الأوائل للفترة المعروضة فقط (شهادة الفترة الأولى لا تظهر في تبويب الثانية)
+  const V=j.view||null, e=(j.top3||[]).find(x=>!V||!x.sem||(Number(x.sem)===V.sem&&Number(x.per)===V.per)); if(!e) return '';
   const k=j.cert||{}, subj=j.subject||'العلوم', ord=ORD[e.rank-1]||'';
   PCS.t={ rank:e.rank, name:s.name, cls:e.cls||k.cls||'', date:e.date||'', pre:k.pre||'يتقدم معلم المادة بالشكر والتقدير للطالب', dua:k.dua||'سائلين المولى له دوام التوفيق والنجاح',
     reason:`حصوله على المركز ${ord} على طلاب الفصل ${e.cls||''} في مادة ${subj}${e.label?` — ${e.label}`:''}`, total:e.total, max:e.max||60,
