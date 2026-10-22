@@ -1240,7 +1240,15 @@ function skillWindow(data, assignments, sid, from, to, only, cut, period) {
   const map = (data && data.__skills) || {}, out = {};
   for (const h of (assignments || [])) {
     const kind = h && (h.kind || 'normal');
-    if (!h || (kind !== 'normal' && kind !== 'diag') || h.remedial) continue;
+    if (!h || (kind !== 'normal' && kind !== 'diag' && kind !== 'lab') || h.remedial) continue;
+    if (kind === 'lab') {   // 🔬 المختبر بلا إجابات أسئلة: درجته دليل على ناتج تجربته (يعادل سؤالين)
+      const s = labOutcome(h), sub = h.subs && h.subs[String(sid)]; if (!s || !sub || !(Number(sub.total) > 0)) continue;
+      const k = (only || []).find(t => skCanon(t) === s) || s; if (only && !only.includes(k)) continue;
+      if (period) { if (!subInPeriod(h, sub, period)) continue; }
+      else { const d = planSubDay(sub.at, cut); if (from && d < from) continue; if (to && d > to) continue; }
+      const o = out[k] || (out[k] = { c: 0, t: 0, dt: 0 }); o.t += LAB_SKILL_W; o.c += LAB_SKILL_W * Math.max(0, Math.min(1, Number(sub.correct) / Number(sub.total)));
+      continue;
+    }
     // مهارة مكتوبة على السؤال نفسه (التشخيصي، ونواتج نافس) أولًا، وإلا تصنيف الذكاء الاصطناعي
     const sk = skAsTargets(diagSkillMap(h) || (kind === 'diag' ? null : map[String(h.sid || '')]), only); if (!sk) continue;
     const sub = h.subs && h.subs[String(sid)]; if (!sub || !sub.d) continue;
@@ -1266,12 +1274,58 @@ function skillBand(rate) {
   return rate >= SKILL_TARGET ? { key: 'mastered', name: 'متمكّن' } : rate >= SKILL_GAP ? { key: 'review', name: 'يحتاج مراجعة' }
     : rate >= 40 ? { key: 'support', name: 'فجوة تحتاج دعمًا' } : { key: 'found', name: 'يحتاج تأسيسًا' };
 }
+/* 🧮 قواعد الحكم على مهارة الطالب (الترشيح، المجموعات، التشخيص، خريطة المهارات):
+   - الفصل الدراسي كله: ضعف مهارة في الفترة الأولى لا يختفي بدخول الثانية ما لم يُقَس من جديد
+   - آخر 6 أسئلة فيها: من أخطأ أولًا ثم أتقن بعد الشرح لا يبقى «ضعيفًا» بإجاباته القديمة
+   - 3 أسئلة على الأقل للترشيح (سؤالان يُعرضان «قياس أولي» ولا تُبنى عليهما خطة) */
+const SKILL_MIN_Q = 3, SKILL_RECENT = 6, LAB_SKILL_W = 2;
+/* ناتج كل تجربة مختبر (موضوعها) — ما لا يقابله ناتج لا يدخل */
+const LAB_OUTCOME = { mixtures: 'تصنيف المخاليط', friction: 'قوة الاحتكاك', inertia: 'القصور الذاتي', newton3: 'قانون نيوتن الثالث', chemchg: 'دلائل التفاعل الكيميائي' };
+function labOutcome(h) { const t = h && h.lab && h.lab.topic; return t && LAB_OUTCOME[t] ? 'نافس: ' + LAB_OUTCOME[t] : ''; }
+/* فترات الفصل الدراسي حتى الفترة المعروضة (الأولى ثم الثانية) */
+function semesterRanges(data, range) {
+  if (!range || !range.semester) return [range || null];
+  if (Number(range.period) !== 2) return [{ ...range, __p: 1 }];
+  return [{ ...gradeTermRange(data, 1, range.semester), __p: 1 }, { ...range, __p: 2 }];
+}
+/* إجابات الطالب في كل مهارة مرتّبة زمنيًا: [{at, c, t, dg, p}] */
+function skillEvents(data, assignments, sid, ranges) {
+  const map = (data && data.__skills) || {}, out = {}, seen = new Set();
+  for (const R of ranges) for (const h of (assignments || [])) {
+    const kind = h && (h.kind || 'normal');
+    if (!h || (kind !== 'normal' && kind !== 'diag' && kind !== 'lab') || h.remedial) continue;
+    const id = String(h.sid || h.id || ''); if (seen.has(id)) continue;
+    const sub = h.subs && h.subs[String(sid)]; if (!sub) continue;
+    if (R && !subInPeriod(h, sub, R)) continue;
+    seen.add(id);
+    const at = Number(sub.at) || 0, p = (R && R.__p) || 0;
+    if (kind === 'lab') { const s = labOutcome(h); if (!s || !(Number(sub.total) > 0)) continue;
+      (out[s] = out[s] || []).push({ at, c: LAB_SKILL_W * Math.max(0, Math.min(1, Number(sub.correct) / Number(sub.total))), t: LAB_SKILL_W, dg: 0, p }); continue; }
+    const sk = diagSkillMap(h) || (kind === 'diag' ? null : map[String(h.sid || '')]); if (!sk || !sub.d) continue;
+    String(sub.d).split('').forEach((c, i) => { const k = sk[i]; if (!k || (c !== '1' && c !== '0')) return;
+      (out[k] = out[k] || []).push({ at: at + i / 1000, c: c === '1' ? 1 : 0, t: 1, dg: kind === 'diag' ? 1 : 0, p }); });
+  }
+  return out;
+}
+const SKP_CACHE = new WeakMap();
 function skillProfile(data, assignments, sid, range) {
-  const w = skillWindow(data, assignments, sid, range && range.start, range && range.end, null, 0, range);
-  return Object.entries(w).filter(([, v]) => v.t >= 2).map(([skill, v]) => {
-    const rate = Math.round((v.c / v.t) * 100), b = skillBand(rate);
-    return { skill, rate, total: v.t, diag: v.dt || 0, acts: v.t - (v.dt || 0), band: b.key, bandName: b.name };
-  }).sort((a, b) => a.rate - b.rate);
+  let C = SKP_CACHE.get(assignments); if (!C) { C = new Map(); SKP_CACHE.set(assignments, C); }
+  const key = String(sid) + '|' + (range ? `${range.semester}/${range.period}/${range.start}` : '');
+  if (C.has(key)) return C.get(key);
+  const ranges = semesterRanges(data, range), cur = ranges.length > 1 ? 2 : 0;
+  // أسماء قديمة مربوطة بناتج تُجمع معه قبل الحساب
+  const raw = skillEvents(data, assignments, sid, ranges), ev = {};
+  for (const [k, L] of Object.entries(raw)) { const c = skOutcome(k) ? skOutcome(k).key : k; (ev[c] = ev[c] || []).push(...L); }
+  const out = Object.entries(ev).map(([skill, L]) => {
+    L.sort((a, b) => a.at - b.at);
+    const all = L.reduce((o, e) => ({ c: o.c + e.c, t: o.t + e.t, dg: o.dg + e.dg }), { c: 0, t: 0, dg: 0 });
+    if (all.t < 2) return null;
+    let c = 0, t = 0; for (let i = L.length - 1; i >= 0 && t < SKILL_RECENT; i--) { c += L[i].c; t += L[i].t; }
+    const rate = Math.round((c / t) * 100), b = skillBand(rate), allRate = Math.round((all.c / all.t) * 100);
+    return { skill, rate, total: Math.round(all.t), recent: Math.round(t), allRate, diag: all.dg, acts: Math.round(all.t - all.dg), band: b.key, bandName: b.name,
+      early: all.t < SKILL_MIN_Q, earlier: !!(cur && L.every(e => e.p && e.p < cur)), lastAt: Math.round(L[L.length - 1].at) };
+  }).filter(Boolean).sort((a, b) => a.rate - b.rate);
+  C.set(key, out); return out;
 }
 /* 🔒 قائمة المهارات المعتمدة للعام = نواتج تعلم نافس لعلوم أول متوسط (75 ناتجًا) — مولّدة من teacher-dashboard/js/32-nafs-js.js
    (NAFS_SECTIONS): الناتج المختصر ← [الفصل الدراسي، الوحدة، ترتيب الوحدة]. المفتاح الرسمي للمهارة «نافس: <الناتج>».
@@ -1288,7 +1342,7 @@ function officialProfile(data, assignments, sid, range) {
 }
 /* المهارات الضعيفة لتحديد الخطة: نواتج الفصل الحالي دون 60% */
 function weakSkills(data, assignments, sid, range) {
-  return officialProfile(data, assignments, sid, range).filter(x => !x.prior && x.rate < SKILL_GAP).sort((a, b) => a.rate - b.rate).slice(0, 4);
+  return officialProfile(data, assignments, sid, range).filter(x => !x.prior && !x.early && x.rate < SKILL_GAP).sort((a, b) => a.rate - b.rate).slice(0, 4);
 }
 /* إجراءات علاجية تسمّي المهارة نفسها وتناسب مستواها */
 function skillActions(sk) {
@@ -1841,20 +1895,24 @@ function planGroups(students, data, assignments, range) {
     const perSkill = {};
     for (const s of roster) {
       const sid = String(s.id);
-      for (const k of weakSkills(data, assignments, sid, range)) (perSkill[k.skill] = perSkill[k.skill] || []).push({ id: sid, name: s.name, rate: k.rate });
+      // كل نواتجه الضعيفة (لا أضعف 4 فقط) — نسبة الفصل تُحسب على المهارة نفسها
+      for (const k of officialProfile(data, assignments, sid, range).filter(x => !x.prior && !x.early && x.rate < SKILL_GAP)) (perSkill[k.skill] = perSkill[k.skill] || []).push({ id: sid, name: s.name, rate: k.rate });
     }
     for (const skill of Object.keys(perSkill)) {
       const all = perSkill[skill];
       const share = Math.round((all.length / size) * 100);
       const free = all.filter(x => !active.has(x.id));
-      if (free.length < GROUP_MIN) continue;
-      const avgRate = Math.round(free.reduce((t, x) => t + x.rate, 0) / free.length);
+      // إعادة الشرح قرار للفصل كله: تُحسب على كل الضعاف (ولو كان بعضهم في خطط قائمة)
+      const classWide = all.length >= GROUP_MIN && share >= CLASS_WIDE_SHARE;
+      if (!classWide && free.length < GROUP_MIN) continue;
+      const base = classWide ? all : free;
+      const avgRate = Math.round(base.reduce((t, x) => t + x.rate, 0) / base.length);
       out.push({
         key: 'skill|' + cls + '|' + skill, kind: 'skill', cls, title: skill, skills: [skill],
         label: `مهارة مفقودة مشتركة: «${skill}»`,
         members: free, size: free.length, ofClass: all.length, classSize: size, share, avgRate,
-        classWide: share >= CLASS_WIDE_SHARE,
-        note: share >= CLASS_WIDE_SHARE
+        classWide,
+        note: classWide
           ? `${all.length} من ${size} في الفصل دون ${SKILL_GAP}% في هذه المهارة (${share}%) — الأرجح أن الشرح لم يصل، فأعد تدريسها للفصل كله قبل الخطط الفردية`
           : `${free.length} طلاب تنقصهم المهارة نفسها (متوسطهم ${avgRate}%) — تدخّل واحد يكفيهم`,
         actions: [...skillActions({ skill, band: skillBand(avgRate).key }), `مناقشة الأخطاء الشائعة في «${skill}» مع المجموعة`],
@@ -1945,9 +2003,11 @@ function planCandidates(students, data, assignments, range, groups) {
     const hw = gradeHomework(data, sid, range, Date.now());
     // كل المهارات دون 60% (لا أول 4 فقط) مرتبة من الأضعف
     const prof = officialProfile(data, assignments, sid, range);
-    const weak = prof.filter(x => !x.prior && x.rate < SKILL_GAP).sort((a, b) => a.rate - b.rate)
+    const weak = prof.filter(x => !x.prior && !x.early && x.rate < SKILL_GAP).sort((a, b) => a.rate - b.rate)
       .map(x => { const c = cover[cls + '|' + x.skill] || cover[cls + '|' + x.skill + '|' + sid] || null;
-        return { skill: x.skill, rate: x.rate, band: skillBand(x.rate).key, n: x.total || 0, unit: x.unit, ord: x.ord, covered: c ? c.by : '', groupKey: c ? c.key : '' }; });
+        return { skill: x.skill, rate: x.rate, band: skillBand(x.rate).key, n: x.total || 0, unit: x.unit, ord: x.ord, earlier: x.earlier, covered: c ? c.by : '', groupKey: c ? c.key : '' }; });
+    // قياس أولي: سؤالان فقط دون 60% — يُعرض ولا تُبنى عليه خطة حتى يُقاس بسؤال ثالث
+    const early = prof.filter(x => !x.prior && x.early && x.rate < SKILL_GAP).map(x => ({ skill: x.skill, rate: x.rate, n: x.total, unit: x.unit }));
     // فجوات سابقة: نواتج من فصل دراسي سابق دون 60% — ملاحظة عند الطالب لا خطة منفصلة
     const prior = prof.filter(x => x.prior && x.rate < SKILL_GAP).sort((a, b) => a.rate - b.rate).slice(0, 4).map(x => ({ skill: x.skill, rate: x.rate, unit: x.unit, term: x.term }));
     const own = weak.filter(x => !x.covered);
@@ -1959,7 +2019,7 @@ function planCandidates(students, data, assignments, range, groups) {
     const reasons = [];
     if (weak.length) reasons.push({ tag: 'مهارة', text: `${weak.length === 1 ? 'ناتج ضعيف' : weak.length + ' نواتج ضعيفة'}: ${weak.slice(0, 3).map(x => `${x.skill.replace(/^نافس:\s*/, '')} ${x.rate}%`).join('، ')}` });
     // إتقان عام منخفض بلا ناتج محدد: لا تُبنى عليه خطة (ستكون عامة بلا مهارة) — بل تنبيه «صنّف أسئلة أنشطته» أولًا
-    const untagged = !weak.length && lv.measured && lv.rate < SKILL_GAP;
+    const untagged = !weak.length && !prof.some(x => !x.prior) && lv.measured && lv.rate < SKILL_GAP;
     if (untagged) reasons.push({ tag: 'تصنيف', text: `الإتقان ${lv.rate}% في الأنشطة، ولا ناتج من نواتج نافس في أسئلتها — صنّفها (أو اربط أسماءها القديمة) ليتحدد الناتج الناقص` });
     reasons.push(...conduct);
     if (!reasons.length) continue;
@@ -1971,7 +2031,7 @@ function planCandidates(students, data, assignments, range, groups) {
     const minRate = weak.length ? weak[0].rate : (lv.measured ? lv.rate : 100);
     const priority = (10 - tier) * 1000 + (track === 'skill' ? weak.length * 100 : conduct.length * 10) + (100 - minRate);
     const dx = diagnose(s, data, assignments, range);
-    out.push({ studentId: sid, name: s.name, cls, reasons, diagnosis: dx, weak, prior, conduct, track, tier, individual,
+    out.push({ studentId: sid, name: s.name, cls, reasons, diagnosis: dx, weak, early, prior, conduct, track, tier, individual,
       rate: lv.measured ? lv.rate : null, priority });
   }
   return out.sort((a, b) => b.priority - a.priority);
@@ -2136,6 +2196,8 @@ function computeAllGrades(students, data, assignments, semester = 1, period = 1)
         // 🏷️ نسبة الطالب في كل مهارة خلال الفترة — لخريطة المهارات وملف الطالب
         skills: Object.fromEntries(Object.entries(skillWindow(data, assignments, sid, range && range.start, range && range.end, null, 0, range))
           .map(([k, v]) => [k, { rate: Math.round((v.c / v.t) * 100), c: v.c, t: v.t }])),
+        // 🎯 نواتج نافس بقواعد الخطط نفسها (الفصل الدراسي كله · آخر 6 أسئلة · 3 أسئلة للحكم) — لخريطة المهارات
+        official: officialProfile(data, assignments, sid, range).map(x => ({ skill: x.skill, rate: x.rate, total: x.total, recent: x.recent, unit: x.unit, ord: x.ord, term: x.term, prior: x.prior, early: x.early, earlier: x.earlier })),
         attendance: gradeAttendance(data, sid, range),
         duties: gradeDuties(data, sid, range),
         exam: gradeExam(data, sid, semester, period),
@@ -7032,8 +7094,19 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       const hw = String(b.hw || '').slice(0, 24); if (!hw || !b.map || typeof b.map !== 'object') return json({ error: 'missing fields' }, 400);
       const map = {};
       for (const [k, v] of Object.entries(b.map).slice(0, 120)) { const i = parseInt(k, 10), s = String(v || '').trim().slice(0, 60); if (Number.isInteger(i) && i >= 0 && s) map[i] = s; }
-      await env.HW.put(`skills:${hw}`, JSON.stringify({ at: Date.now(), hash: String(b.hash || '').slice(0, 40), map }));
+      // ✍️ ما اختاره المعلم في المحرر (manual) لا يغيّره التصنيف الآلي اللاحق
+      let old = null; try { old = JSON.parse(await env.HW.get(`skills:${hw}`) || 'null'); } catch {}
+      let man = [];
+      if (b.manual) man = Object.keys(map);
+      else if (old && Array.isArray(old.man)) { man = old.man.filter(i => old.map && old.map[i]); man.forEach(i => { map[i] = old.map[i]; }); }
+      await env.HW.put(`skills:${hw}`, JSON.stringify({ at: Date.now(), hash: String(b.hash || '').slice(0, 40), map, ...(man.length ? { man } : {}) }));
       return json({ ok: true, n: Object.keys(map).length });
+    }
+    if (url.pathname === '/skills' && request.method === 'GET') {
+      if (!env.TEACHER_TOKEN || url.searchParams.get('t') !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
+      const hw = String(url.searchParams.get('hw') || '').slice(0, 24);
+      let o = null; try { o = JSON.parse(await env.HW.get(`skills:${hw}`) || 'null'); } catch {}
+      return json({ ok: true, map: (o && o.map) || {}, man: (o && o.man) || [], at: (o && o.at) || 0 });
     }
     // 📝 خرائط مهارات الأسئلة لكل الأنشطة دفعة واحدة (رقم السؤال ← المهارة) — لبناء ورقة تدريب علاجية على مهارة
     if (url.pathname === '/skills-maps' && request.method === 'GET') {

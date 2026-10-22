@@ -2656,3 +2656,5 @@ button.sk-chip:not([onclick]){cursor:default}
 .q-sk small{flex-basis:100%;font-size:.76rem;color:#92400E}
 .q-sk.need{background:#FFFBEB;border-color:#FCD34D}
 :root[data-ui-theme="dark"] .pq-adv{background:#1E293B;color:#CBD5E1}:root[data-ui-theme="dark"] .q-sk{background:#0C2533;border-color:#155E75}:root[data-ui-theme="dark"] .q-sk.need{background:#2A2110;border-color:#78350F}
+.pq-early{background:#EFF6FF;color:#1E3A8A}
+:root[data-ui-theme="dark"] .pq-early{background:#172554;color:#BFDBFE}

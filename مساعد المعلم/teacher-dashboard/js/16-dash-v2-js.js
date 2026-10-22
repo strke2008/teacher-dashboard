@@ -19,7 +19,7 @@ function cfStats(cls,gget){
     exam:v2Avg(G.map(x=>x.g.exam&&x.g.exam.measured?x.g.exam.score:NaN)), acts:acts.length, sub:v2Pct(done,exp) };
 }
 function cfSkills(cls){
-  const all={}; ctRoster(cls).forEach(s=>Object.entries(ctG(s.id).skills||{}).forEach(([k,v])=>{ const a=all[k]||(all[k]={c:0,t:0,weak:[]}); a.c+=v.c; a.t+=v.t; if(v.t>=2&&v.rate<60) a.weak.push(String(s.id)); }));
+  const all={}; ctRoster(cls).forEach(s=>Object.entries(ctSk(s.id)||{}).forEach(([k,v])=>{ const a=all[k]||(all[k]={c:0,t:0,weak:[]}); a.c+=v.c; a.t+=v.t; if(v.t>=2&&v.rate<60) a.weak.push(String(s.id)); }));
   return Object.entries(all).filter(([,a])=>a.t>=3).map(([k,a])=>({k,rate:Math.round(a.c/a.t*100),weak:a.weak})).sort((a,b)=>a.rate-b.rate);
 }
 
@@ -34,7 +34,7 @@ function cfWeakList(cls){
   return ctRoster(cls).map(s=>{ const g=ctG(s.id), e=g.exam||{};
     const exam=e.measured&&e.score!=null?Number(e.score):null;   // درجة الكشف نفسها (مع بطاقات المتجر) — رصد موحّد
     const lv=g.level&&g.level.measured?g.level:null;
-    const skAll=Object.entries(g.skills||{}).filter(([,v])=>v.t>=2), skC=skAll.reduce((a,[,v])=>a+v.c,0), skT=skAll.reduce((a,[,v])=>a+v.t,0);
+    const skAll=Object.entries(ctSk(s.id)).filter(([,v])=>v.t>=2), skC=skAll.reduce((a,[,v])=>a+v.c,0), skT=skAll.reduce((a,[,v])=>a+v.t,0);
     const mastery=lv?lv.rate:skT?Math.round(skC/skT*100):null;
     const sk=skAll.filter(([,v])=>v.rate<SKILL_GAP_UI).sort((a,b)=>a[1].rate-b[1].rate);
     const done=acts.filter(h=>h.subs&&h.subs[s.id]).length;
