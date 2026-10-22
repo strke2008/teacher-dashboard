@@ -1203,7 +1203,15 @@ function masteryWindow(assignments, sid, from, to, skipRemedial, cut) {
    وتبقى الخطط القديمة (بأسماء مهاراتها القديمة) تُقاس على الناتج نفسه. */
 let SKILL_ALIAS = {};
 const skCanon = s => { const k = String(s || '').trim(), v = SKILL_ALIAS[k]; return v && v !== '__off__' ? v : k; };   // __off__ = «خارج النواتج» بقرار المعلم
-async function loadSkillAlias(env) { try { const o = JSON.parse(await env.HW.get('skill-alias') || '{}'); SKILL_ALIAS = o && typeof o === 'object' ? o : {}; } catch { SKILL_ALIAS = {}; } return SKILL_ALIAS; }
+async function loadSkillAlias(env) { try { const o = JSON.parse(await env.HW.get('skill-alias') || '{}'); SKILL_ALIAS = o && typeof o === 'object' ? o : {}; } catch { SKILL_ALIAS = {}; }
+  await loadSkillCustom(env); return SKILL_ALIAS; }
+/* ➕ مهارات أضافها المعلم إلى قائمة نواتج نافس (داخل وحدة من وحداتها) — تُعامل كالنواتج الرسمية في تحديد الخطط */
+let SKILL_CUSTOM = {}, SKILL_CUSTOM_LIST = [];
+async function loadSkillCustom(env) {
+  try { const a = JSON.parse(await env.HW.get('skill-custom') || '[]'); SKILL_CUSTOM_LIST = Array.isArray(a) ? a : []; } catch { SKILL_CUSTOM_LIST = []; }
+  SKILL_CUSTOM = Object.fromEntries(SKILL_CUSTOM_LIST.filter(x => x && x.short).map(x => [String(x.short), [Number(x.term) === 2 ? 2 : 1, String(x.unit || ''), Number(x.ord) || 0]]));
+  return SKILL_CUSTOM_LIST;
+}
 /* أسماء مصفوفة مهارات الأسئلة بأسماء المهارات المطلوبة (targets) متى التقت معها في الناتج نفسه */
 function skAsTargets(sk, targets) {
   if (!sk) return sk; const by = {}; (targets || []).forEach(t => { by[skCanon(t)] = t; });
@@ -1270,7 +1278,7 @@ function skillProfile(data, assignments, sid, range) {
    تحديد الخطط (الترشيح، المجموعات، التشخيص، العلاج التلقائي) لا يحسب إلا هذه النواتج؛ وقياس الخطط القائمة يبقى على مهاراتها كما حُفظت. */
 const NAFS_OUTCOMES = {"المتغيرات والتجريب":[1,"طبيعة العلم",0],"القياس العلمي":[1,"طبيعة العلم",0],"تحليل البيانات وتفسيرها":[1,"طبيعة العلم",0],"التواصل ومصادر المعرفة":[1,"طبيعة العلم",0],"الملاحظة والاستدلال":[1,"طبيعة العلم",0],"التوقع":[1,"طبيعة العلم",0],"التصنيف وفروع العلم":[1,"طبيعة العلم",0],"عمل النماذج":[1,"طبيعة العلم",0],"الاستنتاج وتقويم التفسيرات":[1,"طبيعة العلم",0],"أنواع السرعة وحسابها":[1,"الحركة والقوى والآلات البسيطة",1],"مفهوم التسارع":[1,"الحركة والقوى والآلات البسيطة",1],"التسارع والسرعة والإزاحة":[1,"الحركة والقوى والآلات البسيطة",1],"حساب التسارع":[1,"الحركة والقوى والآلات البسيطة",1],"قانون نيوتن الأول":[1,"الحركة والقوى والآلات البسيطة",1],"قوة الاحتكاك":[1,"الحركة والقوى والآلات البسيطة",1],"القصور الذاتي":[1,"الحركة والقوى والآلات البسيطة",1],"العوامل المؤثرة في القصور الذاتي":[1,"الحركة والقوى والآلات البسيطة",1],"صياغة قانون نيوتن الأول":[1,"الحركة والقوى والآلات البسيطة",1],"قانون نيوتن الثاني":[1,"الحركة والقوى والآلات البسيطة",1],"محصلة القوى والتسارع":[1,"الحركة والقوى والآلات البسيطة",1],"التسارع والعوامل المؤثرة فيه":[1,"الحركة والقوى والآلات البسيطة",1],"قانون نيوتن الثالث":[1,"الحركة والقوى والآلات البسيطة",1],"انعدام الوزن والسقوط الحر":[1,"الحركة والقوى والآلات البسيطة",1],"دلائل التفاعل الكيميائي":[1,"المادة وتغيراتها",2],"المعادلة الكيميائية وحفظ الكتلة":[1,"المادة وتغيراتها",2],"النماذج الذرية":[1,"الذرات والعناصر والجدول الدوري",3],"مكونات الذرة":[1,"الذرات والعناصر والجدول الدوري",3],"المركبات والمخاليط وخواصها":[1,"الذرات والعناصر والجدول الدوري",3],"تصنيف المخاليط":[1,"الذرات والعناصر والجدول الدوري",3],"فصل المخاليط":[1,"الذرات والعناصر والجدول الدوري",3],"النظائر والعدد الكتلي والذري":[1,"الذرات والعناصر والجدول الدوري",3],"تاريخ الجدول الدوري":[1,"الذرات والعناصر والجدول الدوري",3],"خصائص عناصر الجدول الدوري":[1,"الذرات والعناصر والجدول الدوري",3],"مفتاح العنصر والفلزات واللافلزات":[1,"الذرات والعناصر والجدول الدوري",3],"صفات الصخور والمعادن واستخداماتها":[1,"الصخور والمعادن",4],"تصنيف المعادن":[1,"الصخور والمعادن",4],"الخصائص المشتركة للصخور":[1,"الصخور والمعادن",4],"الصخور النارية":[1,"الصخور والمعادن",4],"الصخور المتحولة":[1,"الصخور والمعادن",4],"الصخور الرسوبية":[1,"الصخور والمعادن",4],"نظرية الصفائح وطبقات الأرض":[1,"القوى المشكلة للأرض",5],"حدود الصفائح وأنواعها":[1,"القوى المشكلة للأرض",5],"البراكين والزلازل وحدود الصفائح":[1,"القوى المشكلة للأرض",5],"الحدود المتقاربة والمتباعدة":[1,"القوى المشكلة للأرض",5],"نتائج حركة الصفائح":[1,"القوى المشكلة للأرض",5],"التجوية والتعرية":[1,"القوى المشكلة للأرض",5],"انتقال الحرارة واحتباسها":[2,"الغلاف الجوي والطقس",6],"تحليل بيانات الطقس":[2,"الغلاف الجوي والطقس",6],"أسباب التغيرات المناخية":[2,"الغلاف الجوي والطقس",6],"وسائل استكشاف الفضاء":[2,"استكشاف الفضاء",7],"خصائص وسائل الاستكشاف":[2,"استكشاف الفضاء",7],"اتساع الكون ومسافاته":[2,"استكشاف الفضاء",7],"النظرية الخلوية وتراكيب الخلية":[2,"الخلايا لبنات الحياة",8],"المجاهر وأدوات التكبير":[2,"الخلايا لبنات الحياة",8],"وحيدة الخلية ومتعددة الخلايا":[2,"الخلايا لبنات الحياة",8],"أنشطة الخلية الحيوية":[2,"الخلايا لبنات الحياة",8],"أجهزة جسم الإنسان":[2,"الخلايا لبنات الحياة",8],"تكامل الأجهزة واتزان الجسم":[2,"الخلايا لبنات الحياة",8],"أمراض الأجهزة والوقاية":[2,"الخلايا لبنات الحياة",8],"الخلية النباتية والحيوانية":[2,"الخلايا لبنات الحياة",8],"خصائص المخلوقات الحية":[2,"الحيوانات اللافقارية",9],"تصنيف اللافقاريات":[2,"الحيوانات اللافقارية",9],"الأسماك والبرمائيات والزواحف":[2,"الحيوانات الفقارية",10],"الطيور والثدييات":[2,"الحيوانات الفقارية",10],"تصنيف الفقاريات وحمايتها":[2,"الحيوانات الفقارية",10],"النظام البيئي ومكوناته":[2,"علم البيئة",11],"الجماعات والمجتمع الحيوي":[2,"علم البيئة",11],"انتقال الطاقة والسلاسل الغذائية":[2,"علم البيئة",11],"المحافظة على النظام البيئي":[2,"علم البيئة",11],"أثر النشاط البشري على الأرض":[2,"موارد الأرض",12],"الأحداث الطبيعية وآثارها":[2,"موارد الأرض",12],"الوقاية من الأخطار":[2,"موارد الأرض",12],"التغيرات البيئية والموارد":[2,"موارد الأرض",12],"مصادر الطاقة غير المتجددة":[2,"موارد الأرض",12],"المحافظة على الموارد":[2,"موارد الأرض",12]};
 function skOutcome(k) {
-  const c = skCanon(k), sh = c.startsWith('نافس: ') ? c.slice(6).trim() : '', o = sh && NAFS_OUTCOMES[sh];
+  const c = skCanon(k), sh = c.startsWith('نافس: ') ? c.slice(6).trim() : '', o = sh && (NAFS_OUTCOMES[sh] || SKILL_CUSTOM[sh]);
   return o ? { key: c, short: sh, term: o[0], unit: o[1], ord: o[2] } : null;
 }
 /* ملف المهارات الرسمي: نواتج نافس فقط، ومعها الوحدة، و«سابقة» إن كان الناتج من غير الفصل الدراسي الحالي */
@@ -7012,9 +7020,26 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         const raws = await inBatches(keys, 25, k => env.HW.get(k));
         raws.forEach(r => { try { const o = JSON.parse(r); if (o && o.map) Object.values(o.map).forEach(v => { const s = String(v || '').trim(); if (s) names.add(s); }); } catch {} });
       } catch {}
-      return json({ ok: true, hw: keys.map(k => k.slice(7)), names: [...names].slice(0, 1000), alias: await loadSkillAlias(env) });
+      const alias = await loadSkillAlias(env);
+      return json({ ok: true, hw: keys.map(k => k.slice(7)), names: [...names].slice(0, 1000), alias, custom: SKILL_CUSTOM_LIST });
     }
     // 🎯 جدول توحيد المهارات على نواتج نافس: { t, map:{ قديم: ناتج } } — "" يحذف المطابقة
+    // ➕ إضافة/حذف مهارة من قائمة النواتج (يختار المعلم وحدتها) — قائمة واحدة للعام
+    if (url.pathname === '/skill-custom' && request.method === 'POST') {
+      let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
+      if (!env.TEACHER_TOKEN || b.t !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
+      const list = await loadSkillCustom(env), it = b.item && typeof b.item === 'object' ? b.item : {};
+      const short = String(it.short || '').replace(/^نافس:\s*/, '').replace(/\s+/g, ' ').trim().slice(0, 40);
+      if (b.op === 'del') { const next = list.filter(x => x.short !== short && x.id !== String(it.id || '')); await env.HW.put('skill-custom', JSON.stringify(next)); await loadSkillCustom(env); return json({ ok: true, list: next }); }
+      if (!short || short.length < 3) return json({ ok: false, error: 'bad_name' }, 400);
+      if (NAFS_OUTCOMES[short] || list.some(x => x.short === short)) return json({ ok: false, error: 'exists' }, 409);
+      if (list.length >= 120) return json({ ok: false, error: 'too_many' }, 400);
+      const row = { id: 'cu' + Date.now().toString(36), short, text: String(it.text || '').trim().slice(0, 200), sec: String(it.sec || '').slice(0, 20),
+        term: Number(it.term) === 2 ? 2 : 1, unit: String(it.unit || '').slice(0, 80), ord: Number(it.ord) || 0, at: Date.now() };
+      if (!row.sec || !row.unit) return json({ ok: false, error: 'no_unit' }, 400);
+      const next = [...list, row]; await env.HW.put('skill-custom', JSON.stringify(next)); await loadSkillCustom(env);
+      return json({ ok: true, item: row, list: next });
+    }
     if (url.pathname === '/skill-alias' && request.method === 'POST') {
       let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
       if (!env.TEACHER_TOKEN || b.t !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);

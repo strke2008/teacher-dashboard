@@ -2640,3 +2640,7 @@ button.sk-chip:not([onclick]){cursor:default}
 
 .pq-legacy{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;padding:.6rem .8rem;border-radius:12px;background:#FFFBEB;border:1px solid #FCD34D;color:#78350F;font-size:.86rem;line-height:1.8}
 .pq-legacy .btn{margin-inline-start:auto}
+
+/* ➕ مهارة جديدة في قائمة النواتج */
+.skc-list{margin-top:.6rem;border:1px solid var(--line,#E5E7EB);border-radius:12px;padding:.4rem .6rem}.skc-list summary{cursor:pointer;font-weight:700;font-size:.86rem}
+.skc-row{display:flex;align-items:center;justify-content:space-between;gap:.5rem;padding:.35rem 0;border-top:1px dashed var(--line,#EEF0F3);font-size:.88rem}

@@ -1180,7 +1180,7 @@ async function renderAutoRem(){
   try{const r=await fetch(getApi().replace(/\/+$/,'')+'/remedials?t='+encodeURIComponent(getTok()));const j=await r.json();rows=(j&&j.rows)||[];REM_ROWS=rows.slice();setTimeout(()=>{try{planSyncRemActions()}catch(e){}},0);
     if(j&&Array.isArray(j.twins)){REM_TWINS=new Set(j.twins.map(String))}
     if(j&&typeof j.enabled==='boolean')REM_ON=j.enabled;}catch(e){}
-  try{const rs=await fetch(getApi().replace(/\/+$/,'')+'/skills-list?t='+encodeURIComponent(getTok()));const js=await rs.json();if(js&&Array.isArray(js.hw))SKILL_SERVER=new Set(js.hw.map(String));if(js&&Array.isArray(js.names))SKILL_NAMES=js.names.map(String).filter(Boolean);if(js&&js.alias&&typeof SKILL_ALIAS!=='undefined')SKILL_ALIAS=js.alias}catch(e){}
+  try{const rs=await fetch(getApi().replace(/\/+$/,'')+'/skills-list?t='+encodeURIComponent(getTok()));const js=await rs.json();if(js&&Array.isArray(js.hw))SKILL_SERVER=new Set(js.hw.map(String));if(js&&Array.isArray(js.names))SKILL_NAMES=js.names.map(String).filter(Boolean);if(js&&js.alias&&typeof SKILL_ALIAS!=='undefined')SKILL_ALIAS=js.alias;if(js&&Array.isArray(js.custom)&&typeof skCustomApply==='function')skCustomApply(js.custom)}catch(e){}
   remApplyMaster();autoRemStatus();
   const clsF=(document.getElementById('plan-class')||{}).value||'';
   if(clsF)rows=rows.filter(x=>String(x.cls||'')===clsF);
@@ -2985,6 +2985,7 @@ function renderPlanSkills(){
       :need?`<div class="muted" style="font-size:.78rem;margin-top:.4rem">⚠️ ${need} نشاط بلا تصنيف — أضف مفتاح ذكاء اصطناعي من ⚙️ الإعدادات ليُصنَّف.</div>`:''}
     <div class="row" style="gap:.4rem;margin-top:.5rem">
       <select id="pf-skill-new" class="inp" style="flex:1"><option value="">＋ أضف ناتجًا لاحظت ضعفه (من نواتج نافس)…</option>${planOutcomeOptions(chosen)}</select>
+      <button type="button" class="btn ghost sm" onclick="skCustomOpen('plan')" title="مهارة ترى أنها يجب أن تكون ضمن القائمة — تُضاف داخل وحدتها">➕ مهارة جديدة</button>
       <button type="button" class="btn sm" onclick="planSkillAdd()">إضافة</button>
     </div>
     ${chosen.length?`<div class="pf-goals"><b>② أهداف الخطة</b><ol>${chosen.map(k=>`<li>أن ${G.grp?'يتقن الطلاب':'يتقن الطالب'} مهارة <b>«${planDisp(k)}»</b> بنسبة ${SKILL_TARGET_UI}% فأكثر <span class="muted">— ${rate.has(k)?`مستواه الآن ${rate.get(k)}%`:'لا قياس قبلي بعد'}</span></li>`).join('')}</ol>
@@ -3018,6 +3019,9 @@ function planSkillToggle(el){
   else set.delete(el.value);
   window._pfSkills=[...set]; planSkillActsSync(el.value,el.checked); renderPlanSkills(); planReasonSync();
 }
+/* إضافة ناتج بالمفتاح مباشرة (بعد إنشاء مهارة جديدة من ➕) */
+function planSkillAddKey(k){ const cur=window._pfSkills||[]; if(!cur.includes(k)){ if(cur.length>=PLAN_SKILL_MAX){ toast(`الحد ${PLAN_SKILL_MAX} مهارات للخطة — ألغِ واحدة أولًا`,'bad'); renderPlanSkills(); return } cur.push(k); planSkillActsSync(k,true) }
+  window._pfSkills=cur; renderPlanSkills(); planReasonSync(); }
 function planSkillAdd(){
   const inp=document.getElementById('pf-skill-new'); const v=String(inp&&inp.value||'').trim().slice(0,80); if(!v) return;
   if(!planIsOutcome(v)){ toast('اختر ناتجًا من نواتج نافس','bad'); return; }
