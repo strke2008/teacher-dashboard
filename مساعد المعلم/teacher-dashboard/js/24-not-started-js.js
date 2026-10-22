@@ -202,12 +202,12 @@ function askFabPanel(){
   // موضع التمرير قبل إعادة الرسم: من كان عند آخر رسالة يبقى عندها، ومن صعد يقرأ القديم لا يُسحب
   const th0=document.getElementById('ch-thread'), sameView=p.dataset.view===ASKF.view;
   const stick=!th0||!sameView||th0.scrollHeight-th0.scrollTop-th0.clientHeight<60, top0=th0?th0.scrollTop:0;
-  const TH=chThreads(), openN=TH.reduce((a,t)=>a+t.open,0);
+  const TH=chThreads(), openN=TH.reduce((a,t)=>a+t.open,0); let html='';
   const foot=`<div class="askf-foot"><button type="button" class="btn ghost sm" onclick="askFabToggle(false);asksOpen()">كل الأسئلة والسابقة</button><button type="button" class="btn ghost sm" onclick="asksLoad()">🔄 تحديث</button><button type="button" class="btn ghost sm" onclick="askFabSet(false)" title="يمكنك إظهاره مجددًا من بطاقة «رسائل الطلاب»">إخفاء الزر</button></div>`;
   if(ASKF.view){
     const sid=ASKF.view, s=chStu(sid), t=TH.find(x=>x.sid===sid), on=chOn(sid), id=thEsc(sid), B=chBubbles(t?t.items:[]), hasOpen=!!(t&&t.open);
     const nm=s?s.name:(t?t.name:'طالب');
-    p.innerHTML=`<div class="askf-top ch-top"><button type="button" class="askf-x" onclick="ASKF.view='';askFabPanel()" aria-label="رجوع">→</button>
+    html=`<div class="askf-top ch-top"><button type="button" class="askf-x" onclick="ASKF.view='';askFabPanel()" aria-label="رجوع">→</button>
         <div class="ch-who"><b>${s?`<span class="ask-nm" role="link" tabindex="0" onclick="ctOpenProfile('${id}')" title="افتح ملف الطالب">${thEsc(nm)}</span>`:thEsc(nm)}</b>
         <small>${on?'<i class="onl-dot on"></i> متصل الآن':'غير متصل'}${s&&s.cls?' · '+thEsc(s.cls):''}</small></div>
         <button type="button" class="ch-lock ${chIsOpen(sid)?'on':''}" onclick="chToggle('${id}',${!chIsOpen(sid)})" title="${chIsOpen(sid)?'الطالب يكتب لك متى شاء — اضغط للإغلاق':'الطالب لا يبدأ الكتابة إلا بأسئلة «راسل معلمك» — اضغط للفتح'}">${chIsOpen(sid)?'🔓 الدردشة مفتوحة':'🔒 الدردشة مغلقة'}</button>
@@ -215,11 +215,11 @@ function askFabPanel(){
       <div class="askf-list ch-thread" id="ch-thread">${B.length?B.map(m=>`<div class="ch-b ${m.who}${m.open?' open':''}">${m.ctx?`<small class="ch-ctx">${thEsc(m.ctx)}</small>`:''}<div>${thEsc(m.text)}</div>
           <small class="ch-t">${chTime(m.at)}${m.who==='t'&&m.seen?' · 👁️ قرأها':''}${m.open?' · ⏳ ينتظر ردك':''}</small></div>`).join('')
         :`<div class="askf-empty">💬 ابدأ محادثة مع ${thEsc(nm)}<small>${on?'متصل الآن — يظهر له تنبيه أحمر على صندوق المحادثة خلال ثوانٍ':'تصله في رسائله ومعها إشعار، وتظهر في صندوق محادثته أول ما يفتح البوابة'}</small></div>`}</div>
-      <div class="ch-comp">${hasOpen?`<div class="ask-quick">${ASK_QUICK.slice(0,4).map(q=>`<button type="button" onclick="askQuick('${id}',this.textContent,'chr-')">${thEsc(q)}</button>`).join('')}</div>`:''}
+      <div class="ch-comp"><div class="ch-q">${hasOpen?`<div class="ask-quick">${ASK_QUICK.slice(0,4).map(q=>`<button type="button" onclick="askQuick('${id}',this.textContent,'chr-')">${thEsc(q)}</button>`).join('')}</div>`:''}</div>
         <div class="ch-row"><textarea class="inp" id="chr-${id}" rows="2" maxlength="1000" placeholder="${hasOpen?'ردك عليه…':chIsOpen(sid)?(on?'اكتب له — يصله فورًا…':'اكتب له — يصله في رسائله…'):'رسالة خاصة — إرسالها يفتح الدردشة معه…'}" oninput="ASK_DRAFT['ch:${id}']=this.value"
           onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();chSend('${id}')}">${thEsc(ASK_DRAFT['ch:'+sid]||'')}</textarea>
         <button type="button" class="btn tick ch-send" onclick="chSend('${id}')" aria-label="إرسال">📩</button></div>
-        ${hasOpen?`<button type="button" class="btn ghost sm" style="margin-top:.3rem" title="حللتها معه في الفصل — لا يُرسل شيء" onclick="chClose('${id}')">✓ أُغلق سؤاله دون رد</button>`:''}</div>`;
+        <div class="ch-cl">${hasOpen?`<button type="button" class="btn ghost sm" style="margin-top:.3rem" title="حللتها معه في الفصل — لا يُرسل شيء" onclick="chClose('${id}')">✓ أُغلق سؤاله دون رد</button>`:''}</div></div>`;
   } else {
     const q=ASKF.q.trim(), onl=typeof onlRows==='function'?onlRows().on:[];
     const found=q?(STUDENTS||[]).filter(s=>String(s.name||'').includes(q)).slice(0,8):[];
@@ -227,12 +227,25 @@ function askFabPanel(){
       const lastTxt=last?(last.kind==='t'?'أنت: '+last.text:last.reply&&last.repliedAt>=last.at?'أنت: '+last.reply:last.text):'';
       return `<button type="button" class="ch-it${t.open?' open':''}" onclick="chOpen('${thEsc(t.sid)}')"><span class="ch-nm">${chOn(t.sid)?'<i class="onl-dot on"></i>':''}<b>${thEsc(t.name)}</b><small>${thEsc(t.cls||'')}</small>${chIsOpen(t.sid)?'<em class="ch-open">🔓 دردشة</em>':''}
         <small class="ch-tm">${askAgo(t.last)}</small></span><span class="ch-last">${thEsc(String(lastTxt).slice(0,90))}</span>${t.open?`<b class="ch-n">${t.open}</b>`:''}</button>`; };
-    p.innerHTML=`<div class="askf-top"><b>💬 المحادثات</b>${openN?`<span class="chip bad">${openN} تنتظر ردك</span>`:''}<button type="button" class="askf-x" onclick="askFabToggle(false)" aria-label="إغلاق">✕</button></div>
+    html=`<div class="askf-top"><b>💬 المحادثات</b>${openN?`<span class="chip bad">${openN} تنتظر ردك</span>`:''}<button type="button" class="askf-x" onclick="askFabToggle(false)" aria-label="إغلاق">✕</button></div>
       <div class="ch-search"><input class="inp" id="ch-q" type="search" placeholder="🔍 ابدأ محادثة مع أي طالب…" value="${thEsc(ASKF.q)}" oninput="ASKF.q=this.value;askFabPanel()"></div>
       <div class="askf-list">${q?(found.length?found.map(s=>`<button type="button" class="ch-it" onclick="chOpen('${thEsc(s.id)}')"><span class="ch-nm">${chOn(s.id)?'<i class="onl-dot on"></i>':''}<b>${thEsc(s.name)}</b><small>${thEsc(s.cls||'')}</small></span></button>`).join(''):'<div class="askf-empty">لا طالب بهذا الاسم</div>')
         :`${onl.length?`<div class="ch-onl"><small>🟢 متصلون الآن</small>${onl.slice(0,12).map(r=>`<button type="button" class="chip ghost" onclick="chOpen('${thEsc(r.sid)}')">${thEsc(r.s.name.split(' ')[0])}</button>`).join('')}</div>`:''}
           ${ASKS===null?'<div class="muted" style="padding:1rem;text-align:center">⏳ جارٍ الجلب…</div>':TH.length?TH.slice(0,40).map(row).join(''):'<div class="askf-empty">🌿 لا محادثات بعد<small>ابحث عن طالب بالأعلى لتبدأ</small></div>'}`}</div>`;
   }
+  /* ✍️ التحديث الدوري (رسائل جديدة، حالة الاتصال) لا يعيد بناء خانة الكتابة ولا البحث: كان يُغلق لوحة مفاتيح الجوال
+     ويقطع الإملاء ويرمي المؤشر لآخر النص كل بضع ثوانٍ. في الشاشة نفسها تُحدَّث الأجزاء المتغيرة فقط */
+  const keep=ASKF.view?p.querySelector('.ch-row textarea'):p.querySelector('#ch-q');
+  if(sameView && keep && keep.id===(ASKF.view?'chr-'+thEsc(ASKF.view):'ch-q')){
+    const tpl=document.createElement('div'); tpl.innerHTML=html;
+    let moved=false;
+    (ASKF.view?['.askf-top','#ch-thread','.ch-q','.ch-cl']:['.askf-top','.askf-list']).forEach(sel=>{ const a=p.querySelector(sel), b=tpl.querySelector(sel);
+      if(a&&b&&a.innerHTML!==b.innerHTML){ a.innerHTML=b.innerHTML; if(sel==='#ch-thread') moved=true; } });
+    if(ASKF.view){ const nt=tpl.querySelector('.ch-row textarea'); if(nt&&keep.placeholder!==nt.placeholder) keep.placeholder=nt.placeholder; }
+    const th=document.getElementById('ch-thread'); if(th&&moved) th.scrollTop=stick?th.scrollHeight:top0;
+    return;
+  }
+  p.innerHTML=html;
   p.insertAdjacentHTML('beforeend',foot); p.dataset.view=ASKF.view; p.classList.toggle('thr',!!ASKF.view);
   // بعد إضافة الذيل (يغيّر ارتفاع القائمة) لا قبله — وإلا توقفت قبل آخر رسالة
   const th=document.getElementById('ch-thread'); if(th) th.scrollTop=stick?th.scrollHeight:top0;
