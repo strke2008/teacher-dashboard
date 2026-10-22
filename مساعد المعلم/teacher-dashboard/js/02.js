@@ -1163,7 +1163,7 @@ async function renderAutoRem(){
   box.innerHTML=`
     <div class="ar-head">
       <div class="ar-title"><h3>🤖 العلاج التلقائي</h3>
-        <p>من يحصل على أقل من 60% في نشاط أو اختبار تصله مهمة علاجية شخصية. إتقان 80% يغلقها، وإخفاقه مرتين يظهر لك هنا.</p>
+        <p>من يحصل على أقل من 60% في نشاط أو اختبار — <b>أو في مهارة داخل النشاط</b> ولو كان مجموعه جيدًا — تصله مهمة علاجية شخصية تبدأ بأضعف مهارة. إتقان 80% يغلقها، وإخفاقه مرتين يظهر لك هنا.</p>
         <div class="ar-off-sub">متوقف: لا تُفتح مهام علاجية جديدة ولا يُستهلك رصيد الذكاء الاصطناعي.</div></div>
       <label class="ar-master"><span class="ar-switch big"><input type="checkbox" id="rem-master" ${REM_ON?'checked':''} onchange="remSetEnabled(this.checked)"><i></i></span><b id="rem-master-t">${REM_ON?'مفعّل':'موقوف'}</b></label>
     </div>
@@ -1203,6 +1203,7 @@ async function renderAutoRem(){
   const body=document.getElementById('auto-rem-body');
   const cleanN=remCleanable(REM_ROWS).length;
   const cleanBar=cleanN?`<div class="row" style="gap:.5rem;align-items:center;justify-content:space-between;margin-bottom:.5rem;flex-wrap:wrap"><span class="muted" style="font-size:.8rem">${cleanN} ${cleanN===1?'مهمة منتهية':'مهام منتهية'} (أتقنها الطلاب) يمكن حذفها</span><button type="button" class="btn ghost sm" onclick="remClean()">🧹 حذف المهام المنتهية</button></div>`:'';
+  try{ renderPlanCandidates(); }catch(e){}
   if(body)body.innerHTML=cleanBar+(rows.length?rows.filter(x=>x.status!=='escalated').slice(0,30).map(line).join('')||'<div class="ar-empty">لا مهام أخرى.</div>':'<div class="ar-empty">لم تُفتح مهام علاجية بعد. ستظهر هنا تلقائيًا عند أول إخفاق.</div>');
 }
 
@@ -1350,9 +1351,8 @@ async function planSendRemedialGo(id){
   catch(e){openModal(`<h2>تعذّر الإرسال</h2><p class="muted">${planEsc(e.message||e)}</p><div class="modal-foot"><button class="btn" onclick="closeModal()">إغلاق</button></div>`);return}
   const res=j.results||[],ok=res.filter(x=>x.ok),bad=res.filter(x=>!x.ok);
   // أضف الإجراء إلى الخطة إن لم يكن فيها، ليُعلَّم لاحقًا عند الحل
-  if(ok.length){try{const all=(PLAN_DATA.plans||[]).map(x=>({...x}));const pl=all.find(x=>x.id===id);
-    const raw=(window._classroomData&&window._classroomData.plans||[]).find(x=>x.id===id);
-    if(raw&&!(raw.actions||[]).some(a=>a.text===PLAN_REM_ACTION)){const plans=(window._classroomData.plans||[]).map(x=>x.id===id?{...x,actions:[...(x.actions||[]),{text:PLAN_REM_ACTION,done:false}]}:x);await savePlans(plans)}}catch(e){}}
+  if(ok.length){try{const raw=(window._classroomData&&window._classroomData.plans||[]).find(x=>x.id===id);
+    if(!raw||!(raw.actions||[]).some(a=>a.text===PLAN_REM_ACTION)) await savePlans(all=>all.map(x=>x.id===id&&!(x.actions||[]).some(a=>a.text===PLAN_REM_ACTION)?{...x,actions:[...(x.actions||[]),{text:PLAN_REM_ACTION,done:false}]}:x));}catch(e){}}
   openModal(`<h2>${ok.length?'✅ أُرسلت المهمة':'لم تُرسل أي مهمة'}</h2>
     ${ok.length?`<p style="font-size:.9rem">وصلت ${ok.length===1?'لـ':'إلى'} ${ok.map(x=>planEsc(x.name)).join('، ')} في «🎯 طوّر مستواك».</p>`:''}
     ${twinNote?`<p class="plan-note" style="font-size:.84rem">${twinNote}</p>`:''}
@@ -1365,14 +1365,15 @@ async function planSendRemedialGo(id){
 async function planSyncRemActions(){
   const raw=window._classroomData&&Array.isArray(window._classroomData.plans)?window._classroomData.plans:null;if(!raw)return;
   let changed=false;
-  const plans=raw.map(pl=>{const rows=REM_ROWS.filter(x=>x.planId===pl.id);if(!rows.length)return pl;
+  const sync=list=>list.map(pl=>{const rows=REM_ROWS.filter(x=>x.planId===pl.id);if(!rows.length)return pl;
     const solved=rows.every(x=>(x.attempts||[]).some(a=>a.rate!=null));
     const acts=(pl.actions||[]).slice();let i=acts.findIndex(a=>a.text===PLAN_REM_ACTION);
     if(i<0){acts.push({text:PLAN_REM_ACTION,done:false});i=acts.length-1;changed=true}
     if(solved&&!acts[i].done){acts[i]={...acts[i],done:true};changed=true}
     if(solved)acts.forEach((a,k)=>{if(String(a.text).startsWith('إعادة حل')&&!a.done){acts[k]={...a,done:true};changed=true}});
     return {...pl,actions:acts};});
-  if(changed){try{await savePlans(plans);renderPlans(true)}catch(e){}}
+  sync(raw);   // يحدد هل تغيّر شيء، ثم يُطبَّق على أحدث نسخة في الخادم لحظة الحفظ
+  if(changed){try{await savePlans(all=>sync(all));renderPlans(true)}catch(e){}}
   (PLAN_DATA&&PLAN_DATA.plans||[]).forEach(p=>{const el=document.getElementById('plan-rem-'+p.id);if(el)el.innerHTML=planRemHTML(p);const g=document.getElementById('plan-goals-'+p.id);if(g)g.innerHTML=planGoalChips(p);const tl=document.getElementById('plan-tl-'+p.id);if(tl)tl.innerHTML=planTimelineHTML(p)});
 }
 
@@ -1408,11 +1409,12 @@ async function planDecide(id,decision){
   const p=(PLAN_DATA&&PLAN_DATA.plans||[]).find(x=>x.id===id);if(!p)return;
   const D=PLAN_DECISIONS[decision];if(!D)return;
   if(!confirm(`${D.icon} ${D.t}\n\n${D.d}`))return;
-  const all=(PLAN_DATA.plans||[]).map(planRaw),r=all.find(x=>x.id===id),t=p.timing||{},today=new Date().toISOString().slice(0,10);
+  const t=p.timing||{},today=new Date().toISOString().slice(0,10); let newRound=t.round||1, sendTask=false;
+  const apply=r=>{
   const snap={at:today,decision,label:D.t,verdict:p.verdict,gain:p.gain,after:p.after&&p.after.measured?p.after.rate:null,round:t.round||1};
   r.history=[...(r.history||[]),snap];
   const base=today>(t.due||today)?today:(t.due||today);
-  let sendTask=false;
+  sendTask=false;
   if(decision==='close_success'){r.status='done';r.endDate=today;r.outcome='نجحت الخطة'}
   else if(decision==='refer'){r.status='done';r.endDate=today;r.outcome='أُحيل للمرشد الطلابي وأُبلغ ولي الأمر'}
   else{
@@ -1421,10 +1423,11 @@ async function planDecide(id,decision){
     if(decision==='change'){r.interventionChanged=true;
       PLAN_TEACHER_ACTIONS.forEach(a=>{if(!(r.actions||[]).some(x=>x.text===a))r.actions.push({text:a,done:false})})}
   }
-  try{await savePlans(all)}catch(e){toast('تعذّر حفظ القرار','bad');return}
+  newRound=r.round||newRound; };
+  try{await savePlans(all=>{ const r=all.find(x=>x.id===id); if(r) apply(r); return all; })}catch(e){toast('تعذّر حفظ القرار','bad');return}
   toast(`${D.icon} ${D.t}`);
   if(sendTask){try{const sids=planMemberIds(p).filter(Boolean);
-    const rs=await fetch(getApi().replace(/\/+$/,'')+'/plan-remedial',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:getTok(),planId:id,sids,round:r.round})});
+    const rs=await fetch(getApi().replace(/\/+$/,'')+'/plan-remedial',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:getTok(),planId:id,sids,round:newRound})});
     const j=await rs.json();const ok=(j.results||[]).filter(x=>x.ok).length;if(ok)toast(`🩹 أُرسلت مهمة علاجية جديدة لـ ${ok} ${ok===1?'طالب':'طلاب'}`)}catch(e){}}
   renderPlans(true);
 }
@@ -2782,10 +2785,14 @@ const PLAN_ACTION_BANK=[
 ];
 let PLAN_DATA=null, planEditId='';
 function planEsc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-async function savePlans(plans){
+/* 💾 حفظ الخطط: يُفضَّل تمرير دالة تعدّل «أحدث قائمة في الخادم» لحظة الحفظ — لا القائمة المعروضة.
+   (كانت الصفحة تعرض لقطة فترة مغلقة، فيحفظ أي زر تلك اللقطة فوق الخطط الحقيقية ويمحو ما أُنشئ بعدها) */
+async function savePlans(plansOrFn){
   const tok=localStorage.getItem('hwapp_tok_v1')||'';
   const api=(typeof API!=='undefined'?API:'https://homework.ahmadalmarzooq2009.workers.dev').replace(/\/+$/,'');
   const cd=await loadComprehensiveClassroom(true);
+  const fresh=(Array.isArray(cd.plans)?cd.plans:[]).map(planRaw);
+  const plans=typeof plansOrFn==='function'?(plansOrFn(fresh)||fresh):plansOrFn;
   const body={...cd, plans};
   const r=await fetch(api+'/classroom',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({t:tok,data:body,clientAt:Date.now()})});
@@ -2794,6 +2801,7 @@ async function savePlans(plans){
   COMP_GRADES=null;
   return body;
 }
+function planSP(){ try{ return ctSemActive(); }catch(e){ return {sem:1,per:1}; } }
 function planRate(m){return (m&&m.measured)?m.rate+'%':'—'}
 function planBadge(v){
   const map={'تحسّن':'tick','تراجع':'bad','بلا فرق يُعتد به':'warn','لم يُقَس أثرها بعد':'ghost','لا يوجد قياس قبلي للمقارنة':'ghost','لا يوجد قياس بعد':'ghost'};
@@ -3081,6 +3089,7 @@ function planFromGroup(key){
 }
 function renderPlanGroups(){
   const box=document.getElementById('plan-groups'); if(!box) return;
+  box.innerHTML=''; return;   // 🧭 المجموعات صارت ضمن «قائمة العلاج هذا الأسبوع» (renderPlanCandidates)
   const cls=document.getElementById('plan-class')?.value||'';
   const gs=((PLAN_DATA&&PLAN_DATA.planGroups)||[]).filter(g=>!cls||g.cls===cls);
   if(!gs.length){ box.innerHTML=''; return }
@@ -3117,24 +3126,25 @@ async function submitPlan(){
   if(!(window._pfSkills||[]).length&&(ms==='academic'||(ms==='auto'&&!['absence','unsubmitted','behavior'].includes(pat)))){
     if(!(await askConfirm('الخطة العلاجية تُبنى على مهارة مفقودة محددة، فيُقاس أثرها عليها وتُبنى المهمة العلاجية منها. بدونها تكون الخطة عامة ويُقاس أثرها على كل الأنشطة.',{title:'لم تحدد مهارة مفقودة',yes:'احفظها عامة',no:'سأحدد المهارة'}))) return;
   }
-  const all=(PLAN_DATA&&PLAN_DATA.plans||[]).map(planRaw);
-  const prev=all.find(p=>p.id===planEditId);
   const dur=parseInt((document.getElementById('pf-dur')||{}).value,10)||14;
+  // تُقرأ قيم النموذج الآن، وتُدمج مع «أحدث نسخة من الخطة في الخادم» لحظة الحفظ (لا لقطة معروضة قديمة)
+  const F={ end:document.getElementById('pf-end').value||'', reason:document.getElementById('pf-reason').value||'', notes:document.getElementById('pf-notes').value||'',
+    skills:(window._pfSkills||[]).slice(0,6), measure:(document.getElementById('pf-measure')||{}).value||'auto' };
+  const newId=planEditId||('pl'+Date.now().toString(36)); let rec=null;
+  const build=prev=>({
   // createdAt: ما سلّمه الطالب يوم البدء قبل إنشاء الخطة يُحسب قبليًا لا أثرًا لها
-  const rec={ ...(prev||{}), id: planEditId||('pl'+Date.now().toString(36)), createdAt: (prev&&prev.createdAt)||(prev?0:Date.now()),
+    ...(prev||{}), id: newId, createdAt: (prev&&prev.createdAt)||(prev?0:Date.now()),
     durationDays: dur, dueDate: (prev&&prev.dueDate&&prev.startDate===start&&prev.durationDays===dur)?prev.dueDate:addDays(start,dur),
     studentId: isGroup?'':sid, studentIds: isGroup?members:undefined, startDate:start,
-    endDate:document.getElementById('pf-end').value||'',
-    reason:document.getElementById('pf-reason').value||'',
-    notes:document.getElementById('pf-notes').value||'',
+    endDate:F.end, reason:F.reason, notes:F.notes,
     status:(prev&&prev.status)||'active',
     actions:acts.map(t=>{const old=prev&&(prev.actions||[]).find(a=>a.text===t);return {text:t,done:!!(old&&old.done)}}), at:Date.now(),
-    skills:(window._pfSkills||[]).slice(0,6),
-    measure:(document.getElementById('pf-measure')||{}).value||'auto', pattern:window._pfPattern||(prev&&prev.pattern)||'' };
+    skills:F.skills, measure:F.measure, pattern:window._pfPattern||(prev&&prev.pattern)||'' });
   const sendNow=!planEditId&&!!document.getElementById('pf-send')?.checked;
-  if(sendNow&&!rec.actions.some(a=>a.text===PLAN_REM_ACTION))rec.actions.push({text:PLAN_REM_ACTION,done:false});
-  const next=planEditId?all.map(p=>p.id===planEditId?rec:p):[rec,...all];
-  try{ await savePlans(next); closePlanForm(); toast('حُفظت الخطة'); }
+  try{ await savePlans(all=>{ const prev=planEditId?all.find(p=>p.id===planEditId):null; rec=build(prev);
+      if(sendNow&&!rec.actions.some(a=>a.text===PLAN_REM_ACTION))rec.actions.push({text:PLAN_REM_ACTION,done:false});
+      return prev?all.map(p=>p.id===planEditId?rec:p):[rec,...all]; });
+    closePlanForm(); toast('حُفظت الخطة'); }
   catch(e){ toast('تعذّر الحفظ — تحقق من الاتصال','bad'); return }
   if(sendNow){
     try{const ids=isGroup?members:[sid];
@@ -3149,21 +3159,17 @@ async function submitPlan(){
 }
 async function deletePlan(id){
   if(!(await askConfirm('لا يمكن التراجع بعد الحذف.',{title:'حذف الخطة نهائيًا؟',yes:'احذف',no:'إبقاء',danger:true}))) return;
-  const all=(PLAN_DATA&&PLAN_DATA.plans||[]).filter(p=>p.id!==id)
-    .map(planRaw);
-  try{ await savePlans(all); closePlanForm(); toast('حُذفت الخطة'); renderPlans(true); }
+  try{ await savePlans(all=>all.filter(p=>p.id!==id)); closePlanForm(); toast('حُذفت الخطة'); renderPlans(true); }
   catch(e){ toast('تعذّر الحذف','bad') }
 }
 async function togglePlanAction(id,i){
-  const all=(PLAN_DATA&&PLAN_DATA.plans||[]).map(planRaw);
-  const p=all.find(x=>x.id===id); if(!p||!p.actions[i]) return;
-  p.actions[i].done=!p.actions[i].done; p.actions[i].doneAt=p.actions[i].done?Date.now():0;   // تاريخ التنفيذ يُطبع في ورقة الطالب
-  try{ await savePlans(all); renderPlans(true) }catch(e){ toast('تعذّر التحديث','bad') }
+  const shown=(PLAN_DATA&&PLAN_DATA.plans||[]).find(x=>x.id===id), was=!!(shown&&shown.actions&&shown.actions[i]&&shown.actions[i].done);
+  try{ await savePlans(all=>{ const p=all.find(x=>x.id===id); if(p&&p.actions[i]){ p.actions[i].done=!was; p.actions[i].doneAt=!was?Date.now():0; } return all; }); renderPlans(true) }   // تاريخ التنفيذ يُطبع في ورقة الطالب
+  catch(e){ toast('تعذّر التحديث','bad') }
 }
 async function closePlan(id,status){
-  const all=(PLAN_DATA&&PLAN_DATA.plans||[]).map(planRaw);
-  const p=all.find(x=>x.id===id); if(!p) return;
-  const live=(PLAN_DATA.plans||[]).find(x=>x.id===id)||{};
+  const live=(PLAN_DATA&&PLAN_DATA.plans||[]).find(x=>x.id===id); if(!live) return;
+  let patch=null;
   if(status==='done'){
     // 🏁 الإنهاء اليدوي يحفظ النتيجة لحظتها (قبل ← بعد) — كانت تُغلق «منتهية» بلا نتيجة ولا أثر في سجلها
     const today=new Date().toISOString().slice(0,10), left=(live.timing&&live.timing.skillsLeft)||[];
@@ -3171,11 +3177,13 @@ async function closePlan(id,status){
     const outcome=met?'نجحت الخطة':live.verdict==='تحسّن'?'أُنهيت بتحسّن دون بلوغ الهدف':live.after&&live.after.measured?`أُنهيت — ${live.verdict||'بلا فرق'}`:'أُنهيت قبل قياس أثرها';
     const sum=`${live.before&&live.before.measured?live.before.rate+'%':'—'} ← ${live.after&&live.after.measured?live.after.rate+'%':'—'}${live.gain!=null?` (${planSigned(live.gain)})`:''}`;
     if(!(await askConfirm(`النتيجة الآن: ${sum}\n${live.verdict||''}${left.length?`\nلم تبلغ الهدف: ${left.map(x=>x.skill).join('، ')}`:''}\n\nتُحفظ «${outcome}» في سجل الخطة.`,{title:'إنهاء الخطة؟',yes:'✔ إنهاء',no:'إلغاء'}))) return;
-    p.outcome=p.outcome||outcome; if(!p.endDate) p.endDate=today;
-    p.history=[...(p.history||[]),{at:today,decision:'manual_close',label:'أنهاها المعلم',verdict:live.verdict,gain:live.gain,after:live.after&&live.after.measured?live.after.rate:null,round:(live.timing&&live.timing.round)||1}];
-  } else { delete p.outcome; p.endDate=undefined; }
-  p.status=status;
-  try{ await savePlans(all); renderPlans(true); toast(status==='done'?'أُنهيت الخطة':'أُعيد فتح الخطة') }catch(e){ toast('تعذّر التحديث','bad') }
+    patch=p=>{ p.outcome=p.outcome||outcome; if(!p.endDate) p.endDate=today;
+      p.history=[...(p.history||[]),{at:today,decision:'manual_close',label:'أنهاها المعلم',verdict:live.verdict,gain:live.gain,after:live.after&&live.after.measured?live.after.rate:null,round:(live.timing&&live.timing.round)||1}]; };
+  } else patch=p=>{ delete p.outcome; p.endDate=undefined; };
+  try{ await savePlans(all=>{ const p=all.find(x=>x.id===id); if(p){ patch(p); p.status=status; } return all; });
+    // تختفي فورًا من القائمة المعروضة دون انتظار إعادة الحساب
+    if(PLAN_DATA&&Array.isArray(PLAN_DATA.plans)){ const q=PLAN_DATA.plans.find(x=>x.id===id); if(q) q.status=status; }
+    renderPlans(true); toast(status==='done'?'أُنهيت الخطة':'أُعيد فتح الخطة') }catch(e){ toast('تعذّر التحديث','bad') }
 }
 /* 📝 الاختبارات: قياس مستقل بجانب الأنشطة */
 function planExamRow(p){
@@ -3321,7 +3329,7 @@ function planCard(p){
   const when=done?(p.outcome?`🏁 ${planEsc(p.outcome)}`:'منتهية'):t.due?(t.expired?'<b class="plan-need">⏰ قرارك مطلوب</b>':`📅 ${t.left===0?'تنتهي اليوم':`باقي ${t.left} ${t.left===1?'يوم':t.left<=10?'أيام':'يومًا'}`}`):'';
   const skills=Array.isArray(p.skills)&&p.skills.length?p.skills:[];
   const open=window._planOpen.has(String(p.id));
-  return `<div class="card plan-card pc ${t.expired&&!done?'pc-need':''}">
+  return `<div class="card plan-card pc ${t.expired&&!done?'pc-need':''}" id="pc-${id}">
     <div class="pc-top">
       <div class="pc-who"><b>${planEsc(p.name)}</b> <span class="muted">${planEsc(p.cls)}</span>
         <div class="pc-why">${planEsc(String(p.reason||'بلا سبب محدد').split(' — ')[0])}${skills.length?'':(p.mainBy&&p.mainBy!=='academic'?'':' · <span style="color:#B26A00">⚠️ بلا مهارة محددة</span>')}</div>
@@ -3369,20 +3377,60 @@ function planCard(p){
     </div>
   </div>`;
 }
+/* 🧭 قائمة العلاج هذا الأسبوع — مدخل واحد مرتّب بدل ثلاث بوابات متفرقة، والمهارة أولًا:
+   1) قرارك مطلوب (انتهت مدة الخطة)  2) نقطة فحص اليوم السابع  3) إعادة شرح للفصل (ضعف ثلث الفصل فأكثر في مهارة)
+   4) خطط جماعية (3 فأكثر تجمعهم مهارة)  5) خطط فردية (تأسيس <40 أولًا ثم فجوة 40–59)  6) أخفق مرتين في العلاج التلقائي
+   7) متابعة انضباط (غياب/واجبات بلا ضعف مهاري) — مطويّة، ليست خطة علاجية */
+const PQ_BAND={found:['تأسيس','bad'],support:['فجوة','warn'],review:['مراجعة','ghost'],mastered:['متمكن','tick']};
+const PQ_RETEACH_KEY='plan_reteach_v1';
+function pqReteachDone(cls,skill){ try{ const t=(JSON.parse(localStorage.getItem(PQ_RETEACH_KEY)||'{}'))[cls+'|'+skill]; return t&&Date.now()-t<14*864e5; }catch(e){ return false; } }
+function pqReteach(cls,skill){ try{ const o=JSON.parse(localStorage.getItem(PQ_RETEACH_KEY)||'{}'); o[cls+'|'+skill]=Date.now(); localStorage.setItem(PQ_RETEACH_KEY,JSON.stringify(o)); }catch(e){}
+  toast('✓ سُجّلت إعادة الشرح — تختفي من القائمة أسبوعين، ثم تعود إن بقي الضعف','good'); renderPlanCandidates(); }
+function pqCheckpointDue(p){ const t=p.timing||{}; if(p.status==='done'||t.expired||t.left==null||!t.days||t.left<=0) return false;
+  const r=t.round||1; return (t.days-t.left)>=7 && !(p.history||[]).some(h=>h.decision==='checkpoint'&&(h.round||1)===r); }
+async function pqCheckpoint(id){
+  const p=(PLAN_DATA&&PLAN_DATA.plans||[]).find(x=>x.id===id); if(!p) return; const r=(p.timing&&p.timing.round)||1, today=new Date().toISOString().slice(0,10);
+  try{ await savePlans(all=>{ const x=all.find(y=>y.id===id); if(x) x.history=[...(x.history||[]),{at:today,decision:'checkpoint',label:'نقطة فحص اليوم السابع',verdict:p.verdict,gain:p.gain,after:p.after&&p.after.measured?p.after.rate:null,round:r}]; return all; });
+    toast('✓ سُجّلت نقطة الفحص','good'); renderPlans(true); }catch(e){ toast('تعذّر الحفظ','bad'); }
+}
+function pqGo(id){ const el=document.getElementById('pc-'+id); if(!el){ const st=document.getElementById('plan-status'); if(st&&st.value!==''){ st.value=''; renderPlans(false).then(()=>setTimeout(()=>pqGo(id),300)); } return; }
+  el.scrollIntoView({behavior:'smooth',block:'center'}); el.classList.add('pq-flash'); setTimeout(()=>el.classList.remove('pq-flash'),1600); }
+function pqSkills(list){ return (list||[]).map(x=>{ const b=PQ_BAND[x.band]||['','ghost'];
+  return `<span class="chip ${b[1]}" title="${planEsc(b[0])}${x.covered?(x.covered==='reteach'?' · مغطّاة بإعادة الشرح للفصل':' · مغطّاة بخطة جماعية مقترحة'):''}">${planEsc(x.skill)} ${x.rate}%${x.covered?' ↺':''}</span>`; }).join(' '); }
 function renderPlanCandidates(){
   const box=document.getElementById('plan-candidates'); if(!box) return;
-  const cls=document.getElementById('plan-class')?.value||'';
-  const c=((PLAN_DATA&&PLAN_DATA.planCandidates)||[]).filter(x=>!cls||x.cls===cls);
-  if(!c.length){ box.innerHTML=''; return }
-  box.innerHTML=`<details class="card plan-fold" style="background:var(--ui-surface-2)" ${window._planFoldC?'open':''} ontoggle="window._planFoldC=this.open">
-    <summary>🎯 مرشحون لخطة علاجية <span class="chip ghost">${c.length}</span></summary>
-    <div class="row" style="justify-content:space-between;align-items:center;gap:.5rem;margin-top:.3rem"><span class="muted" style="font-size:.82rem">${c.length} طالب · الأولوية لمن اجتمعت عليه أكثر من مؤشر</span></div>
-    <div class="muted" style="font-size:.8rem;margin-top:.3rem">الغياب وعدم تسليم الواجب مؤشران مبكّران — يُرشّحان للخطة ولا يقيسان نجاحها.</div>
-    <div style="margin-top:.6rem">${c.slice(0,12).map(x=>`<div class="cand-row">
-      <div><b>${planEsc(x.name)}</b> <span class="muted">${planEsc(x.cls)}</span>
-        <div style="margin-top:.25rem">${x.diagnosis&&x.diagnosis.label?`<span class="chip bad">${planEsc(x.diagnosis.label)}</span> `:''}${x.reasons.map(r=>`<span class="chip ghost">${planEsc(r.text)}</span>`).join(' ')}</div></div>
-      <button class="btn tick sm" onclick="planFromCandidate('${planEsc(x.studentId)}',${JSON.stringify(x.reasons.map(r=>r.text).join(' · ')).replace(/"/g,'&quot;')})">＋ خطة</button>
-    </div>`).join('')}</div></details>`;
+  const cls=document.getElementById('plan-class')?.value||'', inC=x=>!cls||String(x.cls||'')===cls;
+  const P=((PLAN_DATA&&PLAN_DATA.plans)||[]).filter(p=>p.status!=='done'&&inC(p));
+  const decide=P.filter(p=>p.timing&&p.timing.expired), check=P.filter(pqCheckpointDue);
+  const G=((PLAN_DATA&&PLAN_DATA.planGroups)||[]).filter(inC);
+  const reteach=G.filter(g=>g.kind==='skill'&&g.classWide&&!pqReteachDone(g.cls,g.title)).sort((a,b)=>b.share-a.share);
+  const groups=G.filter(g=>!g.classWide).sort((a,b)=>(a.avgRate??100)-(b.avgRate??100));
+  const C=((PLAN_DATA&&PLAN_DATA.planCandidates)||[]).filter(inC);
+  const indiv=C.filter(c=>c.track!=='conduct'&&c.individual!==false), conduct=C.filter(c=>c.track==='conduct');
+  const escR=(REM_ROWS||[]).filter(x=>x.status==='escalated'&&inC(x)&&!remActivePlan(x.sid));
+  const total=decide.length+check.length+reteach.length+groups.length+indiv.length+escR.length;
+  if(!total&&!conduct.length){ box.innerHTML=''; return; }
+  const sec=(ic,t,n,sub,body,cls2='')=>n?`<div class="pq-sec ${cls2}"><div class="pq-h"><b>${ic} ${t}</b><span class="chip ghost">${n}</span>${sub?`<small>${sub}</small>`:''}</div>${body}</div>`:'';
+  const more=(arr,k,f)=>arr.slice(0,window['_pqAll'+k]?999:6).map(f).join('')+(arr.length>6&&!window['_pqAll'+k]?`<button type="button" class="btn ghost sm pq-more" onclick="window._pqAll${k}=1;renderPlanCandidates()">عرض الكل (${arr.length})</button>`:'');
+  const who=p=>planEsc(p.name||((p.members||[]).map(m=>m.name).join('، '))||'');
+  box.innerHTML=`<div class="pq card">
+    <div class="pq-top"><b>🧭 قائمة العلاج هذا الأسبوع</b><span class="muted">مرتبة بالأولوية — المهارة أولًا · تأسيس &lt;40% · فجوة 40–59% · الهدف 80%</span></div>
+    ${sec('🔴','قرارك مطلوب',decide.length,'انتهت مدة الخطة',more(decide,'D',p=>`<div class="pq-row"><div><b>${who(p)}</b> <span class="muted">${planEsc(p.cls||'')}</span><div class="pq-d">${planEsc((p.timing&&p.timing.why)||'')}</div></div><button class="btn tick sm" onclick="pqGo('${planEsc(p.id)}')">افتح القرار</button></div>`),'need')}
+    ${sec('🟠','نقطة فحص اليوم السابع',check.length,'راجع نتيجة المهمة العلاجية وعدّل الإجراء إن لزم',more(check,'K',p=>`<div class="pq-row"><div><b>${who(p)}</b> <span class="muted">${planEsc(p.cls||'')}</span>
+        <div class="pq-d">بعد ${(p.timing.days-p.timing.left)} أيام من ${p.timing.days} · الآن ${p.after&&p.after.measured?p.after.rate+'%':'لم يُقَس بعد'}${(p.skills||[]).length?' · '+(p.skills||[]).map(planEsc).join('، '):''}</div></div>
+        <span class="pq-acts"><button class="btn ghost sm" onclick="pqGo('${planEsc(p.id)}')">عرض</button><button class="btn tick sm" onclick="pqCheckpoint('${planEsc(p.id)}')">✓ تم الفحص</button></span></div>`),'chk')}
+    ${sec('🏫','أعد الشرح للفصل كله',reteach.length,'ضعف ثلث الفصل فأكثر في المهارة — مشكلة تدريس لا خطط فردية',more(reteach,'R',g=>`<div class="pq-row"><div><b>«${planEsc(g.title)}»</b> <span class="muted">${planEsc(g.cls)}</span>
+        <div class="pq-d">${g.ofClass} من ${g.classSize} دون 60% (${g.share}%) · متوسطهم ${g.avgRate}%</div></div><button class="btn tick sm" onclick="pqReteach('${planEsc(g.cls)}','${planEsc(g.title)}')">✓ أعدت الشرح</button></div>`),'')}
+    ${sec('👥','خطط جماعية',groups.length,'3 فأكثر تجمعهم الفجوة نفسها — تدخّل واحد يكفيهم',more(groups,'G',g=>`<div class="pq-row"><div><b>${planEsc(g.title||g.label)}</b> <span class="muted">${planEsc(g.cls)}</span> ${g.avgRate!=null?`<span class="chip ${(PQ_BAND[g.avgRate<40?'found':'support']||[])[1]}">${g.avgRate<40?'تأسيس':'فجوة'} · متوسط ${g.avgRate}%</span>`:''}
+        <div class="pq-d">${g.members.map(m=>planEsc(m.name)).join(' · ')}</div></div><button class="btn tick sm" onclick="planFromGroup('${planEsc(g.key)}')">＋ خطة جماعية</button></div>`))}
+    ${sec('👤','خطط فردية',indiv.length,'تأسيس أولًا، ثم من عنده مهارات أكثر',more(indiv,'I',c=>`<div class="pq-row"><div><b>${planEsc(c.name)}</b> <span class="muted">${planEsc(c.cls)}</span> ${c.tier===1?'<span class="chip bad">تأسيس</span>':c.tier===2?'<span class="chip warn">فجوة</span>':''}
+        <div class="pq-d">${(c.weak||[]).length?pqSkills(c.weak):planEsc((c.reasons[0]||{}).text||'')}${(c.conduct||[]).length?` <span class="muted">· ${c.conduct.map(r=>planEsc(r.text)).join(' · ')}</span>`:''}</div></div>
+        <button class="btn tick sm" onclick="planFromCandidate('${planEsc(c.studentId)}',${JSON.stringify(c.reasons.map(r=>r.text).join(' · ')).replace(/"/g,'&quot;')})">＋ خطة</button></div>`))}
+    ${sec('🤖','أخفق مرتين في العلاج التلقائي',escR.length,'يحتاج تدخّلك المباشر',more(escR,'E',x=>`<div class="pq-row"><div><b>${planEsc(x.name)}</b> <span class="muted">${planEsc(x.cls||'')}</span><div class="pq-d">«${planEsc(x.srcTitle||x.reason||'')}»</div></div>${remPlanBtn(x)}</div>`))}
+    ${conduct.length?`<details class="pq-sec pq-conduct"><summary><b>📋 متابعة انضباط</b> <span class="chip ghost">${conduct.length}</span> <small>غياب أو واجبات بلا ضعف مهاري — تواصل وتذكير، لا خطة علاجية</small></summary>
+      ${conduct.map(c=>`<div class="pq-row"><div><b>${planEsc(c.name)}</b> <span class="muted">${planEsc(c.cls)}</span><div class="pq-d">${c.conduct.map(r=>planEsc(r.text)).join(' · ')}</div></div>
+        <button class="btn ghost sm" onclick="planFromCandidate('${planEsc(c.studentId)}',${JSON.stringify(c.reasons.map(r=>r.text).join(' · ')).replace(/"/g,'&quot;')})">＋ متابعة</button></div>`).join('')}</details>`:''}
+  </div>`;
 }
 function planFromCandidate(sid,reason){
   openPlanForm();
@@ -3420,7 +3468,9 @@ async function renderPlans(force=false){
   const state=document.getElementById('plan-state'), list=document.getElementById('plan-list');
   if(!state||!list) return;
   state.textContent='جاري تحميل الخطط…';
-  try{ PLAN_DATA=await loadServerGrades(force||!COMP_GRADES_RAW); }
+  // الخطط جارية دائمًا: تُقرأ من الفترة الحالية (لا لقطة الفترة الأولى المغلقة)
+  const AS=planSP();
+  try{ PLAN_DATA=await loadServerGrades(force||!COMP_GRADES_RAW||COMP_GRADES_SEMESTER!==AS.sem||COMP_GRADES_PERIOD!==AS.per,AS.sem,AS.per); }
   catch(e){ state.textContent='تعذّر الاتصال بالخادم — لا يمكن عرض القياس القبلي والبعدي.'; list.innerHTML=''; return }
   const sel=document.getElementById('plan-class');
   if(sel&&sel.options.length<=1){
@@ -9023,7 +9073,7 @@ function diagBuild(hid, cls){
 async function planFromDiag(hid,skill){
   const cls=(document.getElementById('dg-class')||{}).value||'__all__';
   const D=diagBuild(hid,cls); const sk=D&&D.skills.find(x=>x.skill===skill); if(!sk||!sk.miss.length) return;
-  try{ if(!PLAN_DATA) PLAN_DATA=await loadServerGrades(false); }catch(e){}
+  try{ if(!PLAN_DATA){ const AS=planSP(); PLAN_DATA=await loadServerGrades(false,AS.sem,AS.per); } }catch(e){}
   const ids=sk.miss.map(r=>String(r.s.id));
   openPlanForm();
   if(ids.length>1){ const cb=document.getElementById('pf-group'); if(cb) cb.checked=true; window._pfMembers=ids; }

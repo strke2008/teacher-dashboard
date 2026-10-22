@@ -1168,7 +1168,7 @@ function gradeDuties(data, sid, range) {
    بعد  = الأنشطة المسلَّمة من تاريخ البدء حتى نهاية الخطة أو اليوم.
    إن لم يسلّم شيئًا بعد البدء فالنتيجة «لم يُقَس بعد» — ولا يجوز الحكم بنجاح
    خطة لم يُقَس أثرها. الفرق المعتد به 5 نقاط مئوية فأكثر حتى لا يُحتفى بضجيج. */
-const PLAN = { minGain: 5, target: 75, days: 14 };
+const PLAN = { minGain: 5, target: 80, days: 14 };   // الهدف 80% = عتبة «متمكّن» في المهارات (عتبات موحّدة 40/60/80)
 /* 📅 يوم التسليم في قياس الخطة: بتوقيت السعودية (كما gToday)، وما سُلّم يوم البدء قبل إنشاء الخطة
    يُعدّ من القياس القبلي — النشاط الذي بُنيت عليه الخطة صباحًا ليس أثرًا لها. */
 function planSubDay(at, cut) {
@@ -1884,30 +1884,56 @@ function planGroups(students, data, assignments, range) {
 
 /* المرشحون لخطة: الغياب وعدم التسليم مؤشران مبكّران للتعثّر، فيُستخدمان
    للترشيح لا للتقييم — ومعهما الإتقان المنخفض. من له خطة قائمة يُستبعد. */
-function planCandidates(students, data, assignments, range) {
-  const active = new Set((Array.isArray(data.plans) ? data.plans : [])
-    .filter(p => p && (p.status || 'active') === 'active').map(p => String(p.studentId)));
+/* 🎯 المرشحون للعلاج — المهارة أولًا (عتبات موحّدة: تأسيس <40 · فجوة 40–59 · مراجعة 60–79 · متمكن ≥80):
+   - مسار «مهارة»: مهارة أو أكثر دون 60%. الأولوية: من عنده «تأسيس» أولًا، ثم عدد المهارات الضعيفة، ثم أدنى نسبة.
+   - المهارة التي يغطيها «إعادة شرح للفصل» (ضعف ثلث الفصل فأكثر) أو «خطة جماعية» (3 فأكثر) تُعلَّم مغطّاة، فلا تُبنى لها خطة فردية.
+   - مسار «انضباط»: غياب أو واجبات بلا ضعف مهاري — متابعة منفصلة لا خطة علاجية.
+   الطالب في أي خطة نشطة (فردية أو عضوًا في جماعية) لا يُرشَّح. */
+function planCandidates(students, data, assignments, range, groups) {
+  const active = new Set();
+  (Array.isArray(data.plans) ? data.plans : []).forEach(p => {
+    if (!p || (p.status || 'active') !== 'active') return;
+    ((Array.isArray(p.studentIds) && p.studentIds.length) ? p.studentIds : [p.studentId]).forEach(i => i && active.add(String(i)));
+  });
+  // المهارات المغطاة لكل فصل: إعادة شرح للفصل كله، أو مجموعة مقترحة
+  const cover = {};
+  (groups || []).forEach(g => { if (g.kind !== 'skill') return;
+    const k = String(g.cls || '') + '|' + g.title;
+    if (g.classWide) cover[k] = { by: 'reteach', key: g.key };
+    else g.members.forEach(m => { cover[k + '|' + m.id] = { by: 'group', key: g.key }; }); });
   const out = [];
   for (const s of students) {
-    const sid = String(s.id);
+    const sid = String(s.id), cls = String(s.cls || '');
     if (active.has(sid)) continue;
     const lv = gradeLevel(assignments, sid, range);
     const at = gradeAttendance(data, sid, range);
     const hw = gradeHomework(data, sid, range, Date.now());
-    const reasons = [];
-    if (lv.measured && lv.rate < MASTERY.near) reasons.push({ tag: 'إتقان', text: `الإتقان ${lv.rate}% في الأنشطة` });
-    if (at.measured && at.rate < ATTEND.watch) reasons.push({ tag: 'غياب', text: `الحضور ${at.rate}% (${at.missed} أيام)` });
-    // للتشخيص نَعُدّ كل ما لم يُسلَّم، ولو كان داخل فترة السماح: السماح يحمي
-    // الدرجة من الظلم، ولا يُخفي إشارة الخطر عن المعلم.
+    // كل المهارات دون 60% (لا أول 4 فقط) مرتبة من الأضعف
+    const weak = skillProfile(data, assignments, sid, range).filter(x => x.rate < SKILL_GAP).sort((a, b) => a.rate - b.rate)
+      .map(x => { const c = cover[cls + '|' + x.skill] || cover[cls + '|' + x.skill + '|' + sid] || null;
+        return { skill: x.skill, rate: x.rate, band: skillBand(x.rate).key, n: x.total || x.n || 0, covered: c ? c.by : '', groupKey: c ? c.key : '' }; });
+    const own = weak.filter(x => !x.covered);
+    const conduct = [];
+    if (at.measured && at.rate < ATTEND.watch) conduct.push({ tag: 'غياب', text: `الحضور ${at.rate}% (${at.missed} أيام)` });
+    // للتشخيص نَعُدّ كل ما لم يُسلَّم، ولو كان داخل فترة السماح: السماح يحمي الدرجة، ولا يُخفي إشارة الخطر عن المعلم
     const unsubmitted = hw.missed + hw.inGrace;
-    if (unsubmitted >= 3) reasons.push({ tag: 'واجب', text: `${unsubmitted} واجبات لم تُسلَّم` });
-    // 🎯 المهارة المفقودة سبب كافٍ للخطة ولو كان متوسطه العام مقبولًا
-    const ws = weakSkills(data, assignments, sid, range);
-    if (ws.length) reasons.unshift({ tag: 'مهارة', text: `${ws.length === 1 ? 'مهارة مفقودة' : ws.length + ' مهارات مفقودة'}: ${ws.slice(0, 2).map(x => `${x.skill} ${x.rate}%`).join('، ')}` });
+    if (unsubmitted >= 3) conduct.push({ tag: 'واجب', text: `${unsubmitted} واجبات لم تُسلَّم` });
+    const reasons = [];
+    if (weak.length) reasons.push({ tag: 'مهارة', text: `${weak.length === 1 ? 'مهارة ضعيفة' : weak.length + ' مهارات ضعيفة'}: ${weak.slice(0, 3).map(x => `${x.skill} ${x.rate}%`).join('، ')}` });
+    // الإتقان العام سبب احتياطي فقط حين لا تكون الأسئلة مصنّفة بمهارات
+    else if (lv.measured && lv.rate < SKILL_GAP) reasons.push({ tag: 'إتقان', text: `الإتقان ${lv.rate}% في الأنشطة (أسئلة بلا مهارات مصنّفة)` });
+    reasons.push(...conduct);
     if (!reasons.length) continue;
+    const found = weak.filter(x => x.band === 'found').length;
+    const track = weak.length || (lv.measured && lv.rate < SKILL_GAP) ? 'skill' : 'conduct';
+    // فردية: مهارة غير مغطاة، أو مهارتان ضعيفتان فأكثر، أو «تأسيس» (تحتاج متابعة شخصية ولو كانت في مجموعة)
+    const individual = track === 'skill' && (!weak.length || own.length > 0 || weak.length >= 2 || found > 0);
+    const tier = !weak.length ? (track === 'skill' ? 3 : 9) : found ? 1 : 2;
+    const minRate = weak.length ? weak[0].rate : (lv.measured ? lv.rate : 100);
+    const priority = (10 - tier) * 1000 + (track === 'skill' ? weak.length * 100 : conduct.length * 10) + (100 - minRate);
     const dx = diagnose(s, data, assignments, range);
-    out.push({ studentId: sid, name: s.name, cls: s.cls || '', reasons, diagnosis: dx,
-      rate: lv.measured ? lv.rate : null, priority: reasons.length * 100 + (100 - (lv.measured ? lv.rate : 100)) });
+    out.push({ studentId: sid, name: s.name, cls, reasons, diagnosis: dx, weak, conduct, track, tier, individual,
+      rate: lv.measured ? lv.rate : null, priority });
   }
   return out.sort((a, b) => b.priority - a.priority);
 }
@@ -2052,8 +2078,8 @@ function computeAllGrades(students, data, assignments, semester = 1, period = 1)
     alertRules: ALERT,
     planRules: PLAN,
     plans: (Array.isArray(data.plans) ? data.plans : []).map(pl => planReport(pl, students, assignments, data)),
-    planCandidates: planCandidates(students, data, assignments, gradeTermRange(data, period, semester)),
-    planGroups: planGroups(students, data, assignments, gradeTermRange(data, period, semester)),
+    ...(() => { const R = gradeTermRange(data, period, semester), G = planGroups(students, data, assignments, R);
+      return { planGroups: G, planCandidates: planCandidates(students, data, assignments, R, G) }; })(),
     groupRules: { min: GROUP_MIN, classWideShare: CLASS_WIDE_SHARE },
     diagnoses: Object.fromEntries(students.map(s => [String(s.id), diagnose(s, data, assignments, gradeTermRange(data, period, semester))])),
     alerts: students.flatMap(s => alertsFor(data, s, gradeTermRange(data, period, semester)))
@@ -2942,6 +2968,13 @@ async function remIndex(env, sid) { try { return JSON.parse(await env.HW.get(`re
 async function remSaveIndex(env, sid, arr) { await env.HW.put(`remidx:${sid}`, JSON.stringify(arr.slice(-60))); }
 const remOpen = arr => arr.filter(x => x && (x.status === 'open' || x.status === 'retry')).length;
 /* يبني مجموعتي أسئلة (المحاولة الأولى والثانية) من أخطاء الطالب في نشاط */
+/* مهارة كل سؤال في النشاط: المكتوبة على السؤال نفسه (التشخيصي/نافس)، وإلا تصنيف الذكاء الاصطناعي المحفوظ (skills:<النشاط>) */
+async function remSkillsOf(env, hwId, questions) {
+  const qs = Array.isArray(questions) ? questions : [];
+  if (qs.some(q => q && q.skill)) { await loadSkillAlias(env); return i => (qs[i] && qs[i].skill ? skCanon(String(qs[i].skill).trim().slice(0, 40)) : ''); }
+  try { const o = JSON.parse(await env.HW.get(`skills:${hwId}`) || 'null'); if (o && o.map) { await loadSkillAlias(env); return i => { const v = Array.isArray(o.map) ? o.map[i] : o.map[i] ?? o.map[String(i)]; return v ? skCanon(v) : ''; }; } } catch {}
+  return () => '';
+}
 async function remQuestionsFor(env, hwId, questions, wrongIdx, round) {
   const off = Math.max(0, ((parseInt(round, 10) || 1) - 1) * 2);   // جولة جديدة ← بدائل لم يرها (إن وُجدت)
   let tw = null; try { tw = JSON.parse(await env.HW.get(`twins:${hwId}`)); } catch {}
@@ -3023,15 +3056,29 @@ async function remedialAfterSubmit(env, hw, activity, st, d, correct, total, que
     return { status: rec.status, rate };
   }
   const kind = String(activity.kind || 'normal');
-  if (kind !== 'normal' || activity.remedial || activity.nr || rate >= REM.fail || total < 3) return null;   // nr: أوقف المعلم العلاج لهذا النشاط
+  if (kind !== 'normal' || activity.remedial || activity.nr || total < 3) return null;   // nr: أوقف المعلم العلاج لهذا النشاط
+  // 🎯 المهارة أولًا: تُفتح المهمة إن أخفق في النشاط (<60%) أو في مهارة منه (سؤالان فأكثر دون 60%) ولو كان مجموعه مقبولًا،
+  //    وتبدأ أسئلتها بأضعف مهارة — فلا يضيع ضعف مهارة داخل درجة نشاط جيدة
+  const D = String(d || ''), skOf = await remSkillsOf(env, hw, questions), by = {};
+  for (let i = 0; i < D.length; i++) { const k = skOf(i); if (!k) continue; const x = by[k] = by[k] || { c: 0, t: 0, w: [] }; x.t++; if (D[i] === '1') x.c++; else if (D[i] === '0') x.w.push(i); }
+  const weakSk = Object.entries(by).filter(([, x]) => x.t >= 2 && Math.round(x.c / x.t * 100) < REM.fail)
+    .map(([skill, x]) => ({ skill, rate: Math.round(x.c / x.t * 100), w: x.w })).sort((a, b) => a.rate - b.rate);
+  if (rate >= REM.fail && !weakSk.length) return null;
   if (!(await remEnabled(env))) return null;
-  const wrong = String(d || '').split('').map((c, i) => c === '0' ? i : -1).filter(i => i >= 0);
+  const allWrong = D.split('').map((c, i) => c === '0' ? i : -1).filter(i => i >= 0);
+  const first = [...new Set(weakSk.flatMap(x => x.w))];
+  const wrong = rate < REM.fail ? [...first, ...allWrong.filter(i => !first.includes(i))] : first;
   if (!wrong.length) return null;
-  const { q1, q2, fallback } = await remQuestionsFor(env, hw, questions, wrong.slice(0, REM.maxQ));
+  // كل سؤال يحمل مهارته (_sk) فتُحسب نتيجة المهمة لكل مهارة عند حلّها
+  const q1 = [], q2 = []; let fallback = false;
+  for (const i of wrong.slice(0, REM.maxQ)) { const r = await remQuestionsFor(env, hw, questions, [i]), k = skOf(i);
+    r.q1.forEach(q => q1.push(k ? { ...q, _sk: k } : q)); r.q2.forEach(q => q2.push(k ? { ...q, _sk: k } : q)); if (r.fallback) fallback = true; }
   let cls = ''; try { cls = String((activity.cm || {})[st.name] || st.cls || ''); } catch {}
-  const made = await remCreate(env, { st, cls, src: `act:${hw}`, srcTitle: String(activity.t || 'نشاط'), kind: 'activity',
-    reason: `أخفق في «${String(activity.t || 'نشاط')}» بنسبة ${rate}%`, before: rate, q1, q2, fallback,
-    title: `🩹 تعزيز: ${String(activity.t || 'نشاط')}`, api: activity.api });
+  const T = String(activity.t || 'نشاط'), sk0 = weakSk[0];
+  const made = await remCreate(env, { st, cls, src: `act:${hw}`, srcTitle: T, kind: 'activity',
+    reason: sk0 ? `ضعف في «${sk0.skill}» (${sk0.rate}%)${weakSk.length === 2 ? ' ومهارة أخرى' : weakSk.length === 3 ? ' ومهارتان أخريان' : weakSk.length > 3 ? ` و${weakSk.length - 1} مهارات أخرى` : ''} في «${T}»${rate < REM.fail ? ` · النشاط ${rate}%` : ''}` : `أخفق في «${T}» بنسبة ${rate}%`,
+    before: sk0 && rate >= REM.fail ? sk0.rate : rate, q1, q2, fallback, ...(sk0 ? { skill: sk0.skill } : {}),
+    title: sk0 ? `🩹 تعزيز: «${sk0.skill}»` : `🩹 تعزيز: ${T}`, api: activity.api });
   return made ? { status: 'created', title: made.title } : null;
 }
 /* 📝 الاختبارات الورقية: يُفحص عند فتح الطالب بوابته (مرة كل 6 ساعات). يعتمد على

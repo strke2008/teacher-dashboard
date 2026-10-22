@@ -2618,3 +2618,15 @@ button.sk-chip:not([onclick]){cursor:default}
 .bp2-row{display:flex;align-items:center;gap:.5rem;padding:.4rem .3rem;border-top:1px dashed var(--line,#EEF0F3);cursor:pointer;font-size:.9rem}
 .bp2-row small{margin-inline-start:auto;color:var(--ink-soft,#64748B);font-size:.75rem}.bp2-row.on{background:#FFFBEB}
 .bp2-ann{display:flex;align-items:center;gap:.45rem;font-size:.88rem;font-weight:600;margin:.2rem 0 .4rem;cursor:pointer}
+
+/* 🧭 قائمة العلاج هذا الأسبوع */
+.pq{background:var(--ui-surface-2,#F8FAFC);display:flex;flex-direction:column;gap:.7rem}
+.pq-top{display:flex;flex-direction:column;gap:.15rem}.pq-top b{font-size:1.05rem}.pq-top .muted{font-size:.8rem}
+.pq-sec{background:#fff;border:1px solid var(--line,#E5E7EB);border-radius:12px;padding:.55rem .7rem;border-inline-start:4px solid #94A3B8}
+.pq-sec.need{border-inline-start-color:#DC2626}.pq-sec.chk{border-inline-start-color:#F59E0B}
+.pq-h{display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;margin-bottom:.2rem}.pq-h small{color:var(--ink-soft,#64748B);font-size:.76rem;flex-basis:100%}
+.pq-row{display:flex;align-items:center;gap:.6rem;justify-content:space-between;padding:.45rem 0;border-top:1px dashed var(--line,#EEF0F3)}
+.pq-row>div{min-width:0}.pq-d{font-size:.8rem;color:var(--ink-soft,#475569);margin-top:.2rem;line-height:1.8;overflow-wrap:anywhere}
+.pq-acts{display:flex;gap:.3rem;flex:none}.pq-row>.btn,.pq-row>.ar-plan-btn{flex:none}
+.pq-more{margin-top:.35rem}.pq-conduct summary{cursor:pointer;display:flex;align-items:center;gap:.4rem;flex-wrap:wrap}.pq-conduct summary small{color:var(--ink-soft,#64748B);font-size:.76rem}
+.plan-card.pq-flash{box-shadow:0 0 0 3px #F59E0B;transition:box-shadow .3s}
