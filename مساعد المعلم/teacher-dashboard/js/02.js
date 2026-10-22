@@ -3112,12 +3112,18 @@ function planFromGroup(key){
 function pqLegacyNudge(){
   const box=document.getElementById('plan-groups'); if(!box||typeof skUnmappedCount!=='function') return;
   const n=skUnmappedCount();
-  box.innerHTML=n?`<div class="pq-legacy">⚠️ <b>${n}</b> ${n===1?'اسم مهارة قديم غير مربوط':'أسماء مهارات قديمة غير مربوطة'} بنواتج نافس — إجابات طلابك عليها <b>لا تدخل تحديد الخطط</b> حتى تربطها. <button type="button" class="btn tick sm" onclick="skAliasOpen()">🎯 اربطها الآن</button></div>`:'';
+  // أسئلة تشخيصية لم يطابق اسم مهارتها ناتجًا عند الاستيراد ← بلا مهارة حتى يختار المعلم ناتجها في المحرر
+  const dg=(typeof HW!=='undefined'?HW:[]).filter(h=>h&&h.kind==='diag').map(h=>({h,k:(h.qs||[]).filter(q=>q&&q.skRaw&&!q.skill).length})).filter(x=>x.k);
+  box.innerHTML=(n?`<div class="pq-legacy">⚠️ <b>${n}</b> ${n===1?'اسم مهارة قديم غير مربوط':'أسماء مهارات قديمة غير مربوطة'} بنواتج نافس — إجابات طلابك عليها <b>لا تدخل تحديد الخطط</b> حتى تربطها. <button type="button" class="btn tick sm" onclick="skAliasOpen()">🎯 اربطها الآن</button></div>`:'')
+    +((L=>L.length?`<div class="pq-legacy multi">📌 ${L.length===1?'خطة جارية مهاراتها':`${L.length} خطط جارية مهاراتها`} بأسماء قديمة غير مربوطة بنواتج نافس — تُقاس بنشاطها العام لا بالمهارة. ${n?'اربط الأسماء أعلاه، أو ':''}حدّث مهاراتها: ${L.slice(0,8).map(p=>`<button type="button" class="btn ghost sm" onclick="openPlanForm('${planEsc(p.id)}')">✏️ ${planEsc(p.name||'خطة')}</button>`).join(' ')}${L.length>8?' …':''}</div>`:'')(planLegacyPlans()))
+    +(dg.length?`<div class="pq-legacy multi">🔍 أسئلة تشخيصية بلا ناتج — مهارتها لم تطابق نواتج نافس، فلا تدخل إجاباتها التشخيص: ${dg.map(x=>`<button type="button" class="btn ghost sm" onclick="openQs('${planEsc(x.h.id)}')">«${planEsc(x.h.title||'تشخيصي')}» · ${x.k} ${x.k===1?'سؤال':x.k<=10?'أسئلة':'سؤالًا'}</button>`).join(' ')}</div>`:'');
   if(!n) return;
   const today=new Date().toISOString().slice(0,10); let last=''; try{ last=localStorage.getItem('ska_auto_day')||''; }catch(e){}
   const onPlans=document.getElementById('plan-list')&&document.getElementById('plan-list').offsetParent;
   if(last!==today&&onPlans&&!document.getElementById('veil')?.classList.contains('on')){ try{ localStorage.setItem('ska_auto_day',today); }catch(e){} setTimeout(()=>{ try{ skAliasOpen(); }catch(e){} },700); }
 }
+function planLegacyPlans(){ const cv=k=>typeof skCanon==='function'?skCanon(k):k;
+  return ((PLAN_DATA&&PLAN_DATA.plans)||[]).filter(p=>p.status!=='done'&&(p.skills||[]).some(k=>!planIsOutcome(cv(k)))); }
 function renderPlanGroups(){
   const box=document.getElementById('plan-groups'); if(!box) return;
   return;   // 🧭 المجموعات صارت ضمن «قائمة العلاج هذا الأسبوع» — والصندوق يحمل الآن شريط الأسماء القديمة (pqLegacyNudge)
@@ -3414,16 +3420,49 @@ function planCard(p){
    7) متابعة انضباط (غياب/واجبات بلا ضعف مهاري) — مطويّة، ليست خطة علاجية */
 const PQ_BAND={found:['تأسيس','bad'],support:['فجوة','warn'],review:['مراجعة','ghost'],mastered:['متمكن','tick']};
 const PQ_RETEACH_KEY='plan_reteach_v1';
-function pqReteachDone(cls,skill){ try{ const t=(JSON.parse(localStorage.getItem(PQ_RETEACH_KEY)||'{}'))[cls+'|'+skill]; return t&&Date.now()-t<14*864e5; }catch(e){ return false; } }
-function pqReteach(cls,skill){ try{ const o=JSON.parse(localStorage.getItem(PQ_RETEACH_KEY)||'{}'); o[cls+'|'+skill]=Date.now(); localStorage.setItem(PQ_RETEACH_KEY,JSON.stringify(o)); }catch(e){}
-  toast('✓ سُجّلت إعادة الشرح — تختفي من القائمة أسبوعين، ثم تعود إن بقي الضعف','good'); renderPlanCandidates(); }
+/* «✓ أعدت الشرح» تُحفظ في الخادم (plan-reteach) فتظهر على كل أجهزتك؛ والمحفوظ قديمًا في هذا الجهاز يُنقل إليه مرة واحدة */
+let PQ_RETEACH=null;
+function pqReteachLocal(){ try{ return JSON.parse(localStorage.getItem(PQ_RETEACH_KEY)||'{}')||{}; }catch(e){ return {}; } }
+async function pqReteachPost(key,undo){ const r=await fetch(getApi().replace(/\/+$/,'')+'/plan-reteach',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:getTok(),key,undo:!!undo})});
+  const j=await r.json(); if(!r.ok||!j||!j.ok) throw new Error('save'); PQ_RETEACH=j.map||{}; return PQ_RETEACH; }
+async function pqReteachLoad(){
+  try{ const j=await (await fetch(getApi().replace(/\/+$/,'')+'/plan-reteach?t='+encodeURIComponent(getTok()),{cache:'no-store'})).json();
+    if(!j||!j.ok) return; PQ_RETEACH=j.map||{};
+    const loc=Object.entries(pqReteachLocal()).filter(([k,t])=>Date.now()-t<14*864e5&&!(k in PQ_RETEACH));
+    for(const [k] of loc) await pqReteachPost(k);
+    try{ localStorage.removeItem(PQ_RETEACH_KEY); }catch(e){}
+  }catch(e){}
+}
+function pqReteachDone(cls,skill){ const t=(PQ_RETEACH||pqReteachLocal())[cls+'|'+skill]; return !!t&&Date.now()-t<14*864e5; }
+async function pqReteach(cls,skill){
+  try{ await pqReteachPost(cls+'|'+skill); }catch(e){ toast('تعذّر الحفظ — تحقق من الاتصال وأعد المحاولة','bad'); return; }
+  toast('✓ سُجّلت إعادة الشرح — تختفي من القائمة أسبوعين على كل أجهزتك، ثم تعود إن بقي الضعف','good'); renderPlanCandidates(); }
 function pqCheckpointDue(p){ const t=p.timing||{}; if(p.status==='done'||t.expired||t.left==null||!t.days||t.left<=0) return false;
   const r=t.round||1; return (t.days-t.left)>=7 && !(p.history||[]).some(h=>h.decision==='checkpoint'&&(h.round||1)===r); }
+/* 🩺 اقتراح نقطة الفحص: من نتيجة المهمة العلاجية للخطة، ثم القياس منذ بدئها، ثم تنفيذ الإجراءات —
+   ومعه زر الخطوة التالية مباشرة (أرسل مهمة · غيّر الإجراء · ذكّره) */
+function pqAdvice(p){
+  const R=(REM_ROWS||[]).filter(x=>x.planId===p.id), n=k=>R.filter(x=>x.status===k).length;
+  const esc=n('escalated'), ok=n('mastered'), open=n('open')+n('retry');
+  const id=planEsc(p.id), send=`<button class="btn ghost sm" onclick="planSendRemedial('${id}')">🩹 أرسل مهمة</button>`, edit=`<button class="btn ghost sm" onclick="openPlanForm('${id}')">✏️ غيّر الإجراء</button>`;
+  const g=p.gain, meas=p.after&&p.after.measured;
+  if(esc) return {k:'change',c:'bad',t:`${p.group?`${esc} من المجموعة أخفقوا`:'أخفق'} في المهمة العلاجية مرتين — الإجراء الحالي لا يكفي: جلسة فردية مع المعلم أو شرح بطريقة مختلفة`,b:edit};
+  if(meas&&g!=null&&g<=0) return {k:'change',c:'bad',t:`لا تحسّن منذ بدء الخطة (${g>0?'+':''}${g}) — غيّر نوع التدخل بدل انتظار نهاية المدة`,b:edit};
+  if(!R.length) return {k:'send',c:'warn',t:'لم تُرسل مهمة علاجية بعد — أرسلها الآن ليظهر أثر الخطة قبل نهايتها',b:send};
+  if(open&&!ok) return {k:'remind',c:'warn',t:`المهمة العلاجية لم تُحل بعد${p.group?` (${open} ${open===1?'طالب':'طلاب'})`:''} — ذكّره بها`,b:`<button class="btn ghost sm" onclick="planParentMsg('${id}')">✉️ أبلغ ولي الأمر</button>`};
+  if(!(p.actionsDone>0)&&p.actionsTotal) return {k:'act',c:'warn',t:'لم يُنفَّذ أي إجراء من الخطة — ابدأ بالإجراء الأول هذا الأسبوع',b:`<button class="btn ghost sm" onclick="pqGo('${id}')">عرض الإجراءات</button>`};
+  if(ok||(meas&&g>0)) return {k:'keep',c:'tick',t:`${ok?'أتقن المهمة العلاجية':'يتحسّن'}${meas&&g!=null?` (${g>0?'+':''}${g})`:''} — استمر بالإجراءات نفسها حتى نهاية المدة`,b:''};
+  return {k:'wait',c:'ghost',t:'لا قياس كافٍ بعد — استمر وتابع نتيجة المهمة',b:''};
+}
 async function pqCheckpoint(id){
-  const p=(PLAN_DATA&&PLAN_DATA.plans||[]).find(x=>x.id===id); if(!p) return; const r=(p.timing&&p.timing.round)||1, today=new Date().toISOString().slice(0,10);
-  try{ await savePlans(all=>{ const x=all.find(y=>y.id===id); if(x) x.history=[...(x.history||[]),{at:today,decision:'checkpoint',label:'نقطة فحص اليوم السابع',verdict:p.verdict,gain:p.gain,after:p.after&&p.after.measured?p.after.rate:null,round:r}]; return all; });
+  const p=(PLAN_DATA&&PLAN_DATA.plans||[]).find(x=>x.id===id); if(!p) return; const r=(p.timing&&p.timing.round)||1, today=new Date().toISOString().slice(0,10), adv=pqAdvice(p);
+  try{ await savePlans(all=>{ const x=all.find(y=>y.id===id); if(x) x.history=[...(x.history||[]),{at:today,decision:'checkpoint',label:'نقطة فحص اليوم السابع',verdict:p.verdict,gain:p.gain,after:p.after&&p.after.measured?p.after.rate:null,round:r,advice:adv.t}]; return all; });
     toast('✓ سُجّلت نقطة الفحص','good'); renderPlans(true); }catch(e){ toast('تعذّر الحفظ','bad'); }
 }
+/* أزرار علاج «بلا ناتج»: صنّف ما لم يُصنَّف إطلاقًا، واربط ما صُنّف بأسماء قديمة */
+function pqTagBtns(c){ const need=typeof skillNeeded==='function'&&typeof HW!=='undefined'?HW.filter(skillNeeded).length:0, old=typeof skUnmappedCount==='function'?skUnmappedCount():0;
+  return (need&&typeof skillTagMissing==='function'?`<button type="button" class="btn ${c} sm" onclick="event.preventDefault();skillTagMissing()">🏷️ صنّف ${need} ${need===1?'نشاط':need<=10?'أنشطة':'نشاطًا'}</button>`:'')
+    +(old?`<button type="button" class="btn ${c} sm" onclick="event.preventDefault();skAliasOpen()">🎯 اربط ${old} ${old===1?'اسمًا قديمًا':'أسماء قديمة'}</button>`:''); }
 function pqGo(id){ const el=document.getElementById('pc-'+id); if(!el){ const st=document.getElementById('plan-status'); if(st&&st.value!==''){ st.value=''; renderPlans(false).then(()=>setTimeout(()=>pqGo(id),300)); } return; }
   el.scrollIntoView({behavior:'smooth',block:'center'}); el.classList.add('pq-flash'); setTimeout(()=>el.classList.remove('pq-flash'),1600); }
 /* نواتج الطالب الضعيفة مجمّعة بوحدتها: «📚 الحركة والقوى: قانون نيوتن الأول 25% · …» */
@@ -3439,10 +3478,10 @@ function renderPlanCandidates(){
   const reteach=G.filter(g=>g.kind==='skill'&&g.classWide&&!pqReteachDone(g.cls,g.title)).sort((a,b)=>b.share-a.share);
   const groups=G.filter(g=>!g.classWide).sort((a,b)=>(a.avgRate??100)-(b.avgRate??100));
   const C=((PLAN_DATA&&PLAN_DATA.planCandidates)||[]).filter(inC);
-  const indiv=C.filter(c=>c.track!=='conduct'&&c.individual!==false), conduct=C.filter(c=>c.track==='conduct');
+  const indiv=C.filter(c=>c.track==='skill'&&c.individual!==false), conduct=C.filter(c=>c.track==='conduct'), untag=C.filter(c=>c.track==='untagged');
   const escR=(REM_ROWS||[]).filter(x=>x.status==='escalated'&&inC(x)&&!remActivePlan(x.sid));
   const total=decide.length+check.length+reteach.length+groups.length+indiv.length+escR.length;
-  if(!total&&!conduct.length){ box.innerHTML=''; return; }
+  if(!total&&!conduct.length&&!untag.length){ box.innerHTML=''; return; }
   const sec=(ic,t,n,sub,body,cls2='')=>n?`<div class="pq-sec ${cls2}"><div class="pq-h"><b>${ic} ${t}</b><span class="chip ghost">${n}</span>${sub?`<small>${sub}</small>`:''}</div>${body}</div>`:'';
   const more=(arr,k,f)=>arr.slice(0,window['_pqAll'+k]?999:6).map(f).join('')+(arr.length>6&&!window['_pqAll'+k]?`<button type="button" class="btn ghost sm pq-more" onclick="window._pqAll${k}=1;renderPlanCandidates()">عرض الكل (${arr.length})</button>`:'');
   const who=p=>planEsc(p.name||((p.members||[]).map(m=>m.name).join('، '))||'');
@@ -3450,18 +3489,23 @@ function renderPlanCandidates(){
     <div class="pq-top"><b>🧭 قائمة العلاج هذا الأسبوع</b><span class="muted">مرتبة بالأولوية — نواتج تعلم نافس للفصل الحالي · تأسيس &lt;40% · فجوة 40–59% · الهدف 80%</span></div>
     ${sec('🔴','قرارك مطلوب',decide.length,'انتهت مدة الخطة',more(decide,'D',p=>`<div class="pq-row"><div><b>${who(p)}</b> <span class="muted">${planEsc(p.cls||'')}</span><div class="pq-d">${planEsc((p.timing&&p.timing.why)||'')}</div></div><button class="btn tick sm" onclick="pqGo('${planEsc(p.id)}')">افتح القرار</button></div>`),'need')}
     ${sec('🟠','نقطة فحص اليوم السابع',check.length,'راجع نتيجة المهمة العلاجية وعدّل الإجراء إن لزم',more(check,'K',p=>`<div class="pq-row"><div><b>${who(p)}</b> <span class="muted">${planEsc(p.cls||'')}</span>
-        <div class="pq-d">بعد ${(p.timing.days-p.timing.left)} أيام من ${p.timing.days} · الآن ${p.after&&p.after.measured?p.after.rate+'%':'لم يُقَس بعد'}${(p.skills||[]).length?' · '+(p.skills||[]).map(planEsc).join('، '):''}</div></div>
-        <span class="pq-acts"><button class="btn ghost sm" onclick="pqGo('${planEsc(p.id)}')">عرض</button><button class="btn tick sm" onclick="pqCheckpoint('${planEsc(p.id)}')">✓ تم الفحص</button></span></div>`),'chk')}
+        <div class="pq-d">بعد ${(p.timing.days-p.timing.left)} أيام من ${p.timing.days} · الآن ${p.after&&p.after.measured?p.after.rate+'%':'لم يُقَس بعد'}${(p.skills||[]).length?' · '+(p.skills||[]).map(planDisp).join('، '):''}</div>
+        ${(a=>`<div class="pq-adv ${a.c}">💡 ${planEsc(a.t)}</div>`)(pqAdvice(p))}</div>
+        <span class="pq-acts">${pqAdvice(p).b}<button class="btn ghost sm" onclick="pqGo('${planEsc(p.id)}')">عرض</button><button class="btn tick sm" onclick="pqCheckpoint('${planEsc(p.id)}')">✓ تم الفحص</button></span></div>`),'chk')}
     ${sec('🏫','أعد الشرح للفصل كله',reteach.length,'ضعف ثلث الفصل فأكثر في المهارة — مشكلة تدريس لا خطط فردية',more(reteach,'R',g=>`<div class="pq-row"><div><b>«${planDisp(g.title)}»</b> <span class="muted">${planEsc(g.cls)}${planSkUnit(g.title).title?' · 📚 '+planEsc(planSkUnit(g.title).title):''}</span>
         <div class="pq-d">${g.ofClass} من ${g.classSize} دون 60% (${g.share}%) · متوسطهم ${g.avgRate}%</div></div><button class="btn tick sm" onclick="pqReteach('${planEsc(g.cls)}','${planEsc(g.title)}')">✓ أعدت الشرح</button></div>`),'')}
     ${sec('👥','خطط جماعية',groups.length,'3 فأكثر تجمعهم الفجوة نفسها — تدخّل واحد يكفيهم',more(groups,'G',g=>`<div class="pq-row"><div><b>${planDisp(g.title||g.label)}</b> <span class="muted">${planEsc(g.cls)}${planSkUnit(g.title).title?' · 📚 '+planEsc(planSkUnit(g.title).title):''}</span> ${g.avgRate!=null?`<span class="chip ${(PQ_BAND[g.avgRate<40?'found':'support']||[])[1]}">${g.avgRate<40?'تأسيس':'فجوة'} · متوسط ${g.avgRate}%</span>`:''}
-        <div class="pq-d">${g.members.map(m=>planEsc(m.name)).join(' · ')}</div></div><button class="btn tick sm" onclick="planFromGroup('${planEsc(g.key)}')">＋ خطة جماعية</button></div>`))}
+        <div class="pq-d">${g.members.map(m=>planEsc(m.name)).join(' · ')}</div>${g.untagged?`<div class="pq-adv warn">🏷️ أسئلة هذا النشاط بلا نواتج نافس — صنّفها (أو اربط أسماءها القديمة) لتعرف المهارة الناقصة بدل خطة على النشاط كله</div>`:''}</div>
+        <span class="pq-acts">${g.untagged?pqTagBtns('ghost'):''}<button class="btn tick sm" onclick="planFromGroup('${planEsc(g.key)}')">＋ خطة جماعية</button></span></div>`))}
     ${sec('👤','خطط فردية',indiv.length,'تأسيس أولًا، ثم من عنده مهارات أكثر',more(indiv,'I',c=>`<div class="pq-row"><div><b>${planEsc(c.name)}</b> <span class="muted">${planEsc(c.cls)}</span> ${c.tier===1?'<span class="chip bad">تأسيس</span>':c.tier===2?'<span class="chip warn">فجوة</span>':''}
         <div class="pq-d">${(c.weak||[]).length?pqSkills(c.weak):planEsc((c.reasons[0]||{}).text||'')}${(c.conduct||[]).length?` <span class="muted">· ${c.conduct.map(r=>planEsc(r.text)).join(' · ')}</span>`:''}
           ${(c.prior||[]).length?(()=>{ const cur=planSP().sem, by={}; c.prior.forEach(x=>{ const k=x.term&&x.term<cur?`↩︎ فجوة سابقة (الفصل ${x.term===1?'الأول':'الثاني'})`:`ℹ️ من نواتج الفصل ${x.term===2?'الثاني':'الأول'} — خارج الفصل الحالي`; (by[k]=by[k]||[]).push(`${planDisp(x.skill)} ${x.rate}%`); });
             return Object.entries(by).map(([k,L])=>`<div class="pq-prior">${k}: ${L.join(' · ')}</div>`).join(''); })():''}</div></div>
         <button class="btn tick sm" onclick="planFromCandidate('${planEsc(c.studentId)}',${JSON.stringify(c.reasons.map(r=>r.text).join(' · ')).replace(/"/g,'&quot;')})">＋ خطة</button></div>`))}
     ${sec('🤖','أخفق مرتين في العلاج التلقائي',escR.length,'يحتاج تدخّلك المباشر',more(escR,'E',x=>`<div class="pq-row"><div><b>${planEsc(x.name)}</b> <span class="muted">${planEsc(x.cls||'')}</span><div class="pq-d">«${planEsc(x.srcTitle||x.reason||'')}»</div></div>${remPlanBtn(x)}</div>`))}
+    ${untag.length?`<details class="pq-sec pq-conduct" open><summary><b>🏷️ ضعف بلا ناتج محدد</b> <span class="chip ghost">${untag.length}</span> <small>إتقانهم دون 60% لكن أسئلة أنشطتهم بلا نواتج نافس — صنّفها أو اربط أسماءها القديمة، فتتحول إلى خطة على المهارة الناقصة نفسها</small>
+        ${pqTagBtns('tick')}</summary>
+      ${untag.map(c=>`<div class="pq-row"><div><b>${planEsc(c.name)}</b> <span class="muted">${planEsc(c.cls)}</span><div class="pq-d">${c.reasons.map(r=>planEsc(r.text)).join(' · ')}</div></div></div>`).join('')}</details>`:''}
     ${conduct.length?`<details class="pq-sec pq-conduct"><summary><b>📋 متابعة انضباط</b> <span class="chip ghost">${conduct.length}</span> <small>غياب أو واجبات بلا ضعف مهاري — تواصل وتذكير، لا خطة علاجية</small></summary>
       ${conduct.map(c=>`<div class="pq-row"><div><b>${planEsc(c.name)}</b> <span class="muted">${planEsc(c.cls)}</span><div class="pq-d">${c.conduct.map(r=>planEsc(r.text)).join(' · ')}</div></div>
         <button class="btn ghost sm" onclick="planFromCandidate('${planEsc(c.studentId)}',${JSON.stringify(c.reasons.map(r=>r.text).join(' · ')).replace(/"/g,'&quot;')})">＋ متابعة</button></div>`).join('')}</details>`:''}
@@ -3497,6 +3541,12 @@ function bindPlanFilters(){
   if(c&&!c._b){c._b=1;c.addEventListener('change',()=>renderPlans(false))}
   if(st&&!st._b){st._b=1;st.addEventListener('change',()=>renderPlans(false))}
 }
+/* شدة الخطة: أدنى نسبة قبل الخطة في مهاراتها (لكل الأعضاء)، وإلا نسبتها العامة — خطط الانضباط آخرًا */
+function planSeverity(p){
+  const r=[]; (p.members||[]).forEach(m=>((m.skill&&m.skill.items)||[]).forEach(it=>{ if(it.before&&it.before.rate!=null&&(it.before.total||0)>=2) r.push(it.before.rate); }));
+  if(r.length) return Math.min(...r);
+  return p.mainBy&&p.mainBy!=='academic'?200:(p.before&&p.before.measured&&p.before.rate!=null?p.before.rate:150);
+}
 async function renderPlans(force=false){
   try{renderAutoRem()}catch(e){}
   bindPlanFilters();
@@ -3507,13 +3557,15 @@ async function renderPlans(force=false){
   const AS=planSP();
   try{ PLAN_DATA=await loadServerGrades(force||!COMP_GRADES_RAW||COMP_GRADES_SEMESTER!==AS.sem||COMP_GRADES_PERIOD!==AS.per,AS.sem,AS.per); }
   catch(e){ state.textContent='تعذّر الاتصال بالخادم — لا يمكن عرض القياس القبلي والبعدي.'; list.innerHTML=''; return }
+  if(force||!PQ_RETEACH) await pqReteachLoad();
   const sel=document.getElementById('plan-class');
   if(sel&&sel.options.length<=1){
     const cs=[...new Set((STUDENTS||[]).map(s=>String(s.cls||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ar'));
     sel.innerHTML='<option value="">كل الفصول</option>'+cs.map(c=>`<option value="${planEsc(c)}">${planEsc(c)}</option>`).join('');
   }
-  const rank=p=>p.status==='done'?3:(p.timing&&p.timing.expired)?0:(p.timing&&p.timing.left!=null&&p.timing.left<=3)?1:2;
-  const rows=planFiltered().slice().sort((x,y)=>rank(x)-rank(y)||((x.timing&&x.timing.left)??999)-((y.timing&&y.timing.left)??999));
+  // الترتيب: قرارك مطلوب أولًا، ثم الجارية بشدة ضعف المهارة (أدنى نسبة قبل الخطة)، ثم الأقرب انتهاءً، والمنتهية آخرًا
+  const rank=p=>p.status==='done'?2:(p.timing&&p.timing.expired)?0:1;
+  const rows=planFiltered().slice().sort((x,y)=>rank(x)-rank(y)||planSeverity(x)-planSeverity(y)||((x.timing&&x.timing.left)??999)-((y.timing&&y.timing.left)??999));
   const improved=rows.filter(p=>p.verdict==='تحسّن').length;
   const sure=rows.filter(p=>p.verdict==='تحسّن'&&p.confidence&&p.confidence.level!=='weak').length;
   const need=rows.filter(p=>p.status!=='done'&&p.timing&&p.timing.expired).length;
@@ -3525,6 +3577,7 @@ async function renderPlans(force=false){
   state.innerHTML=`<div class="plan-sum">${chip('',rows.length,'خطة')}${need||F==='need'?chip('need',need,'تحتاج قرارك'):''}${soon||F==='soon'?chip('soon',soon,'تنتهي خلال أسبوع'):''}${F==='soon3'?chip('soon3',rows.filter(PLAN_SUM_TEST.soon3).length,'تنتهي خلال 3 أيام'):''}${chip('improved',improved,'تحسّن',sure!==improved?` (${sure} مؤكد)`:'')}${declined||F==='declined'?chip('declined',declined,'تراجع'):''}${flat||F==='flat'?chip('flat',flat,'بلا فرق'):''}${pending||F==='pending'?chip('pending',pending,'لم تُقَس بعد'):''}</div>`;
   renderPlanGroups();
   renderPlanCandidates();
+  try{ pqLegacyNudge(); }catch(e){}
   const shown=F?rows.filter(PLAN_SUM_TEST[F]||(()=>true)):rows;
   list.innerHTML=(F&&!shown.length?'<div class="muted" style="padding:1.2rem;text-align:center">لا خطط في هذا الفرز.</div>':'')+(shown.map(planCard).join('')||(F?'':'<div class="muted" style="padding:1.5rem;text-align:center">لا توجد خطط. ابدأ بـ«خطة جديدة» أو من قائمة المرشحين.</div>'));
 }
@@ -8917,6 +8970,20 @@ function openQs(id){
 const Q_EDITED=new Set(['t','q','o','a','tags','w','h','s','p','stage']);
 function qRowExtras(q){ const x={}; Object.keys(q||{}).forEach(k=>{ if(!Q_EDITED.has(k) && q[k]!=null && q[k]!=='') x[k]=q[k]; }); return x; }
 function qRowKeep(r){ try{ return r && r.dataset.x ? JSON.parse(r.dataset.x) : {}; }catch(e){ return {}; } }
+/* 🎯 ناتج سؤال التشخيصي يُختار يدويًا من نواتج نافس — السؤال الذي لم يطابق اسمُ مهارته (skRaw) ناتجًا
+   يبقى بلا مهارة فلا تدخل إجاباته التشخيص حتى يُختار له ناتج هنا */
+function qRowSkHTML(q){
+  if(QS_KIND!=='diag'||typeof skAllOutcomes!=='function') return '';
+  const cur=String(q.skill||''), all=skAllOutcomes(), by={};
+  all.forEach(o=>{ const g=`الفصل ${o.term===1?'الأول':'الثاني'} · ${o.sec}`; (by[g]=by[g]||[]).push(o); });
+  const legacy=cur&&!all.some(o=>o.key===cur);
+  return `<div class="q-sk${cur&&!legacy?'':' need'}"><label>🎯 الناتج</label><select class="inp f-sk">
+    <option value="">— بلا ناتج (لا يدخل التشخيص) —</option>${legacy?`<option value="${esc(cur)}" selected>${esc(cur)} (اسم قديم)</option>`:''}
+    ${Object.entries(by).map(([g,os])=>`<optgroup label="${esc(g)}">${os.map(o=>`<option value="${esc(o.key)}" ${o.key===cur?'selected':''}>${esc(o.short)}</option>`).join('')}</optgroup>`).join('')}</select>
+    ${!cur&&q.skRaw?`<small>⚠️ المهارة «${esc(q.skRaw)}» لم تطابق أي ناتج — اختر الناتج الذي يقيسه السؤال</small>`:legacy?'<small>⚠️ اسم قديم خارج نواتج نافس — اختر الناتج المقابل</small>':''}</div>`;
+}
+function qRowSkApply(r,o){ const s=r&&r.querySelector('.f-sk'); if(!s) return o;
+  if(s.value){ o.skill=s.value; delete o.skRaw; } else delete o.skill; return o; }
 function qRow(q,i){
   const k = q.t || 'q';
   let body = '';
@@ -8976,6 +9043,7 @@ function qRow(q,i){
     ${keepImg ? `<div class="q-row-img"><img src="${esc(keepImg)}" alt="شكل السؤال" loading="lazy"><small>🖼️ شكل السؤال${keep.skill?` · 🎯 ${esc(keep.skill)}`:''} — يبقى مع السؤال عند الحفظ</small></div>` : ''}
     ${readingStage}
     ${body}
+    ${needsQ?qRowSkHTML(q):''}
   </div>`;
 }
 
@@ -9894,7 +9962,7 @@ function addQ(kind){
 }
 
 function exportQsJson(id){
-  const qsPush=(r,x)=>qs.push(Object.assign(qRowKeep(r),x));
+  const qsPush=(r,x)=>qs.push(qRowSkApply(r,Object.assign(qRowKeep(r),x)));
   const h = HW.find(x=>x.id===id); if(!h) return;
   const rows = [...document.querySelectorAll('#qs-box [data-q]')];
   let qs = [];
@@ -10457,7 +10525,7 @@ async function saveStudentGameSettings(id){
 }
 
 async function saveQs(id){
-  const qsPush=(r,x)=>qs.push(Object.assign(qRowKeep(r),x));
+  const qsPush=(r,x)=>qs.push(qRowSkApply(r,Object.assign(qRowKeep(r),x)));
   const h = HW.find(x=>x.id===id);
   if(!h) return;
 

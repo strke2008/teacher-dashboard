@@ -1752,14 +1752,14 @@ function diagnose(s, data, assignments, range) {
   const hw = gradeHomework(data, sid, range, Date.now());
   const bh = gradeBehavior(data, sid, range);
   const trend = masteryTrend(assignments, sid, range);
-  const weak = weakActivities(assignments, sid, range).filter(a => a.rate < MASTERY.near).slice(0, 3);
+  const weak = weakActivities(assignments, sid, range).filter(a => a.rate < SKILL_GAP).slice(0, 3);   // العتبة الموحّدة 60
   const skills = weakSkills(data, assignments, sid, range);
   const unsubmitted = hw.missed + hw.inGrace;
   const signals = [];
   if (at.measured && at.rate < ATTEND.watch) signals.push({ key: 'absence', text: `الحضور ${at.rate}% (${at.missed} أيام غياب)` });
   if (unsubmitted >= 3) signals.push({ key: 'unsubmitted', text: `${unsubmitted} واجبات لم تُسلَّم` });
   if (trend.measurable && trend.change <= -10) signals.push({ key: 'decline', text: `تراجع الإتقان من ${trend.early}% إلى ${trend.late}%` });
-  if (lv.measured && lv.rate < MASTERY.near) signals.push({ key: 'gap', text: `الإتقان ${lv.rate}% في ${lv.count} نشاطًا` });
+  if (lv.measured && lv.rate < SKILL_GAP) signals.push({ key: 'gap', text: `الإتقان ${lv.rate}% في ${lv.count} نشاطًا` });
   if (bh.neg >= 3) signals.push({ key: 'behavior', text: `${bh.neg} ملاحظات سلوكية` });
   const ex = examWindow(data, sid, range && range.start, range && range.end);
   if (ex.measured && ex.rate < EXAM_WEAK) signals.push({ key: 'exams', text: `الاختبارات ${ex.rate}% في ${ex.tests} ${ex.tests === 1 ? 'اختبار' : 'اختبارات'}` });
@@ -1811,6 +1811,17 @@ function diagnose(s, data, assignments, range) {
    فردية بل مؤشر على أن الشرح نفسه لم يصل — والعلاج إعادة تدريس للجميع،
    لا خطط علاجية لثلث الفصل. */
 const GROUP_MIN = 3;          // أقل عدد يستحق خطة جماعية
+/* عناوين الأنشطة التي لا يحمل أي سؤال فيها ناتجًا من نواتج نافس (لا على السؤال ولا في تصنيف الذكاء الاصطناعي) */
+function untaggedActivityTitles(data, assignments) {
+  const map = (data && data.__skills) || {}, out = new Set();
+  for (const h of (assignments || [])) {
+    if (!h || !['normal', 'lab'].includes(h.kind || 'normal') || h.remedial) continue;
+    const sk = diagSkillMap(h) || map[String(h.sid || '')];
+    const vals = sk ? (Array.isArray(sk) ? sk : Object.values(sk)) : [];
+    if (!vals.some(v => v && skOutcome(v))) out.add(String(h.title || 'نشاط'));
+  }
+  return out;
+}
 const CLASS_WIDE_SHARE = 30;  // النسبة التي تحوّل المشكلة إلى قضية تدريس
 function planGroups(students, data, assignments, range) {
   const active = new Set();
@@ -1821,6 +1832,7 @@ function planGroups(students, data, assignments, range) {
   });
   const byClass = {};
   students.forEach(s => { const c = String(s.cls || ''); (byClass[c] = byClass[c] || []).push(s); });
+  const untagged = untaggedActivityTitles(data, assignments);
   const out = [];
   for (const cls of Object.keys(byClass)) {
     const roster = byClass[cls];
@@ -1831,13 +1843,11 @@ function planGroups(students, data, assignments, range) {
       const sid = String(s.id);
       for (const k of weakSkills(data, assignments, sid, range)) (perSkill[k.skill] = perSkill[k.skill] || []).push({ id: sid, name: s.name, rate: k.rate });
     }
-    let skillGroups = 0;
     for (const skill of Object.keys(perSkill)) {
       const all = perSkill[skill];
       const share = Math.round((all.length / size) * 100);
       const free = all.filter(x => !active.has(x.id));
       if (free.length < GROUP_MIN) continue;
-      skillGroups++;
       const avgRate = Math.round(free.reduce((t, x) => t + x.rate, 0) / free.length);
       out.push({
         key: 'skill|' + cls + '|' + skill, kind: 'skill', cls, title: skill, skills: [skill],
@@ -1850,12 +1860,13 @@ function planGroups(students, data, assignments, range) {
         actions: [...skillActions({ skill, band: skillBand(avgRate).key }), `مناقشة الأخطاء الشائعة في «${skill}» مع المجموعة`],
       });
     }
-    // 1) تجمّع حول نشاط بعينه (احتياطي حين لا تكون الأسئلة مصنّفة بمهاراتها)
+    // 1) تجمّع حول نشاط بعينه — للأنشطة التي لم تُصنَّف أسئلتها بنواتج نافس فقط (المصنّفة تُجمَّع بمهاراتها أعلاه)،
+    //    والعتبة الموحّدة 60. الخطة هنا مؤقتة: تصنيف أسئلة النشاط يحوّلها إلى خطة على المهارة نفسها
     const perAct = {};
-    for (const s of (skillGroups ? [] : roster)) {
+    for (const s of roster) {
       const sid = String(s.id);
       for (const a of weakActivities(assignments, sid, range)) {
-        if (a.rate >= MASTERY.near) continue;
+        if (a.rate >= SKILL_GAP || untagged && !untagged.has(a.title)) continue;
         const k = a.title;
         (perAct[k] = perAct[k] || []).push({ id: sid, name: s.name, rate: a.rate });
       }
@@ -1870,9 +1881,10 @@ function planGroups(students, data, assignments, range) {
         label: `فجوة مشتركة في «${title}»`,
         members: free, size: free.length, ofClass: all.length, classSize: size, share,
         classWide: share >= CLASS_WIDE_SHARE,
-        note: share >= CLASS_WIDE_SHARE
+        untagged: true,
+        note: (share >= CLASS_WIDE_SHARE
           ? `${all.length} من ${size} في الفصل تعثّروا في هذا النشاط (${share}%) — الأرجح أن الشرح لم يصل، فأعد تدريسه للفصل كله قبل الخطط الفردية`
-          : `${free.length} طلاب يشتركون في نفس الفجوة — تدخّل واحد يكفيهم`,
+          : `${free.length} طلاب دون ${SKILL_GAP}% في النشاط نفسه — تدخّل واحد يكفيهم`) + ' · أسئلته بلا نواتج نافس: صنّفها (أو اربط أسماءها القديمة) لتعرف المهارة الناقصة',
         actions: [`إعادة تدريس مفاهيم «${title}» لمجموعة صغيرة`,
                   'إعادة حل أسئلة النشاط بعد الشرح ومناقشة الأخطاء الشائعة',
                   'تكليف المجموعة بنشاط قصير مماثل للتحقق من الإتقان'],
@@ -1884,7 +1896,8 @@ function planGroups(students, data, assignments, range) {
       const sid = String(s.id);
       if (active.has(sid)) continue;
       const dx = diagnose(s, data, assignments, range);
-      if (!dx.pattern || dx.basis === 'skills') continue;   // فجوات المهارات تُجمَّع بالمهارة نفسها أعلاه
+      // فجوات المهارات تُجمَّع بالمهارة نفسها أعلاه، و«فجوة» بلا مهارة (أسئلة غير مصنّفة) بالنشاط — لا خطة عامة بلا ناتج
+      if (!dx.pattern || dx.basis === 'skills' || dx.pattern === 'gap') continue;
       (perPat[dx.pattern] = perPat[dx.pattern] || []).push({ id: sid, name: s.name, label: dx.label, actions: dx.actions });
     }
     for (const pat of Object.keys(perPat)) {
@@ -1945,15 +1958,16 @@ function planCandidates(students, data, assignments, range, groups) {
     if (unsubmitted >= 3) conduct.push({ tag: 'واجب', text: `${unsubmitted} واجبات لم تُسلَّم` });
     const reasons = [];
     if (weak.length) reasons.push({ tag: 'مهارة', text: `${weak.length === 1 ? 'ناتج ضعيف' : weak.length + ' نواتج ضعيفة'}: ${weak.slice(0, 3).map(x => `${x.skill.replace(/^نافس:\s*/, '')} ${x.rate}%`).join('، ')}` });
-    // الإتقان العام سبب احتياطي فقط حين لا تكون الأسئلة مصنّفة بمهارات
-    else if (lv.measured && lv.rate < SKILL_GAP) reasons.push({ tag: 'إتقان', text: `الإتقان ${lv.rate}% في الأنشطة (أسئلة بلا مهارات مصنّفة)` });
+    // إتقان عام منخفض بلا ناتج محدد: لا تُبنى عليه خطة (ستكون عامة بلا مهارة) — بل تنبيه «صنّف أسئلة أنشطته» أولًا
+    const untagged = !weak.length && lv.measured && lv.rate < SKILL_GAP;
+    if (untagged) reasons.push({ tag: 'تصنيف', text: `الإتقان ${lv.rate}% في الأنشطة، ولا ناتج من نواتج نافس في أسئلتها — صنّفها (أو اربط أسماءها القديمة) ليتحدد الناتج الناقص` });
     reasons.push(...conduct);
     if (!reasons.length) continue;
     const found = weak.filter(x => x.band === 'found').length;
-    const track = weak.length || (lv.measured && lv.rate < SKILL_GAP) ? 'skill' : 'conduct';
+    const track = weak.length ? 'skill' : untagged ? 'untagged' : 'conduct';
     // فردية: مهارة غير مغطاة، أو مهارتان ضعيفتان فأكثر، أو «تأسيس» (تحتاج متابعة شخصية ولو كانت في مجموعة)
-    const individual = track === 'skill' && (!weak.length || own.length > 0 || weak.length >= 2 || found > 0);
-    const tier = !weak.length ? (track === 'skill' ? 3 : 9) : found ? 1 : 2;
+    const individual = track === 'skill' && (own.length > 0 || weak.length >= 2 || found > 0);
+    const tier = track === 'skill' ? (found ? 1 : 2) : track === 'untagged' ? 8 : 9;
     const minRate = weak.length ? weak[0].rate : (lv.measured ? lv.rate : 100);
     const priority = (10 - tier) * 1000 + (track === 'skill' ? weak.length * 100 : conduct.length * 10) + (100 - minRate);
     const dx = diagnose(s, data, assignments, range);
@@ -3043,7 +3057,7 @@ async function remCreate(env, o) {
     s: [o.st.id, o.st.name].filter(Boolean), cm: { [o.st.name]: o.cls || '' }, cls: o.cls || '', q: q1,
     remedial: true, personalRemedial: true, remId, attempt: 1, api: o.api || '' };
   await env.HW.put(`hw:${hwId}`, JSON.stringify(payload), { expirationTtl: REM.ttl });
-  const rec = { id: remId, sid: o.st.id, name: o.st.name, cls: o.cls || '', src: o.src, srcTitle: o.srcTitle, kind: o.kind, planId: o.planId || '',
+  const rec = { id: remId, sid: o.st.id, name: o.st.name, cls: o.cls || '', src: o.src, srcTitle: o.srcTitle, kind: o.kind, planId: o.planId || '', ...(o.skill ? { skill: String(o.skill) } : {}),
     reason: o.reason, before: o.before, status: 'open', fallback: !!o.fallback, createdAt: now, updatedAt: now,
     attempts: [{ hw: hwId, at: now, n: q1.length, due, fb: fb1, ...(sk1 ? { sk: sk1 } : {}) }], q2, q2fb: fb2, ...(sk2 ? { q2sk: sk2 } : {}) };
   await env.HW.put(`rem:${remId}`, JSON.stringify(rec), { expirationTtl: REM.ttl * 2 });
@@ -3110,6 +3124,7 @@ async function remedialAfterSubmit(env, hw, activity, st, d, correct, total, que
 }
 /* 📝 الاختبارات الورقية: يُفحص عند فتح الطالب بوابته (مرة كل 6 ساعات). يعتمد على
    «الأنشطة التي يغطيها الاختبار» في الدفتر؛ وإن لم تُحدَّد فأضعف نشاطين للطالب. */
+const REM_EXAM_SCAN = 15;   // آخر الأنشطة التي تُفحص نواتجها بعد اختبار ورقي ضعيف
 async function remFromExams(env, st) {
   if (!st || !st.id) return;
   if (!(await remEnabled(env))) return;
@@ -3139,7 +3154,18 @@ async function remFromExams(env, st) {
     const covers = Array.isArray(w.t.covers) ? w.t.covers.map(String) : [];
     let pool = covers.length ? asg.filter(h => covers.includes(String(h.sid))) : [];
     const withSub = h => { const s = h.subs && h.subs[String(st.id)]; return s && Number(s.total) > 0 ? s : null; };
-    if (!pool.length) pool = asg.filter(withSub).sort((a, b) => {
+    // 🎯 المهارة أولًا: أخطاؤه في أنشطة الاختبار (وإن لم تُحدَّد ففي آخر أنشطته) مجمّعة بناتجها — والمهمة تبدأ بأضعف ناتج
+    const skOfBy = new Map(), skOfH = async h => { const k = String(h.sid); if (!skOfBy.has(k)) skOfBy.set(k, await remSkillsOf(env, k, h.qs)); return skOfBy.get(k); };
+    const bySk = {};
+    for (const h of (pool.length ? pool : asg).filter(withSub).slice(-REM_EXAM_SCAN)) {
+      const sub = withSub(h), skOf = await skOfH(h);
+      String(sub.d || '').split('').forEach((c, i) => { const k = skOf(i); if (!k) return;
+        const x = bySk[k] || (bySk[k] = { c: 0, t: 0, w: [] }); x.t++; if (c === '1') x.c++; else if (c === '0') x.w.push([h, i]); });
+    }
+    const weakSk = Object.entries(bySk).map(([skill, x]) => ({ skill, rate: Math.round(x.c / x.t * 100), t: x.t, w: x.w }))
+      .filter(x => x.t >= 2 && x.w.length && x.rate < REM.fail).sort((a, b) => a.rate - b.rate);
+    // بلا نواتج مصنّفة ولا أنشطة محددة للاختبار: أضعف نشاطين (احتياطي)
+    if (!pool.length && !weakSk.length) pool = asg.filter(withSub).sort((a, b) => {
       const ra = withSub(a), rb = withSub(b); return ra.correct / ra.total - rb.correct / rb.total; }).slice(0, 2);
     let q1 = [], q2 = [], fallback = false, practice = false, fromExam = 0;
     // 📷 صُحّح آليًا: الأسئلة التي أخطأ فيها في الاختبار نفسه أولًا (نصها من خريطة التصحيح)
@@ -3150,14 +3176,18 @@ async function remFromExams(env, st) {
       const wi = w.om.w.map(Number).filter(i => qs[i]);
       if (wi.length) { const r = await remQuestionsFor(env, `ox:${w.om.t}:${parseInt(w.om.m, 10) || 0}`, qs, wi.slice(0, REM.maxQ)); q1 = r.q1; q2 = r.q2; fallback = r.fallback; fromExam = r.q1.length; }
     }
-    if (!pool.length && !q1.length) continue;
+    if (!pool.length && !q1.length && !weakSk.length) continue;
+    const used = new Set();
+    const addQ = async (h, i, k) => { const key = h.sid + ':' + i; if (used.has(key)) return; used.add(key);
+      const r = await remQuestionsFor(env, String(h.sid), Array.isArray(h.qs) ? h.qs : [], [i]);
+      r.q1.forEach(q => q1.push(k ? { ...q, _sk: k } : q)); r.q2.forEach(q => q2.push(k ? { ...q, _sk: k } : q)); if (r.fallback) fallback = true; };
+    for (const sk of weakSk) for (const [h, i] of sk.w) { if (q1.length >= REM.maxQ) break; await addQ(h, i, sk.skill); }
     for (const h of pool) {
       if (q1.length >= REM.maxQ) break;
-      const s = withSub(h); if (!s) continue;
-      const wrong = String(s.d || '').split('').map((c, i) => c === '0' ? i : -1).filter(i => i >= 0);
-      if (!wrong.length) continue;
-      const r = await remQuestionsFor(env, String(h.sid), Array.isArray(h.qs) ? h.qs : [], wrong.slice(0, REM.maxQ));
-      q1 = q1.concat(r.q1); q2 = q2.concat(r.q2); fallback = fallback || r.fallback;
+      const sub = withSub(h); if (!sub) continue;
+      const skOf = await skOfH(h);
+      const wrong = String(sub.d || '').split('').map((c, i) => c === '0' ? i : -1).filter(i => i >= 0);
+      for (const i of wrong) { if (q1.length >= REM.maxQ) break; await addQ(h, i, skOf(i)); }
     }
     // ممتاز في الأنشطة وضعيف في الاختبار: المشكلة غالبًا في الاختبار نفسه ← تدريب بنمط الاختبار
     if (!q1.length) {
@@ -3171,9 +3201,11 @@ async function remFromExams(env, st) {
     if (!q1.length) { await env.HW.put(mark, 'wait', { expirationTtl: 86400 }); continue; }   // ننتظر توليد الأسئلة البديلة
     const title = String(w.t.title || 'الاختبار');
     q1 = q1.slice(0, REM.maxQ); q2 = q2.slice(0, REM.maxQ);
+    const sk0 = !practice && weakSk[0], skN = sk0 ? sk0.skill.replace(/^نافس:\s*/, '') : '';
     const made = await remCreate(env, { st, cls: st.cls || '', src: `exam:${w.t.id}`, srcTitle: title, kind: 'exam',
-      reason: `${title}: ${w.rate}%${fromExam ? ` — ${fromExam} من الأسئلة التي أخطأ فيها في الاختبار` : ''}${practice ? ' — أداؤه في الأنشطة جيد، فالتدريب بنمط الاختبار' : ''}`, before: w.rate,
-      q1, q2, fallback, title: practice ? `🩹 تدريب بنمط الاختبار: ${title}` : `🩹 تعزيز بعد ${title}`, api: '' });
+      reason: `${title}: ${w.rate}%${sk0 ? ` — أضعف ناتج «${skN}» (${sk0.rate}%)${weakSk.length === 2 ? ' ومهارة أخرى' : weakSk.length > 2 ? ` و${weakSk.length - 1} مهارات أخرى` : ''}` : ''}${fromExam ? ` — ${fromExam} من الأسئلة التي أخطأ فيها في الاختبار` : ''}${practice ? ' — أداؤه في الأنشطة جيد، فالتدريب بنمط الاختبار' : ''}`, before: w.rate,
+      q1, q2, fallback, ...(sk0 ? { skill: sk0.skill } : {}),
+      title: practice ? `🩹 تدريب بنمط الاختبار: ${title}` : sk0 ? `🩹 تعزيز «${skN}» بعد ${title}` : `🩹 تعزيز بعد ${title}`, api: '' });
     if (made) await env.HW.put(mark, made.id, { expirationTtl: 60 * 60 * 24 * 200 });
   }
 }
@@ -7025,6 +7057,22 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
     }
     // 🎯 جدول توحيد المهارات على نواتج نافس: { t, map:{ قديم: ناتج } } — "" يحذف المطابقة
     // ➕ إضافة/حذف مهارة من قائمة النواتج (يختار المعلم وحدتها) — قائمة واحدة للعام
+    /* 🏫 «أعدت الشرح للفصل»: يُحفظ في الخادم (لا في الجهاز) فيختفي البند من كل أجهزة المعلم أسبوعين */
+    if (url.pathname === '/plan-reteach') {
+      const isPost = request.method === 'POST';
+      let b = {}; if (isPost) { try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); } }
+      const tok = isPost ? b.t : (url.searchParams.get('t') || '');
+      if (!env.TEACHER_TOKEN || tok !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
+      let map = {}; try { map = JSON.parse(await env.HW.get('plan-reteach') || '{}') || {}; } catch { map = {}; }
+      if (isPost) {
+        const k = String(b.key || '').slice(0, 160);
+        if (k) { if (b.undo) delete map[k]; else map[k] = Date.now(); }
+        const cut = Date.now() - 60 * 86400000;
+        map = Object.fromEntries(Object.entries(map).filter(([, t]) => Number(t) > cut).slice(-400));
+        await env.HW.put('plan-reteach', JSON.stringify(map));
+      }
+      return json({ ok: true, map });
+    }
     if (url.pathname === '/skill-custom' && request.method === 'POST') {
       let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
       if (!env.TEACHER_TOKEN || b.t !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);

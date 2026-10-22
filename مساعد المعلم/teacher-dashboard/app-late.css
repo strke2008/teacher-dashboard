@@ -2644,3 +2644,15 @@ button.sk-chip:not([onclick]){cursor:default}
 /* ➕ مهارة جديدة في قائمة النواتج */
 .skc-list{margin-top:.6rem;border:1px solid var(--line,#E5E7EB);border-radius:12px;padding:.4rem .6rem}.skc-list summary{cursor:pointer;font-weight:700;font-size:.86rem}
 .skc-row{display:flex;align-items:center;justify-content:space-between;gap:.5rem;padding:.35rem 0;border-top:1px dashed var(--line,#EEF0F3);font-size:.88rem}
+/* 🧭 الخطط: تنبيهات متعددة الأزرار · اقتراح نقطة الفحص · ناتج سؤال التشخيصي */
+.pq-legacy+.pq-legacy{margin-top:.4rem}
+.pq-legacy.multi .btn{margin-inline-start:0}
+.pq-adv{font-size:.78rem;line-height:1.7;margin-top:.3rem;padding:.2rem .55rem;border-radius:8px;display:inline-block;background:#F1F5F9;color:#334155}
+.pq-adv.bad{background:#FEF2F2;color:#991B1B}.pq-adv.warn{background:#FFFBEB;color:#92400E}.pq-adv.tick{background:#ECFDF5;color:#065F46}
+.pq-conduct summary .btn{margin-inline-start:.4rem}
+.q-sk{display:flex;align-items:center;gap:.45rem;flex-wrap:wrap;margin-top:.45rem;padding:.4rem .55rem;border-radius:10px;background:#F0F9FF;border:1px solid #BAE6FD}
+.q-sk label{font-size:.8rem;font-weight:700;color:#075985}
+.q-sk select{flex:1;min-width:0;max-width:100%}
+.q-sk small{flex-basis:100%;font-size:.76rem;color:#92400E}
+.q-sk.need{background:#FFFBEB;border-color:#FCD34D}
+:root[data-ui-theme="dark"] .pq-adv{background:#1E293B;color:#CBD5E1}:root[data-ui-theme="dark"] .q-sk{background:#0C2533;border-color:#155E75}:root[data-ui-theme="dark"] .q-sk.need{background:#2A2110;border-color:#78350F}
