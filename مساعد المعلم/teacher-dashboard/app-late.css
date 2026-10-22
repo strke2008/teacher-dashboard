@@ -2661,3 +2661,5 @@ button.sk-chip:not([onclick]){cursor:default}
 .drl-img{display:block;max-width:62%;max-height:150px;margin:.25rem auto .35rem;object-fit:contain}
 .nafs-thin{color:#92400E;background:#FFFBEB;border-radius:6px;padding:0 .35rem}
 :root[data-ui-theme="dark"] .nafs-thin{background:#2A2110;color:#FCD34D}
+.nafs-k.add{background:rgba(14,116,144,.12);color:#0E7490}
+.drl-fig{max-width:70%;margin:.25rem auto .35rem}

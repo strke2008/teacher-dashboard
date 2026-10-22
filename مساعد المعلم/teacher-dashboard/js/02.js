@@ -3713,10 +3713,10 @@ async function drillPool(p,skill){
       const wrong=sids.some(sid=>{const d=String(h.subs&&h.subs[sid]&&h.subs[sid].d||''); return d.length>+i&&d[+i]==='0'}); hits.push({h,i:+i,q,wrong}); }); });
   const need=[...new Set(hits.map(x=>x.h.sid).filter(Boolean))].filter(sid=>!(sid in DRILL.cache.twins));
   await Promise.all(need.map(async sid=>{ try{ const j=await (await fetch(`${api}/twins?hw=${encodeURIComponent(sid)}&t=${tok}`)).json(); DRILL.cache.twins[sid]=(j&&j.twins&&j.twins.items)||[]; }catch(e){ DRILL.cache.twins[sid]=[]; } }));
-  // شكل السؤال يُطبع معه (صور نافس)؛ السؤال المبني على رسم تفاعلي بلا صورة لا يُطبع — لا يُفهم بدون شكله
+  // شكل السؤال يُطبع معه: صورته، أو جدوله/رسمه البياني (fig) — وما تعذّر رسم شكله لا يُطبع، فلا يُفهم بدونه
   const img=x=>{ const u=String(x&&x.img||''); return /^(nafs\/[\w.-]+\.(webp|png|jpe?g)|https:\/\/\S+)$/i.test(u)?u:''; };
-  const norm=x=>({t:x.t==='tf'?'tf':x.t==='f'?'f':'q',q:String(x.q||'').trim(),o:Array.isArray(x.o)?x.o.map(v=>String(v||'').trim()).filter(Boolean):[],a:x.a,img:img(x)});
-  const out=[], seen=new Set(), add=(x,src,tier)=>{const n=norm(x); if(!n.q||(x&&x.fig&&!n.img)) return; if(n.t==='q'&&(n.o.length<2||!(Number(n.a)>=0&&Number(n.a)<n.o.length))) return; const k=rdNormAr?rdNormAr(n.q):n.q; if(seen.has(k)) return; seen.add(k); out.push({...n,src,tier,r:Math.random()});};
+  const norm=x=>({t:x.t==='tf'?'tf':x.t==='f'?'f':'q',q:String(x.q||'').trim(),o:Array.isArray(x.o)?x.o.map(v=>String(v||'').trim()).filter(Boolean):[],a:x.a,img:img(x),fig:x&&x.fig&&typeof nfFigClean==='function'?nfFigClean(x.fig):null});
+  const out=[], seen=new Set(), add=(x,src,tier)=>{const n=norm(x); if(!n.q||(x&&x.fig&&!n.img&&!n.fig)) return; if(n.t==='q'&&(n.o.length<2||!(Number(n.a)>=0&&Number(n.a)<n.o.length))) return; const k=rdNormAr?rdNormAr(n.q):n.q; if(seen.has(k)) return; seen.add(k); out.push({...n,src,tier,r:Math.random()});};
   hits.forEach(x=>{ (DRILL.cache.twins[x.h.sid]||[]).filter(t=>t.i===x.i).forEach(t=>(t.alts||[]).forEach(a=>add(a,x.h.title,x.wrong?0:1))); });
   hits.forEach(x=>add(x.q,x.h.title,x.wrong?2:3));
   // 🧭 ناتج من نواتج نافس: أسئلة بنك نافس عليه (تُصحَّح آليًا) تكمّل الورقة
@@ -3749,7 +3749,7 @@ async function planDrillOpen(id){
 }
 function drillPage(p,who,qs,skill){
   const E=planEsc, L=['أ','ب','ج','د','هـ','و'], d=new Date(), ymd=`${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
-  const body=qs.map((x,k)=>`<div class="drl-q"><div class="drl-qt"><b>${k+1}</b><span>${E(x.q)}</span></div>${x.img?`<img class="drl-img" src="${E(x.img)}" alt="">`:''}
+  const body=qs.map((x,k)=>`<div class="drl-q"><div class="drl-qt"><b>${k+1}</b><span>${E(x.q)}</span></div>${x.img?`<img class="drl-img" src="${E(x.img)}" alt="">`:''}${x.fig&&typeof nfFigHTML==='function'?`<div class="drl-fig">${nfFigHTML(x.fig)}</div>`:''}
     ${x.t==='tf'?'<div class="drl-tf"><span>( &nbsp; ) صح</span><span>( &nbsp; ) خطأ</span></div>'
      :x.t==='f'?'<div class="drl-f">الإجابة: ...............................................................</div>'
      :`<div class="drl-o ${x.o.some(o=>o.length>28)?'one':''}">${x.o.map((o,i)=>`<span><i>${L[i]}</i>${E(o)}</span>`).join('')}</div>`}</div>`).join('');
