@@ -161,7 +161,7 @@ const NAFS_BANK = [
   { id: 'at11', s: 'at', o: 'at8', t: 'q', k: 'pr', img: 'at-ptable6', q: 'مستعينًا بالجدول الدوري الملوّن، أيّ العبارات التالية صحيحة؟', op: ['عناصر المنطقة (٣) موصلة جيدة للكهرباء', 'يمكن تحويل عناصر المنطقة (٢) إلى أسلاك رفيعة', 'عناصر المنطقة (٤) لامعة وبرّاقة', 'عناصر المنطقة (١) نشطة كيميائيًا'], a: 2 },
   { id: 'at12', s: 'at', o: 'at9', t: 'f', k: 'pr', img: 'at-oxygen7', q: 'يحتوي المربع على عنصر الأكسجين من الجدول الدوري (العدد الكتلي ١٦ والعدد الذري ٨). احسب عدد النيوترونات للعنصر. (العدد فقط)', a: '8' },
   { id: 'at13', s: 'at', o: 'at6', t: 'q', k: 'pr', q: 'ماذا يمثل الأكسجين O¹⁸ بالنسبة للأكسجين O¹⁶؟', op: ['نظيرًا له', 'أيونًا له', 'عنصرًا مختلفًا', 'مركبًا منه'], a: 0 },
-  { id: 'at14', s: 'at', o: 'ma1', t: 'q', k: 'pr', img: 'at-temp8', q: 'أجرى طالب عددًا من التجارب لمواد كيميائية وسجّل الملاحظات في الجدول. أيٌّ من التجارب تُظهر حدوث تفاعل كيميائي؟', op: ['(أ) فقط', '(ج) فقط', '(ب) و(د)', '(أ) و(ج)'], a: 3 },
+  { id: 'at14', s: 'ma', o: 'ma1', t: 'q', k: 'pr', img: 'at-temp8', q: 'أجرى طالب عددًا من التجارب لمواد كيميائية وسجّل الملاحظات في الجدول. أيٌّ من التجارب تُظهر حدوث تفاعل كيميائي؟', op: ['(أ) فقط', '(ج) فقط', '(ب) و(د)', '(أ) و(ج)'], a: 3 },
   { id: 'at15', s: 'at', o: 'at9', t: 'q', k: 'pr', img: 'at-props9', q: 'يلخص الجدول بعض الخصائص الفيزيائية لخمس مواد مختلفة. ما المادتان اللافلزيتان من هذه المواد؟', op: ['(ب) و(هـ)', '(أ) و(ج)', '(د) و(هـ)', '(ب) و(د)'], a: 0 },
   { id: 'at16', s: 'at', o: 'at3', t: 'q', k: 'pr', ad: 1, img: 'at-props10', q: 'في الجدول خصائص كلٍّ من (الأكسجين – الماء – الحديد). ما الترتيب الصحيح لأسماء المواد (أ، ب، ج)؟', op: ['أ: الماء، ب: الأكسجين، ج: الحديد', 'أ: الأكسجين، ب: الماء، ج: الحديد', 'أ: الحديد، ب: الماء، ج: الأكسجين', 'أ: الماء، ب: الحديد، ج: الأكسجين'], a: 0 },
   { id: 'at17', s: 'at', o: 'at3', t: 'q', k: 'pr', ad: 1, note: 'في الدليل أربع إجابات لثلاث عينات؛ ضُبطت الخيارات على العينات الثلاث المذكورة.', q: 'وجد باسل على طاولة المختبر عينات من: كلوريد الصوديوم المذاب في الماء، واتحاد الحديد مع الأكسجين، والفولاذ. ما التصنيف الصحيح لها على الترتيب؟', op: ['محلول، مركب، مخلوط', 'مركب، محلول، مخلوط', 'مخلوط، مركب، محلول', 'محلول، مخلوط، مركب'], a: 0 },
@@ -326,6 +326,7 @@ const NAFS_BANK = [
 const NAFS_OUT = Object.fromEntries(NAFS_SECTIONS.flatMap(s => s.outcomes.map(([id, short, text]) => [id, { id, short, text, sec: s.id }])));
 const nafsImg = q => !q.img ? '' : /^https:\/\//.test(q.img) ? q.img : `nafs/${q.img}.webp`;   // صور البنك محلية، والمرفوعة رابط https
 const nafsAuto = q => q.t === 'q' || q.t === 'tf' || q.t === 'f';
+const NAFS_MIN_Q = 3;   // = SKILL_MIN_Q في الخادم
 NAFS_BANK.forEach(q => {
   if (q.t !== 'q' || !q.m) return;
   const r = [...q.id].reduce((h, c) => h + c.charCodeAt(0), 0) % q.op.length; if (!r) return;
@@ -349,6 +350,9 @@ function nafsToQ(q) {
 function nafsRender() {
   const root = document.getElementById('nafs-root'); if (!root) return;
   const cnt = s => { const qs = NAFS_BANK.filter(q => q.s === s && nafsIn(q)); return { auto: qs.filter(nafsAuto).length, open: qs.filter(q => !nafsAuto(q)).length }; };
+  // 🎯 تغطية البنك: الخطط تحكم على الناتج بعد 3 أسئلة للطالب — ناتج بأقل من 3 أسئلة آلية لا يكفيه نشاط نافس وحده
+  const autoN = id => NAFS_BANK.filter(q => q.o === id && nafsAuto(q) && nafsIn(q)).length;
+  const thin = s => s.outcomes.filter(([id]) => autoN(id) < NAFS_MIN_Q).length;
   const secs = nafsSecs(), ps = nafsPicked(), psIds = new Set(ps.map(s => s.id));
   const picked = NAFS_BANK.filter(q => psIds.has(q.s) && nafsIn(q)), pa = picked.filter(nafsAuto).length, po = picked.length - pa;
   const tn = n => { const ss = NAFS_SECTIONS.filter(s => s.term === n).map(s => s.id); return { s: ss.length, q: NAFS_BANK.filter(q => ss.includes(q.s) && nafsIn(q)).length }; };
@@ -361,10 +365,10 @@ function nafsRender() {
       return `<div class="nafs-sec ${on ? 'on' : ''}">
         <label class="nafs-sec-h"><input type="checkbox" ${on ? 'checked' : ''} onchange="nafsPick('${s.id}',this.checked)"><span class="nafs-ic">${s.ic}</span>
           <span><b>${esc(s.title)}</b><small>${esc(s.lessons)}</small></span></label>
-        <div class="nafs-sec-n"><span class="chip tick">✍️ ${c.auto} آلي</span>${c.open ? `<span class="chip ghost">📝 ${c.open} مقالي</span>` : ''}<span class="chip ghost">🎯 ${s.outcomes.length} ناتج</span></div>
+        <div class="nafs-sec-n"><span class="chip tick">✍️ ${c.auto} آلي</span>${c.open ? `<span class="chip ghost">📝 ${c.open} مقالي</span>` : ''}<span class="chip ghost">🎯 ${s.outcomes.length} ناتج</span>${thin(s) ? `<span class="chip warn" title="الخطط تحكم على الناتج بعد ${NAFS_MIN_Q} أسئلة للطالب — ولّد أسئلة لهذه النواتج">⚠️ ${thin(s)} ${thin(s) === 1 ? 'ناتج' : thin(s) <= 10 ? 'نواتج' : 'ناتجًا'} أقل من ${NAFS_MIN_Q} أسئلة</span>` : ''}</div>
         <details ${NAFS.open === s.id ? 'open' : ''} ontoggle="if(this.open)NAFS.open='${s.id}'"><summary>نواتج التعلم والأسئلة</summary>
-          <ol class="nafs-out">${s.outcomes.map(([id, sh, tx]) => { const n = NAFS_BANK.filter(q => q.o === id && nafsIn(q)).length;
-            return `<li><b>${esc(sh)}</b> <small class="muted">${n ? n + ' سؤال' : 'لا سؤال في الدليل'}</small><div class="muted">${esc(tx)}</div></li>`; }).join('')}</ol>
+          <ol class="nafs-out">${s.outcomes.map(([id, sh, tx]) => { const n = NAFS_BANK.filter(q => q.o === id && nafsIn(q)).length, a = autoN(id);
+            return `<li><b>${esc(sh)}</b> <small class="muted">${n ? n + ' سؤال' : 'لا سؤال في الدليل'}</small>${a < NAFS_MIN_Q ? ` <small class="nafs-thin">⚠️ ${a ? `${a} آلي فقط` : 'بلا سؤال آلي'} — يحتاج ${NAFS_MIN_Q - a} ليُحكم عليه من نشاط نافس وحده</small>` : ''}<div class="muted">${esc(tx)}</div></li>`; }).join('')}</ol>
           <div class="nafs-sec-tools"><button type="button" class="btn ghost sm" onclick="nafsSelAll('${s.id}',true)">✓ اختر الكل</button><button type="button" class="btn ghost sm" onclick="nafsSelAll('${s.id}',false)">✕ ألغِ الكل</button>
             <button type="button" class="ai-btn sm" onclick="nafsGenOpen('${s.id}')"><span class="ai-mark">✦</span> توليد أسئلة جديدة</button></div>
           <div class="nafs-qs">${NAFS_BANK.filter(q => q.s === s.id).map((q, i) => nafsQPreview(q, i)).join('')}</div>

@@ -2400,7 +2400,10 @@ async function ctSkills(box,force){
   const cls=window._ctSkCls??(ctClasses()[0]||''), roster=ctRoster(cls);
   const {skills,R}=ctSkillRows(roster);
   const tools=`<div class="row ct-tools">${ctClassSel('ct-sk-cls',cls,"window._ctSkCls=this.value;renderClassTools()",false)}<button class="btn tick sm" onclick="ctLvReportPick(window._ctSkCls??(ctClasses()[0]||''))">📊 تقرير مختصر</button>${typeof skAliasOpen==='function'?(()=>{const n=skUnmappedCount();return `<button class="btn ${n?'':'ghost'} sm" onclick="skAliasOpen()" title="مطابقة المهارات القديمة بنواتج تعلم نافس">🎯 توحيد على نواتج نافس${n?` <span class="chip bad">${n}</span>`:''}</button>`})():''}`;
-  if(!skills.length){ box.innerHTML=`${tools}</div><div class="ct-warn">لا توجد أسئلة مصنّفة بالمهارات لهذا الفصل في الفترة. صنّف أسئلة الأنشطة من «🩹 العلاج التلقائي» في تبويب الخطط العلاجية (زر «صنّف المهارات»)، أو انشر اختبارًا تشخيصيًا بمهارات.</div>`; return; }
+  if(!skills.length){ const old=typeof skUnmappedCount==='function'?skUnmappedCount():0, need=typeof skillNeeded==='function'?HW.filter(skillNeeded).length:0;
+    box.innerHTML=`${tools}</div><div class="ct-warn">${old?`⚠️ أسئلة أنشطتك مصنّفة بـ<b>${old} ${old===1?'اسم مهارة قديم':'أسماء مهارات قديمة'}</b> غير مربوطة بنواتج نافس — الخريطة تعرض نواتج نافس فقط. اربطها مرة واحدة فتظهر هنا بإجاباتها كلها. <button type="button" class="btn tick sm" onclick="skAliasOpen()">🎯 اربطها الآن</button>`
+      :need?`لا توجد بعد إجابات على نواتج نافس لهذا الفصل — ${need} ${need<=10?'أنشطة':'نشاطًا'} بلا تصنيف. <button type="button" class="btn tick sm" onclick="skillTagMissing()">🏷️ صنّفها</button>`
+      :'لا توجد بعد إجابات كافية على نواتج نافس لهذا الفصل (3 أسئلة للطالب في الناتج). انشر نشاط نافس أو اختبارًا تشخيصيًا، أو صنّف أسئلة أنشطتك.'}</div>`; return; }
   const T=SKILL_TARGET_UI, G=SKILL_GAP_UI, first=n=>String(n||'').split(' ').slice(0,2).join(' ');
   const view=window._ctSkView||'skill', n=a=>R.filter(r=>a.includes(r.act)).length;
   const planBtn=(r,label,cls2)=>`<button class="btn ${cls2||'tick'} sm" onclick='ctGroupPlan(${JSON.stringify(r.k)},${JSON.stringify(r.weak.map(x=>String(x.s.id)))})'>${label}</button>`;
@@ -3702,16 +3705,23 @@ async function drillPool(p,skill){
   const api=getApi().replace(/\/+$/,''), tok=encodeURIComponent(getTok());
   if(!DRILL.cache){ const j=await (await fetch(`${api}/skills-maps?t=${tok}`)).json(); if(!j||!j.ok) throw new Error('maps'); DRILL.cache={maps:j.maps||{},twins:{}}; if(j.alias&&typeof SKILL_ALIAS!=='undefined') SKILL_ALIAS=j.alias; }
   const M=DRILL.cache.maps, sids=(p.group?(p.members||[]).map(m=>String(m.studentId)):[String(p.studentId)]);
-  const hits=[]; (HW||[]).forEach(h=>{ const m=h&&h.sid&&M[h.sid]; if(!m) return;
-    const C=typeof skCanon==='function'?skCanon:(x=>String(x).trim());
+  // مهارة السؤال: تصنيف الخادم، وإلا المكتوبة على السؤال نفسه (أنشطة نافس والتشخيصي)
+  const C=typeof skCanon==='function'?skCanon:(x=>String(x).trim());
+  const hits=[]; (HW||[]).forEach(h=>{ if(!h||h.remedial) return;
+    const m=(h.sid&&M[h.sid])||(Array.isArray(h.qs)&&h.qs.some(q=>q&&q.skill)?Object.fromEntries(h.qs.map((q,i)=>[i,q&&q.skill]).filter(x=>x[1])):null); if(!m) return;
     Object.entries(m).forEach(([i,sk])=>{ if(C(sk)!==C(skill)) return; const q=(h.qs||[])[+i]; if(!q||!['q','tf','f',undefined].includes(q.t)) return;
       const wrong=sids.some(sid=>{const d=String(h.subs&&h.subs[sid]&&h.subs[sid].d||''); return d.length>+i&&d[+i]==='0'}); hits.push({h,i:+i,q,wrong}); }); });
-  const need=[...new Set(hits.map(x=>x.h.sid))].filter(sid=>!(sid in DRILL.cache.twins));
+  const need=[...new Set(hits.map(x=>x.h.sid).filter(Boolean))].filter(sid=>!(sid in DRILL.cache.twins));
   await Promise.all(need.map(async sid=>{ try{ const j=await (await fetch(`${api}/twins?hw=${encodeURIComponent(sid)}&t=${tok}`)).json(); DRILL.cache.twins[sid]=(j&&j.twins&&j.twins.items)||[]; }catch(e){ DRILL.cache.twins[sid]=[]; } }));
-  const norm=x=>({t:x.t==='tf'?'tf':x.t==='f'?'f':'q',q:String(x.q||'').trim(),o:Array.isArray(x.o)?x.o.map(v=>String(v||'').trim()).filter(Boolean):[],a:x.a});
-  const out=[], seen=new Set(), add=(x,src,tier)=>{const n=norm(x); if(!n.q) return; if(n.t==='q'&&(n.o.length<2||!(Number(n.a)>=0&&Number(n.a)<n.o.length))) return; const k=rdNormAr?rdNormAr(n.q):n.q; if(seen.has(k)) return; seen.add(k); out.push({...n,src,tier,r:Math.random()});};
+  // شكل السؤال يُطبع معه (صور نافس)؛ السؤال المبني على رسم تفاعلي بلا صورة لا يُطبع — لا يُفهم بدون شكله
+  const img=x=>{ const u=String(x&&x.img||''); return /^(nafs\/[\w.-]+\.(webp|png|jpe?g)|https:\/\/\S+)$/i.test(u)?u:''; };
+  const norm=x=>({t:x.t==='tf'?'tf':x.t==='f'?'f':'q',q:String(x.q||'').trim(),o:Array.isArray(x.o)?x.o.map(v=>String(v||'').trim()).filter(Boolean):[],a:x.a,img:img(x)});
+  const out=[], seen=new Set(), add=(x,src,tier)=>{const n=norm(x); if(!n.q||(x&&x.fig&&!n.img)) return; if(n.t==='q'&&(n.o.length<2||!(Number(n.a)>=0&&Number(n.a)<n.o.length))) return; const k=rdNormAr?rdNormAr(n.q):n.q; if(seen.has(k)) return; seen.add(k); out.push({...n,src,tier,r:Math.random()});};
   hits.forEach(x=>{ (DRILL.cache.twins[x.h.sid]||[]).filter(t=>t.i===x.i).forEach(t=>(t.alts||[]).forEach(a=>add(a,x.h.title,x.wrong?0:1))); });
   hits.forEach(x=>add(x.q,x.h.title,x.wrong?2:3));
+  // 🧭 ناتج من نواتج نافس: أسئلة بنك نافس عليه (تُصحَّح آليًا) تكمّل الورقة
+  if(typeof NAFS_BANK!=='undefined'&&typeof nafsOutOfSkill==='function'){ const o=nafsOutOfSkill(C(skill));
+    if(o) NAFS_BANK.filter(q=>q.o===o.id&&nafsAuto(q)&&(typeof nafsIn!=='function'||nafsIn(q))).forEach(q=>add(nafsToQ(q),'بنك نافس',4)); }
   return out.sort((a,b)=>a.tier-b.tier||a.r-b.r);
 }
 async function planDrillOpen(id){
@@ -3722,11 +3732,11 @@ async function planDrillOpen(id){
   openModal(`<h2>📝 ورقة تدريب — ${planEsc(p.name)}</h2>
     <p class="muted" style="font-size:.84rem;margin:.2rem 0 .7rem">أسئلة مطبوعة على مهارة واحدة من أنشطتك المصنّفة: البديلة أولًا (أسئلة جديدة بالفكرة نفسها) ومما أخطأ فيه الطالب، وصفحة إجابات لك.</p>
     <label style="font-weight:700;font-size:.85rem">المهارة</label>
-    <div class="drill-sk">${sk.map(s=>`<button type="button" class="btn ${s===DRILL.skill?'tick':'ghost'} sm" onclick="DRILL.skill=${planEsc(JSON.stringify(s))};planDrillOpen('${planEsc(id)}')">🎯 ${planEsc(s)}</button>`).join('')}</div>
+    <div class="drill-sk">${sk.map(s=>`<button type="button" class="btn ${s===DRILL.skill?'tick':'ghost'} sm" onclick="DRILL.skill=${planEsc(JSON.stringify(s))};planDrillOpen('${planEsc(id)}')">🎯 ${planDisp(s)}</button>`).join('')}</div>
     <div class="row" style="gap:.6rem;align-items:center;margin-top:.7rem;flex-wrap:wrap"><label style="font-weight:700;font-size:.85rem">عدد الأسئلة</label>
       ${[5,8,10].map(n=>`<button type="button" class="btn ${DRILL.n===n?'tick':'ghost'} sm" onclick="DRILL.n=${n};planDrillOpen('${planEsc(id)}')">${n}</button>`).join('')}
       <label style="display:flex;gap:.35rem;align-items:center;font-size:.85rem;margin-inline-start:auto"><input type="checkbox" id="drill-key" ${DRILL.key?'checked':''} onchange="DRILL.key=this.checked"> صفحة الإجابات للمعلم</label></div>
-    <div id="drill-avail" class="muted" style="font-size:.84rem;margin-top:.7rem">⏳ جارٍ جمع أسئلة «${planEsc(DRILL.skill)}»…</div>
+    <div id="drill-avail" class="muted" style="font-size:.84rem;margin-top:.7rem">⏳ جارٍ جمع أسئلة «${planDisp(DRILL.skill)}»…</div>
     <div class="modal-foot"><button class="btn tick" id="drill-go" type="button" disabled onclick="planDrillPrint()">🖨️ اطبع ورقة التدريب</button><button class="btn ghost" type="button" onclick="closeModal()">إغلاق</button></div>`);
   try{ const pool=await drillPool(p,DRILL.skill); DRILL.pool=pool;
     const el=document.getElementById('drill-avail'), go=document.getElementById('drill-go'); if(!el) return;
@@ -3739,11 +3749,11 @@ async function planDrillOpen(id){
 }
 function drillPage(p,who,qs,skill){
   const E=planEsc, L=['أ','ب','ج','د','هـ','و'], d=new Date(), ymd=`${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
-  const body=qs.map((x,k)=>`<div class="drl-q"><div class="drl-qt"><b>${k+1}</b><span>${E(x.q)}</span></div>
+  const body=qs.map((x,k)=>`<div class="drl-q"><div class="drl-qt"><b>${k+1}</b><span>${E(x.q)}</span></div>${x.img?`<img class="drl-img" src="${E(x.img)}" alt="">`:''}
     ${x.t==='tf'?'<div class="drl-tf"><span>( &nbsp; ) صح</span><span>( &nbsp; ) خطأ</span></div>'
      :x.t==='f'?'<div class="drl-f">الإجابة: ...............................................................</div>'
      :`<div class="drl-o ${x.o.some(o=>o.length>28)?'one':''}">${x.o.map((o,i)=>`<span><i>${L[i]}</i>${E(o)}</span>`).join('')}</div>`}</div>`).join('');
-  return `<div class="rep-page plan-doc drl">${repHead('ورقة تدريب علاجية',`تدريب على «${skill}»`)}
+  return `<div class="rep-page plan-doc drl">${repHead('ورقة تدريب علاجية',`تدريب على «${planSkName(skill)}»`)}
     <div class="rep-in">
       <div class="rep-info"><div>اسم الطالب<b>${E(who.name||'')}</b></div><div>الصف<b>${E(who.cls||p.cls||'')}</b></div><div>التاريخ<b>${ymd}</b></div><div>الدرجة<b>........ / ${qs.length}</b></div></div>
       <div class="drl-ins">✏️ أجب عن الأسئلة التالية: ضع دائرة حول رمز الإجابة الصحيحة، أو علامة ( ✓ ) أمام «صح» أو «خطأ». حاول وحدك أولًا، ثم صحّحها مع معلمك.</div>
@@ -3754,7 +3764,7 @@ function drillPage(p,who,qs,skill){
 function drillKeyPage(p,qs,skill){
   const E=planEsc, L=['أ','ب','ج','د','هـ','و'];
   return `<div class="rep-page plan-doc drl">${repHead('للمعلم — لا تُعطى للطالب','مفتاح إجابات ورقة التدريب')}
-    <div class="rep-in"><div class="drl-ins">«${E(skill)}» · ${E(p.name||'')} · ${qs.length} أسئلة</div>
+    <div class="rep-in"><div class="drl-ins">«${E(planSkName(skill))}» · ${E(p.name||'')} · ${qs.length} أسئلة</div>
       <div class="rep-box"><table class="rt"><thead><tr><th>م</th><th style="text-align:start">السؤال</th><th>الإجابة</th><th>من نشاط</th></tr></thead><tbody>
       ${qs.map((x,k)=>`<tr><td>${k+1}</td><td style="text-align:start">${E(x.q.length>90?x.q.slice(0,90)+'…':x.q)}</td><td><b>${x.t==='tf'?(x.a===true||x.a==='true'?'صح':'خطأ'):x.t==='f'?E(x.a):`${L[+x.a]}) ${E(x.o[+x.a]||'')}`}</b></td><td class="muted">${E(x.src||'')}${x.tier<2?' · بديل':''}</td></tr>`).join('')}
       </tbody></table></div></div></div>`;
@@ -3767,7 +3777,7 @@ function planDrillPrint(){
   const who=p.group&&Array.isArray(p.members)&&p.members.length?p.members.map(m=>({name:m.name,cls:m.cls||p.cls})):[{name:p.name,cls:p.cls}];
   box.innerHTML=who.map(w=>drillPage(p,w,qs,DRILL.skill)).join('')+(DRILL.key?drillKeyPage(p,qs,DRILL.skill):'');
   closeModal();
-  unifiedA4Print({bodyClass:'printing-plans',title:`ورقة تدريب — ${DRILL.skill}`,selector:'#plan-print',orientation:'portrait',margin:'8mm'});
+  unifiedA4Print({bodyClass:'printing-plans',title:`ورقة تدريب — ${planSkName(DRILL.skill)}`,selector:'#plan-print',orientation:'portrait',margin:'8mm'});
 }
 /* id: طباعة خطة واحدة فقط؛ بدونه تُطبع الخطط الظاهرة حسب الفلاتر */
 async function printPlans(id){

@@ -2658,3 +2658,6 @@ button.sk-chip:not([onclick]){cursor:default}
 :root[data-ui-theme="dark"] .pq-adv{background:#1E293B;color:#CBD5E1}:root[data-ui-theme="dark"] .q-sk{background:#0C2533;border-color:#155E75}:root[data-ui-theme="dark"] .q-sk.need{background:#2A2110;border-color:#78350F}
 .pq-early{background:#EFF6FF;color:#1E3A8A}
 :root[data-ui-theme="dark"] .pq-early{background:#172554;color:#BFDBFE}
+.drl-img{display:block;max-width:62%;max-height:150px;margin:.25rem auto .35rem;object-fit:contain}
+.nafs-thin{color:#92400E;background:#FFFBEB;border-radius:6px;padding:0 .35rem}
+:root[data-ui-theme="dark"] .nafs-thin{background:#2A2110;color:#FCD34D}

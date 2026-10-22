@@ -3358,7 +3358,7 @@ async function planRemedialSend(env, planId, sids, round, state) {
         r.q1.forEach(q => { q._sk = p.k; }); r.q2.forEach(q => { q._sk = p.k; });
         q1 = q1.concat(r.q1); q2 = q2.concat(r.q2); fallback = fallback || r.fallback;
       }
-      const titles = targets_.filter(k => picks.some(p => p.k === k)).join(' و');
+      const titles = targets_.filter(k => picks.some(p => p.k === k)).map(k => String(k).replace(/^نافس:\s*/, '')).join(' و');   // الطالب يرى العنوان: بلا «نافس:»
       const made = await remCreate(env, { st, cls: st.cls, src: round > 1 ? `plan:${planId}:${round}` : `plan:${planId}`, srcTitle: titles, kind: 'plan', planId, force: true, maxQ: QMAX,
         reason: `خطة علاجية للمهارات: ${titles}`, before: agg.t ? Math.round(agg.c / agg.t * 100) : 0, q1: q1.slice(0, QMAX), q2: q2.slice(0, QMAX), fallback,
         title: `🩹 خطتك العلاجية: ${titles}`.slice(0, 120), api: '' });
