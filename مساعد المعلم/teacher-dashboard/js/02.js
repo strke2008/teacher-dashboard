@@ -968,7 +968,7 @@ function twinReady(h){return h.twinsHash===twinHash(h)||!!(REM_TWINS&&REM_TWINS.
 function twinNeeded(h){return twinEligible(h)&&!twinReady(h)}
 function twinHasKey(){try{return ['groq','gemini','claude','openai','openrouter'].some(p=>!!readingAIGetKey(p))}catch(e){return false}}
 function twinPrompt(items){return `أنت معلم علوم للمرحلة المتوسطة في المملكة العربية السعودية. لكل سؤال أدناه اكتب:
-0) "skill": اسم المهارة أو المفهوم الذي يقيسه السؤال في 2–5 كلمات (مثل «القانون الثاني لنيوتن»، «حساب الكثافة»)، وبالصياغة نفسها للأسئلة المتشابهة.${skillNamesHint()}
+0) "skill": ناتج التعلم الرسمي الذي يقيسه السؤال من القائمة أدناه حرفيًا، أو «لا شيء» إن لم يقس أيًّا منها.${skillNamesHint()}
 1) "tip": تذكيرًا قصيرًا (أقل من 30 كلمة) بالمفهوم العلمي الذي يقيسه السؤال، دون أن يكشف إجابة أي سؤال.
 2) "alts": سؤالين بديلين يقيسان نفس المفهوم بنفس الصعوبة ونفس النوع، بصياغة وسياق أو أرقام مختلفة، وبإجابة صحيحة واحدة مؤكدة علميًا. لا تكرر نص السؤال الأصلي.
 الأنواع: "q" اختيار من متعدد بأربعة خيارات في "o" و"a" رقم الخيار الصحيح بدءًا من 0؛ "tf" صح أو خطأ و"a" true أو false؛ "f" إكمال و"a" كلمة أو رقم قصير.
@@ -1204,6 +1204,7 @@ async function renderAutoRem(){
   const cleanN=remCleanable(REM_ROWS).length;
   const cleanBar=cleanN?`<div class="row" style="gap:.5rem;align-items:center;justify-content:space-between;margin-bottom:.5rem;flex-wrap:wrap"><span class="muted" style="font-size:.8rem">${cleanN} ${cleanN===1?'مهمة منتهية':'مهام منتهية'} (أتقنها الطلاب) يمكن حذفها</span><button type="button" class="btn ghost sm" onclick="remClean()">🧹 حذف المهام المنتهية</button></div>`:'';
   try{ renderPlanCandidates(); }catch(e){}
+  try{ pqLegacyNudge(); }catch(e){}
   if(body)body.innerHTML=cleanBar+(rows.length?rows.filter(x=>x.status!=='escalated').slice(0,30).map(line).join('')||'<div class="ar-empty">لا مهام أخرى.</div>':'<div class="ar-empty">لم تُفتح مهام علاجية بعد. ستظهر هنا تلقائيًا عند أول إخفاق.</div>');
 }
 
@@ -2950,18 +2951,19 @@ function planAfterCell(a){
 }
 function renderPlanSkills(){
   const box=document.getElementById('pf-skills-box'); if(!box) return;
-  // 🧭 نواتج نافس لها جدولها الخاص أسفل هذا الجدول (planNafsBox) فلا تتكرر هنا
-  const G=planGapProfile(), rows=G.rows.filter(r=>!String(r.skill).startsWith('نافس: ')), AF=planAfterMap(), hasAf=AF.size>0;
+  // 🔒 المهارات = نواتج نافس فقط (من كل المصادر: أنشطة مصنّفة، تشخيصي، أنشطة نافس) مجمّعة بالوحدة؛
+  //    الأسماء القديمة غير المربوطة لا تدخل الخطة — تُعدّ ويُدعى المعلم لربطها
+  const G=planGapProfile(), AF=planAfterMap(), hasAf=AF.size>0;
+  const rows=G.rows.filter(r=>planIsOutcome(r.skill)), legacy=G.rows.filter(r=>!planIsOutcome(r.skill));
   const chosen=window._pfSkills=(window._pfSkills||[]).slice(0,PLAN_SKILL_MAX);
   const rate=new Map([...rows.map(r=>[r.skill,r.rate]),...(typeof planNafsRateMap==='function'?planNafsRateMap():[])]);
   const elig=(typeof HW!=='undefined'?HW:[]).filter(skillEligible), need=elig.filter(skillNeeded).length;
   const diagN=(typeof HW!=='undefined'?HW:[]).filter(h=>h&&h.kind==='diag'&&(h.qs||[]).some(q=>q&&q.skill)).length;
-  const known=knownSkillNames().filter(n=>!rate.has(n)&&!chosen.includes(n)).sort((a,b)=>a.localeCompare(b,'ar'));
-  const gaps=rows.filter(r=>r.rate<SKILL_GAP_UI), rest=rows.filter(r=>r.rate>=SKILL_GAP_UI);
-  const manual=chosen.filter(k=>!rate.has(k)&&!String(k).startsWith('نافس: '));
+  const gaps=planByUnit(rows.filter(r=>r.rate<SKILL_GAP_UI)), rest=planByUnit(rows.filter(r=>r.rate>=SKILL_GAP_UI));
+  const manual=chosen.filter(k=>!rate.has(k));
   const src=r=>[r.diag?`🔍 تشخيصي ${r.diag}`:'',r.acts?`✏️ أنشطة ${r.acts}`:''].filter(Boolean).join(' · ');
   const row=r=>{const b=skBand(r.rate);return `<tr class="${chosen.includes(r.skill)?'on':''}"><td><input type="checkbox" class="pf-skill" value="${planEsc(r.skill)}" ${chosen.includes(r.skill)?'checked':''} onchange="planSkillToggle(this)" aria-label="${planEsc(r.skill)}"></td>
-    <td class="sk-n">${planEsc(r.skill)}</td><td><b>${r.rate}%</b></td><td><span class="chip ${b.c}">${b.n}</span>${G.grp&&r.miss?` <small class="muted">${r.miss} من ${G.n}</small>`:''}</td>${hasAf?`<td class="sk-af">${planAfterCell(AF.get(r.skill))}</td>`:''}<td class="muted sk-src">${src(r)} سؤالًا</td></tr>`};
+    <td class="sk-n">${planEsc(planSkName(r.skill))}</td><td><b>${r.rate}%</b></td><td><span class="chip ${b.c}">${b.n}</span>${G.grp&&r.miss?` <small class="muted">${r.miss} من ${G.n}</small>`:''}</td>${hasAf?`<td class="sk-af">${planAfterCell(AF.get(r.skill))}</td>`:''}<td class="muted sk-src">${src(r)} سؤالًا</td></tr>`};
   box.innerHTML=`<div class="dx-box pf-gap">
     <div class="row" style="justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap">
       <b>① تحديد الفجوات في المهارات ${G.grp?`<span class="muted" style="font-weight:400;font-size:.78rem">(متوسط ${G.n} طلاب)</span>`:''}</b>
@@ -2969,11 +2971,12 @@ function renderPlanSkills(){
     </div>
     <div class="muted" style="font-size:.78rem;margin-top:.3rem;line-height:1.7">من إجاباته في <b>الاختبار التشخيصي</b> (لكل سؤال مهارته) و<b>الأنشطة</b> (تصنَّف أسئلتها بالذكاء الاصطناعي). ما دون ${SKILL_GAP_UI}% <b>مهارة مفقودة</b> تُحدَّد تلقائيًا، والخطة تُبنى عليها: هدف وإجراءات ومهمة علاجية وقياس لكل مهارة.</div>
     ${rows.length?`<div class="sk-wrap"><table class="sk-t"><thead><tr><th></th><th>المهارة</th><th>الإتقان</th><th>المستوى</th>${hasAf?'<th title="بعد بدء الخطة">بعد الخطة</th>':''}<th>المصدر</th></tr></thead><tbody>
-      ${gaps.map(row).join('')||`<tr><td colspan="${hasAf?6:5}" class="muted" style="text-align:center">لا مهارة دون ${SKILL_GAP_UI}% — لا توجد فجوة مهارية ظاهرة.</td></tr>`}
-      ${manual.map(k=>`<tr class="on"><td><input type="checkbox" class="pf-skill" value="${planEsc(k)}" checked onchange="planSkillToggle(this)"></td><td class="sk-n">${planEsc(k)}</td><td>—</td><td><span class="chip ghost">أضفتها يدويًا</span></td>${hasAf?`<td class="sk-af">${planAfterCell(AF.get(k))}</td>`:''}<td class="muted sk-src">${knownSkillNames().includes(k)?'تُقاس من الأسئلة القادمة':'✍️ لا تطابق اسم مهارة مصنّفة — لن تُقاس'}</td></tr>`).join('')}
+      ${planUnitRows(gaps,row,hasAf?6:5)||`<tr><td colspan="${hasAf?6:5}" class="muted" style="text-align:center">لا ناتج دون ${SKILL_GAP_UI}% — لا توجد فجوة مهارية ظاهرة.</td></tr>`}
+      ${manual.map(k=>`<tr class="on"><td><input type="checkbox" class="pf-skill" value="${planEsc(k)}" checked onchange="planSkillToggle(this)"></td><td class="sk-n">${planEsc(planSkName(k))}${planIsOutcome(k)?'':' <small class="muted">(اسم قديم)</small>'}</td><td>—</td><td><span class="chip ghost">${planIsOutcome(k)?'بلا قياس بعد':'اسم قديم'}</span></td>${hasAf?`<td class="sk-af">${planAfterCell(AF.get(k))}</td>`:''}<td class="muted sk-src">${knownSkillNames().includes(k)?'تُقاس من الأسئلة القادمة':'✍️ لا تطابق اسم مهارة مصنّفة — لن تُقاس'}</td></tr>`).join('')}
     </tbody></table></div>
     ${hasAf?`<div class="sk-af-note">ℹ️ <b>«الإتقان»</b> تشخيص الفترة من الأنشطة والتشخيصي، ولا تدخل فيه المهمة العلاجية — فيبقى كما شُخّص. التحسّن يظهر في <b>«بعد الخطة»</b>: 🩹 المهمة العلاجية · ✏️ الأنشطة منذ البدء. الخطة تنجح حين تبلغ كل مهارة ${SKILL_TARGET_UI}% في الأسئلة الجديدة بعد البدء (الأنشطة + الأسئلة البديلة في المهمة؛ السؤال الأصلي المعاد لا يُحتسب).</div>`:''}
-    ${rest.length?`<details class="sk-more"><summary>مهارات أخرى أعلى من ${SKILL_GAP_UI}% <span class="chip ghost">${rest.length}</span></summary><table class="sk-t"><tbody>${rest.map(row).join('')}</tbody></table></details>`:''}`
+    ${rest.length?`<details class="sk-more"><summary>نواتج أخرى أعلى من ${SKILL_GAP_UI}% <span class="chip ghost">${rest.length}</span></summary><table class="sk-t"><tbody>${planUnitRows(rest,row,hasAf?6:5)}</tbody></table></details>`:''}
+    ${legacy.length?`<div class="pf-legacy">⚠️ ${legacy.length} ${legacy.length===1?'مهارة باسم قديم':'مهارات بأسماء قديمة'} خارج نواتج نافس لا تدخل الخطة (${legacy.slice(0,3).map(r=>planEsc(r.skill)).join('، ')}${legacy.length>3?'…':''}) — <button type="button" class="btn ghost sm" onclick="skAliasOpen()">🎯 اربطها بالنواتج</button></div>`:''}`
     :`<div class="sk-none">⚠️ <b>لم تُحدَّد فجوات مهارية لهذا ${G.grp?'المجموعة':'الطالب'} بعد.</b> لتحديدها:
         <ul><li>أرسل <b>🔍 اختبارًا تشخيصيًا</b> للفصل — كل سؤال فيه مرتبط بمهارة${diagN?` (لديك ${diagN} اختبار)`:''}.</li>
         <li>أو صنّف أسئلة الأنشطة بمهاراتها${need?` — ${need} نشاط بلا تصنيف`:''}.</li></ul>
@@ -2981,14 +2984,26 @@ function renderPlanSkills(){
     ${need&&twinHasKey()?`<div class="row" style="gap:.4rem;margin-top:.4rem;align-items:center;flex-wrap:wrap"><span class="muted" style="font-size:.78rem">⚠️ ${need} نشاط بلا تصنيف — مهاراتها لا تظهر ولا تُقاس.</span><button type="button" class="btn ghost sm" onclick="skillTagMissing()">🏷️ صنّف الآن</button></div>`
       :need?`<div class="muted" style="font-size:.78rem;margin-top:.4rem">⚠️ ${need} نشاط بلا تصنيف — أضف مفتاح ذكاء اصطناعي من ⚙️ الإعدادات ليُصنَّف.</div>`:''}
     <div class="row" style="gap:.4rem;margin-top:.5rem">
-      <input id="pf-skill-new" class="inp" list="pf-skill-list" placeholder="أضف مهارة لاحظتها… (مثل: حساب الكثافة)" style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();planSkillAdd()}">
-      <datalist id="pf-skill-list">${known.map(n=>`<option value="${planEsc(n)}"></option>`).join('')}</datalist>
+      <select id="pf-skill-new" class="inp" style="flex:1"><option value="">＋ أضف ناتجًا لاحظت ضعفه (من نواتج نافس)…</option>${planOutcomeOptions(chosen)}</select>
       <button type="button" class="btn sm" onclick="planSkillAdd()">إضافة</button>
     </div>
-    ${chosen.length?`<div class="pf-goals"><b>② أهداف الخطة</b><ol>${chosen.map(k=>`<li>أن ${G.grp?'يتقن الطلاب':'يتقن الطالب'} مهارة <b>«${planEsc(k)}»</b> بنسبة ${SKILL_TARGET_UI}% فأكثر <span class="muted">— ${rate.has(k)?`مستواه الآن ${rate.get(k)}%`:'لا قياس قبلي بعد'}</span></li>`).join('')}</ol>
+    ${chosen.length?`<div class="pf-goals"><b>② أهداف الخطة</b><ol>${chosen.map(k=>`<li>أن ${G.grp?'يتقن الطلاب':'يتقن الطالب'} مهارة <b>«${planDisp(k)}»</b> بنسبة ${SKILL_TARGET_UI}% فأكثر <span class="muted">— ${rate.has(k)?`مستواه الآن ${rate.get(k)}%`:'لا قياس قبلي بعد'}</span></li>`).join('')}</ol>
       <div class="muted" style="font-size:.76rem">تُغلق الخطة ناجحة عندما تبلغ كل مهارة ${SKILL_TARGET_UI}%، والمهمة العلاجية تُبنى من أخطائه في هذه المهارات وحدها.</div></div>`:''}
   </div>`;
-  if(typeof planNafsBox==='function') planNafsBox();
+  const nb=document.getElementById('pf-nafs'); if(nb) nb.remove();   // كان جدولًا ثانيًا لنواتج نافس من أنشطة نافس وحدها — صار ضمن الجدول الموحّد
+}
+/* 🔒 نواتج نافس: الاسم الرسمي «نافس: …»، اسمه المختصر للعرض، ووحدته — والعرض مجمّع بالوحدة */
+/* عرض فقط: «نافس: قانون نيوتن الأول» ← «قانون نيوتن الأول» (المحفوظ يبقى بالاسم الرسمي الكامل لأن مطابقة الإجراءات بمهاراتها تعتمد عليه) */
+function planDisp(t){ return planEsc(String(t??'').replace(/نافس:\s*/g,'')); }
+function planIsOutcome(k){ return typeof nafsIsSkill==='function'&&nafsIsSkill(k)&&!!(typeof nafsOutOfSkill==='function'&&nafsOutOfSkill(k)); }
+function planSkName(k){ return String(k||'').replace(/^نافس:\s*/,''); }
+function planSkUnit(k){ const o=typeof nafsOutOfSkill==='function'?nafsOutOfSkill(k):null, s=o&&(NAFS_SECTIONS||[]).find(x=>x.id===o.sec); return s?{id:s.id,title:s.title,term:s.term,ord:(NAFS_SECTIONS||[]).indexOf(s)}:{id:'',title:'',term:0,ord:999}; }
+function planByUnit(rows){ return rows.slice().sort((a,b)=>planSkUnit(a.skill).ord-planSkUnit(b.skill).ord||a.rate-b.rate); }
+function planUnitRows(rows,row,cols){ let cur=null; return rows.map(r=>{ const u=planSkUnit(r.skill); const h=u.title!==cur?`<tr class="sk-unit"><td colspan="${cols}">📚 ${planEsc(u.title)}${u.term?` <small class="muted">· الفصل ${u.term===1?'الأول':'الثاني'}</small>`:''}</td></tr>`:''; cur=u.title; return h+row(r); }).join(''); }
+function planOutcomeOptions(chosen){
+  const cur=(typeof ctSemActive==='function'?ctSemActive().sem:1), all=(typeof skAllOutcomes==='function'?skAllOutcomes():[]), set=new Set(chosen||[]), by={};
+  all.filter(o=>!set.has(o.key)).forEach(o=>{ const g=`${o.term===cur?'⭐ ':''}الفصل ${o.term===1?'الأول':'الثاني'} · ${o.sec}`; (by[g]=by[g]||[]).push(o); });
+  return Object.entries(by).map(([g,os])=>`<optgroup label="${planEsc(g)}">${os.map(o=>`<option value="${planEsc(o.key)}">${planEsc(o.short)}</option>`).join('')}</optgroup>`).join('');
 }
 /* تحديد مهارة يضيف إجراءاتها، وإلغاؤها يحذفها */
 function planSkillActsSync(skill,on){
@@ -3004,7 +3019,8 @@ function planSkillToggle(el){
   window._pfSkills=[...set]; planSkillActsSync(el.value,el.checked); renderPlanSkills(); planReasonSync();
 }
 function planSkillAdd(){
-  const inp=document.getElementById('pf-skill-new'); const v=String(inp&&inp.value||'').trim().slice(0,40); if(!v) return;
+  const inp=document.getElementById('pf-skill-new'); const v=String(inp&&inp.value||'').trim().slice(0,80); if(!v) return;
+  if(!planIsOutcome(v)){ toast('اختر ناتجًا من نواتج نافس','bad'); return; }
   const cur=window._pfSkills||[];
   if(!cur.includes(v)){ if(cur.length>=PLAN_SKILL_MAX){ toast(`الحد ${PLAN_SKILL_MAX} مهارات للخطة — ألغِ واحدة أولًا`,'bad'); return } cur.push(v); planSkillActsSync(v,true) }
   window._pfSkills=cur; renderPlanSkills(); planReasonSync();
@@ -3087,9 +3103,20 @@ function planFromGroup(key){
   window._pfSkills=Array.isArray(g.skills)?g.skills.slice():[]; window._pfPattern=g.kind==='skill'?'gap':'';
   window._pfActions=(g.actions||[]).slice(); renderPlanActions(); renderPlanSkills();
 }
+/* 🎯 أسماء مهارات قديمة (من تصنيف سابق أو اختبار تشخيصي) غير مربوطة بنواتج نافس: لا تدخل تحديد الخطط حتى تُربط.
+   شريط دائم أعلى الخطط، وتُفتح أداة الربط تلقائيًا مرة في اليوم */
+function pqLegacyNudge(){
+  const box=document.getElementById('plan-groups'); if(!box||typeof skUnmappedCount!=='function') return;
+  const n=skUnmappedCount();
+  box.innerHTML=n?`<div class="pq-legacy">⚠️ <b>${n}</b> ${n===1?'اسم مهارة قديم غير مربوط':'أسماء مهارات قديمة غير مربوطة'} بنواتج نافس — إجابات طلابك عليها <b>لا تدخل تحديد الخطط</b> حتى تربطها. <button type="button" class="btn tick sm" onclick="skAliasOpen()">🎯 اربطها الآن</button></div>`:'';
+  if(!n) return;
+  const today=new Date().toISOString().slice(0,10); let last=''; try{ last=localStorage.getItem('ska_auto_day')||''; }catch(e){}
+  const onPlans=document.getElementById('plan-list')&&document.getElementById('plan-list').offsetParent;
+  if(last!==today&&onPlans&&!document.getElementById('veil')?.classList.contains('on')){ try{ localStorage.setItem('ska_auto_day',today); }catch(e){} setTimeout(()=>{ try{ skAliasOpen(); }catch(e){} },700); }
+}
 function renderPlanGroups(){
   const box=document.getElementById('plan-groups'); if(!box) return;
-  box.innerHTML=''; return;   // 🧭 المجموعات صارت ضمن «قائمة العلاج هذا الأسبوع» (renderPlanCandidates)
+  return;   // 🧭 المجموعات صارت ضمن «قائمة العلاج هذا الأسبوع» — والصندوق يحمل الآن شريط الأسماء القديمة (pqLegacyNudge)
   const cls=document.getElementById('plan-class')?.value||'';
   const gs=((PLAN_DATA&&PLAN_DATA.planGroups)||[]).filter(g=>!cls||g.cls===cls);
   if(!gs.length){ box.innerHTML=''; return }
@@ -3106,7 +3133,7 @@ function renderPlanGroups(){
 function renderPlanActions(){
   const ul=document.getElementById('pf-actions'); if(!ul) return;
   const list=window._pfActions||[];
-  ul.innerHTML=list.length?list.map((a,i)=>`<li style="margin:.25rem 0">${planEsc(a)} <button class="btn ghost sm" onclick="removePlanAction(${i})">حذف</button></li>`).join('')
+  ul.innerHTML=list.length?list.map((a,i)=>`<li style="margin:.25rem 0">${planDisp(a)} <button class="btn ghost sm" onclick="removePlanAction(${i})">حذف</button></li>`).join('')
     :'<li class="muted">لم تُضف إجراءات بعد.</li>';
 }
 function addPlanAction(t){ t=String(t||'').trim(); if(!t) return; window._pfActions=window._pfActions||[]; if(!window._pfActions.includes(t)) window._pfActions.push(t); renderPlanActions(); }
@@ -3255,13 +3282,13 @@ function planEvents(p){
   (REM_ROWS||[]).filter(x=>x.planId===p.id).forEach(x=>{
     (x.attempts||[]).forEach((a,i)=>{
       ev.push({at:Number(a.at)||Number(x.createdAt)||0,k:'send',ic:'📤',t:`${who(x.sid)}أُرسلت ${i?'المحاولة الثانية من ':''}المهمة العلاجية (${a.n||'?'} أسئلة من أخطائه)`,d:''});
-      if(a.rate!=null){ const sk=a.skills?Object.entries(a.skills).filter(([,v])=>v&&v.t).map(([k,v])=>`«${planEsc(k)}» ${Math.round(v.c/v.t*100)}%`).join(' · '):'';
+      if(a.rate!=null){ const sk=a.skills?Object.entries(a.skills).filter(([,v])=>v&&v.t).map(([k,v])=>`«${planDisp(k)}» ${Math.round(v.c/v.t*100)}%`).join(' · '):'';
         ev.push({at:Number(a.doneAt)||Number(x.updatedAt)||0,k:a.rate>=SKILL_TARGET_UI?'ok':'try',ic:a.rate>=SKILL_TARGET_UI?'🟢':'🟠',
           t:`${who(x.sid)}حلّ المهمة العلاجية${x.attempts.length>1?` (م${i+1})`:''}: <b>${a.rate}%</b>${a.rate>=SKILL_TARGET_UI?' — أتقنها':i===0&&x.attempts.length>1?' — فُتحت له محاولة ثانية بأسئلة مختلفة':x.status==='escalated'?' — أخفق مرتين: يحتاج تدخلك':''}`,d:sk});
       }
     });
   });
-  (p.actions||[]).forEach(a=>{ if(a&&a.done&&a.doneAt) ev.push({at:Number(a.doneAt),k:'act',ic:'✔',t:`نُفِّذ إجراء: ${planEsc(a.text)}`,d:''}); });
+  (p.actions||[]).forEach(a=>{ if(a&&a.done&&a.doneAt) ev.push({at:Number(a.doneAt),k:'act',ic:'✔',t:`نُفِّذ إجراء: ${planDisp(a.text)}`,d:''}); });
   // ✏️ الأنشطة العادية التي حلّها بعد البدء — هي ما يقيس الأثر رسميًا
   const startAt=Math.max(start,Number(p.createdAt)||0);
   if(startAt) ids.forEach(sid=>{ const st=(STUDENTS||[]).find(x=>String(x.id)===String(sid));
@@ -3315,7 +3342,7 @@ function planRemAvg(p){const ids=planMemberIds(p).filter(Boolean),acc={};ids.for
   const out={};Object.entries(acc).forEach(([k,a])=>{out[k]=Math.round(a.reduce((t,v)=>t+v,0)/a.length)});return out}
 function planGoalChips(p){const n=m=>m?` (${m.correct} من ${m.total})`:'',rem=planRemAvg(p);return planGoalRows(p).map(g=>{const r=g.after==null&&rem[g.skill]!=null?rem[g.skill]:null;
   const cls=g.met?'ok':g.after!=null?'no':r!=null?(r>=SKILL_TARGET_UI?'rem':'rem no'):'';
-  return `<span class="pc-goal ${cls}" title="الهدف ${SKILL_TARGET_UI}% · قبل ${g.before!=null?g.before+'%'+n(g.beforeX):'لا قياس'} · بعد ${g.after!=null?g.after+'%'+n(g.afterX):'لم يُقَس بنشاط جديد بعد'}${r!=null?` · 🩹 المهمة العلاجية ${r}% — يتأكد الإتقان بنشاط جديد`:''}${g.gain!=null?` · الفرق ${planSigned(g.gain)}`:''}">${g.met?'✓ ':'🎯 '}${planEsc(g.skill)} <b>${g.before!=null?g.before+'%':'—'} ← ${g.after!=null?g.after+'%':r!=null?'🩹 '+r+'%':'…'}</b></span>`}).join('')}
+  return `<span class="pc-goal ${cls}" title="الهدف ${SKILL_TARGET_UI}% · قبل ${g.before!=null?g.before+'%'+n(g.beforeX):'لا قياس'} · بعد ${g.after!=null?g.after+'%'+n(g.afterX):'لم يُقَس بنشاط جديد بعد'}${r!=null?` · 🩹 المهمة العلاجية ${r}% — يتأكد الإتقان بنشاط جديد`:''}${g.gain!=null?` · الفرق ${planSigned(g.gain)}`:''}">${g.met?'✓ ':'🎯 '}${planDisp(g.skill)} <b>${g.before!=null?g.before+'%':'—'} ← ${g.after!=null?g.after+'%':r!=null?'🩹 '+r+'%':'…'}</b></span>`}).join('')}
 /* 🗂️ البطاقة المختصرة: ما يحتاجه المعلم في نظرة (النتيجة، الثقة، التقدم، المطلوب منه)،
    والتفاصيل والأدلة في قسم قابل للطي يُحفظ فتحه بين التحديثات. */
 window._planOpen=window._planOpen||new Set();
@@ -3359,7 +3386,7 @@ function planCard(p){
         ${p.group?`<div class="mem-table">${(p.members||[]).map(m=>`<div class="mem-row"><span>${planEsc(m.name)}</span><span class="muted">قبل ${m.before.measured?m.before.rate+'%':'—'} · بعد ${m.after.measured?m.after.rate+'%':'—'}${m.exam?` · 📝 ${m.exam.before.measured?m.exam.before.rate+'%':'—'} ← ${m.exam.after.measured?m.exam.after.rate+'%':'—'}`:''}</span><span class="chip ${m.verdict==='تحسّن'?'tick':m.verdict==='تراجع'?'bad':'ghost'}">${m.gain==null?planEsc(m.verdict):(m.gain>0?'+':'')+m.gain}</span></div>`).join('')}</div>`:''}
         ${planConductHTML(p)}
         <div class="pc-sub">الإجراءات</div>
-        <ul class="pc-acts">${(p.actions||[]).map((a,i)=>`<li><label><input type="checkbox" ${a.done?'checked':''} onchange="togglePlanAction('${id}',${i})"> ${planEsc(a.text)}</label></li>`).join('')||'<li class="muted">بلا إجراءات</li>'}</ul>
+        <ul class="pc-acts">${(p.actions||[]).map((a,i)=>`<li><label><input type="checkbox" ${a.done?'checked':''} onchange="togglePlanAction('${id}',${i})"> ${planDisp(a.text)}</label></li>`).join('')||'<li class="muted">بلا إجراءات</li>'}</ul>
         <div class="muted" style="font-size:.8rem">خلال الخطة: الحضور ${p.context&&p.context.attendanceRate!=null?p.context.attendanceRate+'%':'—'} (${p.context?p.context.missedDays:0} غياب) · الواجب ${p.context?p.context.hwDone:0} مسلَّم و${p.context?p.context.hwMissed:0} غير مسلَّم · ${(p.academic?p.academic.after.acts:p.after.acts)||0} نشاط بعد البدء · من ${planEsc(p.startDate||'')}</div>
         ${p.notes?`<div class="muted" style="font-size:.85rem;margin-top:.3rem">📝 ${planEsc(p.notes)}</div>`:''}
         ${t.expired&&!done?'':planTimingHTML(p)}
@@ -3395,8 +3422,10 @@ async function pqCheckpoint(id){
 }
 function pqGo(id){ const el=document.getElementById('pc-'+id); if(!el){ const st=document.getElementById('plan-status'); if(st&&st.value!==''){ st.value=''; renderPlans(false).then(()=>setTimeout(()=>pqGo(id),300)); } return; }
   el.scrollIntoView({behavior:'smooth',block:'center'}); el.classList.add('pq-flash'); setTimeout(()=>el.classList.remove('pq-flash'),1600); }
-function pqSkills(list){ return (list||[]).map(x=>{ const b=PQ_BAND[x.band]||['','ghost'];
-  return `<span class="chip ${b[1]}" title="${planEsc(b[0])}${x.covered?(x.covered==='reteach'?' · مغطّاة بإعادة الشرح للفصل':' · مغطّاة بخطة جماعية مقترحة'):''}">${planEsc(x.skill)} ${x.rate}%${x.covered?' ↺':''}</span>`; }).join(' '); }
+/* نواتج الطالب الضعيفة مجمّعة بوحدتها: «📚 الحركة والقوى: قانون نيوتن الأول 25% · …» */
+function pqSkills(list){ const by=new Map(); (list||[]).forEach(x=>{ const u=x.unit||planSkUnit(x.skill).title||''; if(!by.has(u)) by.set(u,[]); by.get(u).push(x); });
+  return [...by.entries()].map(([u,L])=>`<span class="pq-unit">${u?`<small>📚 ${planEsc(u)}:</small> `:''}${L.map(x=>{ const b=PQ_BAND[x.band]||['','ghost'];
+    return `<span class="chip ${b[1]}" title="${planEsc(b[0])}${x.covered?(x.covered==='reteach'?' · مغطّاة بإعادة الشرح للفصل':' · مغطّاة بخطة جماعية مقترحة'):''}">${planDisp(x.skill)} ${x.rate}%${x.covered?' ↺':''}</span>`; }).join(' ')}</span>`).join(''); }
 function renderPlanCandidates(){
   const box=document.getElementById('plan-candidates'); if(!box) return;
   const cls=document.getElementById('plan-class')?.value||'', inC=x=>!cls||String(x.cls||'')===cls;
@@ -3414,17 +3443,19 @@ function renderPlanCandidates(){
   const more=(arr,k,f)=>arr.slice(0,window['_pqAll'+k]?999:6).map(f).join('')+(arr.length>6&&!window['_pqAll'+k]?`<button type="button" class="btn ghost sm pq-more" onclick="window._pqAll${k}=1;renderPlanCandidates()">عرض الكل (${arr.length})</button>`:'');
   const who=p=>planEsc(p.name||((p.members||[]).map(m=>m.name).join('، '))||'');
   box.innerHTML=`<div class="pq card">
-    <div class="pq-top"><b>🧭 قائمة العلاج هذا الأسبوع</b><span class="muted">مرتبة بالأولوية — المهارة أولًا · تأسيس &lt;40% · فجوة 40–59% · الهدف 80%</span></div>
+    <div class="pq-top"><b>🧭 قائمة العلاج هذا الأسبوع</b><span class="muted">مرتبة بالأولوية — نواتج تعلم نافس للفصل الحالي · تأسيس &lt;40% · فجوة 40–59% · الهدف 80%</span></div>
     ${sec('🔴','قرارك مطلوب',decide.length,'انتهت مدة الخطة',more(decide,'D',p=>`<div class="pq-row"><div><b>${who(p)}</b> <span class="muted">${planEsc(p.cls||'')}</span><div class="pq-d">${planEsc((p.timing&&p.timing.why)||'')}</div></div><button class="btn tick sm" onclick="pqGo('${planEsc(p.id)}')">افتح القرار</button></div>`),'need')}
     ${sec('🟠','نقطة فحص اليوم السابع',check.length,'راجع نتيجة المهمة العلاجية وعدّل الإجراء إن لزم',more(check,'K',p=>`<div class="pq-row"><div><b>${who(p)}</b> <span class="muted">${planEsc(p.cls||'')}</span>
         <div class="pq-d">بعد ${(p.timing.days-p.timing.left)} أيام من ${p.timing.days} · الآن ${p.after&&p.after.measured?p.after.rate+'%':'لم يُقَس بعد'}${(p.skills||[]).length?' · '+(p.skills||[]).map(planEsc).join('، '):''}</div></div>
         <span class="pq-acts"><button class="btn ghost sm" onclick="pqGo('${planEsc(p.id)}')">عرض</button><button class="btn tick sm" onclick="pqCheckpoint('${planEsc(p.id)}')">✓ تم الفحص</button></span></div>`),'chk')}
-    ${sec('🏫','أعد الشرح للفصل كله',reteach.length,'ضعف ثلث الفصل فأكثر في المهارة — مشكلة تدريس لا خطط فردية',more(reteach,'R',g=>`<div class="pq-row"><div><b>«${planEsc(g.title)}»</b> <span class="muted">${planEsc(g.cls)}</span>
+    ${sec('🏫','أعد الشرح للفصل كله',reteach.length,'ضعف ثلث الفصل فأكثر في المهارة — مشكلة تدريس لا خطط فردية',more(reteach,'R',g=>`<div class="pq-row"><div><b>«${planDisp(g.title)}»</b> <span class="muted">${planEsc(g.cls)}${planSkUnit(g.title).title?' · 📚 '+planEsc(planSkUnit(g.title).title):''}</span>
         <div class="pq-d">${g.ofClass} من ${g.classSize} دون 60% (${g.share}%) · متوسطهم ${g.avgRate}%</div></div><button class="btn tick sm" onclick="pqReteach('${planEsc(g.cls)}','${planEsc(g.title)}')">✓ أعدت الشرح</button></div>`),'')}
-    ${sec('👥','خطط جماعية',groups.length,'3 فأكثر تجمعهم الفجوة نفسها — تدخّل واحد يكفيهم',more(groups,'G',g=>`<div class="pq-row"><div><b>${planEsc(g.title||g.label)}</b> <span class="muted">${planEsc(g.cls)}</span> ${g.avgRate!=null?`<span class="chip ${(PQ_BAND[g.avgRate<40?'found':'support']||[])[1]}">${g.avgRate<40?'تأسيس':'فجوة'} · متوسط ${g.avgRate}%</span>`:''}
+    ${sec('👥','خطط جماعية',groups.length,'3 فأكثر تجمعهم الفجوة نفسها — تدخّل واحد يكفيهم',more(groups,'G',g=>`<div class="pq-row"><div><b>${planDisp(g.title||g.label)}</b> <span class="muted">${planEsc(g.cls)}${planSkUnit(g.title).title?' · 📚 '+planEsc(planSkUnit(g.title).title):''}</span> ${g.avgRate!=null?`<span class="chip ${(PQ_BAND[g.avgRate<40?'found':'support']||[])[1]}">${g.avgRate<40?'تأسيس':'فجوة'} · متوسط ${g.avgRate}%</span>`:''}
         <div class="pq-d">${g.members.map(m=>planEsc(m.name)).join(' · ')}</div></div><button class="btn tick sm" onclick="planFromGroup('${planEsc(g.key)}')">＋ خطة جماعية</button></div>`))}
     ${sec('👤','خطط فردية',indiv.length,'تأسيس أولًا، ثم من عنده مهارات أكثر',more(indiv,'I',c=>`<div class="pq-row"><div><b>${planEsc(c.name)}</b> <span class="muted">${planEsc(c.cls)}</span> ${c.tier===1?'<span class="chip bad">تأسيس</span>':c.tier===2?'<span class="chip warn">فجوة</span>':''}
-        <div class="pq-d">${(c.weak||[]).length?pqSkills(c.weak):planEsc((c.reasons[0]||{}).text||'')}${(c.conduct||[]).length?` <span class="muted">· ${c.conduct.map(r=>planEsc(r.text)).join(' · ')}</span>`:''}</div></div>
+        <div class="pq-d">${(c.weak||[]).length?pqSkills(c.weak):planEsc((c.reasons[0]||{}).text||'')}${(c.conduct||[]).length?` <span class="muted">· ${c.conduct.map(r=>planEsc(r.text)).join(' · ')}</span>`:''}
+          ${(c.prior||[]).length?(()=>{ const cur=planSP().sem, by={}; c.prior.forEach(x=>{ const k=x.term&&x.term<cur?`↩︎ فجوة سابقة (الفصل ${x.term===1?'الأول':'الثاني'})`:`ℹ️ من نواتج الفصل ${x.term===2?'الثاني':'الأول'} — خارج الفصل الحالي`; (by[k]=by[k]||[]).push(`${planDisp(x.skill)} ${x.rate}%`); });
+            return Object.entries(by).map(([k,L])=>`<div class="pq-prior">${k}: ${L.join(' · ')}</div>`).join(''); })():''}</div></div>
         <button class="btn tick sm" onclick="planFromCandidate('${planEsc(c.studentId)}',${JSON.stringify(c.reasons.map(r=>r.text).join(' · ')).replace(/"/g,'&quot;')})">＋ خطة</button></div>`))}
     ${sec('🤖','أخفق مرتين في العلاج التلقائي',escR.length,'يحتاج تدخّلك المباشر',more(escR,'E',x=>`<div class="pq-row"><div><b>${planEsc(x.name)}</b> <span class="muted">${planEsc(x.cls||'')}</span><div class="pq-d">«${planEsc(x.srcTitle||x.reason||'')}»</div></div>${remPlanBtn(x)}</div>`))}
     ${conduct.length?`<details class="pq-sec pq-conduct"><summary><b>📋 متابعة انضباط</b> <span class="chip ghost">${conduct.length}</span> <small>غياب أو واجبات بلا ضعف مهاري — تواصل وتذكير، لا خطة علاجية</small></summary>
@@ -3498,7 +3529,7 @@ async function renderPlans(force=false){
    فطباعتها في نهاية الخطة تُخرج سجل التنفيذ مكتملًا. الخطة الجماعية: ورقة لكل طالب. */
 const PSH_TEACHER_ONLY=/ولي الأمر|إجلاسه|إسناده إلى زميل|التحقق من تسليمه|مقابلة فردية قصيرة لمعرفة|ثقته بنفسه/;
 function pshTask(text){
-  const t=String(text||'').trim(), q=(t.match(/«[^»]+»/)||[''])[0];
+  const t=String(text||'').trim().replace(/نافس:\s*/g,''), q=(t.match(/«[^»]+»/)||[''])[0];
   const R=[
     [/^تأسيس «/,()=>[`احضر جلسة شرح لمهارة ${q} من البداية بأمثلة جديدة مع معلمك`,'في الفصل']],
     [/^تدريب متدرّج على «/,()=>[`تدرّب على ${q} خطوة خطوة من السهل إلى الأصعب، ويتحقق معلمك بعد كل خطوة`,'في الفصل']],
@@ -3693,7 +3724,7 @@ async function printPlans(id){
       </div>
       <div class="rep-sec">أولًا: تحديد الفجوات في المهارات والأهداف</div>
       ${Array.isArray(p.skills)&&p.skills.length?`<div class="rep-box"><table class="rt"><thead><tr><th style="width:30px">م</th><th>المهارة المفقودة</th><th>مستواه قبل</th><th>الهدف</th><th>الإجراءات</th><th>أداة القياس</th><th>مستواه بعد</th></tr></thead><tbody>
-        ${planGoalRows(p).map((g,i)=>{const ax=acts.filter(a=>String(a.text).includes(`«${g.skill}»`));return `<tr><td>${i+1}</td><td style="text-align:start"><b>${planEsc(g.skill)}</b></td>
+        ${planGoalRows(p).map((g,i)=>{const ax=acts.filter(a=>String(a.text).includes(`«${g.skill}»`));return `<tr><td>${i+1}</td><td style="text-align:start"><b>${planDisp(g.skill)}</b></td>
           <td>${g.before!=null?g.before+'%'+(g.beforeX?`<small>${g.beforeX.correct} من ${g.beforeX.total}</small>`:''):'—'}</td><td>${SKILL_TARGET_UI}% فأكثر</td>
           <td style="text-align:start;font-size:.78em">${ax.length?ax.map(a=>planEsc(String(a.text).replace(/^[^:]+:\s*/,''))).join('<br>'):'—'}</td>
           <td style="font-size:.8em">أسئلة المهارة في الأنشطة والمهمة العلاجية</td>
@@ -3703,7 +3734,7 @@ async function printPlans(id){
       :`<div class="rep-box plan-txt"><b>سبب الخطة:</b> ${planEsc(p.reason||'—')}<br><span style="color:#8a5a00">لم تُحدَّد مهارة مفقودة لهذه الخطة.</span></div>`}
       <div class="rep-sec">ثانيًا: الإجراءات العلاجية</div>
       <div class="rep-box"><table class="rt"><thead><tr><th style="width:36px">م</th><th>الإجراء</th><th style="width:110px">التنفيذ</th></tr></thead><tbody>
-        ${acts.length?acts.map((a,i)=>`<tr><td>${i+1}</td><td style="text-align:start">${planEsc(a.text)}</td><td>${a.done?'✔ نُفِّذ':'لم يُنفَّذ'}</td></tr>`).join(''):'<tr><td colspan="3">لا توجد إجراءات مسجّلة</td></tr>'}
+        ${acts.length?acts.map((a,i)=>`<tr><td>${i+1}</td><td style="text-align:start">${planDisp(a.text)}</td><td>${a.done?'✔ نُفِّذ':'لم يُنفَّذ'}</td></tr>`).join(''):'<tr><td colspan="3">لا توجد إجراءات مسجّلة</td></tr>'}
       </tbody></table>
       <div class="plan-note">نُفِّذ ${p.actionsDone||0} من ${p.actionsTotal||0} إجراء</div></div>
       <div class="rep-sec">ثالثًا: قياس الأثر في عناصر التقييم (من السجلات الفعلية)</div>
@@ -9654,9 +9685,9 @@ function normalizeImportedQuestions(arr, kind){
     if(x.t==='q' && x.q && Array.isArray(x.o) && x.o.filter(Boolean).length>=2){
       const o=x.o.map(String).filter(Boolean).slice(0,4);
       if(kind==='style') out.push({t:'q',q:String(x.q),o,a:0,tags:STYLE_ORDER.slice(0,o.length)});
-      else { const ai=Math.max(0,Math.min(o.length-1,Number.isFinite(Number(x.a))?Number(x.a):0)); out.push(Object.assign({t:'q',q:String(x.q),o,a:ai}, kind==='diag'?{domain:String(x.domain||'المفاهيم الأساسية'),skill:String(x.skill||'مهارة أساسية')}:{}) ); }
-    } else if(x.t==='tf' && x.q){ out.push(Object.assign({t:'tf',q:String(x.q),a:impBool(x.a ?? x.answer)}, kind==='diag'?{domain:String(x.domain||'المفاهيم الأساسية'),skill:String(x.skill||'مهارة أساسية')}:{}) ); }
-    else if(x.t==='f' && x.q && x.a!=null){ out.push(Object.assign({t:'f',q:String(x.q),a:String(x.a)}, kind==='diag'?{domain:String(x.domain||'المفاهيم الأساسية'),skill:String(x.skill||'مهارة أساسية')}:{}) ); }
+      else { const ai=Math.max(0,Math.min(o.length-1,Number.isFinite(Number(x.a))?Number(x.a):0)); out.push(Object.assign({t:'q',q:String(x.q),o,a:ai}, kind==='diag'?impDiagSk(x):{}) ); }
+    } else if(x.t==='tf' && x.q){ out.push(Object.assign({t:'tf',q:String(x.q),a:impBool(x.a ?? x.answer)}, kind==='diag'?impDiagSk(x):{}) ); }
+    else if(x.t==='f' && x.q && x.a!=null){ out.push(Object.assign({t:'f',q:String(x.q),a:String(x.a)}, kind==='diag'?impDiagSk(x):{}) ); }
     else if(x.t==='a' && x.w){ out.push({t:'a',w:String(x.w),h:String(x.h||'')}); }
     else if(x.t==='s' && x.s){ out.push({t:'s',s:String(x.s)}); }
     else if(x.t==='m' && Array.isArray(x.p) && x.p.filter(p=>Array.isArray(p)&&p.length>=2&&p[0]&&p[1]).length>=2){ out.push({t:'m',p:x.p.filter(p=>Array.isArray(p)&&p.length>=2&&p[0]&&p[1]).map(p=>[String(p[0]),String(p[1])])}); }
@@ -9664,6 +9695,10 @@ function normalizeImportedQuestions(arr, kind){
   return out;
 }
 
+/* 🔒 مهارة سؤال التشخيصي من نواتج نافس فقط: الاسم الوارد يُطابَق بالناتج الرسمي، وإلا يبقى السؤال بلا مهارة
+   (كان أي اسم يُقبل، والافتراضي «مهارة أساسية» — فتتفرّق الإجابات على أسماء لا تلتقي مع نواتج الأنشطة) */
+function impDiagSk(x){ const raw=String(x&&x.skill||'').trim(), sk=raw&&typeof skFromAI==='function'?skFromAI(raw):'';
+  return { domain:String(x&&x.domain||'المفاهيم الأساسية'), ...(sk?{skill:sk}:{}), ...(raw&&!sk?{skRaw:raw.slice(0,60)}:{}) }; }
 /* إجابة صح/خطأ بأي صيغة: true · "true" · 1 · "صح" … — تصدير الاختبار الورقي يكتبها في answer لا في a */
 function impBool(v){
   if(v===true||v===1) return true;

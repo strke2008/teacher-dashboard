@@ -24,12 +24,14 @@ const SK_STEM = { نماذج: 'نموذج', نموذجي: 'نموذج', قوان
 const SK_WEAK = new Set(['علمي', 'علميه', 'علم', 'مفهوم', 'تعريف', 'انواع', 'نوع', 'حساب', 'خصائص', 'قوه', 'تصنيف', 'استخدام']);   // كلمات عامة لا تكفي وحدها للمطابقة
 function skCanon(s) { const k = String(s || '').trim(), v = SKILL_ALIAS[k]; return v && v !== '__off__' ? v : k; }
 const skIsOutcome = k => typeof nafsIsSkill === 'function' && nafsIsSkill(k);
-/* اسم أعاده الذكاء الاصطناعي ← الناتج الرسمي إن طابقه نصًا، وإلا «خارج النواتج» باسمه */
+/* 🔒 قائمة مغلقة: اسم أعاده الذكاء الاصطناعي ← الناتج الرسمي (نصًا، أو بأقرب تطابق قوي في الكلمات)، وإلا «بلا مهارة».
+   لا يُنشأ اسم مهارة جديد خارج نواتج نافس — كان «خارج: …» يفرّق إجابات المهارة الواحدة على أسماء متعددة */
 function skFromAI(v) {
-  let s = String(v || '').trim(); if (!s) return '';
-  if (/^خارج\s*[:：]/.test(s)) return s.replace(/^خارج\s*[:：]\s*/, '').trim().slice(0, 40);
+  let s = String(v || '').trim().replace(/^خارج\s*[:：]\s*/, ''); if (!s || /^(لا شيء|لاشيء|none|-)$/i.test(s)) return '';
   const n = skNorm(s), all = skAllOutcomes(), hit = all.find(o => o.key === s || o.short === s || skNorm(o.short) === n);
-  return hit ? hit.key : skCanon(s).slice(0, 60);
+  if (hit) return hit.key;
+  const c = skCanon(s); if (skIsOutcome(c)) return c;
+  return skGuess(s) || '';
 }
 /* اقتراح محلي بلا ذكاء اصطناعي: أعلى تشابه في الكلمات (≥ النصف) */
 function skGuess(name) {
@@ -41,9 +43,11 @@ function skGuess(name) {
   return bs >= 0.5 ? best : '';
 }
 /* تعليمات التصنيف للذكاء الاصطناعي: قائمة مغلقة من نواتج الفصل الدراسي */
+/* تعليمات التصنيف: نواتج الفصلين كلها (النشاط القديم من الفصل الأول يُصنَّف صحيحًا ولو صُنّف في الفصل الثاني)، مجمّعة بالوحدة */
 function skOutcomeHint() {
-  const o = skOutcomes(); if (!o.length) return '';
-  return `\nالمهارة يجب أن تكون أحد نواتج التعلم الرسمية (نافس) التالية — اكتب اسم الناتج حرفيًا كما هو: ${JSON.stringify(o.map(x => x.short))}\nإن لم يناسب السؤالَ أيُّ ناتج منها بوضوح فاكتب «خارج: » ثم اسمًا قصيرًا للمهارة في 2–4 كلمات.`;
+  const o = skAllOutcomes(); if (!o.length) return '';
+  const by = {}; o.forEach(x => { (by[x.sec] = by[x.sec] || []).push(x.short); });
+  return `\nالمهارة يجب أن تكون أحد نواتج التعلم الرسمية (نافس) التالية فقط — اكتب اسم الناتج حرفيًا كما هو:\n${Object.entries(by).map(([u, L]) => `${u}: ${JSON.stringify(L)}`).join('\n')}\nإن لم يقس السؤالُ أيَّ ناتج منها بوضوح فاكتب «لا شيء» — لا تخترع اسم مهارة.`;
 }
 function skLegacyNames() {
   const d = (typeof HW !== 'undefined' ? HW : []).filter(h => h && h.kind === 'diag').flatMap(h => (h.qs || []).map(q => String(q && q.skill || '').trim()));

@@ -2630,3 +2630,13 @@ button.sk-chip:not([onclick]){cursor:default}
 .pq-acts{display:flex;gap:.3rem;flex:none}.pq-row>.btn,.pq-row>.ar-plan-btn{flex:none}
 .pq-more{margin-top:.35rem}.pq-conduct summary{cursor:pointer;display:flex;align-items:center;gap:.4rem;flex-wrap:wrap}.pq-conduct summary small{color:var(--ink-soft,#64748B);font-size:.76rem}
 .plan-card.pq-flash{box-shadow:0 0 0 3px #F59E0B;transition:box-shadow .3s}
+
+/* 🔒 نواتج نافس في نموذج الخطة: مجمّعة بالوحدة */
+.sk-t tr.sk-unit td{background:#F1F5F9;font-weight:800;font-size:.8rem;color:#334155;padding:.35rem .5rem}
+.pf-legacy{margin-top:.5rem;padding:.5rem .7rem;border-radius:10px;background:#FFFBEB;color:#78350F;font-size:.8rem;line-height:1.8}
+
+.pq-unit{display:block;margin:.15rem 0}.pq-unit>small{color:#475569;font-weight:700}
+.pq-prior{font-size:.76rem;color:#7C2D12;background:#FFF7ED;border-radius:8px;padding:.15rem .5rem;margin-top:.25rem;display:inline-block}
+
+.pq-legacy{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;padding:.6rem .8rem;border-radius:12px;background:#FFFBEB;border:1px solid #FCD34D;color:#78350F;font-size:.86rem;line-height:1.8}
+.pq-legacy .btn{margin-inline-start:auto}

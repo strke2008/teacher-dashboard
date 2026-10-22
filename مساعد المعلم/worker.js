@@ -1265,8 +1265,22 @@ function skillProfile(data, assignments, sid, range) {
     return { skill, rate, total: v.t, diag: v.dt || 0, acts: v.t - (v.dt || 0), band: b.key, bandName: b.name };
   }).sort((a, b) => a.rate - b.rate);
 }
+/* 🔒 قائمة المهارات المعتمدة للعام = نواتج تعلم نافس لعلوم أول متوسط (75 ناتجًا) — مولّدة من teacher-dashboard/js/32-nafs-js.js
+   (NAFS_SECTIONS): الناتج المختصر ← [الفصل الدراسي، الوحدة، ترتيب الوحدة]. المفتاح الرسمي للمهارة «نافس: <الناتج>».
+   تحديد الخطط (الترشيح، المجموعات، التشخيص، العلاج التلقائي) لا يحسب إلا هذه النواتج؛ وقياس الخطط القائمة يبقى على مهاراتها كما حُفظت. */
+const NAFS_OUTCOMES = {"المتغيرات والتجريب":[1,"طبيعة العلم",0],"القياس العلمي":[1,"طبيعة العلم",0],"تحليل البيانات وتفسيرها":[1,"طبيعة العلم",0],"التواصل ومصادر المعرفة":[1,"طبيعة العلم",0],"الملاحظة والاستدلال":[1,"طبيعة العلم",0],"التوقع":[1,"طبيعة العلم",0],"التصنيف وفروع العلم":[1,"طبيعة العلم",0],"عمل النماذج":[1,"طبيعة العلم",0],"الاستنتاج وتقويم التفسيرات":[1,"طبيعة العلم",0],"أنواع السرعة وحسابها":[1,"الحركة والقوى والآلات البسيطة",1],"مفهوم التسارع":[1,"الحركة والقوى والآلات البسيطة",1],"التسارع والسرعة والإزاحة":[1,"الحركة والقوى والآلات البسيطة",1],"حساب التسارع":[1,"الحركة والقوى والآلات البسيطة",1],"قانون نيوتن الأول":[1,"الحركة والقوى والآلات البسيطة",1],"قوة الاحتكاك":[1,"الحركة والقوى والآلات البسيطة",1],"القصور الذاتي":[1,"الحركة والقوى والآلات البسيطة",1],"العوامل المؤثرة في القصور الذاتي":[1,"الحركة والقوى والآلات البسيطة",1],"صياغة قانون نيوتن الأول":[1,"الحركة والقوى والآلات البسيطة",1],"قانون نيوتن الثاني":[1,"الحركة والقوى والآلات البسيطة",1],"محصلة القوى والتسارع":[1,"الحركة والقوى والآلات البسيطة",1],"التسارع والعوامل المؤثرة فيه":[1,"الحركة والقوى والآلات البسيطة",1],"قانون نيوتن الثالث":[1,"الحركة والقوى والآلات البسيطة",1],"انعدام الوزن والسقوط الحر":[1,"الحركة والقوى والآلات البسيطة",1],"دلائل التفاعل الكيميائي":[1,"المادة وتغيراتها",2],"المعادلة الكيميائية وحفظ الكتلة":[1,"المادة وتغيراتها",2],"النماذج الذرية":[1,"الذرات والعناصر والجدول الدوري",3],"مكونات الذرة":[1,"الذرات والعناصر والجدول الدوري",3],"المركبات والمخاليط وخواصها":[1,"الذرات والعناصر والجدول الدوري",3],"تصنيف المخاليط":[1,"الذرات والعناصر والجدول الدوري",3],"فصل المخاليط":[1,"الذرات والعناصر والجدول الدوري",3],"النظائر والعدد الكتلي والذري":[1,"الذرات والعناصر والجدول الدوري",3],"تاريخ الجدول الدوري":[1,"الذرات والعناصر والجدول الدوري",3],"خصائص عناصر الجدول الدوري":[1,"الذرات والعناصر والجدول الدوري",3],"مفتاح العنصر والفلزات واللافلزات":[1,"الذرات والعناصر والجدول الدوري",3],"صفات الصخور والمعادن واستخداماتها":[1,"الصخور والمعادن",4],"تصنيف المعادن":[1,"الصخور والمعادن",4],"الخصائص المشتركة للصخور":[1,"الصخور والمعادن",4],"الصخور النارية":[1,"الصخور والمعادن",4],"الصخور المتحولة":[1,"الصخور والمعادن",4],"الصخور الرسوبية":[1,"الصخور والمعادن",4],"نظرية الصفائح وطبقات الأرض":[1,"القوى المشكلة للأرض",5],"حدود الصفائح وأنواعها":[1,"القوى المشكلة للأرض",5],"البراكين والزلازل وحدود الصفائح":[1,"القوى المشكلة للأرض",5],"الحدود المتقاربة والمتباعدة":[1,"القوى المشكلة للأرض",5],"نتائج حركة الصفائح":[1,"القوى المشكلة للأرض",5],"التجوية والتعرية":[1,"القوى المشكلة للأرض",5],"انتقال الحرارة واحتباسها":[2,"الغلاف الجوي والطقس",6],"تحليل بيانات الطقس":[2,"الغلاف الجوي والطقس",6],"أسباب التغيرات المناخية":[2,"الغلاف الجوي والطقس",6],"وسائل استكشاف الفضاء":[2,"استكشاف الفضاء",7],"خصائص وسائل الاستكشاف":[2,"استكشاف الفضاء",7],"اتساع الكون ومسافاته":[2,"استكشاف الفضاء",7],"النظرية الخلوية وتراكيب الخلية":[2,"الخلايا لبنات الحياة",8],"المجاهر وأدوات التكبير":[2,"الخلايا لبنات الحياة",8],"وحيدة الخلية ومتعددة الخلايا":[2,"الخلايا لبنات الحياة",8],"أنشطة الخلية الحيوية":[2,"الخلايا لبنات الحياة",8],"أجهزة جسم الإنسان":[2,"الخلايا لبنات الحياة",8],"تكامل الأجهزة واتزان الجسم":[2,"الخلايا لبنات الحياة",8],"أمراض الأجهزة والوقاية":[2,"الخلايا لبنات الحياة",8],"الخلية النباتية والحيوانية":[2,"الخلايا لبنات الحياة",8],"خصائص المخلوقات الحية":[2,"الحيوانات اللافقارية",9],"تصنيف اللافقاريات":[2,"الحيوانات اللافقارية",9],"الأسماك والبرمائيات والزواحف":[2,"الحيوانات الفقارية",10],"الطيور والثدييات":[2,"الحيوانات الفقارية",10],"تصنيف الفقاريات وحمايتها":[2,"الحيوانات الفقارية",10],"النظام البيئي ومكوناته":[2,"علم البيئة",11],"الجماعات والمجتمع الحيوي":[2,"علم البيئة",11],"انتقال الطاقة والسلاسل الغذائية":[2,"علم البيئة",11],"المحافظة على النظام البيئي":[2,"علم البيئة",11],"أثر النشاط البشري على الأرض":[2,"موارد الأرض",12],"الأحداث الطبيعية وآثارها":[2,"موارد الأرض",12],"الوقاية من الأخطار":[2,"موارد الأرض",12],"التغيرات البيئية والموارد":[2,"موارد الأرض",12],"مصادر الطاقة غير المتجددة":[2,"موارد الأرض",12],"المحافظة على الموارد":[2,"موارد الأرض",12]};
+function skOutcome(k) {
+  const c = skCanon(k), sh = c.startsWith('نافس: ') ? c.slice(6).trim() : '', o = sh && NAFS_OUTCOMES[sh];
+  return o ? { key: c, short: sh, term: o[0], unit: o[1], ord: o[2] } : null;
+}
+/* ملف المهارات الرسمي: نواتج نافس فقط، ومعها الوحدة، و«سابقة» إن كان الناتج من غير الفصل الدراسي الحالي */
+function officialProfile(data, assignments, sid, range) {
+  const sem = range && range.semester ? Number(range.semester) : 0;
+  return skillProfile(data, assignments, sid, range).map(x => { const o = skOutcome(x.skill); return o ? { ...x, skill: o.key, unit: o.unit, ord: o.ord, term: o.term, prior: !!(sem && o.term !== sem) } : null; }).filter(Boolean);
+}
+/* المهارات الضعيفة لتحديد الخطة: نواتج الفصل الحالي دون 60% */
 function weakSkills(data, assignments, sid, range) {
-  return skillProfile(data, assignments, sid, range).filter(x => x.rate < SKILL_GAP).slice(0, 4);
+  return officialProfile(data, assignments, sid, range).filter(x => !x.prior && x.rate < SKILL_GAP).sort((a, b) => a.rate - b.rate).slice(0, 4);
 }
 /* إجراءات علاجية تسمّي المهارة نفسها وتناسب مستواها */
 function skillActions(sk) {
@@ -1742,7 +1756,7 @@ function diagnose(s, data, assignments, range) {
   const ex = examWindow(data, sid, range && range.start, range && range.end);
   if (ex.measured && ex.rate < EXAM_WEAK) signals.push({ key: 'exams', text: `الاختبارات ${ex.rate}% في ${ex.tests} ${ex.tests === 1 ? 'اختبار' : 'اختبارات'}` });
 
-  const profile = skillProfile(data, assignments, sid, range);
+  const profile = officialProfile(data, assignments, sid, range);
   // 🎯 حين تُحدَّد مهارات مفقودة فهي أساس الخطة، وبقية المؤشرات عوامل مساندة تضيف إجراءً داعمًا
   if (skills.length) {
     const support = signals.filter(x => x.key !== 'gap');
@@ -1909,9 +1923,12 @@ function planCandidates(students, data, assignments, range, groups) {
     const at = gradeAttendance(data, sid, range);
     const hw = gradeHomework(data, sid, range, Date.now());
     // كل المهارات دون 60% (لا أول 4 فقط) مرتبة من الأضعف
-    const weak = skillProfile(data, assignments, sid, range).filter(x => x.rate < SKILL_GAP).sort((a, b) => a.rate - b.rate)
+    const prof = officialProfile(data, assignments, sid, range);
+    const weak = prof.filter(x => !x.prior && x.rate < SKILL_GAP).sort((a, b) => a.rate - b.rate)
       .map(x => { const c = cover[cls + '|' + x.skill] || cover[cls + '|' + x.skill + '|' + sid] || null;
-        return { skill: x.skill, rate: x.rate, band: skillBand(x.rate).key, n: x.total || x.n || 0, covered: c ? c.by : '', groupKey: c ? c.key : '' }; });
+        return { skill: x.skill, rate: x.rate, band: skillBand(x.rate).key, n: x.total || 0, unit: x.unit, ord: x.ord, covered: c ? c.by : '', groupKey: c ? c.key : '' }; });
+    // فجوات سابقة: نواتج من فصل دراسي سابق دون 60% — ملاحظة عند الطالب لا خطة منفصلة
+    const prior = prof.filter(x => x.prior && x.rate < SKILL_GAP).sort((a, b) => a.rate - b.rate).slice(0, 4).map(x => ({ skill: x.skill, rate: x.rate, unit: x.unit, term: x.term }));
     const own = weak.filter(x => !x.covered);
     const conduct = [];
     if (at.measured && at.rate < ATTEND.watch) conduct.push({ tag: 'غياب', text: `الحضور ${at.rate}% (${at.missed} أيام)` });
@@ -1919,7 +1936,7 @@ function planCandidates(students, data, assignments, range, groups) {
     const unsubmitted = hw.missed + hw.inGrace;
     if (unsubmitted >= 3) conduct.push({ tag: 'واجب', text: `${unsubmitted} واجبات لم تُسلَّم` });
     const reasons = [];
-    if (weak.length) reasons.push({ tag: 'مهارة', text: `${weak.length === 1 ? 'مهارة ضعيفة' : weak.length + ' مهارات ضعيفة'}: ${weak.slice(0, 3).map(x => `${x.skill} ${x.rate}%`).join('، ')}` });
+    if (weak.length) reasons.push({ tag: 'مهارة', text: `${weak.length === 1 ? 'ناتج ضعيف' : weak.length + ' نواتج ضعيفة'}: ${weak.slice(0, 3).map(x => `${x.skill.replace(/^نافس:\s*/, '')} ${x.rate}%`).join('، ')}` });
     // الإتقان العام سبب احتياطي فقط حين لا تكون الأسئلة مصنّفة بمهارات
     else if (lv.measured && lv.rate < SKILL_GAP) reasons.push({ tag: 'إتقان', text: `الإتقان ${lv.rate}% في الأنشطة (أسئلة بلا مهارات مصنّفة)` });
     reasons.push(...conduct);
@@ -1932,7 +1949,7 @@ function planCandidates(students, data, assignments, range, groups) {
     const minRate = weak.length ? weak[0].rate : (lv.measured ? lv.rate : 100);
     const priority = (10 - tier) * 1000 + (track === 'skill' ? weak.length * 100 : conduct.length * 10) + (100 - minRate);
     const dx = diagnose(s, data, assignments, range);
-    out.push({ studentId: sid, name: s.name, cls, reasons, diagnosis: dx, weak, conduct, track, tier, individual,
+    out.push({ studentId: sid, name: s.name, cls, reasons, diagnosis: dx, weak, prior, conduct, track, tier, individual,
       rate: lv.measured ? lv.rate : null, priority });
   }
   return out.sort((a, b) => b.priority - a.priority);
@@ -2971,8 +2988,10 @@ const remOpen = arr => arr.filter(x => x && (x.status === 'open' || x.status ===
 /* مهارة كل سؤال في النشاط: المكتوبة على السؤال نفسه (التشخيصي/نافس)، وإلا تصنيف الذكاء الاصطناعي المحفوظ (skills:<النشاط>) */
 async function remSkillsOf(env, hwId, questions) {
   const qs = Array.isArray(questions) ? questions : [];
-  if (qs.some(q => q && q.skill)) { await loadSkillAlias(env); return i => (qs[i] && qs[i].skill ? skCanon(String(qs[i].skill).trim().slice(0, 40)) : ''); }
-  try { const o = JSON.parse(await env.HW.get(`skills:${hwId}`) || 'null'); if (o && o.map) { await loadSkillAlias(env); return i => { const v = Array.isArray(o.map) ? o.map[i] : o.map[i] ?? o.map[String(i)]; return v ? skCanon(v) : ''; }; } } catch {}
+  // 🔒 نواتج نافس فقط — اسم خارج القائمة لا يفتح علاجًا بالمهارة (يبقى العلاج بدرجة النشاط)
+  const off = v => { const o = v ? skOutcome(String(v).trim()) : null; return o ? o.key : ''; };
+  if (qs.some(q => q && q.skill)) { await loadSkillAlias(env); return i => off(qs[i] && qs[i].skill); }
+  try { const o = JSON.parse(await env.HW.get(`skills:${hwId}`) || 'null'); if (o && o.map) { await loadSkillAlias(env); return i => off(Array.isArray(o.map) ? o.map[i] : o.map[i] ?? o.map[String(i)]); }; } catch {}
   return () => '';
 }
 async function remQuestionsFor(env, hwId, questions, wrongIdx, round) {
@@ -3074,11 +3093,11 @@ async function remedialAfterSubmit(env, hw, activity, st, d, correct, total, que
   for (const i of wrong.slice(0, REM.maxQ)) { const r = await remQuestionsFor(env, hw, questions, [i]), k = skOf(i);
     r.q1.forEach(q => q1.push(k ? { ...q, _sk: k } : q)); r.q2.forEach(q => q2.push(k ? { ...q, _sk: k } : q)); if (r.fallback) fallback = true; }
   let cls = ''; try { cls = String((activity.cm || {})[st.name] || st.cls || ''); } catch {}
-  const T = String(activity.t || 'نشاط'), sk0 = weakSk[0];
+  const T = String(activity.t || 'نشاط'), sk0 = weakSk[0], skN = sk0 ? sk0.skill.replace(/^نافس:\s*/, '') : '';   // يُعرض بلا «نافس:» (الطالب يرى العنوان)
   const made = await remCreate(env, { st, cls, src: `act:${hw}`, srcTitle: T, kind: 'activity',
-    reason: sk0 ? `ضعف في «${sk0.skill}» (${sk0.rate}%)${weakSk.length === 2 ? ' ومهارة أخرى' : weakSk.length === 3 ? ' ومهارتان أخريان' : weakSk.length > 3 ? ` و${weakSk.length - 1} مهارات أخرى` : ''} في «${T}»${rate < REM.fail ? ` · النشاط ${rate}%` : ''}` : `أخفق في «${T}» بنسبة ${rate}%`,
+    reason: sk0 ? `ضعف في «${skN}» (${sk0.rate}%)${weakSk.length === 2 ? ' ومهارة أخرى' : weakSk.length === 3 ? ' ومهارتان أخريان' : weakSk.length > 3 ? ` و${weakSk.length - 1} مهارات أخرى` : ''} في «${T}»${rate < REM.fail ? ` · النشاط ${rate}%` : ''}` : `أخفق في «${T}» بنسبة ${rate}%`,
     before: sk0 && rate >= REM.fail ? sk0.rate : rate, q1, q2, fallback, ...(sk0 ? { skill: sk0.skill } : {}),
-    title: sk0 ? `🩹 تعزيز: «${sk0.skill}»` : `🩹 تعزيز: ${T}`, api: activity.api });
+    title: sk0 ? `🩹 تعزيز: «${skN}»` : `🩹 تعزيز: ${T}`, api: activity.api });
   return made ? { status: 'created', title: made.title } : null;
 }
 /* 📝 الاختبارات الورقية: يُفحص عند فتح الطالب بوابته (مرة كل 6 ساعات). يعتمد على

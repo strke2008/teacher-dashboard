@@ -1987,7 +1987,7 @@ ${scopeRules}
 7) كل سؤال يجب أن يملك إجابة صحيحة واحدة واضحة إذا كان اختيارًا متعددًا.
 8) لا تجعل نمط الإجابة الصحيحة يتكرر بشكل واضح.
 9) لا تعرض للطالب اسم المجال أو المهارة أو مستوى الصعوبة داخل السؤال.
-10) لكل سؤال أضف «domain» كمجال تشخيصي قصير، و«skill» كمهارة دقيقة قابلة للتحليل. هذه البيانات داخلية للتقرير وليست نصًا للطالب.
+10) لكل سؤال أضف «domain» كمجال تشخيصي قصير، و«skill» = ناتج التعلم الرسمي الذي يقيسه من القائمة أدناه حرفيًا (لا تخترع اسمًا). هذه البيانات داخلية للتقرير وليست نصًا للطالب.${typeof skOutcomeHint==='function'?skOutcomeHint():''}
 11) جميع أسئلة الاختبار التشخيصي يجب أن تكون من نوع الاختيار من متعدد فقط. لا تستخدم صح/خطأ ولا أكمل الفراغ ولا أي نوع آخر. كل سؤال يحتوي 4 خيارات فقط وإجابة صحيحة واحدة.
 12) لا تستخدم معلومات خارجية إذا كان هناك مصدر قدمه المعلم، إلا بالقدر اللازم لفهم المتطلب السابق بشكل مباشر وواضح.
 13) لا تقل إن الطالب «ضعيف» أو «ممتاز». المطلوب قياس فجوات الاستعداد.
@@ -2002,7 +2002,7 @@ ${scopeRules}
     "subject": "${subject}"
   },
   "questions": [
-    {"t":"q","q":"سؤال واضح","o":["خيار 1","خيار 2","خيار 3","خيار 4"],"a":0,"domain":"المفاهيم العلمية","skill":"تمييز المفهوم الأساسي"}
+    {"t":"q","q":"سؤال واضح","o":["خيار 1","خيار 2","خيار 3","خيار 4"],"a":0,"domain":"المفاهيم العلمية","skill":"اسم الناتج حرفيًا من القائمة"}
   ]
 }
 
@@ -2010,10 +2010,10 @@ ${scopeRules}
   try{
     const p=readingAIPickProvider(),model=readingAIModels()[p]||readingAIModels().groq,raw=await readingAICall(p,model,prompt,new AbortController().signal),d=aiSafeJson(raw),arr=Array.isArray(d.questions)?d.questions:[];
     const qs=arr.map(x=>{
-      const domain=String(x.domain||'المفاهيم الأساسية').trim(),skill=String(x.skill||'مهارة أساسية').trim();
+      // 🔒 المهارة من نواتج نافس فقط (impDiagSk) — وإلا يبقى السؤال بلا مهارة
       if(x.t==='q'&&x.q&&Array.isArray(x.o)&&x.o.filter(Boolean).length>=4){
         const o=x.o.map(String).filter(Boolean).slice(0,4),a=Math.max(0,Math.min(3,Number.isFinite(Number(x.a))?Number(x.a):0));
-        return {t:'q',q:String(x.q),o,a,domain,skill};
+        return {t:'q',q:String(x.q),o,a,...impDiagSk(x)};
       }
       return null;
     }).filter(Boolean).slice(0,n);
