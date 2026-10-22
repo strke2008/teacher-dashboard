@@ -20,7 +20,7 @@ async function annPortalLoad(){
       ${a.body?`<div class="ann-b">${annLinkify(a.body)}</div>`:''}
       ${imgs.length?`<div class="ann-imgs n${Math.min(imgs.length,3)}">${imgs.map(f=>`<button type="button" class="ann-img" onclick="annZoom('${annFileUrl(a,f.i)}')" aria-label="تكبير الصورة"><img loading="lazy" src="${annFileUrl(a,f.i)}" alt="${esc(f.name)}"></button>`).join('')}</div>`:''}
       ${vids.map(f=>`<video class="ann-vid" controls playsinline preload="metadata" src="${annFileUrl(a,f.i)}"></video>`).join('')}
-      ${pdfs.map(f=>`<div class="ann-pdf"><span>📄</span><div><b>${esc(f.name)}</b><small>${f.size<1048576?Math.max(1,Math.round(f.size/1024))+' KB':(f.size/1048576).toFixed(1)+' MB'}</small></div>
+      ${pdfs.map(f=>`<div class="ann-pdf"><span>📄</span><div><b title="${esc(f.name)}">${esc(String(f.name).replace(/[_]+/g,' '))}</b><small>${f.size<1048576?Math.max(1,Math.round(f.size/1024))+' KB':(f.size/1048576).toFixed(1)+' MB'}</small></div>
         <a class="btn ghost" href="${annFileUrl(a,f.i)}" target="_blank" rel="noopener">فتح</a><a class="btn ghost" href="${annFileUrl(a,f.i,1)}">تنزيل</a></div>`).join('')}
     </article>`};
   box.innerHTML=`<section class="ann-sec"><div class="ann-sec-h"><b>📢 إعلانات معلمك</b>${fresh?`<span class="ann-new">${fresh} جديد</span>`:''}</div>

@@ -1881,3 +1881,11 @@ a.rmd-go{text-decoration:none;display:inline-block;background:linear-gradient(#1
 .rwd-foot{display:flex;flex-direction:column;align-items:center;gap:.15rem;margin-top:.7rem;font-weight:800;font-size:.95rem!important;color:#6B3A00}
 .rwd-foot span{display:block!important}.rwd-foot b{display:inline!important;color:#B45309;font-size:1.05rem!important}.rwd-foot small{font-size:.76rem!important;font-weight:700;color:#8A5A1F;opacity:.85}
 @media (prefers-reduced-motion:reduce){.rwd-gift,.rwd-pts b{animation:none}.rwd-floats{display:none}}
+
+/* 📢 الإعلان لا يتجاوز عرض الصفحة: اسم ملف طويل بلا مسافات (دليل_…_2027.pdf) أو رابط طويل كان يمدّ البطاقة ويقصّها */
+.ann-sec,.ann-sec>*,.ann-card,.ann-card>*{min-width:0;max-width:100%}
+.ann-card{overflow:hidden}
+.ann-b,.ann-h b,.ann-btn-tx b,.ann-btn-tx small{overflow-wrap:anywhere;word-break:break-word}
+.ann-pdf>div{flex:1;min-width:0}.ann-pdf b{display:-webkit-box!important;-webkit-box-orient:vertical;-webkit-line-clamp:2;white-space:normal!important;text-overflow:clip;overflow:hidden;overflow-wrap:anywhere;word-break:break-word;line-height:1.5}
+.ann-pdf .btn{flex:none;padding:.35rem .7rem}
+.ann-img img,.ann-vid{max-width:100%}
