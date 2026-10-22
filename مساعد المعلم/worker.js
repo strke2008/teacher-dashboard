@@ -9260,7 +9260,9 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       const delta = parseInt(b.delta, 10) || 0;
       if (delta < 1 || delta > 1000) return json({ ok: false, error: 'bad_delta' }, 400);
       const list = (Array.isArray(b.students) ? b.students : []).slice(0, 25);
-      const done = [], failed = [];
+      const done = [], failed = [], won = [];
+      // 🎁 سبب المكافأة ورسالة المعلم: تصلان الطالب بطاقةً احتفالية في تنبيهاته (مع إشعار)، ما لم يُطلب غير ذلك
+      const why = String(b.reason || '').replace(/\s+/g, ' ').trim().slice(0, 80), note = String(b.note || '').trim().slice(0, 300), announce = b.announce !== false;
       for (const it of list) {
         const name = String(it && it.name || '').slice(0, 80).trim(), sidIn = String(it && (it.sid || it.id) || '').slice(0, 80).trim();
         if (!name && !sidIn) { failed.push({ sid: sidIn, name, error: 'missing' }); continue; }
@@ -9273,17 +9275,32 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
             const next = Math.max(0, (parseInt(balFound.value, 10) || 0) + delta);
             await env.HW.put(identityKey('bal:', st), String(next));
             await dropLegacy(env, 'bal:', st);
-            await plogAdd(env, st, { k: 'bonus', gain: delta, bal: next, why: String(b.reason || 'مكافأة جماعية').slice(0, 80) });
+            await plogAdd(env, st, { k: 'bonus', gain: delta, bal: next, why: why || 'مكافأة جماعية' });
             return { pts: next };
           });
           if (r instanceof Response) failed.push({ sid: sidIn, name, error: 'busy' });
-          else done.push({ sid: st.id || sidIn, name: st.name || name, pts: r.pts });
+          else { done.push({ sid: st.id || sidIn, name: st.name || name, pts: r.pts }); won.push({ st, pts: r.pts }); }
         } catch (e) { failed.push({ sid: sidIn, name, error: 'error' }); }
       }
       if (done.length) {
         try {
           const at = Date.now();
-          await env.HW.put(`pointslog:${at}:bulk`, JSON.stringify({ kind: 'teacher-bulk', delta, count: done.length, sids: done.map(x => x.sid), at }), { expirationTtl: 60 * 60 * 24 * 365 });
+          await env.HW.put(`pointslog:${at}:bulk`, JSON.stringify({ kind: 'teacher-bulk', delta, count: done.length, sids: done.map(x => x.sid), why, at }), { expirationTtl: 60 * 60 * 24 * 365 });
+          if (announce) {
+            for (const w of won) {
+              try {
+                const st = { id: String(w.st.id || ''), name: String(w.st.name || '') };
+                const arr = await readMessages(env, st);
+                arr.unshift({ id: `${at.toString(36)}${Math.random().toString(36).slice(2, 8)}`, title: `🎁 مكافأة: +${delta} نقطة`, body: note || why || 'مكافأة من معلمك',
+                  type: 'reward', rw: { pts: delta, why, note, bal: w.pts }, priority: 'normal', examDate: '', visibleFrom: '', expiresAt: '', createdAt: new Date(at).toISOString() });
+                await env.HW.put(identityKey('msg:', st), JSON.stringify(arr.slice(0, 40)), { expirationTtl: 60 * 60 * 24 * 180 });
+                await dropLegacy(env, 'msg:', st);
+              } catch {}
+            }
+            const ids = new Set(won.map(w => String(w.st.id || '')).filter(Boolean));
+            if (ids.size) notifyStudents(env, ctx, ids, { title: `🎁 وصلتك مكافأة: +${delta} نقطة`, body: why || 'مكافأة من معلمك — افتح البوابة', tag: `reward-${at}`,
+              data: { type: 'reward', url: './' } }, (await sha256Hex(`reward|${at}|${[...ids].join(',')}`)).slice(0, 32));
+          }
           const rev = parseInt(await env.HW.get('meta:rev'), 10) || 0; await env.HW.put('meta:rev', String(rev + 1));
         } catch {}
       }

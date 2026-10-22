@@ -1764,7 +1764,7 @@ function markMsgsSeen(ids){
     localStorage.setItem(MSG_SEEN_KEY, JSON.stringify([...set].slice(-200)));
   }catch(e){}
 }
-const MSG_ICON = { exam:'🗓️', warning:'⚠️', achievement:'⭐', activity:'📚', cert:'🏅', weekly:'📊', thanks:'💌', reply:'📩' };
+const MSG_ICON = { reward:'🎁', exam:'🗓️', warning:'⚠️', achievement:'⭐', activity:'📚', cert:'🏅', weekly:'📊', thanks:'💌', reply:'📩' };
 const MSG_RANK = { urgent:0, important:1, normal:2 };
 /* ⏳ مدة ظهور الرسالة في التنبيهات: تاريخ انتهاء صريح إن وُجد، وإلا حسب نوعها.
    الاختبار يبقى حتى يوم الاختبار، والتقرير الأسبوعي مكانه «تقريري» لا التنبيهات. */
@@ -2073,6 +2073,39 @@ function ncCardHTML(n, key){
     ${btn}
   </div><button type="button" class="notice-delete" data-delete-notice="${esc(key)}" aria-label="حذف التنبيه" title="حذف التنبيه">🗑️</button></div>`;
 }
+/* 🎁 بطاقة المكافأة: نقاط من المعلم (فوز في مسابقة، تميّز…) — هدية تتفتح، رقم كبير، وسبب ورسالة ورصيد.
+   أول مرة تُعرض فيها: احتفال (قصاصات ملونة + صوت + اهتزاز) ثم لا يتكرر */
+const REWARD_SEEN_KEY='reward_seen_v1';
+function rewardCardHTML(m, isNew){
+  const R=m.rw||{}, pts=Number(R.pts)||Number((String(m.title||'').match(/\+(\d+)/)||[])[1])||0;
+  const why=String(R.why||'').trim(), note=String(R.note||'').trim(), bal=R.bal!=null?Number(R.bal):null;
+  const id='rwd-'+String(m.id||Math.random().toString(36).slice(2,8)).replace(/[^\w-]/g,'');
+  let seen={}; try{ seen=JSON.parse(localStorage.getItem(REWARD_SEEN_KEY)||'{}'); }catch(e){}
+  if(!seen[m.id]) setTimeout(()=>rewardCelebrate(id, m.id), 350);
+  const coins=['🪙','✨','⭐','🪙','💫','✨','🪙','⭐'].map((e,i)=>`<i style="--x:${6+i*12}%;--d:${(i*0.5).toFixed(2)}s;--s:${(3+(i%3)*0.8).toFixed(1)}s">${e}</i>`).join('');
+  const day=(()=>{ try{ return new Date(m.createdAt).toLocaleDateString('ar-SA-u-ca-gregory-nu-latn',{weekday:'long',day:'numeric',month:'long'}); }catch(e){ return ''; } })();
+  return `<div class="rwd-card" id="${id}">
+    <div class="thx-floats rwd-floats" aria-hidden="true">${coins}</div>
+    ${isNew?'<span class="thx-new">جديدة</span>':''}
+    <div class="rwd-gift" aria-hidden="true">🎁</div>
+    <div class="rwd-kick">مكافأة من معلمك 🎉</div>
+    <div class="rwd-pts"><b>+${pts}</b><span>نقطة</span></div>
+    ${why?`<div class="rwd-why">🏆 ${esc(why)}</div>`:''}
+    ${note&&note!==why?`<p class="rwd-note">«${esc(note)}»</p>`:''}
+    <div class="rwd-foot">${bal!=null?`<span>💰 رصيدك صار <b>${bal}</b> نقطة</span>`:''}${day?`<small>${esc(day)}</small>`:''}</div>
+    <div class="thx-fx" aria-hidden="true"></div>
+  </div>`;
+}
+function rewardCelebrate(id, mid){
+  const card=document.getElementById(id); if(!card) return;
+  const fx=card.querySelector('.thx-fx'), cols=['#FFD23F','#FF9F1C','#FF6B6B','#7CE85A','#38E8FF','#C77DFF'];
+  for(let i=0;i<70;i++){ const b=document.createElement('b'); b.style.left=(Math.random()*100)+'%'; b.style.background=cols[i%cols.length];
+    b.style.animationDelay=(Math.random()*0.6)+'s'; b.style.animationDuration=(1.6+Math.random()*1.3)+'s'; fx.appendChild(b); setTimeout(()=>b.remove(),3300); }
+  card.classList.add('rwd-open'); setTimeout(()=>card.classList.remove('rwd-open'),1600);
+  try{ GameSound.sfx('match'); }catch(e){}
+  try{ navigator.vibrate && navigator.vibrate([40,60,40,60,80]); }catch(e){}
+  try{ const s=JSON.parse(localStorage.getItem(REWARD_SEEN_KEY)||'{}'); s[mid]=Date.now(); localStorage.setItem(REWARD_SEEN_KEY, JSON.stringify(s)); }catch(e){}
+}
 /* ⏰ رسالة التذكير بالأنشطة: بطاقة واضحة بدل نص طويل — تُقرأ من نص الرسالة نفسه (فتعمل مع القديمة أيضًا):
    أقسام (متأخر/قريب/ورقي/مدرستي) وكل نشاط بزر «ابدأ»، وواجبات مدرستي بزر يفتح المنصة مباشرة. */
 function isRemindMsg(m){ return /^تذكير: أنشطة لم تُسلَّم/.test(String(m && m.title || '')); }
@@ -2157,6 +2190,7 @@ function msgCardHTML(m, isNew, acts){
   if(String(m.type||'')==='weekly') return weeklyCardHTML(m, isNew, acts);
   if(m.ex || (String(m.type||'')==='exam' && m.examDate)) return examCardHTML(m, isNew);
   if(String(m.type||'')==='cert') return certCardHTML(m, isNew);
+  if(String(m.type||'')==='reward') return rewardCardHTML(m, isNew);
   if(isThanksMsg(m)) return thanksCardHTML(m, isNew);
   if(isRemindMsg(m)) return remindCardHTML(m, isNew, acts);
   const pr = MSG_RANK[m.priority]!==undefined ? m.priority : 'normal';
@@ -2348,7 +2382,7 @@ async function loadStudentSpace(nm, rows){
         t: m.title||'رسالة من المعلم', p: m.body||'',
         // التقرير والشهادة تُرسمان بطاقةً كاملة هنا لا سطرًا مختصرًا:
         // هذه القائمة هي ما يراه الطالب أولًا، فلا معنى لإحالته إلى مكان آخر.
-        html: (m.type==='weekly'||m.type==='cert'||m.type==='exam'||isThanksMsg(m)||isRemindMsg(m)) ? msgCardHTML(m, !seen.has(m.id), list) : '',
+        html: (m.type==='weekly'||m.type==='cert'||m.type==='exam'||m.type==='reward'||isThanksMsg(m)||isRemindMsg(m)) ? msgCardHTML(m, !seen.has(m.id), list) : '',
         extra: m.examDate ? `📅 تاريخ الاختبار: ${String(m.examDate).slice(0,10)}` : '',
         id: m.id, isNew: !seen.has(m.id), at: msgTime(m),
         priority: MSG_RANK[m.priority]!==undefined ? m.priority : 'normal'

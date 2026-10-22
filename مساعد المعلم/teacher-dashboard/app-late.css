@@ -2603,3 +2603,18 @@ button.sk-chip:not([onclick]){cursor:default}
 .vsp-list{display:flex;flex-direction:column;gap:.5rem}
 .vsp-opt{display:flex;flex-direction:column;align-items:flex-start;gap:.15rem;padding:.7rem .9rem;border-radius:12px;border:1.5px solid var(--line,#E5E7EB);background:#fff;text-align:right;cursor:pointer;font:inherit}
 .vsp-opt:hover{border-color:var(--tick,#0F766E)}.vsp-opt.on{border-color:var(--tick,#0F766E);background:#F0FDFA}.vsp-opt small{color:var(--ink-soft,#64748B);font-size:.78rem}
+
+/* 🎁 مكافأة نقاط: الكل / فصل / طلاب محددون */
+.bp2-amt{display:flex;gap:.35rem;align-items:center;flex-wrap:wrap}.bp2-amt .inp{width:7rem;flex:none}
+.bp2-chip{border:1.5px solid var(--line,#E5E7EB);background:#fff;border-radius:99px;padding:.3rem .7rem;font:inherit;font-weight:700;cursor:pointer}.bp2-chip:hover{border-color:#F59E0B}
+.bp2-seg{display:flex;gap:.3rem;flex-wrap:wrap;background:#F1F5F9;border-radius:12px;padding:4px}
+.bp2-seg button{flex:1 1 auto;border:0;background:transparent;border-radius:9px;padding:.5rem .6rem;font:inherit;font-weight:700;font-size:.85rem;color:#475569;cursor:pointer}
+.bp2-seg button.on{background:#fff;color:#B45309;box-shadow:0 2px 6px rgba(15,23,42,.12)}
+.bp2-pick{margin-top:.55rem;border:1px solid var(--line,#E5E7EB);border-radius:12px;padding:.5rem}
+.bp2-tools{display:flex;gap:.4rem}.bp2-tools .inp:first-child{flex:1}.bp2-tools select{width:auto}
+.bp2-chosen{display:flex;flex-wrap:wrap;gap:.3rem;margin:.5rem 0}
+.bp2-tag{border:0;border-radius:99px;padding:.25rem .6rem;background:#FEF3C7;color:#92400E;font:inherit;font-size:.8rem;font-weight:700;cursor:pointer}
+.bp2-list{max-height:34vh;overflow:auto;display:flex;flex-direction:column}
+.bp2-row{display:flex;align-items:center;gap:.5rem;padding:.4rem .3rem;border-top:1px dashed var(--line,#EEF0F3);cursor:pointer;font-size:.9rem}
+.bp2-row small{margin-inline-start:auto;color:var(--ink-soft,#64748B);font-size:.75rem}.bp2-row.on{background:#FFFBEB}
+.bp2-ann{display:flex;align-items:center;gap:.45rem;font-size:.88rem;font-weight:600;margin:.2rem 0 .4rem;cursor:pointer}

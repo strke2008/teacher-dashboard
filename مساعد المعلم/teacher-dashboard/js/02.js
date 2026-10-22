@@ -16890,33 +16890,59 @@ function updateStudentPointsPreview(){
 /* 🎁 مكافأة جماعية: نقاط لكل الطلاب أو لفصل — عبر /adjust-bulk على دفعات (20 طالبًا)،
    ويُعتمد رصيد كل طالب كما يعيده الخادم (مثل الإضافة الفردية) */
 function bulkPointsTargets(scope){ return STUDENTS.filter(s=>s && s.id && (!scope || String(s.cls||'')===scope)); }
+/* المستهدفون حسب الاختيار: الكل، أو فصل، أو طلاب محددون (فائزو مسابقة خارجية مثلًا) */
+const BP={ mode:'all', cls:'', picked:new Set(), q:'', fcls:'' };
+function bpTargets(){ return BP.mode==='pick' ? STUDENTS.filter(s=>s&&s.id&&BP.picked.has(String(s.id))) : bulkPointsTargets(BP.mode==='cls'?BP.cls:''); }
 function openBulkPoints(){
   const cls=classes(), cur=(document.getElementById('students-center-class')||{}).value||'';
-  openModal(`<h2>🎁 مكافأة للكل</h2>
-    <p class="muted" style="margin:.2rem 0 .8rem">تُضاف النقاط لرصيد كل طالب مباشرة، ويراها في بوابته.</p>
+  BP.mode='all'; BP.cls=cur||cls[0]||''; BP.picked=new Set(); BP.q=''; BP.fcls='';
+  openModal(`<div class="bp2"><h2>🎁 مكافأة نقاط</h2>
+    <p class="muted" style="margin:.2rem 0 .8rem">تُضاف النقاط لرصيد الطالب مباشرة، وتصله <b>بطاقة تهنئة</b> في بوابته مع إشعار.</p>
     <div class="field"><label>عدد النقاط لكل طالب</label>
-      <input class="inp" id="bp-amount" type="number" min="1" max="1000" value="50" inputmode="numeric" oninput="bulkPointsSummary()"></div>
+      <div class="bp2-amt"><input class="inp" id="bp-amount" type="number" min="1" max="1000" value="50" inputmode="numeric" oninput="bulkPointsSummary()">
+        ${[10,25,50,100].map(v=>`<button type="button" class="bp2-chip" onclick="document.getElementById('bp-amount').value=${v};bulkPointsSummary()">${v}</button>`).join('')}</div></div>
     <div class="field"><label>لمن؟</label>
-      <select class="inp" id="bp-scope" onchange="bulkPointsSummary()">
-        <option value="">كل الطلاب (${bulkPointsTargets('').length})</option>
-        ${cls.map(c=>`<option value="${esc(c)}" ${c===cur?'selected':''}>${esc(c)} (${bulkPointsTargets(c).length})</option>`).join('')}
-      </select></div>
+      <div class="bp2-seg">${[['all',`👥 كل الطلاب (${bulkPointsTargets('').length})`],['cls','🏫 فصل'],['pick','🎯 طلاب محددون']].map(([k,t])=>`<button type="button" data-bpm="${k}" class="${k===BP.mode?'on':''}" onclick="bpMode('${k}')">${t}</button>`).join('')}</div>
+      <div id="bp-cls-box" class="hide" style="margin-top:.5rem"><select class="inp" id="bp-scope" onchange="BP.cls=this.value;bulkPointsSummary()">
+        ${cls.map(c=>`<option value="${esc(c)}" ${c===BP.cls?'selected':''}>${esc(c)} (${bulkPointsTargets(c).length})</option>`).join('')}</select></div>
+      <div id="bp-pick-box" class="hide bp2-pick">
+        <div class="bp2-tools"><input class="inp" id="bp-q" placeholder="🔍 ابحث باسم الطالب" oninput="BP.q=this.value;bpList()">
+          <select class="inp" id="bp-fcls" onchange="BP.fcls=this.value;bpList()"><option value="">كل الفصول</option>${cls.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('')}</select></div>
+        <div id="bp-chosen" class="bp2-chosen"></div>
+        <div id="bp-list" class="bp2-list"></div></div></div>
+    <div class="field"><label>سبب المكافأة <small class="muted">(يظهر في بطاقة الطالب)</small></label>
+      <input class="inp" id="bp-reason" maxlength="80" placeholder="مثال: الفوز في مسابقة الأولمبياد العلمي"></div>
+    <div class="field"><label>رسالة للطالب <small class="muted">(اختياري)</small></label>
+      <textarea class="inp" id="bp-note" maxlength="300" rows="2" placeholder="مثال: أحسنت! فخور بإنجازك 🌟"></textarea></div>
+    <label class="bp2-ann"><input type="checkbox" id="bp-announce" checked> 🎉 أرسل بطاقة تهنئة للطالب في بوابته (مع إشعار)</label>
     <div id="bp-progress" class="bp-progress hide"><div class="bp-bar"><i id="bp-bar-i"></i></div><small id="bp-progress-t"></small></div>
-    <div class="modal-foot"><button class="btn ghost" onclick="closeModal()">إلغاء</button><button class="btn tick" id="bp-go" onclick="runBulkPoints()"></button></div>`);
+    <div class="modal-foot"><button class="btn ghost" onclick="closeModal()">إلغاء</button><button class="btn tick" id="bp-go" onclick="runBulkPoints()"></button></div></div>`);
   bulkPointsSummary();
 }
+function bpMode(k){ BP.mode=k; document.querySelectorAll('[data-bpm]').forEach(b=>b.classList.toggle('on',b.dataset.bpm===k));
+  document.getElementById('bp-cls-box').classList.toggle('hide',k!=='cls'); document.getElementById('bp-pick-box').classList.toggle('hide',k!=='pick');
+  if(k==='pick'){ bpList(); setTimeout(()=>document.getElementById('bp-q')?.focus(),50); } bulkPointsSummary(); }
+function bpList(){
+  const box=document.getElementById('bp-list'), ch=document.getElementById('bp-chosen'); if(!box) return;
+  const q=normAr(BP.q||''), L=STUDENTS.filter(s=>s&&s.id&&(!BP.fcls||String(s.cls||'')===BP.fcls)&&(!q||normAr(s.name).includes(q))).sort((a,b)=>String(a.name).localeCompare(String(b.name),'ar'));
+  box.innerHTML=L.slice(0,200).map(s=>`<label class="bp2-row ${BP.picked.has(String(s.id))?'on':''}"><input type="checkbox" ${BP.picked.has(String(s.id))?'checked':''} onchange="bpToggle('${esc(String(s.id))}',this.checked)"><span>${esc(s.name)}</span><small>${esc(s.cls||'')}</small></label>`).join('')||'<div class="muted" style="padding:.6rem">لا نتائج</div>';
+  const P=STUDENTS.filter(s=>s&&BP.picked.has(String(s.id)));
+  ch.innerHTML=P.length?P.map(s=>`<button type="button" class="bp2-tag" onclick="bpToggle('${esc(String(s.id))}',false)" title="إزالة">${esc(String(s.name).split(' ').slice(0,2).join(' '))} ✕</button>`).join(''):'<span class="muted" style="font-size:.8rem">لم تختر أحدًا بعد — حدّد الفائزين من القائمة</span>';
+}
+function bpToggle(id,on){ if(on) BP.picked.add(String(id)); else BP.picked.delete(String(id)); bpList(); bulkPointsSummary(); }
 function bulkPointsSummary(){
-  const n=parseInt((document.getElementById('bp-amount')||{}).value,10), scope=(document.getElementById('bp-scope')||{}).value||'';
-  const k=bulkPointsTargets(scope).length, b=document.getElementById('bp-go'); if(!b) return;
+  const n=parseInt((document.getElementById('bp-amount')||{}).value,10);
+  const k=bpTargets().length, b=document.getElementById('bp-go'); if(!b) return;
   const ok=Number.isInteger(n) && n>=1 && n<=1000 && k>0;
-  b.disabled=!ok; b.textContent=ok ? `إضافة ${n} نقطة لـ ${k} ${k===1?'طالب':'طالبًا'}` : 'أدخل من 1 إلى 1000 نقطة';
+  b.disabled=!ok; b.textContent=ok ? `🎁 إضافة ${n} نقطة لـ ${k===2?'طالبين':`${k} ${k===1?'طالب':k<=10?'طلاب':'طالبًا'}`}` : (k? 'أدخل من 1 إلى 1000 نقطة' : 'اختر الطلاب أولًا');
 }
 async function runBulkPoints(){
-  const n=parseInt(document.getElementById('bp-amount').value,10), scope=document.getElementById('bp-scope').value||'';
-  const list=bulkPointsTargets(scope); if(!list.length || !(n>=1 && n<=1000)) return;
+  const n=parseInt(document.getElementById('bp-amount').value,10);
+  const list=bpTargets(); if(!list.length || !(n>=1 && n<=1000)) return;
+  const reason=String(document.getElementById('bp-reason')?.value||'').trim(), note=String(document.getElementById('bp-note')?.value||'').trim(), announce=!!document.getElementById('bp-announce')?.checked;
   const api=getApi(), tok=getTok();
   const btn=document.getElementById('bp-go'), prog=document.getElementById('bp-progress'), bar=document.getElementById('bp-bar-i'), pt=document.getElementById('bp-progress-t');
-  btn.disabled=true; document.getElementById('bp-amount').disabled=true; document.getElementById('bp-scope').disabled=true; prog.classList.remove('hide');
+  btn.disabled=true; document.querySelectorAll('.bp2 input,.bp2 select,.bp2 textarea,.bp2 .bp2-seg button,.bp2 .bp2-chip').forEach(x=>x.disabled=true); prog.classList.remove('hide');
   let ok=0; const failed=[];
   if(!api || !tok){                                   // وضع محلي فقط (بلا خادم)
     list.forEach(s=>{ s.points=Number(s.points||0)+n; }); ok=list.length;
@@ -16925,7 +16951,7 @@ async function runBulkPoints(){
       const chunk=list.slice(i,i+20);
       pt.textContent=`جارٍ الإضافة… ${Math.min(i+chunk.length,list.length)} من ${list.length}`; bar.style.width=Math.round(i/list.length*100)+'%';
       try{
-        const r=await fetch(api.replace(/\/+$/,'')+'/adjust-bulk',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:tok,delta:n,students:chunk.map(s=>({sid:s.id,name:s.name}))})});
+        const r=await fetch(api.replace(/\/+$/,'')+'/adjust-bulk',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:tok,delta:n,reason,note,announce,students:chunk.map(s=>({sid:s.id,name:s.name}))})});
         const j=await r.json().catch(()=>({}));
         if(!r.ok || !j.ok) throw new Error(j.error||('http_'+r.status));
         for(const d of j.done||[]){ const s=chunk.find(x=>String(x.id)===String(d.sid)) || chunk.find(x=>x.name===d.name); if(s){ s.points=Number(d.pts); ok++; } }

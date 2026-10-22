@@ -1859,3 +1859,25 @@ a.rmd-go{text-decoration:none;display:inline-block;background:linear-gradient(#1
 .ann-btn-tx{flex:1;min-width:0;display:flex;flex-direction:column}
 .ann-btn-tx b{font-size:.92rem;line-height:1.35;overflow-wrap:anywhere}.ann-btn-tx small{font-size:.74rem;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ann-btn-go{flex:none;background:#1565C0;color:#fff;font-weight:800;font-size:.8rem;border-radius:999px;padding:.35rem .8rem}
+
+/* 🎁 بطاقة المكافأة — ذهبية احتفالية بأسلوب بطاقة التذكير */
+.rwd-card{position:relative;overflow:hidden;border-radius:22px;padding:1.2rem 1rem 1rem;text-align:center;color:#4A2A00;margin:.4rem 0;max-height:none!important;
+  background:radial-gradient(120% 90% at 50% 0%,#FFF6D6 0%,#FFE29A 55%,#FFC864 100%);border:2px solid #F2B233;box-shadow:0 12px 30px rgba(224,150,20,.28),inset 0 0 0 4px rgba(255,255,255,.35)}
+.rwd-gift,.rwd-kick,.rwd-pts,.rwd-why,.rwd-note,.rwd-foot{position:relative;z-index:1}.rwd-card .thx-fx{z-index:2}
+.rwd-card .thx-new{position:absolute;z-index:3}
+.rwd-floats i{opacity:.7}
+.rwd-gift{font-size:3.1rem;line-height:1;display:inline-block;animation:rwdBob 2.6s ease-in-out infinite;filter:drop-shadow(0 6px 8px rgba(160,90,0,.3))}
+@keyframes rwdBob{0%,100%{transform:translateY(0) rotate(0)}25%{transform:translateY(-6px) rotate(-6deg)}50%{transform:translateY(0) rotate(0)}75%{transform:translateY(-4px) rotate(5deg)}}
+.rwd-card.rwd-open{animation:rwdPop 1s cubic-bezier(.2,1.5,.4,1)}.rwd-card.rwd-open .rwd-gift{animation:rwdBurst .9s cubic-bezier(.2,1.6,.4,1)}
+@keyframes rwdPop{0%{transform:scale(.88)}55%{transform:scale(1.04)}100%{transform:none}}
+@keyframes rwdBurst{0%{transform:scale(.4) rotate(-20deg)}60%{transform:scale(1.35) rotate(10deg)}100%{transform:none}}
+.rwd-kick{font-weight:900;font-size:1.2rem!important;color:#8A4B00;margin:.25rem 0 .4rem}
+.rwd-pts{display:inline-flex;align-items:baseline;gap:.35rem;padding:.35rem 1.2rem;border-radius:999px;background:linear-gradient(#FFFFFF,#FFF3CF);box-shadow:0 4px 0 #E3A22A,0 8px 18px rgba(200,120,0,.25);margin:.2rem 0 .6rem}
+.rwd-pts b{font-size:2.6rem!important;line-height:1.1;font-weight:900;color:#D97706;text-shadow:0 2px 0 #FDE68A;animation:rwdGlow 2.4s ease-in-out infinite}
+.rwd-pts span{font-size:1.05rem!important;font-weight:900;color:#92400E}
+@keyframes rwdGlow{0%,100%{text-shadow:0 2px 0 #FDE68A}50%{text-shadow:0 2px 0 #FDE68A,0 0 14px rgba(255,200,40,.9)}}
+.rwd-why{display:inline-block;max-width:100%;background:rgba(255,255,255,.85);border-radius:14px;padding:.45rem .8rem;font-weight:900;font-size:1rem!important;color:#7A3E00;box-shadow:0 2px 8px rgba(160,90,0,.12);overflow-wrap:anywhere}
+.rwd-note{background:#fff;border-radius:14px;padding:.6rem .8rem;margin:.6rem 0 .2rem;font-weight:800;font-size:1.02rem!important;line-height:1.8;color:#3A2300!important;white-space:pre-line;display:block!important;-webkit-line-clamp:unset!important;max-height:none!important;overflow:visible!important}
+.rwd-foot{display:flex;flex-direction:column;align-items:center;gap:.15rem;margin-top:.7rem;font-weight:800;font-size:.95rem!important;color:#6B3A00}
+.rwd-foot span{display:block!important}.rwd-foot b{display:inline!important;color:#B45309;font-size:1.05rem!important}.rwd-foot small{font-size:.76rem!important;font-weight:700;color:#8A5A1F;opacity:.85}
+@media (prefers-reduced-motion:reduce){.rwd-gift,.rwd-pts b{animation:none}.rwd-floats{display:none}}
