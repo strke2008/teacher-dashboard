@@ -16,8 +16,8 @@ async function madRegisterInit(){
   box.dataset.ready='1';
   box.innerHTML=`<div class="madr-bar">
       <select class="inp" id="madr-cls" onchange="madRegisterLoad()">${classes.map(c=>`<option>${esc(c)}</option>`).join('')}</select>
-      <select class="inp" id="madr-sem" onchange="madRegisterLoad()"><option value="1">الفصل الدراسي الأول</option><option value="2">الفصل الدراسي الثاني</option></select>
-      <select class="inp" id="madr-per" onchange="madRegisterLoad()"><option value="1">الفترة الأولى</option><option value="2">الفترة الثانية</option></select>
+      <select class="inp" id="madr-sem" onchange="vspFromSelect('madr-sem','madr-per')"><option value="1">الفصل الدراسي الأول</option><option value="2">الفصل الدراسي الثاني</option></select>
+      <select class="inp" id="madr-per" onchange="vspFromSelect('madr-sem','madr-per')"><option value="1">الفترة الأولى</option><option value="2">الفترة الثانية</option></select>
       <label class="madr-showex" title="الواجبات المستبعدة لا تدخل الدرجة في كل الأحوال"><input type="checkbox" id="madr-showex" ${localStorage.getItem('madr_showex_v1')==='1'?'checked':''} onchange="localStorage.setItem('madr_showex_v1',this.checked?'1':'0');madRegisterLoad()"> إظهار المستبعدة</label>
       <button class="btn ghost sm" type="button" onclick="madRegisterPrint()">🖨️ طباعة</button>
       <button class="btn ghost sm" type="button" onclick="madRegisterCsv()">⬇️ CSV</button>
@@ -50,6 +50,7 @@ async function madRegisterLoad(first){
       try{ MADREG.links=(await madApi('/madrasati/links',{links:add})).links; linkNote=`🔗 رُبط ${Object.keys(add).length} طالب تلقائيًا بالاسم.`; }
       catch(e){ linkNote=e.message==='unknown_student'?'⚠️ تعذّر الربط: قائمة طلابك على الخادم أقدم من اللوحة — افتح «الطلاب» ليتزامن ثم أعد المحاولة.':'⚠️ تعذّر حفظ الربط.'; }
     }
+    try{ vspSyncSelects(); }catch(e){}
     let sem=Number(document.getElementById('madr-sem').value), per=Number(document.getElementById('madr-per').value);
     let bundle=await loadReportBundle(true,sem,per);
     const ac=bundle.grades&&bundle.grades.academic;

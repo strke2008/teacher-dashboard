@@ -3706,6 +3706,7 @@ function compHwNote(h){
   return `${cls}<br>${mad}`;
 }
 async function renderComprehensive(force=false){
+  try{ vspSyncSelects(); }catch(e){}
   const state=document.getElementById('comp-state');
   const table=document.getElementById('comp-table');
   if(!state||!table) return;
@@ -4064,6 +4065,7 @@ function caBar(pct, color){
 }
 
 async function renderCompAnalysis(force=false){
+  try{ vspSyncSelects(); }catch(e){}
   const state=document.getElementById('ca-state'), body=document.getElementById('ca-body');
   if(!state||!body) return;
   const renderSeq = ++CA_RENDER_SEQ;
@@ -17972,20 +17974,33 @@ function vspOpen(){
     <div class="modal-foot"><button class="btn ghost" type="button" onclick="closeModal()">إغلاق</button></div>`);
 }
 // أول تحميل والمعلم على فترة مغلقة: الكشف الشامل وسجل مدرستي يفتحان عليها أيضًا (مرة واحدة، ثم يبقى اختياره اليدوي)
-function vspSyncSelects(){ if(window.__vspSynced) return; const sp=ctSem(); if(!vspList().length) return; window.__vspSynced=true; if(!sp.viewing) return;
-  [['comp-semester','comp-period'],['madr-sem','madr-per']].forEach(([a,b])=>{ const x=document.getElementById(a), y=document.getElementById(b); if(x) x.value=String(sp.sem); if(y) y.value=String(sp.per); }); }
+// اختيارات الفصل/الفترة في الكشوف تعكس دائمًا الفترة المختارة أعلى اللوحة (لا تعود للأولى في كل دخول)
+const VSP_SELS=[['comp-semester','comp-period'],['ca-semester','ca-period'],['madr-sem','madr-per']];
+function vspSyncSelects(){ if(!vspList().length) return; const sp=ctSem();
+  VSP_SELS.forEach(([a,b])=>{ const x=document.getElementById(a), y=document.getElementById(b); if(x) x.value=String(sp.sem); if(y) y.value=String(sp.per); }); }
+/* والعكس: تغيير الفترة من أي كشف يغيّرها في اللوحة كلها */
+function vspFromSelect(semId, perId){
+  const sp={ sem:Number(document.getElementById(semId)?.value)===2?2:1, per:Number(document.getElementById(perId)?.value)===2?2:1 }, a=ctSemActive();
+  if(!vspList().length){ // الإعدادات الأكاديمية لم تُحمَّل بعد: السلوك القديم
+    if(semId==='ca-semester') return kashfSP(); if(semId==='madr-sem') return madRegisterLoad(); return renderComprehensive(); }
+  if(sp.sem===a.sem&&sp.per===a.per) return vspSet(0);
+  if(vspList().some(x=>x.sem===sp.sem&&x.per===sp.per)) return vspSet(sp);
+  toast('هذه الفترة لم تبدأ بعد','bad'); vspSyncSelects();
+}
 async function vspSet(sp){
   try{ if(sp) localStorage.setItem(VSP_KEY,JSON.stringify(sp)); else localStorage.removeItem(VSP_KEY); }catch(e){}
   closeModal(); const now=ctSem();
   // كل ما يتبع الفترة يُعاد تحميله: درجات الفصل، والمقارنة بالفترة السابقة، وقوائم الكشف الشامل وسجل مدرستي
   CT_GRADES=null; try{ CT_PREV=null; }catch(e){}
-  [['comp-semester','comp-period'],['madr-sem','madr-per']].forEach(([a,b])=>{ const x=document.getElementById(a), y=document.getElementById(b); if(x) x.value=String(now.sem); if(y) y.value=String(now.per); });
-  vspDraw(); toast(now.viewing?`👁️ تعرض الآن ${vspLabel(now)}`:'↩️ عدت للفترة الحالية','good');
+  vspSyncSelects(); vspDraw(); toast(now.viewing?`👁️ تعرض الآن ${vspLabel(now)}`:'↩️ عدت للفترة الحالية','good');
   try{ await ctEnsureGrades(true); }catch(e){}
   const on=id=>document.getElementById(id)?.classList.contains('on');
   try{ if(document.getElementById('ct-body')) await renderClassTools(); }catch(e){}
   try{ if(on('p-dashboard')) renderTodayHub(true); }catch(e){}
+  const vis=id=>{ const el=document.getElementById(id); return !!(el&&el.offsetParent); };
   try{ if(document.getElementById('comp-semester')) renderComprehensive(true); }catch(e){}
+  try{ if(vis('ca-body')) renderCompAnalysis(true); }catch(e){}
+  try{ if(vis('madr-sem')&&typeof madRegisterLoad==='function') madRegisterLoad(); }catch(e){}
   try{ if(typeof renderAll==='function') renderAll(); }catch(e){}
 }
 (function(){
