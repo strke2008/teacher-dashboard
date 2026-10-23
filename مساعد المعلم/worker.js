@@ -656,7 +656,9 @@ function closedTerms(data) {
   for (const sn of ['1', '2']) { const S = (ac.semesters || {})[sn] || {};
     for (const pn of ['1', '2']) { const snap = (S.periodSnapshots || {})[pn];
       if (!snap || !snap.term || !(S.status === 'closed' || (S.periodStatus || {})[pn] === 'closed')) continue;
-      out.push({ T: snap.term, cut: Number(snap.term.closedAt || snap.term.endAt || S.closedAt) || 0 }); } }
+      const cut = Number(snap.term.closedAt || snap.term.endAt || S.closedAt) || 0;
+      // فترة أُغلقت ونهايتها مفتوحة (الفترة الثانية عند إغلاق الفصل): نهايتها لحظة إغلاقها — وإلا عُدّ كل نشاط بعدها منها فظهر للطالب «مغلقًا»
+      out.push({ T: Number(snap.term.endAt) || (snap.term.endSet && snap.term.end) ? snap.term : { ...snap.term, endAt: cut }, cut }); } }
   return out;
 }
 function srepActsLive(state, data, sid, name, cls, sem, per) {
@@ -711,6 +713,9 @@ function semCloseSnapshots(sem, students, data, assignments, semester) {
   for (const p of [1, 2]) {
     const was = (sem.periodStatus || {})[String(p)] === 'closed' || (p === 1 && Number(sem.activePeriod) === 2);
     if (was && sem.periodSnapshots[String(p)]) continue;
+    // الفترة بلا نهاية محددة: نهايتها اليوم ولحظة الإغلاق
+    const pr = (sem.periods = sem.periods || {})[String(p)] = { ...((sem.periods || {})[String(p)] || {}) };
+    if (pr.start && !pr.end) { pr.end = gToday(); pr.endAt = closeAt; }
     const snp = computeAllGrades(students, data, assignments, semester, p); snp.term = { ...snp.term, closedAt: closeAt };
     sem.periodSnapshots[String(p)] = snp;
   }
