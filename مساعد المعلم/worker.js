@@ -2985,12 +2985,22 @@ function machinesScore(log) {
    ليست درجة؛ نقاط متجر فقط. إتقان 80% يغلقها، وإخفاق مرتين يرفعها للمعلم.
    ═══════════════════════════════════════════════════════════════════ */
 /* 📢 الإعلانات: الأنواع والحدود (الحد الأعلى لطلب Cloudflare المجاني 100MB) */
-const ANN = { maxFiles: 6, keep: 60, max: { image: 10 * 1024 * 1024, pdf: 25 * 1024 * 1024, video: 95 * 1024 * 1024 } };
-function annKind(type) {
+const ANN = { maxFiles: 6, keep: 60, max: { image: 10 * 1024 * 1024, pdf: 25 * 1024 * 1024, video: 95 * 1024 * 1024, ppt: 50 * 1024 * 1024 } };
+/* 📊 عرض PowerPoint: بعض المتصفحات ترسله بلا نوع أو octet-stream — يُعرف حينها بامتداده */
+const ANN_PPT = { pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation', ppsx: 'application/vnd.openxmlformats-officedocument.presentationml.slideshow', ppt: 'application/vnd.ms-powerpoint' };
+function annKind(type, name) {
   if (/^image\/(jpeg|png|webp|gif)$/.test(type)) return 'image';
   if (/^video\/(mp4|webm|quicktime)$/.test(type)) return 'video';
   if (type === 'application/pdf') return 'pdf';
+  const ext = (/\.([a-z0-9]{2,5})$/i.exec(String(name || '')) || [])[1];
+  if (Object.values(ANN_PPT).includes(type) || (ext && ANN_PPT[ext.toLowerCase()] && (!type || type === 'application/octet-stream' || /powerpoint|presentation/.test(type)))) return 'ppt';
   return '';
+}
+/* نوع التخزين وطريقة العرض: العرض التقديمي يُنزَّل (يفتحه تطبيق PowerPoint في الجوال أو الحاسب) */
+function annStoreMeta(kind, type, name, safe) {
+  const ext = ((/\.([a-z0-9]{2,5})$/i.exec(String(name || '')) || [])[1] || '').toLowerCase();
+  const ct = kind === 'ppt' ? (ANN_PPT[ext] || type || ANN_PPT.pptx) : type;
+  return { contentType: ct, contentDisposition: `${kind === 'ppt' ? 'attachment' : 'inline'}; filename*=UTF-8''${encodeURIComponent(name || safe)}` };
 }
 async function annList(env) { try { return JSON.parse(await env.HW.get('ann:list')) || []; } catch { return []; } }
 function annFor(a, st) { const c = Array.isArray(a.classes) ? a.classes : []; return !c.length || c.includes(String(st.cls || '')); }
@@ -6192,12 +6202,13 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       const id = 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
       const saved = [];
       for (const f of files) {
-        const type = String(f.type || '').toLowerCase(), kind = annKind(type);
+        let type = String(f.type || '').toLowerCase(); const kind = annKind(type, f.name);
         if (!kind) return json({ ok: false, error: 'bad_type', name: f.name }, 400);
         if (f.size > ANN.max[kind]) return json({ ok: false, error: 'too_big', name: f.name, max: ANN.max[kind] }, 413);
         const safe = String(f.name || 'file').replace(/[^\p{L}\p{N}._-]+/gu, '_').slice(-80);
         const key = `ann/${id}/${saved.length}-${safe}`;
-        await env.FILES.put(key, f.stream(), { httpMetadata: { contentType: type, contentDisposition: `inline; filename*=UTF-8''${encodeURIComponent(f.name || safe)}` } });
+        const meta = annStoreMeta(kind, type, f.name, safe); type = meta.contentType;
+        await env.FILES.put(key, f.stream(), { httpMetadata: meta });
         saved.push({ key, name: String(f.name || safe).slice(0, 120), type, kind, size: f.size });
       }
       const list = await annList(env);
@@ -6235,12 +6246,13 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       if (add.length && !env.FILES) return json({ ok: false, error: 'R2 binding FILES is missing' }, 500);
       const saved = [];
       for (const f of add) {
-        const type = String(f.type || '').toLowerCase(), kind = annKind(type);
+        let type = String(f.type || '').toLowerCase(); const kind = annKind(type, f.name);
         if (!kind) return json({ ok: false, error: 'bad_type', name: f.name }, 400);
         if (f.size > ANN.max[kind]) return json({ ok: false, error: 'too_big', name: f.name, max: ANN.max[kind] }, 413);
         const safe = String(f.name || 'file').replace(/[^\p{L}\p{N}._-]+/gu, '_').slice(-80);
         const key = `ann/${a.id}/e${Date.now().toString(36)}${saved.length}-${safe}`;
-        await env.FILES.put(key, f.stream(), { httpMetadata: { contentType: type, contentDisposition: `inline; filename*=UTF-8''${encodeURIComponent(f.name || safe)}` } });
+        const meta = annStoreMeta(kind, type, f.name, safe); type = meta.contentType;
+        await env.FILES.put(key, f.stream(), { httpMetadata: meta });
         saved.push({ key, name: String(f.name || safe).slice(0, 120), type, kind, size: f.size });
       }
       if (env.FILES) for (const f of (a.files || []).filter((_, i) => drop.includes(i))) { try { await env.FILES.delete(f.key); } catch {} }

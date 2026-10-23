@@ -1,4 +1,4 @@
-/* ═══ 📢 إعلانات المعلم في الصفحة الرئيسية للطالب (صورة · فيديو · PDF) ═══ */
+/* ═══ 📢 إعلانات المعلم في الصفحة الرئيسية للطالب (صورة · فيديو · PDF · PowerPoint) ═══ */
 const ANN_SEEN_KEY='ann_seen_v1';
 function annApi(){return ((typeof HW!=='undefined'&&HW&&HW.api)||API||'').replace(/\/+$/,'')}
 function annFileUrl(a,i,dl){const q=new URLSearchParams({a:a.id,f:String(i),sid:String(mySid||''),name:String(myName||lockedName()||'').trim()});if(dl)q.set('dl','1');return annApi()+'/ann-file?'+q.toString()}
@@ -13,7 +13,7 @@ async function annPortalLoad(){
   if(!rows.length){box.innerHTML='';return}
   const seen=annSeen(),fresh=rows.filter(a=>!seen.has(a.id)).length;
   const card=(a,i)=>{const isNew=!seen.has(a.id);
-    const imgs=a.files.filter(f=>f.kind==='image'),vids=a.files.filter(f=>f.kind==='video'),pdfs=a.files.filter(f=>f.kind==='pdf');
+    const imgs=a.files.filter(f=>f.kind==='image'),vids=a.files.filter(f=>f.kind==='video'),pdfs=a.files.filter(f=>f.kind==='pdf'),ppts=a.files.filter(f=>f.kind==='ppt');
     return `<article class="ann-card ${isNew?'is-new':''}" ${i>=3?'data-more hidden':''}>
       <div class="ann-h"><b>${esc(a.title||'إعلان')}</b>${isNew?'<span class="ann-new">جديد</span>':''}<small>${new Date(a.at).toLocaleDateString('ar-SA',{day:'numeric',month:'long'})}</small></div>
       ${a.until?`<div class="ann-until">⏳ متاح حتى ${new Date(a.until).toLocaleString('ar-SA-u-ca-gregory',{weekday:'long',day:'numeric',month:'numeric',hour:'numeric',minute:'2-digit'})}</div>`:''}
@@ -22,6 +22,8 @@ async function annPortalLoad(){
       ${vids.map(f=>`<video class="ann-vid" controls playsinline preload="metadata" src="${annFileUrl(a,f.i)}"></video>`).join('')}
       ${pdfs.map(f=>`<div class="ann-pdf"><span>📄</span><div><b title="${esc(f.name)}">${esc(String(f.name).replace(/[_]+/g,' '))}</b><small>${f.size<1048576?Math.max(1,Math.round(f.size/1024))+' KB':(f.size/1048576).toFixed(1)+' MB'}</small></div>
         <a class="btn ghost" href="${annFileUrl(a,f.i)}" target="_blank" rel="noopener">فتح</a><a class="btn ghost" href="${annFileUrl(a,f.i,1)}">تنزيل</a></div>`).join('')}
+      ${ppts.map(f=>`<div class="ann-pdf ann-ppt"><span>📊</span><div><b title="${esc(f.name)}">${esc(String(f.name).replace(/\.(pptx?|ppsx)$/i,'').replace(/[_-]+/g,' '))}</b><small>عرض PowerPoint · ${f.size<1048576?Math.max(1,Math.round(f.size/1024))+' KB':(f.size/1048576).toFixed(1)+' MB'}</small></div>
+        <a class="btn ghost" href="${annFileUrl(a,f.i,1)}">تنزيل وفتح</a></div>`).join('')}
     </article>`};
   box.innerHTML=`<section class="ann-sec"><div class="ann-sec-h"><b>📢 إعلانات معلمك</b>${fresh?`<span class="ann-new">${fresh} جديد</span>`:''}</div>
     ${rows.map(card).join('')}

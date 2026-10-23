@@ -1434,10 +1434,12 @@ async function planDecide(id,decision){
 }
 
 /* ═══ 📢 الإعلانات والملفات للطلاب ═══ */
-const ANN_LIM={image:10,pdf:25,video:95};
+const ANN_LIM={image:10,pdf:25,video:95,ppt:50};
 let ANN_FILES=[];
-function annKindOf(t){t=String(t||'').toLowerCase();return /^image\/(jpeg|png|webp|gif)$/.test(t)?'image':/^video\/(mp4|webm|quicktime)$/.test(t)?'video':t==='application/pdf'?'pdf':''}
-const annIcon=k=>({image:'🖼️',video:'🎬',pdf:'📄'}[k]||'📎');
+function annKindOf(t,n){t=String(t||'').toLowerCase();const ext=(/\.([a-z0-9]{2,5})$/i.exec(String(n||''))||[])[1]||'';
+  if(/powerpoint|presentationml/.test(t)||(/^(pptx?|ppsx)$/i.test(ext)&&(!t||t==='application/octet-stream'))) return 'ppt';   // 📊 عرض PowerPoint (يُعرف بامتداده إن لم يرسل المتصفح نوعه)
+  return /^image\/(jpeg|png|webp|gif)$/.test(t)?'image':/^video\/(mp4|webm|quicktime)$/.test(t)?'video':t==='application/pdf'?'pdf':''}
+const annIcon=k=>({image:'🖼️',video:'🎬',pdf:'📄',ppt:'📊'}[k]||'📎');
 const annMB=n=>(n/1048576).toFixed(n<1048576?2:1)+' MB';
 function annInit(){
   const box=document.getElementById('ann-classes');if(!box||box.dataset.ready)return;box.dataset.ready='1';
@@ -1446,8 +1448,8 @@ function annInit(){
   box.addEventListener('change',e=>{const all=box.querySelector('input[value=""]');if(e.target===all&&all.checked)box.querySelectorAll('input:not([value=""])').forEach(x=>x.checked=false);else if(e.target!==all&&e.target.checked)all.checked=false;
     if(![...box.querySelectorAll('input')].some(x=>x.checked))all.checked=true});
   document.getElementById('ann-files').addEventListener('change',e=>{
-    for(const f of e.target.files){const k=annKindOf(f.type);
-      if(!k){toast(`«${f.name}» نوع غير مدعوم — صورة أو فيديو أو PDF فقط`,'bad');continue}
+    for(const f of e.target.files){const k=annKindOf(f.type,f.name);
+      if(!k){toast(`«${f.name}» نوع غير مدعوم — صورة أو فيديو أو PDF أو PowerPoint فقط`,'bad');continue}
       if(f.size>ANN_LIM[k]*1048576){toast(`«${f.name}» أكبر من ${ANN_LIM[k]}MB`,'bad');continue}
       if(ANN_FILES.length>=6){toast('الحد 6 مرفقات','bad');break}
       ANN_FILES.push(f)}
@@ -1471,7 +1473,7 @@ function annState(a,now=Date.now()){
 }
 function annPicked(){
   const el=document.getElementById('ann-picked');if(!el)return;
-  el.innerHTML=ANN_FILES.map((f,i)=>`<span class="ann-file">${annIcon(annKindOf(f.type))} ${esc(f.name)} <small>${annMB(f.size)}</small><button type="button" onclick="ANN_FILES.splice(${i},1);annPicked()" aria-label="إزالة">✕</button></span>`).join('');
+  el.innerHTML=ANN_FILES.map((f,i)=>`<span class="ann-file">${annIcon(annKindOf(f.type,f.name))} ${esc(f.name)} <small>${annMB(f.size)}</small><button type="button" onclick="ANN_FILES.splice(${i},1);annPicked()" aria-label="إزالة">✕</button></span>`).join('');
 }
 function annSend(){
   const title=document.getElementById('ann-title').value.trim(),body=document.getElementById('ann-body').value.trim();
@@ -1529,15 +1531,15 @@ function annEditOpen(id){
     <div class="field"><label>النص</label><textarea class="inp" id="ae-body" rows="5" maxlength="3000">${esc(a.body||'')}</textarea><small class="ann-hint">🔘 الرابط يظهر للطلاب زرًّا. لتسميته اكتب الاسم ثم الرابط في السطر نفسه: <code>وثيقة المسابقة https://…</code></small></div>
     <div class="field"><label>يظهر لـ</label><div class="ann-cls" id="ae-classes"><label class="ann-chip"><input type="checkbox" value="" ${on.size?'':'checked'}> كل الطلاب</label>${cls.map(c=>`<label class="ann-chip"><input type="checkbox" value="${esc(c)}" ${on.has(c)?'checked':''}> ${esc(c)}</label>`).join('')}</div></div>
     <div class="field"><label>المرفقات</label><div id="ae-files" class="ae-files"></div>
-      <label class="btn ghost sm" style="margin-top:.4rem">📎 إضافة مرفق<input type="file" id="ae-add" accept="image/*,video/mp4,video/webm,video/quicktime,application/pdf" multiple hidden></label></div>
+      <label class="btn ghost sm" style="margin-top:.4rem">📎 إضافة مرفق<input type="file" id="ae-add" accept="image/*,video/mp4,video/webm,video/quicktime,application/pdf,.ppt,.pptx,.ppsx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation" multiple hidden></label></div>
     <div class="ann-progress hide" id="ae-progress"><i></i><span></span></div>
     <div class="modal-foot"><button class="btn ghost" onclick="closeModal()">إلغاء</button><button class="btn tick" id="ae-save" onclick="annEditSave()">💾 حفظ التعديل</button></div>`);
   const box=document.getElementById('ae-classes');
   box.addEventListener('change',e=>{const all=box.querySelector('input[value=""]');if(e.target===all&&all.checked)box.querySelectorAll('input:not([value=""])').forEach(x=>x.checked=false);else if(e.target!==all&&e.target.checked)all.checked=false;
     if(![...box.querySelectorAll('input')].some(x=>x.checked))all.checked=true});
   document.getElementById('ae-add').addEventListener('change',e=>{
-    for(const f of e.target.files){const k=annKindOf(f.type);
-      if(!k){toast(`«${f.name}» نوع غير مدعوم — صورة أو فيديو أو PDF فقط`,'bad');continue}
+    for(const f of e.target.files){const k=annKindOf(f.type,f.name);
+      if(!k){toast(`«${f.name}» نوع غير مدعوم — صورة أو فيديو أو PDF أو PowerPoint فقط`,'bad');continue}
       if(f.size>ANN_LIM[k]*1048576){toast(`«${f.name}» أكبر من ${ANN_LIM[k]}MB`,'bad');continue}
       ANN_ED.add.push(f)}
     e.target.value=''; annEditFiles(); });
@@ -1546,7 +1548,7 @@ function annEditOpen(id){
 function annEditFiles(){
   const a=ANN_ROWS.find(x=>x.id===ANN_ED.id), el=document.getElementById('ae-files'); if(!a||!el) return;
   const old=(a.files||[]).map((f,i)=>`<span class="ann-file ${ANN_ED.drop.has(i)?'gone':''}">${annIcon(f.kind)} ${esc(f.name)}${ANN_ED.drop.has(i)?' <small>سيُحذف</small>':''}<button type="button" onclick="ANN_ED.drop.has(${i})?ANN_ED.drop.delete(${i}):ANN_ED.drop.add(${i});annEditFiles()" title="${ANN_ED.drop.has(i)?'تراجع':'حذف'}">${ANN_ED.drop.has(i)?'↩️':'✕'}</button></span>`);
-  const neu=ANN_ED.add.map((f,i)=>`<span class="ann-file new">${annIcon(annKindOf(f.type))} ${esc(f.name)} <small>جديد · ${annMB(f.size)}</small><button type="button" onclick="ANN_ED.add.splice(${i},1);annEditFiles()">✕</button></span>`);
+  const neu=ANN_ED.add.map((f,i)=>`<span class="ann-file new">${annIcon(annKindOf(f.type,f.name))} ${esc(f.name)} <small>جديد · ${annMB(f.size)}</small><button type="button" onclick="ANN_ED.add.splice(${i},1);annEditFiles()">✕</button></span>`);
   el.innerHTML=old.concat(neu).join('')||'<span class="muted" style="font-size:.84rem">لا مرفقات.</span>';
 }
 function annEditSave(){
