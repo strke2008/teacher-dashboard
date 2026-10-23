@@ -1889,3 +1889,5 @@ a.rmd-go{text-decoration:none;display:inline-block;background:linear-gradient(#1
 .ann-pdf>div{flex:1;min-width:0}.ann-pdf b{display:-webkit-box!important;-webkit-box-orient:vertical;-webkit-line-clamp:2;white-space:normal!important;text-overflow:clip;overflow:hidden;overflow-wrap:anywhere;word-break:break-word;line-height:1.5}
 .ann-pdf .btn{flex:none;padding:.35rem .7rem}
 .ann-img img,.ann-vid{max-width:100%}
+/* سطر «📌 السؤال السابق» في المهمة العلاجية يظهر في سطر مستقل فوق السؤال */
+#q-text{white-space:pre-line}

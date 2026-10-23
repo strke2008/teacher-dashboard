@@ -3014,7 +3014,7 @@ const THX = { days: 7, max: 2 };
 const REM = { fail: 60, master: 80, maxOpen: 2, maxQ: 5, minQ: 3, pts: 20, days: 7, ttl: 60 * 60 * 24 * 90 };
 function remCleanQ(x) {
   if (!x || typeof x !== 'object') return null;
-  const q = String(x.q || '').slice(0, 600).trim(); if (!q) return null;
+  const q = String(x.q || '').slice(0, 1400).trim(); if (!q) return null;   // يتسع لسياق السؤال السابق
   const tip = String(x.tip || '').slice(0, 300).trim();
   // 🖼️ شكل السؤال (أسئلة نافس) يبقى معه في المهمة العلاجية — مسار صور البوابة أو رابط https فقط
   const img = String(x.img || '').trim();
@@ -3078,6 +3078,21 @@ async function remSkillsOf(env, hwId, questions) {
   try { const o = JSON.parse(await env.HW.get(`skills:${hwId}`) || 'null'); if (o && o.map) { await loadSkillAlias(env); return i => off(Array.isArray(o.map) ? o.map[i] : o.map[i] ?? o.map[String(i)]); }; } catch {}
   return () => '';
 }
+/* 🔗 سؤال يعتمد على ما قبله («في المسألة السابقة…»، «الجدول السابق»…) لا يُفهم وحده في المهمة العلاجية:
+   يُلحق به نص السؤال الذي يسبقه في النشاط (وشكله إن لم يكن له شكل)، فيرى الطالب المعطيات كاملة */
+const REM_DEP = /(?:المسألة|المسأله|السؤال|الفقرة|التجربة|الجدول|الشكل|الرسم|المثال|القطعة|النص)\s+(?:السابق|السابقة|السابقه|أعلاه|الماضي|الماضية)|في\s*ما\s+سبق|بالرجوع إلى ما سبق/;
+function remWithContext(x, questions, i) {
+  if (!x || !REM_DEP.test(String(x.q || ''))) return x;
+  const qs = Array.isArray(questions) ? questions : [];
+  let j = i - 1; while (j >= 0 && !(qs[j] && qs[j].q)) j--;
+  const prev = qs[j]; if (!prev) return x;
+  // السابق نفسه معتمد على ما قبله: يُضمّ الاثنان (حتى سؤالين للخلف)
+  let k = j - 1; while (k >= 0 && !(qs[k] && qs[k].q)) k--;
+  const chain = REM_DEP.test(String(prev.q)) && qs[k] ? [qs[k], prev] : [prev];
+  const ctx = chain.map(c => String(c.q).trim()).join('\n');
+  const src = chain.find(c => c.img || c.fig) || {};
+  return { ...x, q: `📌 السؤال السابق: ${ctx}\n\n${String(x.q).trim()}`, ...(!x.img && src.img ? { img: src.img } : {}), ...(!x.fig && src.fig ? { fig: src.fig } : {}) };
+}
 async function remQuestionsFor(env, hwId, questions, wrongIdx, round) {
   const off = Math.max(0, ((parseInt(round, 10) || 1) - 1) * 2);   // جولة جديدة ← بدائل لم يرها (إن وُجدت)
   let tw = null; try { tw = JSON.parse(await env.HW.get(`twins:${hwId}`)); } catch {}
@@ -3087,12 +3102,12 @@ async function remQuestionsFor(env, hwId, questions, wrongIdx, round) {
     const it = items.find(x => x && x.i === i);
     if (it && it.alts && it.alts.length) {
       const L = it.alts.length;
-      q1.push({ ...it.alts[off % L], ...(it.tip ? { tip: it.tip } : {}) });
-      q2.push({ ...it.alts[(off + 1) % L], ...(it.tip ? { tip: it.tip } : {}) });
+      q1.push(remWithContext({ ...it.alts[off % L], ...(it.tip ? { tip: it.tip } : {}) }, questions, i));
+      q2.push(remWithContext({ ...it.alts[(off + 1) % L], ...(it.tip ? { tip: it.tip } : {}) }, questions, i));
     } else {
       const a = remShuffleQ(questions[i], i + 3), b = remShuffleQ(questions[i], i + 11);
       // _fb: السؤال الأصلي نفسه بترتيب خيارات مختلف — تدريب، لا يصلح دليلَ إتقان
-      if (a) { q1.push({ ...a, _fb: 1 }); q2.push({ ...(b || a), _fb: 1 }); fallback = true; }
+      if (a) { q1.push({ ...remWithContext(a, questions, i), _fb: 1 }); q2.push({ ...remWithContext(b || a, questions, i), _fb: 1 }); fallback = true; }
     }
   }
   return { q1, q2, fallback };
