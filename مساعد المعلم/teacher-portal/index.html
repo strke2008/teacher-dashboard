@@ -3150,7 +3150,9 @@ async function loadGrades(){
 
 /* ═══ السنة الدراسية والفصلان ═══ */
 function academicSem(){ensure();return data.academic.semesters[String(gradeSemester)]||{status:'open',closedAt:0,activePeriod:1,periodStatus:{},periodSnapshots:{},periods:{'1':{},'2':{}}}}
-function academicClosed(){return academicSem().status==='closed'}
+/* 🔒 مغلق للرصد: الفصل كله، أو الفترة المختارة وحدها بعد إغلاقها (درجاتها المعتمدة من لقطة الإغلاق — التعديل بعده لا يصل للكشوف ولا لولي الأمر) */
+function academicClosed(){const s=academicSem();return s.status==='closed'||(s.periodStatus||{})[String(gradePeriod)]==='closed'||(gradePeriod===1&&Number(s.activePeriod)===2)}
+function academicLockMsg(){return academicSem().status==='closed'?'الفصل مغلق.':'🔒 هذه الفترة مغلقة — للعرض فقط.'}
 function activePeriod(){const s=academicSem();return s.activePeriod===2?2:1}
 function academicPeriod(){const s=academicSem(),v=s.periods[String(gradePeriod)]||{};return v}
 function renderAcademicControls(){
@@ -3432,7 +3434,7 @@ function renderExamConfig(){
   if($('exam-vr-test'))$('exam-vr-test').disabled=locked;
 }
 async function addExamTest(){
-  if(academicClosed()){toast('الفصل مغلق.');return}
+  if(academicClosed()){toast(academicLockMsg());return}
   if(examVrOn)examVrStop();
   const b=examBook(),n=b.tests.length+1;
   b.tests.push({id:examTestId(),title:`اختبار ${n}`,max:10,date:new Date(Date.now()+3*3600000).toISOString().slice(0,10),at:Date.now()});
@@ -3467,7 +3469,7 @@ async function examCoversPick(id){
   };
 }
 async function deleteExamTest(id){
-  if(academicClosed()){toast('الفصل مغلق.');return}
+  if(academicClosed()){toast(academicLockMsg());return}
   if(examVrOn)examVrStop();
   const b=examBook();if(b.tests.length<=1){toast('يجب إبقاء اختبار واحد على الأقل.');return}
   b.tests=b.tests.filter(x=>String(x.id)!==String(id));
@@ -3475,7 +3477,7 @@ async function deleteExamTest(id){
   renderExamConfig();renderExamGrades();await save();toast('تم حذف الاختبار');
 }
 async function setExamScore(sid,testId,value,quiet,extra){
-  if(academicClosed()){toast('الفصل مغلق. افتحه للضرورة أولًا.');renderExamGrades();return}
+  if(academicClosed()){toast(academicSem().status==='closed'?'الفصل مغلق. افتحه للضرورة أولًا.':academicLockMsg());renderExamGrades();return}
   const b=examBook(),t=b.tests.find(x=>String(x.id)===String(testId));if(!t)return;
   const n=String(value).trim(), bucket=b.scores[String(sid)]=b.scores[String(sid)]||{};
   if(n===''){delete bucket[String(testId)];if(!Object.keys(bucket).length)delete b.scores[String(sid)];}

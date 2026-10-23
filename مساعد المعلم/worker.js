@@ -8126,7 +8126,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       if(sem && sem.status==='not_started') return json({ok:true, semester, period, students:[], academic, notStarted:true, closed:false});
       const snap = sem && sem.periodSnapshots && sem.periodSnapshots[String(period)];
       if ((snap && sem.status === 'closed') || (snap && period === 1 && sem.activePeriod === 2)) {
-        return json({ ok:true, semester, period, ...snap, academic, closed:sem.status==='closed' });
+        return json({ ok:true, semester, period, ...snap, academic, closed:periodIsClosed(sem, period) });   // الفترة المغلقة مغلقة ولو بقي الفصل الدراسي مفتوحًا
       }
       return json({ ok: true, semester, period, ...computeAllGrades(students, data, assignments, semester, period) });
     }
@@ -8153,7 +8153,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       } else {
         const snap = sem && sem.periodSnapshots && sem.periodSnapshots[String(period)];
         if ((snap && sem.status === 'closed') || (snap && period === 1 && sem.activePeriod === 2)) {
-          grades = { ok:true, semester, period, ...snap, academic, closed:sem.status === 'closed' };
+          grades = { ok:true, semester, period, ...snap, academic, closed:periodIsClosed(sem, period) };
         } else {
           grades = { ok:true, semester, period, ...computeAllGrades(students, data, assignments, semester, period) };
         }

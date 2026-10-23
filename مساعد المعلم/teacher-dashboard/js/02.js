@@ -1950,7 +1950,11 @@ function ctBook(d,sem,per){
   b.tests=Array.isArray(b.tests)?b.tests:[]; b.scores=b.scores&&typeof b.scores==='object'?b.scores:{};
   return b;
 }
-function ctExamSP(){ const a=ctSemActive(); return { sem:Number(window._ctExSem||a.sem), per:Number(window._ctExPer||a.per), closed:a.closed&&Number(window._ctExSem||a.sem)===a.sem }; }
+/* دفتر الاختبارات: فترة مغلقة للعرض فقط — درجاتها المعتمدة (الكشوف، ولي الأمر، الشهادات) من لقطة الإغلاق، فالتعديل بعده لا يصل إليها */
+function ctExamSP(){ const a=ctSemActive(), sem=Number(window._ctExSem||a.sem)===2?2:1, per=Number(window._ctExPer||a.per)===2?2:1;
+  const S=((typeof DASH_ACADEMIC!=='undefined'&&DASH_ACADEMIC)||{}).semesters?.[sem]||{};
+  const closed=S.status==='closed'||(S.periodStatus||{})[per]==='closed'||(per===1&&Number(S.activePeriod)===2);
+  return { sem, per, closed }; }
 function ctExams(box){
   const {sem,per,closed}=ctExamSP(), cls=window._ctExCls??(ctClasses()[0]||'');
   const b=ctBook(JSON.parse(JSON.stringify(CT_DATA)),sem,per), max=b.tests.reduce((t,x)=>t+Math.max(0,Number(x.max)||0),0);
@@ -1961,7 +1965,7 @@ function ctExams(box){
   box.innerHTML=`<div class="row ct-tools">
       <select class="inp" style="width:auto" onchange="window._ctExSem=this.value;renderClassTools()"><option value="1" ${sem===1?'selected':''}>الفصل الأول</option><option value="2" ${sem===2?'selected':''}>الفصل الثاني</option></select>
       <select class="inp" style="width:auto" onchange="window._ctExPer=this.value;renderClassTools()"><option value="1" ${per===1?'selected':''}>الفترة الأولى</option><option value="2" ${per===2?'selected':''}>الفترة الثانية</option></select>
-      ${closed?'<span class="chip bad">الفصل مغلق — للعرض فقط</span>':''}</div>
+      ${closed?'<span class="chip bad" title="الدرجات المعتمدة لهذه الفترة من لقطة الإغلاق — التعديل بعده لا يصل إلى الكشوف ولا ولي الأمر">🔒 الفترة مغلقة — للعرض فقط</span>':''}</div>
     <div class="ct-card"><div class="row" style="justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap"><b>الاختبارات (${b.tests.length}) · مجموعها ${max} ← يُحوَّل إلى 20</b>
       <button class="btn tick sm" ${dis} onclick="ctExamAdd()">＋ اختبار</button></div>
       <div class="muted" style="font-size:.76rem;margin:.25rem 0 .5rem">📅 تاريخ الاختبار تعتمد عليه الخطط العلاجية في القياس قبل الخطة وبعدها — حدّده لكل اختبار.</div>
@@ -1981,8 +1985,9 @@ function ctExams(box){
     </tbody></table></div><div class="muted" style="font-size:.74rem;margin-top:.3rem">«من 20» هنا قبل بطاقات رفع الدرجة؛ الدرجة النهائية بعدها تظهر في الكشوف.</div>`:''}`;
 }
 async function ctExamMutate(fn,ok){
-  if(CT_BUSY) return; CT_BUSY=true;
-  const {sem,per}=ctExamSP();
+  if(CT_BUSY) return;
+  const {sem,per,closed}=ctExamSP(); if(closed){ toast('🔒 الفترة مغلقة — درجاتها من لقطة الإغلاق ولا تُعدَّل','bad'); return; }
+  CT_BUSY=true;
   try{ await ctSave(d=>fn(ctBook(d,sem,per))); if(ok) toast(ok,'good'); }catch(e){ toast('تعذّر الحفظ — تحقق من الاتصال','bad'); }
   CT_BUSY=false; renderClassTools();
 }
@@ -2071,7 +2076,7 @@ async function ctExamFromBackups(btn){
 
 /* الدرجة: تُحفظ مباشرة دون إعادة رسم الجدول حتى لا يفقد المعلم مكانه أثناء الرصد */
 async function ctExamScore(sid,tid,el){
-  const {sem,per}=ctExamSP(), n=String(el.value).trim();
+  const {sem,per,closed}=ctExamSP(), n=String(el.value).trim(); if(closed){ toast('🔒 الفترة مغلقة — درجاتها من لقطة الإغلاق ولا تُعدَّل','bad'); renderClassTools(); return; }
   el.classList.add('saving');
   try{
     await ctSave(d=>{ const b=ctBook(d,sem,per), t=b.tests.find(x=>String(x.id)===String(tid)); if(!t) return;
@@ -2523,7 +2528,7 @@ function ctExamPastePreview(tid){
 }
 async function ctExamPasteApply(tid){
   const R=ctExamPasteParse(tid); if(!R.out.length){ ctExamPastePreview(tid); toast('لم أجد درجات صالحة','bad'); return; }
-  const {sem,per}=ctExamSP();
+  const {sem,per,closed}=ctExamSP(); if(closed){ toast('🔒 الفترة مغلقة — درجاتها من لقطة الإغلاق ولا تُعدَّل','bad'); return; }
   try{ await ctSave(d=>{ const b=ctBook(d,sem,per); R.out.forEach(x=>{ const k=String(x.s.id); b.scores[k]=b.scores[k]||{}; b.scores[k][String(tid)]={score:x.v,at:Date.now()}; }); });
     closeModal(); toast(`📋 حُفظت ${R.out.length} درجة${R.bad.length?` · تُرك ${R.bad.length} سطرًا`:''}`,'good'); }
   catch(e){ toast('تعذّر الحفظ','bad'); }
