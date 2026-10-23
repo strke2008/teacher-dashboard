@@ -3488,6 +3488,12 @@ function pqGo(id){ const el=document.getElementById('pc-'+id); if(!el){ const st
 function pqSkills(list){ const by=new Map(); (list||[]).forEach(x=>{ const u=x.unit||planSkUnit(x.skill).title||''; if(!by.has(u)) by.set(u,[]); by.get(u).push(x); });
   return [...by.entries()].map(([u,L])=>`<span class="pq-unit">${u?`<small>📚 ${planEsc(u)}:</small> `:''}${L.map(x=>{ const b=PQ_BAND[x.band]||['','ghost'];
     return `<span class="chip ${b[1]}" title="${planEsc(b[0])}${x.earlier?' · من الفترة الأولى ولم يُقَس بعدها':''}${x.covered?(x.covered==='reteach'?' · مغطّاة بإعادة الشرح للفصل':' · مغطّاة بخطة جماعية مقترحة'):''}">${planDisp(x.skill)} ${x.rate}%${x.earlier?' <small>ف1</small>':''}${x.covered?' ↺':''}</span>`; }).join(' ')}</span>`).join(''); }
+const PQ_OPEN_KEY='pq_open_v1';
+function pqOpen(t,def){ try{ const o=JSON.parse(localStorage.getItem(PQ_OPEN_KEY)||'{}'); return t in o?!!o[t]:def; }catch(e){ return def; } }
+function pqOpenSet(t,on){ try{ const o=JSON.parse(localStorage.getItem(PQ_OPEN_KEY)||'{}'); o[t]=on?1:0; localStorage.setItem(PQ_OPEN_KEY,JSON.stringify(o)); }catch(e){} }
+/* مهارات الطالب في الصف: أضعف 4 ظاهرة، والباقي خلف «+N» */
+function pqSkillsShort(list){ const L=list||[]; if(L.length<=4) return pqSkills(L);
+  return pqSkills(L.slice(0,4))+`<details class="pq-chipmore"><summary>+${L.length-4} ${L.length-4===1?'مهارة':L.length-4<=10?'مهارات':'مهارة'} أخرى</summary>${pqSkills(L.slice(4))}</details>`; }
 function renderPlanCandidates(){
   const box=document.getElementById('plan-candidates'); if(!box) return;
   const cls=document.getElementById('plan-class')?.value||'', inC=x=>!cls||String(x.cls||'')===cls;
@@ -3502,7 +3508,8 @@ function renderPlanCandidates(){
   const escR=(REM_ROWS||[]).filter(x=>x.status==='escalated'&&inC(x)&&!remActivePlan(x.sid));
   const total=decide.length+check.length+reteach.length+groups.length+indiv.length+escR.length;
   if(!total&&!conduct.length&&!untag.length){ box.innerHTML=''; return; }
-  const sec=(ic,t,n,sub,body,cls2='')=>n?`<div class="pq-sec ${cls2}"><div class="pq-h"><b>${ic} ${t}</b><span class="chip ghost">${n}</span>${sub?`<small>${sub}</small>`:''}</div>${body}</div>`:'';
+  // 📂 كل قسم قابل للطي ويُحفظ اختيارك؛ افتراضيًا تُفتح «قرارك مطلوب» و«نقطة الفحص» فقط
+  const sec=(ic,t,n,sub,body,cls2='')=>n?`<details class="pq-sec ${cls2}" ${pqOpen(t,cls2==='need'||cls2==='chk')?'open':''} ontoggle="pqOpenSet(${planEsc(JSON.stringify(t))},this.open)"><summary class="pq-h"><b>${ic} ${t}</b><span class="chip ghost">${n}</span>${sub?`<small>${sub}</small>`:''}</summary>${body}</details>`:'';
   const more=(arr,k,f)=>arr.slice(0,window['_pqAll'+k]?999:6).map(f).join('')+(arr.length>6&&!window['_pqAll'+k]?`<button type="button" class="btn ghost sm pq-more" onclick="window._pqAll${k}=1;renderPlanCandidates()">عرض الكل (${arr.length})</button>`:'');
   const who=p=>planEsc(p.name||((p.members||[]).map(m=>m.name).join('، '))||'');
   box.innerHTML=`<div class="pq card">
@@ -3518,16 +3525,16 @@ function renderPlanCandidates(){
         <div class="pq-d">${g.members.map(m=>planEsc(m.name)).join(' · ')}</div>${g.untagged?`<div class="pq-adv warn">🏷️ أسئلة هذا النشاط بلا نواتج نافس — صنّفها (أو اربط أسماءها القديمة) لتعرف المهارة الناقصة بدل خطة على النشاط كله</div>`:''}</div>
         <span class="pq-acts">${g.untagged?pqTagBtns('ghost'):''}<button class="btn tick sm" onclick="planFromGroup('${planEsc(g.key)}')">＋ خطة جماعية</button></span></div>`))}
     ${sec('👤','خطط فردية',indiv.length,'تأسيس أولًا، ثم من عنده مهارات أكثر',more(indiv,'I',c=>`<div class="pq-row"><div><b>${planEsc(c.name)}</b> <span class="muted">${planEsc(c.cls)}</span> ${c.tier===1?'<span class="chip bad">تأسيس</span>':c.tier===2?'<span class="chip warn">فجوة</span>':''}
-        <div class="pq-d">${(c.weak||[]).length?pqSkills(c.weak):planEsc((c.reasons[0]||{}).text||'')}${(c.conduct||[]).length?` <span class="muted">· ${c.conduct.map(r=>planEsc(r.text)).join(' · ')}</span>`:''}
+        <div class="pq-d">${(c.weak||[]).length?pqSkillsShort(c.weak):planEsc((c.reasons[0]||{}).text||'')}${(c.conduct||[]).length?` <span class="muted">· ${c.conduct.map(r=>planEsc(r.text)).join(' · ')}</span>`:''}
           ${(c.early||[]).length?`<div class="pq-prior pq-early">🔎 قياس أولي (سؤالان فقط — لا تُبنى عليه خطة بعد): ${c.early.map(x=>`${planDisp(x.skill)} ${x.rate}%`).join(' · ')}</div>`:''}
           ${(c.prior||[]).length?(()=>{ const cur=planSP().sem, by={}; c.prior.forEach(x=>{ const k=x.term&&x.term<cur?`↩︎ فجوة سابقة (الفصل ${x.term===1?'الأول':'الثاني'})`:`ℹ️ من نواتج الفصل ${x.term===2?'الثاني':'الأول'} — خارج الفصل الحالي`; (by[k]=by[k]||[]).push(`${planDisp(x.skill)} ${x.rate}%`); });
             return Object.entries(by).map(([k,L])=>`<div class="pq-prior">${k}: ${L.join(' · ')}</div>`).join(''); })():''}</div></div>
         <button class="btn tick sm" onclick="planFromCandidate('${planEsc(c.studentId)}',${JSON.stringify(c.reasons.map(r=>r.text).join(' · ')).replace(/"/g,'&quot;')})">＋ خطة</button></div>`))}
     ${sec('🤖','أخفق مرتين في العلاج التلقائي',escR.length,'يحتاج تدخّلك المباشر',more(escR,'E',x=>`<div class="pq-row"><div><b>${planEsc(x.name)}</b> <span class="muted">${planEsc(x.cls||'')}</span><div class="pq-d">«${planEsc(x.srcTitle||x.reason||'')}»</div></div>${remPlanBtn(x)}</div>`))}
-    ${untag.length?`<details class="pq-sec pq-conduct" open><summary><b>🏷️ ضعف بلا ناتج محدد</b> <span class="chip ghost">${untag.length}</span> <small>إتقانهم دون 60% لكن أسئلة أنشطتهم بلا نواتج نافس — صنّفها أو اربط أسماءها القديمة، فتتحول إلى خطة على المهارة الناقصة نفسها</small>
+    ${untag.length?`<details class="pq-sec pq-conduct" ${pqOpen('untag',false)?'open':''} ontoggle="pqOpenSet('untag',this.open)"><summary><b>🏷️ ضعف بلا ناتج محدد</b> <span class="chip ghost">${untag.length}</span> <small>إتقانهم دون 60% لكن أسئلة أنشطتهم بلا نواتج نافس — صنّفها أو اربط أسماءها القديمة، فتتحول إلى خطة على المهارة الناقصة نفسها</small>
         ${pqTagBtns('tick')}</summary>
       ${untag.map(c=>`<div class="pq-row"><div><b>${planEsc(c.name)}</b> <span class="muted">${planEsc(c.cls)}</span><div class="pq-d">${c.reasons.map(r=>planEsc(r.text)).join(' · ')}</div></div></div>`).join('')}</details>`:''}
-    ${conduct.length?`<details class="pq-sec pq-conduct"><summary><b>📋 متابعة انضباط</b> <span class="chip ghost">${conduct.length}</span> <small>غياب أو واجبات بلا ضعف مهاري — تواصل وتذكير، لا خطة علاجية</small></summary>
+    ${conduct.length?`<details class="pq-sec pq-conduct" ${pqOpen('conduct',false)?'open':''} ontoggle="pqOpenSet('conduct',this.open)"><summary><b>📋 متابعة انضباط</b> <span class="chip ghost">${conduct.length}</span> <small>غياب أو واجبات بلا ضعف مهاري — تواصل وتذكير، لا خطة علاجية</small></summary>
       ${conduct.map(c=>`<div class="pq-row"><div><b>${planEsc(c.name)}</b> <span class="muted">${planEsc(c.cls)}</span><div class="pq-d">${c.conduct.map(r=>planEsc(r.text)).join(' · ')}</div></div>
         <button class="btn ghost sm" onclick="planFromCandidate('${planEsc(c.studentId)}',${JSON.stringify(c.reasons.map(r=>r.text).join(' · ')).replace(/"/g,'&quot;')})">＋ متابعة</button></div>`).join('')}</details>`:''}
   </div>`;
