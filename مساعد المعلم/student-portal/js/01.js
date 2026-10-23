@@ -2629,7 +2629,12 @@ function openJourneyLearning(nm, rows, filterKinds){
   };
 
   // النشاطات غير المنجزة + المكتملة التي ما زالت لها صلاحية إجراء فعلي.
-  const pending=list.filter(canOpenPending).sort(chrono);   // الخطوة التالية: أقدم ما لم يُنجز
+  // الخطوة التالية: ما لم يُحلّ بعد أولًا (الأقدم فالأحدث)، ثم إعادة التسليم بصلاحية المعلم أو المشروع، ثم بطاقة إعادة المحاولة —
+  // فرصة الإعادة لا تتقدّم على نشاط جديد لم يحلّه (كان الطالب يكرر نشاطًا قديمًا ويترك الجديد)
+  const redoRank=h=>!h.done&&!projectResubmit(h)?0:(hasTeacherRetry(h)||projectResubmit(h))?1:2;
+  const pending=list.filter(canOpenPending).sort((a,b)=>redoRank(a)-redoRank(b)||chrono(a,b));
+  // ترتيب القسم: ما لم يُحلّ أولًا، ثم فرص الإعادة، ثم المكتمل، ثم ما فات موعده
+  const itemRank=h=>canOpenPending(h)?redoRank(h):h.done?3:4;
   const locked=list.filter(h=>!h.done && !canOpenPending(h));
   const next=pending[0]||null;
   const done=list.filter(h=>!!h.done).length;
@@ -2664,7 +2669,7 @@ function openJourneyLearning(nm, rows, filterKinds){
         const d=items.filter(x=>x.done).length;
         return `<div class="jw-group">
           <div class="jw-group-head" aria-label="قسم ${esc(meta.title)}"><div class="jw-group-icon">${meta.icon}</div><div class="jw-group-title"><span class="jw-group-label">قسم</span><strong>${meta.title}</strong><div class="jw-group-desc">${meta.desc}</div></div><span class="jw-group-count">${d}/${items.length}</span></div>
-          <div class="jw-items">${items.map(h=>{
+          <div class="jw-items">${items.slice().sort((a,b)=>itemRank(a)-itemRank(b)||chrono(a,b)).map(h=>{
             const isNext=next && String(next.id)===String(h.id);
             const late=isLate(h), teacher=hasTeacherRetry(h), retry=hasPurchasedRetry(h), project=projectResubmit(h);
             const disabled=late && !teacher && !retry && !project;
