@@ -1,5 +1,5 @@
 /* ═════════ 📨 التذكير: مكوّنات مشتركة بين التذكير الفردي والجماعي ═════════ */
-function remKsaDay(off){ return new Date(Date.now()+3*3600000+(off||0)*864e5).toISOString().slice(0,10); }
+/* remKsaDay مُعرَّفة في 02.js — يستخدمها 15-dash-reorg قبل تحميل هذا الملف */
 /* أنشطة ينتهي موعدها اليوم أو غدًا ولم يسلّمها بعد — تذكير وقائي قبل التأخر */
 function remSoonActivities(s){
   const t0=remKsaDay(0), t1=remKsaDay(1);

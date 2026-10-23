@@ -2818,6 +2818,8 @@ async function savePlans(plansOrFn){
   COMP_GRADES=null;
   return body;
 }
+/* 📅 تاريخ اليوم بتوقيت السعودية ± أيام (YYYY-MM-DD) — هنا لا في 19-bulk-rem: «اليوم» (15-dash-reorg) يستدعيها عند التحميل قبل وصول ذلك الملف */
+function remKsaDay(off){ return new Date(Date.now()+3*3600000+(off||0)*864e5).toISOString().slice(0,10); }
 function planSP(){ try{ return ctSemActive(); }catch(e){ return {sem:1,per:1}; } }
 function planRate(m){return (m&&m.measured)?m.rate+'%':'—'}
 function planBadge(v){
@@ -7805,9 +7807,9 @@ function renderHw() {
         <span class="spacer"></span>
         ${h.due ? `<span class="pill ${late ? 'due' : 'quiet'}">${late ? 'انتهى' : 'يُغلق'} ${esc(h.due)}</span>` : ''}
         ${(h.kind||'normal')==='normal'
-          ? `${hwIsNafs(h)?`<span class="pill" style="background:rgba(46,107,184,.14);color:#2E6BB8">🧭 نافس · ${h.nfMode==='sim'?'⏱️ محاكاة':'🎯 تدريب'}</span>`:''}<span class="pill quiet">${h.max || 20} درجة</span><span class="pill pts">${h.pts} نقطة</span>`
+          ? `${hwIsNafs(h)?`<span class="pill" style="background:rgba(46,107,184,.14);color:#2E6BB8">🧭 نافس · ${h.nfMode==='sim'?'⏱️ محاكاة':'🎯 تدريب'}</span>`:''}<span class="pill quiet">${h.max || 20} درجة</span><span class="pill pts">${Number(h.pts)||0} نقطة</span>`
           : h.kind==='lab'
-            ? `<span class="pill" style="background:rgba(46,107,184,.14);color:#2E6BB8">🔬 مختبر</span><span class="pill quiet">${h.max || 20} درجة</span><span class="pill pts">${h.pts} نقطة</span>`
+            ? `<span class="pill" style="background:rgba(46,107,184,.14);color:#2E6BB8">🔬 مختبر</span><span class="pill quiet">${h.max || 20} درجة</span><span class="pill pts">${Number(h.pts)||0} نقطة</span>`
           : h.kind==='diag'
             ? `<span class="pill" style="background:rgba(46,107,184,.14);color:#2E6BB8">🔍 تشخيصي</span>`
             : h.kind==='style'
