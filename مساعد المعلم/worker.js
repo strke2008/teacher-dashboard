@@ -704,6 +704,18 @@ async function studentReportGrades(env, semester, period) {
   if (snap && periodIsClosed(S, period)) return { data, students, grades: { ...snap, closed: true } };
   return { data, students, grades: computeAllGrades(students, data, assignments, semester, period) };
 }
+/* 🔒 لقطات إغلاق الفصل الدراسي (إغلاقه، أو الانتقال للفصل الثاني، أو نهاية العام): الفترة المغلقة سابقًا تبقى على لقطتها —
+   ما رُصد أو سُلّم بعد إغلاقها لا يغيّرها — ولا تُلتقط إلا الفترة التي ما زالت مفتوحة، مع لحظة إغلاقها */
+function semCloseSnapshots(sem, students, data, assignments, semester) {
+  const closeAt = Date.now(); sem.periodSnapshots = sem.periodSnapshots || {};
+  for (const p of [1, 2]) {
+    const was = (sem.periodStatus || {})[String(p)] === 'closed' || (p === 1 && Number(sem.activePeriod) === 2);
+    if (was && sem.periodSnapshots[String(p)]) continue;
+    const snp = computeAllGrades(students, data, assignments, semester, p); snp.term = { ...snp.term, closedAt: closeAt };
+    sem.periodSnapshots[String(p)] = snp;
+  }
+  return closeAt;
+}
 const periodIsClosed = (S, per) => S.status === 'closed' || (S.periodStatus || {})[String(per)] === 'closed' || (Number(per) === 1 && Number(S.activePeriod) === 2);
 /* 📅 الفترات المتاحة للعرض (لولي الأمر والطالب): المغلقة كلها + الجارية — لا ما لم يبدأ */
 function periodsAvail(data) {
@@ -8185,7 +8197,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         if(first.status==='open' && Number(first.activePeriod)===2) {
           const students=[]; try{const st=await env.HW.get('tstate:main'); if(st) students.push(...((JSON.parse(st).students||[]).filter(x=>x&&x.name)));}catch{}
           let assignments=[]; try{const st=await env.HW.get('tstate:main'); if(st) assignments=JSON.parse(st).assignments||[];}catch{}
-          for(const p of [1,2]) first.periodSnapshots[String(p)]=computeAllGrades(students,data,assignments,1,p);
+          semCloseSnapshots(first,students,data,assignments,1);
           first.status='closed'; first.closedAt=Date.now(); first.periodStatus=first.periodStatus||{}; first.periodStatus['1']='closed'; first.periodStatus['2']='closed';
         }
         if(first.status!=='closed') return json({error:'semester1_not_closed'},409);
@@ -8200,7 +8212,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         if(second.status==='open' && Number(second.activePeriod)===2) {
           const students=[]; try{const st=await env.HW.get('tstate:main'); if(st) students.push(...((JSON.parse(st).students||[]).filter(x=>x&&x.name)));}catch{}
           let assignments=[]; try{const st=await env.HW.get('tstate:main'); if(st) assignments=JSON.parse(st).assignments||[];}catch{}
-          for(const p of [1,2]) second.periodSnapshots[String(p)]=computeAllGrades(students,data,assignments,2,p);
+          semCloseSnapshots(second,students,data,assignments,2);
           second.status='closed'; second.closedAt=Date.now(); second.periodStatus=second.periodStatus||{}; second.periodStatus['1']='closed'; second.periodStatus['2']='closed';
         }
         if(second.status!=='closed') return json({error:'semester2_not_closed'},409);
@@ -8256,13 +8268,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       else if(b.action==='close') {
         const students=[]; try{const st=await env.HW.get('tstate:main'); if(st) students.push(...((JSON.parse(st).students||[]).filter(x=>x&&x.name)));}catch{}
         let assignments=[]; try{const st=await env.HW.get('tstate:main'); if(st) assignments=JSON.parse(st).assignments||[];}catch{}
-        const closeAt=Date.now();
-        for(const p of [1,2]){
-          // الفترة المغلقة سابقًا تبقى على لقطتها: ما سُلّم أو اشتُري بعد إغلاقها لا يغيّرها
-          if((sem.periodStatus||{})[String(p)]==='closed'&&sem.periodSnapshots[String(p)]) continue;
-          const snp=computeAllGrades(students,data,assignments,semester,p); snp.term={...snp.term, closedAt:closeAt};
-          sem.periodSnapshots[String(p)]=snp;
-        }
+        const closeAt=semCloseSnapshots(sem,students,data,assignments,semester);
         sem.status='closed'; sem.closedAt=closeAt;
       } else if(b.action==='set') { sem.activePeriod=Number(b.period)===2?2:1; }
       /* 📅 تعديل حدود الفترة يدويًا من بوابة المعلم (الحالة الأكاديمية لا تُقبل عبر /classroom) */
