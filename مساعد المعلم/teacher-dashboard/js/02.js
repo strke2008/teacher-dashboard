@@ -8227,7 +8227,10 @@ function saveHw(id) {
     const old = id && HW.find(x=>x.id===id);
     const same = old && Array.isArray(old.nafs) && old.nafs.slice().sort().join()===nafsSel.secs.slice().sort().join();
     if(old && !same && Object.keys(old.subs||{}).length){ toast('حلّ طلاب هذا النشاط — لا يمكن تغيير أقسام نافس الآن. أنشئ نشاط نافس جديدًا.', 'bad'); return; }
-    if(same) nafsSel.keep = true;
+    // الأقسام نفسها: إن لم يحلّه أحد تُحدَّث أسئلته من البنك (فتدخل الأسئلة المولّدة أو المضافة بعده)، وإلا تبقى كما هي
+    if(same && Object.keys(old.subs||{}).length){ nafsSel.keep = true;
+      const have=new Set((old.qs||[]).map(q=>q&&q.nafs)), fresh=nafsSel.qs.filter(q=>!have.has(q.nafs)).length;
+      if(fresh) toast(`حلّ طلاب هذا النشاط فبقيت أسئلته كما هي — ${fresh} ${fresh===1?'سؤال جديد':'أسئلة جديدة'} في البنك تدخل في نشاط نافس جديد`,'warn'); }
   }
   const kind = pickedKind==='nafs' ? 'normal' : pickedKind;
   const pts = (kind==='normal' || kind==='reading' || kind==='lab') ? Math.max(1, +document.getElementById('h-pts').value || 50) : 0;

@@ -556,6 +556,7 @@ function nafsFormPicker(h) {
   NAFS_F.term = own.length ? NAFS_SECTIONS.find(s => s.id === own[0]).term : NAFS.term;
   NAFS_F.pick = new Set(own.length ? own : NAFS_SECTIONS.filter(s => s.term === NAFS_F.term).map(s => s.id));
   NAFS_F.mode = h && h.nfMode === 'sim' ? 'sim' : 'train'; NAFS_F.sec = Number(h && h.nfSec) || 90;
+  setTimeout(() => { try { nafsCusLoad(); } catch (e) {} }, 0);   // أحدث بنك قبل اختيار الأقسام
   return `<div class="nafs-form">${nafsFormBody()}</div>`;
 }
 function nafsFormBody() {
@@ -809,7 +810,9 @@ async function nafsCusLoad() {
     if (!getApi() || !getTok()) return;
     const r = await fetch(getApi().replace(/\/+$/, '') + '/nafs-bank?t=' + encodeURIComponent(getTok()) + '&_=' + Date.now(), { cache: 'no-store' });
     const j = await r.json().catch(() => null); if (!r.ok || !j || !j.ok || !j.data) return;
-    if ((Number(j.data.at) || 0) >= NAFS_CUS.at) { nafsCusApply(j.data); try { localStorage.setItem(NAFS_CUS_KEY, JSON.stringify(nafsCusData())); } catch (e) {} if (document.getElementById('nafs-root')?.offsetParent) nafsRender(); }
+    if ((Number(j.data.at) || 0) >= NAFS_CUS.at) { nafsCusApply(j.data); try { localStorage.setItem(NAFS_CUS_KEY, JSON.stringify(nafsCusData())); } catch (e) {} if (document.getElementById('nafs-root')?.offsetParent) nafsRender(); nafsFormRefresh(); }
+    // الجهاز يحمل أحدث مما في الخادم (حُفظ ولم يُرفع): يُرفع الآن
+    else nafsCusSave();
   } catch (e) {}
 }
 function nafsCusSave() {
@@ -825,6 +828,9 @@ function nafsCusSave() {
     } catch (e) { if (!NAFS_CUS.warned) { NAFS_CUS.warned = true; toast(e.message === 'old' ? 'حُفظ على هذا الجهاز فقط — ارفع worker.js الأخير ليتزامن بنك نافس بين أجهزتك' : 'تعذّر حفظ بنك نافس في الخادم — حُفظ على هذا الجهاز', 'bad'); } }
   }, 700);
 }
+// حفظ مؤجَّل لم يُرسل بعد: يُرسل فورًا عند إغلاق الصفحة أو الانتقال منها
+addEventListener('pagehide', () => { if (!NAFS_CUS.timer || !getApi() || !getTok()) return; clearTimeout(NAFS_CUS.timer); NAFS_CUS.timer = 0;
+  try { fetch(getApi().replace(/\/+$/, '') + '/nafs-bank', { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ t: getTok(), data: nafsCusData() }) }); } catch (e) {} });
 function nafsToggleQ(id, on) { if (on) NAFS_CUS.ex.delete(id); else NAFS_CUS.ex.add(id); nafsCusSave(); nafsRender(); }
 function nafsSelAll(sec, on) { NAFS_BANK.filter(q => q.s === sec).forEach(q => { if (on) NAFS_CUS.ex.delete(q.id); else NAFS_CUS.ex.add(q.id); }); NAFS.open = sec; nafsCusSave(); nafsRender(); }
 async function nafsDelQ(id) {
@@ -938,6 +944,8 @@ function nafsGenAdd() {
   toast(`✦ أُضيف ${picks.length} ${picks.length === 1 ? 'سؤال' : 'أسئلة'} إلى «${NAFS_SECTIONS.find(s => s.id === NAFS_GEN.sec).title}» — تدخل الاختبار تلقائيًا`, 'good');
 }
 document.querySelectorAll('[data-tab="nafs"]').forEach(b => b.addEventListener('click', () => nafsCusLoad()));
+// 🔄 بنك نافس من الخادم عند فتح اللوحة (لا عند زيارة تبويب نافس فقط): الأسئلة المولّدة من جهاز آخر تظهر في «إنشاء نشاط نافس» مباشرة
+setTimeout(() => { try { nafsCusLoad(); } catch (e) {} }, 1500);
 
 /* 📊 أشكال البيانات في أسئلة نافس المولّدة: جدول أو أعمدة أو منحنى — تُرسم من بياناتها فتطابق السؤال والإجابة دائمًا.
    fig: {type:'table', title, head:[..], rows:[[..]]} · {type:'bar', title, x, y, labels:[..], values:[..]} · {type:'line', title, x, y, series:[{name, pts:[[x,y],..]}]}
