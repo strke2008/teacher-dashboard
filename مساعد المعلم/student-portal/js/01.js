@@ -239,7 +239,6 @@ async function openRejectedProjectResubmit(nm){
       ' · متاح حتى ' + new Date(until).toLocaleString('ar-SA');
 
     resetFilePicker();
-    showDirectMessages(myName);
     return true;
   }catch(e){
     console.warn('openRejectedProjectResubmit:', e);
@@ -613,7 +612,6 @@ async function beginWith(i){
     $('files-title').textContent = '📎 ' + (HW.t || 'تسليم العمل');
     $('files-student').textContent = 'الطالب: ' + myName + (HW.d ? ' · موعد التسليم: ' + HW.d : '');
     resetFilePicker();
-    showDirectMessages(myName);
     return;
   }
 
@@ -621,8 +619,7 @@ async function beginWith(i){
   show('s-pre');
   $('pre-name').textContent = myName;
   await loadStore(true);
-  // 💬 رسائل المعلم تصل هنا أيضًا — لا في البوابة وحدها
-  showDirectMessages(myName);
+  // 🎯 شاشة ما قبل الحل للبدء فقط: رسائل المعلم مكانها صفحة الطالب الرئيسية (التنبيهات) لا هنا
 }
 
 // 📎 النسخة التجريبية: رفع الصور وPDF إلى R2 عبر الخادم
