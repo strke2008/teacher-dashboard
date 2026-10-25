@@ -624,7 +624,8 @@ async function beginWith(i){
 
 // 📎 النسخة التجريبية: رفع الصور وPDF إلى R2 عبر الخادم
 let selectedFiles = [];
-const MAX_FILES = 5, MAX_FILE_BYTES = 20*1024*1024, MAX_VIDEO_BYTES = 60*1024*1024,
+// 🎥 الفيديو حتى 300MB: ما فوق 40MB يُرفع على أجزاء مباشرة إلى R2 (حد طلب Cloudflare الواحد 100MB)
+const MAX_FILES = 5, MAX_FILE_BYTES = 20*1024*1024, MAX_VIDEO_BYTES = 300*1024*1024, BIG_UPLOAD = 40*1024*1024,
       isVideoFile = f => String(f && f.type || '').startsWith('video/')
         || /\.(mp4|mov|m4v|3gp|webm|avi|mkv)$/i.test(String(f && f.name || '')),
       fileAllowed = f => { const t=String(f&&f.type||''), n=String(f&&f.name||'');
@@ -652,8 +653,8 @@ async function compressImage(file){
     return new File([blob],base+'.jpg',{type:'image/jpeg',lastModified:Date.now()});
   }catch(e){ return file; }
 }
-/* 🎥 معالجة الفيديو: الحد الحقيقي للحجم هو 60 MB فقط.
-   إذا تجاوز الفيديو 60 MB نضغطه كاملاً داخل جهاز الطالب بدون قص وبدون فرض مدة.
+/* 🎥 معالجة الفيديو: الحد الحقيقي للحجم هو 300 MB فقط.
+   إذا تجاوز الفيديو 300 MB نضغطه كاملاً داخل جهاز الطالب بدون قص وبدون فرض مدة.
    مدة 5 دقائق مجرد توصية في الواجهة لأن التحويل يصبح أطول كلما زادت المدة.
    نستخدم Mediabunny فوق WebCodecs بدل Canvas/MediaRecorder. */
 let videoProcessing=false, videoQueue=[];
@@ -768,12 +769,12 @@ async function compressVideoInBrowser(file){
   const duration=await getVideoDuration(file);
   if(!Number.isFinite(duration)||duration<=0) throw new Error('duration');
 
-  // المحاولة الأولى: هدف 55 MB مع المحافظة على جودة جيدة.
-  let out=await compressVideoWithMediabunny(file,55*1024*1024,1);
+  // المحاولة الأولى: هدف 270 MB مع المحافظة على جودة جيدة.
+  let out=await compressVideoWithMediabunny(file,270*1024*1024,1);
   if(out.size<=MAX_VIDEO_BYTES) return out;
 
-  // المحاولة الثانية: هدف 50 MB ودقة أقل. لا قص، فقط ضغط أقوى.
-  out=await compressVideoWithMediabunny(file,50*1024*1024,2);
+  // المحاولة الثانية: هدف 220 MB ودقة أقل. لا قص، فقط ضغط أقوى.
+  out=await compressVideoWithMediabunny(file,220*1024*1024,2);
   if(out.size>MAX_VIDEO_BYTES) throw new Error('still-big');
   return out;
 }
@@ -810,8 +811,8 @@ async function videoTooBig(f){
       }catch(e){
         console.error('video processing:',e);
         let msg='تعذر ضغط الفيديو على هذا الجهاز. حدّث Safari أو جرّب Chrome حديثًا.';
-        if(e.message==='too-long-to-compress') msg='الفيديو أكبر من 60 MB ومدته أكثر من 5 دقائق. اختصر الفيديو إلى 5 دقائق أو أقل، أو منتجه/أعد تصويره ثم حاول رفعه مرة أخرى. لم تبدأ عملية الضغط لتجنب انتظار طويل.';
-        else if(e.message==='still-big') msg='تم ضغط الفيديو كاملًا لكنه ما زال أكبر من 60 MB. خفّض جودة التصوير ثم أعد اختياره.';
+        if(e.message==='too-long-to-compress') msg='الفيديو أكبر من 300 MB ومدته أكثر من 5 دقائق. اختصر الفيديو إلى 5 دقائق أو أقل، أو منتجه/أعد تصويره ثم حاول رفعه مرة أخرى. لم تبدأ عملية الضغط لتجنب انتظار طويل.';
+        else if(e.message==='still-big') msg='تم ضغط الفيديو كاملًا لكنه ما زال أكبر من 300 MB. خفّض جودة التصوير ثم أعد اختياره.';
         else if(e.message==='webcodecs' || e.message==='encode-video') msg='جهازك لا يتيح ترميز الفيديو المطلوب داخل المتصفح. حدّث iOS/Safari ثم أعد المحاولة.';
         else if(e.message==='toolkit') msg='تعذر تحميل أداة معالجة الفيديو. تحقق من اتصال الإنترنت ثم أعد المحاولة.';
         else if(e.message==='conversion') msg='تعذر إنشاء نسخة MP4 مضغوطة لهذا الفيديو. جرّب حفظه بصيغة MP4 ثم أعد اختياره.';
@@ -839,7 +840,7 @@ async function addSelectedFiles(list){
     if(selectedFiles.some(x=>x.name===f.name && x.size===f.size)){ continue; }
 
     if(isVideoFile(f)){
-      // الحد الحقيقي للحجم هو 60 MB. نفحص مدة الفيديو فقط إذا تجاوز هذا الحجم،
+      // الحد الحقيقي للحجم هو 300 MB. نفحص مدة الفيديو فقط إذا تجاوز هذا الحجم،
       // و5 دقائق حد وقائي يمنع بدء ضغط طويل جداً، وليس حداً على الفيديو المقبول مباشرة.
       if(f.size>MAX_VIDEO_BYTES){ videoTooBig(f); continue; }
       selectedFiles.push(f);
@@ -880,6 +881,28 @@ function renderBrief(){
     ${dv?`<div class="brief-row"><span class="brief-k">📎 تُسلّم</span><p>${esc(dv)}</p></div>`:''}
     ${ac?`<div class="brief-row ok"><span class="brief-k">✅ يُقبل إذا</span><p>${esc(ac)}</p></div>`:''}`;
 }
+/* 🎥 رفع ملف كبير على أجزاء 10MB مباشرة إلى R2 — كل جزء يُعاد حتى 3 مرات عند انقطاع الشبكة */
+async function upBigFile(api,f,onBytes){
+  const post=(path,body)=>fetch(api+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(r=>r.json()).catch(()=>({}));
+  let ss=''; try{ ss=getStoreSession()||''; }catch(e){}
+  const st=await post('/file-up/start',{hw:HW.id,name:myName,sid:mySid||'',session:ss,fname:f.name,type:f.type||'',size:f.size});
+  if(!st.ok) throw new Error(st.error||'upload');
+  const ps=st.partSize||10*1024*1024, parts=[];
+  try{
+    for(let n=1,off=0; off<f.size; n++,off+=ps){
+      const chunk=f.slice(off,Math.min(f.size,off+ps)); let j=null;
+      for(let t=0;t<3 && !(j&&j.ok);t++){
+        if(t) await new Promise(r=>setTimeout(r,1500*t));
+        try{ const r=await fetch(`${api}/file-up/part?u=${encodeURIComponent(st.uploadId)}&n=${n}`,{method:'POST',headers:{'Content-Type':'application/octet-stream'},body:chunk}); j=await r.json().catch(()=>null); }catch(e){ j=null; }
+      }
+      if(!(j&&j.ok)) throw new Error('upload');
+      parts.push({partNumber:j.partNumber,etag:j.etag}); onBytes(chunk.size);
+    }
+    const d=await post('/file-up/done',{u:st.uploadId,parts});
+    if(!d.ok) throw new Error(d.error||'upload');
+    return st.uploadId;
+  }catch(e){ post('/file-up/abort',{u:st.uploadId}); throw e; }
+}
 async function submitFileWork(){
   if(!selectedFiles.length) return;
   const api=((HW&&HW.api)||API||'').replace(/\/+$/,'');
@@ -893,11 +916,22 @@ async function submitFileWork(){
       if(f.size>capFor(f)) throw new Error('size');
       prepared.push(f); bi.style.width=Math.round(10+(i+1)/selectedFiles.length*25)+'%';
     }
+    // 🎥 الكبير على أجزاء أولًا (بشريط تقدم حقيقي)، ثم التسليم يضمّه بمعرّفه مع الملفات الصغيرة
+    const big=prepared.filter(f=>f.size>BIG_UPLOAD), small=prepared.filter(f=>f.size<=BIG_UPLOAD), pre=[];
+    if(big.length){
+      const total=big.reduce((a,f)=>a+f.size,0); let done=0;
+      for(const f of big){
+        status.textContent=`جاري رفع ${f.name}…`;
+        pre.push(await upBigFile(api,f,n=>{ done+=n; bi.style.width=Math.round(35+done/total*55)+'%';
+          status.textContent=`جاري رفع ${f.name}… ${formatFileSize(done)} من ${formatFileSize(total)}`; }));
+      }
+    }
     const fd=new FormData();
     fd.append('hw',HW.id); fd.append('name',myName); fd.append('sid',mySid||'');
     try{ const _ss = getStoreSession(); if(_ss) fd.append('session', _ss); }catch(e){}
-    prepared.forEach(f=>fd.append('files',f,f.name));
-    status.textContent='جاري رفع العمل…'; bi.style.width='45%';
+    small.forEach(f=>fd.append('files',f,f.name));
+    if(pre.length) fd.append('pre',JSON.stringify(pre));
+    status.textContent='جاري رفع العمل…'; bi.style.width=big.length?'92%':'45%';
     const r=await fetch(api+'/file-submit',{method:'POST',body:fd});
     const j=await r.json().catch(()=>({}));
     if(!r.ok || !j.ok) throw new Error(j.error||'upload');

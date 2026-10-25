@@ -3344,6 +3344,51 @@ function machinesScore(log) {
    أسئلة بديلة على نفس المفهوم (يولّدها الذكاء الاصطناعي عند النشر) + تذكير قصير.
    ليست درجة؛ نقاط متجر فقط. إتقان 80% يغلقها، وإخفاق مرتين يرفعها للمعلم.
    ═══════════════════════════════════════════════════════════════════ */
+/* 📎 تسليم الملفات: الحدود والتحقق المشترك بين /file-submit و/file-up/start */
+const FUP = { part: 10 * 1024 * 1024, maxFile: 20 * 1024 * 1024, maxVideo: 300 * 1024 * 1024, maxTotal: 500 * 1024 * 1024 };
+// بعض الأجهزة ترسل type فارغًا للفيديو — نرجع إلى الامتداد
+const fileIsVideo = f => String(f.type || '').startsWith('video/') || /\.(mp4|mov|m4v|3gp|webm|avi|mkv)$/i.test(String(f.name || ''));
+const fileAllowedSrv = f => f.type === 'application/pdf' || String(f.type || '').startsWith('image/') || fileIsVideo(f)
+  || /\.(jpg|jpeg|png|webp|heic|heif|gif|pdf)$/i.test(String(f.name || ''));
+async function fileSubmitGate(env, hw, st) {
+  const hwRaw = await env.HW.get(`hw:${hw}`);
+  if (!hwRaw) return { res: json({ error: 'activity not found' }, 404) };
+  let p;
+  try { p = JSON.parse(hwRaw); } catch { return { res: json({ error: 'bad activity' }, 500) }; }
+  if (p.kind !== 'files') return { res: json({ error: 'not a file activity' }, 400) };
+  // العضوية بالمعرف أو بالاسم — فنقل الطالب بين الفصول لا يقطع وصوله
+  if (!rosterHas(p, st)) return { res: json({ error: 'student not allowed' }, 403) };
+  const oldFound = await readByIdentity(env, `fa:${hw}:`, st, { migrate: false });
+  let oldFiles = [];
+  try { oldFiles = oldFound.value ? JSON.parse(oldFound.value) : []; } catch {}
+  if (!Array.isArray(oldFiles)) oldFiles = [];
+  // 🔒 المشروع يُسلَّم مرة واحدة. الإعادة فقط: بعد رفض المعلم خلال مهلته (3 أيام)، أو بصلاحية منه.
+  const oldSubFound = await readByIdentity(env, `s:${hw}:`, st, { migrate: false });
+  const xaNow = parseInt((await readByIdentity(env, `xa:${hw}:`, st, { migrate: false })).value, 10) || 0;
+  if (oldSubFound.value) {
+    let oldSub = {};
+    try { oldSub = JSON.parse(oldSubFound.value) || {}; } catch {}
+    const status = String(oldSub.reviewStatus || '');
+    const until = Number(oldSub.resubmitUntil || 0);
+    const rejectedOpen = status === 'rejected' && until && Date.now() <= until;
+    if (!rejectedOpen && xaNow <= 0) {
+      if (status === 'rejected') return { res: json({ error: 'resubmission window expired', resubmitUntil: until || 0 }, 403) };
+      return { res: json({ error: 'already_submitted', reviewStatus: status || 'pending' }, 409) };
+    }
+  }
+  return { p, oldFiles, oldSubFound, xaNow };
+}
+// 🧹 رفع على أجزاء لم يُضمّ لتسليم خلال يوم: يُحذف ملفه من R2
+async function fileUpSweep(env) {
+  if (!env.FILES) return;
+  const keys = await listAllKeys(env, 'fup:');
+  for (const k of keys.slice(0, 100)) {
+    let rec = null; try { rec = JSON.parse(await env.HW.get(k) || 'null'); } catch {}
+    if (rec && Date.now() - (rec.at || 0) < 864e5) continue;
+    try { if (rec && rec.done) await env.FILES.delete(rec.key); else if (rec) await env.FILES.resumeMultipartUpload(rec.key, k.slice(4)).abort(); } catch {}
+    await env.HW.delete(k);
+  }
+}
 /* 📢 الإعلانات: الأنواع والحدود (الحد الأعلى لطلب Cloudflare المجاني 100MB) */
 const ANN = { maxFiles: 6, keep: 60, max: { image: 10 * 1024 * 1024, pdf: 25 * 1024 * 1024, video: 95 * 1024 * 1024, ppt: 50 * 1024 * 1024 } };
 /* 📊 عرض PowerPoint: بعض المتصفحات ترسله بلا نوع أو octet-stream — يُعرف حينها بامتداده */
@@ -5426,6 +5471,7 @@ export default {
     ctx.waitUntil(backupTick(env).catch(() => {}));
     ctx.waitUntil(liveTick(env, ctx).catch(() => {}));
     ctx.waitUntil(planTick(env).catch(() => {}));
+    ctx.waitUntil(fileUpSweep(env).catch(() => {}));
   },
 
   async fetch(request, env, ctx) {
@@ -7124,6 +7170,66 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       return json(publicActivity(act));
     }
 
+    /* 🎥 رفع الملفات الكبيرة على أجزاء مباشرة إلى R2 (حد جسم الطلب في Cloudflare 100MB):
+       start ⇒ R2 multipart · part (10MB لكل جزء) · done ⇒ ملف جاهز، ثم /file-submit يضمّه للتسليم بمعرّفه (pre).
+       مُعرّف الرفع (uploadId) عشوائي من R2 ويُحفظ مع صاحبه في fup:، والرفع غير المستخدم يُحذف بعد يوم (cron). */
+    if (url.pathname.startsWith('/file-up/') && request.method === 'POST') {
+      if (!env.FILES) return json({ ok: false, error: 'R2 binding FILES is missing' }, 500);
+      const op = url.pathname.slice('/file-up/'.length);
+      if (op === 'part') {   // الجسم بايتات الجزء نفسه (لا JSON)
+        const u = String(url.searchParams.get('u') || '').slice(0, 300), n = parseInt(url.searchParams.get('n'), 10);
+        let rec = null; try { rec = JSON.parse(await env.HW.get(`fup:${u}`) || 'null'); } catch {}
+        if (!rec || rec.done) return json({ ok: false, error: 'upload not found' }, 404);
+        if (!(n >= 1 && n <= 10000)) return json({ ok: false, error: 'bad part' }, 400);
+        const buf = await request.arrayBuffer();
+        if (!buf.byteLength || buf.byteLength > FUP.part) return json({ ok: false, error: 'bad part size' }, 400);
+        try {
+          const part = await env.FILES.resumeMultipartUpload(rec.key, u).uploadPart(n, buf);
+          return json({ ok: true, partNumber: part.partNumber, etag: part.etag });
+        } catch { return json({ ok: false, error: 'part failed' }, 500); }
+      }
+      let b; try { b = await request.json(); } catch { return json({ ok: false, error: 'bad json' }, 400); }
+      if (op === 'start') {
+        const hw = String(b.hw || '').slice(0, 64).trim();
+        const bindS = await bindSession(env, { session: String(b.session || '') });
+        if (bindS && bindS.res) return bindS.res;
+        const st = bindS && bindS.st ? bindS.st : await resolveStudent(env, { id: String(b.sid || '').slice(0, 40).trim(), name: String(b.name || '').slice(0, 80).trim() });
+        if (!hw || !st || !(st.id || st.name)) return json({ ok: false, error: 'missing hw or name' }, 400);
+        if (st.ambiguous) return json({ ok: false, error: 'ambiguous student', ambiguous: true }, 409);
+        const g = await fileSubmitGate(env, hw, st); if (g.res) return g.res;
+        const f = { name: String(b.fname || 'file'), type: String(b.type || ''), size: Number(b.size) || 0 };
+        if (!fileAllowedSrv(f)) return json({ ok: false, error: 'only images, pdf and video allowed' }, 400);
+        const cap = fileIsVideo(f) ? FUP.maxVideo : FUP.maxFile;
+        if (!(f.size > 0) || f.size > cap) return json({ ok: false, error: 'file too large', max: cap }, 400);
+        const safeName = String(f.name).replace(/[^\w\-.\u0600-\u06FF ]/g, '_').slice(0, 100);
+        const key = `attachments/${hw}/${crypto.randomUUID()}-${safeName}`;
+        const mpu = await env.FILES.createMultipartUpload(key, { httpMetadata: { contentType: f.type || 'application/octet-stream' } });
+        await env.HW.put(`fup:${mpu.uploadId}`, JSON.stringify({ key, hw, sid: String(st.id || ''), name: String(st.name || ''), fname: safeName, type: f.type, size: f.size, at: Date.now(), done: false }));
+        return json({ ok: true, uploadId: mpu.uploadId, partSize: FUP.part });
+      }
+      const u = String(b.u || '').slice(0, 300);
+      let rec = null; try { rec = JSON.parse(await env.HW.get(`fup:${u}`) || 'null'); } catch {}
+      if (!rec) return json({ ok: false, error: 'upload not found' }, 404);
+      const mp = env.FILES.resumeMultipartUpload(rec.key, u);
+      if (op === 'abort') {
+        try { if (rec.done) await env.FILES.delete(rec.key); else await mp.abort(); } catch {}
+        await env.HW.delete(`fup:${u}`);
+        return json({ ok: true });
+      }
+      if (op === 'done') {
+        if (rec.done) return json({ ok: true, u, size: rec.size });
+        const parts = (Array.isArray(b.parts) ? b.parts : []).map(x => ({ partNumber: parseInt(x && x.partNumber, 10), etag: String(x && x.etag || '') }))
+          .filter(x => x.partNumber >= 1 && x.etag).sort((x, y) => x.partNumber - y.partNumber);
+        if (!parts.length) return json({ ok: false, error: 'no parts' }, 400);
+        let obj;
+        try { obj = await mp.complete(parts); } catch { return json({ ok: false, error: 'complete failed' }, 500); }
+        if (!obj || obj.size !== rec.size) { try { await env.FILES.delete(rec.key); } catch {} await env.HW.delete(`fup:${u}`); return json({ ok: false, error: 'size mismatch' }, 400); }
+        rec.done = true; await env.HW.put(`fup:${u}`, JSON.stringify(rec));
+        return json({ ok: true, u, size: obj.size });
+      }
+      return json({ ok: false, error: 'bad op' }, 400);
+    }
+
     // ── 📎 النسخة التجريبية: الطالب يرفع صور/PDF إلى R2 ──
     if (url.pathname === '/file-submit' && request.method === 'POST') {
       if (!env.FILES) return json({ error: 'R2 binding FILES is missing' }, 500);
@@ -7138,67 +7244,41 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       const st = bindS && bindS.st ? bindS.st : await resolveStudent(env, { id: sidIn, name });
       if (st.ambiguous) return json({ error: 'ambiguous student', ambiguous: true }, 409);
 
-      const hwRaw = await env.HW.get(`hw:${hw}`);
-      if (!hwRaw) return json({ error: 'activity not found' }, 404);
-      let p;
-      try { p = JSON.parse(hwRaw); } catch { return json({ error: 'bad activity' }, 500); }
-      if (p.kind !== 'files') return json({ error: 'not a file activity' }, 400);
-      // العضوية بالمعرف أو بالاسم — فنقل الطالب بين الفصول لا يقطع وصوله
-      if (!rosterHas(p, st)) return json({ error: 'student not allowed' }, 403);
+      const g = await fileSubmitGate(env, hw, st); if (g.res) return g.res;
+      const { p, oldFiles, oldSubFound, xaNow } = g;
 
       const incoming = fd.getAll('files').filter(x => x && typeof x.arrayBuffer === 'function');
-      if (!incoming.length) return json({ error: 'no files' }, 400);
-      if (incoming.length > 5) return json({ error: 'too many files' }, 400);
-
-      const oldFound = await readByIdentity(env, `fa:${hw}:`, st, { migrate: false });
-      const oldRaw = oldFound.value;
-      let oldFiles = [];
-      try { oldFiles = oldRaw ? JSON.parse(oldRaw) : []; } catch {}
-      if (!Array.isArray(oldFiles)) oldFiles = [];
-
-      // إعادة التسليم بعد الرفض متاحة لمدة 3 أيام فقط من لحظة الرفض.
-      // التحقق هنا على الخادم، لذلك لا يمكن تجاوز المهلة بتعديل واجهة الطالب.
-      // 🔒 المشروع يُسلَّم مرة واحدة. الإعادة فقط: بعد رفض المعلم خلال مهلته، أو بصلاحية منه.
-      // سابقًا كان يُقبل أي رفع جديد، ويعيد حالة المشروع المقبول إلى «قيد المراجعة».
-      const oldSubFound = await readByIdentity(env, `s:${hw}:`, st, { migrate: false });
-      const xaNow = parseInt((await readByIdentity(env, `xa:${hw}:`, st, { migrate: false })).value, 10) || 0;
-      if (oldSubFound.value) {
-        let oldSub = {};
-        try { oldSub = JSON.parse(oldSubFound.value) || {}; } catch {}
-        const status = String(oldSub.reviewStatus || '');
-        const until = Number(oldSub.resubmitUntil || 0);
-        const rejectedOpen = status === 'rejected' && until && Date.now() <= until;
-        if (!rejectedOpen && xaNow <= 0) {
-          if (status === 'rejected') return json({ error: 'resubmission window expired', resubmitUntil: until || 0 }, 403);
-          return json({ error: 'already_submitted', reviewStatus: status || 'pending' }, 409);
-        }
+      // 🎥 ملفات رُفعت مسبقًا على أجزاء (/file-up): لهذا الطالب ولهذا النشاط فقط، ومكتملة
+      let preIds = []; try { preIds = JSON.parse(String(fd.get('pre') || '[]')); } catch {}
+      const pre = [];
+      for (const u of (Array.isArray(preIds) ? preIds : []).slice(0, 5)) {
+        let rec = null; try { rec = JSON.parse(await env.HW.get(`fup:${String(u).slice(0, 300)}`) || 'null'); } catch {}
+        if (!rec || !rec.done || rec.hw !== hw || !((st.id && rec.sid === String(st.id)) || (!rec.sid && rec.name === st.name))) return json({ error: 'upload not found' }, 400);
+        pre.push({ u: String(u), rec });
       }
+      if (!incoming.length && !pre.length) return json({ error: 'no files' }, 400);
+      if (incoming.length + pre.length > 5) return json({ error: 'too many files' }, 400);
       // النسخة التجريبية تعتبر كل إعادة إرسال تسليماً جديداً، لكن لا تسمح بتراكم الملفات.
       // نحذف المرفقات السابقة أولاً بعد نجاح التحقق من الملفات الجديدة.
       // 🎥 الفيديو مسموح الآن: الملفات تُخزَّن في R2 لا في KV، فلا يقيّدها
       // سقف الـ25MB. الحد الأعلى للفيديو أكبر لأنه لا يُضغط في المتصفح
       // كما تُضغط الصور، وحدّ جسم الطلب في Cloudflare 100MB.
-      const MAX = 20 * 1024 * 1024;
-      const MAX_VIDEO = 60 * 1024 * 1024;
-      // بعض الأجهزة ترسل type فارغًا للفيديو — نرجع إلى الامتداد
-      const isVideo = f => String(f.type||'').startsWith('video/')
-                        || /\.(mp4|mov|m4v|3gp|webm|avi|mkv)$/i.test(String(f.name||''));
-      const allowed = f => f.type === 'application/pdf'
-                        || String(f.type||'').startsWith('image/')
-                        || isVideo(f)
-                        || /\.(jpg|jpeg|png|webp|heic|heif|gif|pdf)$/i.test(String(f.name||''));
+      // جسم هذا الطلب ≤ 80MB (حد Cloudflare 100MB)؛ الأكبر يأتي مرفوعًا مسبقًا على أجزاء (pre)
       const prepared = [];
-      let totalBytes = 0;
+      let totalBytes = 0, formBytes = 0;
       for (const f of incoming) {
-        if (!allowed(f)) return json({ error: 'only images, pdf and video allowed' }, 400);
-        const cap = isVideo(f) ? MAX_VIDEO : MAX;
+        if (!fileAllowedSrv(f)) return json({ error: 'only images, pdf and video allowed' }, 400);
+        const cap = fileIsVideo(f) ? FUP.maxVideo : FUP.maxFile;
         if (f.size > cap) return json({ error: 'file too large', name: f.name, max: cap }, 400);
-        totalBytes += f.size;
-        if (totalBytes > 80 * 1024 * 1024) return json({ error: 'total too large' }, 400);   // 80MB: أقل من حد جسم الطلب (100MB) بهامش
+        totalBytes += f.size; formBytes += f.size;
+        if (formBytes > 80 * 1024 * 1024) return json({ error: 'total too large' }, 400);
         prepared.push(f);
       }
+      for (const x of pre) totalBytes += Number(x.rec.size) || 0;
+      if (totalBytes > FUP.maxTotal) return json({ error: 'total too large', max: FUP.maxTotal }, 400);
 
-      const uploaded = [];
+      const uploaded = pre.map(({ rec }) => ({ key: rec.key, name: rec.fname, type: rec.type || '', size: rec.size, at: Date.now() }));
+      const preKeys = new Set(uploaded.map(f => f.key));
       try {
         for (const f of prepared) {
           const id = crypto.randomUUID();
@@ -7210,12 +7290,13 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
           uploaded.push({ key, name: safeName, type: f.type || '', size: f.size, at: Date.now() });
         }
       } catch (e) {
-        for (const f of uploaded) { try { await env.FILES.delete(f.key); } catch {} }
+        for (const f of uploaded) if (!preKeys.has(f.key)) { try { await env.FILES.delete(f.key); } catch {} }   // المرفوع مسبقًا يبقى لإعادة المحاولة
         return json({ error: 'r2 upload failed' }, 500);
       }
+      for (const x of pre) { try { await env.HW.delete(`fup:${x.u}`); } catch {} }   // استُخدم ⇒ لا يحذفه التنظيف
 
       // استبدال المرفقات السابقة فقط بعد نجاح الرفع الجديد.
-      for (const f of oldFiles) { if (f && f.key) { try { await env.FILES.delete(f.key); } catch {} } }
+      for (const f of oldFiles) { if (f && f.key && !preKeys.has(f.key)) { try { await env.FILES.delete(f.key); } catch {} } }
       const faKey = identityKey(`fa:${hw}:`, st);
       const subKey = identityKey(`s:${hw}:`, st);
       const fileSubmittedAt = Date.now();
@@ -10201,12 +10282,22 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       let meta = [];
       try { meta = found.value ? JSON.parse(found.value) : []; } catch {}
       if (!Array.isArray(meta) || !meta.some(x => x && x.key === key)) return json({ error: 'not found' }, 404);
-      const obj = await env.FILES.get(key);
+      // 🎥 Range: الفيديو يبدأ فورًا ويُقدَّم ويُرجَع (Safari على الآيفون لا يشغّل الفيديو بدونه)
+      const range = request.headers.get('range');
+      const obj = await env.FILES.get(key, range ? { range: request.headers } : undefined);
       if (!obj) return json({ error: 'file not found' }, 404);
       const headers = new Headers(CORS);
       obj.writeHttpMetadata(headers);
       headers.set('Cache-Control', 'private, no-store');
+      headers.set('Accept-Ranges', 'bytes');
       headers.set('Content-Disposition', headers.get('Content-Disposition') || 'inline');
+      if (range && obj.range) {
+        const start = obj.range.offset || 0, len = obj.range.length != null ? obj.range.length : (obj.size - start);
+        headers.set('Content-Range', `bytes ${start}-${start + len - 1}/${obj.size}`);
+        headers.set('Content-Length', String(len));
+        return new Response(obj.body, { status: 206, headers });
+      }
+      headers.set('Content-Length', String(obj.size));
       return new Response(obj.body, { headers });
     }
 

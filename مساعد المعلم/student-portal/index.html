@@ -19,7 +19,7 @@ try{var P=JSON.parse(localStorage.getItem('pt_last')||'null');if(P&&P.t){var R=d
 var C={galaxy:'#0D1331',spaceweek:'#0A1638',saudi:'#00653A',gold:'#7A5A00',diamond:'#1E3A6E'}[P.t];var M=document.querySelector('meta[name="theme-color"]');if(C&&M)M.content=C;
 if(P.t==='saudi'){var L=document.createElement('link');L.rel='preload';L.as='image';L.href='themes/saudi96.webp';document.head.appendChild(L);}}}catch(e){}</script>
 <link rel="stylesheet" href="app.css?v=2b5fd1d1">
-<script src="js/01.js?v=e360ee70" defer></script>
+<script src="js/01.js?v=a6f4cb2a" defer></script>
 <script src="js/02.js?v=43c89944" defer></script>
 <script src="js/03.js?v=1716944b" defer></script>
 <script src="js/04.js?v=ec61937b" defer></script>
@@ -244,7 +244,7 @@ if(P.t==='saudi'){var L=document.createElement('link');L.rel='preload';L.as='ima
       <div class="file-drop" style="margin-top:1rem">
         <div class="file-icon">📄 📷</div>
         <b class="file-help">أرفق صور تنفيذك أو ملف PDF أو فيديو</b>
-        <p class="file-note">يمكنك اختيار حتى 5 ملفات. الحد الأقصى 20 MB للصور وPDF، و60 MB للفيديو. إذا تجاوز الفيديو 60 MB وكان أطول من 5 دقائق فلن تبدأ عملية الضغط، لذا يُفضّل تصويره أو منتجته في مدة لا تتجاوز 5 دقائق.</p>
+        <p class="file-note">يمكنك اختيار حتى 5 ملفات. الحد الأقصى 20 MB للصور وPDF، و300 MB للفيديو. إذا تجاوز الفيديو 300 MB وكان أطول من 5 دقائق فلن تبدأ عملية الضغط، لذا يُفضّل تصويره أو منتجته في مدة لا تتجاوز 5 دقائق.</p>
         <div id="brief-box" class="brief-box" style="display:none"></div>
         <div class="file-pick-row">
           <button class="btn" type="button" id="pick-files">📎 اختيار الصور أو PDF أو فيديو</button>
