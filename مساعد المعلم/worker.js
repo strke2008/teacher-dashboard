@@ -129,16 +129,78 @@ async function kvmetaPut(env, hw, k, v, ...a) {
   try { await env.DB.prepare('INSERT INTO kvmeta (k, v) VALUES (?1, ?2) ON CONFLICT(k) DO UPDATE SET v = excluded.v').bind(k, String(v)).run(); }
   catch { return hw.put(k, v, ...a); }
 }
+/* 🪙 الرصيد والبطاقات (bal: / own:) في D1 لا KV: قراءة KV قد تعيد نسخة عمرها دقيقة، فكانت البوابة تعرض بطاقة
+   استُخدمت للتو (فيظهر «إعادة محاولة» على كل الأنشطة ثم «لا تملك بطاقة»)، والأخطر أن قفل الصرف يقرأ رصيدًا قديمًا
+   فيُصرف الرصيد نفسه مرتين أو تضيع نقاط أضافها المعلم للتو. D1 متسق فورًا.
+   نقل كسول: أول قراءة لمفتاح بلا سطر تأخذ قيمته من KV. الحذف شاهد (v = NULL) حتى لا تعيد نسخة KV متأخرة قيمة محذوفة.
+   القوائم تجمع سطور D1 الحية ومفاتيح KV التي لم تُنقل بعد. */
+const STRONG_PREFIXES = ['bal:', 'own:'];
+const strongKey = k => STRONG_PREFIXES.some(p => String(k).startsWith(p));
+const _kvsReady = new WeakMap();
+async function kvsReady(env) {
+  if (!env.DB) return false;
+  let p = _kvsReady.get(env.DB);
+  if (!p) {
+    p = env.DB.prepare('CREATE TABLE IF NOT EXISTS kvs (k TEXT PRIMARY KEY, v TEXT)').run()
+      .then(() => true).catch(e => { _kvsReady.delete(env.DB); throw e; });
+    _kvsReady.set(env.DB, p);
+  }
+  return p;
+}
+async function kvsGet(env, hw, k, opt) {
+  if (!(await kvsReady(env).catch(() => false))) return hw.get(k, opt);
+  const conv = v => (v !== null && v !== undefined && (opt === 'json' || (opt && opt.type === 'json'))) ? JSON.parse(v) : v;
+  try {
+    let r = await env.DB.prepare('SELECT v FROM kvs WHERE k = ?1').bind(k).first();
+    if (!r) {
+      const v = await hw.get(k);
+      if (v === null || v === undefined) return null;
+      await env.DB.prepare('INSERT OR IGNORE INTO kvs (k, v) VALUES (?1, ?2)').bind(k, String(v)).run();
+      r = await env.DB.prepare('SELECT v FROM kvs WHERE k = ?1').bind(k).first();   // كاتب سبقنا ⇒ قيمته هي الصحيحة
+      if (!r) return conv(v);
+    }
+    return conv(r.v ?? null);
+  } catch { return hw.get(k, opt); }
+}
+async function kvsPut(env, hw, k, v, ...a) {
+  if (!(await kvsReady(env).catch(() => false))) return hw.put(k, v, ...a);
+  try { await env.DB.prepare('INSERT INTO kvs (k, v) VALUES (?1, ?2) ON CONFLICT(k) DO UPDATE SET v = excluded.v').bind(k, String(v)).run(); }
+  catch { return hw.put(k, v, ...a); }
+}
+async function kvsDelete(env, hw, k, ...a) {
+  if (await kvsReady(env).catch(() => false)) {
+    try { await env.DB.prepare('INSERT INTO kvs (k, v) VALUES (?1, NULL) ON CONFLICT(k) DO UPDATE SET v = NULL').bind(k).run(); } catch {}
+  }
+  return hw.delete(k, ...a);
+}
+async function kvsList(env, hw, opts) {
+  const prefix = String((opts && opts.prefix) || '');
+  if (!(await kvsReady(env).catch(() => false))) return hw.list(opts);
+  try {
+    const { results } = await env.DB.prepare('SELECT k, v FROM kvs WHERE substr(k, 1, ?1) = ?2').bind(prefix.length, prefix).all();
+    const inDb = new Map((results || []).map(r => [r.k, r.v]));
+    const names = new Set([...inDb].filter(([, v]) => v !== null && v !== undefined).map(([k]) => k));
+    let cursor;
+    do {
+      const page = await hw.list(cursor ? { prefix, cursor } : { prefix });
+      for (const x of (page.keys || [])) if (!inDb.has(x.name)) names.add(x.name);
+      cursor = page.list_complete ? undefined : page.cursor;
+    } while (cursor);
+    return { keys: [...names].sort().map(name => ({ name })), list_complete: true };
+  } catch { return hw.list(opts); }
+}
 function subTrackEnv(env) {
   if (!env || !env.HW || !env.DB || env.__subTracked) return env;
   const hw = env.HW, e = Object.create(env);
   e.HW = {
-    get: (k, ...a) => KVMETA_KEYS.has(k) ? kvmetaGet(env, hw, k) : hw.get(k, ...a),
+    get: (k, ...a) => KVMETA_KEYS.has(k) ? kvmetaGet(env, hw, k) : strongKey(k) ? kvsGet(env, hw, k, ...a) : hw.get(k, ...a),
     getWithMetadata: (...a) => hw.getWithMetadata(...a),
-    list: (...a) => hw.list(...a),
+    list: (o, ...a) => (o && strongKey(o.prefix || '')) ? kvsList(env, hw, o) : hw.list(o, ...a),
     put: async (k, ...a) => { if (KVMETA_KEYS.has(k)) return kvmetaPut(env, hw, k, ...a);
+      if (strongKey(k)) return kvsPut(env, hw, k, ...a);
       const r = await hw.put(k, ...a); if (/^(?:s|gp):/.test(k)) await subrevMark(env, k); return r; },
-    delete: async (k, ...a) => { const r = await hw.delete(k, ...a); if (/^(?:s|gp):/.test(k)) await subrevMark(env, k); return r; },
+    delete: async (k, ...a) => { if (strongKey(k)) return kvsDelete(env, hw, k, ...a);
+      const r = await hw.delete(k, ...a); if (/^(?:s|gp):/.test(k)) await subrevMark(env, k); return r; },
   };
   e.__subTracked = true;
   return e;
