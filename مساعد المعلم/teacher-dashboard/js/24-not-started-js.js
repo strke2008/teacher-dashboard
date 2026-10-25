@@ -37,6 +37,8 @@ function askApplyPush(item){
 async function asksLoad(){
   try{ const r=await fetch(getApi().replace(/\/+$/,'')+'/asks?t='+encodeURIComponent(getTok()),{cache:'no-store'}); const j=await r.json();
     if(j&&j.ok){ ASKS=j.rows||[]; if(j.cats) ASK_CATS=j.cats; if(j.mode) ASK_PMODE=j.mode;
+      // نسخة الخادم وصلت ⇒ صندوق الإشعارات المحفوظة أدّى غرضه: يُفرَّغ فلا يعود عدده للأيقونة
+      try{ if('caches' in window) caches.open('dash-push-inbox-v1').then(c=>c.delete('/__push_inbox__')).catch(()=>{}); }catch(e){}
       // سؤال وصل بالإشعار قبل أن يظهر في رد الخادم (نسخة قديمة لدقيقة): الأحدث زمنًا هو المعروض حتى يلحق به الخادم
       ASK_PUSHED.forEach((v,id)=>{ if(Date.now()-v.at>120000){ ASK_PUSHED.delete(id); return; }
         const i=ASKS.findIndex(x=>x.id===id);
@@ -155,8 +157,10 @@ async function askApplyInbox(){
     const r=await cache.match('/__push_inbox__');
     if(!r) return;
     const j=await r.json(); const items=Array.isArray(j&&j.items)?j.items:[];
+    // الرسائل في D1 فورية: صندوق الإشعارات يسد ثوانيَ فقط (اللوحة مغلقة أو بلا اتصال). الأقدم من 3 دقائق قديم —
+    // كان يُطبَّق كله «ينتظر ردك» فيظهر عدد وهمي (12) على الصندوق وأيقونة التطبيق حتى تصل نسخة الخادم
     for(const it of items){
-      if(it&&it.id&&!(Array.isArray(ASKS)&&ASKS.some(x=>x.id===it.id))){ try{ askApplyPush(it); }catch(e){} }
+      if(it&&it.id&&Date.now()-(Number(it.at)||0)<180000&&!(Array.isArray(ASKS)&&ASKS.some(x=>x.id===it.id))){ try{ askApplyPush(it); }catch(e){} }
     }
   }catch(e){}
 }

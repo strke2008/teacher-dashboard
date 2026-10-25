@@ -126,7 +126,7 @@ async function myAskLoad(){
   const box=document.getElementById('space-ask'); if(!box) return;
   const w=askWho(); if(!w.sid&&!w.name){ box.innerHTML=''; return; }
   try{ const r=await fetch(askApi()+'/ask-mine?'+new URLSearchParams(w).toString(),{cache:'no-store'}); const j=await r.json();
-    if(j&&j.ok){ ASK_ROWS=askMergePushed(j.rows||[]); ASK_ROWS.forEach(x=>{ if(x.fresh) ASK_UI.fresh.add(x.id); }); if(j.keepDays) ASK_META.keepDays=j.keepDays; askDropNotices(j.gone); if(j.cats) ASK_META={...ASK_META,cats:j.cats,maxLen:j.maxLen||600,maxOpen:j.maxOpen||3}; ASK_META.mode=j.mode||'card'; ASK_META.chat=!!j.chat; } }catch(e){}
+    if(j&&j.ok){ ASK_ROWS=askMergePushed(j.rows||[]); ASK_ROWS.forEach(x=>{ if(x.fresh) ASK_UI.fresh.add(x.id); }); if(j.keepDays) ASK_META.keepDays=j.keepDays; askDropNotices(j.gone); if(j.cats) ASK_META={...ASK_META,cats:j.cats,maxLen:j.maxLen||600,maxOpen:j.maxOpen||3}; ASK_META.mode=j.mode||'card'; ASK_META.chat=!!j.chat; ASK_META.loaded=true; } }catch(e){}
   if(String(mySid||'')!==w.sid) return;
   askRender(); try{ stuFabRender(); if(SFAB.open){ stuFabPanel(); sfabSeenAll(); stuFabRender(); } }catch(e){}
 }
@@ -136,7 +136,10 @@ function askRender(){
   if(ASK_META.mode==='fab'||ASK_META.mode==='off'){ box.innerHTML=''; return; }
   const ST={open:'⏳ بانتظار الرد',answered:'✅ ردّ معلمك',closed:'أُغلق'}, STT=x=>x.kind==='t'?'📣 رسالة من معلمك':(ST[x.status]||'');
   const kd=(ASK_META.keepDays||3)*864e5;
-  const rows=ASK_ROWS.filter(x=>x.status==='open'||Date.now()-(x.seenAt||x.repliedAt||x.at)<kd).sort((a,b)=>(b.repliedAt||b.at)-(a.repliedAt||a.at));
+  // 💬 الصندوق العائم مفعّل (أو الدردشة مفتوحة): المحادثات وردود المعلم فيه وحده — لا تُعرض في الصفحة.
+  // وقبل أول رد من الخادم لا نعرف الوضع بعد ⇒ لا نعرض شيئًا (كانت الردود تظهر لثوانٍ ثم تختفي)
+  const inFab=!ASK_META.loaded||ASK_META.mode==='fab'||ASK_META.mode==='both'||!!ASK_META.chat;
+  const rows=inFab?[]:ASK_ROWS.filter(x=>x.status==='open'||Date.now()-(x.seenAt||x.repliedAt||x.at)<kd).sort((a,b)=>(b.repliedAt||b.at)-(a.repliedAt||a.at));
   const fresh=rows.filter(x=>ASK_UI.fresh.has(x.id)), waiting=rows.filter(x=>x.status==='open').length;
   const item=(x,full)=>`<div class="askc-it${ASK_UI.fresh.has(x.id)?' new':''}${full?' open':''}" onclick="askToggle('${esc(x.id)}',event)">
       ${x.status!=='open'?`<button type="button" class="askc-x" onclick="event.stopPropagation();askHide('${esc(x.id)}',this)" title="إخفاء" aria-label="إخفاء الرد">✕</button>`:''}
