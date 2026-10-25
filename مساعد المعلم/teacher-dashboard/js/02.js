@@ -8827,6 +8827,7 @@ function getApi(){ return (localStorage.getItem(K_API) || API_URL).trim(); }
 function getTok(){ return (localStorage.getItem(K_TOK) || '').trim(); }
 
 /* ⬇️ سحب نتائج الطلاب من الخادم ومنح النقاط */
+let PULL_FAILS = 0;   // فشل جلب ⇒ لا يتقدم مؤشر «ما تغيّر»
 async function pullResults(id, silent){
   const h = HW.find(x=>x.id===id); if(!h) return 0;
   const api = getApi(), tok = getTok();
@@ -8845,11 +8846,13 @@ async function pullResults(id, silent){
     const r = await fetch(`${api}/results?hw=${encodeURIComponent(h.sid)}&t=${encodeURIComponent(tok)}`);
     j = await r.json();
     if(r.status === 401){
+      PULL_FAILS++;
       if(!silent) toast('كلمة السر غير صحيحة', 'bad');
       return 0;
     }
     if(!r.ok || !j.ok) throw 0;
   }catch(e){
+    PULL_FAILS++;
     if(!silent) toast('تعذّر الاتصال بالخادم — تحقق من العنوان', 'bad');
     return 0;
   }
@@ -8977,17 +8980,21 @@ async function pullResults(id, silent){
 
 // 🔄 اسحب تسليمات كل الأنشطة المنشورة دفعة واحدة
 async function pullAll(silent){
-  const published = HW.filter(h => h && h.sid);
+  let published = HW.filter(h => h && h.sid);
   if(!published.length) return 0;
+  const plan = await resChangedPlan(published, 'pull');   // 💸 ما تغيّر فقط
+  published = plan.list;
 
-  let total = 0;
+  let total = 0; const f0 = PULL_FAILS;
   for(const h of published){
     try{
       total += (await pullResults(h.id, true)) || 0;
     }catch(e){
+      PULL_FAILS++;
       console.error('pullResults failed:', h.id, e);
     }
   }
+  if(PULL_FAILS === f0) plan.commit();
   return total;
 }
 
@@ -12304,6 +12311,9 @@ async function pullState(){
       mergedAssignments=protectLocalNewer(serverBase.assignments,HW);
     }
 
+    // 💸 نسخة الخادم أسقطت تسليمًا عالجه هذا الجهاز ⇒ الجلب التالي كامل (مؤشر «ما تغيّر» تجاوزه)
+    try{ const byId=new Map((mergedAssignments||[]).map(h=>[String(h&&h.id),h]));
+      if((Array.isArray(HW)?HW:[]).some(h=>{ const m=h&&h.subs&&byId.get(String(h.id)); return m&&Object.keys(h.subs).some(k=>!(m.subs&&m.subs[k])); })) resChangedReset(); }catch(e){}
     STUDENTS=mergedStudents;
     HW=mergedAssignments;
     PERKS=serverBase.perks;
@@ -12656,6 +12666,26 @@ async function serverChanged(){
   }catch(e){ return false; }               // لا إنترنت ⇒ لا تُرهق الشبكة
 }
 
+/* 💸 جلب نتائج ما تغيّر فقط: الخادم يعرف أي نشاط تغيّرت تسليماته (/results-changed)، فلا نعيد قراءة تسليمات
+   كل الأنشطة عند كل تغيير (كانت أغلب فاتورة القراءات). لكل مسار مؤشره في هذا الجهاز؛ جلب كامل أول مرة ثم مرة يوميًا
+   احتياطًا، وبهامش دقيقتين للخلف لأن قائمة KV قد تتأخر عن الكتابة. خادم قديم بلا المسار ⇒ جلب كامل كالسابق. */
+const CHG_KEY='hwapp_reschg_v1', CHG_BACK=120000, CHG_FULL=864e5;
+function resChangedReset(){ try{ const all=JSON.parse(localStorage.getItem(CHG_KEY)||'{}')||{}; Object.values(all).forEach(o=>{ if(o) o.full=0; }); localStorage.setItem(CHG_KEY,JSON.stringify(all)); }catch(e){} }
+async function resChangedPlan(list, slot){
+  let st={}; try{ st=JSON.parse(localStorage.getItem(CHG_KEY)||'{}')||{}; }catch(e){}
+  const key=slot+'|'+getApi(), c=st[key]||null;
+  const save=(o)=>{ try{ const all=JSON.parse(localStorage.getItem(CHG_KEY)||'{}')||{}; all[key]=o; localStorage.setItem(CHG_KEY,JSON.stringify(all)); }catch(e){} };
+  let j=null;
+  try{ const since=c&&c.cur?c.cur-CHG_BACK:Date.now();
+    const r=await fetch(`${getApi()}/results-changed?t=${encodeURIComponent(getTok())}&since=${since}&_=${Date.now()}`,{cache:'no-store'});
+    if(r.ok) j=await r.json().catch(()=>null); }catch(e){}
+  if(!j||!j.ok) return {list, commit(){}};                    // خادم قديم/تعذّر ⇒ كل الأنشطة، بلا مؤشر
+  const full=!c||!c.cur||Date.now()-(c.full||0)>CHG_FULL||(j.start||0)>c.cur;   // مؤشر أقدم من بداية التتبع ⇒ كامل
+  const commit=()=>save({cur:j.now, full:full?Date.now():(c.full||0)});
+  if(full) return {list, commit, full:true};
+  const set=new Set((j.hws||[]).map(String));
+  return {list:list.filter(h=>set.has(String(h.sid))), commit};
+}
 async function liveFetchResults(list, limit=6){
   const out=new Array(list.length); let i=0;
   const worker=async()=>{ while(i<list.length){ const k=i++, h=list[k];
@@ -12680,12 +12710,16 @@ async function checkLiveSubmissions(force, onlySid){
   liveChecking = true;
   let changed = false;
   const fresh = [];
+  let plan = null, planOk = false;
 
   try{
-    const published = HW.filter(h => h && h.sid && (!onlySid || h.sid === onlySid));
+    let published = HW.filter(h => h && h.sid && (!onlySid || h.sid === onlySid));
+    plan = onlySid ? null : await resChangedPlan(published, 'live');   // 💸 ما تغيّر فقط
+    if(plan) published = plan.list;
 
     // ⚡ نتائج كل الأنشطة بالتوازي (6 طلبات معًا) بدل طلب تلو الآخر — كان التسليم الجديد ينتظر دوره في الطابور
     const fetched = await liveFetchResults(published);
+    planOk = !!plan && fetched.every(([h, j]) => j && j.ok);   // فشل جلب ⇒ لا يتقدم المؤشر فيُعاد لاحقًا
     for(const [h, j] of fetched){
       try{
         if(!j || !j.ok) continue;
@@ -12769,6 +12803,7 @@ async function checkLiveSubmissions(force, onlySid){
 
     return fresh.length;
   }finally{
+    if(planOk) plan.commit();   // بعد المعالجة والحفظ المحلي
     liveChecking = false;
   }
 }

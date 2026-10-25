@@ -71,6 +71,78 @@ async function inBatches(items, size, fn) {
   await Promise.all(Array.from({ length: Math.min(Math.max(1, size), items.length) }, worker));
   return out;
 }
+/* 💸 «أي نشاط تغيّرت تسليماته ومتى» — في D1. كانت اللوحة عند كل تغيير (تسليم، رسالة…) تعيد جلب نتائج كل
+   الأنشطة المنشورة، وكل جلب يقرأ تسليم كل طالب من KV: عشرات الآلاف من القراءات المدفوعة في الساعة.
+   الآن كل كتابة/حذف لمفتاح تسليم (s:/gp:) تُعلِّم نشاطه هنا تلقائيًا (من غلاف KV في أول fetch، فلا يفوت مسار)،
+   وتسأل اللوحة /results-changed ثم تجلب نتائج ما تغيّر فقط. */
+const _subrevReady = new WeakMap();
+async function subrevReady(env) {
+  if (!env.DB) return false;
+  let p = _subrevReady.get(env.DB);
+  if (!p) {
+    p = env.DB.batch([
+      env.DB.prepare('CREATE TABLE IF NOT EXISTS subrev (hw TEXT PRIMARY KEY, at INTEGER NOT NULL)'),
+      env.DB.prepare('INSERT OR IGNORE INTO subrev (hw, at) VALUES (\'\', ?1)').bind(Date.now()),   // سطر '' = بداية التتبع
+    ]).then(() => true).catch(e => { _subrevReady.delete(env.DB); throw e; });
+    _subrevReady.set(env.DB, p);
+  }
+  return p;
+}
+function subrevIds(k) {
+  const m = /^(?:s|gp):([^:]+):/.exec(String(k || ''));
+  if (!m) return [];
+  const base = m[1].replace(/-g\d+$/, '');
+  return base === m[1] ? [m[1]] : [m[1], base];
+}
+async function subrevMark(env, k) {
+  const ids = subrevIds(k);
+  if (!ids.length || !(await subrevReady(env).catch(() => false))) return;
+  const now = Date.now();
+  await env.DB.batch(ids.map(id => env.DB.prepare('INSERT INTO subrev (hw, at) VALUES (?1, ?2) ON CONFLICT(hw) DO UPDATE SET at = MAX(at, excluded.at)').bind(id, now))).catch(() => {});
+}
+/* 💸 عدّادا التغيير (meta:rev / meta:stateAt) تسألهما اللوحة كل 5 ثوانٍ، ويُزادان مع كل تسليم ورسالة:
+   في D1 لا KV (قراءة KV مدفوعة، ونسختها المتأخرة كانت تُضيّع زيادات). أول قراءة تأخذ قيمة KV القديمة. */
+const KVMETA_KEYS = new Set(['meta:rev', 'meta:stateAt']);
+const _kvmetaReady = new WeakMap();
+async function kvmetaReady(env) {
+  if (!env.DB) return false;
+  let p = _kvmetaReady.get(env.DB);
+  if (!p) {
+    p = env.DB.prepare('CREATE TABLE IF NOT EXISTS kvmeta (k TEXT PRIMARY KEY, v TEXT NOT NULL)').run()
+      .then(() => true).catch(e => { _kvmetaReady.delete(env.DB); throw e; });
+    _kvmetaReady.set(env.DB, p);
+  }
+  return p;
+}
+async function kvmetaGet(env, hw, k) {
+  if (!(await kvmetaReady(env).catch(() => false))) return hw.get(k);
+  try {
+    const r = await env.DB.prepare('SELECT v FROM kvmeta WHERE k = ?1').bind(k).first();
+    if (r) return r.v;
+  } catch { return hw.get(k); }
+  const v = await hw.get(k);
+  if (v !== null && v !== undefined) await env.DB.prepare('INSERT OR IGNORE INTO kvmeta (k, v) VALUES (?1, ?2)').bind(k, String(v)).run().catch(() => {});
+  return v;
+}
+async function kvmetaPut(env, hw, k, v, ...a) {
+  if (!(await kvmetaReady(env).catch(() => false))) return hw.put(k, v, ...a);
+  try { await env.DB.prepare('INSERT INTO kvmeta (k, v) VALUES (?1, ?2) ON CONFLICT(k) DO UPDATE SET v = excluded.v').bind(k, String(v)).run(); }
+  catch { return hw.put(k, v, ...a); }
+}
+function subTrackEnv(env) {
+  if (!env || !env.HW || !env.DB || env.__subTracked) return env;
+  const hw = env.HW, e = Object.create(env);
+  e.HW = {
+    get: (k, ...a) => KVMETA_KEYS.has(k) ? kvmetaGet(env, hw, k) : hw.get(k, ...a),
+    getWithMetadata: (...a) => hw.getWithMetadata(...a),
+    list: (...a) => hw.list(...a),
+    put: async (k, ...a) => { if (KVMETA_KEYS.has(k)) return kvmetaPut(env, hw, k, ...a);
+      const r = await hw.put(k, ...a); if (/^(?:s|gp):/.test(k)) await subrevMark(env, k); return r; },
+    delete: async (k, ...a) => { const r = await hw.delete(k, ...a); if (/^(?:s|gp):/.test(k)) await subrevMark(env, k); return r; },
+  };
+  e.__subTracked = true;
+  return e;
+}
 /* ⚡ قائمة المفاتيح نفسها تُطلب مع كل فتح للبوابة: نسخة لكل نسخة خادم لثوانٍ (القائمة في KV متأخرة أصلًا حتى دقيقة) */
 const _KEYLIST = new Map();
 async function listAllKeysCached(env, prefix, ttl = 15000) {
@@ -5178,6 +5250,7 @@ export default {
   /* ⏰ Cron (كل دقيقة): تنبيه بداية الحصة لبوابة المعلم. يلزم إضافة Cron Trigger «* * * * *» في Cloudflare */
   async scheduled(event, env, ctx) {
     if (!env.HW) return;
+    env = subTrackEnv(env);
     ctx.waitUntil(lessonTick(env).catch(() => {}));
     ctx.waitUntil(taskTick(env).catch(() => {}));
     ctx.waitUntil(weeklyTick(env, ctx).catch(() => {}));
@@ -5188,6 +5261,7 @@ export default {
 
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    env = subTrackEnv(env);
 
     if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
 
@@ -9351,6 +9425,15 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       });
     }
 
+    // 💸 الأنشطة التي تغيّرت تسليماتها منذ since (للوحة: تجلب نتائجها وحدها). start = بداية التتبع؛ ما قبله ⇒ جلب كامل
+    if (url.pathname === '/results-changed' && request.method === 'GET') {
+      if (!env.TEACHER_TOKEN || url.searchParams.get('t') !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
+      if (!(await subrevReady(env).catch(() => false))) return json({ ok: false, error: 'no_db' });
+      const since = parseInt(url.searchParams.get('since'), 10) || 0, now = Date.now();
+      const { results } = await env.DB.prepare('SELECT hw, at FROM subrev WHERE at >= ?1 OR hw = \'\'').bind(since).all();
+      const start = ((results || []).find(r => r.hw === '') || {}).at || now;
+      return json({ ok: true, now, start, hws: (results || []).filter(r => r.hw !== '' && r.at >= since).map(r => r.hw) });
+    }
     if (url.pathname === '/rev' && request.method === 'GET') {
       const token = url.searchParams.get('t') || '';
       if (!env.TEACHER_TOKEN || token !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
