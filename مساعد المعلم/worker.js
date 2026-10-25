@@ -7119,22 +7119,27 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       if (myCls) { try { await env.HW.delete(`bcache2:${myCls}`); } catch {} }
 
       // 🩹 العلاج التلقائي: فتح علاج عند الإخفاق، أو حسم مهمة علاجية قائمة
+      /* 🧭 مهمة واحدة لكل إخفاق، بحسب سببه:
+         - سرعة مريبة ← «مهمة تصحيح» فقط (يعيد أسئلته نفسها بتأنٍّ): المشكلة جدية الحل، والنتيجة لا تقيس المهارة
+           فلا يُبنى عليها علاج مهاري
+         - حلّ بوتيرة طبيعية وضعُف (<60% أو مهارة دون 60%) ← «مهمة علاجية» فقط (أسئلة بديلة على المهارة)
+         - حلّ بوتيرة طبيعية و<50% ولم تُفتح له مهمة علاجية لهذا النشاط (العلاج موقوف، أو بلغ حد المهام المفتوحة،
+           أو لا أسئلة) ← «مهمة تصحيح» احتياطًا، فلا يبقى متعثر بلا متابعة */
+      const paceR = activityPace(activity);
+      const fastR = paceR.minSecs > 0 && secs > 0 && secs < paceR.minSecs;
       let remedial = null;
-      try { remedial = await remedialAfterSubmit(env, hw, activity, st, d, correct, total, questions); } catch {}
+      if (activity.personalRemedial || !fastR) { try { remedial = await remedialAfterSubmit(env, hw, activity, st, d, correct, total, questions); } catch {} }
 
-      // 🔎 مهمة التصحيح التلقائية: نفس مرشحي زر «مهمة تصحيح» في تقرير النشاط حرفيًا
-      // (نتيجة أقل من 50% أو سرعة مريبة بقاعدة activityPace نفسها)، تُرسل فور التصحيح
-      // بلا ضغط زر من المعلم. تُرسل مرة واحدة فقط لكل طالب ونشاط: إن وُجدت مهمة
-      // معلّقة أو نتيجة سابقة فلا تكرار، ويبقى زر «مهمة جديدة» اليدوي في التقرير للحالات اللاحقة.
+      // 🔎 مهمة التصحيح التلقائية (مرة واحدة لكل طالب ونشاط؛ ويبقى زر «مهمة جديدة» اليدوي في التقرير للحالات اللاحقة).
       // (لا تُرسل للأنشطة العلاجية/الشخصية ولا للألعاب والأنماط والمشاريع — كما في التقرير.)
       try {
         const ak = String(activity.kind || 'normal');
         if (!activity.remedial && !activity.personalRemedial && !['games','game','files','style'].includes(ak)) {
           const pct = total ? Math.round(correct * 100 / total) : null;
-          const pace = activityPace(activity);
-          const fast = pace.minSecs > 0 && secs > 0 && secs < pace.minSecs;
-          const low = pct !== null && pct < 50;
-          if (fast || low) {
+          const fast = fastR && correct < total;   // سريع بلا أخطاء: لا أسئلة يعيدها (المعلم يرى السرعة في التقرير ويطلب المراجعة يدويًا)
+          const low = pct !== null && pct < RT_LOW;
+          const hasRem = low && !fast ? (await remIndex(env, st.id)).some(x => x && x.src === `act:${hw}`) : false;
+          if (fast || (low && !hasRem)) {
             const rrKey = identityKey(`rr:${hw}:`, st);
             const rrdKey = identityKey(`rrd:${hw}:`, st);
             const legacyRrKey = st.name ? `rr:${hw}:${st.name}` : '';
