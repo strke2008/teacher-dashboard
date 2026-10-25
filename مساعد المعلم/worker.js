@@ -2282,8 +2282,64 @@ const json = (data, status = 200) =>
 /* 💬 أسئلة الطلاب للمعلم: مصفوفة واحدة (الأحدث أولًا)، بحدود تمنع الإغراق */
 const ASK = { maxLen: 600, maxOpen: 3, perDay: 5, keep: 600, keepSeenDays: 3,
   cats: { activity: 'سؤال عن نشاط', tech: 'مشكلة في البوابة', grade: 'درجة أو تصحيح', lesson: 'استفسار عن الدرس', other: 'أخرى' } };
-async function askLoad(env) { try { const a = JSON.parse(await env.HW.get('asks')); return Array.isArray(a) ? a : []; } catch { return []; } }
-async function askSave(env, all) { await env.HW.put('asks', JSON.stringify(all.slice(0, ASK.keep))); }
+/* 🗄️ الرسائل في D1 لا في مفتاح KV واحد: قراءة KV قد تعيد نسخة عمرها دقيقة، فكانت الرسالة تتأخر عن صندوق المعلم،
+   وأي حفظ من نسخة قديمة (مثل «رأى الطالب الرد» عند طالب آخر) يكتب المصفوفة كلها فوق الرسالة الجديدة فتضيع.
+   الآن كل رسالة سطر مستقل يُحدَّث وحده، وD1 متسق فورًا. c = وقت الإنشاء (ترتيب العرض كما كان). */
+const _askReady = new WeakMap();
+async function askDbReady(env) {
+  if (!env.DB) return false;
+  let p = _askReady.get(env.DB);
+  if (!p) {
+    p = (async () => {
+      await env.DB.batch([
+        env.DB.prepare('CREATE TABLE IF NOT EXISTS asks (id TEXT PRIMARY KEY, sid TEXT NOT NULL DEFAULT \'\', c INTEGER NOT NULL, data TEXT NOT NULL)'),
+        env.DB.prepare('CREATE INDEX IF NOT EXISTS asks_c ON asks (c)'),
+        env.DB.prepare('CREATE INDEX IF NOT EXISTS asks_sid ON asks (sid, c)'),
+      ]);
+      // نقل لمرة واحدة من مفتاح KV القديم (يبقى نسخة احتياطية باسم asks:kvbak)
+      const n = ((await env.DB.prepare('SELECT COUNT(*) AS n FROM asks').first()) || {}).n;
+      if (!n) {
+        let old = []; try { old = JSON.parse(await env.HW.get('asks')) || []; } catch {}
+        old = Array.isArray(old) ? old.filter(x => x && x.id).slice(0, ASK.keep) : [];
+        if (old.length) {
+          const base = Date.now();
+          await env.DB.batch(old.map((x, i) => env.DB.prepare('INSERT OR IGNORE INTO asks (id, sid, c, data) VALUES (?1, ?2, ?3, ?4)')
+            .bind(String(x.id), String(x.sid || ''), askCreated(x, base - i), JSON.stringify(x))));
+          await env.HW.put('asks:kvbak', JSON.stringify(old)).catch(() => {});
+        }
+        await env.HW.delete('asks').catch(() => {});
+      }
+      return true;
+    })().catch(e => { _askReady.delete(env.DB); throw e; });
+    _askReady.set(env.DB, p);
+  }
+  return p;
+}
+// وقت الإنشاء من المعرّف (q/t + الوقت بأساس 36) — فالمحادثة التي يُضاف إليها نص لا تقفز في الترتيب
+function askCreated(x, fb) { const m = /^[qt]([0-9a-z]{8})/.exec(String(x && x.id || '')); const t = m ? parseInt(m[1], 36) : NaN; return t > 1.5e12 && t < 4e12 ? t : (fb || (x && x.at) || Date.now()); }
+// sid ⇒ رسائل هذا الطالب (ومعها القديمة بلا معرّف التي تُطابَق بالاسم) — لا داعي لقراءة الكل
+async function askLoad(env, sid) {
+  if (await askDbReady(env).catch(() => false)) {
+    const q = sid != null
+      ? env.DB.prepare('SELECT data FROM asks WHERE sid = ?1 OR sid = \'\' ORDER BY c DESC LIMIT ?2').bind(String(sid), ASK.keep)
+      : env.DB.prepare('SELECT data FROM asks ORDER BY c DESC LIMIT ?1').bind(ASK.keep);
+    const { results } = await q.all();
+    return (results || []).map(r => { try { return JSON.parse(r.data); } catch { return null; } }).filter(Boolean);
+  }
+  try { const a = JSON.parse(await env.HW.get('asks')); return Array.isArray(a) ? a : []; } catch { return []; }
+}
+// items = الرسائل التي تغيّرت فقط (تُكتب سطرًا سطرًا) · all = المصفوفة كاملة لمسار KV الاحتياطي
+async function askSave(env, all, items) {
+  if (await askDbReady(env).catch(() => false)) {
+    const rows = (items || all).filter(x => x && x.id);
+    if (rows.length) await env.DB.batch(rows.map(x => env.DB.prepare('INSERT INTO asks (id, sid, c, data) VALUES (?1, ?2, ?3, ?4) ON CONFLICT(id) DO UPDATE SET sid = excluded.sid, data = excluded.data')
+      .bind(String(x.id), String(x.sid || ''), askCreated(x), JSON.stringify(x))));
+    // تقليم نادر: يبقى آخر ASK.keep
+    if (Math.random() < 0.05) await env.DB.prepare('DELETE FROM asks WHERE c < (SELECT c FROM asks ORDER BY c DESC LIMIT 1 OFFSET ?1)').bind(ASK.keep - 1).run().catch(() => {});
+    return;
+  }
+  await env.HW.put('asks', JSON.stringify(all.slice(0, ASK.keep)));
+}
 function askMine(x, st) { return !!x && ((st.id && x.sid && String(x.sid) === String(st.id)) || (!x.sid && x.name === st.name)); }
 function askPublic(x) { return { id: x.id, kind: x.kind || '', mid: x.mid || '', rmid: (x.msgIds && x.msgIds[0]) || '', cat: x.cat, hwTitle: x.hwTitle || '', re: x.re || '', reText: x.reText || '', text: x.text, at: x.at, status: x.status, reply: x.reply || '', repliedAt: x.repliedAt || 0, seenAt: x.seenAt || 0 }; }
 // 🧹 الرد يبقى عند الطالب ASK.keepSeenDays بعد أن يراه، أو يخفيه بنفسه — ومعه تنبيهه، فلا يتكرر ولا يزدحم
@@ -5973,12 +6029,12 @@ export default {
         const m = re ? (await readMessages(env, st)).find(x => x && String(x.id) === re) : null;
         const text = String(b.text || '').trim().slice(0, ASK.maxLen);
         if (!text) return json({ ok: false, error: 'اكتب ردّك أولًا' }, 400);
-        const all = await askLoad(env), now = Date.now();
+        const all = await askLoad(env, st.id || ''), now = Date.now();
         let q = all.find(x => x.cat === 'reply' && x.status === 'open' && askMine(x, st) && (x.re || '') === (m ? re : ''));
         if (q) { q.text = (q.text + '\n' + text).slice(-ASK.maxLen); q.at = now; }
         else { q = { id: 'q' + now.toString(36) + Math.random().toString(36).slice(2, 6), sid: String(st.id || ''), name: String(st.name || ''), cls: String(st.cls || ''),
           cat: 'reply', hw: '', hwTitle: '', re: m ? re : '', reText: !m ? '' : String(m.body || m.title || '').replace(/⟨(WK|EX)⟩[\s\S]*$/, '').trim().slice(0, 160), text, at: now, status: 'open', reply: '', repliedAt: 0 }; all.unshift(q); }
-        await askSave(env, all);
+        await askSave(env, all, [q]);
         const task = (async () => {
           if (!pushConfigured(env)) return; const subs = await pushListSubs(env); if (!subs.length) return;
           const eventId = (await sha256Hex(`ask|${q.id}|${now}`)).slice(0, 32); if (!(await pushClaimEvent(env, eventId))) return;
@@ -5993,7 +6049,7 @@ export default {
       const text = String(b.text || '').trim().slice(0, ASK.maxLen);
       if (text.length < 3) return json({ ok: false, error: 'اكتب سؤالك أولًا' }, 400);
       const cat = ASK.cats[String(b.cat || '')] ? String(b.cat) : 'other';
-      const all = await askLoad(env), me = all.filter(x => askMine(x, st)), now = Date.now();
+      const all = await askLoad(env, st.id || ''), me = all.filter(x => askMine(x, st)), now = Date.now();
       if (me.filter(x => x.status === 'open').length >= ASK.maxOpen) return json({ ok: false, error: `لديك ${ASK.maxOpen} أسئلة تنتظر رد معلمك — انتظر الرد أولًا` }, 429);
       if (me.filter(x => x.kind !== 't' && now - x.at < 86400000).length >= ASK.perDay) return json({ ok: false, error: 'وصلت للحد اليومي للرسائل — حاول غدًا' }, 429);
       let hwTitle = '';
@@ -6002,7 +6058,7 @@ export default {
       const q = { id: 'q' + now.toString(36) + Math.random().toString(36).slice(2, 6), sid: String(st.id || ''), name: String(st.name || ''), cls: String(st.cls || ''),
         cat, hw: hwTitle ? hw : '', hwTitle, text, at: now, status: 'open', reply: '', repliedAt: 0 };
       all.unshift(q);
-      await askSave(env, all);
+      await askSave(env, all, [q]);
       // 🔔 إشعار المعلم على أجهزته (إن فعّل الإشعارات)
       const task = (async () => {
         if (!pushConfigured(env)) return; const subs = await pushListSubs(env); if (!subs.length) return;
@@ -6017,15 +6073,15 @@ export default {
     if (url.pathname === '/ask-mine' && request.method === 'GET') {
       const st = await resolveStudent(env, { id: String(url.searchParams.get('sid') || '').slice(0, 40), name: String(url.searchParams.get('name') || '').slice(0, 80) });
       if (!st.known) return json({ ok: false, error: 'student not recognized' }, 403);
-      const all = await askLoad(env), now = Date.now(), mine = all.filter(x => askMine(x, st));
-      let dirty = false; const gone = [], fresh = new Set();
+      const all = await askLoad(env, st.id || ''), now = Date.now(), mine = all.filter(x => askMine(x, st));
+      const dirty = new Set(); const gone = [], fresh = new Set();
       for (const x of mine) {
         // 👁️ البطاقة تُعرض فور جلب الأسئلة، فأول جلب بعد الرد = رآه الطالب
-        if (x.reply && x.status !== 'open' && !x.seenAt) { x.seenAt = now; dirty = true; fresh.add(x.id); }
+        if (x.reply && x.status !== 'open' && !x.seenAt) { x.seenAt = now; dirty.add(x); fresh.add(x.id); }
         // انتهت مدته: يختفي تنبيه الرد أيضًا (مرة واحدة)
-        if (askGoneForStudent(x, now) && !x.msgGone) { x.msgGone = now; dirty = true; try { gone.push(...await askDropReplyMsgs(env, x)); } catch {} }
+        if (askGoneForStudent(x, now) && !x.msgGone) { x.msgGone = now; dirty.add(x); try { gone.push(...await askDropReplyMsgs(env, x)); } catch {} }
       }
-      if (dirty) await askSave(env, all);
+      if (dirty.size) await askSave(env, all, [...dirty]);
       const rows = mine.filter(x => !askGoneForStudent(x, now)).slice(0, 10).map(x => ({ ...askPublic(x), fresh: fresh.has(x.id) }));
       return json({ ok: true, rows, gone, keepDays: ASK.keepSeenDays, cats: ASK.cats, maxLen: ASK.maxLen, maxOpen: ASK.maxOpen, mode: await askMode(), chat: await chatIsOpen(env, st.id) });
     }
@@ -6033,12 +6089,12 @@ export default {
       let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
       const st = await resolveStudent(env, { id: String(b.sid || '').slice(0, 40), name: String(b.name || '').slice(0, 80) });
       if (!st.known) return json({ ok: false, error: 'student not recognized' }, 403);
-      const all = await askLoad(env), x = all.find(q => q.id === String(b.id || '') && askMine(q, st));
+      const all = await askLoad(env, st.id || ''), x = all.find(q => q.id === String(b.id || '') && askMine(q, st));
       if (!x) return json({ ok: false, error: 'not found' }, 404);
       if (x.status === 'open') return json({ ok: false, error: 'لا يُخفى سؤال ينتظر الرد' }, 400);
       x.hiddenAt = Date.now(); x.msgGone = x.hiddenAt;
       let gone = []; try { gone = await askDropReplyMsgs(env, x); } catch {}
-      await askSave(env, all);
+      await askSave(env, all, [x]);
       return json({ ok: true, gone });
     }
     if (url.pathname === '/asks' && request.method === 'GET') {
@@ -6059,11 +6115,11 @@ export default {
       const all = await askLoad(env), q = all.find(x => x.id === String(b.id || ''));
       if (!q) return json({ ok: false, error: 'not found' }, 404);
       const reply = String(b.reply || '').trim().slice(0, 1000), now = Date.now();
-      if (b.reopen) { q.status = 'open'; delete q.hiddenAt; delete q.msgGone; await askSave(env, all); return json({ ok: true, item: q }); }
+      if (b.reopen) { q.status = 'open'; delete q.hiddenAt; delete q.msgGone; await askSave(env, all, [q]); return json({ ok: true, item: q }); }
       if (!reply && !b.close) return json({ ok: false, error: 'اكتب الرد' }, 400);
       if (reply) { q.reply = reply; q.repliedAt = now; delete q.seenAt; delete q.hiddenAt; delete q.msgGone; }
       q.status = reply ? 'answered' : 'closed'; q.closedAt = now;
-      await askSave(env, all);
+      await askSave(env, all, [q]);
       // 📩 الرد يصل الطالب في رسائله (ومعه إشعار إن فعّلها)
       if (reply) {
         const st = await resolveStudent(env, { id: q.sid, name: q.name });
@@ -6073,7 +6129,7 @@ export default {
             type: 'reply', priority: 'normal', examDate: '', visibleFrom: '', expiresAt: '', createdAt: new Date().toISOString() };
           // رد واحد لكل سؤال: تعديل الرد أو إعادة إرساله يستبدل رسالته السابقة لا يكررها
           const prevIds = new Set((q.msgIds || []).map(String));
-          q.msgIds = [id]; await askSave(env, all);
+          q.msgIds = [id]; await askSave(env, all, [q]);
           // ردك في الدردشة يبقى في صندوق المحادثة؛ رد السؤال العادي يصل تنبيهاته كما كان
           if (q.cat !== 'reply') {
             let arr = (await readMessages(env, st)).filter(m => !(m && m.type === 'reply' && prevIds.has(String(m.id))));
@@ -6180,10 +6236,10 @@ export default {
       // 💬 محادثة خاصة: تُسجَّل رسالة المعلم في «رسائل الطلاب» نفسها (kind:'t') فتظهر في محادثته مع الطالب
       let chat = [];
       if (b.chat) {
-        const all = await askLoad(env), now = Date.now();
+        const now = Date.now(), all = (await askDbReady(env).catch(() => false)) ? [] : await askLoad(env);   // D1: تُضاف أسطر جديدة فقط
         chat = delivered.map((d0, i) => ({ id: 't' + now.toString(36) + i + Math.random().toString(36).slice(2, 5), kind: 't', mid: id, sid: String(d0.sid || ''), name: d0.name, cls: d0.cls || '',
           cat: '', hw: '', hwTitle: '', text: body, at: now, status: 'closed', closedAt: now, reply: '', repliedAt: 0 }));
-        all.unshift(...chat); await askSave(env, all);
+        all.unshift(...chat); await askSave(env, all, chat);
         await chatSet(env, [...new Set(chat.map(x => x.sid).filter(x => /^[\w-]{1,64}$/.test(x)))], true).catch(() => {});   // رسالتك الخاصة تفتح الدردشة معه
       }
       // 📣 فورية: الطالب المتصل يرى تنبيهها على صندوقه العائم خلال ثوانٍ (عبر نبض الحضور)، وتبقى في رسائله كأي رسالة
