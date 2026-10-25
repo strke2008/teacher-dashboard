@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "المعلم الذكي — جسر مدرستي",
   "short_name": "جسر مدرستي",
-  "version": "0.23.6",
+  "version": "0.23.7",
   "description": "سحب الواجبات من منصة مدرستي وعرضها حسب الأسابيع ونقل نتائج الطلاب إلى مساعد المعلم.",
   "default_locale": "ar",
   "permissions": [
@@ -11,7 +11,8 @@
     "storage"
   ],
   "host_permissions": [
-    "https://*.pages.dev/*",
+    "https://homwork.pages.dev/*",
+    "https://homework-dash.pages.dev/*",
     "http://localhost/*",
     "http://127.0.0.1/*",
     "https://schools.madrasati.sa/*",
@@ -27,7 +28,8 @@
   "content_scripts": [
     {
       "matches": [
-        "https://*.pages.dev/*",
+        "https://homwork.pages.dev/*",
+        "https://homework-dash.pages.dev/*",
         "http://localhost/*",
         "http://127.0.0.1/*"
       ],

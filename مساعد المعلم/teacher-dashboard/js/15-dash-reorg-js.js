@@ -17,18 +17,18 @@
   pd.prepend(bar);
   function setCat(k){
     [...pd.children].forEach(el=>{ if(el===bar) return; el.classList.toggle('set-off', k!=='all' && el.dataset.setcat!==k); });
-    bar.querySelectorAll('button').forEach(b=>b.classList.toggle('on', b.dataset.set===k));
+    bar.querySelectorAll('button').forEach(b=>{ b.classList.toggle('on', b.dataset.set===k); b.setAttribute('aria-selected', b.dataset.set===k?'true':'false'); });
     try{ localStorage.setItem('dash_set_cat_v1',k); }catch(e){}
   }
   window.settingsCat=setCat;
-  bar.addEventListener('click',e=>{ const b=e.target.closest('[data-set]'); if(b) setCat(b.dataset.set); });
+  bar.addEventListener('click',e=>{ const b=e.target.closest('[data-set]'); if(b){ setCat(b.dataset.set); pd.scrollIntoView({block:'start'}); } });
   let first='school'; try{ first=localStorage.getItem('dash_set_cat_v1')||'school'; }catch(e){}
   if(first==='danger') first='school';
   setCat(CATS.some(c=>c[0]===first)||first==='all'?first:'school');
   // أي انتقال برمجي إلى قسم في الإعدادات (مثل فتح إعدادات الإشعارات) يُظهر تبويبه أولًا
   const orig=Element.prototype.scrollIntoView;
   Element.prototype.scrollIntoView=function(){
-    try{ if(pd.contains(this)){ const sec=[...pd.children].find(c=>c.contains(this)); if(sec&&sec.classList.contains('set-off')) setCat(sec.dataset.setcat); } }catch(e){}
+    try{ if(pd.contains(this)&&pd.classList.contains('on')){ const sec=[...pd.children].find(c=>c.contains(this)); if(sec&&sec.classList.contains('set-off')) setCat(sec.dataset.setcat); } }catch(e){}
     return orig.apply(this,arguments);
   };
 })();
@@ -232,7 +232,7 @@ function tdTasks(){
     const dis=encodeURIComponent(JSON.stringify(a.dismiss||{[a.key]:a.count}));
     L.push({key:'pm:'+a.key+':'+a.count,lv:a.tone==='positive'?'info':'warn',ic:a.tone==='positive'?'💌':'💬',t:`${tdShortName(a.name)}: ${a.reason} — يحتاج رسالة لولي الأمر`,
       acts:[['✍️ اكتب الرسالة',`pmsgOpen('${thEsc(a.studentId)}','${thEsc(a.suggest||'')}','${dis}')`]],doneJs:`pmsgDone('${dis}')`}); });
-  tdRemToday().forEach(x=>{ if(x.done) return;
+  (typeof tdRemToday==='function'?tdRemToday():[]).forEach(x=>{ if(x.done) return;   // tdRemToday في 21-today-v3 — قد تُستدعى هذه عند التحميل قبل وصوله
     L.push({key:'rem:'+x.r.id+':'+t0,lv:x.late?'warn':'info',ic:'⏰',t:`${tdRemTitle(x.r)} — ${x.hm}`,acts:[],remId:x.r.id}); });
   HW.filter(remPublished).forEach(h=>{
     const miss=hwPool(h).filter(s=>!(h.subs&&h.subs[s.id])).length; if(!miss||!h.due) return;
@@ -247,7 +247,7 @@ function tdTasks(){
   // 💬 رسائل الطلاب لها بطاقتها المستقلة في صفحة اليوم (td-slot-asks) — لا تُكرَّر هنا
   { const ns=typeof nsOpenList==='function'?nsOpenList():[]; if(ns.length) L.push({doneJs:'tdAckAll(\'ns\')',key:'ns:'+ns.map(x=>x.s.id).join(','),lv:'warn',ic:'🚶',t:`${ns.length===1?'طالب واحد لم يبدأ':ns.length===2?'طالبان لم يبدآ':ns.length+' طلاب لم يبدؤوا'} بعد — لم ${ns.length===1?'يسلّم':ns.length===2?'يسلّما':'يسلّموا'} أي نشاط في البوابة`,acts:[['عرض','nsOpen()']]}); }
   thActions().forEach(([lv,ic,t,n,go])=>{
-    if(/انتهت مواعيدها|ينتهي خلال يومين|متأخر(ون)? لم تذكّر/.test(t)) return;   // مغطّاة بأسطر الأنشطة أعلاه
+    if(/انتهت مواعيدها|(ينتهي|تنتهي) خلال يومين|متأخر(ون)? لم تذكّر/.test(t)) return;   // مغطّاة بأسطر الأنشطة أعلاه
     const isDash=/thGoTo\('dash-alerts'\)/.test(go);
     // التنبيهات القائمة على أشخاص: «✓ تم» يسجّل متابعتهم (على الخادم) بدل إخفاء النص مؤقتًا على هذا الجهاز
     const ack=ic==='🚫'?"tdAckAll('bad')":ic==='⚠️'&&/يحتاجون متابعة/.test(t)?"tdAckAll('warn')":ic==='🚩'?"tdAckAll('dev')":'';

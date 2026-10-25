@@ -26,9 +26,10 @@ function onlChip(){
   const host=document.querySelector('.masthead-in'); if(!host) return;
   let b=document.getElementById('onl-chip');
   if(!b){ b=document.createElement('button'); b.type='button'; b.id='onl-chip'; b.className='onl-chip no-print'; b.onclick=onlOpen;
-    const ref=document.getElementById('portal-link-btn'); host.insertBefore(b, ref||null); }
+    /* الشريحة آخر عنصر في الشريط فيُدفع هامشها التلقائي بها أقصى اليسار دائمًا */
+    host.appendChild(b); }
   const {on}=onlRows(), unread=onlReplies().filter(x=>x.status==='open').length;
-  b.innerHTML=`<i class="onl-dot ${on.length?'on':''}"></i><b>${on.length}</b> متصل الآن${unread?`<span class="onl-badge" title="ردود على رسائلك تنتظرك في «رسائل الطلاب»">${unread}</span>`:''}`;
+  b.innerHTML=`<i class="onl-dot ${on.length?'on':''}"></i><b>${on.length}</b><span class="onl-w"> متصل الآن</span>${unread?`<span class="onl-badge" title="ردود على رسائلك تنتظرك في «رسائل الطلاب»">${unread}</span>`:''}`;
   b.title=on.length?on.slice(0,8).map(r=>r.s.name).join('، '):'لا أحد من طلابك في البوابة الآن';
 }
 /* ردود الطلاب على رسائلك الفورية: من «رسائل الطلاب» نفسها */

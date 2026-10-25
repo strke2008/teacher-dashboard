@@ -1,7 +1,7 @@
 /* أنشطتي — Service Worker: الإشعارات (نشاط جديد · رسالة من المعلم) + حفظ ملفات البوابة على الجهاز.
    ⚡ يحفظ ملفات الواجهة فقط (الصفحة والتنسيق والبرمجة والصور) فتُفتح البوابة فورًا ويُجلب الأحدث في الخلفية.
    الأنشطة والدرجات وبيانات الطالب لا تُحفظ إطلاقًا: تُجلب دائمًا من الخادم (نطاق آخر لا يمرّ هنا). لا يحتوي أي سر. */
-const SW_VERSION = 'student-push-v2+static-v3';
+const SW_VERSION = 'student-push-v3+static-v3';
 const API = new URL(self.location.href).searchParams.get('api') || '';
 const STATIC = 'portal-static-v1';
 const SCOPE = new URL(self.registration ? self.registration.scope : './', self.location.href);
@@ -82,6 +82,22 @@ self.addEventListener('activate', event => { event.waitUntil((async () => {
   if (HAD_OLD) await notifyUpdate();
 })()); });
 
+/* 📥 صندوق الإشعارات المحفوظة: رد معلم وصل بالإشعار يُحفظ محليًا حتى لو كانت البوابة مغلقة،
+   فيظهر فور فتحها بلا انتظار نسخة الخادم. وشارة أيقونة التطبيق تُحدَّث معها
+   (iOS 16.4+ للتطبيقات المثبتة) — والصفحة تصحح الرقم لاحقًا بعدد الجديدة الحقيقي. */
+const PUSH_INBOX_CACHE = 'stu-push-inbox-v1', PUSH_INBOX_KEY = '/__push_inbox__';
+async function stashAsk(item) {
+  try {
+    const cache = await caches.open(PUSH_INBOX_CACHE);
+    let items = [];
+    try { const r = await cache.match(PUSH_INBOX_KEY); if (r) { const j = await r.json(); if (Array.isArray(j && j.items)) items = j.items; } } catch (e) {}
+    if (!items.some(x => x && x.id === item.id)) items.unshift(item);
+    items = items.slice(0, 30);
+    await cache.put(PUSH_INBOX_KEY, new Response(JSON.stringify({ items, at: Date.now() }), { headers: { 'Content-Type': 'application/json' } }));
+    try { if (self.navigator && typeof self.navigator.setAppBadge === 'function') await self.navigator.setAppBadge(items.length); } catch (e) {}
+  } catch (e) {}
+}
+
 self.addEventListener('push', event => {
   let msg = {};
   try { msg = event.data ? event.data.json() : {}; } catch { msg = { title: 'أنشطتي', body: event.data ? event.data.text() : '' }; }
@@ -100,6 +116,8 @@ self.addEventListener('push', event => {
     // ⚡ البوابة مفتوحة؟ نخبرها لتحدّث الرسائل والعدّاد فورًا بلا إعادة تحميل
     const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     for (const c of all) c.postMessage({ type: 'push-msg', data: msg.data || {} });
+    // 📥 مغلقة؟ يُحفظ الرد محليًا ليظهر فور فتح البوابة (push مثل الإشعارات)
+    if (msg.data && msg.data.ask) await stashAsk(msg.data.ask);
   })());
 });
 

@@ -1,0 +1,164 @@
+@charset "UTF-8";
+/* ثيمات لوحة المعلم — إضافة فقط، لا تغيّر أي كود أصلي.
+   اللوحة الأصلية تستخدم متغيرات CSS أصلًا، لذلك الثيم يغيّر قيمها فقط.
+   لا يوجد أي زر عائم ولا أي عنصر ثابت: قسم الثيمات داخل صفحة الإعدادات فقط. */
+.masthead{border-bottom:3px solid var(--ui-accent,#C9A86A)!important}
+#thm-settings-sheet .thm-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:12px}
+#thm-settings-sheet .thm-card{border:2px solid var(--ui-border,#DCE5F0);border-radius:14px;padding:10px;background:var(--ui-surface,#fff);color:var(--ink,#16233A);cursor:pointer;text-align:right;font:inherit}
+#thm-settings-sheet .thm-card.on{border-color:var(--ui-accent,#C9A86A);box-shadow:0 0 0 3px rgba(201,168,106,.3)}
+#thm-settings-sheet .thm-card .sw{display:flex;gap:4px;margin-bottom:6px}
+#thm-settings-sheet .thm-card .sw i{width:20px;height:20px;border-radius:50%;border:1px solid rgba(0,0,0,.15);display:block}
+#thm-settings-sheet .thm-card b{font-size:13px}
+#thm-settings-sheet .thm-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--ui-border,#DCE5F0)}
+#thm-settings-sheet .thm-row:last-of-type{border-bottom:0}
+#thm-settings-sheet .thm-row span,#thm-settings-sheet .thm-row label{flex:1;font-weight:700;font-size:13px}
+#thm-settings-sheet .thm-row input[type=color]{width:50px;height:38px;border:1.5px solid var(--ui-border,#DCE5F0);border-radius:10px;padding:3px;background:var(--ui-surface,#fff);cursor:pointer}
+#thm-settings-sheet .thm-reset{width:100%;margin-top:12px;border:0;border-radius:999px;padding:11px;background:var(--ui-accent-soft,#F3E6C8);color:#7A5A12;font-weight:900;font:inherit;cursor:pointer}
+#thm-settings-sheet .thm-note{margin-top:10px;font-size:12px;color:var(--ink-soft,#5A6B84);line-height:1.7}
+/* إخفاء زر الوضع الليلي الأصلي المكرر: قسم الثيمات الجديد هو المتحكم الوحيد الآن،
+   وإلا صار زرّان متعارضان يبدّلان الوضع الداكن من مصدرين مختلفين. */
+#ui-theme-card{display:none!important}
+/* زر تبويب الإعدادات النشط: نص أبيض على ذهبي غير مقروء، فنستخدم لون النص المقابل للتمييز */
+.set-tabs button.on{color:var(--app-nav-active-text,#fff)!important}
+/* ── إصلاح الوضع الليلي: أسطح لم تغطها قواعد الوضع الداكن الأصلية ──
+   تطبق فقط عند تفعيل الوضع الداكن، فلا تتأثر الثيمات الفاتحة. */
+:root[data-ui-theme="dark"]{color-scheme:dark}
+:root[data-ui-theme="dark"] body{background:var(--paper)!important}
+:root[data-ui-theme="dark"] .ar-item,
+:root[data-ui-theme="dark"] .ar-kpi,
+:root[data-ui-theme="dark"] .ar-sec,
+:root[data-ui-theme="dark"] .exh-row,
+:root[data-ui-theme="dark"] .pf-tab,
+:root[data-ui-theme="dark"] .pf-act,
+:root[data-ui-theme="dark"] .msg-preview,
+:root[data-ui-theme="dark"] .grades-kpi,
+:root[data-ui-theme="dark"] .sa-retry,
+:root[data-ui-theme="dark"] .msg-student-check,
+:root[data-ui-theme="dark"] .g-student,
+:root[data-ui-theme="dark"] .comprehensive-table td,
+:root[data-ui-theme="dark"] .rep-head,
+:root[data-ui-theme="dark"] .class-print-stat{background:var(--ui-surface)!important;color:var(--ink)!important;border-color:var(--ui-border)!important}
+:root[data-ui-theme="dark"] table:not(.gt) th{background:var(--ui-surface-2)!important}
+:root[data-ui-theme="dark"] .inp:focus,
+:root[data-ui-theme="dark"] input:focus,
+:root[data-ui-theme="dark"] select:focus,
+:root[data-ui-theme="dark"] textarea:focus{background:var(--ui-surface-2)!important;color:var(--ink)!important;-webkit-text-fill-color:var(--ink)!important}
+:root[data-ui-theme="dark"] .muted,
+:root[data-ui-theme="dark"] small{color:var(--ui-muted,#A9B8CC)!important}
+/* ── جولة ثانية (من لقطات المستخدم): صناديق بيضاء/فاتحة بقيت في الليل ──
+   كلها داخل نطاق الوضع الداكن فقط، وبألوان دلالية داكنة (لا رمادي مسطّح يضيّع المعنى). */
+/* صناديق محايدة كانت بيضاء: صفحة اليوم، ملف الطالب، المسابقات */
+:root[data-ui-theme="dark"] .alert-empty,
+:root[data-ui-theme="dark"] .par-box,
+:root[data-ui-theme="dark"] .lvd-bar,
+:root[data-ui-theme="dark"] .lvd-last,
+:root[data-ui-theme="dark"] .lv-row,
+:root[data-ui-theme="dark"] .lv-delall,
+:root[data-ui-theme="dark"] .lv-refresh,
+:root[data-ui-theme="dark"] .exam-bank-item,
+:root[data-ui-theme="dark"] .rem-history,
+:root[data-ui-theme="dark"] .rem-area{background:var(--ui-surface)!important;color:var(--ink)!important;border-color:var(--ui-border)!important}
+:root[data-ui-theme="dark"] .lvd-last:hover,
+:root[data-ui-theme="dark"] .lvd-bar.on{background:var(--ui-surface-2)!important}
+/* صفوف المسابقات: --card لم يكن معرّفًا أصلًا فيسقط على #fff؛ الآن معرّف، وهذا تأكيد إضافي */
+:root[data-ui-theme="dark"] .lv-row{background:var(--ui-surface)!important}
+:root[data-ui-theme="dark"] .lv-ic{background:var(--ui-surface-2)!important;color:var(--ink)!important}
+:root[data-ui-theme="dark"] .lv-row.st-live .lv-ic{background:rgba(34,197,94,.2)!important;color:#86EFAC!important}
+:root[data-ui-theme="dark"] .lv-row.st-registration .lv-ic{background:rgba(245,158,11,.2)!important;color:#FCD34D!important}
+:root[data-ui-theme="dark"] .lv-row.st-waiting .lv-ic{background:rgba(99,102,241,.25)!important;color:#C7D2FE!important}
+:root[data-ui-theme="dark"] .lv-row.st-finished .lv-ic{background:var(--ui-surface-2)!important;color:var(--ink)!important}
+:root[data-ui-theme="dark"] .lv-row.st-cancelled .lv-ic{background:rgba(239,68,68,.2)!important;color:#FCA5A5!important}
+:root[data-ui-theme="dark"] .lv-chip{background:var(--ui-surface-2)!important;color:var(--ink)!important}
+:root[data-ui-theme="dark"] .lv-chip.lv-live{background:rgba(34,197,94,.2)!important;color:#86EFAC!important}
+:root[data-ui-theme="dark"] .lv-chip.lv-registration{background:rgba(245,158,11,.2)!important;color:#FCD34D!important}
+:root[data-ui-theme="dark"] .lv-chip.lv-waiting{background:rgba(99,102,241,.25)!important;color:#C7D2FE!important}
+:root[data-ui-theme="dark"] .lv-chip.lv-finished{background:var(--ui-surface-2)!important;color:var(--ink)!important}
+:root[data-ui-theme="dark"] .lv-chip.lv-cancelled{background:rgba(239,68,68,.2)!important;color:#FCA5A5!important}
+:root[data-ui-theme="dark"] .lv-min.warn{background:rgba(245,158,11,.18)!important;color:#FCD34D!important}
+:root[data-ui-theme="dark"] .lv-min.ok{background:rgba(34,197,94,.18)!important;color:#86EFAC!important}
+:root[data-ui-theme="dark"] .lv-min.bad{background:rgba(239,68,68,.18)!important;color:#FCA5A5!important}
+:root[data-ui-theme="dark"] .lv-cur{background:rgba(34,197,94,.12)!important;color:var(--ink)!important}
+:root[data-ui-theme="dark"] .lv-nt-warn{background:rgba(245,158,11,.15)!important;color:#FCD34D!important;border-color:rgba(245,158,11,.4)!important}
+:root[data-ui-theme="dark"] .lv-cancel-note{background:rgba(239,68,68,.15)!important;color:#FCA5A5!important}
+:root[data-ui-theme="dark"] .lv-res em{background:rgba(245,158,11,.2)!important;color:#FCD34D!important}
+/* تنبيهات صفراء/خضراء/حمراء فاتحة: نسخة داكنة بنفس المعنى */
+:root[data-ui-theme="dark"] .stc-att,
+:root[data-ui-theme="dark"] .ct-warn,
+:root[data-ui-theme="dark"] .plan-due,
+:root[data-ui-theme="dark"] .psh-tip,
+:root[data-ui-theme="dark"] .lvd-bank,
+:root[data-ui-theme="dark"] .madr-warn,
+:root[data-ui-theme="dark"] .vsp-banner,
+:root[data-ui-theme="dark"] .rem-armed,
+:root[data-ui-theme="dark"] .plan-sum .need,
+:root[data-ui-theme="dark"] .ct-alerts{background:rgba(233,185,73,.15)!important;color:#E5C98E!important;border-color:rgba(233,185,73,.45)!important}
+:root[data-ui-theme="dark"] .stc-ind{background:color-mix(in srgb,var(--c) 18%,var(--ui-surface))!important;border-color:color-mix(in srgb,var(--c) 45%,var(--ui-surface))!important;color:var(--ink)!important}
+:root[data-ui-theme="dark"] .ann-st.on,
+:root[data-ui-theme="dark"] .sk-avg.ok,
+:root[data-ui-theme="dark"] .sk-act.ok{background:rgba(46,158,107,.15)!important;color:#8BD0B4!important}
+:root[data-ui-theme="dark"] .ann-st.soon,
+:root[data-ui-theme="dark"] .sk-avg.mid,
+:root[data-ui-theme="dark"] .sk-chip.mid,
+:root[data-ui-theme="dark"] .sk-act.group,
+:root[data-ui-theme="dark"] .sk-act.one{background:rgba(233,185,73,.15)!important;color:#E5C98E!important;border-color:rgba(233,185,73,.45)!important}
+:root[data-ui-theme="dark"] .sk-avg.weak,
+:root[data-ui-theme="dark"] .sk-act.reteach{background:rgba(214,69,91,.15)!important;color:#FF8798!important}
+:root[data-ui-theme="dark"] .madv-ex,
+:root[data-ui-theme="dark"] .exs-list{background:rgba(214,69,91,.15)!important;color:#FF8798!important;border-color:rgba(214,69,91,.4)!important}
+:root[data-ui-theme="dark"] .ann-st.off,
+:root[data-ui-theme="dark"] .ask-cat{background:rgba(99,102,241,.18)!important;color:#C7D2FE!important}
+:root[data-ui-theme="dark"] .ask-t-r{background:rgba(46,158,107,.12)!important;color:var(--ink)!important}
+:root[data-ui-theme="dark"] .vsp-btn.on,
+:root[data-ui-theme="dark"] .bp2-tag{background:rgba(245,158,11,.2)!important;color:#FCD34D!important;border-color:rgba(245,158,11,.4)!important}
+:root[data-ui-theme="dark"] .pc-warn{background:rgba(233,185,73,.15)!important;color:#E5C98E!important}
+:root[data-ui-theme="dark"] .ct-m.p{color:#8BD0B4!important}
+:root[data-ui-theme="dark"] .ct-m.n{color:#E5C98E!important}
+:root[data-ui-theme="dark"] .ct-m.a{color:#FF8798!important}
+/* خلفيات فاتحة مكتوبة داخل HTML نفسه (style="background:...") ولم تغطها القواعد الأصلية */
+:root[data-ui-theme="dark"] [style*="background:#FFF6E5"],
+:root[data-ui-theme="dark"] [style*="background: #FFF6E5"],
+:root[data-ui-theme="dark"] [style*="background:#FEF3C7"],
+:root[data-ui-theme="dark"] [style*="background: #FEF3C7"],
+:root[data-ui-theme="dark"] [style*="background:#F7F9FD"],
+:root[data-ui-theme="dark"] [style*="background: #F7F9FD"],
+:root[data-ui-theme="dark"] [style*="background:#F1F5F9"],
+:root[data-ui-theme="dark"] [style*="background: #F1F5F9"],
+:root[data-ui-theme="dark"] [style*="background:#EEF2F7"],
+:root[data-ui-theme="dark"] [style*="background: #EEF2F7"],
+:root[data-ui-theme="dark"] [style*="background:#E8F6F0"],
+:root[data-ui-theme="dark"] [style*="background: #E8F6F0"],
+:root[data-ui-theme="dark"] [style*="background:#FDF0F2"],
+:root[data-ui-theme="dark"] [style*="background: #FDF0F2"],
+:root[data-ui-theme="dark"] [style*="background:#FBF5E9"],
+:root[data-ui-theme="dark"] [style*="background: #FBF5E9"],
+:root[data-ui-theme="dark"] [style*="background:#FFF8E6"],
+:root[data-ui-theme="dark"] [style*="background: #FFF8E6"],
+:root[data-ui-theme="dark"] [style*="background:#FFF8F9"],
+:root[data-ui-theme="dark"] [style*="background: #FFF8F9"],
+:root[data-ui-theme="dark"] [style*="background:#FBF1E0"],
+:root[data-ui-theme="dark"] [style*="background: #FBF1E0"]{background:var(--ui-surface)!important;color:var(--ink)!important;border-color:var(--ui-border)!important}
+/* ── وصول أوسع للثيمات: لون النص يصل لكل مكان ──
+   سبب المشكلة: القائمة الجانبية لا تستخدم لون النص العام (--ink) بل لونها الخاص (--app-nav-text)،
+   وشريط الجوال السفلي ألوانه مكتوبة ثابتة أصلًا ولا تستخدم أي متغير. لذلك أُضيفت منتقيات خاصة بالقائمة،
+   ورُبط شريط الجوال بنفس متغيرات القائمة، وأُصلحت النصوص الثابتة البيضاء في القائمة (الاسم وزر الإغلاق
+   والتمرير عليها كانت #fff دائمًا، فتختفي على قائمة فاتحة مثل الواجهة القديمة). */
+/* القائمة الجانبية (كمبيوتر): الاسم وزر الإغلاق والتمرير عليها يتبعان لون نص القائمة */
+.app-sidebar-brand,
+.app-sidebar-close{color:var(--app-nav-text)!important}
+.app-sidebar .tab:hover{color:var(--app-nav-text)!important}
+.app-sidebar{border-left-color:var(--ui-border)!important}
+/* شريط الجوال السفلي: كان كحليًا ثابتًا، الآن يتبع ألوان القائمة التي يختارها المستخدم */
+.mobile-nav{background:var(--app-nav-bg)!important;border-top-color:var(--ui-border)!important}
+.mobile-nav button{color:var(--app-nav-text)!important}
+.mobile-nav button.on{background:var(--app-nav-active)!important;color:var(--app-nav-active-text)!important}
+/* ── تصحيح: عناصر خلفيتها ثابتة لا يتبع نصها لون الثيم ──
+   الخطأ السابق: أُجبرت نصوص عناصر خلفيتها ثابتة على لون النص العام، فانكسرت قراءتها:
+   أزرار الفلاتر النشطة خلفيتها كحلية ثابتة (#1F2D45) ونصها أبيض، فصار نصها داكنًا على كحلي
+   (زر «3 خطة» غير مقروء)، ووصف الترويسة خلفيته كحلية ثابتة ونصه فاتح (#9FB2CC)، فصار باهتًا.
+   القاعدة الصحيحة: النص يتبع الثيم فقط حيث الخلفية نفسها تتبع الثيم؛ أما الثابتة خلفيته فيبقى نصه
+   الأصلي المطابق لها. لذلك أُزيلت كل تجاوزات النص العام/الثانوي، وبقيت حماية صريحة للأزرار النشطة الداكنة. */
+.plan-sum button.on,
+.ann-quick button.on,
+.tl-filters button.on{color:#fff!important}
+/* صفحات الطباعة الرسمية (الكشوف والشهادات) تبقى بيضاء عمدًا لأنها تُطبع على ورق */
+@media print{#thm-settings-sheet{display:none!important}}

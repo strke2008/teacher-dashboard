@@ -321,10 +321,30 @@ function nfFeedback(q, ok, second) {
 }
 
 /* ── «تحقّق» قبل «التالي» في وضع التدريب ── */
-function nfGate() {
+/* 🔐 التحقق على الخادم (/hw-check): البوابة لم تعد تحمل مفاتيح الإجابة.
+   يعيد true/false، أو null عند تعذر الاتصال (فنرجع للتصحيح المحلي احتياطًا) */
+async function nfCheckGrade(q, a, st, phase) {
+  try {
+    if (!q || q._hw == null || q._qi == null) return null;
+    const api = ((typeof HW !== 'undefined' && HW && HW.api) || API || '').replace(/\/+$/, ''); if (!api) return null;
+    const r = await fetch(api + '/hw-check', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ hw: q._hw, qi: q._qi, ans: serAns(q, a, st), phase: phase || 'first', name: myName || '', sid: mySid || '', session: (typeof getStoreSession === 'function' ? getStoreSession() : '') }) });
+    const j = await r.json().catch(() => null);
+    if (!j || typeof j.correct !== 'boolean') return null;
+    if (j.right) q._right = String(j.right);
+    return j.correct;
+  } catch (e) { return null; }
+}
+async function nfGate() {
   if (!nfTrain() || !ready() || paceLeftMs() > 0) return false;
   const st = NF.st[idx]; if (st === 'done') return false;
-  const q = HW.q[idx], k = q.t || 'q', ok = grade(q, ans[idx], built[idx]);
+  const q = HW.q[idx], k = q.t || 'q';
+  let ok = await nfCheckGrade(q, ans[idx], built[idx], st === 'tried1' ? 'last' : 'first');
+  if (ok === null) ok = grade(q, ans[idx], built[idx]);
+  else if (!ok && st === undefined) {
+    const left0 = k === 'q' ? (q.o || []).length - (NF.struck[idx] || []).length - (hintUsed[idx] || []).length : 0;
+    if (!((k === 'q' && left0 > 2) || k === 'f')) { const r2 = await nfCheckGrade(q, ans[idx], built[idx], 'last'); if (r2 !== null) ok = r2; }
+  }
   if (st === undefined) NF.first[idx] = nfClone(ans[idx]);      // أول جواب = المحتسب
   const left = k === 'q' ? (q.o || []).length - (NF.struck[idx] || []).length - (hintUsed[idx] || []).length : 0;
   if (st === undefined && !ok && ((k === 'q' && left > 2) || k === 'f')) {
@@ -333,7 +353,7 @@ function nfGate() {
   }
   NF.st[idx] = 'done'; NF.fb[idx] = nfFeedback(q, ok, st === 'tried1'); render(); return true;
 }
-{ const nb = $('q-next'), orig = nb && nb.onclick; if (nb && orig) nb.onclick = e => { if (nfGate()) return; return orig(e); }; }
+{ const nb = $('q-next'), orig = nb && nb.onclick; if (nb && orig) nb.onclick = async e => { if (await nfGate()) return; return orig(e); }; }
 const _nfPaceTick = paceTick;
 paceTick = function () {
   _nfPaceTick();
@@ -365,13 +385,21 @@ finish = function () {
   if (!NF.on) { const x = $('nf-done'); if (x) x.remove(); return _nfFinish(); }
   nfTimerStop();
   Object.keys(NF.first).forEach(i => { ans[i] = nfClone(NF.first[i]); });
-  const marks = HW.q.map((q, i) => grade(q, ans[i], built[i]));
+  const marks = HW.q.map((q, i) => (NF.fb && NF.fb[i]) ? !!NF.fb[i].ok : grade(q, ans[i], built[i]));
   NF.lastQ = HW.q.slice(); NF.lastMarks = marks;
   if (NF.practice) { nfPracticeDone(marks); return Promise.resolve(); }
   const p = _nfFinish();
   nfDoneCard(marks);
   return p;
 };
+/* 🔐 حين تصل علامات الخادم (في /submit) تُحدَّث بطاقة النواتج والسجل بها */
+document.addEventListener('srv-marks', e => {
+  try {
+    const m = e && e.detail && e.detail.marks; if (!Array.isArray(m)) return;
+    NF.lastMarks = m; NF.lastQ = (typeof HW !== 'undefined' && HW && HW.q) ? HW.q.slice() : NF.lastQ;
+    if (NF.on && $('nf-done')) nfDoneCard(m);
+  } catch (err) {}
+});
 function nfSkillStats(qs, marks) {
   const by = {};
   qs.forEach((q, i) => { const k = nfShort(q.skill); const o = by[k] || (by[k] = { c: 0, t: 0 }); o.t++; if (marks[i]) o.c++; });
@@ -397,7 +425,10 @@ function nfDoneCard(marks, practice) {
 function nfShuffleQ(q) {
   if ((q.t || 'q') !== 'q' || !Array.isArray(q.o)) return { ...q };
   const order = shuffle(q.o.map((_, i) => i));
-  return { ...q, o: order.map(i => q.o[i]), a: order.indexOf(q.a) };
+  const out = { ...q, o: order.map(i => q.o[i]) };
+  if (q.a !== undefined) out.a = order.indexOf(q.a); else delete out.a;
+  out._om = order.map(i => Array.isArray(q._om) ? q._om[i] : i);   // رقم كل خيار معروض في السؤال الأصلي (للتحقق والتلميح على الخادم)
+  return out;
 }
 function nfPractice(onlyWrong) {
   const src = NF.lastQ || HW.q, marks = NF.lastMarks || [];
@@ -465,7 +496,7 @@ async function nfPracticeSkill(i) {
   const seen = new Set(), qs = []; let base = null;
   for (const id of st.acts) {
     try { const r = await fetch(api + '/hw?id=' + encodeURIComponent(id), { cache: 'no-store' }); if (!r.ok) continue; const h = await r.json(); base = base || h;
-      (h.q || []).forEach(q => { if (q && q.skill === st.k && !seen.has(q.nafs || q.q)) { seen.add(q.nafs || q.q); qs.push(q); } }); } catch (e) {}
+      (h.q || []).forEach((q, qi) => { if (q && q.skill === st.k && !seen.has(q.nafs || q.q)) { seen.add(q.nafs || q.q); qs.push({ ...q, _hw: id, _qi: qi }); } }); } catch (e) {}
   }
   if (!qs.length || !base) { toast('تعذّر تحميل الأسئلة — تحقّق من الاتصال', 'bad'); return; }
   NF.practice = true; NF.lastQ = null; NF.lastMarks = null;

@@ -3,17 +3,19 @@
 const KASHF_KEY='dash_kashf_v1', KASHF_SEL={weekly:'wk-class',comprehensive:'comp-class',compan:'ca-class'};
 document.addEventListener('change',e=>{ const id=e.target&&e.target.id; if(Object.values(KASHF_SEL).includes(id)) window._kashfCls=e.target.value; },true);
 function kashfMark(v){
-  document.querySelectorAll('[data-kmain]').forEach(b=>b.classList.toggle('on',(v==='weekly')===(b.dataset.kmain==='weekly')));
-  document.querySelectorAll('[data-ksub]').forEach(b=>b.classList.toggle('on',b.dataset.ksub===v));
+  document.querySelectorAll('[data-kmain]').forEach(b=>{ const on=(v==='weekly')===(b.dataset.kmain==='weekly'); b.classList.toggle('on',on); b.setAttribute('aria-selected',on?'true':'false'); });
+  document.querySelectorAll('[data-ksub]').forEach(b=>{ const on=b.dataset.ksub===v; b.classList.toggle('on',on); b.setAttribute('aria-selected',on?'true':'false'); });
 }
 function kashfSyncSP(v){ // التحليل يتبع فلاتر الكشف نفسها
   const cs=document.getElementById('comp-semester'), cp=document.getElementById('comp-period');
   const as=document.getElementById('ca-semester'), ap=document.getElementById('ca-period');
-  if(v==='compan'&&cs&&as){ as.value=cs.value; ap.value=cp.value; }
+  if(v==='compan'&&cs&&cp&&as&&ap){ as.value=cs.value; ap.value=cp.value; }
 }
 function kashfSP(){
   const cs=document.getElementById('comp-semester'), cp=document.getElementById('comp-period');
-  cs.value=document.getElementById('ca-semester').value; cp.value=document.getElementById('ca-period').value;
+  const as=document.getElementById('ca-semester'), ap=document.getElementById('ca-period');
+  if(!cs||!cp||!as||!ap) return;
+  cs.value=as.value; cp.value=ap.value;
   renderCompAnalysis(true);
 }
 function kashfCarry(v){

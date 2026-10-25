@@ -22,40 +22,43 @@
 <meta content="root-cause-sync-v2" name="sync-fix-version"/>
 <link rel="stylesheet" href="app.css?v=caf855e9">
 <script src="js/01-right-sidebar-navigation-js.js?v=41ea29b3" defer></script>
-<script src="js/02.js?v=414d0bbe" defer></script>
-<script src="js/03-projects-students-logic-v13.js?v=1222f001" defer></script>
-<script src="js/04.js?v=88f51ee5" defer></script>
-<script src="js/05.js?v=5e4e4410" defer></script>
+<script src="js/02.js?v=465a7187" defer></script>
+<script src="js/03-projects-students-logic-v13.js?v=28da44e7" defer></script>
+<script src="js/04.js?v=5a7c663e" defer></script>
+<script src="js/05.js?v=a7c074c3" defer></script>
 <script src="js/06.js?v=4e76f64a" defer></script>
 <script src="js/07.js?v=ee4fadce" defer></script>
-<script src="js/08.js?v=4847aac5" defer></script>
+<script src="js/08.js?v=06bfdd76" defer></script>
 <script src="js/09.js?v=ef17fc2a" defer></script>
 <script src="js/10.js?v=bbaf2a38" defer></script>
 <script src="js/11.js?v=8ccd78e3" defer></script>
 <script src="js/12.js?v=8672864f" defer></script>
 <script src="js/13.js?v=0f4a40e9" defer></script>
 <script src="js/14.js?v=0cf10ae8" defer></script>
-<script src="js/15-dash-reorg-js.js?v=7a685866" defer></script>
-<script src="js/16-dash-v2-js.js?v=85a573ae" defer></script>
+<script src="js/15-dash-reorg-js.js?v=d2bc1d31" defer></script>
+<script src="js/16-dash-v2-js.js?v=852ba069" defer></script>
 <script src="js/17-dash-v3-js.js?v=ee824a1f" defer></script>
-<script src="js/18-kashf-js.js?v=3153c29c" defer></script>
+<script src="js/18-kashf-js.js?v=59c3afda" defer></script>
 <script src="js/19-bulk-rem-js.js?v=de3627ef" defer></script>
 <script src="js/20-sch-art-js.js?v=d4b6c153" defer></script>
 <script src="js/21-today-v3-js.js?v=982124af" defer></script>
 <script src="js/22-sch-times-js.js?v=f792e5a2" defer></script>
-<script src="js/23-portal5-js.js?v=b3319b24" defer></script>
-<script src="js/24-not-started-js.js?v=af9a228e" defer></script>
-<script src="js/25-today-board-js.js?v=5dfaabcb" defer></script>
+<script src="js/23-portal5-js.js?v=66f2e16e" defer></script>
+<script src="js/24-not-started-js.js?v=386d8337" defer></script>
+<script src="js/25-today-board-js.js?v=ffd5252a" defer></script>
 <script src="js/26-br-v2-js.js?v=219e99dd" defer></script>
 <script src="js/27-proj-illus-js.js?v=d2f03a2d" defer></script>
 <script src="js/28-proj-download-js.js?v=56d82819" defer></script>
 <script src="js/29-student-points-js.js?v=9e320765" defer></script>
-<script src="js/30-store-sale-js.js?v=9c09c073" defer></script>
+<script src="js/30-store-sale-js.js?v=de622fc8" defer></script>
 <script src="js/30-noor-export-js.js?v=4c6736f8" defer></script>
 <script src="js/31-report-share-js.js?v=7ba8f6cd" defer></script>
-<script src="js/32-nafs-js.js?v=f0279984" defer></script>
-<script src="js/33-online-js.js?v=bb7f72dd" defer></script>
+<script src="js/32-nafs-js.js?v=f1dbe87e" defer></script>
+<script src="js/33-online-js.js?v=1825d97f" defer></script>
 <script src="js/34-skill-outcomes-js.js?v=4273a664" defer></script>
+<script src="theme-picker.js?v=5b5f90af" defer></script>
+<script src="simplified-nav.js?v=f116046b" defer></script>
+<script src="tab-polish.js?v=bd1e2e02" defer></script>
 <style id="comprehensive-print-identical-all-devices">
 /* 🖨️ الكشف الشامل: نفس التخطيط الفيزيائي على الجوال والكمبيوتر.
    هذه القواعد تأتي في آخر الرأس لتتغلب على أي قواعد شاشة سابقة. */
@@ -482,15 +485,19 @@
 @media screen and (max-width:600px){.exam-shop-kpis{grid-template-columns:1fr 1fr}.exam-shop-student{grid-template-columns:1fr 105px}.exam-shop-student small{grid-column:1}.exam-shop-student .exam-shop-used{display:none}}
 </style>
 <link rel="stylesheet" id="late-css" href="app-late.css?v=b150b1f3">
+<link rel="stylesheet" href="theme-picker.css?v=1a23a1e9">
+<link rel="stylesheet" href="simplified-nav.css?v=8fbfd58e">
+<link rel="stylesheet" href="tab-polish.css?v=b9d66f7c">
+<link rel="stylesheet" href="audit-fixes.css?v=a05870b6">
 </head>
 <body>
 <header class="masthead">
 <div class="masthead-in">
 <button aria-controls="main-nav" aria-expanded="false" aria-label="فتح قائمة التنقل" class="nav-drawer-toggle no-print" id="nav-drawer-toggle" type="button">☰</button>
-<div class="brand brand-refresh" role="button" tabindex="0" title="اضغط لتحديث الصفحة" aria-label="تحديث الصفحة"><span class="mark"></span> مساعد المعلم</div>
+<div class="brand brand-refresh" role="button" tabindex="0" title="اضغط لتحديث الصفحة" aria-label="تحديث الصفحة"><span class="mark"></span><span class="brand-txt">مساعد المعلم</span></div>
 <div class="meta" id="meta-line">—</div>
-<button class="btn ghost sm no-print vsp-btn" id="vsp-btn" onclick="vspOpen()" style="display:none;margin-inline-start:auto" title="الفترة المعروضة في اللوحة — اضغط لعرض فترة مغلقة" type="button">📅</button>
-<button class="btn ghost sm no-print" id="portal-link-btn" onclick="openPortal()" style="display:none;margin-inline-start:.4rem" type="button">🧭 بوابة المعلم</button>
+<button class="btn ghost sm no-print vsp-btn" id="vsp-btn" onclick="vspOpen()" style="display:none" title="الفترة المعروضة في اللوحة — اضغط لعرض فترة مغلقة" type="button">📅</button>
+<button class="btn ghost sm no-print" id="portal-link-btn" onclick="openPortal()" style="display:none;margin-inline-start:.4rem" type="button" title="بوابة المعلم" aria-label="بوابة المعلم">🧭<span class="portal-w"> بوابة المعلم</span></button>
 </div>
 <div class="vsp-banner hide no-print" id="vsp-banner"></div>
 </header>
@@ -571,7 +578,7 @@
 <details class="td-more td-blk" data-blk="hw"><summary>📚 حالة الأنشطة <span class="muted" id="dash-hw-summary"></span></summary><div class="sheet" style="margin:0"><div id="dash-hw"></div></div></details>
 <details class="td-more td-blk" data-blk="stats"><summary>📊 أرقام عامة</summary><div class="feature-grid" id="dash-stats"></div></details>
 </div>
-<div hidden><div class="sheet"><div class="feature-list" id="dash-next-actions"></div></div></div>
+<div><div class="sheet"><div class="feature-list" id="dash-next-actions"></div></div></div>
 </section>
 <!-- ═══ رسائل الطلاب ═══ -->
 <section class="panel" id="p-messages">
@@ -1180,18 +1187,18 @@
 <section class="panel" id="p-grades">
 <div class="report-topbar no-print">
 <div aria-label="أقسام التقارير" class="report-switch no-print" role="tablist">
-<button class="report-switch-btn" onclick="switchReportView('grades')" role="tab">📋 درجات الأنشطة</button>
+<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('grades')" role="tab">📋 درجات الأنشطة</button>
 
 
-<button class="report-switch-btn" onclick="switchReportView('analysis')" role="tab">📈 تحليل الأنشطة</button>
-<button class="report-switch-btn" onclick="switchReportView('diag')" role="tab">🔍 التشخيصي</button>
-<button class="report-switch-btn" onclick="switchReportView('styles')" role="tab">🧠 أنماط التعلّم</button>
+<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('analysis')" role="tab">📈 تحليل الأنشطة</button>
+<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('diag')" role="tab">🔍 التشخيصي</button>
+<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('styles')" role="tab">🧠 أنماط التعلّم</button>
 </div>
 </div>
 <div class="sheet-head">
 <h2>كشف الدرجات</h2>
 <span class="spacer"></span>
-<button class="btn ghost sm" onclick="copyGrades()">نسخ للجدول</button>
+<button class="btn ghost sm no-print" onclick="backToReportsHub()">← لوحة التقارير</button><button class="btn ghost sm" onclick="copyGrades()">نسخ للجدول</button>
 <button class="btn ghost sm" onclick="printGrades()">🖨️ طباعة الكشف</button>
 <button class="btn ghost sm" onclick="chooseClassActivityPrint()">🖨️ طباعة كشف الفصل</button>
 <button class="btn tick sm" onclick="exportGrades()">تصدير CSV</button>
@@ -1214,18 +1221,18 @@
 <section class="panel" id="p-analysis">
 <div class="report-topbar no-print">
 <div aria-label="أقسام التقارير" class="report-switch no-print" role="tablist">
-<button class="report-switch-btn" onclick="switchReportView('grades')" role="tab">📋 درجات الأنشطة</button>
+<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('grades')" role="tab">📋 درجات الأنشطة</button>
 
 
-<button class="report-switch-btn" onclick="switchReportView('analysis')" role="tab">📈 تحليل الأنشطة</button>
-<button class="report-switch-btn" onclick="switchReportView('diag')" role="tab">🔍 التشخيصي</button>
-<button class="report-switch-btn" onclick="switchReportView('styles')" role="tab">🧠 أنماط التعلّم</button>
+<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('analysis')" role="tab">📈 تحليل الأنشطة</button>
+<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('diag')" role="tab">🔍 التشخيصي</button>
+<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('styles')" role="tab">🧠 أنماط التعلّم</button>
 </div>
 </div>
 <div class="sheet-head no-print">
 <h2>تحليل النتائج</h2>
 <span class="spacer"></span>
-<button class="btn ghost sm" onclick="toggleRepCfg()">بيانات التقرير</button>
+<button class="btn ghost sm no-print" onclick="backToReportsHub()">← لوحة التقارير</button><button class="btn ghost sm" onclick="toggleRepCfg()">بيانات التقرير</button>
 <button class="btn tick sm" onclick="printAnalysisReport()">🖨️ طباعة</button>
 </div>
 <div class="sheet no-print" id="rep-cfg" style="display:none">
@@ -1240,7 +1247,7 @@
 <div class="field"><label>الفترة</label><input class="inp rcf" id="rc-period" placeholder="الفترة الأولى"/></div>
 </div>
 <div class="field" style="margin:0"><label>الفصل</label>
-<select class="inp" id="an-class" onchange="renderAnalysis()"></select></div>
+<select class="inp" id="an-class" onchange="var b=document.getElementById('an-class2');if(b)b.value=this.value;renderAnalysis()"></select></div>
 </div>
 <div class="row no-print" style="gap:.5rem;margin-bottom:.8rem;flex-wrap:wrap">
 <label style="font-size:.84rem;color:var(--ink-soft)">الفصل</label>
@@ -1248,7 +1255,7 @@
 <label style="font-size:.84rem;color:var(--ink-soft)">النشاط</label>
 <select class="inp" id="an-hw" onchange="renderAnalysis()" style="width:auto;min-width:170px"></select>
 <span class="spacer"></span>
-<div style="display:flex;gap:.25rem;background:#EFF3F8;border-radius:999px;padding:.2rem">
+<div style="display:flex;gap:.25rem;background:var(--ui-surface-2);border-radius:999px;padding:.2rem">
 <button class="an-mode" data-m="brief" onclick="setAnMode('brief')">مختصر</button>
 <button class="an-mode" data-m="full" onclick="setAnMode('full')">مفصّل</button>
 </div>
@@ -1259,12 +1266,12 @@
 <section class="panel report-view-hidden" id="p-diag">
 <div class="report-topbar no-print">
 <div aria-label="أقسام التقارير" class="report-switch no-print" role="tablist">
-<button class="report-switch-btn" onclick="switchReportView('grades')" role="tab">📋 درجات الأنشطة</button>
+<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('grades')" role="tab">📋 درجات الأنشطة</button>
 
 
-<button class="report-switch-btn" onclick="switchReportView('analysis')" role="tab">📈 تحليل الأنشطة</button>
-<button class="report-switch-btn" onclick="switchReportView('diag')" role="tab">🔍 التشخيصي</button>
-<button class="report-switch-btn" onclick="switchReportView('styles')" role="tab">🧠 أنماط التعلّم</button>
+<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('analysis')" role="tab">📈 تحليل الأنشطة</button>
+<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('diag')" role="tab">🔍 التشخيصي</button>
+<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('styles')" role="tab">🧠 أنماط التعلّم</button>
 </div>
 </div>
 <div class="sheet-head no-print">
@@ -1274,7 +1281,7 @@
 <button class="diag-mode" data-m="brief" data-report-mode="diag" onclick="setDiagMode('brief')">مختصر</button>
 <button class="diag-mode" data-m="full" data-report-mode="diag" onclick="setDiagMode('full')">مفصّل</button>
 </div>
-<button class="btn tick sm" onclick="window.print()">🖨️ طباعة</button>
+<button class="btn ghost sm no-print" onclick="backToReportsHub()">← لوحة التقارير</button><button class="btn tick sm" onclick="window.print()">🖨️ طباعة</button>
 </div>
 <div class="sheet no-print" style="padding:.7rem 1rem">
 <div class="row" style="gap:.5rem;flex-wrap:wrap">
@@ -1290,12 +1297,12 @@
 <section class="panel report-view-hidden" id="p-styles">
 <div class="report-topbar no-print">
 <div aria-label="أقسام التقارير" class="report-switch no-print" role="tablist">
-<button class="report-switch-btn" onclick="switchReportView('grades')" role="tab">📋 درجات الأنشطة</button>
+<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('grades')" role="tab">📋 درجات الأنشطة</button>
 
 
-<button class="report-switch-btn" onclick="switchReportView('analysis')" role="tab">📈 تحليل الأنشطة</button>
-<button class="report-switch-btn" onclick="switchReportView('diag')" role="tab">🔍 التشخيصي</button>
-<button class="report-switch-btn" onclick="switchReportView('styles')" role="tab">🧠 أنماط التعلّم</button>
+<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('analysis')" role="tab">📈 تحليل الأنشطة</button>
+<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('diag')" role="tab">🔍 التشخيصي</button>
+<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('styles')" role="tab">🧠 أنماط التعلّم</button>
 </div>
 </div>
 <div class="sheet-head no-print">
@@ -1305,7 +1312,7 @@
 <button class="styles-mode" data-m="brief" data-report-mode="styles" onclick="setStylesMode('brief')">مختصر</button>
 <button class="styles-mode" data-m="full" data-report-mode="styles" onclick="setStylesMode('full')">مفصّل</button>
 </div>
-<button class="btn tick sm" onclick="window.print()">🖨️ طباعة</button>
+<button class="btn ghost sm no-print" onclick="backToReportsHub()">← لوحة التقارير</button><button class="btn tick sm" onclick="window.print()">🖨️ طباعة</button>
 </div>
 <div class="sheet no-print" style="padding:.7rem 1rem">
 <div class="row" style="gap:.5rem;flex-wrap:wrap">
@@ -1342,7 +1349,7 @@
       <div class="field"><label>ينتهي التخفيض</label><input class="inp" id="sale-until" type="datetime-local" oninput="salePreview()"><small class="muted">اتركه فارغًا ليستمر حتى توقفه بنفسك.</small></div>
       <div class="field"><label>معاينة الأسعار</label><div id="sale-preview" class="sale-preview"></div></div>
     </div>
-    <div class="row" style="gap:.5rem;justify-content:flex-end;flex-wrap:wrap"><button class="btn tick" type="button" onclick="saleSave()">🏷️ تفعيل التخفيض</button><button class="btn ghost" type="button" id="sale-stop" onclick="saleStop()">إيقاف التخفيض</button></div>
+    <div class="row" style="gap:.5rem;justify-content:flex-end;flex-wrap:wrap"><button class="btn tick" type="button" onclick="saleSave()">🏷️ تفعيل التخفيض</button><button class="btn ghost" type="button" id="sale-stop" onclick="saleStop()" disabled>إيقاف التخفيض</button></div>
   </div>
   <div class="sheet">
     <div class="sheet-head"><h3>إعداد الإتاحة العامة</h3><span class="muted">السقف الأقصى 20 درجة لكل طالب</span></div>
@@ -1357,7 +1364,7 @@
   </div>
   <div class="sheet">
     <div class="sheet-head"><div><h3>👥 السماح لكل طالب</h3><span class="sub">يمكنك وضع حد خاص لطالب بدل الحد العام. اترك «افتراضي» ليستخدم الحد العام.</span></div></div>
-    <div class="exam-shop-kpis"><div class="exam-shop-kpi"><b id="esp-student-count">0</b><small>طالب</small></div><div class="exam-shop-kpi"><b id="esp-overrides">0</b><small>حدود خاصة</small></div><div class="exam-shop-kpi"><b id="esp-max-summary">3</b><small>الحد العام</small></div></div>
+    <div class="exam-shop-kpis"><div class="exam-shop-kpi"><b id="esp-student-count">0</b><small>طالب (في المعروض)</small></div><div class="exam-shop-kpi"><b id="esp-overrides">0</b><small>حدود خاصة (في كل السياسة)</small></div><div class="exam-shop-kpi"><b id="esp-max-summary">3</b><small>الحد العام</small></div></div>
     <div class="row" style="gap:.5rem;flex-wrap:wrap;margin:.7rem 0"><select class="inp" id="esp-class-filter" onchange="renderExamShopStudents()" style="width:auto;min-width:180px"><option value="">📚 كل الصفوف</option></select><input class="inp" id="esp-search" placeholder="🔍 ابحث باسم الطالب" oninput="renderExamShopStudents()" style="flex:1;min-width:180px"><button class="btn ghost sm" type="button" onclick="setAllExamShopStudentsToDefault()">إزالة الحدود الخاصة</button></div>
     <div id="exam-shop-students" class="exam-shop-student-list"></div>
   </div>
@@ -1575,6 +1582,7 @@
 <div class="row" style="gap:.5rem;flex-wrap:wrap;margin-bottom:.7rem">
 <button class="btn tick" type="button" onclick="backupDownloadFull()">⬇️ نسخة كاملة على جهازي</button>
 <button class="btn" type="button" onclick="backupNow()">📸 نسخة في الخادم الآن</button>
+<button class="btn ghost" type="button" onclick="backupLoad()">↻ تحديث القائمة</button>
 <button class="btn ghost" type="button" onclick="document.getElementById('backup-file').click()">↩️ استعادة من ملف</button>
 <input accept=".json" id="backup-file" onchange="backupRestoreFile(event)" style="display:none" type="file"/>
 </div>

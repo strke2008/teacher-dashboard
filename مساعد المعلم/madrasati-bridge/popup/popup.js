@@ -62,6 +62,9 @@ $('preview').onclick = async () => {
   $('save-box').hidden = false;
 };
 const API_DEFAULT = 'https://homework.ahmadalmarzooq2009.workers.dev';
+/* 🔐 إصلاح أمني: لا تُرسل البيانات إلا لخادم المعلم الرسمي أو تطوير محلي */
+function apiAllowed(u) { try { const x = new URL(String(u || '')); if (x.hostname === 'homework.ahmadalmarzooq2009.workers.dev') return x.protocol === 'https:'; if (x.hostname === 'localhost' || x.hostname === '127.0.0.1') return true; return false; } catch (_) { return false; } }
+function cfgApi(cfg) { const a = String((cfg && cfg.api) || '').replace(/\/+$/, ''); return apiAllowed(a) ? a : API_DEFAULT; }
 $('save').onclick = async () => {
   const r = window.__lastPreview; if (!r) return;
   const title = $('asg-title').value.trim();
@@ -73,7 +76,7 @@ $('save').onclick = async () => {
   if (!token) { $('token-row').hidden = false; $('save-out').innerHTML = row('', 'أدخل كلمة سر المعلم الذكي', 'bad'); return; }
   $('save').disabled = true; $('save-out').innerHTML = row('', 'جارٍ الحفظ…', 'warn');
   try {
-    const res = await fetch((cfg.api || API_DEFAULT) + '/madrasati/import', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    const res = await fetch(cfgApi(cfg) + '/madrasati/import', { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ t: token, assignment: { key: r.assignmentKey, title, className: r.className || '', dueAt: r.dueAt || 0 },
         students: r.students.map(s => ({ mid: s.madrasatiStudentId, name: s.name, solved: s.status === 'SUBMITTED' })) }) });
     const j = await res.json().catch(() => ({}));
@@ -99,7 +102,7 @@ async function renderHistory() {
   const token = cfg.token || '';
   if (!token) { out.innerHTML = row('', 'احفظ كلمة سر المعلم الذكي أولًا.', 'warn'); return; }
   try {
-    const res = await fetch((cfg.api || API_DEFAULT) + '/madrasati/list', {
+    const res = await fetch(cfgApi(cfg) + '/madrasati/list', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ t: token })
     });
     const j = await res.json().catch(() => ({}));
@@ -122,7 +125,7 @@ async function deleteHistory(key) {
   const cfg = (await chrome.storage.local.get('mb_cfg'))['mb_cfg'] || {};
   const token = cfg.token || '';
   if (!token) return;
-  const res = await fetch((cfg.api || API_DEFAULT) + '/madrasati/delete', {
+  const res = await fetch(cfgApi(cfg) + '/madrasati/delete', {
     method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({t:token,key})
   });
   const j = await res.json().catch(() => ({}));
@@ -135,7 +138,7 @@ $('history-delete-all').onclick = async () => {
   const token = cfg.token || '';
   if (!token) { $('history-out').innerHTML = row('', 'احفظ كلمة السر أولًا.', 'warn'); return; }
   try {
-    const res = await fetch((cfg.api || API_DEFAULT) + '/madrasati/list', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({t:token}) });
+    const res = await fetch(cfgApi(cfg) + '/madrasati/list', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({t:token}) });
     const j = await res.json().catch(()=>({}));
     const arr = Array.isArray(j.assignments) ? j.assignments : [];
     if (!arr.length) return;

@@ -473,7 +473,7 @@ function nafsTerm(n) { NAFS.term = n === 2 ? 2 : 1; NAFS.open = ''; try { localS
 /* سؤال البنك ← سؤال نشاط (المهارة = ناتج التعلم المختصر، بادئة «نافس» تميّزه في التقارير) */
 function nafsToQ(q) {
   // nfo: نص ناتج التعلم (زر «ذكّرني بالمفهوم» في وضع التدريب) · nfn: ملاحظة الإجابة (تظهر بعد الإجابة فقط)
-  const base = { img: nafsImg(q) || undefined, ...(q.fig ? { fig: q.fig } : {}), skill: 'نافس: ' + NAFS_OUT[q.o].short, nafs: q.id, nfo: NAFS_OUT[q.o].text, ...(q.note ? { nfn: q.note } : {}), ...(q.why ? { nfw: q.why } : {}) };
+  const base = { img: nafsImg(q) || undefined, ...(q.fig ? { fig: q.fig } : {}), skill: 'نافس: ' + ((NAFS_OUT[q.o]||{}).short||'ناتج غير معروف'), nafs: q.id, nfo: (NAFS_OUT[q.o]||{}).text||'', ...(q.note ? { nfn: q.note } : {}), ...(q.why ? { nfw: q.why } : {}) };
   if (q.t === 'q') return { t: 'q', q: q.q, o: q.op.slice(), a: q.a, ...base };
   if (q.t === 'tf') return { t: 'tf', q: q.q, a: !!q.a, ...base };
   return { t: 'f', q: q.q, a: String(q.a), ...base };
@@ -503,7 +503,7 @@ function nafsRender() {
             return `<li><b>${esc(sh)}</b> <small class="muted">${n ? n + ' سؤال' : 'لا سؤال في الدليل'}</small>${a < NAFS_MIN_Q ? ` <small class="nafs-thin">⚠️ ${a ? `${a} آلي فقط` : 'بلا سؤال آلي'} — يحتاج ${NAFS_MIN_Q - a} ليُحكم عليه من نشاط نافس وحده</small>` : ''}<div class="muted">${esc(tx)}</div></li>`; }).join('')}</ol>
           <div class="nafs-sec-tools"><button type="button" class="btn ghost sm" onclick="nafsSelAll('${s.id}',true)">✓ اختر الكل</button><button type="button" class="btn ghost sm" onclick="nafsSelAll('${s.id}',false)">✕ ألغِ الكل</button>
             <button type="button" class="ai-btn sm" onclick="nafsGenOpen('${s.id}')"><span class="ai-mark">✦</span> توليد أسئلة جديدة</button></div>
-          <div class="nafs-qs">${NAFS_BANK.filter(q => q.s === s.id).map((q, i) => nafsQPreview(q, i)).join('')}</div>
+          <div class="nafs-qs">${NAFS_BANK.filter(q => q.s === s.id).map((q, i) => { try { return nafsQPreview(q, i); } catch (e) { return ''; } }).join('')}</div>
         </details></div>`; }).join('')}</div>
     <div class="nafs-make sheet">
       <b>📝 ${ps.length ? `اختبار من ${ps.length === secs.length ? 'كل أقسام ' + NAFS_TERMS[NAFS.term] : ps.length + ' ' + (ps.length === 1 ? 'قسم' : 'أقسام')}: ${pa} سؤال يُصحَّح آليًا${po ? ` + ${po} مقالي للورقة` : ''}` : 'اختر قسمًا واحدًا على الأقل'}</b>
@@ -522,11 +522,11 @@ function nafsQPreview(q, i) {
   const keyTag = q.k === 'off' ? '<span class="nafs-k off">مفتاح رسمي</span>' : q.k === 'ai' ? '<span class="nafs-k ai">✦ مولّد بالذكاء الاصطناعي</span>' : q.k === 'add' ? '<span class="nafs-k add" title="ليس من الدليل الرسمي — أُضيف ليكتمل كل ناتج إلى ٣ أسئلة آلية">➕ سؤال إضافي بأسلوب نافس</span>' : '<span class="nafs-k pr">مفتاح مقترح</span>';
   const inc = nafsIn(q);
   const kind = q.t === 'q' ? 'اختيار' : q.t === 'tf' ? 'صح/خطأ' : q.t === 'f' ? 'إجابة رقمية' : 'مقالي (ورقة)';
-  const ans = q.t === 'q' ? `${L4[q.a]}) ${esc(q.op[q.a])}` : q.t === 'tf' ? (q.a ? 'صح' : 'خطأ') : q.t === 'f' ? esc(q.a) : esc(q.key || '');
-  return `<div class="nafs-q ${inc ? '' : 'off'}"><div class="nafs-q-h"><label class="nafs-inc" title="${inc ? 'ضمن الاختبار — أزل العلامة لاستبعاده' : 'مستبعد — ضع العلامة لإضافته'}"><input type="checkbox" ${inc ? 'checked' : ''} onchange="nafsToggleQ('${q.id}',this.checked)"> ${inc ? 'ضمن الاختبار' : 'مستبعد'}</label>${q.k === 'ai' ? `<button type="button" class="nafs-del" onclick="nafsDelQ('${q.id}')" title="حذف السؤال المولّد">🗑️</button>` : ''} <b>${i + 1}.</b> <span class="chip ghost">${kind}</span> <span class="chip ghost">🎯 ${esc(NAFS_OUT[q.o].short)}</span> ${keyTag}${q.ad ? '<span class="nafs-k ad">مكيّف</span>' : ''}</div>
+  const ans = q.t === 'q' ? `${L4[q.a] || q.a + 1}) ${esc(q.op[q.a])}` : q.t === 'tf' ? (q.a ? 'صح' : 'خطأ') : q.t === 'f' ? esc(q.a) : esc(q.key || '');
+  return `<div class="nafs-q ${inc ? '' : 'off'}"><div class="nafs-q-h"><label class="nafs-inc" title="${inc ? 'ضمن الاختبار — أزل العلامة لاستبعاده' : 'مستبعد — ضع العلامة لإضافته'}"><input type="checkbox" ${inc ? 'checked' : ''} onchange="nafsToggleQ('${q.id}',this.checked)"> ${inc ? 'ضمن الاختبار' : 'مستبعد'}</label>${q.k === 'ai' ? `<button type="button" class="nafs-del" onclick="nafsDelQ('${q.id}')" title="حذف السؤال المولّد">🗑️</button>` : ''} <b>${i + 1}.</b> <span class="chip ghost">${kind}</span> <span class="chip ghost">🎯 ${esc((NAFS_OUT[q.o]||{}).short||'ناتج غير معروف')}</span> ${keyTag}${q.ad ? '<span class="nafs-k ad">مكيّف</span>' : ''}</div>
     <div class="nafs-q-t">${esc(q.q).replace(/\n/g, '<br>')}</div>${q.img ? `<img class="nafs-q-img" src="${nafsImg(q)}" alt="" loading="lazy">` : ''}${q.fig ? nfFigHTML(q.fig) : ''}
     ${q.k === 'ai' ? `<div class="nafs-img-tools">${q.img ? `<button type="button" class="btn ghost sm" onclick="nafsImgRemove('${q.id}')">✕ إزالة الصورة</button>` : ''}<button type="button" class="btn ghost sm" onclick="nafsImgAttach('${q.id}')">🖼️ ${q.img ? 'استبدل الصورة' : 'أرفق صورة'}</button></div>` : ''}
-    ${q.t === 'q' ? `<ol class="nafs-q-o">${q.op.map((o, j) => `<li class="${j === q.a ? 'ok' : ''}">${L4[j]}) ${esc(o)}</li>`).join('')}</ol>` : `<div class="nafs-q-a">✔ ${ans}</div>`}
+    ${q.t === 'q' ? `<ol class="nafs-q-o">${q.op.map((o, j) => `<li class="${j === q.a ? 'ok' : ''}">${L4[j] || j + 1}) ${esc(o)}</li>`).join('')}</ol>` : `<div class="nafs-q-a">✔ ${ans}</div>`}
     ${q.note ? `<div class="nafs-q-n">ℹ️ ${esc(q.note)}</div>` : ''}${q.why ? `<div class="nafs-q-n">💬 لماذا؟ ${esc(q.why)}</div>` : ''}</div>`;
 }
 function nafsPick(id, on) { if (on) NAFS.pick.add(id); else NAFS.pick.delete(id); nafsRender(); }
@@ -598,13 +598,13 @@ function nafsPrint(key) {
   const qHTML = q => { n++;
     const img = (q.img && q.img === prevImg ? '<div class="nfp-same">↑ الشكل في السؤال السابق</div>' : q.img ? `<img src="${nafsImg(q)}" alt="">` : '') + (q.fig ? nfFigHTML(q.fig) : '');
     prevImg = q.img || '';
-    const body = q.t === 'q' ? `<ol class="nfp-o c${optCols(q)}">${q.op.map((o, j) => `<li class="${key && j === q.a ? 'ok' : ''}"><i></i>${L4[j]}) ${esc(o)}</li>`).join('')}</ol>`
+    const body = q.t === 'q' ? `<ol class="nfp-o c${optCols(q)}">${q.op.map((o, j) => `<li class="${key && j === q.a ? 'ok' : ''}"><i></i>${L4[j] || j + 1}) ${esc(o)}</li>`).join('')}</ol>`
       : q.t === 'tf' ? `<div class="nfp-tf"><span class="${key && q.a ? 'ok' : ''}"><i></i> صح</span><span class="${key && !q.a ? 'ok' : ''}"><i></i> خطأ</span></div>`
       : q.t === 'f' ? `<div class="nfp-fill">الإجابة: <span class="nfp-box">${key ? `<b class="nfp-ans">${esc(q.a)}</b>` : ''}</span></div>`
       : `${key ? `<div class="nfp-key">${esc(q.key || '').replace(/\n/g, '<br>')}</div>` : '<div class="nfp-line"></div><div class="nfp-line"></div><div class="nfp-line"></div>'}`;
     return `<div class="nfp-q"><div class="nfp-qh"><b>${n}</b><span>${esc(q.q).replace(/\n/g, '<br>')}</span></div>${img}${body}
-      ${key && q.note ? `<div class="nfp-note">${esc(q.note)}</div>` : ''}${key ? `<small class="nfp-out">🎯 ${esc(NAFS_OUT[q.o].short)} · ${q.k === 'off' ? 'مفتاح رسمي' : q.k === 'add' ? 'سؤال إضافي' : q.k === 'ai' ? 'مولّد بالذكاء الاصطناعي' : 'مفتاح مقترح'}</small>` : ''}</div>`; };
-  const keyGrid = key ? `<div class="nfp-grid">${all.map((q, i) => `<span><b>${i + 1}</b>${q.t === 'q' ? L4[q.a] : q.t === 'tf' ? (q.a ? 'صح' : 'خطأ') : q.t === 'f' ? esc(q.a) : '✎'}</span>`).join('')}</div>
+      ${key && q.note ? `<div class="nfp-note">${esc(q.note)}</div>` : ''}${key ? `<small class="nfp-out">🎯 ${esc((NAFS_OUT[q.o]||{}).short||'ناتج غير معروف')} · ${q.k === 'off' ? 'مفتاح رسمي' : q.k === 'add' ? 'سؤال إضافي' : q.k === 'ai' ? 'مولّد بالذكاء الاصطناعي' : 'مفتاح مقترح'}</small>` : ''}</div>`; };
+  const keyGrid = key ? `<div class="nfp-grid">${all.map((q, i) => `<span><b>${i + 1}</b>${q.t === 'q' ? (L4[q.a] || q.a + 1) : q.t === 'tf' ? (q.a ? 'صح' : 'خطأ') : q.t === 'f' ? esc(q.a) : '✎'}</span>`).join('')}</div>
       <div class="nfp-hint">✎ = سؤال مقالي، نموذج إجابته في موضعه أدناه.</div>` : '';
   box.innerHTML = `<div class="rep-page nfp">${repHead(key ? 'نموذج الإجابة — للمعلم' : 'تدريب على الاختبارات الوطنية', key ? 'نافس — نموذج الإجابة' : 'اختبار نافس — علوم')}
     <div class="rep-in">${key ? keyGrid : `<div class="nfp-id">

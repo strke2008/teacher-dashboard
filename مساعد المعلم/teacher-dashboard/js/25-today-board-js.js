@@ -3,7 +3,7 @@ const TL_KEY='dash_today_layout_v1';
 const TL_NAMES={tasks:'✅ مهام اليوم',asks:'💬 رسائل الطلاب',week:'📅 هذا الأسبوع',alerts:'🔔 التنبيهات والطلبات',follow:'👥 يحتاجون متابعتك',recent:'🕐 آخر التسليمات',hw:'📚 حالة الأنشطة',stats:'📊 أرقام عامة'};
 /* العرض من 12 عمودًا؛ الصف يمتلئ بالترتيب نفسه (لا قفز للبطاقات لسد الفراغ)، وبطاقات الصف الواحد بطول واحد */
 const TL_DEF={order:['stats','tasks','asks','week','follow','alerts','recent','hw'],w:{stats:12,tasks:4,asks:4,week:4,follow:6,alerts:6,recent:6,hw:6},hide:{}};   // الافتراضي: ترتيب المعلم المختار
-const TL_W=[[3,'¼'],[4,'⅓'],[6,'½'],[8,'⅔'],[9,'¾'],[12,'كامل']];
+const TL_W=[[2,'2'],[3,'¼'],[4,'⅓'],[5,'5'],[6,'½'],[7,'7'],[8,'⅔'],[9,'¾'],[10,'10'],[11,'11'],[12,'كامل']];   // كل الأعراض من 2 إلى 12 عمودًا (لا اقتصار على 6 قياسات جاهزة)
 /* الطول — [المفتاح، الاسم، أقصى ارتفاع، عدد آخر التسليمات]؛ أو رقم بالبكسل عند السحب من زاوية البطاقة */
 const TL_H=[['a','تلقائي','none',7],['s','قصير','200px',5],['m','متوسط','320px',7],['l','طويل','560px',15],['x','بلا حد','none',40]];
 function tlHDef(k){ return k==='tasks'||k==='asks'||k==='week'?'a':'m'; }
@@ -40,8 +40,8 @@ function tlDecorate(){
     if(!rs){ rs=document.createElement('span'); rs.className='tl-rs'; rs.title='اسحب لتغيير العرض والطول'; rs.textContent='◢'; el.appendChild(rs); }
     const hk=tlHOf(c,k).key;
     const html=`<b class="tl-h" title="اسحب من هنا لنقل البطاقة">⠿ ${TL_NAMES[k]||k}</b><button title="قبل (يمين/أعلى)" onclick="event.preventDefault();event.stopPropagation();tlMove('${k}',-1)">⬆️</button><button title="بعد (يسار/أسفل)" onclick="event.preventDefault();event.stopPropagation();tlMove('${k}',1)">⬇️</button>
-      <span class="tl-w">${TL_W.map(([v,l])=>`<button class="${Number(c.w[k])===v?'on':''}" title="العرض" onclick="event.preventDefault();event.stopPropagation();tlWidth('${k}',${v})">${l}</button>`).join('')}</span>
-      <span class="tl-w tl-hh">↕ ${TL_H.map(([v,l])=>`<button class="${hk===v?'on':''}" title="الطول" onclick="event.preventDefault();event.stopPropagation();tlHeight('${k}','${v}')">${l}</button>`).join('')}${hk==='px'?`<button class="on" title="طول مخصّص بالسحب">${parseInt(c.h[k])}px</button>`:''}</span>
+      <span class="tl-w">${TL_W.map(([v,l])=>`<button class="${Number(c.w[k])===v?'on':''}" title="العرض: ${v} من 12 عمودًا" onclick="event.preventDefault();event.stopPropagation();tlWidth('${k}',${v})">${l}</button>`).join('')}</span>
+      <span class="tl-w tl-hh">↕ ${TL_H.map(([v,l])=>`<button class="${hk===v?'on':''}" title="الطول" onclick="event.preventDefault();event.stopPropagation();tlHeight('${k}','${v}')">${l}</button>`).join('')}${hk==='px'?`<button class="on" title="طول مخصّص بالسحب">${parseInt(c.h[k])}px</button>`:''}<input type="number" min="120" max="1400" step="10" value="${hk==='px'?parseInt(c.h[k]):''}" placeholder="بكسل" title="طول مخصّص بالبكسل (120–1400): اكتب الرقم ثم Enter" style="width:64px;border:0;background:rgba(255,255,255,.14);color:#fff;border-radius:7px;padding:.2rem .45rem;font:inherit;font-size:.74rem" onclick="event.stopPropagation()" onchange="event.preventDefault();event.stopPropagation();tlHeightPx('${k}',this.value)"></span>
       <button title="${c.hide[k]?'إظهار':'إخفاء'}" onclick="event.preventDefault();event.stopPropagation();tlHide('${k}')">${c.hide[k]?'👁 إظهار':'🙈 إخفاء'}</button>`;
     if(bar._h!==html){ bar.innerHTML=html; bar._h=html; }   // لا نعيد بناء المقبض أثناء السحب (يُلغي السحب)
   });
@@ -51,6 +51,7 @@ function tlEdit(on){ TL_ON=on===undefined?!TL_ON:!!on; const b=document.getEleme
 function tlMove(k,d){ const c=tlGet(), i=c.order.indexOf(k), j=i+d; if(i<0||j<0||j>=c.order.length) return; [c.order[i],c.order[j]]=[c.order[j],c.order[i]]; tlSet(c); }
 function tlWidth(k,v){ const c=tlGet(); c.w[k]=v; tlSet(c); }
 function tlHeight(k,v){ const c=tlGet(); c.h[k]=v; tlSet(c); if(k==='recent'){ try{ renderDashboard(); }catch(e){} } }
+function tlHeightPx(k,v){ const c=tlGet(); v=Math.round(Number(v)||0); if(v<120||v>1400){ try{ toast('الطول بالبكسل بين 120 و1400 فقط','bad'); }catch(e){} return; } c.h[k]=v; tlSet(c); if(k==='recent'){ try{ renderDashboard(); }catch(e){} } }
 function tlHide(k){ const c=tlGet(); if(c.hide[k]) delete c.hide[k]; else c.hide[k]=true; tlSet(c); }
 async function tlReset(){ try{ localStorage.removeItem(TL_KEY); }catch(e){} tlApply(); toast('↩️ عاد الترتيب الافتراضي','good'); }
 (function(){

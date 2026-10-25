@@ -142,7 +142,7 @@ function saveStoreSession(j){
   try{ if(j && j.session && j.sid) localStorage.setItem(STORE_SESS_KEY, JSON.stringify({ sid:String(j.sid), token:j.session, exp:Number(j.sessionExp)||0 })); }catch(e){}
 }
 function clearStoreSession(){ try{ localStorage.removeItem(STORE_SESS_KEY); }catch(e){} }
-function idQS(){ return mySid ? ('&sid=' + encodeURIComponent(mySid)) : ''; }
+function idQS(){ let s = mySid ? ('&sid=' + encodeURIComponent(mySid)) : ''; try{ const t = getStoreSession(); if(t) s += '&session=' + encodeURIComponent(t); }catch(e){} return s; }
 // 🔑 القفل مرتبط بالطالب لا بالجهاز — فالإخوة على جوال واحد لا يحجب بعضهم
 function doneKey(nm){
   const who = nm || myName || lockedName() || '';
@@ -895,6 +895,7 @@ async function submitFileWork(){
     }
     const fd=new FormData();
     fd.append('hw',HW.id); fd.append('name',myName); fd.append('sid',mySid||'');
+    try{ const _ss = getStoreSession(); if(_ss) fd.append('session', _ss); }catch(e){}
     prepared.forEach(f=>fd.append('files',f,f.name));
     status.textContent='جاري رفع العمل…'; bi.style.width='45%';
     const r=await fetch(api+'/file-submit',{method:'POST',body:fd});
@@ -979,11 +980,13 @@ function paceTick(){
 function paceStartServer(){
   const api = ((HW && HW.api) || API || '').replace(/\/+$/,'');
   if(!api || !HW || !HW.id) return;
-  fetch(api + '/start', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ hw:HW.id, sid:mySid||'', name:myName||lockedName()||'' }) })
+  fetch(api + '/start', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ hw:HW.id, sid:mySid||'', name:myName||lockedName()||'', session:getStoreSession() }) })
     .then(r => r.json()).then(j => { if(j && j.ok && Number.isFinite(j.minSecs)) Object.assign(PACE, { perQ:j.perQ, minSecs:j.minSecs, readSecs:j.readSecs||0 }); }).catch(()=>{});
 }
 function startSolving(){
   startedAt = Date.now();
+  /* 🔐 مصدر كل سؤال (النشاط + رقمه) لتحقق نافس على الخادم عبر /hw-check */
+  HW.q.forEach((q,i)=>{ if(q){ if(q._qi===undefined) q._qi=i; if(!q._hw) q._hw=HW.id; } });
   paceStartServer();
   hintUsed = {};
   ans = HW.q.map(()=>null);
@@ -2674,15 +2677,16 @@ function openJourneyLearning(nm, rows, filterKinds){
             const late=isLate(h), teacher=hasTeacherRetry(h), retry=hasPurchasedRetry(h), project=projectResubmit(h);
             const disabled=late && !teacher && !retry && !project;
             let state='', metaText='', icon=meta.icon;
+            let soon=false;
             if(h.done && retry){ state='🔁 إعادة محاولة'; metaText='لديك بطاقة إعادة محاولة'; icon='🔁'; }
             else if(project){ state='🔁 إعادة التسليم'; metaText='لديك مهلة لإعادة تسليم المشروع'; icon='🔁'; }
             else if(teacher){ state='🔓 إعادة التسليم'; metaText='سمح المعلم بمحاولة إضافية'; icon='🔓'; }
             else if(h.done){ state='مكتمل ✓'; metaText='تم الإنجاز'; icon='✓'; }
             else if(late){ state='مغلق'; metaText='فات موعده'; icon='⏰'; }
             else if(isNext){ state='ابدأ الآن ←'; metaText='👈 ابدأ من هنا · الخطوة 1'; }
-            else { const pIdx=pending.findIndex(x=>String(x.id)===String(h.id)); state=pIdx>=0?`الخطوة ${pIdx+1}`:'فتح'; metaText=pIdx>=0?'متاح · بعد إنهاء خطوتك الحالية':'متاح الآن'; }
+            else { const pIdx=pending.findIndex(x=>String(x.id)===String(h.id)); state=pIdx>=0?`الخطوة ${pIdx+1}`:'فتح'; metaText=pIdx>=0?'متاح · بعد إنهاء خطوتك الحالية':'متاح الآن'; soon=pIdx===1||pIdx===2; }
             const dueText=h.due ? (late ? ' · أُغلق '+esc(h.due) : ' · يُغلق '+esc(h.due)) : '';
-            return `<button type="button" class="jw-item ${h.done?'done':''} ${late?'late':''} ${isNext?'current':''} ${(!isNext&&!h.done&&!disabled)?'later':''} ${disabled?'disabled':''}" data-jw-id="${esc(h.id)}" ${disabled?'disabled':''}>
+            return `<button type="button" class="jw-item ${h.done?'done':''} ${late?'late':''} ${isNext?'current':''} ${soon?'soon':''} ${(!isNext&&!h.done&&!disabled)?'later':''} ${disabled?'disabled':''}" data-jw-id="${esc(h.id)}" ${disabled?'disabled':''}>
               <span class="jw-item-icon">${icon}</span>
               <span class="jw-item-body"><span class="jw-item-title">${esc(h.t||'نشاط')}</span><span class="jw-item-meta">${metaText}${dueText}</span></span>
               <span class="jw-item-state">${state}</span>
@@ -5298,6 +5302,21 @@ async function doRetry(){
 
 /* 💡 التلميح: يستبعد خياراً خاطئاً أو يضع أول عنصر صحيح */
 
+/* 🔐 تحويل جواب الطالب لصيغة الخادم (نصوص للترتيب/التوصيل) — نفس تحويل /submit حرفيًا،
+   ويستخدمه التحقق الفوري /hw-check أيضًا */
+/* 🔀 جولات تدريب نافس تخلط الخيارات (nfShuffleQ): _om[i] = رقم الخيار المعروض i في السؤال الأصلي —
+   والخادم يصحّح ويحذف بأرقام الأصل، فتُترجم الأرقام ذهابًا وإيابًا. ومصدر السؤال (_hw/_qi) نشاطه الأصلي */
+function qOrigOpt(q, i){ return q && Array.isArray(q._om) && i != null && q._om[i] !== undefined ? q._om[i] : i; }
+function qShownOpt(q, o){ return q && Array.isArray(q._om) ? q._om.indexOf(Number(o)) : Number(o); }
+function qSrc(q, i){ return { hw: (q && q._hw) || HW.id, qi: q && q._qi != null ? q._qi : i }; }
+function serAns(q, a, st){
+  const k = q.t || 'q';
+  if(k==='q' && a != null && Array.isArray(q._om)) return qOrigOpt(q, a);
+  if(k==='a'||k==='s') return (a||[]).map(x=>st.pool[x]);
+  if(k==='m') return (q.p||[]).map((p,x)=>(a&&st.right[a[x]])?st.right[a[x]].t:null);
+  return a;
+}
+
 async function useHint(){
   if(HW.kind === 'style' || HW.kind === 'diag'){
     toast('البطاقات لا تعمل في اختبارات القياس','bad'); return;
@@ -5306,43 +5325,38 @@ async function useHint(){
   const q = HW.q[idx], k = q.t||'q';
   if(k==='tf'){ toast('التلميح لا يعمل في صح/خطأ','bad'); return; }
 
+  /* 🔐 التلميح يُحسب ويُستهلك على الخادم (/hw-hint): البوابة لم تعد تحمل مفتاح الإجابة */
   const api = ((HW && HW.api) || API || '').replace(/\/+$/,'');
+  let j;
   try{
-    const r = await storeFetch(api + '/use', { method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ name: myName, sid: mySid||'', card:'hint', hw: HW.id }) });
-    const j = await r.json();
+    const r = await storeFetch(api + '/hw-hint', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ name: myName, sid: mySid||'', ...qSrc(q, idx), mode:'hint',
+        used: (hintUsed[idx]||[]).map(i=>qOrigOpt(q,i)), placed: (ans[idx]||[]).length,
+        matched: Object.keys(ans[idx]||{}).map(Number) }) });
+    j = await r.json();
     if(!j.ok){ toast(storeErrText(j, 'لا تملك بطاقة تلميح'),'bad'); return; }
     MYPERKS = j.perks || {};
   }catch(e){ toast('تعذّر الاتصال','bad'); return; }
 
-  if(k==='q'){
-    const bad = q.o.map((_,i)=>i).filter(i=>i!==q.a && !(hintUsed[idx]||[]).includes(i));
-    if(bad.length){ hintUsed[idx] = (hintUsed[idx]||[]).concat(bad[Math.floor(Math.random()*bad.length)]); }
+  if(k==='q' && Array.isArray(j.elim) && j.elim.length){
+    hintUsed[idx] = (hintUsed[idx]||[]).concat(j.elim.map(o=>qShownOpt(q,o)).filter(i=>i>=0));
   }
-  else if(k==='f'){
-    const first = String(q.a||'').trim().charAt(0);
-    note('الإجابة تبدأ بحرف: ' + first, 'تلميح', '💡');
+  else if(k==='f' && j.first){
+    note('الإجابة تبدأ بحرف: ' + j.first, 'تلميح', '💡');
   }
-  else if(k==='a' || k==='s'){
+  else if((k==='a' || k==='s') && j.next != null){
     const st = built[idx];
-    const target = k==='a' ? String(q.w||'').replace(/\s/g,'').split('')
-                           : String(q.s||'').trim().split(/\s+/);
     const cur = ans[idx] || [];
-    const pos = cur.length;                      // العنصر التالي المطلوب
-    if(pos < target.length){
-      const want = target[pos];
-      const used = {}; cur.forEach(i=>used[i]=1);
-      for(let i=0;i<st.pool.length;i++){
-        if(st.pool[i]===want && !used[i]){ ans[idx] = cur.concat(i); break; }
-      }
+    const used = {}; cur.forEach(i=>used[i]=1);
+    for(let i=0;i<st.pool.length;i++){
+      if(st.pool[i]===j.next && !used[i]){ ans[idx] = cur.concat(i); break; }
     }
   }
-  else if(k==='m'){
+  else if(k==='m' && j.pair){
     const st = built[idx];
     const map = Object.assign({}, ans[idx]||{});
-    for(let i=0;i<(q.p||[]).length;i++){
-      if(map[i]===undefined){ map[i] = st.right.findIndex(r=>r.i===i); break; }
-    }
+    const rj = st.right.findIndex((r,x)=>r.t===j.pair.t && !Object.values(map).includes(x));
+    if(rj >= 0) map[j.pair.l] = rj;
     ans[idx] = map;
   }
   render();
@@ -5372,15 +5386,15 @@ async function useFifty(){
   if(bad.length < 2){ toast('تعمل في سؤال اختيار من متعدد فيه خياران خاطئان على الأقل','bad'); return; }
   if(!(MYPERKS.fifty > 0)){ toast('لا تملك بطاقة حذف إجابتين','bad'); return; }
   const api = ((HW && HW.api) || API || '').replace(/\/+$/,'');
+  /* 🔐 الحذف يُحسب ويُستهلك على الخادم (/hw-hint) — لا مفتاح إجابة في المتصفح */
   try{
-    const r = await storeFetch(api + '/use', { method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ name: myName, sid: mySid||'', card:'fifty', hw: HW.id }) });
+    const r = await storeFetch(api + '/hw-hint', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ name: myName, sid: mySid||'', ...qSrc(HW.q[idx], idx), mode:'fifty', used: (hintUsed[idx]||[]).map(i=>qOrigOpt(HW.q[idx],i)) }) });
     const j = await r.json();
     if(!j.ok){ toast(storeErrText(j, 'لا تملك بطاقة حذف إجابتين'),'bad'); return; }
     MYPERKS = j.perks || {};
+    if(Array.isArray(j.elim) && j.elim.length) hintUsed[idx] = (hintUsed[idx]||[]).concat(j.elim.map(o=>qShownOpt(HW.q[idx],o)).filter(i=>i>=0));
   }catch(e){ toast('تعذّر الاتصال','bad'); return; }
-  const pick = bad.slice().sort(()=>Math.random()-.5).slice(0,2);
-  hintUsed[idx] = (hintUsed[idx]||[]).concat(pick);
   render();
   updateHintBtn();
 }
@@ -5919,6 +5933,7 @@ function grade(q, a, st){
 
 // نص الإجابة الصحيحة لعرضها في المراجعة
 function rightAnswer(q){
+  if(q && q._right) return q._right;
   const k=q.t||'q';
   if(k==='q')  return q.o[q.a];
   if(k==='tf') return q.a ? 'صح' : 'خطأ';
@@ -6061,14 +6076,9 @@ async function finish(){
     for(let n=1;n<=3;n++){
       try{
         const r = await fetch(api+'/submit',{method:'POST',headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({hw:HW.id,name:myName,sid:mySid||'',correct,total,pts,d:detail,dev:devId(),
+          body:JSON.stringify({hw:HW.id,name:myName,sid:mySid||'',session:getStoreSession(),correct,total,pts,d:detail,dev:devId(),
             secs: startedAt ? Math.round((Date.now()-startedAt)/1000) : 0,
-            ans: HW.q.map((q,i)=>{
-              const k=q.t||'q', st=built[i], a=ans[i];
-              if(k==='a'||k==='s') return (a||[]).map(x=>st.pool[x]);
-              if(k==='m') return (q.p||[]).map((p,x)=>(a&&st.right[a[x]])?st.right[a[x]].t:null);
-              return a;
-            })})});
+            ans: HW.q.map((q,i)=>serAns(q, ans[i], built[i]))})});
         const j = await r.json();
         // نشاط محذوف أو رابط قديم: خطأ نهائي لا يُصلحه تكرار المحاولة،
         // والطالب يستحق سببًا واضحًا بدل «تعذّر الاتصال».
@@ -6089,6 +6099,17 @@ async function finish(){
           return;
         }
         if(!r.ok||!j.ok) throw 0;
+        /* 🔐 علامات الخادم هي المرجع: البوابة لم تعد تحمل مفاتيح الإجابة،
+           فتُحدَّث النتيجة والمراجعة بما صحّحه الخادم فعلًا */
+        if(Array.isArray(j.marks)){
+          window._srvMarks = j.marks;
+          if(Array.isArray(j.rights)) HW.q.forEach((q,i)=>{ if(j.rights[i] != null) q._right = String(j.rights[i]); });
+          if(!isStyleHW()){
+            try{ $('done-score').textContent = `${j.marks.filter(Boolean).length}/${total}`; }catch(e){}
+          }
+          try{ if(reviewOpenNow()) renderReview(j.marks); else renderReviewLocked(j.marks); }catch(e){}
+          try{ document.dispatchEvent(new CustomEvent('srv-marks', { detail:{ marks:j.marks } })); }catch(e){}
+        }
         markDone(myName);           // ✅ وصل للخادم — الآن فقط يُقفل على هذا الجهاز
         hide('code-wrap');
         s.textContent = j.already ? 'نشاطك مُسلّم مسبقاً ✅' : (HW && HW.personalRemedial ? 'سُجّلت محاولتك ✅' : 'وصلت نتيجتك للمعلم ✅');

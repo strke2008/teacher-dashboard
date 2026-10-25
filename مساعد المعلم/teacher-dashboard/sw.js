@@ -3,7 +3,7 @@
    فتُفتح اللوحة فورًا من الجهاز ويُجلب الإصدار الأحدث في الخلفية.
    بيانات الطلاب والدرجات والتسليمات لا تُحفظ إطلاقًا: تُجلب دائمًا من الخادم (نطاق آخر لا يمرّ هنا).
    لا يحتوي أي سر: المفتاح العام يُجلب من الخادم، والخاص لا يغادر Cloudflare. */
-const SW_VERSION = 'push-v1+static-v3';
+const SW_VERSION = 'push-v2+static-v3';
 const STATIC = 'dash-static-v1';
 const SCOPE = new URL(self.registration ? self.registration.scope : './', self.location.href);
 const PAGE_KEY = new URL('index.html', SCOPE).href;
@@ -83,6 +83,22 @@ self.addEventListener('activate', event => { event.waitUntil((async () => {
   if (HAD_OLD) await notifyUpdate();
 })()); });
 
+/* 📥 صندوق الإشعارات المحفوظة: رسالة دردشة وصلت بالإشعار تُحفظ محليًا حتى لو كانت اللوحة مغلقة،
+   فتظهر فور فتحها بلا انتظار نسخة الخادم (التي قد تتأخر دقيقة). وشارة أيقونة التطبيق تُحدَّث معها
+   (iOS 16.4+ للتطبيقات المثبتة) — والصفحة تصحح الرقم لاحقًا بعدد المفتوحة الحقيقي. */
+const PUSH_INBOX_CACHE = 'dash-push-inbox-v1', PUSH_INBOX_KEY = '/__push_inbox__';
+async function stashAsk(item) {
+  try {
+    const cache = await caches.open(PUSH_INBOX_CACHE);
+    let items = [];
+    try { const r = await cache.match(PUSH_INBOX_KEY); if (r) { const j = await r.json(); if (Array.isArray(j && j.items)) items = j.items; } } catch (e) {}
+    if (!items.some(x => x && x.id === item.id)) items.unshift(item);
+    items = items.slice(0, 30);
+    await cache.put(PUSH_INBOX_KEY, new Response(JSON.stringify({ items, at: Date.now() }), { headers: { 'Content-Type': 'application/json' } }));
+    try { if (self.navigator && typeof self.navigator.setAppBadge === 'function') await self.navigator.setAppBadge(items.length); } catch (e) {}
+  } catch (e) {}
+}
+
 self.addEventListener('push', event => {
   let msg = {};
   try { msg = event.data ? event.data.json() : {}; } catch { msg = { title: 'مساعد المعلم', body: event.data ? event.data.text() : '' }; }
@@ -105,6 +121,8 @@ self.addEventListener('push', event => {
       const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
       for (const c of all) c.postMessage({ type: 'push-sub', data: msg.data });
     }
+    // 📥 مغلقة؟ تُحفظ الرسالة محليًا لتظهر فور فتح اللوحة (push مثل الإشعارات)
+    if (msg.data && msg.data.type === 'ask' && msg.data.item) await stashAsk(msg.data.item);
   })());
 });
 

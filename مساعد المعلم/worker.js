@@ -375,6 +375,53 @@ async function requireStudentSession(env, b) {
   return { st };
 }
 
+/* 🔐 ربط الجلسة (إصلاح أمني): إن أرسل الطلب جلسة طالب، فهي وحدها الهوية —
+   جلسة صحيحة لطالب آخر لا تُستبدل بالاسم، وجلسة فاسدة تُرفض ولا تسقط للاسم.
+   بلا جلسة يبقى السلوك القديم (الاسم/المعرف) حتى لا تتعطل الفصول بلا رموز. */
+async function bindSession(env, b) {
+  const tok = String((b && b.session) || '');
+  if (!tok) return null;
+  if (!(await sessionKey(env))) return null;
+  const auth = await requireStudentSession(env, b);
+  if (auth.res) return { res: auth.res };
+  return { st: auth.st };
+}
+
+/* 🔐 النسخة العامة من النشاط (إصلاح أمني): ما يصل لمتصفح الطالب عبر /hw.
+   كانت /hw تعيد سجل النشاط الخام وفيه مفتاح كل سؤال، فأي شخص بمعرف النشاط
+   يجلب الإجابات قبل الحل. الآن: مفاتيح الاختيار/الصح/الفراغ تُحذف، وهدف
+   الترتيب يُخلط (العناصر نفسها بلا ترتيبها)، وعمود التوصيل الأيمن يُبدَّل —
+   والعرض والتسليم يعملان كما هما لأن التسليم يُرسل النصوص ويُصحَّح خادميًا.
+   التلميح والتحقق الفوري لنافس صارا عبر /hw-hint و/hw-check على الخادم. */
+function _shufArr(a) { const x = a.slice(); for (let i = x.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = x[i]; x[i] = x[j]; x[j] = t; } return x; }
+/* 🔐 الإجابات الصحيحة مع نتيجة التسليم بقاعدة /review نفسها: بعد موعد الإغلاق، أو بلا موعد، أو ببطاقة فتح المراجعة،
+   أو تقرير الأنماط/التشخيصي — وإلا العلامات فقط (صح/خطأ) حتى لا تنتقل الإجابات لزملائه قبل حلّهم */
+async function submitReviewOpen(env, act, hw, st) {
+  const k = String((act && act.kind) || '').toLowerCase(), d = String((act && act.d) || '');
+  if (k === 'style' || k === 'diag' || !d || d < new Date().toISOString().slice(0, 10)) return true;
+  try { return !!(await readByIdentity(env, `rv:${hw}:`, st, { migrate: false })).value; } catch { return false; }
+}
+function publicActivity(act) {
+  if (!act || typeof act !== 'object') return act;
+  const out = JSON.parse(JSON.stringify(act));
+  if (Array.isArray(out.q)) out.q = out.q.map(q => {
+    if (!q || typeof q !== 'object') return q;
+    const k = String(q.t || 'q');
+    if (k === 'q' || k === 'tf') { delete q.a; }
+    else if (k === 'f') {
+      const a = String(q.a || '').trim();
+      if (a && q.q && String(q.q).includes(a)) q.q = String(q.q).split(a).join('________');
+      delete q.a;
+    }
+    else if (k === 'a') { if (q.w) q.w = _shufArr(String(q.w).replace(/\s/g, '').split('')).join(''); }
+    else if (k === 's') { if (q.s) q.s = _shufArr(String(q.s).trim().split(/\s+/)).join(' '); }
+    else if (k === 'm') { if (Array.isArray(q.p)) { const rights = _shufArr(q.p.map(p => p && p[1])); q.p = q.p.map((p, i) => [p && p[0], rights[i]]); } }
+    return q;
+  });
+  delete out.answers; delete out.answerKey; delete out.sol;
+  return out;
+}
+
 /* ── D1: جداول القفل والعدادات تُنشأ تلقائيًا أول مرة ── */
 const _dbReady = new WeakMap();
 async function dbReady(env) {
@@ -5643,8 +5690,10 @@ export default {
     if (url.pathname === '/mine' && request.method === 'GET') {
       const name = String(url.searchParams.get('name') || '').trim();
       const sidIn = String(url.searchParams.get('sid') || url.searchParams.get('id') || '').trim();
-      if (!name && !sidIn) return json({ error: 'missing name' }, 400);
-      const st = await resolveStudent(env, { id: sidIn, name });
+      if (!name && !sidIn && !url.searchParams.get('session')) return json({ error: 'missing name' }, 400);
+      const bindM = await bindSession(env, { session: url.searchParams.get('session') || '' });
+      if (bindM && bindM.res) return bindM.res;
+      const st = bindM && bindM.st ? bindM.st : await resolveStudent(env, { id: sidIn, name });
       try { if (st.known) await remFromExams(env, st); } catch {}
 
       const rows = [];
@@ -5787,9 +5836,17 @@ export default {
       await env.DB.prepare('INSERT INTO presence (sid, at, since, w) VALUES (?1, ?2, ?2, ?3) ON CONFLICT(sid) DO UPDATE SET since = CASE WHEN ?2 - presence.at > ?4 THEN ?2 ELSE presence.since END, at = ?2, w = ?3')
         .bind(sid, now, w, PRES_ONLINE_MS).run();
       // نفس ما تعرضه /messages لهذا الطالب أصلًا — النبض يسلّمه أسرع فقط
-      const r = await env.DB.prepare('SELECT mid, title, body, at FROM livemsg WHERE sid = ?1 AND seen_at IS NULL AND at > ?2 ORDER BY at LIMIT 5').bind(sid, now - PRES_LIVE_TTL).all();
-      const live = (r && r.results) || [];
-      if (live.length) await env.DB.batch(live.map(n => env.DB.prepare('UPDATE livemsg SET seen_at = ?1 WHERE mid = ?2 AND sid = ?3').bind(now, n.mid, sid)));
+      /* 🔐 إصلاح أمني: الرسائل الفورية (قراءةً وتعليمًا كمقروءة) لا تُسلَّم إلا
+         بجلسة طالب صحيحة لهذا المعرف نفسه — كان أي شخص بمعرف طالب يقرأ
+         رسائل المعلم له ويخفيها عنه. النبض نفسه (المتصل الآن) يبقى كما هو،
+         ومن لا جلسة له تصله الرسائل من /messages كالمعتاد. */
+      let live = [];
+      const bindP = await bindSession(env, b);
+      if (bindP && bindP.st && String(bindP.st.id) === sid) {
+        const r = await env.DB.prepare('SELECT mid, title, body, at FROM livemsg WHERE sid = ?1 AND seen_at IS NULL AND at > ?2 ORDER BY at LIMIT 5').bind(sid, now - PRES_LIVE_TTL).all();
+        live = (r && r.results) || [];
+        if (live.length) await env.DB.batch(live.map(n => env.DB.prepare('UPDATE livemsg SET seen_at = ?1 WHERE mid = ?2 AND sid = ?3').bind(now, n.mid, sid)));
+      }
       return json({ ok: true, live, chat: await chatIsOpen(env, sid) });
     }
     // ── للمعلم: من متصل الآن، وتسليم آخر الرسائل الفورية (الردود في «رسائل الطلاب») ──
@@ -5817,8 +5874,10 @@ export default {
     if (url.pathname === '/messages' && request.method === 'GET') {
       const name = String(url.searchParams.get('name') || '').slice(0, 80).trim();
       const sidIn = String(url.searchParams.get('sid') || url.searchParams.get('id') || '').trim();
-      if (!name && !sidIn) return json({ error: 'missing name' }, 400);
-      const st = await resolveStudent(env, { id: sidIn, name });
+      if (!name && !sidIn && !url.searchParams.get('session')) return json({ error: 'missing name' }, 400);
+      const bindM = await bindSession(env, { session: url.searchParams.get('session') || '' });
+      if (bindM && bindM.res) return bindM.res;
+      const st = bindM && bindM.st ? bindM.st : await resolveStudent(env, { id: sidIn, name });
       let messages = await readMessages(env, st);
       const now = Date.now();
       messages = messages
@@ -5924,7 +5983,7 @@ export default {
           if (!pushConfigured(env)) return; const subs = await pushListSubs(env); if (!subs.length) return;
           const eventId = (await sha256Hex(`ask|${q.id}|${now}`)).slice(0, 32); if (!(await pushClaimEvent(env, eventId))) return;
           await pushDeliver(env, { title: `💬 ${q.name}`, body: text.slice(0, 140), tag: `ask-${q.id}`,
-            data: { type: 'ask', id: q.id, url: './?open=asks', item: { ...q, text: q.text.slice(0, 500) } } }, eventId, subs);
+            data: { type: 'ask', id: q.id, url: './?open=asks', item: { ...q, text: q.text.slice(-500) } } }, eventId, subs);   // ⚡ آخر 500 حرف (لا أولها) — حتى لا تُقطع الرسالة الجديدة في المحادثات الطويلة
         })().catch(() => {});
         if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(task);
         await bumpRev(env);
@@ -6447,7 +6506,9 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       let p;
       try { p = JSON.parse(hwRaw); } catch { return json({ ok: false, error: 'bad' }); }
 
-      const st = await resolveStudent(env, { name, sid: url.searchParams.get('sid') || '' });
+      const bindR = await bindSession(env, { session: url.searchParams.get('session') || '' });
+      if (bindR && bindR.res) return bindR.res;
+      const st = bindR && bindR.st ? bindR.st : await resolveStudent(env, { name, sid: url.searchParams.get('sid') || '' });
       if (st.ambiguous) return json({ ok: false, error: 'ambiguous' }, 409);
       const subFound = await readByIdentity(env, `s:${hw}:`, st, { migrate: false });
       const subRaw = subFound.value;
@@ -6664,13 +6725,95 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
                     myPts: me ? me.pts : 0, myMax: me ? me.max : 0, myPct: me ? me.pct : 0 });
     }
 
+    // ── 💡 تلميح/حذف إجابتين من الخادم (إصلاح أمني): البطاقة تُستهلك هنا كما في /use،
+    //    وأثر التلميح يُحسب من النشاط الأصلي — فالمتصفح لم يعد يحمل مفتاح الإجابة ──
+    if (url.pathname === '/hw-hint' && request.method === 'POST') {
+      let b; try { b = await request.json(); } catch { return json({ ok: false, error: 'bad json' }, 400); }
+      const auth = await requireStudentSession(env, b); if (auth.res) return auth.res;
+      const st = auth.st;
+      const hw = String(b.hw || '').slice(0, 24), qi = Number(b.qi);
+      const mode = b.mode === 'fifty' ? 'fifty' : 'hint';
+      const card = mode;
+      const raw = await env.HW.get(`hw:${hw}`); if (!raw) return json({ ok: false, error: 'notfound' }, 404);
+      let act; try { act = JSON.parse(raw); } catch { return json({ ok: false, error: 'bad' }, 500); }
+      if (!rosterHas(act, st)) return json({ ok: false, error: 'not_allowed' }, 403);
+      const q = (Array.isArray(act.q) ? act.q : [])[qi];
+      if (!q) return json({ ok: false, error: 'noq' }, 400);
+      const kind = String(act.kind || '');
+      if (kind === 'style' || kind === 'diag') return json({ ok: false, error: 'blocked_kind' }, 403);
+      const k = String(q.t || 'q');
+      if (mode === 'fifty' && k !== 'q') return json({ ok: false, error: 'type' }, 400);
+      if (mode === 'hint' && k === 'tf') return json({ ok: false, error: 'type' }, 400);
+      return studentLocked(env, st, async () => {
+        const own = await readOwn(env, st);
+        if (!(own[card] > 0)) return json({ ok: false, error: 'none' });
+        own[card]--; if (own[card] <= 0) delete own[card];
+        await writeOwn(env, st, own);
+        const refund = async () => { own[card] = (own[card] || 0) + 1; await writeOwn(env, st, own); return json({ ok: false, error: 'no_more', perks: own }); };
+        const used = Array.isArray(b.used) ? b.used.map(Number).filter(Number.isFinite) : [];
+        const out = { ok: true, perks: own };
+        if (k === 'q') {
+          const wrong = (q.o || []).map((_, i) => i).filter(i => i !== Number(q.a) && !used.includes(i));
+          if (wrong.length < (mode === 'fifty' ? 2 : 1)) return refund();
+          const shuffled = _shufArr(wrong);
+          out.elim = mode === 'fifty' ? shuffled.slice(0, 2) : shuffled.slice(0, 1);
+        } else if (k === 'f') {
+          out.first = String(q.a || '').trim().charAt(0);
+          if (!out.first) return refund();
+        } else if (k === 'a' || k === 's') {
+          const target = k === 'a' ? String(q.w || '').replace(/\s/g, '').split('') : String(q.s || '').trim().split(/\s+/);
+          if (!target.length || target[0] === '') return refund();
+          const pos = Math.max(0, Math.min(Number(b.placed) || 0, target.length - 1));
+          out.next = target[pos];
+        } else if (k === 'm') {
+          const matched = Array.isArray(b.matched) ? b.matched.map(Number) : [];
+          const pairs = Array.isArray(q.p) ? q.p : [];
+          const i = pairs.findIndex((_, x) => !matched.includes(x));
+          if (i < 0) return refund();
+          out.pair = { l: i, t: String(pairs[i][1]) };
+        } else return refund();
+        await bumpRev(env);
+        return json(out);
+      });
+    }
+
+    // ── ✓ تحقّق فوري لأسئلة نافس/التدريب (إصلاح أمني): التصحيح على الخادم،
+    //    والإجابة الصحيحة تُعاد فقط في المحاولة الأخيرة (phase=last).
+    //    مقيّد بأسئلة لها مهارة/نافس وبحد 12 تحققًا للسؤال في الساعة ──
+    if (url.pathname === '/hw-check' && request.method === 'POST') {
+      let b; try { b = await request.json(); } catch { return json({ ok: false, error: 'bad json' }, 400); }
+      const hw = String(b.hw || '').slice(0, 24), qi = Number(b.qi);
+      const raw = await env.HW.get(`hw:${hw}`); if (!raw) return json({ ok: false, error: 'notfound' }, 404);
+      let act; try { act = JSON.parse(raw); } catch { return json({ ok: false, error: 'bad' }, 500); }
+      const bindC = await bindSession(env, b);
+      if (bindC && bindC.res) return bindC.res;
+      const st = bindC && bindC.st ? bindC.st : await resolveStudent(env, { id: String(b.sid || '').slice(0, 40).trim(), name: String(b.name || '').slice(0, 80).trim() });
+      if (!st || !st.known || !st.id) return json({ ok: false, error: 'student not recognized' }, 403);
+      if (!rosterHas(act, st)) return json({ ok: false, error: 'not_allowed' }, 403);
+      const q = (Array.isArray(act.q) ? act.q : [])[qi];
+      if (!q) return json({ ok: false, error: 'noq' }, 400);
+      if (!(q.skill || q.nafs)) return json({ ok: false, error: 'not_checkable' }, 403);
+      // التحقق الفوري للتدريب فقط: نشاط نافس بوضع التدريب، أو جولة تدريب على نشاط سلّمه الطالب —
+      // لا الاختبار التشخيصي ولا نافس «محاكاة» ولا نشاط مُقيَّم قبل تسليمه (كانت phase=last تكشف إجاباتها)
+      const training = !!act.nf && String(act.nm || 'train') !== 'sim' && !['diag', 'style'].includes(String(act.kind || ''));
+      if (!training && !(await readByIdentity(env, `s:${hw}:`, st, { migrate: false })).value) return json({ ok: false, error: 'not_checkable' }, 403);
+      const ck = `chkc:${st.id}:${hw}:${qi}`;
+      const cnt = parseInt(await env.HW.get(ck), 10) || 0;
+      if (cnt >= 12) return json({ ok: false, error: 'limit' }, 429);
+      await env.HW.put(ck, String(cnt + 1), { expirationTtl: 3600 });
+      const correct = gradeAnswer(act, q, b.ans);
+      return json({ ok: true, correct, ...(b.phase === 'last' ? { right: rtRight(q) } : {}) });
+    }
+
     // ── الطالب يجلب الواجب برمزه ──
     if (url.pathname === '/hw' && request.method === 'GET') {
       const id = url.searchParams.get('id') || '';
       if (!id) return json({ error: 'missing id' }, 400);
       const v = await env.HW.get(`hw:${id}`);
       if (!v) return json({ error: 'not found' }, 404);
-      return new Response(v, { headers: { 'Content-Type': 'application/json; charset=utf-8', ...CORS } });
+      let act = null; try { act = JSON.parse(v); } catch {}
+      if (!act || typeof act !== 'object') return new Response(v, { headers: { 'Content-Type': 'application/json; charset=utf-8', ...CORS } });
+      return json(publicActivity(act));
     }
 
     // ── 📎 النسخة التجريبية: الطالب يرفع صور/PDF إلى R2 ──
@@ -6682,7 +6825,9 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       const name = String(fd.get('name') || '').slice(0, 80).trim();
       const sidIn = String(fd.get('sid') || fd.get('studentId') || '').slice(0, 40).trim();
       if (!hw || (!name && !sidIn)) return json({ error: 'missing hw or name' }, 400);
-      const st = await resolveStudent(env, { id: sidIn, name });
+      const bindS = await bindSession(env, { session: String(fd.get('session') || '') });
+      if (bindS && bindS.res) return bindS.res;
+      const st = bindS && bindS.st ? bindS.st : await resolveStudent(env, { id: sidIn, name });
       if (st.ambiguous) return json({ error: 'ambiguous student', ambiguous: true }, 409);
 
       const hwRaw = await env.HW.get(`hw:${hw}`);
@@ -6799,7 +6944,9 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
     if (url.pathname === '/start' && request.method === 'POST') {
       let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
       const hw = String(b.hw || '').slice(0, 24);
-      const st = await resolveStudent(env, { id: String(b.sid || '').slice(0, 40).trim(), name: String(b.name || '').slice(0, 80).trim() });
+      const bindS = await bindSession(env, b);
+      if (bindS && bindS.res) return bindS.res;
+      const st = bindS && bindS.st ? bindS.st : await resolveStudent(env, { id: String(b.sid || '').slice(0, 40).trim(), name: String(b.name || '').slice(0, 80).trim() });
       if (!hw || !st.known || !st.id) return json({ ok: false, error: 'student not recognized' }, 403);
       const raw = await env.HW.get(`hw:${hw}`); if (!raw) return json({ ok: false, error: 'no such activity' }, 404);
       let activity = {}; try { activity = JSON.parse(raw) || {}; } catch {}
@@ -6816,7 +6963,9 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       const name = String(b.name || '').slice(0, 80).trim();
       const sidIn = String(b.sid || b.studentId || '').slice(0, 40).trim();
       if (!hw || (!name && !sidIn)) return json({ error: 'missing hw or name' }, 400);
-      const st = await resolveStudent(env, { id: sidIn, name });
+      const bindS = await bindSession(env, b);
+      if (bindS && bindS.res) return bindS.res;
+      const st = bindS && bindS.st ? bindS.st : await resolveStudent(env, { id: sidIn, name });
       if (st.ambiguous) return json({ error: 'ambiguous student', ambiguous: true }, 409);
       if (!st.known || !st.id) return json({ error: 'student not recognized' }, 403);
 
@@ -6906,7 +7055,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
           if (legacySubKey && legacySubKey !== key) { try { await env.HW.delete(legacySubKey); } catch {} }
         } else {
           await plogAdd(env, st, { k: 'hw', hw, t: String(activity.t || '').slice(0, 80), dup: 1, gain: 0 });
-          return json({ ok: true, already: true });
+          return json({ ok: true, already: true, marks: marksServer, ...(await submitReviewOpen(env, activity, hw, st) ? { rights: questions.map(q => rtRight(q)) } : {}) });
         }
       } else {
         // أول تسليم تحت صلاحية ممنوحة (طالب متأخر): هذه هي المحاولة الممنوحة
@@ -6973,12 +7122,41 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       let remedial = null;
       try { remedial = await remedialAfterSubmit(env, hw, activity, st, d, correct, total, questions); } catch {}
 
+      // 🔎 مهمة التصحيح التلقائية: نفس مرشحي زر «مهمة تصحيح» في تقرير النشاط حرفيًا
+      // (نتيجة أقل من 50% أو سرعة مريبة بقاعدة activityPace نفسها)، تُرسل فور التصحيح
+      // بلا ضغط زر من المعلم. تُرسل مرة واحدة فقط لكل طالب ونشاط: إن وُجدت مهمة
+      // معلّقة أو نتيجة سابقة فلا تكرار، ويبقى زر «مهمة جديدة» اليدوي في التقرير للحالات اللاحقة.
+      // (لا تُرسل للأنشطة العلاجية/الشخصية ولا للألعاب والأنماط والمشاريع — كما في التقرير.)
+      try {
+        const ak = String(activity.kind || 'normal');
+        if (!activity.remedial && !activity.personalRemedial && !['games','game','files','style'].includes(ak)) {
+          const pct = total ? Math.round(correct * 100 / total) : null;
+          const pace = activityPace(activity);
+          const fast = pace.minSecs > 0 && secs > 0 && secs < pace.minSecs;
+          const low = pct !== null && pct < 50;
+          if (fast || low) {
+            const rrKey = identityKey(`rr:${hw}:`, st);
+            const rrdKey = identityKey(`rrd:${hw}:`, st);
+            const legacyRrKey = st.name ? `rr:${hw}:${st.name}` : '';
+            const [rrEx, rrdEx, legacyEx] = await Promise.all([
+              env.HW.get(rrKey), env.HW.get(rrdKey),
+              legacyRrKey ? env.HW.get(legacyRrKey) : Promise.resolve(null)
+            ]);
+            if (!rrEx && !rrdEx && !legacyEx) {
+              await env.HW.put(rrKey, JSON.stringify({ sid: st.id || '', name: st.name || name, at: Date.now(), localId: '', reason: fast ? 'fast' : 'low', auto: true }), { expirationTtl: 60 * 60 * 24 * 30 });
+              try { await env.HW.delete(identityKey(`rt:${hw}:`, st)); } catch {}
+              if (legacyRrKey && legacyRrKey !== rrKey) { try { await env.HW.delete(legacyRrKey); } catch {} }
+            }
+          }
+        }
+      } catch {}
+
       // 🔔 بعد نجاح الحفظ فقط: الدرجة من التصحيح على الخادم، والاسم والنشاط من السجلات
       if (!activity.personalRemedial) notifyTeacherOfSubmission(env, ctx, { hwId: hw, activity, st,
         record: { at: submittedAt, correct, total, name: st.name, d: String(d || '').slice(0, 200) }, resubmitted: wasResubmission });
 
       await bumpRev(env);   // ⚡ تعرف اللوحة بالتسليم فورًا
-      return json({ ok: true, pts: prev + gain, gain, mult, remedial });
+      return json({ ok: true, pts: prev + gain, gain, mult, remedial, marks: marksServer, ...(await submitReviewOpen(env, activity, hw, st) ? { rights: questions.map(q => rtRight(q)) } : {}) });
       }, { required: false });
     }
 
@@ -7702,8 +7880,10 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
     if (url.pathname === '/me' && request.method === 'GET') {
       const name = String(url.searchParams.get('name') || '').slice(0, 80).trim();
       const sidIn = String(url.searchParams.get('sid') || url.searchParams.get('id') || '').trim();
-      if (!name && !sidIn) return json({ error: 'missing name' }, 400);
-      const st = await resolveStudent(env, { id: sidIn, name });
+      if (!name && !sidIn && !url.searchParams.get('session')) return json({ error: 'missing name' }, 400);
+      const bindM = await bindSession(env, { session: url.searchParams.get('session') || '' });
+      if (bindM && bindM.res) return bindM.res;
+      const st = bindM && bindM.st ? bindM.st : await resolveStudent(env, { id: sidIn, name });
       if (st.ambiguous) return json({ ok:false, error:'ambiguous' },409);
       if (!st.known || !st.id) return json({ ok:false, error:'student not recognized' },403);
       const bal = parseInt((await readByIdentity(env, 'bal:', st)).value, 10) || 0;
@@ -7944,6 +8124,8 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         const purchaseLog={ name:reqName, sid:st.id, card, price, kind:'purchase', at:purchaseAt };
         await env.HW.put(`req:${purchaseAt}:${reqName}`, JSON.stringify(purchaseLog), {expirationTtl:60*60*24*120});
         await env.HW.put(`shoplog:${purchaseAt}:${st.id}:${Math.random().toString(36).slice(2,8)}`, JSON.stringify(purchaseLog), {expirationTtl:60*60*24*365});
+        // ⚡ إشارة للوحة: الشراء غيّر البيانات فيُحدَّث سجل المتجر عند فحص /rev التالي (كل 5 ثوانٍ) بدل انتظار المزامنة الاحتياطية كل 5 دقائق
+        await bumpRev(env);
         // 🏅 شهادة الشكر والتقدير تصدر فورًا بنص شهادة المعلم وتوقيعاته، وتبقى في «شهاداتي»
         let certId = '';
         if (card === 'cert') certId = await paidCertIssue(env, st, purchaseAt);
@@ -8470,6 +8652,64 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       // القراءة فقط: استعادة الأنشطة المتروكة تتم عبر /recover-activities.
       const w = parseInt(await env.HW.get('meta:wipedAt'), 10) || 0;
       return json({ ok: true, data: state, wipedAt: w });
+    }
+
+    /* 🎨 ثيم لوحة المعلم — يُحفظ على الخادم (KV: ttheme:main) حتى يظهر الثيم نفسه
+       على كل متصفح وجهاز للمعلم، لا على المتصفح الذي اختاره فقط. لا يمس بيانات الطلاب
+       ولا حالة اللوحة (tstate:main). التوثيق بنفس كلمة سر المعلم مثل /state. */
+    if (url.pathname === '/theme' && request.method === 'GET') {
+      const token = url.searchParams.get('t') || '';
+      if (!env.TEACHER_TOKEN || token !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
+      let theme = null;
+      try { const raw = await env.HW.get('ttheme:main'); theme = raw ? JSON.parse(raw) : null; } catch { theme = null; }
+      return json({ ok: true, theme });
+    }
+
+    if (url.pathname === '/theme' && request.method === 'POST') {
+      let b;
+      try { b = await request.json(); } catch { return json({ ok: false, error: 'bad json' }, 400); }
+      if (!env.TEACHER_TOKEN || b.t !== env.TEACHER_TOKEN) return json({ ok: false, error: 'unauthorized' }, 401);
+      const th = b.theme;
+      if (!th || typeof th !== 'object' || !th.vars || typeof th.vars !== 'object') return json({ ok: false, error: 'missing theme' }, 400);
+      const clean = { name: String(th.name || 'custom'), at: Number(th.at) || 0, vars: {} };
+      for (const k of Object.keys(th.vars)) {
+        const v = th.vars[k];
+        if (/^--[a-z0-9-]+$/.test(k) && typeof v === 'string' && v.length < 32) clean.vars[k] = v;
+      }
+      await env.HW.put('ttheme:main', JSON.stringify(clean));
+      return json({ ok: true, theme: clean });
+    }
+
+    /* 📌 تخصيص قائمة التنقل — يُحفظ على الخادم (KV: tnav:main) حتى تظهر
+       الصفحات المثبّتة وترتيبها نفسه على كل متصفح وجهاز للمعلم، مثل الثيم.
+       لا يمس بيانات الطلاب ولا حالة اللوحة (tstate:main). التوثيق بنفس
+       كلمة سر المعلم مثل /state و/theme. */
+    if (url.pathname === '/nav' && request.method === 'GET') {
+      const token = url.searchParams.get('t') || '';
+      if (!env.TEACHER_TOKEN || token !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
+      let nav = null;
+      try { const raw = await env.HW.get('tnav:main'); nav = raw ? JSON.parse(raw) : null; } catch { nav = null; }
+      return json({ ok: true, nav });
+    }
+
+    if (url.pathname === '/nav' && request.method === 'POST') {
+      let b;
+      try { b = await request.json(); } catch { return json({ ok: false, error: 'bad json' }, 400); }
+      if (!env.TEACHER_TOKEN || b.t !== env.TEACHER_TOKEN) return json({ ok: false, error: 'unauthorized' }, 401);
+      const nv = b.nav;
+      if (!nv || typeof nv !== 'object' || !Array.isArray(nv.pins)) return json({ ok: false, error: 'missing nav' }, 400);
+      const seen = {};
+      const pins = [];
+      for (const k of nv.pins) {
+        if (typeof k !== 'string' || k.length >= 32 || !/^[a-z-]+(:[a-z]+)?$/.test(k)) continue;
+        if (seen[k]) continue;
+        seen[k] = true;
+        pins.push(k);
+        if (pins.length >= 30) break;
+      }
+      const clean = { pins, at: Number(nv.at) || 0 };
+      await env.HW.put('tnav:main', JSON.stringify(clean));
+      return json({ ok: true, nav: clean });
     }
 
     if (url.pathname === '/state' && request.method === 'POST') {

@@ -1,0 +1,32 @@
+/* طبقة إصلاحات التدقيق الشامل 2026-10-24 — قواعد صغيرة لا يغطيها ملف قائم دون !important أو تعارض.
+   تُربط بعد tab-polish.css في index.html. لا تغيّر أي معرّف ولا أي ترتيب. */
+
+/* خ4 — ترتيب الشريط: شريحة المتصلين آخر عنصر في ‎.masthead-in (تُلحق بالنهاية من 33-online-js.js)
+   فهامشها التلقائي يدفعها أقصى اليسار دائمًا؛ زر البوابة قبلها بفارق .4rem،
+   ولا يأخذ الهامش التلقائي إلا إذا كان آخر عنصر (أي عند غياب الشريحة) فيُدفع يسارًا وحده. */
+#portal-link-btn{margin-inline-start:.4rem!important}
+#portal-link-btn:last-child{margin-inline-start:auto!important}
+
+/* خ7 — أدوات الطول في شريط الترتيب بلا أثر تحت 1000px (قواعد --h لبطاقات div محصورة في min-width:1000px،
+   و«متوسط» ملغاة صراحةً للمطويات تحت 999px): إخفاؤها مع أدوات العرض بدل إيهام المستخدم بتحكم لا يعمل. */
+@media screen and (max-width:999px){
+  #td-board.tl-on .tl-bar .tl-hh{display:none}
+}
+
+/* الشريط العلوي في الجوال الضيق: الاسم كان يُقصّ من المنتصف («مساعد الـ») لسببين:
+   (1) ‎.brand حاوية flex فلا تعمل فيها text-overflow:ellipsis على النص المباشر،
+   (2) زر الفترة وشريحة المتصلين لا ينكمشان فامتصّ الاسم كل الضغط.
+   الحل: تضييق المسافات وحجم الاسم والشارة، ونص الاسم في عنصر مستقل يُختصر بنقاط
+   عند الضرورة، وكلمة «متصل الآن» داخل .onl-w الذي تخفيه أصلًا قاعدة app-late.css
+   تحت 700px فيبقى المؤشر والعدد فقط. */
+@media screen and (max-width:560px){
+  .masthead .masthead-in{gap:.4rem}
+  .masthead .brand{gap:.4rem;font-size:.9rem!important}
+  .masthead .brand .mark{width:24px;height:28px}
+  .masthead .brand-txt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .masthead #vsp-btn{font-size:.74rem;padding:.25rem .5rem}
+  .masthead #vsp-btn .vsp-sem{display:none}
+  .masthead #portal-link-btn{padding:.25rem .5rem}
+  .masthead #portal-link-btn .portal-w{display:none}
+  .masthead .onl-chip{padding:.25rem .5rem}
+}

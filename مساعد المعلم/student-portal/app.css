@@ -393,6 +393,11 @@ body.live-open{overflow:hidden}
 .jw-item.current .jw-item-state{background:var(--tick);color:#fff;padding:.45rem .85rem;border-radius:999px;font-size:.78rem;box-shadow:0 3px 10px rgba(27,156,107,.35)}
 .jw-item.later{opacity:.78}
 .jw-item.later .jw-item-state{background:#EFF3F8;color:var(--ink-soft);padding:.3rem .65rem;border-radius:999px}
+/* الخطوتان التاليتان مباشرة (2 و3) بلون كهرماني بارز حتى لا يتوه الطالب بين الخطوات الباهتة اللاحقة — بعد الخطوة الحالية الخضراء مباشرة */
+.jw-item.soon{opacity:1;background:rgba(200,138,46,.10);border-color:rgba(200,138,46,.55)}
+.jw-item.soon:hover{background:rgba(200,138,46,.16);border-color:rgba(200,138,46,.70)}
+.jw-item.soon .jw-item-icon{background:rgba(200,138,46,.16)}
+.jw-item.soon .jw-item-state{background:rgba(200,138,46,.22);color:#7A5200}
 @keyframes jwPulse{0%,100%{box-shadow:0 6px 18px rgba(27,156,107,.20)}50%{box-shadow:0 6px 28px rgba(27,156,107,.45)}}
 @media (prefers-reduced-motion:reduce){.jw-item.current{animation:none}}
 

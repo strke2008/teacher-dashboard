@@ -268,6 +268,19 @@ async function myPlanLoad(){
    يظهر في الصفحة الرئيسية فقط — يختفي أثناء حل نشاط أو لعبة أو مسابقة أو أي نافذة، حتى لا يعيق الطالب. ═══ */
 const SFAB={open:false,live:new Map(),seen:new Set((()=>{ try{ return JSON.parse(localStorage.getItem('sfab_seen_v1')||'[]'); }catch(e){ return []; } })())};
 function sfabSaveSeen(){ try{ localStorage.setItem('sfab_seen_v1',JSON.stringify([...SFAB.seen].slice(-80))); }catch(e){} }
+let SFAB_BADGE=-1;
+/* 📥 قراءة صندوق الإشعارات المحفوظة (يكتبه الـ SW عند كل إشعار دردشة): ردود وصلت والبوابة مغلقة
+   تُطبَّق فور الفتح/العودة بلا انتظار الخادم — والجلب الدوري بعدها يصححها بنسخة الخادم */
+async function sfabApplyInbox(){
+  try{
+    if(!('caches' in window)) return;
+    const cache=await caches.open('stu-push-inbox-v1');
+    const r=await cache.match('/__push_inbox__');
+    if(!r) return;
+    const j=await r.json(); const items=Array.isArray(j&&j.items)?j.items:[];
+    for(const it of items){ if(it&&it.id){ try{ askApplyPush(it); }catch(e){} } }
+  }catch(e){}
+}
 /* ما وصل للتو مع نبض الحضور يظهر في الصندوق فورًا (SFAB.live) حتى تصل نسخته من الخادم — قراءته قد تتأخر دقيقة */
 function sfabRows(){ const have=new Set(ASK_ROWS.flatMap(x=>[x.mid,x.rmid]).filter(Boolean));
   [...SFAB.live.keys()].forEach(m=>{ if(have.has(m)) SFAB.live.delete(m); });
@@ -288,18 +301,33 @@ function stuFabWanted(){
 }
 function stuFabRender(){
   let b=document.getElementById('sfab-btn');
-  if(!stuFabWanted()){ if(b) b.remove(); if(SFAB.open){ SFAB.open=false; document.getElementById('sfab-pan')?.remove(); document.documentElement.classList.remove('chat-open'); } return; }
+  if(!stuFabWanted()){ if(b) b.remove(); if(SFAB.open){ SFAB.open=false; document.getElementById('sfab-pan')?.remove(); document.documentElement.classList.remove('chat-open'); sfabInert(false); } return; }
   if(!b){ b=document.createElement('button'); b.type='button'; b.id='sfab-btn'; b.className='sfab-btn'; b.setAttribute('aria-label','راسل معلمك'); b.onclick=()=>stuFabToggle(); document.body.appendChild(b); }
   const fresh=sfabRows().filter(sfabNew).length;
+  /* 🔴 شارة أيقونة التطبيق (iOS 16.4+ للتطبيقات المثبتة): عدد الرسائل الجديدة الحقيقي — يصحح ما يضعه الـ SW مؤقتًا */
+  try{ if(typeof navigator!=='undefined'&&'setAppBadge' in navigator&&fresh!==SFAB_BADGE){ SFAB_BADGE=fresh; const p=fresh>0?navigator.setAppBadge(fresh):(navigator.clearAppBadge?navigator.clearAppBadge():null); if(p&&p.catch) p.catch(()=>{}); } }catch(e){}
   const html=`<span>💬</span>${fresh?`<b class="sfab-n">${fresh}</b>`:''}`;
   if(b.innerHTML!==html) b.innerHTML=html;
   b.title=fresh?`${fresh===1?'رسالة جديدة':fresh+' رسائل جديدة'} من معلمك`:'محادثتك مع معلمك';
   b.classList.toggle('has',!!fresh); b.classList.toggle('on',SFAB.open);
 }
 /* 📱 على الجوال يملأ صندوق المحادثة الشاشة الظاهرة فوق لوحة المفاتيح */
+/* ⌨️ إخفاء سهمي التنقل (∧ ∨) فوق كيبورد الجوال: أثناء فتح الدردشة على الشاشات
+   الصغيرة يبقى صندوقها حقل الكتابة الوحيد القابل للتركيز، فيخفي المتصفح السهمين
+   عادةً. (علامة ✓ نفسها واجهة نظام ولا يملك أي موقع إزالتها.) على الشاشات الكبيرة
+   لا يتغير شيء لأن اللوحة عائمة والصفحة خلفها تبقى قابلة للاستخدام. */
+function sfabInert(on){
+  const mobile=window.matchMedia('(max-width:700px)').matches;
+  Array.from(document.body.children).forEach(el=>{
+    if(el.id==='sfab-pan'||el.id==='sfab-btn') return;
+    if(on&&mobile) el.setAttribute('inert','');
+    else el.removeAttribute('inert');
+  });
+}
 function sfabVV(){ const vv=window.visualViewport, r=document.documentElement.style; if(!vv) return;
   r.setProperty('--vvh',Math.round(vv.height)+'px'); r.setProperty('--vvt',Math.round(vv.offsetTop)+'px');
   document.documentElement.classList.toggle('kb-open',window.innerHeight-vv.height>120);   // لوحة المفاتيح ظاهرة
+  if(SFAB.open) sfabInert(true);   // عبور نقطة 700px مع بقاء الدردشة مفتوحة
   const th=document.getElementById('sfab-thread'); if(th&&document.activeElement&&document.activeElement.id==='sfab-txt') th.scrollTop=th.scrollHeight; }
 if(window.visualViewport){ visualViewport.addEventListener('resize',sfabVV); visualViewport.addEventListener('scroll',sfabVV); }
 function stuFabToggle(on){
@@ -308,6 +336,7 @@ function stuFabToggle(on){
   document.getElementById('sfab-pan')?.remove();
   if(SFAB.open){ sfabSeenAll(); stuFabPanel(); }
   stuFabRender();
+  sfabInert(SFAB.open);
 }
 /* 💬 محادثتك مع معلمك: خيط واحد — أسئلتك وردوده ورسائله الخاصة وردودك عليها */
 function sfabBubbles(){
@@ -379,7 +408,9 @@ if('serviceWorker' in navigator){
     // نسخة الخادم قد تتأخر حتى دقيقة بعد الكتابة: نعيد الفحص على مراحل حتى يظهر الجديد
     setTimeout(()=>portalLiveRefresh(true),1500); [12000,30000,50000,75000].forEach(t=>setTimeout(()=>{ try{ myAskLoad(); }catch(e){} },t)); } });
 }
+try{ sfabApplyInbox(); }catch(e){}   // ردود وصلت بالإشعار والبوابة مغلقة: تُعرض فورًا من المحفوظ المحلي
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&Date.now()-LIVE_REF.at>45000) portalLiveRefresh(true); });
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden) try{ sfabApplyInbox(); }catch(e){} });
 // والزر العائم ظاهر: فحص أسرع (كل ~25 ثانية) حتى يظهر الرقم ولو لم يصل الإشعار للصفحة
 setInterval(()=>{ if(document.hidden) return; const fast=!!document.getElementById('sfab-btn'); if(Date.now()-LIVE_REF.at>(fast?25000:55000)) portalLiveRefresh(false); },10000);
 addEventListener('focus',()=>{ if(Date.now()-LIVE_REF.at>15000) portalLiveRefresh(true); });
@@ -402,7 +433,7 @@ async function presPing(){
   PRES.busy=true; PRES.t=Date.now();
   try{
     const api=((typeof HW!=='undefined'&&HW&&HW.api)||API||'').replace(/\/+$/,''); if(!api) return;
-    const r=await fetch(api+'/presence',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sid:mySid,w:presWhere()})});
+    const r=await fetch(api+'/presence',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sid:mySid,w:presWhere(),session:(typeof getStoreSession==='function'?getStoreSession():'')})});
     const j=await r.json().catch(()=>null);
     if(j&&typeof j.chat==='boolean'&&j.chat!==!!ASK_META.chat){ ASK_META.chat=j.chat; try{ askRender(); stuFabRender(); if(SFAB.open) stuFabPanel(); }catch(e){} }
     const lv=(j&&Array.isArray(j.live)?j.live:[]);

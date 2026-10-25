@@ -17,6 +17,18 @@ const tabsApi = {
    مدرستي نفسها تُصدر طلبها بقيمها وترويساتها — الإضافة لا تخمّن أي معامل. */
 chrome.runtime.onInstalled.addListener(() => {});
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+/* 🔐 إصلاح أمني: عناوين الخادم المسموحة فقط — خادم المعلم الرسمي أو تطوير محلي.
+   كان setConfig يقبل أي api، فتذهب المزامنة (التوكن + أسماء الطلاب + جوالات
+   أولياء الأمور) لأي خادم يزرعه سكربت خبيث في صفحة اللوحة. */
+function apiAllowed(u) {
+  try {
+    const x = new URL(String(u || ''));
+    if (x.hostname === 'homework.ahmadalmarzooq2009.workers.dev') return x.protocol === 'https:';
+    if (x.hostname === 'localhost' || x.hostname === '127.0.0.1') return x.protocol === 'http:' || x.protocol === 'https:';
+    return false;
+  } catch (_) { return false; }
+}
+function cfgApi(cfg) { const a = String((cfg && cfg.api) || '').replace(/\/+$/, ''); return apiAllowed(a) ? a : API_DEFAULT_BG; }
 async function readGradeInHiddenTab(url) {
   if (!/^https:\/\/schools\.madrasati\.sa\/Teacher\/Assignments\/GradeAssignment\/[0-9A-F]{24,64}/i.test(url)) return { available: false, reason: 'رابط غير صالح' };
   // تبويب فارغ ثم التنقل: يضمن جاهزية التبويب قبل أول طلب (وسلوك متطابق في كل البيئات)
@@ -35,7 +47,8 @@ async function readGradeInHiddenTab(url) {
   } finally { tabsApi.remove(tab.id).catch(() => {}); }
 }
 async function openMadrasatiAndReport() {
-  const school = (await chrome.storage.local.get('mb_school')).mb_school || '1C5CDC78AB7C7D453CC2A57E35FE6B63';
+  const school = (await chrome.storage.local.get('mb_school')).mb_school || '';
+  if (!school) return { ok: false, error: 'افتح مدرستي وسجّل دخولك مرة واحدة أولًا حتى تتعرّف الإضافة على مدرستك' };
   const url = `https://schools.madrasati.sa/SchoolManagment/Actions/Teacher/${encodeURIComponent(school)}`;
 
   // ضغطة واحدة: افتح صفحة المعلم، ثم افتح التقرير فورًا.
@@ -55,7 +68,9 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
     if (action === 'setConfig') {
       chrome.storage.local.get('mb_cfg').then(x => {
         const old = x.mb_cfg || {};
-        return chrome.storage.local.set({ mb_cfg: { ...old, token: String(p.token || ''), api: String(p.api || API_DEFAULT_BG).replace(/\/+$/, '') } });
+        const apiIn = String(p.api || API_DEFAULT_BG).replace(/\/+$/, '');
+        if (!apiAllowed(apiIn)) throw new Error('api_not_allowed: عنوان الخادم غير مسموح');
+        return chrome.storage.local.set({ mb_cfg: { ...old, token: String(p.token || ''), api: apiIn } });
       }).then(() => reply({ok:true})).catch(e => reply({ok:false,error:String(e&&e.message||e)}));
       return true;
     }
@@ -186,7 +201,7 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
         const cfg = ((await chrome.storage.local.get('mb_cfg')).mb_cfg) || {};
         if (!cfg.token) { reply({ ok: false, error: 'افتح مساعد المعلم مرة (مع الإضافة) ليصلها عنوان الخادم وكلمة السر' }); return; }
         const rows = (Array.isArray(msg.rows) ? msg.rows : []).slice(0, 2000).map(r => ({ name: String(r.name || '').slice(0, 120), cls: String(r.cls || '').slice(0, 40), parent: String(r.parent || '').slice(0, 80), phone: String(r.phone || '').replace(/\D/g, '').slice(-12) }));
-        const res = await fetch(String(cfg.api || API_DEFAULT_BG).replace(/\/+$/, '') + '/parent-phones', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ t: cfg.token, rows }) });
+        const res = await fetch(cfgApi(cfg) + '/parent-phones', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ t: cfg.token, rows }) });
         const j = await res.json().catch(() => ({}));
         reply(res.ok && j.ok ? j : { ok: false, error: j.error === 'unauthorized' ? 'كلمة السر غير صحيحة' : res.status === 404 ? 'انشر worker.js الأخير' : (j.error || ('HTTP ' + res.status)) });
       } catch (e) { reply({ ok: false, error: String(e && e.message || e) }); }
@@ -362,7 +377,7 @@ async function runAuto(trigger, options = {}) {
   const skipMode = String(cfg.skipMode || 'completed');
   if (isRunning(cfg)) return { skipped: 'running' };
   const token = (((await chrome.storage.local.get('mb_cfg'))['mb_cfg']) || {}).token;
-  const api = (((await chrome.storage.local.get('mb_cfg'))['mb_cfg']) || {}).api || API_DEFAULT_BG;
+  const api = cfgApi(((await chrome.storage.local.get('mb_cfg'))['mb_cfg']) || {});
   if (!token) { notify('مزامنة مدرستي لم تبدأ', 'احفظ كلمة سر المعلم الذكي في الإضافة مرة واحدة أولًا.'); await setAuto({ lastResult: { at: Date.now(), error: 'no_token' } }); return { error: 'no_token' }; }
   await setAuto({ running: Date.now(), pendingLogin: 0, cancel: false, progress: { stage: 'open', label: 'فتح مدرستي…', done: 0, total: 0, startedAt: Date.now() } });
   const beat = setInterval(() => { getAuto().then(c => { if (c.running) setAuto({ running: Date.now() }); }); }, 20000);

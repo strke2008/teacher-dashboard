@@ -9,7 +9,7 @@ function cfStats(cls,gget){
   const lv=G.map(x=>x.g.level||{}).filter(l=>l.measured);
   const cor=lv.reduce((a,l)=>a+(l.correct||0),0), tot=lv.reduce((a,l)=>a+(l.total||0),0);
   const m=k=>G.filter(x=>x.g[k]&&x.g[k].measured);
-  const acts=HW.filter(h=>hwFor(h,cls)&&(typeof activityReady!=='function'||activityReady(h)));
+  const acts=HW.filter(h=>hwFor(h,cls)&&(typeof remPublished==='function'?remPublished(h):(typeof activityReady!=='function'||activityReady(h))));
   let exp=0,done=0; acts.forEach(h=>roster.forEach(s=>{ exp++; if(h.subs&&h.subs[s.id]) done++; }));
   return { cls, n:roster.length, G,
     mastery:tot?Math.round(cor/tot*100):null, measured:lv.length,
@@ -30,7 +30,7 @@ const CF_EXAM_GAP=10, CF_SKILL_GAP=50;
 function cfWeakList(cls){
   const plans=(CT_GRADES&&CT_GRADES.plans)||[];
   const planOf=sid=>plans.find(p=>p.status!=='done'&&(p.members||[]).some(m=>String(m.studentId)===String(sid)));
-  const acts=HW.filter(h=>hwFor(h,cls)&&(typeof activityReady!=='function'||activityReady(h)));
+  const acts=HW.filter(h=>hwFor(h,cls)&&(typeof remPublished==='function'?remPublished(h):(typeof activityReady!=='function'||activityReady(h))));
   return ctRoster(cls).map(s=>{ const g=ctG(s.id), e=g.exam||{};
     const exam=e.measured&&e.score!=null?Number(e.score):null;   // درجة الكشف نفسها (مع بطاقات المتجر) — رصد موحّد
     const lv=g.level&&g.level.measured?g.level:null;
@@ -43,7 +43,7 @@ function cfWeakList(cls){
     .sort((a,b)=>a.cat-b.cat||(a.exam??99)-(b.exam??99)||(a.mastery??101)-(b.mastery??101));
 }
 function cfWeakHTML(cls,print){
-  const R=cfWeakList(cls); const n=c=>R.filter(x=>x.cat===c).length, noPlan=R.filter(x=>!x.plan).length;
+  const R=cfWeakList(cls); const _pub=HW.filter(h=>hwFor(h,cls)&&(typeof remPublished==='function'?remPublished(h):true)).length; const n=c=>R.filter(x=>x.cat===c).length, noPlan=R.filter(x=>!x.plan).length;
   const CAT={1:['bad',`الاختبار أقل من ${CF_EXAM_GAP}`],2:['bad','لم يحل أي نشاط'],3:['warn',`المهارات أقل من ${CF_SKILL_GAP}%`]};
   const tags=x=>[x.cat!==1&&x.f.exam?CAT[1][1]:'',x.cat!==2&&x.f.none?CAT[2][1]:'',x.cat!==3&&x.f.skill?CAT[3][1]:''].filter(Boolean).map(t=>`<small class="cf-weak-also">+ ${t}</small>`).join('');
   const name=s=>print?esc(s.name):ctNameLink(s);
@@ -57,7 +57,7 @@ function cfWeakHTML(cls,print){
       <td class="${x.f.skill?'bad':''}">${x.mastery!=null?x.mastery+'%':'<span class="muted">لم يُقَس</span>'}</td>
       <td class="cf-weak-sk">${x.sk.slice(0,3).map(([k,v])=>`<span>${esc(String(k).replace(/^نافس:\s*/,''))} <b>${v.rate}%</b></span>`).join('')||'<span class="muted">—</span>'}</td>
       <td>${x.plan?'<span class="chip tick">🩺 خطة جارية</span>':print?'<span class="muted">لا توجد</span>':`<button class="btn tick sm" onclick="ctPlanStudent('${esc(x.s.id)}')">＋ خطة</button>`}</td></tr>`).join('')}
-    </tbody></table></div>`:'<div class="muted" style="font-size:.84rem">✅ لا يوجد طالب درجته أقل من 10، أو بلا أنشطة، أو مهاراته أقل من 50% حسب البيانات الحالية.</div>'}</div>`;
+    </tbody></table></div>`:'<div class="muted" style="font-size:.84rem">✅ لا يوجد طالب درجته أقل من 10، أو بلا أنشطة، أو مهاراته أقل من 50% حسب البيانات الحالية.'+(_pub?'':' ولا توجد أنشطة منشورة لهذا الفصل بعد.')+'</div>'}</div>`;
 }
 
 /* 🏆 العشرة الأوائل: بمجموع كشف الدرجات من 60 (أعمال السنة 40 + الاختبار 20)، والاختبار بدرجة الكشف نفسها (مع بطاقات المتجر)
@@ -66,9 +66,10 @@ function cfTopList(cls,n=10){
   const G=CT_GRADES||{}, term=G.term, r1=v=>Math.round((Number(v)||0)*10)/10;
   return ctRoster(cls).filter(s=>G.map&&G.map[String(s.id)]).map(s=>{ const g=ctG(s.id), e=g.exam||{};
     const acts=compActivitiesForStudent(s,term), done=compSubmissionCount(acts,s,term);
-    const a=acts.length?Math.round(done/acts.length*100)/10:10;
+    const a=acts.length?Math.round(done/acts.length*100)/10:null;
     const exam=e.measured&&e.score!=null?r1(e.score):null;   // درجة الكشف نفسها (مع بطاقات المتجر) فيطابق المجموع كشف الدرجات ونور
-    const work=r1((g.participation?.score??0)+(g.homework?.score??0)+(g.behavior?.score??0)+a);
+    const _parts=[g.participation?.measured?g.participation.score:null,g.homework?.measured?g.homework.score:null,g.behavior?.measured?g.behavior.score:null,a].filter(v=>Number.isFinite(v));
+    const work=_parts.length?r1(_parts.reduce((s2,v)=>s2+v,0)):0;
     const lv=g.level&&g.level.measured?g.level.rate:null;
     return {s,work,exam,total:r1(work+(exam??0)),mastery:lv,done,acts:acts.length}; })
     .filter(x=>x.done>0||x.exam!=null)
@@ -81,9 +82,9 @@ function cfTopHTML(cls,print){
   return `<div class="cf2-card cf2-top"><div class="cf2-h"><b>🏆 العشرة الأوائل — فصل ${esc(cls)}</b><small>بالمجموع من 60 · مطابق لكشف الدرجات · التعادل بالإتقان ثم الاختبار</small>
       ${!print && R.length ? `<button class="btn tick sm cf2-honor" onclick="t3Open('${esc(cls)}')">🏅 تكريم الثلاثة الأوائل</button>` : ''}</div>
     ${R.length?`<div class="cf2-podium">${pod.map((x,i)=>`<div class="cf2-pod p${i+1}"><div class="cf2-medal">${M[i]}</div><div class="cf2-pn">${name(x.s)}</div>
-        <div class="cf2-ps"><b>${x.total}</b><small>/60</small></div><div class="cf2-pm">${meta(x)}</div></div>`).join('')}</div>
+        <div class="cf2-ps"><b>${x.total}</b><small>/${x.exam!=null?60:40}</small></div><div class="cf2-pm">${meta(x)}</div></div>`).join('')}</div>
       ${rest.length?`<ol class="cf2-rank" start="4">${rest.map((x,i)=>`<li><span class="cf2-rn">${i+4}</span><span class="cf2-rname">${name(x.s)}</span>
-        <span class="cf2-rbar"><u style="width:${Math.round(x.total/60*100)}%"></u></span><b class="cf2-rt">${x.total}<small>/60</small></b><span class="cf2-rmeta">${meta(x)}</span></li>`).join('')}</ol>`:''}`
+        <span class="cf2-rbar"><u style="width:${Math.round(x.total/(x.exam!=null?60:40)*100)}%"></u></span><b class="cf2-rt">${x.total}<small>/${x.exam!=null?60:40}</small></b><span class="cf2-rmeta">${meta(x)}</span></li>`).join('')}</ol>`:''}`
     :'<div class="cf2-empty">لا توجد درجات مرصودة بعد لهذا الفصل.</div>'}</div>`;
 }
 
@@ -157,12 +158,12 @@ function t3Wa(sid,cls,rank){
 /* ═════════ 🏫 ملف الفصل ═════════ */
 function ctClassFileBody(cls,print){
   const st=cfStats(cls);
-  const sk=cfSkills(cls), weak=sk.slice(0,3), strong=sk.slice(-3).reverse().filter(x=>x.rate>=70);
+  const sk=cfSkills(cls), weak=sk.slice(0,3), strong=sk.slice(-3).reverse().filter(x=>x.rate>=70&&!weak.some(w=>w.k===x.k));
   const support=st.G.filter(x=>(x.g.level&&x.g.level.status==='يحتاج دعم')||(x.g.trend&&x.g.trend.measurable&&x.g.trend.change<=-10));
   let cands=[]; try{ cands=ctCertCandidates(cls); }catch(e){}
-  let al=[]; try{ al=ctAlerts(cls); }catch(e){}
+  let al=[], alAll=[]; try{ alAll=ctAlerts(cls); al=ctAlertsOpen(cls); }catch(e){}
   const plans=((CT_GRADES&&CT_GRADES.plans)||[]).filter(p=>(p.members||[]).some(mm=>st.G.some(x=>String(x.s.id)===String(mm.studentId))));
-  const act=plans.filter(p=>p.status!=='done'), imp=plans.filter(p=>p.verdict==='تحسّن').length;
+  const act=plans.filter(p=>p.status!=='done'), imp=plans.filter(p=>p.status==='done'&&p.verdict==='تحسّن').length;
   const all=ctClasses().map(c=>cfStats(c)).filter(x=>x.n);
   const cols=[['mastery','الإتقان','%'],['sub','التسليم','%'],['att','الحضور','%'],['part','المشاركة','/10'],['hw','الواجبات','/10'],['beh','السلوك','/10'],['exam','الاختبارات','/20']];
   const best=k=>{ const v=all.map(x=>x[k]).filter(Number.isFinite); return v.length>1?[Math.max(...v),Math.min(...v)]:[null,null]; };
@@ -183,7 +184,7 @@ function ctClassFileBody(cls,print){
     <div class="cf2-hero">
       <div class="cf2-ring ${tone(ring)}" style="--p:${ring??0}"><b>${ring!=null?ring+'%':'—'}</b><small>الإتقان</small></div>
       <div class="cf2-hi"><div class="cf2-ht">🏫 فصل ${esc(cls)}</div>
-        <div class="cf2-hs">الفصل ${sem===1?'الأول':'الثاني'} · الفترة ${per===1?'الأولى':'الثانية'} · ${st.n} طالبًا (قيس منهم ${st.measured}) · ${st.acts} نشاطًا</div>
+        <div class="cf2-hs">الفصل ${sem===1?'الأول':'الثاني'} · الفترة ${per===1?'الأولى':'الثانية'} · ${st.n} طالبًا (قيس منهم ${st.measured}) · ${st.acts} نشاطًا · الإتقان مرجّح بعدد الأسئلة</div>
         <div class="cf2-dist">${seg('t',d.t,'متقن')}${seg('w',d.w,'قريب')}${seg('b',d.b,'يحتاج دعم')}${seg('u',d.u,'لم يُقَس')}</div>
         <div class="cf2-lg"><span class="t">متقن <b>${d.t}</b></span><span class="w">قريب <b>${d.w}</b></span><span class="b">يحتاج دعم <b>${d.b}</b></span><span class="u">لم يُقَس <b>${d.u}</b></span></div></div>
     </div>
@@ -193,53 +194,54 @@ function ctClassFileBody(cls,print){
       ${tile('🗓️','الحضور',st.att,100,'%')}
       ${tile('🙋','المشاركة',st.part,10,'/10')}
       ${tile('📘','الواجبات',st.hw,10,'/10')}
-      ${tile('🌟','السلوك',st.beh,10,'/10')}
+      ${tile('🌟','السلوك',st.beh,10,'/10','يبدأ من 10 لمن لا ملاحظات عليه')}
       ${tile('📝','الاختبارات',st.exam,20,'/20')}
     </div>
 
     ${sec('🏆','التميّز','الأوائل ومن يستحق التكريم')}
     ${cfTopHTML(cls,print)}
     <div class="cf2-card"><div class="cf2-h"><b>🌟 مرشحون للتكريم (${cands.length})</b><small>إتقان أو تحسّن أو خطة ناجحة أو انضباط كامل</small></div>
-      ${cands.length?`<div class="cf2-chips">${cands.slice(0,16).map(x=>`<div class="cf2-cand"><span>${name(x.s)}<small>${esc(x.why.map(w=>w[0]).join('، '))}</small></span>${x.had?'<em>🏅 لديه شهادة</em>':btn(`<button class="btn ghost sm" onclick="ctCertQuick('${esc(x.s.id)}',CT_CERT_REASON['${esc(x.why[0][0])}']||'تميّزه')">🏅 شهادة</button>`)}</div>`).join('')}</div>`:'<div class="cf2-empty">لا مرشحين حاليًا.</div>'}</div>
+      ${cands.length?`<div class="cf2-chips">${cands.slice(0,16).map(x=>`<div class="cf2-cand"><span>${name(x.s)}<small>${esc(x.why.map(w=>w[0]).join('، '))}</small></span>${x.had?'<em>🏅 لديه شهادة</em>':btn(`<button class="btn ghost sm" onclick="ctCertQuick('${esc(x.s.id)}','${x.why.map(w=>CT_CERT_REASON[w[0]]).filter(Boolean).join('، ')||'تميّزه'}')">🏅 شهادة</button>`)}</div>`).join('')}</div>${cands.length>16?`<div class="muted" style="font-size:.76rem">و${cands.length-16} مرشحًا آخر</div>`:''}`:'<div class="cf2-empty">لا مرشحين حاليًا.</div>'}</div>
 
     ${sec('🎯','المتابعة والعلاج','من يحتاج تدخّلًا الآن')}
     ${cfWeakHTML(cls,print)}
     <div class="cf2-grid3">
-      <div class="cf2-card"><div class="cf2-h"><b>🆘 يحتاجون دعمًا (${support.length})</b></div>${support.slice(0,12).map(x=>li(name(x.s),`<span class="chip ${x.g.level&&x.g.level.status==='يحتاج دعم'?'bad':'warn'}">${x.g.level&&x.g.level.status==='يحتاج دعم'?esc(x.g.level.rate+'%'):'يتراجع '+esc(x.g.trend.change)}</span>`)).join('')||'<div class="cf2-empty">لا أحد ✅</div>'}</div>
-      <div class="cf2-card"><div class="cf2-h"><b>🔔 تنبيهات الانضباط (${al.length})</b></div>${al.slice(0,8).map(a=>`<div class="cf2-al ${a.lvl}">${name(a.s)}<small>${esc(a.t)}</small></div>`).join('')||'<div class="cf2-empty">لا تنبيهات ✅</div>'}</div>
+      <div class="cf2-card"><div class="cf2-h"><b>🆘 يحتاجون دعمًا (${support.length})</b></div>${support.slice(0,12).map(x=>li(name(x.s),`<span class="chip ${x.g.level&&x.g.level.status==='يحتاج دعم'?'bad':'warn'}">${x.g.level&&x.g.level.status==='يحتاج دعم'?esc(x.g.level.rate+'%'):'يتراجع '+esc(Math.abs(x.g.trend.change))}</span>`)).join('')||'<div class="cf2-empty">لا أحد ✅</div>'}${support.length>12?`<div class="muted" style="font-size:.76rem">و${support.length-12} آخرون</div>`:''}</div>
+      <div class="cf2-card"><div class="cf2-h"><b>🔔 تنبيهات الانضباط (${al.length})</b></div>${al.slice(0,8).map(a=>`<div class="cf2-al ${a.lvl}">${name(a.s)}<small>${esc(a.t)}</small></div>`).join('')||'<div class="cf2-empty">لا تنبيهات ✅</div>'}${al.length>8?`<div class="muted" style="font-size:.76rem">و${al.length-8} تنبيهًا آخر</div>`:''}${alAll.length>al.length?`<div class="muted" style="font-size:.76rem">تمت متابعة ${alAll.length-al.length} تنبيهًا سابقًا</div>`:''}</div>
       <div class="cf2-card"><div class="cf2-h"><b>🩺 الخطط العلاجية</b></div>
         <div class="cf2-nums"><div><b>${act.length}</b><small>جارية</small></div><div><b>${plans.length-act.length}</b><small>منتهية</small></div><div class="g"><b>${imp}</b><small>تحسّن</small></div></div></div>
     </div>
 
-    ${sec('🧠','المهارات','من إجابات الطلاب في الأنشطة')}
+    ${sec('🧠','المهارات','من إجابات الطلاب في الأنشطة ونواتج نافس الرسمية')}
     <div class="cf2-grid2">
       <div class="cf2-card"><div class="cf2-h"><b>🔻 أضعف المهارات</b></div>${weak.length?weak.map(x=>bar(x)+btn(x.weak.length>=2?`<button class="btn ghost sm cf2-gp" onclick='ctGroupPlan(${JSON.stringify(x.k)},${JSON.stringify(x.weak)})'>🩺 خطة جماعية لـ ${x.weak.length} طلاب</button>`:'')).join(''):'<div class="cf2-empty">لا أسئلة مصنّفة بمهارات بعد.</div>'}
-        ${weak.length&&weak[0].rate<60&&weak[0].weak.length>=st.n*0.6?'<div class="ct-warn" style="margin-top:.5rem;font-size:.8rem">معظم الفصل ضعيف في «'+esc(weak[0].k)+'» — الأنسب إعادة شرحها للفصل كله.</div>':''}</div>
+        ${weak.length&&weak[0].rate<60&&ctSkAct(weak[0].weak.length,st.n)==='reteach'?'<div class="ct-warn" style="margin-top:.5rem;font-size:.8rem">معظم الفصل ضعيف في «'+esc(weak[0].k)+'» — الأنسب إعادة شرحها للفصل كله.</div>':''}</div>
       <div class="cf2-card"><div class="cf2-h"><b>🔺 نقاط القوة</b></div>${strong.length?strong.map(bar).join(''):'<div class="cf2-empty">لا مهارة بلغت 70% بعد.</div>'}</div>
     </div>
 
     ${all.length>1?`${sec('⚖️','مقارنة بالفصول الأخرى','الأخضر أعلى فصل والأحمر أدناه في كل عنصر')}
-    <div class="cf2-card"><div class="ct-table"><table class="cf-cmp"><thead><tr><th>الفصل</th><th>الطلاب</th>${cols.map(c=>`<th>${c[1]}</th>`).join('')}</tr></thead><tbody>
-      ${all.map(x=>`<tr><td class="${x.cls===cls?'me':''}"><b>${esc(x.cls)}</b></td><td class="${x.cls===cls?'me':''}">${x.n}</td>${cols.map(([k,,u])=>{ const [hi,lo]=best(k), v=x[k]; return `<td class="${x.cls===cls?'me ':''}${v!=null&&v===hi?'best':v!=null&&v===lo?'worst':''}">${v!=null?v+(u==='%'?'%':''):'—'}</td>`; }).join('')}</tr>`).join('')}
-    </tbody></table></div></div>`:''}
+    <div class="cf2-card"><div class="ct-table"><table class="cf-cmp"><thead><tr><th>الفصل</th><th>الطلاب</th>${cols.map(c=>`<th>${c[1]}${c[2]==='%'?'':' '+c[2]}</th>`).join('')}</tr></thead><tbody>
+      ${all.map(x=>`<tr><td class="${x.cls===cls?'me':''}"><b>${esc(x.cls)}</b></td><td class="${x.cls===cls?'me':''}">${x.n}</td>${cols.map(([k,,u])=>{ const [hi,lo]=best(k), v=x[k]; return `<td class="${x.cls===cls?'me ':''}${v!=null&&hi!=null&&hi!==lo&&v===hi?'best':v!=null&&hi!=null&&hi!==lo&&v===lo?'worst':''}">${v!=null?v+(u==='%'?'%':''):'—'}</td>`; }).join('')}</tr>`).join('')}
+    </tbody></table></div></div>`:`<div class="muted" style="font-size:.78rem">مقارنة الفصول تظهر عند وجود أكثر من فصل واحد.</div>`}
   </div>`;
 }
 async function ctClassFile(box,force){
-  try{ await ctEnsureGrades(force); }catch(e){}
-  try{ await ctEnsurePrev(force); }catch(e){}
-  const cls=window._ctCfCls??(ctClasses()[0]||'');
+  let _cfErr=false;
+  try{ await ctEnsureGrades(force); }catch(e){ _cfErr=true; }
+  try{ await ctEnsurePrev(force); }catch(e){ _cfErr=true; }
+  const cls=ctValidCls(window._ctCfCls);
   box.innerHTML=`<div class="row ct-tools no-print">${ctClassSel('ct-cf-cls',cls,"window._ctCfCls=this.value;renderClassTools()",false)}
       <span class="muted" style="font-size:.78rem">${(()=>{const {sem,per}=ctSem();return `الفصل ${sem===1?'الأول':'الثاني'} · الفترة ${per===1?'الأولى':'الثانية'}`})()}</span><span class="spacer"></span>
-      <button class="btn sm" onclick="ctClassFilePrint()">🖨️ طباعة ملف الفصل</button></div>${cls?ctClassFileBody(cls):'<div class="muted">لا فصول.</div>'}`;
+      <button class="btn sm" onclick="ctClassFilePrint()">🖨️ طباعة ملف الفصل</button></div>${_cfErr?`<div class="ct-warn" style="margin-top:.5rem">تعذّر جلب بعض البيانات من الخادم — الأرقام المعروضة قد تكون ناقصة أو قديمة.</div>`:''}${cls?ctClassFileBody(cls):'<div class="muted">لا فصول.</div>'}`;
 }
 function ctClassFilePrint(){
-  const cls=window._ctCfCls??(ctClasses()[0]||''); if(!cls) return; ensureLogo();
+  const cls=ctValidCls(window._ctCfCls); if(!cls) return; ensureLogo();
   let box=document.getElementById('plan-print'); if(!box){ box=document.createElement('div'); box.id='plan-print'; box.className='rep'; document.body.appendChild(box); }
   box.innerHTML=`<div class="rep-page plan-doc ct-pf-print cf-print">${repHead('ملف الفصل '+cls,'تقرير')}<div class="rep-in">${ctClassFileBody(cls,true)}
-    <div class="plan-note">البيانات محسوبة من سجلات المعلم الفعلية وإجابات الطلاب في الأنشطة خلال الفترة الحالية.</div>
+    <div class="plan-note">${(()=>{const {sem,per}=ctSem();return `البيانات محسوبة من سجلات المعلم الفعلية وإجابات الطلاب في الأنشطة خلال الفصل ${sem===1?'الأول':'الثاني'} · الفترة ${per===1?'الأولى':'الثانية'}.`;})()}</div>
     <div class="plan-sign"><div>معلم المادة<b>${esc(rcGet('teacher')||'')}</b><span>التوقيع: ....................</span></div>
       <div>مدير المدرسة<b>${esc(rcGet('principal')||'')||'&nbsp;'}</b><span>التوقيع: ....................</span></div></div></div></div>`;
-  unifiedA4Print({bodyClass:'printing-plans',title:'ملف الفصل',selector:'#plan-print',orientation:'portrait',margin:'8mm'});
+  unifiedA4Print({bodyClass:'printing-plans',title:'ملف الفصل',selector:'#plan-print',orientation:'landscape',margin:'8mm'});
 }
 
 /* ═════════ 🕓 الخط الزمني للطالب ═════════ */
@@ -322,21 +324,22 @@ function ctPortfolioBody(print){
   const n=(STUDENTS||[]).length, tot=all.reduce((a,x)=>({t:a.t+x.dist.t,w:a.w+x.dist.w,b:a.b+x.dist.b,u:a.u+x.dist.u}),{t:0,w:0,b:0,u:0});
   const stats=activityStats(), exp=stats.reduce((a,x)=>a+x.total,0), dn=stats.reduce((a,x)=>a+x.done,0);
   const KL={normal:'📝 أنشطة',reading:'📖 فهم قرائي',games:'🎮 ألعاب تعليمية',files:'📎 مشاريع وتسليم ملفات',lab:'🔬 مختبر افتراضي',style:'🧠 أنماط التعلّم',diag:'🔍 اختبارات تشخيصية'};
-  const kinds={}; HW.forEach(h=>{ const k=h&&h.remedial?'🩹 أنشطة علاجية':(KL[String(h&&h.kind||'normal')]||'📝 أنشطة'); kinds[k]=(kinds[k]||0)+1; });
-  const plans=(CT_GRADES&&CT_GRADES.plans)||[], done=plans.filter(p=>p.status==='done'), imp=plans.filter(p=>p.verdict==='تحسّن');
-  const gains=plans.map(p=>p.gain).filter(Number.isFinite), stud=new Set(plans.flatMap(p=>(p.members||[]).map(m=>String(m.studentId)))).size;
+  const kinds={}; HW.filter(h=>typeof remPublished==='function'?remPublished(h):true).forEach(h=>{ const k=h&&h.remedial?'🩹 أنشطة علاجية':(KL[String(h&&h.kind||'normal')]||'📝 أنشطة'); kinds[k]=(kinds[k]||0)+1; });
+  const plans=(CT_GRADES&&CT_GRADES.plans)||[], done=plans.filter(p=>p.status==='done'), imp=plans.filter(p=>p.status==='done'&&p.verdict==='تحسّن');
+  const gains=done.map(p=>p.gain).filter(Number.isFinite), stud=new Set(plans.flatMap(p=>{const ms=(p.members||[]).map(m=>String(m.studentId)).filter(Boolean); return ms.length?ms:(p.studentId?[String(p.studentId)]:[]);})).size;
   const certs=(D.certificates||[]).filter(c=>c&&!c.deleted), pos=(D.behavior||[]).filter(x=>x&&!x.deleted&&x.type==='positive').length, neg=(D.behavior||[]).filter(x=>x&&!x.deleted&&x.type!=='positive').length;
   const days=Object.keys(D.participation||{}).filter(d=>Object.keys(D.participation[d]||{}).length).length;
   const cons=(D.contacts||[]).filter(c=>c&&!c.deleted), byR={}; cons.forEach(c=>byR[c.reason]=(byR[c.reason]||0)+1);
-  let tests=0, exAvg=null; try{ const b=ctBook(JSON.parse(JSON.stringify(D)),sem,per); tests=b.tests.length; const s=ctExamStats(b,STUDENTS||[]).filter(x=>x.n); exAvg=s.length?Math.round(s.reduce((a,x)=>a+x.pct,0)/s.length):null; }catch(e){}
+  let tests=0, exAvg=null; try{ const b=ctBook(JSON.parse(JSON.stringify(D)),sem,per); const _es=ctExamStats(b,STUDENTS||[]); tests=_es.filter(x=>x.n).length; const s=_es.filter(x=>x.n); exAvg=s.length?Math.round(s.reduce((a,x)=>a+x.pct,0)/s.length):null; }catch(e){}
   const kpi=(t,v,sub,tone='')=>`<div class="ct-kpi ${tone}"><b>${v??'—'}</b><span>${t}</span>${sub?`<small>${sub}</small>`:''}</div>`;
   const row=(a,b)=>`<div class="ct-li"><span>${a}</span><b>${b}</b></div>`;
   return `<div class="rep-info" style="margin-bottom:.6rem"><div>المعلم<b>${esc(rcGet('teacher')||'—')}</b></div><div>المادة<b>${esc(rcGet('subject')||'—')}</b></div><div>المدرسة<b>${esc(rcGet('school')||'—')}</b></div><div>الفترة<b>الفصل ${sem===1?'الأول':'الثاني'} · ${per===1?'الفترة الأولى':'الفترة الثانية'}</b></div></div>
-    <div class="ct-kpis ct-kpis6">${kpi('الفصول',classes.length)}${kpi('الطلاب',n)}${kpi('الأنشطة',HW.length,`نسبة التسليم ${v2Pct(dn,exp)??'—'}%`)}${kpi('الخطط العلاجية',plans.length,`${imp.length} تحسّن`)}${kpi('شهادات التقدير',certs.length)}${kpi('تواصل مع أولياء الأمور',cons.length)}</div>
+    <div class="muted" style="font-size:.78rem;margin-bottom:.5rem">نطاق الأرقام: المستويات والخطط والاختبارات تخص الفترة المعروضة؛ الشهادات والسلوك والتواصل وأيام المشاركة تراكمية لكل الفترات</div>
+    <div class="ct-kpis ct-kpis6">${kpi('الفصول',classes.length)}${kpi('الطلاب',n)}${kpi('الأنشطة',stats.length,`نسبة التسليم ${v2Pct(dn,exp)??'—'}%`)}${kpi('الخطط العلاجية',plans.length,`${imp.length} تحسّن`)}${kpi('شهادات التقدير',certs.length)}${kpi('تواصل مع أولياء الأمور',cons.length)}</div>
     <div class="cf-grid">
-      <div class="ct-card"><b>📚 التدريس والأنشطة</b>${Object.entries(kinds).sort((a,b)=>b[1]-a[1]).map(([k,v])=>row(esc(k),v)).join('')}${row('نسبة التسليم الكلية',(v2Pct(dn,exp)??'—')+'%')}${row('الاختبارات المرصودة في الفترة',tests)}${exAvg!=null?row('متوسط نتائج الاختبارات',exAvg+'%'):''}</div>
+      <div class="ct-card"><b>📚 التدريس والأنشطة</b>${Object.entries(kinds).sort((a,b)=>b[1]-a[1]).map(([k,v])=>row(esc(k),v)).join('')}${Object.entries(kinds).length?'':row('لا أنشطة منشورة بعد','—')}${row('نسبة التسليم الكلية',(v2Pct(dn,exp)??'—')+'%')}${row('الاختبارات المرصودة في الفترة',tests)}${exAvg!=null?row('متوسط نتائج الاختبارات',exAvg+'%'):''}</div>
       <div class="ct-card"><b>📊 مستويات الطلاب (من إجاباتهم)</b>
-        <div class="cf-dist"><i class="t" style="flex:${tot.t}"></i><i class="w" style="flex:${tot.w}"></i><i class="b" style="flex:${tot.b}"></i><i class="u" style="flex:${tot.u}"></i></div>
+        <div class="cf-dist" role="img" aria-label="متقن ${tot.t}، قريب ${tot.w}، يحتاج دعم ${tot.b}، لم يُقَس ${tot.u}" title="متقن ${tot.t}، قريب ${tot.w}، يحتاج دعم ${tot.b}، لم يُقَس ${tot.u}"><i class="t" style="flex:${tot.t}"></i><i class="w" style="flex:${tot.w}"></i><i class="b" style="flex:${tot.b}"></i><i class="u" style="flex:${tot.u}"></i></div>
         ${row('🟢 متقن',tot.t)}${row('🟡 قريب من الإتقان',tot.w)}${row('🔴 يحتاج دعم',tot.b)}${row('⚪ لم يُقَس',tot.u)}</div>
       <div class="ct-card"><b>🩺 المعالجة والدعم</b>${row('خطط علاجية',plans.length)}${row('طلاب شملتهم الخطط',stud)}${row('خطط مكتملة',done.length)}${row('حكمها «تحسّن» (قياس قبلي وبعدي)',imp.length)}${gains.length?row('متوسط التحسن المقاس',(v2Avg(gains)>0?'+':'')+v2Avg(gains)+' نقطة'):''}</div>
       <div class="ct-card"><b>🌟 التحفيز والانضباط</b>${row('شهادات شكر وتقدير',certs.length)}${row('ملاحظات سلوكية إيجابية',pos)}${row('ملاحظات تحتاج متابعة',neg)}${row('أيام رصد الحضور والمشاركة',days)}</div>
@@ -344,13 +347,14 @@ function ctPortfolioBody(print){
       <div class="ct-card"><b>📞 الشراكة مع الأسرة</b>${row('مرات التواصل الموثّقة',cons.length)}${Object.entries(byR).sort((a,b)=>b[1]-a[1]).map(([k,v])=>row(esc(k),v)).join('')}</div>
     </div>
     ${all.length?`<div class="ct-card" style="margin-top:.7rem"><b>⚖️ ملخص الفصول</b><div class="ct-table"><table class="cf-cmp"><thead><tr><th>الفصل</th><th>الطلاب</th><th>الإتقان</th><th>التسليم</th><th>الحضور</th><th>متقن</th><th>يحتاج دعم</th></tr></thead><tbody>
-      ${all.map(x=>`<tr><td><b>${esc(x.cls)}</b></td><td>${x.n}</td><td>${x.mastery??'—'}${x.mastery!=null?'%':''}</td><td>${x.sub??'—'}${x.sub!=null?'%':''}</td><td>${x.att??'—'}${x.att!=null?'%':''}</td><td>${x.dist.t}</td><td>${x.dist.b}</td></tr>`).join('')}</tbody></table></div></div>`:''}`;
+      ${all.map(x=>`<tr><td><b>${esc(x.cls)}</b></td><td>${x.n}</td><td>${x.mastery??'—'}${x.mastery!=null?'%':''}</td><td>${x.sub??'—'}${x.sub!=null?'%':''}</td><td>${x.att??'—'}${x.att!=null?'%':''}</td><td>${x.dist.t}</td><td>${x.dist.b}</td></tr>`).join('')}</tbody></table></div></div><div class="muted" style="font-size:.76rem;margin-top:.3rem">الإتقان: نسبة الإجابات الصحيحة مرجّحة بعدد الأسئلة · التسليم: نسبة الأنشطة المنشورة المسلّمة · الحضور: متوسط أيام الحضور من الأيام المرصودة</div>`:''}`;
 }
 async function ctPortfolio(box,force){
-  try{ await ctEnsureGrades(force); }catch(e){}
-  try{ await ctEnsurePrev(force); }catch(e){}
+  let _pfErr=false;
+  try{ await ctEnsureGrades(force); }catch(e){ _pfErr=true; }
+  try{ await ctEnsurePrev(force); }catch(e){ _pfErr=true; }
   box.innerHTML=`<div class="row ct-tools no-print"><span class="muted" style="font-size:.8rem">ملخص فصلي لإنجازك محسوب من بياناتك الفعلية — يصلح لملف الأداء الوظيفي ولزيارة المشرف.</span><span class="spacer"></span>
-      <button class="btn sm" onclick="ctPortfolioPrint()">🖨️ طباعة ملف الإنجاز</button></div>${ctPortfolioBody()}`;
+      <button class="btn sm" onclick="ctPortfolioPrint()">🖨️ طباعة ملف الإنجاز</button></div>${_pfErr?`<div class="ct-warn" style="margin-top:.5rem">تعذّر جلب بعض البيانات من الخادم — الأرقام المعروضة قد تكون ناقصة أو قديمة.</div>`:''}${ctPortfolioBody()}`;
 }
 function ctPortfolioPrint(){
   ensureLogo();
@@ -374,17 +378,23 @@ function qkOpen(){
   const v=document.createElement('div'); v.className='qk-veil';
   v.innerHTML=`<div class="qk-box" role="dialog"><input id="qk-q" placeholder="ابحث عن طالب أو فصل أو صفحة…" autocomplete="off"><div class="qk-list" id="qk-list"></div><div class="qk-hint">↑↓ للتنقل · Enter للفتح · Esc للإغلاق · Ctrl+K من أي مكان</div></div>`;
   document.body.appendChild(v);
-  const pages=[...document.querySelectorAll('.app-sidebar-scroll .tab')].map(b=>({t:b.innerText.replace(/\s+/g,' ').trim(),go:b.dataset.view?`goTab('${b.dataset.tab}:${b.dataset.view}')`:`goTab('${b.dataset.tab}')`,ic:'📄',k:'صفحة'}));
+  const pages=[...document.querySelectorAll('.app-sidebar-scroll .tab')].map(b=>({t:b.innerText.replace(/\s+/g,' ').trim(),act:'tab',tab:b.dataset.tab,view:b.dataset.view||'',ic:'📄',k:'صفحة'}));
   let sel=0, items=[];
   const n=x=>typeof normAr==='function'?normAr(x):String(x||'');
   const draw=()=>{ const q=n(document.getElementById('qk-q').value).trim();
-    const st=(STUDENTS||[]).filter(s=>!q||n(s.name).includes(q)).slice(0,q?8:0).map(s=>({t:s.name,ic:'👤',k:s.cls||'',go:`ctOpenProfile('${esc(s.id)}')`}));
-    const cl=ctClasses().filter(c=>!q||n(c).includes(q)).slice(0,4).map(c=>({t:'ملف الفصل '+c,ic:'🏫',k:'فصل',go:`window._ctCfCls='${esc(c)}';ctGo('classfile')`}));
+    const st=(STUDENTS||[]).filter(s=>!q||n(s.name).includes(q)).slice(0,q?8:0).map(s=>({t:s.name,ic:'👤',k:s.cls||'',act:'profile',id:s.id}));
+    const cl=ctClasses().filter(c=>!q||n(c).includes(q)).slice(0,4).map(c=>({t:'ملف الفصل '+c,ic:'🏫',k:'فصل',act:'classfile',cls:c}));
     const pg=pages.filter(p=>!q||n(p.t).includes(q)).slice(0,q?6:20);
     items=[...st,...cl,...pg]; sel=Math.min(sel,Math.max(0,items.length-1));
     document.getElementById('qk-list').innerHTML=items.map((x,i)=>`<button type="button" data-i="${i}" class="${i===sel?'on':''}">${x.ic} ${esc(x.t)}<small>${esc(x.k)}</small></button>`).join('')||'<div class="muted" style="padding:.8rem">لا نتائج.</div>'; };
   const close=()=>{ v.remove(); document.removeEventListener('keydown',key,true); };
-  const run=i=>{ const x=items[i]; if(!x) return; close(); try{ (new Function(x.go))(); }catch(e){ console.warn(e); } };
+  /* 🔐 إصلاح أمني: أفعال منظمة بدل نصوص كود كانت تُنفَّذ بـ new Function —
+     اسم فصل/معرف فيه علامة اقتباس كان يحقن كودًا بصلاحيات المعلم */
+  const run=i=>{ const x=items[i]; if(!x) return; close(); try{
+    if(x.act==='tab') goTab(x.view?`${x.tab}:${x.view}`:x.tab);
+    else if(x.act==='profile') ctOpenProfile(x.id);
+    else if(x.act==='classfile'){ window._ctCfCls=x.cls; ctGo('classfile'); }
+  }catch(e){ console.warn(e); } };
   const key=e=>{ if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); close(); }
     else if(e.key==='ArrowDown'){ e.preventDefault(); sel=Math.min(items.length-1,sel+1); draw(); }
     else if(e.key==='ArrowUp'){ e.preventDefault(); sel=Math.max(0,sel-1); draw(); }

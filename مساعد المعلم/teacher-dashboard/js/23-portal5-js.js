@@ -155,9 +155,9 @@ const duN=c=>c===1?'مهمة واحدة':c===2?'مهمتان':c+(c<=10?' مها�
 const DUTY_PRESETS_D=['عريف الفصل','مساعد العريف','مسؤول رصد الواجبات','منظّم الخروج للمعمل','مسؤول أدوات المعمل والسلامة','مسؤول النظافة والترتيب','مسؤول التقنية والعرض','قائد المجموعة','مسؤول توزيع الأوراق'];
 async function ctDuties(box,force){
   try{ await ctEnsureGrades(force); }catch(e){}
-  const cls=window._duCls??(ctClasses()[0]||''), roster=ctRoster(cls), roles=((CT_DATA&&CT_DATA.roles)||[]).filter(r=>r&&r.cls===cls);
+  const cls=ctValidCls(window._duCls), roster=ctRoster(cls), roles=((CT_DATA&&CT_DATA.roles)||[]).filter(r=>r&&r.cls===cls);
   const nm=id=>((STUDENTS||[]).find(x=>String(x.id)===String(id))||{}).name||'طالب محذوف';
-  const act=roles.filter(r=>r.active).sort((a,b)=>DUTY_PRESETS_D.indexOf(a.title)-DUTY_PRESETS_D.indexOf(b.title));
+  const act=roles.filter(r=>r.active).sort((a,b)=>{const ia=DUTY_PRESETS_D.indexOf(a.title), ib=DUTY_PRESETS_D.indexOf(b.title); return (ia<0?999:ia)-(ib<0?999:ib);});
   const fair=roster.map(s=>({s,d:ctG(s.id).duties||{count:roles.filter(r=>String(r.studentId)===String(s.id)).length}})).map(x=>({...x,c:Number(x.d.count)||0})).sort((a,b)=>a.c-b.c||String(a.s.name).localeCompare(String(b.s.name),'ar'));
   const past=roles.filter(r=>!r.active).sort((a,b)=>String(b.to||b.from).localeCompare(String(a.to||a.from))).slice(0,20);
   box.innerHTML=`<div class="row ct-tools">${ctClassSel('du-cls',cls,"window._duCls=this.value;renderClassTools()",false)}<span class="muted" style="font-size:.78rem">مسؤوليات تُسند للطلاب — لا تدخل في الدرجات. مشتركة مع بوابة المعلم.</span></div>
@@ -174,8 +174,8 @@ async function ctDuties(box,force){
     </div>`;
 }
 async function dutyAssign(){
-  const cls=window._duCls??(ctClasses()[0]||''), tv=document.getElementById('du-title')?.value, title=tv==='__c'?String(document.getElementById('du-custom')?.value||'').trim():tv, sid=document.getElementById('du-sid')?.value;
-  if(!title){ toast('اكتب اسم المهمة','bad'); return; } if(!sid){ toast('اختر الطالب','bad'); return; }
+  const cls=ctValidCls(window._duCls), tv=document.getElementById('du-title')?.value, title=tv==='__c'?String(document.getElementById('du-custom')?.value||'').trim():tv, sid=document.getElementById('du-sid')?.value;
+  if(!title){ toast('اكتب اسم المهمة','bad'); return; } if(!sid){ toast('اختر الطالب','bad'); return; } if(!cls){ toast('اختر الفصل أولًا','bad'); return; }
   const d=ctToday(); let prev='';
   try{ await ctSave(D=>{ D.roles=Array.isArray(D.roles)?D.roles:[];
       D.roles.forEach(r=>{ if(r&&r.active&&r.cls===cls&&r.title===title){ r.active=false; r.to=d; prev=r.studentId; } });

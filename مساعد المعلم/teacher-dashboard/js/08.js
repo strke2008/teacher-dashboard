@@ -169,7 +169,11 @@ function pushRenderCard(message){
 /* فتح التسليم الذي أرسل الإشعار: «آخر التسليمات» ثم إبراز الصف */
 async function openSubmissionFromPush(data){
   if(!data) return;
-  if(data.type==='ask' || data.open==='asks'){ goTab('dashboard'); setTimeout(()=>asksOpen(),400); return; }
+  if(data.type==='ask' || data.open==='asks'){
+    // الضغط على التنبيه واللوحة مفتوحة: الرسالة نفسها مع التنبيه، طبّقها فورًا بدل انتظار الجلب (نسخة الخادم قد تتأخر دقيقة)
+    if(data.item && typeof askApplyPush==='function'){ try{ askApplyPush(data.item); }catch(_){} }
+    goTab('dashboard'); setTimeout(()=>asksOpen(),400); return;
+  }
   if(data.type==='test' || data.open==='notifications'){ goTab('data'); setTimeout(()=>document.getElementById('push-settings-sheet')?.scrollIntoView({block:'start',behavior:'smooth'}),150); return; }
   goTab('dashboard');
   // عند الفتح البارد تكون اللوحة في منتصف مزامنتها الأولى: ننتظرها ثم نجلب التسليمات

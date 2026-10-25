@@ -2,6 +2,9 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const TAB = Number(new URLSearchParams(location.search).get('tabId'));
 const API_DEFAULT = 'https://homework.ahmadalmarzooq2009.workers.dev';
+/* 🔐 إصلاح أمني: لا تُرسل البيانات إلا لخادم المعلم الرسمي أو تطوير محلي */
+function apiAllowed(u) { try { const x = new URL(String(u || '')); if (x.hostname === 'homework.ahmadalmarzooq2009.workers.dev') return x.protocol === 'https:'; if (x.hostname === 'localhost' || x.hostname === '127.0.0.1') return true; return false; } catch (_) { return false; } }
+function cfgApi(cfg) { const a = String((cfg && cfg.api) || '').replace(/\/+$/, ''); return apiAllowed(a) ? a : API_DEFAULT; }
 const fmtDue = t => t ? new Date(t).toLocaleString('ar-SA-u-nu-latn', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Riyadh' }) : '';
 const ask = (type, extra) => new Promise(res => chrome.tabs.sendMessage(TAB, { type, ...(extra || {}) }, r => { void chrome.runtime.lastError; res(r || null); }));
 const results = {};
@@ -36,7 +39,7 @@ async function load() {
   try {
     const cfg = (await chrome.storage.local.get('mb_cfg'))['mb_cfg'] || {};
     if (cfg.token) {
-      const sr = await fetch((cfg.api || API_DEFAULT) + '/madrasati/list', {
+      const sr = await fetch(cfgApi(cfg) + '/madrasati/list', {
         method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({t:cfg.token})
       });
       const sj = await sr.json().catch(()=>({}));
@@ -104,7 +107,7 @@ async function saveClass(a, c) {
   if (!cfg.token) { if (!pending.some(p => p.c.key === c.key)) pending.push({ a, c }); askToken(); return false; }
   r.saving = true; render();
   try {
-    const res = await fetch((cfg.api || API_DEFAULT) + '/madrasati/import', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    const res = await fetch(cfgApi(cfg) + '/madrasati/import', { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ t: cfg.token, assignment: { key: c.key, title: a.title, className: c.className, dueAt: c.dueAt || 0 },
         students: r.students.map(s => ({ mid: s.madrasatiStudentId, name: s.name, solved: s.status === 'SUBMITTED' })) }) });
     if (res.status === 401) {

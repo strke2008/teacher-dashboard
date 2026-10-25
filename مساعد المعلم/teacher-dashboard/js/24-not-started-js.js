@@ -11,6 +11,7 @@ const ASK_REPLY_CAT='💬 دردشة';
 const ASK_QUICK=['تم حل المشكلة — جرّب الآن ✅','سأشرحها لك في الحصة القادمة إن شاء الله','راجع شرح الدرس في الكتاب ثم أعد المحاولة','فتحت لك محاولة إضافية في النشاط','راجعت درجتك وهي صحيحة','أحسنت على سؤالك 👏 — '];
 const ASK_PUSHED=new Map();
 let ASK_LAST=0;
+let ASK_BADGE=-1;
 /* 🎓 «راسل معلمك» في بوابة الطلاب: البطاقة أو الزر العائم أو كلاهما، أو إغلاق التواصل — إعداد واحد للجميع يحفظه الخادم */
 let ASK_PMODE=null;
 const ASK_PMODES={both:'البطاقة + زر عائم',card:'البطاقة فقط',fab:'زر عائم فقط',off:'التواصل مغلق'};
@@ -29,18 +30,23 @@ function askApplyPush(item){
   if(!item||!item.id) return;
   ASK_PUSHED.set(item.id,{at:Date.now(),item});
   if(!Array.isArray(ASKS)) ASKS=[];
-  if(!ASKS.some(x=>x.id===item.id)) ASKS.unshift(item);
+  const i=ASKS.findIndex(x=>x.id===item.id);
+  if(i>=0){ if((item.at||0)>=(ASKS[i].at||0)) ASKS[i]=item; } else ASKS.unshift(item);
   try{ thDraw(); }catch(e){} try{ askFabRender(); askCardRender(); }catch(e){} if(document.getElementById('ask-inbox')) try{ asksOpen(true); }catch(e){}
 }
 async function asksLoad(){
   try{ const r=await fetch(getApi().replace(/\/+$/,'')+'/asks?t='+encodeURIComponent(getTok()),{cache:'no-store'}); const j=await r.json();
     if(j&&j.ok){ ASKS=j.rows||[]; if(j.cats) ASK_CATS=j.cats; if(j.mode) ASK_PMODE=j.mode;
-      // سؤال وصل بالإشعار قبل أن يظهر في رد الخادم (نسخة قديمة لدقيقة): يبقى ظاهرًا دقيقتين
-      ASK_PUSHED.forEach((v,id)=>{ if(Date.now()-v.at>120000||ASKS.some(x=>x.id===id)) ASK_PUSHED.delete(id); else ASKS.unshift(v.item); }); ASK_LAST=Date.now(); try{ thDraw(); }catch(e){} try{ askFabRender(); askCardRender(); }catch(e){} if(document.getElementById('ask-inbox')) asksOpen(true); } }catch(e){}
+      // سؤال وصل بالإشعار قبل أن يظهر في رد الخادم (نسخة قديمة لدقيقة): الأحدث زمنًا هو المعروض حتى يلحق به الخادم
+      ASK_PUSHED.forEach((v,id)=>{ if(Date.now()-v.at>120000){ ASK_PUSHED.delete(id); return; }
+        const i=ASKS.findIndex(x=>x.id===id);
+        if(i<0) ASKS.unshift(v.item);
+        else if((v.item.at||0)>(ASKS[i].at||0)) ASKS[i]=v.item; else ASK_PUSHED.delete(id); }); ASK_LAST=Date.now(); try{ thDraw(); }catch(e){} try{ askFabRender(); askCardRender(); }catch(e){} if(document.getElementById('ask-inbox')) asksOpen(true); } }catch(e){}
 }
 function askAgo(t){ const m=Math.round((Date.now()-t)/60000); return m<1?'الآن':m<60?`قبل ${m} د`:m<1440?`قبل ${Math.round(m/60)} س`:`قبل ${Math.round(m/1440)} يوم`; }
 function asksOpen(keep){
-  if(ASKS===null){ toast('جارٍ جلب الرسائل…'); asksLoad().then(()=>asksOpen()); return; }
+  if(ASKS===null){ toast('جارٍ جلب الرسائل…'); asksLoad().then(()=>asksOpen(true)); return; }
+  if(!keep){ asksLoad(); try{ askApplyInbox(); }catch(e){} }   // فتح العلبة يجلب الجديد فورًا (كما في الصندوق العائم) — العرض من المخزون أولًا ثم يتجدد عند وصول الجلب
   const open=ASKS.filter(x=>x.status==='open'), done=ASKS.filter(x=>x.status!=='open'&&x.kind!=='t').slice(0,30);
   const card=x=>`<div class="ask-t" id="askc-${thEsc(x.id)}">
       <div class="ask-t-h">${askNameHTML(x)}<span class="muted">${thEsc(x.cls||'')}</span><span class="ask-cat">${thEsc((ASK_CATS[x.cat]||(x.cat==='reply'?ASK_REPLY_CAT:''))||'')}</span><span class="muted">${askAgo(x.at)}</span></div>
@@ -127,32 +133,69 @@ function askNameHTML(x){ const ok=(STUDENTS||[]).some(s=>String(s.id)===String(x
   return ok?`<b class="ask-nm" role="link" tabindex="0" title="افتح ملف الطالب" onclick="ctOpenProfile('${thEsc(x.sid)}')">${thEsc(x.name)}</b>`:`<b>${thEsc(x.name)}</b>`; }
 /* 📌 الصندوق العائم اختياري: المعلم يُظهره أو يخفيه (يُحفظ على هذا الجهاز) */
 function askFabSet(on){ ASKF.on=!!on; try{ localStorage.setItem('askf_on_v1',on?'1':'0'); }catch(e){}
-  if(!on){ ASKF.open=false; document.getElementById('askf-pan')?.remove(); document.getElementById('askf-btn')?.remove(); document.documentElement.classList.remove('chat-open'); }
+  if(!on){ ASKF.open=false; document.getElementById('askf-pan')?.remove(); document.getElementById('askf-btn')?.remove(); document.documentElement.classList.remove('chat-open'); askfInert(false); }
   askFabRender(); try{ askCardRender(); }catch(e){} if(document.getElementById('ask-inbox')) try{ asksOpen(true); }catch(e){}
   if(!arguments[1]) toast(on?'📌 ظهر صندوق المحادثات العائم — تصل إليه من أي صفحة':'أُخفي صندوق المحادثات العائم','good'); }
 function askFabToggleBtn(){ return `<button type="button" class="askf-pin${ASKF.on?' on':''}" onclick="askFabSet(${!ASKF.on})" title="${ASKF.on?'إخفاء الزر العائم':'إظهار زر عائم للرسائل في كل الصفحات'}">📌 ${ASKF.on?'عائم عندي ✓':'عائم عندي'}</button>`; }
+/* 🔴 شارة أيقونة التطبيق (iOS 16.4+ للتطبيقات المثبتة): الرقم الدقيق للرسائل المفتوحة — يصحح ما يضعه الـ SW مؤقتًا */
+function askSyncBadge(n){
+  try{
+    if(!Array.isArray(ASKS)||typeof navigator==='undefined'||!('setAppBadge' in navigator)||n===ASK_BADGE) return;
+    ASK_BADGE=n;
+    const p=n>0?navigator.setAppBadge(n):(navigator.clearAppBadge?navigator.clearAppBadge():null);
+    if(p&&p.catch) p.catch(()=>{});
+  }catch(e){}
+}
+/* 📥 قراءة صندوق الإشعارات المحفوظة (يكتبه الـ SW عند كل إشعار دردشة): رسائل وصلت واللوحة مغلقة
+   تُطبَّق فور الفتح/العودة بلا انتظار الخادم — والجلب الدوري بعدها يصححها بنسخة الخادم */
+async function askApplyInbox(){
+  try{
+    if(!('caches' in window)) return;
+    const cache=await caches.open('dash-push-inbox-v1');
+    const r=await cache.match('/__push_inbox__');
+    if(!r) return;
+    const j=await r.json(); const items=Array.isArray(j&&j.items)?j.items:[];
+    for(const it of items){
+      if(it&&it.id&&!(Array.isArray(ASKS)&&ASKS.some(x=>x.id===it.id))){ try{ askApplyPush(it); }catch(e){} }
+    }
+  }catch(e){}
+}
 function askFabRender(){
   if(!document.body) return;
-  if(!ASKF.on){ document.getElementById('askf-btn')?.remove(); document.getElementById('askf-pan')?.remove(); document.documentElement.classList.remove('chat-open'); return; }
+  if(!ASKF.on){ document.getElementById('askf-btn')?.remove(); document.getElementById('askf-pan')?.remove(); document.documentElement.classList.remove('chat-open'); askfInert(false); return; }
   let b=document.getElementById('askf-btn');
   if(!b){ b=document.createElement('button'); b.type='button'; b.id='askf-btn'; b.className='askf-btn'; b.setAttribute('aria-label','رسائل الطلاب');
     b.onclick=()=>askFabToggle(); document.body.appendChild(b); }
   const open=Array.isArray(ASKS)?ASKS.filter(x=>x.status==='open'):[], n=open.length;
   if(n>ASKF.seen && ASKF.seen>=0 && Array.isArray(ASKS)){ b.classList.remove('ping'); void b.offsetWidth; b.classList.add('ping'); }
   ASKF.seen=n;
+  askSyncBadge(n);
   const onN=typeof onlRows==='function'?onlRows().on.length:0;
   b.innerHTML=`<span class="askf-ic">💬</span>${n?`<b class="askf-n">${n>99?'99+':n}</b>`:''}${onN?`<i class="askf-on" title="${onN} متصل الآن"></i>`:''}`;
   b.title=(n?`${n} ${n===1?'رسالة تنتظر ردك':'رسائل تنتظر ردك'}`:'المحادثات')+(onN?` · ${onN} متصل الآن`:'');
   b.classList.toggle('has',!!n);
   if(ASKF.open) askFabPanel();
 }
+/* ⌨️ إخفاء سهمي التنقل (∧ ∨) فوق كيبورد الجوال — مرآة إصلاح دردشة الطالب:
+   أثناء فتح صندوق المحادثات على الشاشات الصغيرة يبقى صندوق الرد حقل الكتابة
+   الوحيد القابل للتركيز، فيخفي المتصفح السهمين عادةً. (علامة ✓ واجهة نظام
+   ولا يملك أي موقع إزالتها.) على الشاشات الكبيرة لا يتغير شيء. */
+function askfInert(on){
+  const mobile=window.matchMedia('(max-width:700px)').matches;
+  Array.from(document.body.children).forEach(el=>{
+    if(el.id==='askf-pan'||el.id==='askf-btn') return;
+    if(on&&mobile) el.setAttribute('inert','');
+    else el.removeAttribute('inert');
+  });
+}
 function askFabToggle(on){
   ASKF.open=on===undefined?!ASKF.open:!!on;
   const p=document.getElementById('askf-pan');
   document.documentElement.classList.toggle('chat-open',ASKF.open); chVV();
-  if(!ASKF.open){ if(p) p.remove(); document.getElementById('askf-btn')?.classList.remove('on'); return; }
-  if(ASKS===null) asksLoad();
-  askFabPanel(); document.getElementById('askf-btn')?.classList.add('on');
+  if(!ASKF.open){ if(p) p.remove(); document.getElementById('askf-btn')?.classList.remove('on'); askfInert(false); return; }
+  asksLoad();   // فتح الصندوق يجلب الجديد فورًا بدل عرض المخزون وانتظار الدوري
+  try{ askApplyInbox(); }catch(e){}   // ورسائل الإشعارات المحفوظة تُطبَّق فورًا بلا انتظار الخادم
+  askFabPanel(); document.getElementById('askf-btn')?.classList.add('on'); askfInert(true);
 }
 /* 💬 صندوق المحادثات العائم: كل ما بينك وبين كل طالب في خيط واحد —
    أسئلته من «راسل معلمك» وردودك عليها، ورسائلك الخاصة له (kind:'t') وردوده عليها. مصدر واحد: ASKS.
@@ -162,6 +205,7 @@ function askFabToggle(on){
 function chVV(){ const vv=window.visualViewport, r=document.documentElement.style; if(!vv) return;
   r.setProperty('--vvh',Math.round(vv.height)+'px'); r.setProperty('--vvt',Math.round(vv.offsetTop)+'px');
   document.documentElement.classList.toggle('kb-open',window.innerHeight-vv.height>120);   // لوحة المفاتيح ظاهرة
+  if(ASKF.open) askfInert(true);   // عبور نقطة 700px مع بقاء الصندوق مفتوحًا
   const th=document.getElementById('ch-thread'); if(th&&document.activeElement&&/^chr-/.test(document.activeElement.id||'')) th.scrollTop=th.scrollHeight; }
 if(window.visualViewport){ visualViewport.addEventListener('resize',chVV); visualViewport.addEventListener('scroll',chVV); }
 function chStu(sid){ return (STUDENTS||[]).find(s=>String(s.id)===String(sid))||null; }
@@ -276,7 +320,7 @@ async function chSend(sid){
 async function chClose(sid){ const t=chThreads().find(x=>x.sid===String(sid)); if(!t) return; for(const x of t.items.filter(x=>x.status==='open')) await askSend(x.id,true); askFabPanel(); }
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&ASKF.open) askFabToggle(false); });
 (function(){ const o=window.thDraw; if(typeof o==='function') window.thDraw=function(){ try{ return o.apply(this,arguments); } finally { try{ askFabRender(); }catch(e){} } }; })();
-/* ⚡ الرسائل حيّة حتى بلا إشعار: عند العودة للوحة، وكل دقيقة والصندوق العائم ظاهر */
-document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&Date.now()-ASK_LAST>30000) try{ asksLoad(); }catch(e){} });
-setInterval(()=>{ if(!document.hidden&&ASKF.on&&Date.now()-ASK_LAST>(ASKF.open?15000:55000)) try{ asksLoad(); }catch(e){} },5000);
-if(document.readyState!=='loading') askFabRender(); else document.addEventListener('DOMContentLoaded',()=>askFabRender());
+/* ⚡ الرسائل حيّة حتى بلا إشعار: لحظة العودة للوحة، وكل 5 ثوانٍ تقريبًا والصندوق مفتوح، ونحو 25 ثانية وهو مغلق */
+document.addEventListener('visibilitychange',()=>{ if(document.hidden) return; try{ askApplyInbox(); }catch(e){} if(Date.now()-ASK_LAST>5000) try{ asksLoad(); }catch(e){} });
+setInterval(()=>{ if(!document.hidden&&ASKF.on&&Date.now()-ASK_LAST>(ASKF.open?5000:25000)) try{ asksLoad(); }catch(e){} },5000);
+if(document.readyState!=='loading'){ askFabRender(); try{ askApplyInbox(); }catch(e){} } else document.addEventListener('DOMContentLoaded',()=>{ askFabRender(); try{ askApplyInbox(); }catch(e){} });

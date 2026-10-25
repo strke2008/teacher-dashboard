@@ -1,0 +1,182 @@
+@charset "UTF-8";
+/* تحسينات فحص التبويبات — الدفعة 1: قراءة وأمان وجوال.
+   طبقة إضافة فقط، تُحمَّل أخيرًا، لا تغيّر أي ملف أصلي ولا أي وظيفة.
+   القاعدة: النص يتبع الثيم فقط حيث خلفيته تتبعه أيضًا؛
+   والخلفية الثابتة يحتفظ نصها المطابق لها، أو تُستبدل الخلفية بمتغير ثيم. */
+
+/* ── 1. قيم فاتحة مكيفة للمتغيرات الدلالية في الوضع الداكن ──
+   مستعارة من لوحة الألوان الداكنة المعتمدة أصلًا في theme-picker.css. */
+:root[data-ui-theme="dark"]{
+  --ui-red:#FF8798;
+  --ui-green:#8BD0B4;
+  --ui-amber:#E5C98E;
+}
+
+/* ── 2. نصوص ثابتة داكنة تستبدل بمتغيرات (تعمل في كل الثيمات) ── */
+.attention-requests-head b{color:var(--amber)}
+.mad-warn{color:var(--amber)!important}
+.ct-miss{color:var(--ink-soft)}
+.nafs-q-n{color:var(--ink-soft)}
+.push-hint{color:var(--ink-soft)}
+.ct-name:hover{color:var(--ui-accent);border-color:var(--ui-accent)}
+.ct-table b.bad,.ct-month b.bad,.ct-al.bad{color:var(--ui-red)}
+.stc-del{color:var(--ui-red)!important}
+.pc-gain.up{color:var(--ui-green)}
+.pc-gain.down{color:var(--ui-red)}
+.plan-need{color:var(--ui-amber)}
+.pc-why span[style*="#B26A00"]{color:var(--ui-amber)!important}
+.sk-views button.on{color:var(--paper)}
+.g-total,.g-pct,.g-done{background:var(--ui-surface-2)}
+.grades-pro tfoot td{background:var(--ui-surface-2)}
+.rep-info div{border-color:var(--ui-border)}
+.cf-dist .u{background:var(--ui-border)}
+.nafs-bar{background:var(--ui-surface-2)}
+.nafs-sec{opacity:.85}
+.nafs-terms button.on{border-color:var(--ui-accent);background:var(--ui-accent-soft,var(--ui-surface-2));box-shadow:inset 0 -3px 0 var(--ui-accent)}
+:root[data-ui-theme="dark"] .nafs-k.pr{color:#E5C98E!important}
+:root[data-ui-theme="dark"] .nafs-k.ad{color:#C7D2FE!important}
+.msg-sendbar{background:linear-gradient(to top,var(--paper-2) 72%,transparent)}
+.msg-student-picker{background:var(--ui-surface)}
+.msg-student-item{background:var(--ui-surface-2)}
+.msg-student-item:hover{background:var(--ui-surface-2);border-color:var(--ui-border)}
+
+/* ── 3. إصلاحات خاصة بالوضع الداكن ── */
+/* منتقي الرسائل: العنصر المختار كان أخضر فاتحًا بنص يتبع الثيم */
+:root[data-ui-theme="dark"] .msg-student-item.selected{background:rgba(46,158,107,.2)!important;border-color:rgba(46,158,107,.5)!important}
+/* معاينة المهم/العاجل: خلفية ثابتة فاتحة، فنصها يأخذ لون شارتها المطابق */
+:root[data-ui-theme="dark"] .msg-preview .space-notice.important,
+:root[data-ui-theme="dark"] .msg-preview .space-notice.important p{color:#634900!important}
+:root[data-ui-theme="dark"] .msg-preview .space-notice.urgent,
+:root[data-ui-theme="dark"] .msg-preview .space-notice.urgent p{color:#7E1625!important}
+/* شريط تقدّم الرفع، وشارة مرفق جديد، وكود التلميح */
+:root[data-ui-theme="dark"] .ann-progress{background:var(--ui-surface-2)!important}
+:root[data-ui-theme="dark"] .ae-files .ann-file.new{background:rgba(46,158,107,.15)!important;border-color:rgba(46,158,107,.5)!important}
+:root[data-ui-theme="dark"] .ann-hint code{background:var(--ui-surface-2)!important}
+/* المتجر: شريط الحالة الافتراضي، الافتار، صفوف «جديد»، شارة درجة الامتحان */
+:root[data-ui-theme="dark"] .exam-shop-status{background:var(--ui-surface)!important;color:var(--ink)!important;border:1px solid var(--ui-border)!important}
+:root[data-ui-theme="dark"] .store-purchase-avatar{background:var(--ui-surface-2)!important}
+:root[data-ui-theme="dark"] .store-purchase-row.is-new{background:rgba(46,158,107,.12)!important;border-color:rgba(46,158,107,.45)!important}
+:root[data-ui-theme="dark"] .store-purchase-exam{color:#8BD0B4!important}
+/* ملف الفصل cf2: كل الخلفيات الفاتحة الثابتة تتبع سطح الثيم */
+:root[data-ui-theme="dark"] .cf2-hero{background:var(--ui-surface)!important}
+:root[data-ui-theme="dark"] .cf2-top{background:var(--ui-surface)!important}
+:root[data-ui-theme="dark"] .cf2-rank li{background:var(--ui-surface-2)!important}
+:root[data-ui-theme="dark"] .cf2-rn{background:var(--ui-surface-2)!important;color:var(--ink)!important}
+:root[data-ui-theme="dark"] .cf2-cand{background:var(--ui-surface-2)!important}
+:root[data-ui-theme="dark"] .cf2-al{background:rgba(233,185,73,.15)!important;color:#E5C98E!important}
+:root[data-ui-theme="dark"] .cf2-al.bad,
+:root[data-ui-theme="dark"] .cf2-al.high{background:rgba(214,69,91,.15)!important;color:#FF8798!important}
+:root[data-ui-theme="dark"] .cf2-nums div{background:var(--ui-surface-2)!important}
+:root[data-ui-theme="dark"] .cf2-nums .g{background:rgba(46,158,107,.15)!important}
+:root[data-ui-theme="dark"] .cf2-pod{border-color:var(--ui-border)!important}
+:root[data-ui-theme="dark"] .cf2-pod.p1 .cf2-ps b{color:#E5C98E!important}
+:root[data-ui-theme="dark"] .cf2-dist{background:var(--ui-surface-2)!important}
+:root[data-ui-theme="dark"] .cf2-ti,
+:root[data-ui-theme="dark"] .cf2-tb,
+:root[data-ui-theme="dark"] .cf2-sk i,
+:root[data-ui-theme="dark"] .cf2-rbar{background:var(--ui-surface-2)!important}
+/* كشف الدرجات: عمود الطالب المثبّت كان أبيض ثابتًا بنص فاتح */
+:root[data-ui-theme="dark"] .grades-pro .g-student{background:var(--ui-surface)!important}
+:root[data-ui-theme="dark"] .grades-pro tbody .g-check{background:var(--ui-surface)!important}
+
+/* ── 4. الكشوف على الشاشة في الداكن (الطباعة مستثناة عمدًا: الورق يبقى أبيض) ── */
+@media screen{
+  :root[data-ui-theme="dark"] html body .rep-page .rep-box{background:var(--ui-surface)!important;color:var(--ink)!important;border-color:var(--ui-border)!important}
+  :root[data-ui-theme="dark"] html body .rep-page .rep-foot>div{background:var(--ui-surface)!important;color:var(--ink)!important;border-color:var(--ui-border)!important}
+  :root[data-ui-theme="dark"] .comprehensive-table td small,
+  :root[data-ui-theme="dark"] .comprehensive-table td em{color:var(--ink-soft)!important}
+}
+
+/* ── 5. الإعدادات: زر التبويب النشط بزوج مضمون التباين في كل الثيمات ──
+   النمط نفسه المستخدم في أزرار التبديل الأخرى (var(--ink)/var(--paper))،
+   بدل استعارة لون نص القائمة الذي ينكسر مع ثيم الواجهة القديمة. */
+.set-tabs button.on{background:var(--ink)!important;color:var(--paper)!important}
+/* شريط تبويبات الإعدادات يلتصق أسفل الرأس الثابت بدل الاختفاء خلفه */
+.set-tabs{top:var(--masthead-h,72px)}
+#p-data>.sheet{scroll-margin-top:calc(var(--masthead-h,72px) + 56px)}
+
+/* ── 6. تخطيط فقط (لا ألوان) ── */
+.pc-top{flex-wrap:wrap}
+.pc-who{min-width:0}
+.cf2-sec{flex-wrap:wrap}
+.ct-cand{flex-wrap:wrap}
+.ct-cand>span{min-width:0}
+.ct-cand .btn{flex:none}
+#ct-body .ct-table td:last-child{white-space:nowrap}
+.ct-li{overflow-wrap:anywhere}
+.ct-li>*{min-width:0}
+.ct-table .ct-month td:first-child{position:sticky;inset-inline-start:0;background:var(--ui-surface);z-index:2}
+.ct-table .ct-month th:first-child{position:sticky;inset-inline-start:0;top:0;background:var(--ui-surface-2);z-index:3}
+.nafs-res-wrap{overflow-x:auto}
+.nafs-res-wrap .nafs-res{min-width:640px}
+
+/* ── 7. الجوال ── */
+@media (max-width:700px){
+  /* صفوف ترتيب ملف الفصل: الشريط والتفاصيل سطر ثانٍ وثالث بدل إخفائها */
+  .cf2-rank li{grid-template-columns:2rem 1fr auto}
+  .cf2-rank .cf2-rbar{display:block;grid-column:2/4;grid-row:2}
+  .cf2-rank .cf2-rmeta{display:flex;grid-column:2/4;grid-row:3}
+}
+@media (max-width:600px){
+  /* المتجر: الحد الفعّال سطر ثانٍ بدل إخفائه، ومؤشر ثالث بعرض كامل */
+  .exam-shop-student .exam-shop-used{display:block;grid-column:1/-1}
+  .exam-shop-kpis>:nth-child(3){grid-column:1/-1}
+}
+@media (max-width:560px){
+  /* أعضاء الخطة الجماعية: تمرير بدل قصّ */
+  .mem-table{overflow-x:auto}
+  .mem-row{min-width:460px}
+  /* شبكة أوقات الإظهار/الإخفاء عمود واحد (كانت شبكة مضمّنة 1fr 1fr) */
+  .msg-adv-body>div{grid-template-columns:1fr!important}
+  /* صف الطابور يلتف بدل انضغاطه */
+  .msgq-row{flex-wrap:wrap}
+  .msgq-acts{flex-wrap:wrap}
+  .msgq-main{flex:1 1 200px;min-width:0;overflow-wrap:anywhere}
+  .msgq-main .sub{overflow-wrap:anywhere}
+  /* مؤشرات ملف الإنجاز عمودان بدل ثلاثة ضيقة */
+  .ct-kpis.ct-kpis6{grid-template-columns:repeat(2,1fr)}
+  .ct-kpis.ct-kpis6 .ct-kpi b{font-size:1.05rem}
+}
+@media screen and (max-width:480px){
+  /* معاينة A4 تتسع لشاشات 360px */
+  .exam-page{zoom:.42}
+}
+
+/* ── بطاقات لوحة التقارير: تحليل / تشخيصي / أنماط ── */
+.report-mode-toggle{background:var(--ui-surface-2)}
+.heat td.nm{background:var(--ui-surface-2)}
+.diag-student-item{background:var(--ui-surface)}
+.diag-student-num{background:var(--ui-surface-2)}
+@media screen and (max-width:640px){
+  #an-body div[style*="padding:.3rem 52px"]{padding-right:111px!important}
+}
+@media screen and (max-width:460px){
+  #an-body div[style*="padding:.3rem 52px"]{padding-right:98px!important}
+}
+@media screen{
+  #dg-body .rep-box{overflow-x:auto}
+  #dg-body table.rt{min-width:640px}
+  :root[data-ui-theme="dark"] #dg-body [style*="color:#8a5a00"]{color:var(--ui-amber)!important}
+  :root[data-ui-theme="dark"] #dg-body [style*="color:#B4232F"]{color:var(--ui-red)!important}
+  :root[data-ui-theme="dark"] #dg-body [style*="color:#C88A2E"]{color:var(--ui-amber)!important}
+  :root[data-ui-theme="dark"] #dg-body [style*="color:#1B9C6B"]{color:var(--ui-green)!important}
+  :root[data-ui-theme="dark"] .gt tr:hover td{background:var(--ui-surface-2)}
+  :root[data-ui-theme="dark"] .gt .tot{background:var(--ui-surface-2)}
+}
+
+/* ── متجر الدرجات والتخفيضات ── */
+.report-switch{background:var(--ui-surface-2)}
+#sale-pcts button{min-height:44px;padding:.45rem .8rem}
+.exam-shop-student{overflow-wrap:anywhere}
+.exam-shop-student>div{min-width:0}
+#ebw-box{max-height:320px;overflow-y:auto}
+
+/* ── دفعة 2: إعدادات + كشوف ── */
+.set-tabs button.danger:not(.on){border-color:var(--pen);color:var(--pen)}
+.rep-info div{overflow-wrap:anywhere}
+.ct-pf-print .plan-sign{grid-template-columns:1fr 1fr}
+@media screen{
+  tr.wk-flag td{background:#FFF7ED}
+  :root[data-ui-theme="dark"] tr.wk-flag td{background:var(--ui-surface-2)}
+  .comprehensive-table tr.comp-unsynced td{background:var(--ui-surface-2)}
+}

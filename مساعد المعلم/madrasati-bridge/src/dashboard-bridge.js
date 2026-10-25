@@ -6,10 +6,12 @@
   const CHANNEL='smart-teacher-madrasati-bridge';
   const VERSION=(()=>{try{return chrome.runtime.getManifest().version}catch(_){return 'unknown'}})();
   let busy=false;
-  const post=(type,extra={})=>{try{window.postMessage({channel:CHANNEL,type,version:VERSION,...extra},'*')}catch(_){}};
+  const post=(type,extra={})=>{try{window.postMessage({channel:CHANNEL,type,version:VERSION,...extra},location.origin)}catch(_){}};
   try{document.documentElement.setAttribute('data-smart-teacher-madrasati-bridge',VERSION)}catch(_){ }
   window.addEventListener('message',ev=>{
-    if(ev.source!==window||!ev.data||ev.data.channel!==CHANNEL)return;
+    /* 🔐 إصلاح أمني: لا أوامر إلا من أصل الصفحة نفسها (لوحة المعلم) — كان أي
+       سكربت/إطار في الصفحة يقود الإضافة: ضبط إعدادات، مزامنة، دفع درجات لنور */
+    if(ev.source!==window||ev.origin!==location.origin||!ev.data||ev.data.channel!==CHANNEL)return;
     if(ev.data.action==='ping'){
       post('reply',{requestId:String(ev.data.requestId||''),data:{ok:true,version:VERSION}});
       return;
