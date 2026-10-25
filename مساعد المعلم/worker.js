@@ -9603,6 +9603,22 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       });
     }
 
+    // ⏱️ قياس السرعة الحقيقية: KV مقابل D1 من هذا الخادم (/kv-bench?t=…) — 5 قراءات من كل نوع + قراءة 40 مفتاحًا دفعة
+    if (url.pathname === '/kv-bench' && request.method === 'GET') {
+      if (!env.TEACHER_TOKEN || url.searchParams.get('t') !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
+      if (!env.DB) return json({ ok: false, error: 'no_db' });
+      const raw = Object.getPrototypeOf(env).HW || env.HW;
+      const t = async f => { const a = Date.now(); await f(); return Date.now() - a; };
+      const med = a => a.slice().sort((x, y) => x - y)[Math.floor(a.length / 2)];
+      const kv = [], d1 = [];
+      for (let i = 0; i < 5; i++) kv.push(await t(() => raw.get('tstate:main')));
+      for (let i = 0; i < 5; i++) d1.push(await t(() => env.DB.prepare('SELECT v FROM kvs WHERE k = ?1').bind('tstate:main').first()));
+      const keys = ((await env.DB.prepare('SELECT k FROM kvs LIMIT 40').all()).results || []).map(r => r.k);
+      const kv40 = await t(() => Promise.all(keys.map(k => raw.get(k))));
+      const d140 = await t(() => Promise.all(keys.map(k => env.HW.get(k))));
+      return json({ ok: true, ms: { kvOne: med(kv), d1One: med(d1), kvAll: kv, d1All: d1, [`kv${keys.length}`]: kv40, [`d1${keys.length}Batched`]: d140 },
+        note: 'أول قراءة KV قد تكون أبطأ (غير مخزّنة في الحافة)؛ D1 يذهب لموقع القاعدة كل مرة' });
+    }
     // 🗄️ حالة نقل KV ← D1 (ويدفعه بضع دفعات): /kv-migrate?t=…
     if (url.pathname === '/kv-migrate' && request.method === 'GET') {
       if (!env.TEACHER_TOKEN || url.searchParams.get('t') !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
