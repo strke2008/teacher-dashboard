@@ -2352,7 +2352,7 @@ const json = (data, status = 200) =>
    القراءة بالمعرف وحده كانت تحجب كل رسالة قديمة حجبًا دائمًا متى وُجد
    المفتاحان معًا. الدمج يتم مرة واحدة ثم يُحذف المفتاح القديم. */
 /* 💬 أسئلة الطلاب للمعلم: مصفوفة واحدة (الأحدث أولًا)، بحدود تمنع الإغراق */
-const ASK = { maxLen: 600, maxOpen: 3, perDay: 5, keep: 600, keepSeenDays: 3,
+const ASK = { maxLen: 600, maxOpen: 3, perDay: 10, keep: 600, keepSeenDays: 3,
   cats: { activity: 'سؤال عن نشاط', tech: 'مشكلة في البوابة', grade: 'درجة أو تصحيح', lesson: 'استفسار عن الدرس', other: 'أخرى' } };
 /* 🗄️ الرسائل في D1 لا في مفتاح KV واحد: قراءة KV قد تعيد نسخة عمرها دقيقة، فكانت الرسالة تتأخر عن صندوق المعلم،
    وأي حفظ من نسخة قديمة (مثل «رأى الطالب الرد» عند طالب آخر) يكتب المصفوفة كلها فوق الرسالة الجديدة فتضيع.
@@ -6124,8 +6124,15 @@ export default {
       if (text.length < 3) return json({ ok: false, error: 'اكتب سؤالك أولًا' }, 400);
       const cat = ASK.cats[String(b.cat || '')] ? String(b.cat) : 'other';
       const all = await askLoad(env, st.id || ''), me = all.filter(x => askMine(x, st)), now = Date.now();
-      if (me.filter(x => x.status === 'open').length >= ASK.maxOpen) return json({ ok: false, error: `لديك ${ASK.maxOpen} أسئلة تنتظر رد معلمك — انتظر الرد أولًا` }, 429);
-      if (me.filter(x => x.kind !== 't' && now - x.at < 86400000).length >= ASK.perDay) return json({ ok: false, error: 'وصلت للحد اليومي للرسائل — حاول غدًا' }, 429);
+      // الحدود على أسئلة «راسل معلمك» وحدها: ردود الدردشة المباشرة (cat:'reply') ورسائل المعلم (kind:'t') لا تُحسب
+      const qs = me.filter(x => x.kind !== 't' && x.cat !== 'reply');
+      if (qs.filter(x => x.status === 'open').length >= ASK.maxOpen) return json({ ok: false, error: `لديك ${ASK.maxOpen} أسئلة تنتظر رد معلمك — انتظر الرد أولًا` }, 429);
+      const recent = qs.map(x => askCreated(x, x.at)).filter(t => now - t < 864e5).sort((a, c) => a - c);
+      if (recent.length >= ASK.perDay) {
+        const wait = recent[recent.length - ASK.perDay] + 864e5 - now, mins = Math.max(1, Math.ceil(wait / 6e4)), h = Math.floor(mins / 60), m = mins % 60;
+        const after = h ? `${h} ساعة${m ? ` و${m} دقيقة` : ''}` : `${m} دقيقة`;
+        return json({ ok: false, error: `وصلت للحد (${ASK.perDay} رسائل خلال 24 ساعة) — تقدر ترسل بعد ${after}`, retryAfter: wait }, 429);
+      }
       let hwTitle = '';
       const hw = String(b.hw || '').slice(0, 24);
       if (hw) { try { const p = JSON.parse(await env.HW.get(`hw:${hw}`)); if (p && rosterHas(p, st)) hwTitle = String(p.t || '').slice(0, 120); } catch {} }

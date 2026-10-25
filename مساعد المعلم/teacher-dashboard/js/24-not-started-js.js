@@ -62,7 +62,7 @@ function asksOpen(keep){
         <div class="ask-t-b"><button type="button" class="btn ghost sm" onclick="askReopen('${thEsc(x.id)}')">↩️ إعادة فتح</button></div>`}
     </div>`;
   const html=`<h2 id="ask-inbox">💬 رسائل الطلاب ${open.length?`<span class="chip bad">${open.length} تنتظر ردك</span>`:''} ${askFabToggleBtn()} ${askPortalModeSel()}</h2>
-    <p class="muted" style="font-size:.82rem;margin:.2rem 0 .7rem">يرسلها الطالب من «💬 راسل معلمك» في بوابته (حتى ${3} أسئلة مفتوحة و5 رسائل يوميًا). ردك يصله في تنبيهاته مع إشعار.</p>
+    <p class="muted" style="font-size:.82rem;margin:.2rem 0 .7rem">يرسلها الطالب من «💬 راسل معلمك» في بوابته (حتى 3 أسئلة مفتوحة و10 أسئلة خلال 24 ساعة؛ ردود المحادثة المباشرة بلا حد). ردك يصله في تنبيهاته مع إشعار.</p>
     ${open.length?open.map(card).join(''):'<div class="feature-empty">لا رسائل تنتظر ردك 🌿</div>'}
     ${done.length?`<details style="margin-top:.7rem"><summary class="muted" style="cursor:pointer">✓ تمّ الرد عليها (${done.length})</summary>${done.map(card).join('')}</details>`:''}
     <div class="modal-foot"><button class="btn ghost" onclick="closeModal()">إغلاق</button><button class="btn ghost" onclick="asksLoad()">🔄 تحديث</button></div>`;
