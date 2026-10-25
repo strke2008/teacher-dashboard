@@ -118,6 +118,8 @@ function askMergePushed(rows){
 }
 function askApplyPush(a){
   if(!a||!a.id||!a.reply) return;
+  // هذا الرد نفسه قرأه الطالب (نسخة الخادم فيها seenAt بعده) ⇒ ليس جديدًا
+  const cur=ASK_ROWS.find(x=>x.id===a.id); if(cur&&cur.seenAt&&(cur.repliedAt||0)>=(a.repliedAt||0)) return;
   ASK_PUSHED.set(a.id,{at:Date.now(),item:a});
   ASK_ROWS=askMergePushed(ASK_ROWS.slice()); ASK_UI.fresh.add(a.id); try{ SFAB.seen.delete(a.id); }catch(e){}
   try{ askRender(); }catch(e){} try{ stuFabRender(); if(SFAB.open) stuFabPanel(); }catch(e){}
@@ -126,7 +128,8 @@ async function myAskLoad(){
   const box=document.getElementById('space-ask'); if(!box) return;
   const w=askWho(); if(!w.sid&&!w.name){ box.innerHTML=''; return; }
   try{ const r=await fetch(askApi()+'/ask-mine?'+new URLSearchParams(w).toString(),{cache:'no-store'}); const j=await r.json();
-    if(j&&j.ok){ ASK_ROWS=askMergePushed(j.rows||[]); ASK_ROWS.forEach(x=>{ if(x.fresh) ASK_UI.fresh.add(x.id); }); if(j.keepDays) ASK_META.keepDays=j.keepDays; askDropNotices(j.gone); if(j.cats) ASK_META={...ASK_META,cats:j.cats,maxLen:j.maxLen||600,maxOpen:j.maxOpen||3}; ASK_META.mode=j.mode||'card'; ASK_META.chat=!!j.chat; ASK_META.loaded=true; } }catch(e){}
+    if(j&&j.ok){ ASK_ROWS=askMergePushed(j.rows||[]); ASK_ROWS.forEach(x=>{ if(x.fresh) ASK_UI.fresh.add(x.id); }); if(j.keepDays) ASK_META.keepDays=j.keepDays; askDropNotices(j.gone); if(j.cats) ASK_META={...ASK_META,cats:j.cats,maxLen:j.maxLen||600,maxOpen:j.maxOpen||3}; ASK_META.mode=j.mode||'card'; ASK_META.chat=!!j.chat; ASK_META.loaded=true;
+      try{ if('caches' in window) caches.open('stu-push-inbox-v1').then(c=>c.delete('/__push_inbox__')).catch(()=>{}); }catch(e){} /* نسخة الخادم وصلت ⇒ المحفوظ أدّى غرضه */ } }catch(e){}
   if(String(mySid||'')!==w.sid) return;
   askRender(); try{ stuFabRender(); if(SFAB.open){ stuFabPanel(); sfabSeenAll(); stuFabRender(); } }catch(e){}
 }
@@ -270,7 +273,9 @@ async function myPlanLoad(){
 /* ═══ 💬 زر «راسل معلمك» العائم: يُظهره المعلم من لوحته للجميع.
    يظهر في الصفحة الرئيسية فقط — يختفي أثناء حل نشاط أو لعبة أو مسابقة أو أي نافذة، حتى لا يعيق الطالب. ═══ */
 const SFAB={open:false,live:new Map(),seen:new Set((()=>{ try{ return JSON.parse(localStorage.getItem('sfab_seen_v1')||'[]'); }catch(e){ return []; } })())};
-function sfabSaveSeen(){ try{ localStorage.setItem('sfab_seen_v1',JSON.stringify([...SFAB.seen].slice(-80))); }catch(e){} }
+// المحفوظ: معرّفات المحادثات الحالية كلها دائمًا (كان القص لآخر 80 يُسقط القديمة فتعود «جديدة»)، ثم آخر 100 غيرها
+function sfabSaveSeen(){ try{ const cur=new Set(); try{ sfabRows().forEach(x=>{ cur.add(x.id); if(sfabMid(x)) cur.add('m:'+sfabMid(x)); }); }catch(e){}
+  const all=[...SFAB.seen]; localStorage.setItem('sfab_seen_v1',JSON.stringify(all.filter(k=>!cur.has(k)).slice(-100).concat(all.filter(k=>cur.has(k))))); }catch(e){} }
 let SFAB_BADGE=-1;
 /* 📥 قراءة صندوق الإشعارات المحفوظة (يكتبه الـ SW عند كل إشعار دردشة): ردود وصلت والبوابة مغلقة
    تُطبَّق فور الفتح/العودة بلا انتظار الخادم — والجلب الدوري بعدها يصححها بنسخة الخادم */
@@ -281,7 +286,8 @@ async function sfabApplyInbox(){
     const r=await cache.match('/__push_inbox__');
     if(!r) return;
     const j=await r.json(); const items=Array.isArray(j&&j.items)?j.items:[];
-    for(const it of items){ if(it&&it.id){ try{ askApplyPush(it); }catch(e){} } }
+    // يسد ثوانيَ فقط (البوابة مغلقة لحظة الرد): الأقدم من 3 دقائق قديم — كان يُعاد «جديدًا» مع كل فتح فيبقى الرقم 1
+    for(const it of items){ if(it&&it.id&&Date.now()-(Number(it.repliedAt||it.at)||0)<180000){ try{ askApplyPush(it); }catch(e){} } }
   }catch(e){}
 }
 /* ما وصل للتو مع نبض الحضور يظهر في الصندوق فورًا (SFAB.live) حتى تصل نسخته من الخادم — قراءته قد تتأخر دقيقة */
