@@ -129,78 +129,184 @@ async function kvmetaPut(env, hw, k, v, ...a) {
   try { await env.DB.prepare('INSERT INTO kvmeta (k, v) VALUES (?1, ?2) ON CONFLICT(k) DO UPDATE SET v = excluded.v').bind(k, String(v)).run(); }
   catch { return hw.put(k, v, ...a); }
 }
-/* 🪙 الرصيد والبطاقات (bal: / own:) في D1 لا KV: قراءة KV قد تعيد نسخة عمرها دقيقة، فكانت البوابة تعرض بطاقة
-   استُخدمت للتو (فيظهر «إعادة محاولة» على كل الأنشطة ثم «لا تملك بطاقة»)، والأخطر أن قفل الصرف يقرأ رصيدًا قديمًا
-   فيُصرف الرصيد نفسه مرتين أو تضيع نقاط أضافها المعلم للتو. D1 متسق فورًا.
-   نقل كسول: أول قراءة لمفتاح بلا سطر تأخذ قيمته من KV. الحذف شاهد (v = NULL) حتى لا تعيد نسخة KV متأخرة قيمة محذوفة.
-   القوائم تجمع سطور D1 الحية ومفاتيح KV التي لم تُنقل بعد. */
-const STRONG_PREFIXES = ['bal:', 'own:'];
-const strongKey = k => STRONG_PREFIXES.some(p => String(k).startsWith(p));
+/* 🗄️ التخزين في D1 لا KV (عدا الصور الثنائية nimg: والقيم الضخمة).
+   لماذا: قراءة KV قد تعيد نسخة عمرها دقيقة — فتضيع رسائل، ويُصرف الرصيد مرتين، وتظهر بطاقة استُخدمت —
+   وكل قراءة KV مدفوعة بعد أول 10 ملايين شهريًا، بينما قراءة D1 شبه مجانية (25 مليار صف) ومتسقة فورًا.
+   كيف: غلاف env.HW (subTrackEnv) يوجّه get/put/delete/list إلى جدول kvs فلا يتغير أي مسار في الخادم.
+   - النقل: دفعات في الخلفية (cron ونبض اللوحة) تنسخ مفاتيح KV مع مدة صلاحيتها ووصفها (INSERT OR IGNORE:
+     ما كُتب في D1 بعد التحديث لا يُطمس). قبل اكتمال النقل: مفتاح بلا سطر يُقرأ من KV كما كان.
+   - الحذف شاهد (v = NULL) حتى لا تُعيد نسخة KV متأخرة قيمة محذوفة. big = 1 ⇒ القيمة في KV (أكبر من حد صف D1).
+   - قراءات الطلب الواحد المتزامنة تُجمع في استعلام واحد (IN) فلا تبطؤ الصفحات التي تقرأ مئات المفاتيح. */
+const KV_ONLY = ['nimg:'];
+const KVS_BIG = 600000;
+const d1Key = k => { k = String(k); return !KV_ONLY.some(p => k.startsWith(p)) && !KVMETA_KEYS.has(k); };
 const _kvsReady = new WeakMap();
 async function kvsReady(env) {
   if (!env.DB) return false;
   let p = _kvsReady.get(env.DB);
   if (!p) {
-    p = env.DB.prepare('CREATE TABLE IF NOT EXISTS kvs (k TEXT PRIMARY KEY, v TEXT)').run()
-      .then(() => true).catch(e => { _kvsReady.delete(env.DB); throw e; });
+    p = (async () => {
+      await env.DB.prepare('CREATE TABLE IF NOT EXISTS kvs (k TEXT PRIMARY KEY, v TEXT)').run();
+      for (const col of ['exp INTEGER', 'meta TEXT', 'big INTEGER NOT NULL DEFAULT 0'])
+        await env.DB.prepare(`ALTER TABLE kvs ADD COLUMN ${col}`).run().catch(() => {});   // موجود ⇒ يُتجاهل
+      await kvmetaReady(env);
+      return true;
+    })().catch(e => { _kvsReady.delete(env.DB); throw e; });
     _kvsReady.set(env.DB, p);
   }
   return p;
 }
-async function kvsGet(env, hw, k, opt) {
-  if (!(await kvsReady(env).catch(() => false))) return hw.get(k, opt);
-  const conv = v => (v !== null && v !== undefined && (opt === 'json' || (opt && opt.type === 'json'))) ? JSON.parse(v) : v;
-  try {
-    let r = await env.DB.prepare('SELECT v FROM kvs WHERE k = ?1').bind(k).first();
-    if (!r) {
-      const v = await hw.get(k);
-      if (v === null || v === undefined) return null;
-      await env.DB.prepare('INSERT OR IGNORE INTO kvs (k, v) VALUES (?1, ?2)').bind(k, String(v)).run();
-      r = await env.DB.prepare('SELECT v FROM kvs WHERE k = ?1').bind(k).first();   // كاتب سبقنا ⇒ قيمته هي الصحيحة
-      if (!r) return conv(v);
+let _kvsDone = { done: false, at: 0 };
+async function kvsMigState(env) {
+  try { return JSON.parse(((await env.DB.prepare('SELECT v FROM kvmeta WHERE k = ?1').bind('kvs:mig').first()) || {}).v || '{}') || {}; } catch { return {}; }
+}
+async function kvsMigDone(env) {
+  if (_kvsDone.done) return true;
+  if (Date.now() - _kvsDone.at < 20000) return false;
+  const st = await kvsMigState(env);
+  _kvsDone = { done: !!st.done, at: Date.now() };
+  return _kvsDone.done;
+}
+function kvsConv(v, opt) {
+  const t = typeof opt === 'string' ? opt : (opt && opt.type) || 'text';
+  if (t === 'json') return JSON.parse(v);
+  if (t === 'arrayBuffer') return new TextEncoder().encode(v).buffer;
+  if (t === 'stream') return new Response(v).body;
+  return v;
+}
+// قراءات الطلب الواحد المتزامنة ⇒ استعلام واحد (حتى 90 مفتاحًا لكل استعلام). لا تخزين بعد الإجابة.
+function kvsLoader(env) {
+  const inflight = new Map(); let queue = null;
+  const flush = async q => {
+    const keys = [...q.keys()];
+    for (let i = 0; i < keys.length; i += 90) {
+      const part = keys.slice(i, i + 90);
+      try {
+        const { results } = await env.DB.prepare(`SELECT k, v, exp, meta, big FROM kvs WHERE k IN (${part.map((_, j) => '?' + (j + 1)).join(',')})`).bind(...part).all();
+        const got = new Map((results || []).map(r => [r.k, r]));
+        for (const k of part) q.get(k).resolve(got.get(k) || null);
+      } catch (e) { for (const k of part) q.get(k).reject(e); }
+      for (const k of part) inflight.delete(k);
     }
-    return conv(r.v ?? null);
-  } catch { return hw.get(k, opt); }
+  };
+  return k => {
+    if (inflight.has(k)) return inflight.get(k);
+    if (!queue) { const q = queue = new Map(); Promise.resolve().then(() => { queue = null; return flush(q); }); }
+    let d; const pr = new Promise((resolve, reject) => { d = { resolve, reject }; });
+    queue.set(k, d); inflight.set(k, pr);
+    return pr;
+  };
 }
-async function kvsPut(env, hw, k, v, ...a) {
-  if (!(await kvsReady(env).catch(() => false))) return hw.put(k, v, ...a);
-  try { await env.DB.prepare('INSERT INTO kvs (k, v) VALUES (?1, ?2) ON CONFLICT(k) DO UPDATE SET v = excluded.v').bind(k, String(v)).run(); }
-  catch { return hw.put(k, v, ...a); }
+async function kvsGet(env, hw, row, k, opt, withMeta) {
+  const viaKv = () => withMeta ? hw.getWithMetadata(k, opt) : hw.get(k, opt);
+  if (!(await kvsReady(env).catch(() => false))) return viaKv();
+  let r; try { r = await row(k); } catch { return viaKv(); }
+  if (!r) return (await kvsMigDone(env)) ? (withMeta ? { value: null, metadata: null } : null) : viaKv();
+  if (r.big) return viaKv();
+  const gone = r.v === null || r.v === undefined || (r.exp && r.exp <= Date.now());
+  const value = gone ? null : kvsConv(r.v, opt);
+  if (!withMeta) return value;
+  let metadata = null; if (!gone && r.meta) { try { metadata = JSON.parse(r.meta); } catch {} }
+  return { value, metadata };
 }
-async function kvsDelete(env, hw, k, ...a) {
-  if (await kvsReady(env).catch(() => false)) {
-    try { await env.DB.prepare('INSERT INTO kvs (k, v) VALUES (?1, NULL) ON CONFLICT(k) DO UPDATE SET v = NULL').bind(k).run(); } catch {}
+async function kvsPut(env, hw, k, v, opts) {
+  if (!(await kvsReady(env).catch(() => false))) return hw.put(k, v, opts);
+  const o = opts || {};
+  const exp = o.expirationTtl ? Date.now() + o.expirationTtl * 1000 : o.expiration ? o.expiration * 1000 : null;
+  const meta = o.metadata !== undefined ? JSON.stringify(o.metadata) : null;
+  const up = (vv, big) => env.DB.prepare('INSERT INTO kvs (k, v, exp, meta, big) VALUES (?1, ?2, ?3, ?4, ?5) ON CONFLICT(k) DO UPDATE SET v = excluded.v, exp = excluded.exp, meta = excluded.meta, big = excluded.big')
+    .bind(k, vv, exp, meta, big).run();
+  if (typeof v !== 'string' || v.length > KVS_BIG) { await hw.put(k, v, opts); await up(null, 1); return; }
+  try { await up(v, 0); }
+  catch {   // D1 رفض (حجم/عطل): القيمة في KV، والسطر يشير إليها — أو يُحذف إن تعذّر حتى لا يبقى قديمًا
+    await hw.put(k, v, opts);
+    await up(null, 1).catch(() => env.DB.prepare('DELETE FROM kvs WHERE k = ?1').bind(k).run().catch(() => {}));
   }
-  return hw.delete(k, ...a);
+}
+async function kvsDelete(env, hw, k) {
+  if (await kvsReady(env).catch(() => false))
+    await env.DB.prepare('INSERT INTO kvs (k, v, exp, meta, big) VALUES (?1, NULL, NULL, NULL, 0) ON CONFLICT(k) DO UPDATE SET v = NULL, exp = NULL, meta = NULL, big = 0').bind(k).run().catch(() => {});
+  return hw.delete(k);
 }
 async function kvsList(env, hw, opts) {
   const prefix = String((opts && opts.prefix) || '');
-  if (!(await kvsReady(env).catch(() => false))) return hw.list(opts);
+  if (KV_ONLY.some(p => prefix.startsWith(p)) || !(await kvsReady(env).catch(() => false))) return hw.list(opts);
   try {
-    const { results } = await env.DB.prepare('SELECT k, v FROM kvs WHERE substr(k, 1, ?1) = ?2').bind(prefix.length, prefix).all();
-    const inDb = new Map((results || []).map(r => [r.k, r.v]));
-    const names = new Set([...inDb].filter(([, v]) => v !== null && v !== undefined).map(([k]) => k));
-    let cursor;
-    do {
-      const page = await hw.list(cursor ? { prefix, cursor } : { prefix });
-      for (const x of (page.keys || [])) if (!inDb.has(x.name)) names.add(x.name);
-      cursor = page.list_complete ? undefined : page.cursor;
-    } while (cursor);
-    return { keys: [...names].sort().map(name => ({ name })), list_complete: true };
+    const now = Date.now();
+    const { results } = await env.DB.prepare('SELECT k, v, exp, meta, big FROM kvs WHERE k >= ?1 AND k < ?2').bind(prefix, prefix + '\u{10FFFF}').all();
+    const out = new Map(), seen = new Set();
+    for (const r of (results || [])) {
+      seen.add(r.k);
+      if ((r.v === null || r.v === undefined) && !r.big) continue;
+      if (r.exp && r.exp <= now) continue;
+      const x = { name: r.k };
+      if (r.meta) { try { x.metadata = JSON.parse(r.meta); } catch {} }
+      if (r.exp) x.expiration = Math.floor(r.exp / 1000);
+      out.set(r.k, x);
+    }
+    // قبل اكتمال النقل (أو بادئة تشمل مفاتيح KV فقط): أضف مفاتيح KV التي لا سطر لها
+    if (!(await kvsMigDone(env)) || KV_ONLY.some(p => p.startsWith(prefix))) {
+      let cursor;
+      do {
+        const page = await hw.list(cursor ? { prefix, cursor } : { prefix });
+        for (const x of (page.keys || [])) if (!seen.has(x.name)) out.set(x.name, x);
+        cursor = page.list_complete ? undefined : page.cursor;
+      } while (cursor);
+    }
+    return { keys: [...out.values()].sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0), list_complete: true };
   } catch { return hw.list(opts); }
+}
+// دفعة نقل واحدة (~250 مفتاحًا): تُستدعى من cron ومن نبض اللوحة حتى يكتمل
+let _kvsMigBusy = false, _kvsMigAt = 0;
+async function kvsMigrateStep(env, budget = 250) {
+  if (!env.DB || !env.HW || _kvsMigBusy) return null;
+  if (!(await kvsReady(env).catch(() => false)) || (await kvsMigDone(env))) return { done: true };
+  _kvsMigBusy = true; _kvsMigAt = Date.now();
+  try {
+    const st = await kvsMigState(env);
+    if (st.done) { _kvsDone = { done: true, at: Date.now() }; return { done: true }; }
+    const hw = env.HW;
+    const page = await hw.list(st.cursor ? { cursor: st.cursor, limit: budget } : { limit: budget });
+    const keys = (page.keys || []).filter(x => d1Key(x.name));
+    const vals = await inBatches(keys, 25, x => hw.get(x.name));
+    const stmts = [];
+    keys.forEach((x, i) => {
+      const v = vals[i]; if (v === null || v === undefined) return;
+      const big = v.length > KVS_BIG ? 1 : 0;
+      stmts.push(env.DB.prepare('INSERT OR IGNORE INTO kvs (k, v, exp, meta, big) VALUES (?1, ?2, ?3, ?4, ?5)')
+        .bind(x.name, big ? null : v, x.expiration ? x.expiration * 1000 : null, x.metadata !== undefined ? JSON.stringify(x.metadata) : null, big));
+    });
+    for (let i = 0; i < stmts.length; i += 50) await env.DB.batch(stmts.slice(i, i + 50));
+    const done = !!page.list_complete || !page.cursor;
+    const next = { cursor: done ? '' : page.cursor, n: (st.n || 0) + stmts.length, done, at: Date.now() };
+    await env.DB.prepare('INSERT INTO kvmeta (k, v) VALUES (?1, ?2) ON CONFLICT(k) DO UPDATE SET v = excluded.v').bind('kvs:mig', JSON.stringify(next)).run();
+    if (done) _kvsDone = { done: true, at: Date.now() };
+    return next;
+  } finally { _kvsMigBusy = false; }
+}
+// تنظيف دوري: صفوف انتهت صلاحيتها، وشواهد الحذف بعد اكتمال النقل (لم يعد KV يُستشار)
+async function kvsSweep(env) {
+  if (!(await kvsReady(env).catch(() => false))) return;
+  await env.DB.prepare('DELETE FROM kvs WHERE exp IS NOT NULL AND exp < ?1').bind(Date.now()).run().catch(() => {});
+  if (await kvsMigDone(env)) await env.DB.prepare('DELETE FROM kvs WHERE v IS NULL AND big = 0').run().catch(() => {});
 }
 function subTrackEnv(env) {
   if (!env || !env.HW || !env.DB || env.__subTracked) return env;
-  const hw = env.HW, e = Object.create(env);
+  const hw = env.HW, e = Object.create(env), row = kvsLoader(env);
+  const mark = k => /^(?:s|gp):/.test(k) ? subrevMark(env, k) : null;
   e.HW = {
-    get: (k, ...a) => KVMETA_KEYS.has(k) ? kvmetaGet(env, hw, k) : strongKey(k) ? kvsGet(env, hw, k, ...a) : hw.get(k, ...a),
-    getWithMetadata: (...a) => hw.getWithMetadata(...a),
-    list: (o, ...a) => (o && strongKey(o.prefix || '')) ? kvsList(env, hw, o) : hw.list(o, ...a),
-    put: async (k, ...a) => { if (KVMETA_KEYS.has(k)) return kvmetaPut(env, hw, k, ...a);
-      if (strongKey(k)) return kvsPut(env, hw, k, ...a);
-      const r = await hw.put(k, ...a); if (/^(?:s|gp):/.test(k)) await subrevMark(env, k); return r; },
-    delete: async (k, ...a) => { if (strongKey(k)) return kvsDelete(env, hw, k, ...a);
-      const r = await hw.delete(k, ...a); if (/^(?:s|gp):/.test(k)) await subrevMark(env, k); return r; },
+    get: (k, ...a) => KVMETA_KEYS.has(k) ? kvmetaGet(env, hw, k) : d1Key(k) ? kvsGet(env, hw, row, k, a[0], false) : hw.get(k, ...a),
+    getWithMetadata: (k, ...a) => d1Key(k) ? kvsGet(env, hw, row, k, a[0], true) : hw.getWithMetadata(k, ...a),
+    list: (o, ...a) => kvsList(env, hw, o),
+    put: async (k, ...a) => {
+      if (KVMETA_KEYS.has(k)) return kvmetaPut(env, hw, k, ...a);
+      const r = d1Key(k) ? await kvsPut(env, hw, k, ...a) : await hw.put(k, ...a);
+      await mark(k); return r;
+    },
+    delete: async (k, ...a) => {
+      const r = d1Key(k) ? await kvsDelete(env, hw, k) : await hw.delete(k, ...a);
+      await mark(k); return r;
+    },
   };
   e.__subTracked = true;
   return e;
@@ -5312,6 +5418,7 @@ export default {
   /* ⏰ Cron (كل دقيقة): تنبيه بداية الحصة لبوابة المعلم. يلزم إضافة Cron Trigger «* * * * *» في Cloudflare */
   async scheduled(event, env, ctx) {
     if (!env.HW) return;
+    ctx.waitUntil(kvsMigrateStep(env).then(() => kvsSweep(env)).catch(() => {}));   // 🗄️ نقل KV ← D1 (المفاتيح الخام)
     env = subTrackEnv(env);
     ctx.waitUntil(lessonTick(env).catch(() => {}));
     ctx.waitUntil(taskTick(env).catch(() => {}));
@@ -5323,6 +5430,8 @@ export default {
 
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    // 🗄️ نقل KV ← D1 في الخلفية: دفعة كل 10 ث على الأكثر لكل نسخة خادم حتى يكتمل
+    if (env.DB && env.HW && !_kvsDone.done && Date.now() - _kvsMigAt > 10000 && ctx && typeof ctx.waitUntil === 'function') { _kvsMigAt = Date.now(); ctx.waitUntil(kvsMigrateStep(env).catch(() => {})); }
     env = subTrackEnv(env);
 
     if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
@@ -5337,7 +5446,7 @@ export default {
         build: 'worker-v15-live',
         live: true, liveNotify: true,
         push: pushConfigured(env),
-        storeLocks: !!env.DB,
+        storeLocks: !!env.DB, kvD1: !!env.DB,
         sessions: !!(env.SESSION_SECRET || env.TEACHER_TOKEN),
         multiGame: true,
         maxGamesPerActivity: MAX_GAMES,
@@ -9494,6 +9603,17 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       });
     }
 
+    // 🗄️ حالة نقل KV ← D1 (ويدفعه بضع دفعات): /kv-migrate?t=…
+    if (url.pathname === '/kv-migrate' && request.method === 'GET') {
+      if (!env.TEACHER_TOKEN || url.searchParams.get('t') !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
+      if (!env.DB) return json({ ok: false, error: 'no_db' });
+      const raw = Object.getPrototypeOf(env);   // env الخام (قبل الغلاف)
+      let st = null;
+      for (let i = 0; i < 3; i++) { st = await kvsMigrateStep(raw.HW ? raw : env); if (!st || st.done) break; }
+      const full = await kvsMigState(env);
+      const rows = await env.DB.prepare('SELECT COUNT(*) AS n FROM kvs').first().catch(() => null);
+      return json({ ok: true, done: !!full.done, copied: full.n || 0, d1Rows: rows ? rows.n : null });
+    }
     // 💸 الأنشطة التي تغيّرت تسليماتها منذ since (للوحة: تجلب نتائجها وحدها). start = بداية التتبع؛ ما قبله ⇒ جلب كامل
     if (url.pathname === '/results-changed' && request.method === 'GET') {
       if (!env.TEACHER_TOKEN || url.searchParams.get('t') !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
