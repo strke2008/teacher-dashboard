@@ -2672,3 +2672,7 @@ details.pq-sec[open]>summary.pq-h{margin-bottom:.3rem}
 .pq-chipmore{display:inline}.pq-chipmore>summary{display:inline-block;cursor:pointer;font-size:.76rem;color:#1D4ED8;padding:.1rem .45rem;border-radius:999px;background:#EFF6FF;margin-top:.2rem}
 .pq-chipmore[open]>summary{margin-bottom:.2rem}
 :root[data-ui-theme="dark"] .pq-chipmore>summary{background:#172554;color:#BFDBFE}
+/* 🗂️ نوع التذكير الجماعي: الأنشطة · الواجبات · الكل */
+.br-kind{display:flex;gap:.3rem;background:#eef2f7;border-radius:14px;padding:.25rem;margin:.2rem 0 .5rem;flex-wrap:wrap}
+.br-kind button{flex:1 1 auto;border:0;background:transparent;border-radius:11px;padding:.5rem .7rem;font:inherit;font-weight:800;font-size:.88rem;color:#475569;cursor:pointer;white-space:nowrap}
+.br-kind button.on{background:#fff;color:#0f172a;box-shadow:0 1px 4px rgba(15,23,42,.15)}

@@ -96,7 +96,7 @@ function madWhere(){
 }
 
 /* ═════════ 📨 التذكير الجماعي: رسالة شخصية لكل طالب إلى بوابته ═════════ */
-const BR={cls:'',act:'',soon:true,paper:true,mad:true,sel:null,only:null,rows:[],D:null,madBy:null,busy:false};
+const BR={kind:'all',cls:'',act:'',soon:true,paper:true,mad:true,sel:null,only:null,rows:[],D:null,madBy:null,busy:false};
 /* 🚶 لم يسلّم أي نشاط قط ⇒ الأرجح أنه لا يفتح البوابة: التذكير لبوابته لا يصله، فالأنفع ولي الأمر */
 function brNoPortal(s){ return !(HW||[]).some(h=>h&&h.subs&&h.subs[s.id]); }
 /* 📈 أثر التذكير: من ذكّرتهم في آخر 7 أيام — من سلّم بعد التذكير، ومن ما زال عليه شيء */
@@ -130,9 +130,11 @@ function brBuild(){
   BR.rows=roster.map(s=>{
     const missing=getStudentMissingActivities(s), soonAll=remSoonActivities(s);
     // نشاط محدد: متأخر أو ينتهي اليوم/غدًا — من لم يسلّمه فقط
-    if(BR.act&&!missing.some(h=>String(h.id)===BR.act)&&!soonAll.some(h=>String(h.id)===BR.act)) return null;
-    const actSoon=BR.act&&soonAll.some(h=>String(h.id)===BR.act);
-    const x={missing, soon:(BR.soon||actSoon)?soonAll:[], paper:BR.paper?remPaperMissed(s,BR.D):[], mad:BR.mad?brMad(s.id):[]};
+    // 🗂️ نوع التذكير: الأنشطة (المنصة) · الواجبات (الورقي + مدرستي) · الكل
+    const A=BR.kind!=='hw', W=BR.kind!=='acts', act=A?BR.act:'';
+    if(act&&!missing.some(h=>String(h.id)===act)&&!soonAll.some(h=>String(h.id)===act)) return null;
+    const actSoon=act&&soonAll.some(h=>String(h.id)===act);
+    const x={missing:A?missing:[], soon:A&&(BR.soon||actSoon)?soonAll:[], paper:W&&BR.paper?remPaperMissed(s,BR.D):[], mad:W&&BR.mad?brMad(s.id):[]};
     if(!x.missing.length&&!x.soon.length&&!x.paper.length&&!x.mad.length) return null;
     const last=remLast(s,'student'), recent=!!(last&&Date.now()-last.at<REM_GUARD_MS);
     const cm=remCompose(s,x); return {s,x,last,recent,np:brNoPortal(s),msg:cm.student,pmsg:cm.parent};
@@ -151,14 +153,15 @@ function brRender(){
     <p class="muted" style="font-size:.82rem;margin:.1rem 0 .4rem">رسالة شخصية لكل طالب بما عليه هو فقط، تصل إلى «أنشطتي» في بوابته وتنبيهًا على جواله. من ذكّرته خلال يومين غير محدد تلقائيًا.</p>
     ${BR.only?`<div class="br-eff">🎯 تعرض فقط من ذكّرتهم ولم يستجيبوا (${BR.rows.length}) <button class="btn ghost sm" onclick="BR.only=null;BR.sel=null;brRender()">عرض الكل</button></div>`:brEffectLine()}
     ${(()=>{ const np=BR.rows.filter(r=>r.np).length; return np?`<div class="br-np">🚶 ${np===1?'<b>طالب</b> لم يسلّم':np===2?'<b>طالبان</b> لم يسلّما':`<b>${np}</b> ${np<=10?'طلاب':'طالبًا'} لم يسلّموا`} أي نشاط قط — الأرجح أنهم لا يفتحون البوابة، فلم يُحدَّدوا. أرسل لأولياء أمورهم بزر «💬 ولي الأمر» بجانب كل اسم.</div>`:''; })()}
+    <div class="br-kind" role="radiogroup" aria-label="نوع التذكير">${[['all','🗂️ الكل'],['acts','📋 الأنشطة فقط'],['hw','📝 الواجبات فقط']].map(([k,t])=>`<button type="button" role="radio" aria-checked="${BR.kind===k}" class="${BR.kind===k?'on':''}" onclick="BR.kind='${k}';BR.sel=null;brRender()">${t}</button>`).join('')}</div>
     <div class="br-tools">
       <select class="inp" style="width:auto" onchange="BR.cls=this.value;BR.act='';BR.sel=null;brRender()"><option value="">كل الفصول</option>${classes.map(c=>`<option ${c===BR.cls?'selected':''}>${esc(c)}</option>`).join('')}</select>
-      <select class="inp" style="width:auto;max-width:240px" onchange="BR.act=this.value;BR.sel=null;brRender()"><option value="">كل الأنشطة المتأخرة والقريبة</option>${overdueActs.map(h=>`<option value="${esc(h.id)}" ${String(h.id)===BR.act?'selected':''}>${esc(h.title)}</option>`).join('')}</select>
-      <label><input type="checkbox" ${BR.soon?'checked':''} onchange="BR.soon=this.checked;BR.sel=null;brRender()"> ⏳ ما ينتهي اليوم وغدًا</label>
-      <label><input type="checkbox" ${BR.paper?'checked':''} onchange="BR.paper=this.checked;BR.sel=null;brRender()"> 📕 الواجب الورقي (آخر أسبوع)</label>
-      <label title="${BR.madBy?'':'تعذّر جلب واجبات مدرستي الآن'}"><input type="checkbox" ${BR.mad&&BR.madBy?'checked':''} ${BR.madBy?'':'disabled'} onchange="BR.mad=this.checked;BR.sel=null;brRender()"> 📱 واجبات مدرستي المفتوحة</label>
+      ${BR.kind!=='hw'?`<select class="inp" style="width:auto;max-width:240px" onchange="BR.act=this.value;BR.sel=null;brRender()"><option value="">كل الأنشطة المتأخرة والقريبة</option>${overdueActs.map(h=>`<option value="${esc(h.id)}" ${String(h.id)===BR.act?'selected':''}>${esc(h.title)}</option>`).join('')}</select>
+      <label><input type="checkbox" ${BR.soon?'checked':''} onchange="BR.soon=this.checked;BR.sel=null;brRender()"> ⏳ ما ينتهي اليوم وغدًا</label>`:''}
+      ${BR.kind!=='acts'?`<label><input type="checkbox" ${BR.paper?'checked':''} onchange="BR.paper=this.checked;BR.sel=null;brRender()"> 📕 الواجب الورقي (آخر أسبوع)</label>
+      <label title="${BR.madBy?'':'تعذّر جلب واجبات مدرستي الآن'}"><input type="checkbox" ${BR.mad&&BR.madBy?'checked':''} ${BR.madBy?'':'disabled'} onchange="BR.mad=this.checked;BR.sel=null;brRender()"> 📱 واجبات مدرستي المفتوحة</label>`:''}
     </div>
-    ${BR.mad&&BR.madBy?`<div class="br-madlink"><label for="br-madlink">🔗 رابط «الواجبات» للطلاب:</label><input class="inp" id="br-madlink" dir="ltr" placeholder="رابط «واجباتي» من حساب طالب، أو رابط صفحة الواجبات من حسابك" value="${esc(rcGet('madlink')||'')}" onchange="madLinkSet(this.value)"><small id="br-madlink-st" class="${rcGet('madlink')?'ok':''}">${rcGet('madlink')?'✓ محفوظ':'بدونه يُرسل الرابط العام والخطوات'}</small>${brSolveNote()}</div>`:''}
+    ${BR.kind!=='acts'&&BR.mad&&BR.madBy?`<div class="br-madlink"><label for="br-madlink">🔗 رابط «الواجبات» للطلاب:</label><input class="inp" id="br-madlink" dir="ltr" placeholder="رابط «واجباتي» من حساب طالب، أو رابط صفحة الواجبات من حسابك" value="${esc(rcGet('madlink')||'')}" onchange="madLinkSet(this.value)"><small id="br-madlink-st" class="${rcGet('madlink')?'ok':''}">${rcGet('madlink')?'✓ محفوظ':'بدونه يُرسل الرابط العام والخطوات'}</small>${brSolveNote()}</div>`:''}
     ${BR.rows.length?`<div class="br-list">${BR.rows.map(r=>{ const id=String(r.s.id), on=BR.sel.has(id);
       return `<div class="br-row ${on?'':'off'}"><input type="checkbox" ${on?'checked':''} onchange="brToggle('${esc(id)}',this.checked)">
         <div class="br-main"><b>${esc(r.s.name)}</b><small>${esc(r.s.cls||'')}</small>
