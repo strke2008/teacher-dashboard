@@ -115,7 +115,7 @@ async function voteLinkRow(){
   const el=document.getElementById('vote-link-row'); if(!el) return;
   const v=await voteLinkGet(true);
   el.innerHTML=v.linked?`🏆 مرتبط بموقع المسابقة: <b dir="ltr">${esc(v.url.replace(/^https:\/\//,''))}</b> · <a href="#" onclick="voteLinkForm(voteLinkRow);return false">تغيير</a> · <a href="#" onclick="voteUnlink();return false">فك الربط</a>
-      <br>📱 <a href="#" onclick="votersImport();return false">طلاب المدرسة للتصويت بجوال ولي الأمر</a> <span id="voters-count"></span>`
+      <div class="row" style="gap:.5rem;align-items:center;flex-wrap:wrap;margin-top:.5rem"><button class="btn tick" type="button" onclick="votersImport()">📱 طلاب المدرسة للتصويت (بجوال ولي الأمر)</button><span id="voters-count" style="font-weight:700;color:var(--ink,#1e293b)"></span></div>`
     :`🏆 اربط موقع المسابقة لترسل له أفضل الأعمال من الحائط بضغطة — <a href="#" onclick="voteLinkForm(voteLinkRow);return false">ربط</a>`;
   if(v.linked) votersCount();
 }
@@ -234,11 +234,26 @@ async function wallVoteSend(id){
   };
 }
 /* ═══ 🧱 مشروع طالب أعجبك ⇒ اعرضه في حائط ليشاهده الجميع (الملفات تُنسخ، وتسليمه الأصلي لا يتغير) ═══ */
+/* 📁 «نُشر مسبقًا؟» — يقرأ من الخادم في أي حائط نُشر تسليم هذا الطالب */
+const wallTitleE=r=>String(r.title||'').includes(r.emoji||'🧱')?r.title:(r.emoji||'🧱')+' '+r.title;
+function wallSharedQ(x){ const st=x&&x.student||{}; return {hw:String(x&&x.project&&(x.project.sid||x.project.id)||''),sid:String(st.sid||st.id||st.studentId||''),name:String(st.name||x&&x.studentName||'')}; }
+async function wallSharedGet(x){
+  const q=wallSharedQ(x); if(!q.hw) return [];
+  try{ const r=await fetch(WALL_ENV.api()+'/wall-shared?'+new URLSearchParams({t:getTok(),...q}).toString(),{cache:'no-store'}); const j=await r.json(); return j&&j.ok?j.rows:[]; }catch(e){ return []; }
+}
+async function wallSharedMark(index){
+  const x=(window.__visibleProjects||[])[index], btn=document.getElementById('pv-wall-btn'); if(!x||!btn) return;
+  const rows=await wallSharedGet(x); if(!rows.length||!document.body.contains(btn)) return;
+  const r=rows[0];
+  btn.outerHTML=`<span class="pv-wall-done" style="display:inline-flex;gap:.5rem;align-items:center;flex-wrap:wrap;background:#dcfce7;border:1.5px solid #16a34a;color:#14532d;border-radius:12px;padding:.4rem .7rem;font-weight:700">✅ منشور في حائط «${esc(wallTitleE(r))}»${r.status==='hidden'?' (مخفي)':''}
+    <button class="btn ghost sm" type="button" onclick="wallOpen('${esc(r.wall)}')">فتح الحائط</button><button class="btn ghost sm" type="button" onclick="wallShareProject(${index})">انشره مرة أخرى</button></span>`;
+}
 async function wallShareProject(index){
   const x=(window.__visibleProjects||[])[index]; if(!x) return;
   if(!WALL_ADMIN.length){ try{ await wallAdminLoad(); }catch(e){} }
-  const files=Array.isArray(x.files)?x.files:[];
+  const files=Array.isArray(x.files)?x.files:[], done=await wallSharedGet(x);
   const box=wallSheet(`<h3>🧱 اعرضه في حائط — ${esc(x.studentName||'')}</h3>
+    ${done.length?`<div class="wall-st pend">⚠️ هذا العمل منشور مسبقًا في: ${done.map(r=>`«${esc(wallTitleE(r))}»`).join('، ')} — انشره مرة أخرى فقط إن أردت حائطًا آخر</div>`:''}
     <label>الحائط<select id="ws-wall">${WALL_ADMIN.map(w=>`<option value="${esc(w.id)}">${esc(w.emoji)} ${esc(w.title)}${(w.classes||[]).length?' ('+esc(w.classes.join('، '))+')':' (كل الفصول)'}</option>`).join('')}<option value="__new">＋ حائط جديد…</option></select></label>
     <label id="ws-new-l" style="display:none">عنوان الحائط الجديد<input type="text" id="ws-new" maxlength="120" value="${esc(x.title||'')} — أعمال مميزة"></label>
     <label>كلمة تظهر مع العمل<textarea id="ws-text" rows="2" maxlength="1000" style="border:2px solid #cbd5e1;border-radius:12px;padding:.5rem;font:inherit">⭐ عمل مميز: ${esc(x.title||'')} — ${esc(x.studentName||'')}</textarea></label>
@@ -256,6 +271,6 @@ async function wallShareProject(index){
     const j=await WALL_ENV.post('/wall-share',{wall,hw:String(x.project&&(x.project.sid||x.project.id)||''),sid:String(st.sid||st.id||st.studentId||''),name:String(st.name||x.studentName||''),
       text:box.querySelector('#ws-text').value.trim(),files:[...box.querySelectorAll('.ws-f:checked')].map(i=>Number(i.value))}).catch(()=>null);
     if(!j||!j.ok){ go.disabled=false; go.textContent='انشر في الحائط'; return toast('تعذّر النشر في الحائط','bad'); }
-    box.remove(); toast('🧱 نُشر العمل في الحائط','good'); wallAdminLoad();
+    box.remove(); toast('🧱 نُشر العمل في الحائط','good'); wallAdminLoad(); wallSharedMark(index);
   };
 }

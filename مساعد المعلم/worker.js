@@ -3362,6 +3362,7 @@ async function wallReady(env) {
       env.DB.prepare('CREATE INDEX IF NOT EXISTS wposts_wall ON wposts (wall, at)'),
       env.DB.prepare('CREATE TABLE IF NOT EXISTS wlikes (post TEXT NOT NULL, sid TEXT NOT NULL, PRIMARY KEY (post, sid))'),
     ]).then(() => env.DB.prepare('ALTER TABLE wposts ADD COLUMN voted TEXT').run().catch(() => {}))   // 🏆 معرّف العمل في موقع المسابقة
+      .then(() => env.DB.prepare('ALTER TABLE wposts ADD COLUMN src TEXT').run().catch(() => {}))   // 📁 مصدره: تسليم مشروع (نشاط|طالب) — لمعرفة «نُشر مسبقًا»
       .then(() => true).catch(e => { _wallReady.delete(env.DB); throw e; });
     _wallReady.set(env.DB, p);
   }
@@ -6763,7 +6764,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       return new Response(WALL_PUB_HTML.replaceAll('__TITLE__', () => H(String(w.title).includes(w.emoji || '🧱') ? w.title : `${w.emoji || '🧱'} ${w.title}`)).replaceAll('__DESC__', () => H(w.desc || 'أعمال طلابنا وإبداعاتهم')).replaceAll('__KEY__', () => key),
         { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' } });
     }
-    if (['/walls', '/wall', '/wall-post', '/wall-like', '/wall-del', '/wall-mod', '/wall-save', '/wall-delete', '/wall-file', '/wall-share', '/wall-pub', '/vote-link', '/vote-send', '/vote-voters'].includes(url.pathname)) {
+    if (['/walls', '/wall', '/wall-post', '/wall-like', '/wall-del', '/wall-mod', '/wall-save', '/wall-delete', '/wall-file', '/wall-share', '/wall-shared', '/wall-pub', '/vote-link', '/vote-send', '/vote-voters'].includes(url.pathname)) {
       if (!(await wallReady(env).catch(() => false))) return json({ ok: false, error: 'no_db' }, 503);
       const isGet = request.method === 'GET';
       let b = {}; if (!isGet) { try { b = await request.json(); } catch { return json({ ok: false, error: 'bad json' }, 400); } }
@@ -6909,6 +6910,16 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         }
         return json({ ok: true, id });
       }
+      // 📁 هل نُشر تسليم هذا الطالب في حائط من قبل؟ (زر «اعرضه في حائط» يوضح ذلك فلا يُنشر مرتين)
+      if (P === '/wall-shared' && isGet) {
+        if (!isT) return json({ ok: false, error: 'unauthorized' }, 401);
+        const hw = String(url.searchParams.get('hw') || '').slice(0, 64), st = await resolveStudent(env, { id: String(url.searchParams.get('sid') || '').slice(0, 40), name: String(url.searchParams.get('name') || '').slice(0, 80) });
+        if (!hw || !st || !(st.id || st.name)) return json({ ok: true, rows: [] });
+        const { results } = await env.DB.prepare('SELECT id, wall, status, at FROM wposts WHERE src = ?1 ORDER BY at DESC LIMIT 20').bind(`${hw}|${st.id || st.name}`).all();
+        const rows = [];
+        for (const r of (results || [])) { const w = await wallGet(env, r.wall); if (w) rows.push({ post: r.id, wall: r.wall, title: w.title, emoji: w.emoji || '🧱', status: r.status, at: r.at }); }
+        return json({ ok: true, rows });
+      }
       // 🌐 رابط للعامة (عرض فقط): رمز عشوائي في الحائط ⇒ /w/<الرمز> — المعتمد فقط، والأسماء حسب اختيار المعلم
       if (P === '/wall-pub' && !isGet) {
         if (!isT) return json({ ok: false, error: 'unauthorized' }, 401);
@@ -6944,8 +6955,8 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
           }
         } catch (e) { for (const f of files) { try { await env.FILES.delete(f.key); } catch {} } return json({ ok: false, error: 'copy_failed' }, 500); }
         const id = 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-        await env.DB.prepare("INSERT INTO wposts (id, wall, sid, name, cls, text, link, files, status, pinned, likes, at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, '', ?7, 'ok', 0, 0, ?8)")
-          .bind(id, w.id, String(st.id || ''), String(st.name || b.name || ''), String(st.cls || ''), text, JSON.stringify(files), Date.now()).run();
+        await env.DB.prepare("INSERT INTO wposts (id, wall, sid, name, cls, text, link, files, status, pinned, likes, at, src) VALUES (?1, ?2, ?3, ?4, ?5, ?6, '', ?7, 'ok', 0, 0, ?8, ?9)")
+          .bind(id, w.id, String(st.id || ''), String(st.name || b.name || ''), String(st.cls || ''), text, JSON.stringify(files), Date.now(), `${hw}|${st.id || st.name}`).run();
         return json({ ok: true, id, files: files.length });
       }
       // 🏆 ربط موقع المسابقة: الرابط + كلمة مرور لوحته ⇒ رمز جلسة يُحفظ (أو فك الربط)
