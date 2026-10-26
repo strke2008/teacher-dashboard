@@ -26,8 +26,35 @@ async function wallAdminLoad(){
       <div class="row" style="gap:.3rem;margin-top:.4rem;flex-wrap:wrap"><button class="btn tick sm" type="button" onclick="wallOpen('${esc(w.id)}')">فتح</button>
         <button class="btn ghost sm" type="button" onclick="wallEdit('${esc(w.id)}')">تعديل</button>
         <button class="btn ghost sm" type="button" onclick="wallToggleOpen('${esc(w.id)}')">${w.open?'🔒 إغلاق النشر':'🔓 فتح النشر'}</button>
+        <button class="btn ghost sm" type="button" onclick="wallPubOpen('${esc(w.id)}')">${w.pub?'🌐 الرابط العام ✓':'🌐 رابط للعامة'}</button>
         <button class="btn ghost sm" type="button" onclick="wallRemove('${esc(w.id)}')">حذف</button></div></div>`; }).join('')}</div>`
     :'<div class="feature-empty">لا حوائط بعد — أنشئ حائطًا لمناسبة أو تجربة ويشارك فيه طلابك 🌿</div>';
+}
+/* 🌐 رابط للعامة: صفحة عرض فقط للأعمال المعتمدة (لأولياء الأمور وحساب المدرسة…) — بلا نشر ولا إعجاب، والأسماء حسب اختيارك */
+function wallPubOpen(id){
+  const w=WALL_ADMIN.find(x=>x.id===id); if(!w) return;
+  const url=w.pub?WALL_ENV.api()+'/w/'+w.pub:'', nm=w.pubNames||'first';
+  const box=wallSheet(`<h3>🌐 رابط الحائط للعامة — ${esc(w.title)}</h3>
+    <div class="muted">من يفتح الرابط يرى الأعمال <b>المعتمدة فقط</b> — بلا تسجيل دخول، ولا يستطيع النشر أو الإعجاب. يصلح لأولياء الأمور وحساب المدرسة.</div>
+    <label>أسماء الطلاب في الصفحة العامة<select id="wp-names">
+      <option value="first" ${nm==='first'?'selected':''}>الاسم الأول فقط (مستحسن)</option>
+      <option value="none" ${nm==='none'?'selected':''}>بلا أسماء</option>
+      <option value="full" ${nm==='full'?'selected':''}>الاسم كاملًا</option></select></label>
+    ${url?`<input type="text" id="wp-url" dir="ltr" readonly value="${esc(url)}" onclick="this.select()">
+      <div class="wcp-acts" style="justify-content:flex-start;flex-wrap:wrap">
+        <button type="button" class="wall-btn main" id="wp-copy">📋 نسخ الرابط</button>
+        <a class="wall-btn" href="${esc(url)}" target="_blank" rel="noopener">👁️ معاينة</a>
+        <a class="wall-btn" href="https://wa.me/?text=${encodeURIComponent((w.emoji||'🧱')+' '+w.title+'\n'+url)}" target="_blank" rel="noopener">واتساب</a></div>
+      <div class="wcp-acts" style="justify-content:space-between"><button type="button" class="wall-btn" id="wp-off">⛔ إيقاف الرابط</button><button type="button" class="wall-btn" id="wp-renew" title="الرابط القديم يتوقف">🔄 رابط جديد</button></div>`
+    :`<div class="wcp-acts"><button type="button" class="wall-btn" onclick="document.getElementById('wall-comp').remove()">إلغاء</button><button type="button" class="wall-btn main" id="wp-on">🌐 أنشئ الرابط</button></div>`}`);
+  const go=async(body,msg)=>{ const j=await WALL_ENV.post('/wall-pub',{wall:id,names:box.querySelector('#wp-names').value,...body}).catch(()=>null);
+    if(!j||!j.ok) return toast((j&&j.error)||'تعذّر — ارفع worker.js الأخير','bad');
+    w.pub=j.pub||undefined; w.pubNames=j.names; if(msg) toast(msg,'good'); wallAdminLoad(); if(j.pub) wallPubOpen(id); else box.remove(); };
+  box.querySelector('#wp-on')?.addEventListener('click',()=>go({on:true},'✅ أُنشئ الرابط العام'));
+  box.querySelector('#wp-off')?.addEventListener('click',()=>{ if(confirm('إيقاف الرابط؟ من معه الرابط لن يرى الحائط.')) go({on:false},'⛔ أُوقف الرابط العام'); });
+  box.querySelector('#wp-renew')?.addEventListener('click',()=>{ if(confirm('رابط جديد؟ الرابط القديم يتوقف عن العمل.')) go({on:true,renew:true},'🔄 رابط جديد جاهز'); });
+  box.querySelector('#wp-names').addEventListener('change',()=>{ if(w.pub) go({on:true},'✓ حُفظ اختيار الأسماء'); });
+  box.querySelector('#wp-copy')?.addEventListener('click',async()=>{ try{ await navigator.clipboard.writeText(url); toast('📋 نُسخ الرابط','good'); }catch(e){ const i=box.querySelector('#wp-url'); i.select(); document.execCommand('copy'); toast('📋 نُسخ الرابط','good'); } });
 }
 function wallClassesAll(){ return [...new Set((Array.isArray(STUDENTS)?STUDENTS:[]).map(s=>String(s.cls||'').trim()).filter(Boolean))].sort(); }
 function wallEdit(id){

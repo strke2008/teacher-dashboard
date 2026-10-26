@@ -3349,6 +3349,8 @@ function machinesScore(log) {
    التخزين في D1 (حائط · منشورات · إعجابات) والملفات في R2 عبر الرفع على أجزاء (/file-up مع wall). */
 const WALL = { maxText: 1000, maxFiles: 4, maxPostsDefault: 3, keepPosts: 400,
   colors: ['sky', 'mint', 'sun', 'rose', 'lilac', 'peach', 'sand', 'night'] };
+/* 🌐 صفحة الحائط العامة (عرض فقط) — /w/<رمز> */
+const WALL_PUB_HTML = "<!doctype html><html lang=\"ar\" dir=\"rtl\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1,viewport-fit=cover\">\n<title>__TITLE__</title><meta name=\"description\" content=\"__DESC__\"><meta property=\"og:title\" content=\"__TITLE__\"><meta property=\"og:description\" content=\"__DESC__\"><meta name=\"robots\" content=\"noindex\">\n<link rel=\"preconnect\" href=\"https://fonts.googleapis.com\"><link href=\"https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600;700&display=swap\" rel=\"stylesheet\">\n<style>\n:root{--wbg:#dbeafe;--wac:#2563eb}\n*{box-sizing:border-box}\nbody{margin:0;min-height:100vh;font-family:\"IBM Plex Sans Arabic\",Tahoma,sans-serif;color:#1e293b;background:var(--wbg) radial-gradient(rgba(0,0,0,.06) 1.2px,transparent 1.4px) 0 0/22px 22px}\nbody.dark{color:#e2e8f0}\nheader{max-width:1400px;margin:0 auto;padding:max(1rem,env(safe-area-inset-top)) 1rem .6rem}\nh1{margin:0;display:inline-block;background:#fff;color:#1e293b;border:2.5px solid #1e293b;border-radius:16px;padding:.35rem .9rem;font-size:clamp(1.25rem,3.6vw,2rem);box-shadow:0 4px 0 #1e293b;transform:rotate(-.6deg)}\n.desc{margin:.6rem 0 0;display:inline-block;background:#fff;color:#334155;border:2px solid #1e293b;border-radius:12px;padding:.3rem .7rem;font-size:.95rem;max-width:100%;white-space:pre-wrap}\n.meta{margin-top:.5rem;display:flex;gap:.4rem;flex-wrap:wrap}\n.meta span{background:#fff;color:#1e293b;border:2px solid #1e293b;border-radius:99px;padding:.12rem .65rem;font-size:.8rem;font-weight:700}\nmain{max-width:1400px;margin:0 auto;padding:.4rem 1rem 2rem;columns:4 260px;column-gap:14px}\n.card{break-inside:avoid;margin:0 0 14px;background:var(--c);color:#1e293b;border:2.5px solid #1e293b;border-radius:18px;padding:.75rem;box-shadow:0 4px 0 #1e293b;display:flex;flex-direction:column;gap:.55rem;position:relative}\n.card.pin{outline:3px solid var(--wac);outline-offset:2px}\n.pinic{position:absolute;top:-14px;left:50%;font-size:1.5rem;transform:translateX(-50%) rotate(-20deg)}\n.h{display:flex;align-items:center;gap:.55rem}\n.av{flex:none;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-weight:800;background:#fff;border:2px solid #1e293b}\n.h b{font-size:.95rem}.h small{display:block;color:#64748b;font-size:.75rem}\n.t{margin:0;white-space:pre-wrap;word-break:break-word;font-size:1rem;line-height:1.75;font-weight:600}\n.img{display:block;border-radius:12px;overflow:hidden;border:2px solid #1e293b;background:#fff;cursor:zoom-in}\n.img img{display:block;width:100%;height:auto;max-height:70vh;object-fit:contain}\nvideo{width:100%;border-radius:12px;border:2px solid #1e293b;background:#000;max-height:60vh}\n.file{display:flex;align-items:center;gap:.6rem;background:#fff;border:2px solid #1e293b;border-radius:12px;padding:.5rem;text-decoration:none;color:#1e293b;font-weight:700;font-size:.85rem}\n.file b{background:#ef4444;color:#fff;border-radius:8px;padding:.4rem .5rem;font-size:.75rem}\n.yt{position:relative;display:block;border-radius:12px;overflow:hidden;border:2px solid #1e293b}\n.yt img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover}\n.yt i{position:absolute;inset:0;margin:auto;width:58px;height:40px;border-radius:12px;background:#ef4444;color:#fff;display:grid;place-items:center;font-style:normal}\n.lnk{display:block;background:#fff;border:2px solid #1e293b;border-radius:10px;padding:.4rem .6rem;color:#1d4ed8;font-weight:700;font-size:.85rem;word-break:break-all;text-decoration:none;direction:ltr;text-align:left}\n.lk{align-self:flex-end;background:#fff;border:2px solid #1e293b;border-radius:99px;padding:.15rem .65rem;font-weight:800;font-size:.85rem}\n.empty,.load{margin:14vh auto 0;text-align:center;background:#fff;border:2.5px dashed #1e293b;border-radius:20px;padding:1.5rem 2rem;max-width:380px;color:#1e293b;column-span:all}\n.zoom{position:fixed;inset:0;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;z-index:9;cursor:zoom-out}\n.zoom img{max-width:96vw;max-height:94vh;border-radius:8px}\nfooter{text-align:center;padding:0 1rem 1.5rem;font-size:.8rem;opacity:.75}\n@media (max-width:600px){main{columns:1}}\n@media (min-width:601px) and (max-width:900px){main{columns:2}}\n</style></head><body>\n<header><h1 id=\"ttl\">__TITLE__</h1><div><p class=\"desc\" id=\"desc\" hidden></p></div><div class=\"meta\" id=\"meta\"></div></header>\n<main id=\"grid\"><div class=\"load\">⏳ جارٍ التحميل…</div></main>\n<footer>🧱 حائط إبداع طلابنا · للعرض فقط</footer>\n<script>\n(function(){\nvar KEY=\"__KEY__\", C={sky:[\"#dbeafe\",\"#2563eb\"],mint:[\"#d1fae5\",\"#059669\"],sun:[\"#fef3c7\",\"#d97706\"],rose:[\"#ffe4e6\",\"#e11d48\"],lilac:[\"#ede9fe\",\"#7c3aed\"],peach:[\"#ffedd5\",\"#ea580c\"],sand:[\"#f5efe0\",\"#a16207\"],night:[\"#1e293b\",\"#38bdf8\"]};\nvar CARD=[\"#fef9c3\",\"#dcfce7\",\"#dbeafe\",\"#fce7f3\",\"#ede9fe\",\"#ffedd5\",\"#ccfbf1\",\"#fee2e2\"];\nfunction E(s){return String(s==null?\"\":s).replace(/[&<>\"']/g,function(c){return {\"&\":\"&amp;\",\"<\":\"&lt;\",\">\":\"&gt;\",'\"':\"&quot;\",\"'\":\"&#39;\"}[c];});}\nfunction hash(s){var h=0;for(var i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))|0;return Math.abs(h);}\nfunction yt(l){var m=/(?:youtu\\.be\\/|youtube\\.com\\/(?:watch\\?(?:.*&)?v=|shorts\\/|embed\\/|live\\/))([\\w-]{11})/.exec(String(l||\"\"));return m?m[1]:\"\";}\nfunction ago(t){var d=new Date(t);try{return d.toLocaleDateString(\"ar-SA-u-ca-gregory\",{day:\"numeric\",month:\"long\"});}catch(e){return \"\";}}\nvar grid=document.getElementById(\"grid\");\nif(!KEY){grid.innerHTML='<div class=\"empty\"><div style=\"font-size:3rem\">🔒</div><b>هذا الرابط غير متاح</b><p>ربما أوقفه المعلم أو تغيّر الرابط.</p></div>';return;}\nfunction fu(p,i){return \"/w/\"+KEY+\"/f?p=\"+encodeURIComponent(p.id)+\"&i=\"+i;}\nfunction card(p){\n  var bg=p.byTeacher?\"#e0f2fe\":CARD[hash(p.id)%CARD.length], av=p.byTeacher?\"🎓\":(p.name?E(p.name.trim().charAt(0)):\"⭐\");\n  var media=(p.files||[]).map(function(f){var u=fu(p,f.i);\n    if(f.kind===\"image\")return '<a class=\"img\" href=\"'+E(u)+'\" data-z=\"'+E(u)+'\"><img loading=\"lazy\" src=\"'+E(u)+'\" alt=\"\"></a>';\n    if(f.kind===\"video\")return '<video src=\"'+E(u)+'\" controls playsinline preload=\"metadata\"></video>';\n    return '<a class=\"file\" href=\"'+E(u)+'\" target=\"_blank\" rel=\"noopener\"><b>'+(f.kind===\"pdf\"?\"PDF\":\"📎\")+'</b><span>'+E(f.name)+'</span></a>';}).join(\"\");\n  var y=yt(p.link), link=!p.link?\"\":y?'<a class=\"yt\" href=\"'+E(p.link)+'\" target=\"_blank\" rel=\"noopener\"><img loading=\"lazy\" src=\"https://img.youtube.com/vi/'+y+'/hqdefault.jpg\" alt=\"\"><i>▶</i></a>':'<a class=\"lnk\" href=\"'+E(p.link)+'\" target=\"_blank\" rel=\"noopener nofollow\">🔗 '+E(p.link.replace(/^https?:\\/\\/(www\\.)?/,\"\").slice(0,60))+'</a>';\n  return '<article class=\"card'+(p.pinned?\" pin\":\"\")+'\" style=\"--c:'+bg+'\">'+(p.pinned?'<span class=\"pinic\">📌</span>':\"\")+\n    '<div class=\"h\"><span class=\"av\">'+av+'</span><div><b>'+(p.byTeacher?\"المعلم\":p.name?E(p.name):\"عمل طالب\")+'</b><small>'+E(ago(p.at))+'</small></div></div>'+\n    (p.text?'<p class=\"t\">'+E(p.text)+'</p>':\"\")+media+link+(window.__likes&&p.likes?'<span class=\"lk\">❤️ '+p.likes+'</span>':\"\")+'</article>';}\nfetch(\"/w/\"+KEY+\"/data\",{cache:\"no-store\"}).then(function(r){return r.json();}).then(function(j){\n  if(!j||!j.ok){grid.innerHTML='<div class=\"empty\"><div style=\"font-size:3rem\">🔒</div><b>هذا الرابط غير متاح</b></div>';return;}\n  var w=j.wall,c=C[w.color]||C.sky; document.documentElement.style.setProperty(\"--wbg\",c[0]); document.documentElement.style.setProperty(\"--wac\",c[1]);\n  if(w.color===\"night\")document.body.classList.add(\"dark\"); window.__likes=w.likes;\n  if(w.desc){var d=document.getElementById(\"desc\");d.textContent=w.desc;d.hidden=false;}\n  document.getElementById(\"meta\").innerHTML='<span>📝 '+j.posts.length+' '+(j.posts.length===1?\"عمل\":\"عملًا\")+'</span>';\n  grid.innerHTML=j.posts.length?j.posts.map(card).join(\"\"):'<div class=\"empty\"><div style=\"font-size:3rem\">🧱</div><b>لا أعمال معروضة بعد</b></div>';\n}).catch(function(){grid.innerHTML='<div class=\"empty\">تعذّر التحميل — حدّث الصفحة</div>';});\ngrid.addEventListener(\"click\",function(e){var a=e.target.closest(\"[data-z]\");if(!a)return;e.preventDefault();var z=document.createElement(\"div\");z.className=\"zoom\";z.innerHTML='<img src=\"'+a.getAttribute(\"data-z\")+'\" alt=\"\">';z.onclick=function(){z.remove();};document.body.appendChild(z);});\n})();\n</script></body></html>";
 const _wallReady = new WeakMap();
 async function wallReady(env) {
   if (!env.DB) return false;
@@ -6720,7 +6722,46 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
     }
 
     // ═══ 🧱 حوائط الإبداع ═══
-    if (['/walls', '/wall', '/wall-post', '/wall-like', '/wall-del', '/wall-mod', '/wall-save', '/wall-delete', '/wall-file', '/wall-share', '/vote-link', '/vote-send', '/vote-voters'].includes(url.pathname)) {
+    // 🌐 صفحة الحائط العامة: /w/<رمز> (HTML) · /w/<رمز>/data (JSON) · /w/<رمز>/f?p=&i= (ملف) — بلا تسجيل، للعرض فقط
+    if (url.pathname.startsWith('/w/') && request.method === 'GET') {
+      const [, , key, sub] = url.pathname.split('/');
+      const notFound = () => new Response(WALL_PUB_HTML.replaceAll('__TITLE__', () => 'الرابط غير متاح').replaceAll('__DESC__', () => '').replaceAll('__KEY__', () => ''), { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+      if (!/^[0-9a-f]{30}$/.test(key || '') || !(await wallReady(env).catch(() => false))) return notFound();
+      const r0 = await env.DB.prepare("SELECT id, data, at FROM walls WHERE json_extract(data, '$.pub') = ?1").bind(key).first().catch(() => null);
+      let w = null; try { w = r0 ? { ...JSON.parse(r0.data), id: r0.id, at: r0.at } : null; } catch {}
+      if (!w || w.pub !== key || w.draft) return sub ? json({ ok: false, error: 'not_found' }, 404) : notFound();
+      const pubName = (r) => r.sid === 'T' ? 'المعلم' : w.pubNames === 'full' ? (r.name || '') : w.pubNames === 'none' ? '' : String(r.name || '').trim().split(/\s+/)[0] || '';
+      if (sub === 'data') {
+        const { results } = await env.DB.prepare("SELECT * FROM wposts WHERE wall = ?1 AND status = 'ok' ORDER BY pinned DESC, at DESC LIMIT ?2").bind(w.id, WALL.keepPosts).all();
+        return json({ ok: true, wall: { title: w.title, desc: w.desc || '', emoji: w.emoji || '🧱', color: w.color || 'sky', likes: w.likes !== false },
+          posts: (results || []).map(r => { const p = wallPublicPost(r, '', false, false); return { id: p.id, name: pubName(r), byTeacher: p.byTeacher, text: p.text, link: p.link, pinned: p.pinned, likes: p.likes, at: p.at, files: p.files }; }) },
+          200);
+      }
+      if (sub === 'f') {
+        if (!env.FILES) return json({ error: 'R2 binding FILES is missing' }, 500);
+        const r = await env.DB.prepare("SELECT * FROM wposts WHERE id = ?1 AND wall = ?2 AND status = 'ok'").bind(String(url.searchParams.get('p') || ''), w.id).first();
+        if (!r) return json({ error: 'not found' }, 404);
+        let fs = []; try { fs = JSON.parse(r.files || '[]') || []; } catch {}
+        const f = fs[parseInt(url.searchParams.get('i'), 10)]; if (!f) return json({ error: 'not found' }, 404);
+        const range = request.headers.get('range');
+        const obj = await env.FILES.get(f.key, range ? { range: request.headers } : undefined);
+        if (!obj) return json({ error: 'file not found' }, 404);
+        const headers = new Headers(); obj.writeHttpMetadata(headers);
+        headers.set('Accept-Ranges', 'bytes'); headers.set('Cache-Control', 'public, max-age=3600');
+        if (range && obj.range) {
+          const start = obj.range.offset || 0, len = obj.range.length != null ? obj.range.length : (obj.size - start);
+          headers.set('Content-Range', `bytes ${start}-${start + len - 1}/${obj.size}`); headers.set('Content-Length', String(len));
+          return new Response(obj.body, { status: 206, headers });
+        }
+        headers.set('Content-Length', String(obj.size));
+        return new Response(obj.body, { headers });
+      }
+      if (sub) return notFound();
+      const H = s => String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+      return new Response(WALL_PUB_HTML.replaceAll('__TITLE__', () => H(String(w.title).includes(w.emoji || '🧱') ? w.title : `${w.emoji || '🧱'} ${w.title}`)).replaceAll('__DESC__', () => H(w.desc || 'أعمال طلابنا وإبداعاتهم')).replaceAll('__KEY__', () => key),
+        { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' } });
+    }
+    if (['/walls', '/wall', '/wall-post', '/wall-like', '/wall-del', '/wall-mod', '/wall-save', '/wall-delete', '/wall-file', '/wall-share', '/wall-pub', '/vote-link', '/vote-send', '/vote-voters'].includes(url.pathname)) {
       if (!(await wallReady(env).catch(() => false))) return json({ ok: false, error: 'no_db' }, 503);
       const isGet = request.method === 'GET';
       let b = {}; if (!isGet) { try { b = await request.json(); } catch { return json({ ok: false, error: 'bad json' }, 400); } }
@@ -6853,7 +6894,8 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         const title = String(x.title || '').trim().slice(0, 120); if (!title) return json({ ok: false, error: 'اكتب عنوان الحائط' }, 400);
         const w = { title, desc: String(x.desc || '').trim().slice(0, 600), emoji: String(x.emoji || '🧱').slice(0, 8), color: WALL.colors.includes(x.color) ? x.color : 'sky',
           classes: (Array.isArray(x.classes) ? x.classes : []).map(String).slice(0, 40), approval: x.approval !== false, open: x.open !== false, likes: x.likes !== false,
-          maxPosts: Math.min(20, Math.max(1, parseInt(x.maxPosts, 10) || WALL.maxPostsDefault)), draft: !!x.draft };
+          maxPosts: Math.min(20, Math.max(1, parseInt(x.maxPosts, 10) || WALL.maxPostsDefault)), draft: !!x.draft,
+          ...(prev && prev.pub ? { pub: prev.pub, pubNames: prev.pubNames || 'first' } : {}) };
         const id = prev ? prev.id : 'w' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), at = prev ? prev.at : Date.now();
         await env.DB.prepare('INSERT INTO walls (id, data, at) VALUES (?1, ?2, ?3) ON CONFLICT(id) DO UPDATE SET data = excluded.data').bind(id, JSON.stringify(w), at).run();
         // 🔔 حائط جديد منشور: إشعار لطلابه (مرة واحدة)
@@ -6863,6 +6905,19 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
             data: { type: 'wall', id, url: './?open=wall&id=' + encodeURIComponent(id) } }, (await sha256Hex(`wallnew|${id}`)).slice(0, 32));
         }
         return json({ ok: true, id });
+      }
+      // 🌐 رابط للعامة (عرض فقط): رمز عشوائي في الحائط ⇒ /w/<الرمز> — المعتمد فقط، والأسماء حسب اختيار المعلم
+      if (P === '/wall-pub' && !isGet) {
+        if (!isT) return json({ ok: false, error: 'unauthorized' }, 401);
+        const w = await wallGet(env, b.wall); if (!w) return json({ ok: false, error: 'not_found' }, 404);
+        const { id, at, ...data } = w;
+        if (b.on === false) { delete data.pub; delete data.pubNames; }
+        else {
+          if (!data.pub || b.renew) { const r = new Uint8Array(15); crypto.getRandomValues(r); data.pub = [...r].map(x => x.toString(16).padStart(2, '0')).join(''); }
+          data.pubNames = ['full', 'first', 'none'].includes(b.names) ? b.names : (data.pubNames || 'first');
+        }
+        await env.DB.prepare('UPDATE walls SET data = ?2 WHERE id = ?1').bind(id, JSON.stringify(data)).run();
+        return json({ ok: true, pub: data.pub || '', names: data.pubNames || '', url: data.pub ? `${url.origin}/w/${data.pub}` : '' });
       }
       // 🧱 مشروع طالب أعجبك ⇒ منشور باسمه في حائط (الملفات تُنسخ في R2: حذف المنشور لا يمس تسليمه الأصلي)
       if (P === '/wall-share' && !isGet) {
