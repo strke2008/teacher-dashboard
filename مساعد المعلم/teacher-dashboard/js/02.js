@@ -551,7 +551,7 @@ document.querySelectorAll('.tab,.mobile-nav button[data-tab]').forEach(t => t.on
   document.querySelectorAll('.tab,.mobile-nav button[data-tab]').forEach(x => x.classList.toggle('on', x.dataset.tab === t.dataset.tab && (x.dataset.view||'') === (t.dataset.view||'')));
   document.querySelectorAll('.panel').forEach(p => p.classList.toggle('on', p.id === 'p-' + t.dataset.tab));
   if (t.dataset.tab === 'dashboard') { renderDashboard(); syncStore(true); try{ renderTodayHub(true); }catch(e){} }
-  if (t.dataset.tab === 'messages') { initStudentMessages(); msgqLoad(); try{ annInit(); annLoad(); }catch(e){} }
+  if (t.dataset.tab === 'messages') { initStudentMessages(); msgqLoad(); try{ annInit(); annLoad(); }catch(e){} try{ wallAdminLoad(); }catch(e){} }
   if (t.dataset.tab === 'students') { renderReqs(); renderDevWarn(); renderStudentsCenter(); syncStore(true); }
   if (t.dataset.tab === 'hw') { renderHw(); pullAll(true); }
   if (t.dataset.tab === 'grades') {

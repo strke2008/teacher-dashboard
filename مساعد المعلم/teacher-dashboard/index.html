@@ -22,13 +22,13 @@
 <meta content="root-cause-sync-v2" name="sync-fix-version"/>
 <link rel="stylesheet" href="app.css?v=caf855e9">
 <script src="js/01-right-sidebar-navigation-js.js?v=41ea29b3" defer></script>
-<script src="js/02.js?v=7932d51d" defer></script>
+<script src="js/02.js?v=15abc929" defer></script>
 <script src="js/03-projects-students-logic-v13.js?v=28da44e7" defer></script>
 <script src="js/04.js?v=5a7c663e" defer></script>
 <script src="js/05.js?v=a7c074c3" defer></script>
 <script src="js/06.js?v=4e76f64a" defer></script>
 <script src="js/07.js?v=ee4fadce" defer></script>
-<script src="js/08.js?v=06bfdd76" defer></script>
+<script src="js/08.js?v=4ec4b149" defer></script>
 <script src="js/09.js?v=ef17fc2a" defer></script>
 <script src="js/10.js?v=bbaf2a38" defer></script>
 <script src="js/11.js?v=8ccd78e3" defer></script>
@@ -59,6 +59,8 @@
 <script src="theme-picker.js?v=5b5f90af" defer></script>
 <script src="simplified-nav.js?v=f116046b" defer></script>
 <script src="tab-polish.js?v=bd1e2e02" defer></script>
+<script src="js/wall.js?v=4b53ff42" defer></script>
+<script src="js/wall-admin.js?v=da3a1a64" defer></script>
 <style id="comprehensive-print-identical-all-devices">
 /* 🖨️ الكشف الشامل: نفس التخطيط الفيزيائي على الجوال والكمبيوتر.
    هذه القواعد تأتي في آخر الرأس لتتغلب على أي قواعد شاشة سابقة. */
@@ -489,6 +491,7 @@
 <link rel="stylesheet" href="simplified-nav.css?v=8fbfd58e">
 <link rel="stylesheet" href="tab-polish.css?v=b9d66f7c">
 <link rel="stylesheet" href="audit-fixes.css?v=a05870b6">
+<link rel="stylesheet" href="wall.css?v=7dad93b1">
 </head>
 <body>
 <header class="masthead">
@@ -585,6 +588,12 @@
 <div class="sheet-head">
 <div><h2>رسائل الطلاب</h2><span class="sub">أرسل رسالة تظهر داخل مساحة الطالب</span></div>
 <span class="spacer"></span>
+</div>
+<div class="sheet" id="wall-sheet">
+<div class="sheet-head" style="margin:0 0 .5rem"><div><h3 style="margin:0">🧱 حوائط الإبداع</h3>
+<span class="sub">حائط لموضوع (أسبوع الفضاء، اليوم الوطني، تجربة…) ينشر فيه كل طالب إبداعه ويشاهد أعمال زملائه</span></div>
+<span class="spacer"></span><button class="btn tick" type="button" onclick="wallEdit()">＋ حائط جديد</button></div>
+<div id="wall-admin-list" class="wall-admin-list"><div class="muted">جارٍ التحميل…</div></div>
 </div>
 <div class="sheet" id="ann-sheet">
 <div class="sheet-head" style="margin:0 0 .5rem"><div><h3 style="margin:0">📢 إعلان أو ملفات للطلاب</h3>

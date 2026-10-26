@@ -19,13 +19,15 @@ try{var P=JSON.parse(localStorage.getItem('pt_last')||'null');if(P&&P.t){var R=d
 var C={galaxy:'#0D1331',spaceweek:'#0A1638',saudi:'#00653A',gold:'#7A5A00',diamond:'#1E3A6E'}[P.t];var M=document.querySelector('meta[name="theme-color"]');if(C&&M)M.content=C;
 if(P.t==='saudi'){var L=document.createElement('link');L.rel='preload';L.as='image';L.href='themes/saudi96.webp';document.head.appendChild(L);}}}catch(e){}</script>
 <link rel="stylesheet" href="app.css?v=2b5fd1d1">
-<script src="js/01.js?v=a6f4cb2a" defer></script>
+<script src="js/01.js?v=af014fbc" defer></script>
 <script src="js/02.js?v=43c89944" defer></script>
-<script src="js/03.js?v=1716944b" defer></script>
+<script src="js/03.js?v=b05eab3f" defer></script>
 <script src="js/04.js?v=ec61937b" defer></script>
 <script src="js/05.js?v=6232a118" defer></script>
 <script src="js/06.js?v=c4858ec6" defer></script>
 <script src="js/07.js?v=23d7132e" defer></script>
+<script src="js/wall.js?v=4b53ff42" defer></script>
+<link rel="stylesheet" href="wall.css?v=7dad93b1">
 <link rel="stylesheet" id="late-css" href="app-late.css?v=35b91603">
 </head>
 <body>
@@ -109,6 +111,7 @@ if(P.t==='saudi'){var L=document.createElement('link');L.rel='preload';L.as='ima
       <div id="space-plan"></div>
       <div id="space-certs"></div>
       <div id="space-ann"></div>
+      <div id="space-walls"></div>
       <div class="space-notices compact-notices">
         <div class="section-title sp-title" style="margin-bottom:.25rem"><h3 style="font-size:.9rem">🔔 التنبيهات</h3><button type="button" id="sp-chip" class="sp-chip hide" onclick="window.__spOpen=true;spRender()" aria-label="إعدادات التنبيهات">✓ مفعّلة ⚙️</button></div>
         <div id="sp-push" class="sp-push hide"></div>

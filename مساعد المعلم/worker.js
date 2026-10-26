@@ -3344,6 +3344,53 @@ function machinesScore(log) {
    أسئلة بديلة على نفس المفهوم (يولّدها الذكاء الاصطناعي عند النشر) + تذكير قصير.
    ليست درجة؛ نقاط متجر فقط. إتقان 80% يغلقها، وإخفاق مرتين يرفعها للمعلم.
    ═══════════════════════════════════════════════════════════════════ */
+/* 🧱 حوائط الإبداع: حائط لموضوع (أسبوع الفضاء، اليوم الوطني، تجربة سيارة البالون…) ينشر فيه كل طالب إبداعه
+   (نص، صور، فيديو، PDF، رابط) ويرى الجميع أعمال بعضهم ويعجبون بها. المعلم يعتمد/يخفي/يثبّت ويعرض على البروجكتر.
+   التخزين في D1 (حائط · منشورات · إعجابات) والملفات في R2 عبر الرفع على أجزاء (/file-up مع wall). */
+const WALL = { maxText: 1000, maxFiles: 4, maxPostsDefault: 3, keepPosts: 400,
+  colors: ['sky', 'mint', 'sun', 'rose', 'lilac', 'peach', 'sand', 'night'] };
+const _wallReady = new WeakMap();
+async function wallReady(env) {
+  if (!env.DB) return false;
+  let p = _wallReady.get(env.DB);
+  if (!p) {
+    p = env.DB.batch([
+      env.DB.prepare('CREATE TABLE IF NOT EXISTS walls (id TEXT PRIMARY KEY, data TEXT NOT NULL, at INTEGER NOT NULL)'),
+      env.DB.prepare('CREATE TABLE IF NOT EXISTS wposts (id TEXT PRIMARY KEY, wall TEXT NOT NULL, sid TEXT NOT NULL, name TEXT, cls TEXT, text TEXT, link TEXT, files TEXT, status TEXT NOT NULL, pinned INTEGER NOT NULL DEFAULT 0, likes INTEGER NOT NULL DEFAULT 0, at INTEGER NOT NULL)'),
+      env.DB.prepare('CREATE INDEX IF NOT EXISTS wposts_wall ON wposts (wall, at)'),
+      env.DB.prepare('CREATE TABLE IF NOT EXISTS wlikes (post TEXT NOT NULL, sid TEXT NOT NULL, PRIMARY KEY (post, sid))'),
+    ]).then(() => true).catch(e => { _wallReady.delete(env.DB); throw e; });
+    _wallReady.set(env.DB, p);
+  }
+  return p;
+}
+async function wallGet(env, id) {
+  const r = await env.DB.prepare('SELECT data, at FROM walls WHERE id = ?1').bind(String(id || '')).first();
+  if (!r) return null;
+  try { return { ...JSON.parse(r.data), id: String(id), at: r.at }; } catch { return null; }
+}
+async function wallList(env) {
+  const { results } = await env.DB.prepare('SELECT id, data, at FROM walls ORDER BY at DESC LIMIT 100').all();
+  return (results || []).map(r => { try { return { ...JSON.parse(r.data), id: r.id, at: r.at }; } catch { return null; } }).filter(Boolean);
+}
+// الطالب يرى الحائط إن كان منشورًا (لا مسودة) ولفصله أو لكل الفصول
+function wallFor(w, st) { return !!w && !w.draft && annFor(w, st); }
+function wallPublicPost(r, me, liked, teacher) {
+  let files = []; try { files = JSON.parse(r.files || '[]') || []; } catch {}
+  return { id: r.id, name: r.name || '', cls: r.cls || '', text: r.text || '', link: r.link || '', status: r.status, pinned: !!r.pinned,
+    likes: r.likes || 0, liked: !!liked, mine: !!me && r.sid === me, byTeacher: r.sid === 'T', at: r.at,
+    ...(teacher ? { sid: r.sid } : {}),
+    files: files.map((f, i) => ({ i, kind: f.kind, name: f.name, size: f.size, type: f.type })) };
+}
+function wallSafeLink(v) {
+  const s = String(v || '').trim().slice(0, 400);
+  if (!s) return '';
+  try { const u = new URL(s); return /^https?:$/.test(u.protocol) ? u.href : ''; } catch { return ''; }
+}
+async function wallDropFiles(env, rows) {
+  if (!env.FILES) return;
+  for (const r of rows) { let fs = []; try { fs = JSON.parse(r.files || '[]') || []; } catch {} for (const f of fs) { try { await env.FILES.delete(f.key); } catch {} } }
+}
 /* 📎 تسليم الملفات: الحدود والتحقق المشترك بين /file-submit و/file-up/start */
 const FUP = { part: 10 * 1024 * 1024, maxFile: 20 * 1024 * 1024, maxVideo: 300 * 1024 * 1024, maxTotal: 500 * 1024 * 1024 };
 // بعض الأجهزة ترسل type فارغًا للفيديو — نرجع إلى الامتداد
@@ -6617,6 +6664,162 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       return json({ ok: true, added, total: arr.length });
     }
 
+    // ═══ 🧱 حوائط الإبداع ═══
+    if (url.pathname.startsWith('/wall') && ['/walls', '/wall', '/wall-post', '/wall-like', '/wall-del', '/wall-mod', '/wall-save', '/wall-delete', '/wall-file'].includes(url.pathname)) {
+      if (!(await wallReady(env).catch(() => false))) return json({ ok: false, error: 'no_db' }, 503);
+      const isGet = request.method === 'GET';
+      let b = {}; if (!isGet) { try { b = await request.json(); } catch { return json({ ok: false, error: 'bad json' }, 400); } }
+      const tok = isGet ? url.searchParams.get('t') : b.t;
+      const isT = !!env.TEACHER_TOKEN && tok === env.TEACHER_TOKEN;
+      // القراءة: الطالب بهويته (كبقية البوابة) · الكتابة: بجلسته الموقّعة فقط (لا ينشر أحد باسم غيره)
+      const readerSt = async () => { const st = await resolveStudent(env, { id: String(url.searchParams.get('sid') || '').slice(0, 40), name: String(url.searchParams.get('name') || '').slice(0, 80) }); return st && st.known ? st : null; };
+      const writer = async () => { if (isT) return { st: { id: 'T', name: 'المعلم', cls: '' } }; const a = await requireStudentSession(env, b); return a.res ? { res: a.res } : { st: a.st }; };
+      const P = url.pathname;
+
+      if (P === '/walls' && isGet) {
+        const all = await wallList(env);
+        const { results } = await env.DB.prepare("SELECT wall, COUNT(*) AS n, SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pend, MAX(at) AS last FROM wposts WHERE status != 'hidden' OR ?1 GROUP BY wall").bind(isT ? 1 : 0).all();
+        const cnt = new Map((results || []).map(r => [r.wall, r]));
+        if (isT) return json({ ok: true, rows: all.map(w => ({ ...w, count: (cnt.get(w.id) || {}).n || 0, pending: (cnt.get(w.id) || {}).pend || 0, last: (cnt.get(w.id) || {}).last || 0 })) });
+        const st = await readerSt(); if (!st) return json({ ok: false, error: 'student not recognized' }, 403);
+        return json({ ok: true, rows: all.filter(w => wallFor(w, st)).map(w => ({ id: w.id, title: w.title, desc: w.desc || '', emoji: w.emoji || '🧱', color: w.color || 'sky', open: !!w.open, at: w.at,
+          count: ((cnt.get(w.id) || {}).n || 0) - ((cnt.get(w.id) || {}).pend || 0), last: (cnt.get(w.id) || {}).last || 0 })) });
+      }
+      if (P === '/wall' && isGet) {
+        const w = await wallGet(env, url.searchParams.get('id'));
+        let me = '';
+        if (!isT) { const st = await readerSt(); if (!st || !wallFor(w, st)) return json({ ok: false, error: 'not_found' }, 404); me = String(st.id || ''); }
+        else if (!w) return json({ ok: false, error: 'not_found' }, 404);
+        else me = 'T';
+        const { results } = await env.DB.prepare(isT
+          ? 'SELECT * FROM wposts WHERE wall = ?1 ORDER BY pinned DESC, at DESC LIMIT ?3'
+          : "SELECT * FROM wposts WHERE wall = ?1 AND (status = 'ok' OR (sid = ?2 AND status = 'pending')) ORDER BY pinned DESC, at DESC LIMIT ?3").bind(w.id, me, WALL.keepPosts).all();
+        const rows = results || [];
+        let liked = new Set();
+        if (rows.length) { const lk = await env.DB.prepare('SELECT post FROM wlikes WHERE sid = ?1 AND post IN (SELECT id FROM wposts WHERE wall = ?2)').bind(me, w.id).all(); liked = new Set((lk.results || []).map(r => r.post)); }
+        const mine = rows.filter(r => r.sid === me).length;
+        return json({ ok: true, wall: { id: w.id, title: w.title, desc: w.desc || '', emoji: w.emoji || '🧱', color: w.color || 'sky', open: !!w.open, likes: w.likes !== false,
+            approval: !!w.approval, maxPosts: w.maxPosts || WALL.maxPostsDefault, classes: w.classes || [], draft: !!w.draft, at: w.at },
+          mine, posts: rows.map(r => wallPublicPost(r, me, liked.has(r.id), isT)) });
+      }
+      if (P === '/wall-file' && isGet) {
+        if (!env.FILES) return json({ error: 'R2 binding FILES is missing' }, 500);
+        const r = await env.DB.prepare('SELECT * FROM wposts WHERE id = ?1').bind(String(url.searchParams.get('p') || '')).first();
+        if (!r) return json({ error: 'not found' }, 404);
+        if (!isT) {
+          const st = await readerSt(); const w = r && await wallGet(env, r.wall);
+          if (!st || !wallFor(w, st) || !(r.status === 'ok' || (r.status === 'pending' && r.sid === String(st.id || '')))) return json({ error: 'not allowed' }, 403);
+        }
+        let fs = []; try { fs = JSON.parse(r.files || '[]') || []; } catch {}
+        const f = fs[parseInt(url.searchParams.get('f'), 10)]; if (!f) return json({ error: 'not found' }, 404);
+        const range = request.headers.get('range');
+        const obj = await env.FILES.get(f.key, range ? { range: request.headers } : undefined);
+        if (!obj) return json({ error: 'file not found' }, 404);
+        const headers = new Headers(CORS); obj.writeHttpMetadata(headers);
+        headers.set('Accept-Ranges', 'bytes'); headers.set('Cache-Control', 'private, max-age=3600');
+        if (range && obj.range) {
+          const start = obj.range.offset || 0, len = obj.range.length != null ? obj.range.length : (obj.size - start);
+          headers.set('Content-Range', `bytes ${start}-${start + len - 1}/${obj.size}`); headers.set('Content-Length', String(len));
+          return new Response(obj.body, { status: 206, headers });
+        }
+        headers.set('Content-Length', String(obj.size));
+        return new Response(obj.body, { headers });
+      }
+      if (P === '/wall-post' && !isGet) {
+        const wr = await writer(); if (wr.res) return wr.res; const st = wr.st, sid = String(st.id || '');
+        const w = await wallGet(env, b.wall);
+        if (!w || (!isT && (!wallFor(w, st) || !w.open))) return json({ ok: false, error: 'wall_closed' }, 403);
+        const text = String(b.text || '').replace(/\r\n?/g, '\n').trim().slice(0, WALL.maxText), link = wallSafeLink(b.link);
+        if (b.link && !link) return json({ ok: false, error: 'bad_link' }, 400);
+        const files = [];
+        for (const u of (Array.isArray(b.pre) ? b.pre : []).slice(0, WALL.maxFiles)) {
+          let rec = null; try { rec = JSON.parse(await env.HW.get(`fup:${String(u).slice(0, 300)}`) || 'null'); } catch {}
+          if (!rec || !rec.done || rec.wall !== w.id || rec.sid !== sid) return json({ ok: false, error: 'upload not found' }, 400);
+          const kind = annKind(String(rec.type || '').toLowerCase(), rec.fname) || (fileIsVideo({ type: rec.type, name: rec.fname }) ? 'video' : /\.pdf$/i.test(rec.fname) ? 'pdf' : 'image');
+          files.push({ key: rec.key, name: rec.fname, type: rec.type || '', kind, size: rec.size, u: String(u) });
+        }
+        if (!text && !link && !files.length) return json({ ok: false, error: 'empty' }, 400);
+        if (!isT) {
+          const n = await env.DB.prepare('SELECT COUNT(*) AS n FROM wposts WHERE wall = ?1 AND sid = ?2').bind(w.id, sid).first();
+          const max = w.maxPosts || WALL.maxPostsDefault;
+          if (((n && n.n) || 0) >= max) return json({ ok: false, error: 'max_posts', max }, 429);
+        }
+        const id = 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), now = Date.now();
+        const status = isT || !w.approval ? 'ok' : 'pending';
+        await env.DB.prepare('INSERT INTO wposts (id, wall, sid, name, cls, text, link, files, status, pinned, likes, at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 0, 0, ?10)')
+          .bind(id, w.id, sid, String(st.name || ''), String(st.cls || ''), text, link, JSON.stringify(files.map(({ u, ...f }) => f)), status, now).run();
+        for (const f of files) { try { await env.HW.delete(`fup:${f.u}`); } catch {} }   // استُخدم ⇒ لا يحذفه التنظيف
+        if (status === 'pending') {
+          const task = (async () => {
+            if (!pushConfigured(env)) return; const subs = await pushListSubs(env); if (!subs.length) return;
+            const eventId = (await sha256Hex(`wall|${id}`)).slice(0, 32); if (!(await pushClaimEvent(env, eventId))) return;
+            await pushDeliver(env, { title: `🧱 ${st.name}: منشور جديد ينتظر اعتمادك`, body: `«${w.title}» — ${text.slice(0, 100) || (files.length ? 'ملف مرفق' : link)}`, tag: `wall-${w.id}`,
+              data: { type: 'wall', id: w.id, url: './?open=wall&id=' + encodeURIComponent(w.id) } }, eventId, subs);
+          })().catch(() => {});
+          if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(task);
+        }
+        return json({ ok: true, id, status });
+      }
+      if (P === '/wall-like' && !isGet) {
+        const wr = await writer(); if (wr.res) return wr.res; const sid = String(wr.st.id || '');
+        const r = await env.DB.prepare('SELECT id, wall, status FROM wposts WHERE id = ?1').bind(String(b.post || '')).first();
+        const w = r && await wallGet(env, r.wall);
+        if (!r || r.status !== 'ok' || !w || (!isT && !wallFor(w, wr.st)) || w.likes === false) return json({ ok: false, error: 'not_found' }, 404);
+        const had = await env.DB.prepare('SELECT 1 AS x FROM wlikes WHERE post = ?1 AND sid = ?2').bind(r.id, sid).first();
+        await env.DB.batch([
+          had ? env.DB.prepare('DELETE FROM wlikes WHERE post = ?1 AND sid = ?2').bind(r.id, sid) : env.DB.prepare('INSERT OR IGNORE INTO wlikes (post, sid) VALUES (?1, ?2)').bind(r.id, sid),
+          env.DB.prepare('UPDATE wposts SET likes = (SELECT COUNT(*) FROM wlikes WHERE post = ?1) WHERE id = ?1').bind(r.id),
+        ]);
+        const c = await env.DB.prepare('SELECT likes FROM wposts WHERE id = ?1').bind(r.id).first();
+        return json({ ok: true, liked: !had, likes: (c && c.likes) || 0 });
+      }
+      if (P === '/wall-del' && !isGet) {
+        const wr = await writer(); if (wr.res) return wr.res;
+        const r = await env.DB.prepare('SELECT * FROM wposts WHERE id = ?1').bind(String(b.post || '')).first();
+        if (!r || (!isT && r.sid !== String(wr.st.id || ''))) return json({ ok: false, error: 'not_found' }, 404);
+        await wallDropFiles(env, [r]);
+        await env.DB.batch([env.DB.prepare('DELETE FROM wposts WHERE id = ?1').bind(r.id), env.DB.prepare('DELETE FROM wlikes WHERE post = ?1').bind(r.id)]);
+        return json({ ok: true });
+      }
+      if (!isT) return json({ ok: false, error: 'unauthorized' }, 401);
+      if (P === '/wall-mod' && !isGet) {
+        const r = await env.DB.prepare('SELECT id FROM wposts WHERE id = ?1').bind(String(b.post || '')).first();
+        if (!r) return json({ ok: false, error: 'not_found' }, 404);
+        const a = String(b.action || '');
+        const q = a === 'approve' || a === 'show' ? "UPDATE wposts SET status = 'ok' WHERE id = ?1" : a === 'hide' ? "UPDATE wposts SET status = 'hidden' WHERE id = ?1"
+          : a === 'pin' ? 'UPDATE wposts SET pinned = 1 WHERE id = ?1' : a === 'unpin' ? 'UPDATE wposts SET pinned = 0 WHERE id = ?1' : '';
+        if (!q) return json({ ok: false, error: 'bad action' }, 400);
+        await env.DB.prepare(q).bind(r.id).run();
+        return json({ ok: true });
+      }
+      if (P === '/wall-save' && !isGet) {
+        const x = b.wall || {}, prev = x.id ? await wallGet(env, x.id) : null;
+        if (x.id && !prev) return json({ ok: false, error: 'not_found' }, 404);
+        const title = String(x.title || '').trim().slice(0, 120); if (!title) return json({ ok: false, error: 'اكتب عنوان الحائط' }, 400);
+        const w = { title, desc: String(x.desc || '').trim().slice(0, 600), emoji: String(x.emoji || '🧱').slice(0, 8), color: WALL.colors.includes(x.color) ? x.color : 'sky',
+          classes: (Array.isArray(x.classes) ? x.classes : []).map(String).slice(0, 40), approval: x.approval !== false, open: x.open !== false, likes: x.likes !== false,
+          maxPosts: Math.min(20, Math.max(1, parseInt(x.maxPosts, 10) || WALL.maxPostsDefault)), draft: !!x.draft };
+        const id = prev ? prev.id : 'w' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), at = prev ? prev.at : Date.now();
+        await env.DB.prepare('INSERT INTO walls (id, data, at) VALUES (?1, ?2, ?3) ON CONFLICT(id) DO UPDATE SET data = excluded.data').bind(id, JSON.stringify(w), at).run();
+        // 🔔 حائط جديد منشور: إشعار لطلابه (مرة واحدة)
+        if (b.notify && !w.draft && (!prev || prev.draft)) {
+          const sids = new Set((await loadRoster(env)).filter(s => s && s.id && annFor(w, s)).map(s => String(s.id)));
+          notifyStudents(env, ctx, sids, { title: `${w.emoji} حائط جديد: ${title}`, body: w.desc.slice(0, 120) || 'شارك إبداعك وشاهد أعمال زملائك', tag: `wall-${id}`,
+            data: { type: 'wall', id, url: './?open=wall&id=' + encodeURIComponent(id) } }, (await sha256Hex(`wallnew|${id}`)).slice(0, 32));
+        }
+        return json({ ok: true, id });
+      }
+      if (P === '/wall-delete' && !isGet) {
+        const w = await wallGet(env, b.id); if (!w) return json({ ok: false, error: 'not_found' }, 404);
+        const { results } = await env.DB.prepare('SELECT * FROM wposts WHERE wall = ?1').bind(w.id).all();
+        await wallDropFiles(env, results || []);
+        await env.DB.batch([env.DB.prepare('DELETE FROM wlikes WHERE post IN (SELECT id FROM wposts WHERE wall = ?1)').bind(w.id),
+          env.DB.prepare('DELETE FROM wposts WHERE wall = ?1').bind(w.id), env.DB.prepare('DELETE FROM walls WHERE id = ?1').bind(w.id)]);
+        return json({ ok: true });
+      }
+      return json({ ok: false, error: 'bad request' }, 400);
+    }
+
     // ═══ 📢 الإعلانات والملفات: صورة/فيديو/PDF من المعلم إلى بوابة الطالب (R2) ═══
     if (url.pathname === '/ann' && request.method === 'POST') {
       if (!env.FILES) return json({ ok: false, error: 'R2 binding FILES is missing' }, 500);
@@ -7190,21 +7393,32 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       }
       let b; try { b = await request.json(); } catch { return json({ ok: false, error: 'bad json' }, 400); }
       if (op === 'start') {
-        const hw = String(b.hw || '').slice(0, 64).trim();
-        const bindS = await bindSession(env, { session: String(b.session || '') });
-        if (bindS && bindS.res) return bindS.res;
-        const st = bindS && bindS.st ? bindS.st : await resolveStudent(env, { id: String(b.sid || '').slice(0, 40).trim(), name: String(b.name || '').slice(0, 80).trim() });
-        if (!hw || !st || !(st.id || st.name)) return json({ ok: false, error: 'missing hw or name' }, 400);
+        const wallId = String(b.wall || '').slice(0, 40);
+        const hw = wallId ? '' : String(b.hw || '').slice(0, 64).trim();
+        const isT = !!wallId && !!env.TEACHER_TOKEN && b.t === env.TEACHER_TOKEN;
+        let st;
+        if (isT) st = { id: 'T', name: 'المعلم', known: true };
+        else if (wallId) { const auth = await requireStudentSession(env, b); if (auth.res) return auth.res; st = auth.st; }   // 🧱 النشر في الحائط بجلسة الطالب فقط
+        else {
+          const bindS = await bindSession(env, { session: String(b.session || '') });
+          if (bindS && bindS.res) return bindS.res;
+          st = bindS && bindS.st ? bindS.st : await resolveStudent(env, { id: String(b.sid || '').slice(0, 40).trim(), name: String(b.name || '').slice(0, 80).trim() });
+        }
+        if ((!hw && !wallId) || !st || !(st.id || st.name)) return json({ ok: false, error: 'missing hw or name' }, 400);
         if (st.ambiguous) return json({ ok: false, error: 'ambiguous student', ambiguous: true }, 409);
-        const g = await fileSubmitGate(env, hw, st); if (g.res) return g.res;
+        if (wallId) {
+          if (!(await wallReady(env).catch(() => false))) return json({ ok: false, error: 'no_db' }, 503);
+          const w = await wallGet(env, wallId);
+          if (!w || (!isT && (!wallFor(w, st) || !w.open))) return json({ ok: false, error: 'wall_closed' }, 403);
+        } else { const g = await fileSubmitGate(env, hw, st); if (g.res) return g.res; }
         const f = { name: String(b.fname || 'file'), type: String(b.type || ''), size: Number(b.size) || 0 };
         if (!fileAllowedSrv(f)) return json({ ok: false, error: 'only images, pdf and video allowed' }, 400);
         const cap = fileIsVideo(f) ? FUP.maxVideo : FUP.maxFile;
         if (!(f.size > 0) || f.size > cap) return json({ ok: false, error: 'file too large', max: cap }, 400);
         const safeName = String(f.name).replace(/[^\w\-.\u0600-\u06FF ]/g, '_').slice(0, 100);
-        const key = `attachments/${hw}/${crypto.randomUUID()}-${safeName}`;
+        const key = wallId ? `wall/${wallId}/${crypto.randomUUID()}-${safeName}` : `attachments/${hw}/${crypto.randomUUID()}-${safeName}`;
         const mpu = await env.FILES.createMultipartUpload(key, { httpMetadata: { contentType: f.type || 'application/octet-stream' } });
-        await env.HW.put(`fup:${mpu.uploadId}`, JSON.stringify({ key, hw, sid: String(st.id || ''), name: String(st.name || ''), fname: safeName, type: f.type, size: f.size, at: Date.now(), done: false }));
+        await env.HW.put(`fup:${mpu.uploadId}`, JSON.stringify({ key, hw, wall: wallId, sid: String(st.id || ''), name: String(st.name || ''), fname: safeName, type: f.type, size: f.size, at: Date.now(), done: false }));
         return json({ ok: true, uploadId: mpu.uploadId, partSize: FUP.part });
       }
       const u = String(b.u || '').slice(0, 300);
@@ -7253,7 +7467,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       const pre = [];
       for (const u of (Array.isArray(preIds) ? preIds : []).slice(0, 5)) {
         let rec = null; try { rec = JSON.parse(await env.HW.get(`fup:${String(u).slice(0, 300)}`) || 'null'); } catch {}
-        if (!rec || !rec.done || rec.hw !== hw || !((st.id && rec.sid === String(st.id)) || (!rec.sid && rec.name === st.name))) return json({ error: 'upload not found' }, 400);
+        if (!rec || !rec.done || rec.wall || rec.hw !== hw || !((st.id && rec.sid === String(st.id)) || (!rec.sid && rec.name === st.name))) return json({ error: 'upload not found' }, 400);
         pre.push({ u: String(u), rec });
       }
       if (!incoming.length && !pre.length) return json({ error: 'no files' }, 400);

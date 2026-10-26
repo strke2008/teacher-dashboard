@@ -169,6 +169,7 @@ function pushRenderCard(message){
 /* فتح التسليم الذي أرسل الإشعار: «آخر التسليمات» ثم إبراز الصف */
 async function openSubmissionFromPush(data){
   if(!data) return;
+  if(data.type==='wall' || data.open==='wall'){ goTab('messages'); if(data.id) setTimeout(()=>{ try{ wallOpen(String(data.id)); }catch(_){} },500); return; }
   if(data.type==='ask' || data.open==='asks'){
     // الضغط على التنبيه واللوحة مفتوحة: الرسالة نفسها مع التنبيه، طبّقها فورًا بدل انتظار الجلب (نسخة الخادم قد تتأخر دقيقة)
     if(data.item && typeof askApplyPush==='function'){ try{ askApplyPush(data.item); }catch(_){} }
@@ -207,7 +208,7 @@ function pushHandleLaunchParams(){
   const q=new URLSearchParams(location.search);
   const open=q.get('open');
   if(!open) return;
-  const data= open==='submission' ? {type:'submission',hw:q.get('hw'),sid:q.get('sid'),at:Number(q.get('at'))||0} : {open};
+  const data= open==='submission' ? {type:'submission',hw:q.get('hw'),sid:q.get('sid'),at:Number(q.get('at'))||0} : open==='wall' ? {type:'wall',id:q.get('id')} : {open};
   try{ history.replaceState(null,'',location.pathname+location.hash); }catch(_){}
   setTimeout(()=>openSubmissionFromPush(data),900);   // بعد اكتمال أول رسم ومزامنة
 }

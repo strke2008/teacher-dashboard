@@ -2287,6 +2287,7 @@ async function loadStudentSpace(nm, rows){
   { const g=$('space-greeting'); g.textContent='أهلاً '; const n=document.createElement('span'); n.className='sg-nm'; n.textContent=nm; g.append(n,' 👋'); try{ nmApply(); }catch(e){} }
   try{ ptOnLogin(); }catch(e){}
   try{ annPortalLoad(); }catch(e){}
+  try{ wallsLoad(); }catch(e){}
   try{ myPlanLoad(); }catch(e){}
   try{ myCertsLoad(); }catch(e){}
   try{ myAskLoad(); }catch(e){}
@@ -6766,7 +6767,8 @@ async function spVerify(){
   if(!sub || Notification.permission !== 'granted'){ try{ localStorage.removeItem(SP_SID); }catch(e){} spRender(); }
 }
 /* فتح تنبيه رسالة: ./?open=notices → اذهب للتنبيهات بعد تحميل المساحة */
-let spOpenNotices = false, spOpenReport = false, spOpenAsk = false;
+let spOpenNotices = false, spOpenReport = false, spOpenAsk = false, spOpenWall = '';
+try{ const q0 = new URLSearchParams(location.search); if(q0.get('open') === 'wall') spOpenWall = String(q0.get('id')||'').slice(0,40); }catch(e){}
 try{ const q = new URLSearchParams(location.search), o = q.get('open'); spOpenNotices = o === 'notices'; spOpenAsk = o === 'ask'; spOpenReport = o === 'report' ? (q.get('tab') === 'period' ? 'period' : q.get('tab') === 'week' ? 'week' : true) : false; }catch(e){}
 /* ═══════════ 🎮 المسابقة الجماعية المباشرة — واجهة الطالب ═══════════
    الخادم وحده يقرر: الدخول والخصم، السؤال الحالي، صحة الإجابة، النقاط، الترتيب.
@@ -7226,6 +7228,12 @@ function spAfterGateLoad(){
     const tab = _t === true ? '' : _t;
     try{ const u = new URL(location.href); u.searchParams.delete('open'); u.searchParams.delete('tab'); history.replaceState(null, '', u.pathname + u.search + u.hash); }catch(e){}
     setTimeout(() => { if(typeof myRepOpen === 'function') myRepOpen(tab); }, 900);
+  }
+  /* 🧱 إشعار حائط جديد: ./?open=wall&id=… → افتح الحائط */
+  if(spOpenWall){
+    const wid = spOpenWall; spOpenWall = '';
+    try{ const u = new URL(location.href); u.searchParams.delete('open'); u.searchParams.delete('id'); history.replaceState(null, '', u.pathname + u.search + u.hash); }catch(e){}
+    setTimeout(() => { try{ wallOpen(wid); }catch(e){} }, 900);
   }
   /* إشعار رد المعلم: ./?open=ask → افتح «محادثاتك» */
   if(spOpenAsk){

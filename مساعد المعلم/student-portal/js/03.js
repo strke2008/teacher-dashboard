@@ -67,3 +67,24 @@ function annZoom(src){
   const ov=document.createElement('div');ov.className='ann-zoom';ov.innerHTML=`<img src="${src}" alt=""><button type="button" aria-label="إغلاق">✕</button>`;
   ov.onclick=()=>ov.remove();document.body.appendChild(ov);
 }
+
+/* ═══ 🧱 حوائط الإبداع في بوابة الطالب: إعداد الملف المشترك wall.js + بطاقة الحوائط في الصفحة الرئيسية ═══
+   القراءة بهوية الطالب، والنشر والإعجاب والحذف بجلسته الموقّعة (storeFetch يطلب الرمز السري إن لزم) */
+const WALL_ENV={ teacher:false,
+  api:()=>String(API||'').replace(/\/+$/,''),
+  who:()=>'&sid='+encodeURIComponent(mySid||'')+'&name='+encodeURIComponent(myName||lockedName()||''),
+  post:async(path,body)=>{ const r=await storeFetch(WALL_ENV.api()+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); return r.json().catch(()=>({})); },
+  compress:f=>typeof compressImage==='function'?compressImage(f):f,
+  toast:(m,k)=>toast(m,k) };
+async function wallsLoad(){
+  const box=document.getElementById('space-walls'); if(!box) return;
+  if(!(mySid||myName||lockedName())){ box.innerHTML=''; return; }
+  let j=null; try{ const r=await fetch(WALL_ENV.api()+'/walls?'+WALL_ENV.who().slice(1)+'&_='+Date.now(),{cache:'no-store'}); j=await r.json(); }catch(e){}
+  const rows=j&&j.ok?j.rows:[]; if(!rows.length){ box.innerHTML=''; return; }
+  const seen=wallSeenGet();
+  box.innerHTML=`<section class="walls-card"><h3>🧱 حوائط الإبداع <small style="font-weight:500;color:#64748b;font-size:.78rem">شارك إبداعك وشاهد أعمال زملائك</small></h3>
+    <div class="walls-list">${rows.map(w=>{ const c=WALL_COLORS[w.color]||WALL_COLORS.sky, isNew=w.last&&w.last>(seen[w.id]||0);
+      return `<button type="button" class="wall-tile${w.color==='night'?' dark':''}" style="--wbg:${c[0]};--wac:${c[1]}" onclick="wallOpen('${esc(w.id)}')">
+        ${isNew?'<span class="new">جديد</span>':''}<span class="e">${esc(w.emoji)}</span><b>${esc(w.title)}</b>
+        <small>${w.count} منشور${w.open?'':' · 🔒 مغلق'}</small></button>`; }).join('')}</div></section>`;
+}
