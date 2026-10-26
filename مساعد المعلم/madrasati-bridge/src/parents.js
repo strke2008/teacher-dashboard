@@ -23,7 +23,7 @@
   }
   function toast(msg, ok) {
     let d = document.getElementById('mb-par-toast'); if (!d) { d = document.createElement('div'); d.id = 'mb-par-toast'; document.body.appendChild(d); }
-    d.style.cssText = `position:fixed;z-index:2147483647;bottom:84px;left:20px;max-width:420px;background:${ok ? '#13734F' : '#B4232F'};color:#fff;padding:12px 16px;border-radius:14px;font:600 14px/1.7 Tahoma,Arial;box-shadow:0 10px 30px rgba(0,0,0,.25);direction:rtl;white-space:pre-line`;
+    d.style.cssText = `position:fixed;z-index:2147483647;bottom:128px;left:20px;max-width:420px;background:${ok ? '#13734F' : '#B4232F'};color:#fff;padding:12px 16px;border-radius:14px;font:600 14px/1.7 Tahoma,Arial;box-shadow:0 10px 30px rgba(0,0,0,.25);direction:rtl;white-space:pre-line`;
     d.textContent = msg; clearTimeout(d._t); d._t = setTimeout(() => d.remove(), 12000);
   }
   function mount() {
@@ -44,6 +44,27 @@
       });
     };
     document.body.appendChild(b);
+    // 📥 تنزيل الأسماء مع جوال ولي الأمر ملف Excel — بشكل ملف كشف الفصل في مدرستي (ورقة لكل فصل: «الصف» في B2)
+    //    فيقرؤه استيراد الطلاب واستيراد «طلاب المدرسة للتصويت» في مساعد المعلم. يُنشأ في المتصفح: لا يُرسل لأي خادم.
+    const x = document.createElement('button'); x.id = 'mb-par-xlsx'; x.type = 'button';
+    x.textContent = '📥 تنزيل الأسماء مع الجوال (Excel)';
+    x.style.cssText = b.style.cssText; x.style.bottom = '76px'; x.style.background = '#13734F';
+    x.onclick = () => {
+      const rows = readTable();
+      if (!rows.length) { toast('لم أجد جدولًا فيه «اسم الطالب» و«جوال ولي الأمر» — اضغط «بحث» لعرض الطلاب أولًا'); return; }
+      const by = new Map();
+      for (const r of rows) { const k = r.cls || 'بلا فصل'; if (!by.has(k)) by.set(k, []); by.get(k).push(r); }
+      const sheets = [...by.entries()].sort((a, c) => a[0].localeCompare(c[0], 'ar')).map(([cls, list]) => ({ name: cls,
+        // الأسماء في عمود B وحدها؛ «الصف» بعيدًا عنها (C2 ← D2) فلا يُقرأ اسم الفصل اسمَ طالب
+        rows: [[], ['', '', 'الصف', cls === 'بلا فصل' ? '' : cls], [], [], [], [], [], [], [], ['م', 'اسم الطالب', 'جوال ولي الأمر'],
+          ...list.map((r, i) => [String(i + 1), r.name, r.phone ? (r.phone.length === 9 && r.phone[0] === '5' ? '0' + r.phone : r.phone) : ''])] }));
+      try {
+        const d = new Date(), day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        MBXlsx.download(MBXlsx.build(sheets), `madrasati-phones-${day}.xlsx`);
+        toast(`✓ نُزّل ملف Excel: ${rows.length} طالبًا في ${sheets.length} ${sheets.length === 1 ? 'فصل' : 'فصول'} (ورقة لكل فصل).\nإن كان في الصفحة أكثر من صفحة نتائج، اعرضها كلها أولًا أو نزّل كل صفحة.`, true);
+      } catch (e) { toast('تعذّر إنشاء الملف: ' + (e && e.message || e)); }
+    };
+    document.body.appendChild(x);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount); else mount();
   setInterval(mount, 2000);
