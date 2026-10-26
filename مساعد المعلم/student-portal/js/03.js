@@ -11,8 +11,10 @@ async function annPortalLoad(){
   try{const r=await fetch(annApi()+'/ann-mine?'+new URLSearchParams({sid,name}).toString(),{cache:'no-store'});const j=await r.json();rows=(j&&j.rows)||[]}catch(e){}
   if(String(mySid||'')!==sid)return;
   if(!rows.length){box.innerHTML='';return}
+  rows=rows.filter(a=>annVoteHref(a.body)).concat(rows.filter(a=>!annVoteHref(a.body)));   // 🗳️ دعوة التصويت أولًا
   const seen=annSeen(),fresh=rows.filter(a=>!seen.has(a.id)).length;
   const card=(a,i)=>{const isNew=!seen.has(a.id);
+    const vote=annVoteHref(a.body); if(vote) return annVoteCard(a,isNew,vote);
     const imgs=a.files.filter(f=>f.kind==='image'),vids=a.files.filter(f=>f.kind==='video'),pdfs=a.files.filter(f=>f.kind==='pdf'),ppts=a.files.filter(f=>f.kind==='ppt');
     return `<article class="ann-card ${isNew?'is-new':''}" ${i>=3?'data-more hidden':''}>
       <div class="ann-h"><b>${esc(a.title||'إعلان')}</b>${isNew?'<span class="ann-new">جديد</span>':''}<small>${new Date(a.at).toLocaleDateString('ar-SA',{day:'numeric',month:'long'})}</small></div>
@@ -29,6 +31,24 @@ async function annPortalLoad(){
     ${rows.map(card).join('')}
     ${rows.length>3?`<button type="button" class="btn ghost ann-more" onclick="this.parentElement.querySelectorAll('[data-more]').forEach(x=>x.hidden=false);this.remove()">عرض كل الإعلانات (${rows.length})</button>`:''}</section>`;
   setTimeout(()=>annMarkSeen(rows.slice(0,3).map(a=>a.id)),2500);
+}
+/* 🗳️ دعوة التصويت: إعلان فيه رابط ?open=vote يُعرض بطاقة مميزة (صورة كبيرة + «دعوة من معلمك» + زر «صوّت الآن») */
+function annVoteHref(body){ const m=/\]\((https?:\/\/[^\s)]*[?&]open=vote[^\s)]*)\)|(https?:\/\/\S*[?&]open=vote\S*)/.exec(String(body||'')); return m?(m[1]||m[2]).replace(/[.,،]+$/,''):''; }
+function annVoteCard(a,isNew,href){
+  const img=a.files.find(f=>f.kind==='image'), src=img?annFileUrl(a,img.i):'vote-invite.jpg';
+  const self=(()=>{ try{ return new URL(href).origin===location.origin; }catch(e){ return false; } })();
+  const text=String(a.body||'').split('\n').filter(l=>!/[?&]open=vote/.test(l)).join('\n').trim();
+  const lines=text.split('\n').map(l=>l.trim()).filter(Boolean), lead=lines.filter(l=>!/^[•\-–]/.test(l)), pts=lines.filter(l=>/^[•\-–]/.test(l)).map(l=>l.replace(/^[•\-–]\s*/,''));
+  return `<article class="ann-card ann-votecard ${isNew?'is-new':''}">
+    <div class="avc-hero"><img src="${esc(src)}" alt="" loading="lazy">${isNew?'<span class="avc-new">جديد</span>':''}</div>
+    <div class="avc-in">
+      <div class="avc-kick">🗳️ دعوة من معلمك</div>
+      <b class="avc-t">${esc(String(a.title||'شارك في التصويت').replace(/^🗳️\s*/,''))}</b>
+      ${lead.length?`<p class="avc-p">${lead.map(esc).join('<br>')}</p>`:''}
+      ${pts.length?`<ul class="avc-pts">${pts.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}
+      <a class="avc-go" href="${esc(href)}"${self?'':' target="_blank" rel="noopener noreferrer"'}>🗳️ صوّت الآن <span>←</span></a>
+      ${a.until?`<small class="avc-until">⏳ التصويت متاح حتى ${new Date(a.until).toLocaleString('ar-SA-u-ca-gregory',{weekday:'long',day:'numeric',month:'numeric',hour:'numeric',minute:'2-digit'})}</small>`:''}
+    </div></article>`;
 }
 /* الروابط في نص الإعلان قابلة للضغط — يُهرَّب النص أولًا ثم تُحوَّل الروابط فقط (لا HTML من المصدر) */
 /* تسمية الزر: «الاسم ثم الرابط» في سطر واحد، أو [الاسم](الرابط) — وإلا اسم الملف من الرابط */
