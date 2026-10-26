@@ -38,6 +38,7 @@ function wallClose() {
   if (document.fullscreenElement) try { document.exitFullscreen(); } catch (e) {}
   document.getElementById('wall-ov')?.remove(); document.documentElement.classList.remove('wall-on', 'wall-proj');
   try { if (typeof wallsLoad === 'function') wallsLoad(); } catch (e) {}
+  try { if (typeof tdWallsLoad === 'function') tdWallsLoad(); } catch (e) {}   // لوحة المعلم: حدّث سطر «ينتظر اعتمادك» في صفحة اليوم
   try { if (typeof wallAdminLoad === 'function') wallAdminLoad(); } catch (e) {}
 }
 async function wallLoad() {

@@ -6,11 +6,19 @@ const WALL_ENV={ teacher:true,
   compress:null,
   toast:(m,k)=>toast(m,k) };
 let WALL_ADMIN=[];
+/* 🧱 منشورات تنتظر الاعتماد ⇒ سطر في «مهام اليوم» (لا يعتمد المعلم على إشعار الجوال وحده) */
+let TD_WALLS=null;
+async function tdWallsLoad(){
+  if(!getApi()||!getTok()) return;
+  try{ const r=await fetch(WALL_ENV.api()+'/walls?t='+encodeURIComponent(getTok())+'&_='+Date.now(),{cache:'no-store'}); const j=await r.json();
+    if(j&&j.ok){ TD_WALLS=(j.rows||[]).filter(w=>w.pending>0).map(w=>({id:w.id,title:w.title,emoji:w.emoji,pending:w.pending})); if(typeof thDraw==='function') thDraw(); } }catch(e){}
+}
 async function wallAdminLoad(){
   const box=document.getElementById('wall-admin-list'); if(!box||!getApi()||!getTok()) return;
   let j=null; try{ const r=await fetch(WALL_ENV.api()+'/walls?t='+encodeURIComponent(getTok())+'&_='+Date.now(),{cache:'no-store'}); j=await r.json(); }catch(e){}
   if(!j||!j.ok){ box.innerHTML=`<div class="muted">${j&&j.error==='no_db'?'الحوائط تحتاج قاعدة D1 مربوطة بالخادم باسم DB':'تعذّر جلب الحوائط — تحقق من الاتصال'}</div>`; return; }
   WALL_ADMIN=j.rows||[]; voteLinkRow();
+  TD_WALLS=WALL_ADMIN.filter(w=>w.pending>0).map(w=>({id:w.id,title:w.title,emoji:w.emoji,pending:w.pending})); if(typeof thDraw==='function') try{ thDraw(); }catch(e){}
   box.innerHTML=WALL_ADMIN.length?`<div class="walls-list">${WALL_ADMIN.map(w=>{ const c=WALL_COLORS[w.color]||WALL_COLORS.sky;
     return `<div class="wall-tile${w.color==='night'?' dark':''}" style="--wbg:${c[0]};--wac:${c[1]};cursor:default">
       ${w.pending?`<span class="new">${w.pending} ينتظر</span>`:''}<span class="e">${esc(w.emoji)}</span><b>${esc(w.title)}</b>

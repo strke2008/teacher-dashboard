@@ -244,6 +244,10 @@ function tdTasks(){
   { const M=typeof TD_MAD!=='undefined'?TD_MAD:null;
     if(M&&M.pendingLogin) L.push({key:'madlogin:'+M.pendingLogin,lv:'warn',ic:'🔑',t:'مزامنة مدرستي تنتظر تسجيل دخولك — بعد الدخول تكتمل وحدها',acts:[['فتح مدرستي',"window.open('https://schools.madrasati.sa/','_blank','noopener')"]]});
     else if(M&&M.n&&M.last&&Date.now()-M.last>72*3600e3) L.push({key:'madstale:'+M.last,lv:'warn',ic:'📱',t:`آخر مزامنة لمدرستي ${remAgo(M.last)} — «من حل ومن لم يحل» قد لا يكون دقيقًا`,acts:[['🔄 زامن الآن','tdMadSync()']]}); }
+  // 🧱 منشورات الحوائط بانتظار الاعتماد
+  ((typeof TD_WALLS!=='undefined'&&TD_WALLS)||[]).forEach(w=>L.unshift({key:'wall:'+w.id+':'+w.pending,lv:'warn',ic:'🧱',noDone:true,
+    t:`${w.pending===1?'منشور واحد ينتظر':w.pending===2?'منشوران ينتظران':w.pending+' منشورات تنتظر'} اعتمادك في حائط «${w.title}»`,
+    acts:[['👀 راجع واعتمد',`wallOpen('${thEsc(w.id)}')`]]}));
   // 💬 رسائل الطلاب لها بطاقتها المستقلة في صفحة اليوم (td-slot-asks) — لا تُكرَّر هنا
   { const ns=typeof nsOpenList==='function'?nsOpenList():[]; if(ns.length) L.push({doneJs:'tdAckAll(\'ns\')',key:'ns:'+ns.map(x=>x.s.id).join(','),lv:'warn',ic:'🚶',t:`${ns.length===1?'طالب واحد لم يبدأ':ns.length===2?'طالبان لم يبدآ':ns.length+' طلاب لم يبدؤوا'} بعد — لم ${ns.length===1?'يسلّم':ns.length===2?'يسلّما':'يسلّموا'} أي نشاط في البوابة`,acts:[['عرض','nsOpen()']]}); }
   thActions().forEach(([lv,ic,t,n,go])=>{
@@ -340,7 +344,7 @@ async function renderTodayHub(fetchNow){
         gradesP=Promise.all([acadP,early]).then(async([,G])=>{ const n=ctSem(); CT_GRADES=(G&&n.sem===g.sem&&n.per===g.per)?G:await loadServerGrades(true,n.sem,n.per); return CT_GRADES; }).catch(()=>null); }
       else gradesP=acadP.then(()=>ctEnsureGrades(false)).catch(()=>null);
     }
-    tdMadLoad(); asksLoad();
+    tdMadLoad(); asksLoad(); if(typeof tdWallsLoad==='function') tdWallsLoad();
     const [,cd]=await Promise.all([acadP, ctLoad()]);
     CT_DATA=cd; TH_AT=Date.now(); thDraw(); tdCacheSave();
     if(gradesP){ try{ await gradesP; tdCacheSave(); }catch(e){} }
