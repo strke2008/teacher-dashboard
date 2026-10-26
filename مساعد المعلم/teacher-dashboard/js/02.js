@@ -12272,6 +12272,8 @@ async function pullState(){
 
     const j=await r.json();
     if(!j.ok || !j.data) return false;
+    // 🛡️ نسخة أقدم من آخر حفظ نعرفه (قراءة متأخرة من التخزين): لا تُطبَّق — كانت تُرجع تنبيهات أزلتها وتعديلات قمت بها
+    if(STATE_BASE_SAVED_AT && (Number(j.data.savedAt)||0) && Number(j.data.savedAt) < STATE_BASE_SAVED_AT) return false;
 
     _pulling=true;
 

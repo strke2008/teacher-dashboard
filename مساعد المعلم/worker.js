@@ -149,6 +149,8 @@ async function kvsReady(env) {
       await env.DB.prepare('CREATE TABLE IF NOT EXISTS kvs (k TEXT PRIMARY KEY, v TEXT)').run();
       for (const col of ['exp INTEGER', 'meta TEXT', 'big INTEGER NOT NULL DEFAULT 0'])
         await env.DB.prepare(`ALTER TABLE kvs ADD COLUMN ${col}`).run().catch(() => {});   // موجود ⇒ يُتجاهل
+      // 🧩 القيم الكبيرة (> KVS_BIG) أجزاءً في D1 (big = 2) — كانت تُحفظ في KV (big = 1) فتُقرأ نسخة قديمة حتى دقيقة بعد الحفظ
+      await env.DB.prepare('CREATE TABLE IF NOT EXISTS kvchunk (k TEXT NOT NULL, i INTEGER NOT NULL, v TEXT NOT NULL, PRIMARY KEY (k, i))').run();
       await kvmetaReady(env);
       return true;
     })().catch(e => { _kvsReady.delete(env.DB); throw e; });
@@ -197,12 +199,25 @@ function kvsLoader(env) {
     return pr;
   };
 }
+const KVS_CHUNK = 300000;
+// أوامر حفظ قيمة كبيرة أجزاءً: تُنفَّذ في دفعة واحدة (معاملة) فلا تُقرأ نصف قيمة أبدًا
+function kvsChunkStmts(env, k, v, exp, meta) {
+  const st = [env.DB.prepare('DELETE FROM kvchunk WHERE k = ?1').bind(k)];
+  for (let i = 0, n = 0; i < v.length; i += KVS_CHUNK, n++) st.push(env.DB.prepare('INSERT INTO kvchunk (k, i, v) VALUES (?1, ?2, ?3)').bind(k, n, v.slice(i, i + KVS_CHUNK)));
+  st.push(env.DB.prepare('INSERT INTO kvs (k, v, exp, meta, big) VALUES (?1, NULL, ?2, ?3, 2) ON CONFLICT(k) DO UPDATE SET v = NULL, exp = excluded.exp, meta = excluded.meta, big = 2').bind(k, exp, meta));
+  return st;
+}
+async function kvsChunkRead(env, k) {
+  const { results } = await env.DB.prepare('SELECT v FROM kvchunk WHERE k = ?1 ORDER BY i').bind(k).all();
+  return (results || []).length ? results.map(r => r.v).join('') : null;
+}
 async function kvsGet(env, hw, row, k, opt, withMeta) {
   const viaKv = () => withMeta ? hw.getWithMetadata(k, opt) : hw.get(k, opt);
   if (!(await kvsReady(env).catch(() => false))) return viaKv();
   let r; try { r = await row(k); } catch { return viaKv(); }
   if (!r) return (await kvsMigDone(env)) ? (withMeta ? { value: null, metadata: null } : null) : viaKv();
-  if (r.big) return viaKv();
+  if (r.big === 1) return viaKv();   // قديم: القيمة في KV حتى أول حفظ جديد
+  if (r.big === 2) { if (r.exp && r.exp <= Date.now()) return withMeta ? { value: null, metadata: null } : null; let v; try { v = await kvsChunkRead(env, k); } catch { return viaKv(); } r = { ...r, v }; }
   const gone = r.v === null || r.v === undefined || (r.exp && r.exp <= Date.now());
   const value = gone ? null : kvsConv(r.v, opt);
   if (!withMeta) return value;
@@ -214,10 +229,14 @@ async function kvsPut(env, hw, k, v, opts) {
   const o = opts || {};
   const exp = o.expirationTtl ? Date.now() + o.expirationTtl * 1000 : o.expiration ? o.expiration * 1000 : null;
   const meta = o.metadata !== undefined ? JSON.stringify(o.metadata) : null;
-  const up = (vv, big) => env.DB.prepare('INSERT INTO kvs (k, v, exp, meta, big) VALUES (?1, ?2, ?3, ?4, ?5) ON CONFLICT(k) DO UPDATE SET v = excluded.v, exp = excluded.exp, meta = excluded.meta, big = excluded.big')
-    .bind(k, vv, exp, meta, big).run();
-  if (typeof v !== 'string' || v.length > KVS_BIG) { await hw.put(k, v, opts); await up(null, 1); return; }
-  try { await up(v, 0); }
+  const upS = (vv, big) => env.DB.prepare('INSERT INTO kvs (k, v, exp, meta, big) VALUES (?1, ?2, ?3, ?4, ?5) ON CONFLICT(k) DO UPDATE SET v = excluded.v, exp = excluded.exp, meta = excluded.meta, big = excluded.big')
+    .bind(k, vv, exp, meta, big), up = (vv, big) => upS(vv, big).run();
+  if (typeof v !== 'string') { await hw.put(k, v, opts); await up(null, 1); return; }
+  if (v.length > KVS_BIG) {
+    try { await env.DB.batch(kvsChunkStmts(env, k, v, exp, meta)); return; }
+    catch { await hw.put(k, v, opts); await up(null, 1).catch(() => {}); await env.DB.prepare('DELETE FROM kvchunk WHERE k = ?1').bind(k).run().catch(() => {}); return; }
+  }
+  try { await env.DB.batch([env.DB.prepare('DELETE FROM kvchunk WHERE k = ?1').bind(k), upS(v, 0)]); }
   catch {   // D1 رفض (حجم/عطل): القيمة في KV، والسطر يشير إليها — أو يُحذف إن تعذّر حتى لا يبقى قديمًا
     await hw.put(k, v, opts);
     await up(null, 1).catch(() => env.DB.prepare('DELETE FROM kvs WHERE k = ?1').bind(k).run().catch(() => {}));
@@ -225,7 +244,8 @@ async function kvsPut(env, hw, k, v, opts) {
 }
 async function kvsDelete(env, hw, k) {
   if (await kvsReady(env).catch(() => false))
-    await env.DB.prepare('INSERT INTO kvs (k, v, exp, meta, big) VALUES (?1, NULL, NULL, NULL, 0) ON CONFLICT(k) DO UPDATE SET v = NULL, exp = NULL, meta = NULL, big = 0').bind(k).run().catch(() => {});
+    await env.DB.batch([env.DB.prepare('INSERT INTO kvs (k, v, exp, meta, big) VALUES (?1, NULL, NULL, NULL, 0) ON CONFLICT(k) DO UPDATE SET v = NULL, exp = NULL, meta = NULL, big = 0').bind(k),
+      env.DB.prepare('DELETE FROM kvchunk WHERE k = ?1').bind(k)]).catch(() => {});
   return hw.delete(k);
 }
 async function kvsList(env, hw, opts) {
@@ -289,6 +309,7 @@ async function kvsSweep(env) {
   if (!(await kvsReady(env).catch(() => false))) return;
   await env.DB.prepare('DELETE FROM kvs WHERE exp IS NOT NULL AND exp < ?1').bind(Date.now()).run().catch(() => {});
   if (await kvsMigDone(env)) await env.DB.prepare('DELETE FROM kvs WHERE v IS NULL AND big = 0').run().catch(() => {});
+  await env.DB.prepare('DELETE FROM kvchunk WHERE k NOT IN (SELECT k FROM kvs WHERE big = 2)').run().catch(() => {});   // أجزاء بلا سطر (انتهت صلاحيته)
 }
 function subTrackEnv(env) {
   if (!env || !env.HW || !env.DB || env.__subTracked) return env;
