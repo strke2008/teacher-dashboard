@@ -237,8 +237,12 @@ function tdTasks(){
   HW.filter(remPublished).forEach(h=>{
     const miss=hwPool(h).filter(s=>!(h.subs&&h.subs[s.id])).length; if(!miss||!h.due) return;
     const id=thEsc(h.id), acts=[['📨 ذكّرهم',`brOpenFor('${id}')`],['📊',`openReport('${id}')`]];
-    if(new Date(h.due+'T23:59:59')<now) L.push({key:`od:${h.id}:${miss}`,lv:'bad',ic:'⏰',t:`«${h.title}» انتهى موعده · ${miss} لم ${miss===1?'يسلّم':'يسلّموا'}`,acts});
-    else if(h.due===t0||h.due===t1) L.push({key:`soon:${h.id}:${miss}:${h.due}`,lv:'warn',ic:'⏳',t:`«${h.title}» ينتهي ${h.due===t0?'اليوم':'غدًا'} · ${miss} لم ${miss===1?'يسلّم':'يسلّموا'} بعد`,acts});
+    // «✓ تم» هنا = إزالة التنبيه نفسه (محفوظة على الخادم ومتزامنة بين أجهزتك، ولا تعود بتغيّر عدد المتأخرين)
+    const od=new Date(h.due+'T23:59:59')<now, ak=(typeof alertKey==='function'?alertKey([od?'missing-overdue':'missing-soon',h.id]):'');
+    if(ak&&typeof isAlertDismissed==='function'&&isAlertDismissed(ak)) return;
+    const doneJs=ak&&typeof dismissAlert==='function'?`dismissAlert('${thEsc(ak)}')`:'';
+    if(od) L.push({key:`od:${h.id}`,lv:'bad',ic:'⏰',t:`«${h.title}» انتهى موعده · ${miss} لم ${miss===1?'يسلّم':'يسلّموا'}`,acts,...(doneJs?{doneJs}:{})});
+    else if(h.due===t0||h.due===t1) L.push({key:`soon:${h.id}:${h.due}`,lv:'warn',ic:'⏳',t:`«${h.title}» ينتهي ${h.due===t0?'اليوم':'غدًا'} · ${miss} لم ${miss===1?'يسلّم':'يسلّموا'} بعد`,acts,...(doneJs?{doneJs}:{})});
   });
   { const e=typeof brEffect==='function'?brEffect():null; if(e&&e.n&&e.pending.length) L.push({key:'bre:'+e.last+':'+e.pending.length,lv:'info',ic:'📈',t:`أثر التذكير: سلّم ${e.done} من ${e.n} ذكّرتهم — لم يستجب ${e.pending.length}`,acts:[['📨 ذكّرهم','brRemindPending()']]}); }
   { const M=typeof TD_MAD!=='undefined'?TD_MAD:null;
