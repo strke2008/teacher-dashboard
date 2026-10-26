@@ -6720,7 +6720,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
     }
 
     // ═══ 🧱 حوائط الإبداع ═══
-    if (['/walls', '/wall', '/wall-post', '/wall-like', '/wall-del', '/wall-mod', '/wall-save', '/wall-delete', '/wall-file', '/wall-share', '/vote-link', '/vote-send'].includes(url.pathname)) {
+    if (['/walls', '/wall', '/wall-post', '/wall-like', '/wall-del', '/wall-mod', '/wall-save', '/wall-delete', '/wall-file', '/wall-share', '/vote-link', '/vote-send', '/vote-voters'].includes(url.pathname)) {
       if (!(await wallReady(env).catch(() => false))) return json({ ok: false, error: 'no_db' }, 503);
       const isGet = request.method === 'GET';
       let b = {}; if (!isGet) { try { b = await request.json(); } catch { return json({ ok: false, error: 'bad json' }, 400); } }
@@ -6906,6 +6906,24 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         try { await voteApi({ url: origin, token: String(j.token) }, '/api/admin/stulink', { method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ api: url.origin, portal: String(b.portal || '').slice(0, 300) }) }); stu = true; } catch {}
         return json({ ok: true, linked: true, url: origin, students: stu });
+      }
+      // 📱 طلاب المدرسة (حتى من لا تدرّسهم) للتصويت بجوال ولي الأمر: ملفات مدرستي ⇒ موقع المسابقة مباشرة.
+      //    هذا الخادم لا يحفظ شيئًا منها؛ ومن طابق اسمه طالبًا في كشفك يُرسل معه معرّفه (صوت واحد بالبوابة أو بالجوال)
+      if (P === '/vote-voters') {
+        const cfg = await voteCfg(env); if (!cfg || !cfg.token) return json({ ok: false, error: 'vote_unlinked' }, 400);
+        try {
+          if (isGet) return json(await voteApi(cfg, '/api/admin/pvoters', { method: 'GET' }));
+          const roster = await loadRoster(env);
+          const rows = (Array.isArray(b.rows) ? b.rows : []).slice(0, 3000).map(r => {
+            const name = String(r && r.name || '').slice(0, 80), cls = String(r && r.cls || '').slice(0, 60), phone = String(r && r.phone || '').slice(0, 20);
+            const m = roster.filter(x => parNameLoose(name, x.name));
+            return { name, cls, phone, sid: m.length === 1 ? String(m[0].id) : undefined };
+          });
+          return json(await voteApi(cfg, '/api/admin/pvoters', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rows, replace: !!b.replace }) }));
+        } catch (e) {
+          if (e.code === 'vote_auth') return json({ ok: false, error: 'vote_auth' }, 400);
+          return json({ ok: false, error: String(e.message || 'تعذّر الإرسال').slice(0, 200) }, 502);
+        }
       }
       // 🏆 إرسال منشور لموقع المسابقة: الغلاف تجهّزه اللوحة (صورة مصغّرة أو لقطة من الفيديو)، والفيديو/PDF يُنقل من R2 مباشرة
       if (P === '/vote-send' && !isGet) {

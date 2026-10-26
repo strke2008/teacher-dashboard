@@ -73,8 +73,46 @@ async function voteLinkGet(force){
 async function voteLinkRow(){
   const el=document.getElementById('vote-link-row'); if(!el) return;
   const v=await voteLinkGet(true);
-  el.innerHTML=v.linked?`🏆 مرتبط بموقع المسابقة: <b dir="ltr">${esc(v.url.replace(/^https:\/\//,''))}</b> · <a href="#" onclick="voteLinkForm(voteLinkRow);return false">تغيير</a> · <a href="#" onclick="voteUnlink();return false">فك الربط</a>`
+  el.innerHTML=v.linked?`🏆 مرتبط بموقع المسابقة: <b dir="ltr">${esc(v.url.replace(/^https:\/\//,''))}</b> · <a href="#" onclick="voteLinkForm(voteLinkRow);return false">تغيير</a> · <a href="#" onclick="voteUnlink();return false">فك الربط</a>
+      <br>📱 <a href="#" onclick="votersImport();return false">طلاب المدرسة للتصويت بجوال ولي الأمر</a> <span id="voters-count"></span>`
     :`🏆 اربط موقع المسابقة لترسل له أفضل الأعمال من الحائط بضغطة — <a href="#" onclick="voteLinkForm(voteLinkRow);return false">ربط</a>`;
+  if(v.linked) votersCount();
+}
+/* 📱 طلاب المدرسة كلها (حتى من لا تدرّسهم) للتصويت بجوال ولي الأمر — بملفات مدرستي نفسها التي تستورد بها طلابك.
+   لا تُحفظ في مساعد المعلم: تُرسل لموقع المسابقة مباشرة، وهو يحفظ بصمة الرقم لا الرقم. */
+async function votersCount(){
+  const el=document.getElementById('voters-count'); if(!el) return;
+  try{ const r=await fetch(WALL_ENV.api()+'/vote-voters?t='+encodeURIComponent(getTok())+'&_='+Date.now(),{cache:'no-store'}); const j=await r.json();
+    el.textContent=j&&j.ok?(j.total?`— ${j.total} طالبًا في ${j.classes.length} فصول`:'— لا قائمة بعد'):''; }catch(e){}
+}
+function votersImport(){
+  const inp=document.createElement('input'); inp.type='file'; inp.multiple=true; inp.accept='.xlsx,.xls';
+  inp.onchange=async()=>{
+    const files=[...inp.files]; if(!files.length) return;
+    toast('جارٍ قراءة الملفات…');
+    let rows=[]; const bad=[];
+    for(const f of files){ try{ const r=await readExcelStudentRecords(f,{phones:true}); rows=rows.concat(r); if(!r.some(x=>x.phone)) bad.push(f.name); }catch(e){ bad.push(f.name); } }
+    const seen=new Set(); rows=rows.filter(r=>{ const k=normAr(r.name)+'|'+r.cls; if(seen.has(k)) return false; seen.add(k); return true; });
+    const ok=rows.filter(r=>r.phone&&r.cls), noPh=rows.filter(r=>!r.phone), noCls=rows.filter(r=>r.phone&&!r.cls);
+    const byCls={}; ok.forEach(r=>{ byCls[r.cls]=(byCls[r.cls]||0)+1; });
+    const box=wallSheet(`<h3>📱 طلاب المدرسة للتصويت</h3>
+      <div class="muted">يدخل الطالب في موقع المسابقة باختيار فصله وكتابة جوال ولي أمره — صوت واحد لكل طالب. لا تُحفظ في مساعد المعلم، وموقع المسابقة يحفظ بصمة الرقم لا الرقم نفسه.</div>
+      <div><b>${ok.length}</b> طالبًا جاهزًا في <b>${Object.keys(byCls).length}</b> فصول:</div>
+      <div style="max-height:180px;overflow:auto;font-size:.88rem;line-height:1.9">${Object.entries(byCls).sort().map(([c,n])=>`• ${esc(c)} — ${n}`).join('<br>')||'—'}</div>
+      ${noPh.length?`<div class="wall-st pend">⚠️ ${noPh.length} بلا جوال في الملف (لن يُضافوا): ${esc(noPh.slice(0,5).map(r=>r.name).join('، '))}${noPh.length>5?'…':''}</div>`:''}
+      ${noCls.length?`<div class="wall-st pend">⚠️ ${noCls.length} بلا فصل في الملف (لن يُضافوا)</div>`:''}
+      ${bad.length?`<div class="wall-st pend">⚠️ ملفات بلا عمود جوال: ${esc(bad.join('، '))}</div>`:''}
+      <label style="flex-direction:row;align-items:center;font-weight:600"><input type="checkbox" id="vv-rep"> استبدال القائمة السابقة كلها (بدلًا من الإضافة إليها)</label>
+      <div class="wcp-acts"><button type="button" class="wall-btn" onclick="document.getElementById('wall-comp').remove()">إلغاء</button><button type="button" class="wall-btn main" id="vv-go" ${ok.length?'':'disabled'}>إرسال لموقع المسابقة</button></div>`);
+    box.querySelector('#vv-go').onclick=async()=>{
+      const go=box.querySelector('#vv-go'); go.disabled=true; go.textContent='⏳ جارٍ الإرسال…';
+      const j=await WALL_ENV.post('/vote-voters',{rows:ok.map(r=>({name:r.name,cls:r.cls,phone:r.phone})),replace:box.querySelector('#vv-rep').checked}).catch(()=>null);
+      if(j&&j.error==='vote_auth'){ box.remove(); toast('انتهت جلسة موقع المسابقة — اربط من جديد','bad'); return voteLinkForm(votersImport); }
+      if(!j||!j.ok){ go.disabled=false; go.textContent='إرسال لموقع المسابقة'; return toast((j&&j.error)||'تعذّر الإرسال','bad'); }
+      box.remove(); toast(`✅ أُضيف ${j.added} طالبًا — المجموع في موقع المسابقة ${j.total}`,'good'); votersCount();
+    };
+  };
+  inp.click();
 }
 async function voteUnlink(){ if(!confirm('فك الربط بموقع المسابقة؟')) return; await WALL_ENV.post('/vote-link',{unlink:true}); VOTE_LINK=null; voteLinkRow(); }
 function voteLinkForm(after){

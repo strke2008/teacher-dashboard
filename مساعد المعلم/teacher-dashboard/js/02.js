@@ -7469,7 +7469,7 @@ async function readExcelNames(file){
   return (await readExcelStudentRecords(file)).map(x=>x.name);
 }
 
-async function readExcelStudentRecords(file){
+async function readExcelStudentRecords(file, opts){   // opts.phones: يقرأ أيضًا عمود جوال ولي الأمر (لقائمة التصويت)
   await loadLib('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
                 ()=> typeof XLSX !== 'undefined');
 
@@ -7563,10 +7563,22 @@ async function readExcelStudentRecords(file){
       if(score>bestScore){bestScore=score;best=c;}
     }
 
+    // 📱 عمود الجوال: عنوانه (جوال/هاتف — ويُفضَّل «ولي الأمر»)، وإلا أكثر عمود خلاياه أرقام جوال سعودية
+    let phCol=-1;
+    if(opts&&opts.phones){ opts._hdrRow=-1;
+      const digits=v=>String(v||'').replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/\D/g,'');
+      const isPh=v=>/^(?:966|0)?5\d{8}$/.test(digits(v));
+      let hdr=-1, hdrScore=0;
+      rows.slice(0,40).forEach((r,ri)=>r.forEach((v,c)=>{ const t=clean(v); if(!/جوال|هاتف|موبايل|تواصل/.test(t)) return; const sc=/ولي|الأب|الام|الأم/.test(t)?2:1; if(sc>hdrScore){ hdrScore=sc; hdr=c; opts._hdrRow=ri; } }));
+      if(hdr>=0 && nameRows.some(r=>isPh(r[hdr]))) phCol=hdr;
+      else { let bs=0; for(let c=0;c<width;c++){ const sc=nameRows.filter(r=>isPh(r[c])).length; if(sc>bs){ bs=sc; phCol=c; } } if(bs<nameRows.length*.3) phCol=-1; }
+      opts._digits=digits; if(phCol<0) opts._hdrRow=-1;
+    }
     if(best>=0){
       nameRows.forEach(r=>{
         const name=clean(r[best]);
-        if(looksLikeName(name)) records.push({name,cls:classLabel});
+        if(phCol>=0 && opts._hdrRow>=0 && rows.indexOf(r)<=opts._hdrRow) return;   // ما فوق صف العناوين بيانات الملف (الصف، المدرسة) لا طلاب
+        if(looksLikeName(name)) records.push(phCol>=0?{name,cls:classLabel,phone:opts._digits(r[phCol])}:{name,cls:classLabel});
       });
     }
   });
