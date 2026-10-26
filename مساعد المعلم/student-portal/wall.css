@@ -1,5 +1,8 @@
 /* 🧱 حوائط الإبداع — ملف مشترك بين بوابة الطالب ولوحة المعلم */
 html.wall-on body{overflow:hidden}
+/* فوق الحائط: طلب الرمز السري (بانتهاء الجلسة) والتنبيهات — كانت تُفتح خلفه فيتجمّد النشر بانتظار رمز لا يُرى */
+html.wall-on #store-pin{z-index:2147483600!important}
+html.wall-on #toast{z-index:2147483640!important}
 .wall-ov{--wbg:#dbeafe;--wac:#2563eb;position:fixed;inset:0;z-index:2147483000;display:flex;flex-direction:column;direction:rtl;color:#1e293b;
   background:var(--wbg) radial-gradient(rgba(0,0,0,.06) 1.2px,transparent 1.4px) 0 0/22px 22px;font-family:inherit}
 .wall-ov.dark{color:#e2e8f0}
