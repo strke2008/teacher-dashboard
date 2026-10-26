@@ -67,6 +67,7 @@ function wallRender() {
       <div class="wall-acts">
         ${canPost ? `<button type="button" class="wall-btn main" onclick="wallCompose()">＋ ${T ? 'أضف منشورًا' : 'أضف إبداعك'}</button>` : ''}
         ${T ? `<button type="button" class="wall-btn" onclick="wallProjector()" title="عرض على البروجكتر">📽️ عرض</button>` : ''}
+        ${T && typeof wallPubOpen === 'function' ? `<button type="button" class="wall-btn wall-pubbtn" onclick="wallPubOpen(WALL.cur)" title="رابط عرض فقط لأولياء الأمور والعامة">🌐 رابط للعامة</button>` : ''}
       </div>
     </header>
     <div class="wall-body">

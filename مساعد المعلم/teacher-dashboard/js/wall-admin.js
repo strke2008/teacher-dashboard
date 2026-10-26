@@ -31,8 +31,9 @@ async function wallAdminLoad(){
     :'<div class="feature-empty">لا حوائط بعد — أنشئ حائطًا لمناسبة أو تجربة ويشارك فيه طلابك 🌿</div>';
 }
 /* 🌐 رابط للعامة: صفحة عرض فقط للأعمال المعتمدة (لأولياء الأمور وحساب المدرسة…) — بلا نشر ولا إعجاب، والأسماء حسب اختيارك */
-function wallPubOpen(id){
-  const w=WALL_ADMIN.find(x=>x.id===id); if(!w) return;
+async function wallPubOpen(id){
+  if(!WALL_ADMIN.find(x=>x.id===id)) await wallAdminLoad();
+  const w=WALL_ADMIN.find(x=>x.id===id); if(!w) return toast('تعذّر جلب الحائط','bad');
   const url=w.pub?WALL_ENV.api()+'/w/'+w.pub:'', nm=w.pubNames||'first';
   const box=wallSheet(`<h3>🌐 رابط الحائط للعامة — ${esc(w.title)}</h3>
     <div class="muted">من يفتح الرابط يرى الأعمال <b>المعتمدة فقط</b> — بلا تسجيل دخول، ولا يستطيع النشر أو الإعجاب. يصلح لأولياء الأمور وحساب المدرسة.</div>

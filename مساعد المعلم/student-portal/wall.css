@@ -80,7 +80,7 @@ html.wall-on #toast{z-index:2147483640!important}
 .wcp-prog.hide{display:none}
 .wcp-acts{display:flex;gap:.5rem;justify-content:flex-end}
 /* 📽️ وضع العرض */
-html.wall-proj .wall-mod,html.wall-proj .wall-acts .main,html.wall-proj .wc-del,html.wall-proj .wall-note{display:none!important}
+html.wall-proj .wall-pubbtn,html.wall-proj .wall-mod,html.wall-proj .wall-acts .main,html.wall-proj .wc-del,html.wall-proj .wall-note{display:none!important}
 html.wall-proj .wall-grid{columns:4 300px}
 html.wall-proj .wc-t{font-size:1.2rem}
 @media (max-width:600px){.wall-grid{columns:1}.wall-top{padding-inline:.7rem}.wall-body{padding-inline:.7rem}}
