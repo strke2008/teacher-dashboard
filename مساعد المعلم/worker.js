@@ -6695,6 +6695,30 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       return json({ ok: true, added, total: arr.length });
     }
 
+    /* ═══ 🎓 تصويت طلاب المدرسة في موقع المسابقة ═══
+       البوابة (بجلسة الطالب) تطلب تذكرة موقّعة قصيرة العمر ثم تنقله لموقع المسابقة بها؛
+       وموقع المسابقة يتحقق منها هنا (/vote-ticket-check) فيعرف الطالب — صوت واحد لكل طالب، بلا رموز تُوزَّع. */
+    if (url.pathname === '/vote-ticket' && request.method === 'POST') {
+      let b; try { b = await request.json(); } catch { return json({ ok: false, error: 'bad json' }, 400); }
+      const auth = await requireStudentSession(env, b); if (auth.res) return auth.res;
+      const cfg = await voteCfg(env); if (!cfg || !cfg.url) return json({ ok: false, error: 'vote_unlinked' }, 400);
+      const body = b64url(_enc.encode(JSON.stringify({ v: 1, sid: String(auth.st.id), exp: Date.now() + 2 * 3600000, aud: cfg.url })));
+      const sig = b64url(new Uint8Array(await crypto.subtle.sign('HMAC', await sessionKey(env), _enc.encode('vote|' + body))));
+      return json({ ok: true, url: cfg.url, ticket: body + '.' + sig });
+    }
+    if (url.pathname === '/vote-ticket-check' && request.method === 'GET') {
+      const tk = String(url.searchParams.get('tk') || '').slice(0, 600), dot = tk.indexOf('.');
+      const key = await sessionKey(env);
+      if (dot < 1 || !key) return json({ ok: false, error: 'bad_ticket' }, 400);
+      let valid = false;
+      try { valid = await crypto.subtle.verify('HMAC', key, b64urlToBytes(tk.slice(dot + 1)), _enc.encode('vote|' + tk.slice(0, dot))); } catch {}
+      let p = null; try { p = JSON.parse(new TextDecoder().decode(b64urlToBytes(tk.slice(0, dot)))); } catch {}
+      if (!valid || !p || p.v !== 1 || !(Number(p.exp) > Date.now())) return json({ ok: false, error: 'bad_ticket' }, 401);
+      const st = await resolveStudent(env, { id: String(p.sid) });
+      if (!st.known || String(st.id) !== String(p.sid)) return json({ ok: false, error: 'bad_ticket' }, 401);
+      return json({ ok: true, sid: String(st.id), name: String(st.name || ''), cls: String(st.cls || ''), aud: p.aud || '' });
+    }
+
     // ═══ 🧱 حوائط الإبداع ═══
     if (['/walls', '/wall', '/wall-post', '/wall-like', '/wall-del', '/wall-mod', '/wall-save', '/wall-delete', '/wall-file', '/wall-share', '/vote-link', '/vote-send'].includes(url.pathname)) {
       if (!(await wallReady(env).catch(() => false))) return json({ ok: false, error: 'no_db' }, 503);
@@ -6877,7 +6901,11 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         catch { return json({ ok: false, error: 'تعذّر الوصول لموقع المسابقة — تحقق من الرابط' }, 502); }
         if (!r.ok || !j || !j.token) return json({ ok: false, error: (j && (j.error || j.message)) || 'كلمة المرور غير صحيحة' }, 400);
         await env.HW.put('cfg:vote', JSON.stringify({ url: origin, token: String(j.token), at: Date.now() }));
-        return json({ ok: true, linked: true, url: origin });
+        // 🎓 موقع المسابقة يعرف أين يتحقق من تذاكر الطلاب وأين بوابتهم (نسخة قديمة منه بلا هذا المسار ⇒ تُتجاهل)
+        let stu = false;
+        try { await voteApi({ url: origin, token: String(j.token) }, '/api/admin/stulink', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ api: url.origin, portal: String(b.portal || '').slice(0, 300) }) }); stu = true; } catch {}
+        return json({ ok: true, linked: true, url: origin, students: stu });
       }
       // 🏆 إرسال منشور لموقع المسابقة: الغلاف تجهّزه اللوحة (صورة مصغّرة أو لقطة من الفيديو)، والفيديو/PDF يُنقل من R2 مباشرة
       if (P === '/vote-send' && !isGet) {

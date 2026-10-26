@@ -86,7 +86,8 @@ function voteLinkForm(after){
     <div class="wcp-acts"><button type="button" class="wall-btn" onclick="document.getElementById('wall-comp').remove()">إلغاء</button><button type="button" class="wall-btn main" id="vl-go">ربط</button></div>`);
   box.querySelector('#vl-go').onclick=async()=>{
     const go=box.querySelector('#vl-go'); go.disabled=true; go.textContent='جارٍ الربط…';
-    const j=await WALL_ENV.post('/vote-link',{url:box.querySelector('#vl-url').value.trim(),password:box.querySelector('#vl-pw').value}).catch(()=>null);
+    const portal=(()=>{ try{ return (localStorage.getItem(K_SITE)||SITE_URL||'').trim(); }catch(e){ return ''; } })();   // 🎓 رابط بوابة الطالب: زر «ادخل بحساب البوابة» في موقع المسابقة
+    const j=await WALL_ENV.post('/vote-link',{url:box.querySelector('#vl-url').value.trim(),password:box.querySelector('#vl-pw').value,portal}).catch(()=>null);
     if(!j||!j.ok){ go.disabled=false; go.textContent='ربط'; return toast((j&&j.error)||'تعذّر الربط','bad'); }
     VOTE_LINK=j; box.remove(); toast('✅ تم الربط بموقع المسابقة','good'); if(after) after();
   };

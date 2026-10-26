@@ -6768,7 +6768,8 @@ async function spVerify(){
 }
 /* فتح تنبيه رسالة: ./?open=notices → اذهب للتنبيهات بعد تحميل المساحة */
 let spOpenNotices = false, spOpenReport = false, spOpenAsk = false, spOpenWall = '';
-try{ const q0 = new URLSearchParams(location.search); if(q0.get('open') === 'wall') spOpenWall = String(q0.get('id')||'').slice(0,40); }catch(e){}
+let spOpenVote = false;
+try{ const q0 = new URLSearchParams(location.search); if(q0.get('open') === 'wall') spOpenWall = String(q0.get('id')||'').slice(0,40); spOpenVote = q0.get('open') === 'vote'; }catch(e){}
 try{ const q = new URLSearchParams(location.search), o = q.get('open'); spOpenNotices = o === 'notices'; spOpenAsk = o === 'ask'; spOpenReport = o === 'report' ? (q.get('tab') === 'period' ? 'period' : q.get('tab') === 'week' ? 'week' : true) : false; }catch(e){}
 /* ═══════════ 🎮 المسابقة الجماعية المباشرة — واجهة الطالب ═══════════
    الخادم وحده يقرر: الدخول والخصم، السؤال الحالي، صحة الإجابة، النقاط، الترتيب.
@@ -7228,6 +7229,19 @@ function spAfterGateLoad(){
     const tab = _t === true ? '' : _t;
     try{ const u = new URL(location.href); u.searchParams.delete('open'); u.searchParams.delete('tab'); history.replaceState(null, '', u.pathname + u.search + u.hash); }catch(e){}
     setTimeout(() => { if(typeof myRepOpen === 'function') myRepOpen(tab); }, 900);
+  }
+  /* 🎓 من موقع المسابقة: ./?open=vote → تذكرة تصويت موقّعة بجلسة الطالب ثم العودة لموقع المسابقة */
+  if(spOpenVote){
+    spOpenVote = false;
+    try{ const u = new URL(location.href); u.searchParams.delete('open'); history.replaceState(null, '', u.pathname + u.search + u.hash); }catch(e){}
+    setTimeout(async () => {
+      try{
+        const r = await storeFetch(String(API||'').replace(/\/+$/,'') + '/vote-ticket', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({}) });
+        const j = await r.json().catch(()=>({}));
+        if(j && j.ok && j.url && j.ticket){ toast('🗳️ جارٍ فتح التصويت…','good'); location.href = j.url + '/?stk=' + encodeURIComponent(j.ticket); return; }
+        toast(j && j.error === 'vote_unlinked' ? 'المسابقة غير مربوطة ببوابتك بعد — أخبر معلمك' : j && j.error === 'auth_cancel' ? 'أدخل رمزك السري لتصوّت' : 'تعذّر فتح التصويت — حاول مرة أخرى', 'bad');
+      }catch(e){ toast('تعذّر فتح التصويت','bad'); }
+    }, 700);
   }
   /* 🧱 إشعار حائط جديد: ./?open=wall&id=… → افتح الحائط */
   if(spOpenWall){
