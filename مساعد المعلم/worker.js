@@ -3359,7 +3359,8 @@ async function wallReady(env) {
       env.DB.prepare('CREATE TABLE IF NOT EXISTS wposts (id TEXT PRIMARY KEY, wall TEXT NOT NULL, sid TEXT NOT NULL, name TEXT, cls TEXT, text TEXT, link TEXT, files TEXT, status TEXT NOT NULL, pinned INTEGER NOT NULL DEFAULT 0, likes INTEGER NOT NULL DEFAULT 0, at INTEGER NOT NULL)'),
       env.DB.prepare('CREATE INDEX IF NOT EXISTS wposts_wall ON wposts (wall, at)'),
       env.DB.prepare('CREATE TABLE IF NOT EXISTS wlikes (post TEXT NOT NULL, sid TEXT NOT NULL, PRIMARY KEY (post, sid))'),
-    ]).then(() => true).catch(e => { _wallReady.delete(env.DB); throw e; });
+    ]).then(() => env.DB.prepare('ALTER TABLE wposts ADD COLUMN voted TEXT').run().catch(() => {}))   // 🏆 معرّف العمل في موقع المسابقة
+      .then(() => true).catch(e => { _wallReady.delete(env.DB); throw e; });
     _wallReady.set(env.DB, p);
   }
   return p;
@@ -3379,13 +3380,43 @@ function wallPublicPost(r, me, liked, teacher) {
   let files = []; try { files = JSON.parse(r.files || '[]') || []; } catch {}
   return { id: r.id, name: r.name || '', cls: r.cls || '', text: r.text || '', link: r.link || '', status: r.status, pinned: !!r.pinned,
     likes: r.likes || 0, liked: !!liked, mine: !!me && r.sid === me, byTeacher: r.sid === 'T', at: r.at,
-    ...(teacher ? { sid: r.sid } : {}),
+    ...(teacher ? { sid: r.sid, voted: r.voted || '' } : {}),
     files: files.map((f, i) => ({ i, kind: f.kind, name: f.name, size: f.size, type: f.type })) };
 }
 function wallSafeLink(v) {
   const s = String(v || '').trim().slice(0, 400);
   if (!s) return '';
   try { const u = new URL(s); return /^https?:$/.test(u.protocol) ? u.href : ''; } catch { return ''; }
+}
+/* 🏆 موقع المسابقة (مشروع مستقل): لا يقبل طلبات من مواقع أخرى (بلا CORS)، فالخادم يتصل به مباشرة.
+   الربط مرة واحدة بكلمة مرور لوحته ⇒ يُحفظ رمز الجلسة الذي يعيده /api/login (لا تُحفظ كلمة المرور). */
+async function voteCfg(env) { try { return JSON.parse(await env.HW.get('cfg:vote') || 'null'); } catch { return null; } }
+async function voteApi(cfg, path, init) {
+  const r = await fetch(cfg.url + path, { ...init, headers: { ...(init && init.headers || {}), 'x-admin-key': cfg.token } });
+  let j = null; try { j = await r.json(); } catch {}
+  if (r.status === 401 || r.status === 403) { const e = new Error('vote_auth'); e.code = 'vote_auth'; throw e; }
+  if (!r.ok || !j || j.ok === false) throw new Error((j && (j.error || j.message)) || `الموقع ردّ ${r.status}`);
+  return j;
+}
+// فيديو/PDF من R2 إلى تخزين موقع المسابقة على أجزاء 10MB (بثّ مباشر، بلا تحميل الملف كاملًا في الذاكرة)
+async function voteUploadMedia(env, cfg, f) {
+  const type = /^video\/(mp4|quicktime|webm|x-m4v|3gpp)$/.test(f.type) || f.type === 'application/pdf' ? f.type
+    : f.kind === 'pdf' ? 'application/pdf' : /\.mov$/i.test(f.name) ? 'video/quicktime' : /\.webm$/i.test(f.name) ? 'video/webm' : 'video/mp4';
+  const head = await env.FILES.head(f.key); if (!head) throw new Error('الملف غير موجود في التخزين');
+  const st = await voteApi(cfg, '/api/admin/video/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type, size: head.size }) });
+  const q = `key=${encodeURIComponent(st.key)}&uploadId=${encodeURIComponent(st.uploadId)}`, PART = 10 * 1024 * 1024, parts = [];
+  try {
+    for (let n = 1, off = 0; off < head.size; n++, off += PART) {
+      const obj = await env.FILES.get(f.key, { range: { offset: off, length: Math.min(PART, head.size - off) } });
+      const buf = await obj.arrayBuffer();
+      const r = await fetch(`${cfg.url}/api/admin/video/part?${q}&n=${n}`, { method: 'PUT', headers: { 'x-admin-key': cfg.token }, body: buf });
+      const j = await r.json().catch(() => null);
+      if (!r.ok || !j || !j.etag) throw new Error('تعذّر رفع جزء من الملف لموقع المسابقة');
+      parts.push({ partNumber: j.partNumber, etag: j.etag });
+    }
+    await voteApi(cfg, `/api/admin/video/complete?${q}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ parts }) });
+    return st.key;
+  } catch (e) { fetch(`${cfg.url}/api/admin/video/abort?${q}`, { method: 'POST', headers: { 'x-admin-key': cfg.token } }).catch(() => {}); throw e; }
 }
 async function wallDropFiles(env, rows) {
   if (!env.FILES) return;
@@ -6665,7 +6696,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
     }
 
     // ═══ 🧱 حوائط الإبداع ═══
-    if (url.pathname.startsWith('/wall') && ['/walls', '/wall', '/wall-post', '/wall-like', '/wall-del', '/wall-mod', '/wall-save', '/wall-delete', '/wall-file'].includes(url.pathname)) {
+    if (['/walls', '/wall', '/wall-post', '/wall-like', '/wall-del', '/wall-mod', '/wall-save', '/wall-delete', '/wall-file', '/wall-share', '/vote-link', '/vote-send'].includes(url.pathname)) {
       if (!(await wallReady(env).catch(() => false))) return json({ ok: false, error: 'no_db' }, 503);
       const isGet = request.method === 'GET';
       let b = {}; if (!isGet) { try { b = await request.json(); } catch { return json({ ok: false, error: 'bad json' }, 400); } }
@@ -6808,6 +6839,67 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
             data: { type: 'wall', id, url: './?open=wall&id=' + encodeURIComponent(id) } }, (await sha256Hex(`wallnew|${id}`)).slice(0, 32));
         }
         return json({ ok: true, id });
+      }
+      // 🧱 مشروع طالب أعجبك ⇒ منشور باسمه في حائط (الملفات تُنسخ في R2: حذف المنشور لا يمس تسليمه الأصلي)
+      if (P === '/wall-share' && !isGet) {
+        if (!env.FILES) return json({ ok: false, error: 'R2 binding FILES is missing' }, 500);
+        const w = await wallGet(env, b.wall); if (!w) return json({ ok: false, error: 'not_found' }, 404);
+        const hw = String(b.hw || '').slice(0, 64), st = await resolveStudent(env, { id: String(b.sid || '').slice(0, 40), name: String(b.name || '').slice(0, 80) });
+        if (!hw || !st || !(st.id || st.name)) return json({ ok: false, error: 'missing' }, 400);
+        let src = []; try { src = JSON.parse((await readByIdentity(env, `fa:${hw}:`, st, { migrate: false })).value || '[]') || []; } catch {}
+        const pick = Array.isArray(b.files) ? new Set(b.files.map(Number)) : null;
+        const chosen = src.filter((f, i) => f && f.key && (!pick || pick.has(i))).slice(0, WALL.maxFiles);
+        const text = String(b.text || '').replace(/\r\n?/g, '\n').trim().slice(0, WALL.maxText);
+        if (!chosen.length && !text) return json({ ok: false, error: 'empty' }, 400);
+        const files = [];
+        try {
+          for (const f of chosen) {
+            const obj = await env.FILES.get(f.key); if (!obj) continue;
+            const key = `wall/${w.id}/${crypto.randomUUID()}-${String(f.name || 'file').replace(/[^\w\-.؀-ۿ ]/g, '_').slice(0, 100)}`;
+            await env.FILES.put(key, obj.body, { httpMetadata: obj.httpMetadata || { contentType: f.type || 'application/octet-stream' } });
+            const kind = annKind(String(f.type || '').toLowerCase(), f.name) || (fileIsVideo(f) ? 'video' : /\.pdf$/i.test(f.name || '') ? 'pdf' : 'image');
+            files.push({ key, name: f.name || 'file', type: f.type || '', kind, size: obj.size || f.size || 0 });
+          }
+        } catch (e) { for (const f of files) { try { await env.FILES.delete(f.key); } catch {} } return json({ ok: false, error: 'copy_failed' }, 500); }
+        const id = 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+        await env.DB.prepare("INSERT INTO wposts (id, wall, sid, name, cls, text, link, files, status, pinned, likes, at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, '', ?7, 'ok', 0, 0, ?8)")
+          .bind(id, w.id, String(st.id || ''), String(st.name || b.name || ''), String(st.cls || ''), text, JSON.stringify(files), Date.now()).run();
+        return json({ ok: true, id, files: files.length });
+      }
+      // 🏆 ربط موقع المسابقة: الرابط + كلمة مرور لوحته ⇒ رمز جلسة يُحفظ (أو فك الربط)
+      if (P === '/vote-link') {
+        if (isGet) { const c = await voteCfg(env); return json({ ok: true, linked: !!(c && c.token), url: (c && c.url) || '' }); }
+        if (b.unlink) { await env.HW.delete('cfg:vote'); return json({ ok: true, linked: false }); }
+        let origin = ''; try { const u = new URL(String(b.url || '').trim()); if (u.protocol === 'https:') origin = u.origin; } catch {}
+        if (!origin) return json({ ok: false, error: 'اكتب رابط موقع المسابقة كاملًا (يبدأ بـ https://)' }, 400);
+        let j = null, r = null;
+        try { r = await fetch(origin + '/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: String(b.password || '') }) }); j = await r.json().catch(() => null); }
+        catch { return json({ ok: false, error: 'تعذّر الوصول لموقع المسابقة — تحقق من الرابط' }, 502); }
+        if (!r.ok || !j || !j.token) return json({ ok: false, error: (j && (j.error || j.message)) || 'كلمة المرور غير صحيحة' }, 400);
+        await env.HW.put('cfg:vote', JSON.stringify({ url: origin, token: String(j.token), at: Date.now() }));
+        return json({ ok: true, linked: true, url: origin });
+      }
+      // 🏆 إرسال منشور لموقع المسابقة: الغلاف تجهّزه اللوحة (صورة مصغّرة أو لقطة من الفيديو)، والفيديو/PDF يُنقل من R2 مباشرة
+      if (P === '/vote-send' && !isGet) {
+        const cfg = await voteCfg(env); if (!cfg || !cfg.token) return json({ ok: false, error: 'vote_unlinked' }, 400);
+        const r = await env.DB.prepare('SELECT * FROM wposts WHERE id = ?1').bind(String(b.post || '')).first();
+        if (!r) return json({ ok: false, error: 'not_found' }, 404);
+        const cover = String(b.cover || '');
+        if (!/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(cover) || cover.length > 1_800_000) return json({ ok: false, error: 'bad_cover' }, 400);
+        const title = String(b.title || '').trim().slice(0, 80); if (!title) return json({ ok: false, error: 'اكتب عنوان العمل' }, 400);
+        let fs = []; try { fs = JSON.parse(r.files || '[]') || []; } catch {}
+        const media = fs.find(f => f.kind === 'video') || fs.find(f => f.kind === 'pdf');
+        const work = { title, img: cover, student: String(b.student || r.name || '').slice(0, 80), cls: String(b.cls || r.cls || '').slice(0, 60) };
+        try {
+          if (media && env.FILES) work.video = await voteUploadMedia(env, cfg, media);
+          else if (r.link) work.link = r.link;
+          const j = await voteApi(cfg, '/api/admin/works', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(work) });
+          await env.DB.prepare('UPDATE wposts SET voted = ?1 WHERE id = ?2').bind(String(j.id || 'sent'), r.id).run();
+          return json({ ok: true, id: j.id || '', media: media ? media.kind : r.link ? 'link' : 'image' });
+        } catch (e) {
+          if (e.code === 'vote_auth') return json({ ok: false, error: 'vote_auth' }, 400);
+          return json({ ok: false, error: String(e.message || 'تعذّر الإرسال').slice(0, 200) }, 502);
+        }
       }
       if (P === '/wall-delete' && !isGet) {
         const w = await wallGet(env, b.id); if (!w) return json({ ok: false, error: 'not_found' }, 404);

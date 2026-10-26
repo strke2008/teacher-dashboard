@@ -95,7 +95,8 @@ function wallCardHTML(p) {
   const mod = !T ? '' : `<div class="wall-mod">
       ${p.status !== 'ok' ? `<button type="button" class="ok" onclick="wallModerate('${p.id}','approve')">✓ ${p.status === 'pending' ? 'اعتماد' : 'إظهار'}</button>` : `<button type="button" onclick="wallModerate('${p.id}','hide')">🙈 إخفاء</button>`}
       <button type="button" onclick="wallModerate('${p.id}','${p.pinned ? 'unpin' : 'pin'}')">${p.pinned ? '📌 إلغاء التثبيت' : '📌 تثبيت'}</button>
-      <button type="button" class="del" onclick="wallDelete('${p.id}')">🗑️</button></div>`;
+      <button type="button" class="del" onclick="wallDelete('${p.id}')">🗑️</button>
+      ${p.status === 'ok' && typeof wallVoteSend === 'function' ? `<button type="button" class="vote${p.voted ? ' sent' : ''}" onclick="wallVoteSend('${p.id}')">${p.voted ? '✓ أُرسل للمسابقة 🏆' : '🏆 أرسل للمسابقة'}</button>` : ''}</div>`;
   return `<article class="wcard${p.status !== 'ok' ? ' dim' : ''}${p.pinned ? ' pin' : ''}" style="--cbg:${bg}" id="wc-${wallEsc(p.id)}">
     ${p.pinned ? '<span class="wall-pin" title="مثبّت">📌</span>' : ''}
     <div class="wc-h"><span class="wc-av" style="--h:${wallHash(p.name) % 360}">${av}</span><div><b>${wallEsc(p.byTeacher ? 'المعلم' : p.name)}</b><small>${T && p.cls ? wallEsc(p.cls) + ' · ' : ''}${wallAgo(p.at)}</small></div>
@@ -153,6 +154,15 @@ function wallCompose() {
   document.getElementById('wall-ov').appendChild(box);
   document.getElementById('wcp-f').onchange = e => { wallPick(e.target.files); e.target.value = ''; };
   setTimeout(() => document.getElementById('wcp-t')?.focus(), 50);
+}
+// نافذة صغيرة فوق الحائط (نافذة اللوحة العادية تبقى خلفه) — أو فوق الصفحة إن لم يكن حائط مفتوحًا
+function wallSheet(html) {
+  document.getElementById('wall-comp')?.remove();
+  const box = document.createElement('div'); box.id = 'wall-comp'; box.className = 'wall-comp';
+  box.innerHTML = `<div class="wc-sheet">${html}</div>`;
+  (document.getElementById('wall-ov') || document.body).appendChild(box);
+  if (!document.getElementById('wall-ov')) box.style.position = 'fixed', box.style.zIndex = '2147483001';
+  return box;
 }
 function wallComposeClose() { if (WALL.sending) return; document.getElementById('wall-comp')?.remove(); }
 function wallPick(list) {
