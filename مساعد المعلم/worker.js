@@ -3423,7 +3423,7 @@ async function wallDropFiles(env, rows) {
   for (const r of rows) { let fs = []; try { fs = JSON.parse(r.files || '[]') || []; } catch {} for (const f of fs) { try { await env.FILES.delete(f.key); } catch {} } }
 }
 /* 📎 تسليم الملفات: الحدود والتحقق المشترك بين /file-submit و/file-up/start */
-const FUP = { part: 10 * 1024 * 1024, maxFile: 20 * 1024 * 1024, maxVideo: 300 * 1024 * 1024, maxTotal: 500 * 1024 * 1024 };
+const FUP = { idMax: 2048, part: 10 * 1024 * 1024, maxFile: 20 * 1024 * 1024, maxVideo: 300 * 1024 * 1024, maxTotal: 500 * 1024 * 1024 };
 // بعض الأجهزة ترسل type فارغًا للفيديو — نرجع إلى الامتداد
 const fileIsVideo = f => String(f.type || '').startsWith('video/') || /\.(mp4|mov|m4v|3gp|webm|avi|mkv)$/i.test(String(f.name || ''));
 const fileAllowedSrv = f => f.type === 'application/pdf' || String(f.type || '').startsWith('image/') || fileIsVideo(f)
@@ -6788,7 +6788,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         if (b.link && !link) return json({ ok: false, error: 'bad_link' }, 400);
         const files = [];
         for (const u of (Array.isArray(b.pre) ? b.pre : []).slice(0, WALL.maxFiles)) {
-          let rec = null; try { rec = JSON.parse(await env.HW.get(`fup:${String(u).slice(0, 300)}`) || 'null'); } catch {}
+          let rec = null; try { rec = JSON.parse(await env.HW.get(`fup:${String(u).slice(0, FUP.idMax)}`) || 'null'); } catch {}
           if (!rec || !rec.done || rec.wall !== w.id || rec.sid !== sid) return json({ ok: false, error: 'upload not found' }, 400);
           const kind = annKind(String(rec.type || '').toLowerCase(), rec.fname) || (fileIsVideo({ type: rec.type, name: rec.fname }) ? 'video' : /\.pdf$/i.test(rec.fname) ? 'pdf' : 'image');
           files.push({ key: rec.key, name: rec.fname, type: rec.type || '', kind, size: rec.size, u: String(u) });
@@ -7518,7 +7518,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       if (!env.FILES) return json({ ok: false, error: 'R2 binding FILES is missing' }, 500);
       const op = url.pathname.slice('/file-up/'.length);
       if (op === 'part') {   // الجسم بايتات الجزء نفسه (لا JSON)
-        const u = String(url.searchParams.get('u') || '').slice(0, 300), n = parseInt(url.searchParams.get('n'), 10);
+        const u = String(url.searchParams.get('u') || '').slice(0, FUP.idMax), n = parseInt(url.searchParams.get('n'), 10);
         let rec = null; try { rec = JSON.parse(await env.HW.get(`fup:${u}`) || 'null'); } catch {}
         if (!rec || rec.done) return json({ ok: false, error: 'upload not found' }, 404);
         if (!(n >= 1 && n <= 10000)) return json({ ok: false, error: 'bad part' }, 400);
@@ -7559,7 +7559,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         await env.HW.put(`fup:${mpu.uploadId}`, JSON.stringify({ key, hw, wall: wallId, sid: String(st.id || ''), name: String(st.name || ''), fname: safeName, type: f.type, size: f.size, at: Date.now(), done: false }));
         return json({ ok: true, uploadId: mpu.uploadId, partSize: FUP.part });
       }
-      const u = String(b.u || '').slice(0, 300);
+      const u = String(b.u || '').slice(0, FUP.idMax);
       let rec = null; try { rec = JSON.parse(await env.HW.get(`fup:${u}`) || 'null'); } catch {}
       if (!rec) return json({ ok: false, error: 'upload not found' }, 404);
       const mp = env.FILES.resumeMultipartUpload(rec.key, u);
@@ -7604,7 +7604,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       let preIds = []; try { preIds = JSON.parse(String(fd.get('pre') || '[]')); } catch {}
       const pre = [];
       for (const u of (Array.isArray(preIds) ? preIds : []).slice(0, 5)) {
-        let rec = null; try { rec = JSON.parse(await env.HW.get(`fup:${String(u).slice(0, 300)}`) || 'null'); } catch {}
+        let rec = null; try { rec = JSON.parse(await env.HW.get(`fup:${String(u).slice(0, FUP.idMax)}`) || 'null'); } catch {}
         if (!rec || !rec.done || rec.wall || rec.hw !== hw || !((st.id && rec.sid === String(st.id)) || (!rec.sid && rec.name === st.name))) return json({ error: 'upload not found' }, 400);
         pre.push({ u: String(u), rec });
       }
