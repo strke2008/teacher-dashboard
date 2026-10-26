@@ -101,7 +101,7 @@ function wallCardHTML(p) {
       ${p.status === 'ok' && typeof wallVoteSend === 'function' ? `<button type="button" class="vote${p.voted ? ' sent' : ''}" onclick="wallVoteSend('${p.id}')">${p.voted ? '✓ أُرسل للمسابقة 🏆' : '🏆 أرسل للمسابقة'}</button>` : ''}</div>`;
   return `<article class="wcard${p.status !== 'ok' ? ' dim' : ''}${p.pinned ? ' pin' : ''}" style="--cbg:${bg}" id="wc-${wallEsc(p.id)}">
     ${p.pinned ? '<span class="wall-pin" title="مثبّت">📌</span>' : ''}
-    <div class="wc-h"><span class="wc-av" style="--h:${wallHash(p.name) % 360}">${av}</span><div><b>${wallEsc(p.byTeacher ? 'المعلم' : p.name)}</b><small>${T && p.cls ? wallEsc(p.cls) + ' · ' : ''}${wallAgo(p.at)}</small></div>
+    <div class="wc-h"><span class="wc-av" style="--h:${wallHash(p.name) % 360}">${av}</span><div><b>${wallEsc(p.byTeacher ? 'المعلم' : p.name)}${!p.byTeacher && p.cls ? ` <span class="wc-cls">${wallEsc(p.cls)}</span>` : ''}</b><small>${wallAgo(p.at)}</small></div>
       ${p.mine && !T ? `<button type="button" class="wc-del" onclick="wallDelete('${p.id}')" title="حذف منشوري" aria-label="حذف منشوري">🗑️</button>` : ''}</div>
     ${state}${media}${link}${p.text ? `<p class="wc-t">${wallEsc(p.text)}</p>` : ''}
     <div class="wc-f">${w.likes !== false && p.status === 'ok' ? `<button type="button" class="wc-like${p.liked ? ' on' : ''}" onclick="wallLike('${p.id}',this)" aria-label="إعجاب">${p.liked ? '❤️' : '🤍'} <span>${p.likes || ''}</span></button>` : '<span></span>'}</div>

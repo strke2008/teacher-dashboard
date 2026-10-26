@@ -18,7 +18,7 @@ main{max-width:1400px;margin:0 auto;padding:.4rem 1rem 2rem;columns:4 260px;colu
 .pinic{position:absolute;top:-14px;left:50%;font-size:1.5rem;transform:translateX(-50%) rotate(-20deg)}
 .h{display:flex;align-items:center;gap:.55rem}
 .av{flex:none;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-weight:800;background:#fff;border:2px solid #1e293b}
-.h b{font-size:.95rem}.h small{display:block;color:#64748b;font-size:.75rem}
+.h b{font-size:.95rem}.cls{display:inline-block;margin-inline-start:.3rem;background:#fff;border:1.5px solid #1e293b;border-radius:99px;padding:0 .45rem;font-size:.75rem;font-weight:700;vertical-align:middle}.h small{display:block;color:#64748b;font-size:.75rem}
 .t{margin:0;white-space:pre-wrap;word-break:break-word;font-size:1rem;line-height:1.75;font-weight:600}
 .img{display:block;border-radius:12px;overflow:hidden;border:2px solid #1e293b;background:#fff;cursor:zoom-in}
 .img img{display:block;width:100%;height:auto;max-height:70vh;object-fit:contain}
@@ -59,7 +59,7 @@ function card(p){
     return '<a class="file" href="'+E(u)+'" target="_blank" rel="noopener"><b>'+(f.kind==="pdf"?"PDF":"📎")+'</b><span>'+E(f.name)+'</span></a>';}).join("");
   var y=yt(p.link), link=!p.link?"":y?'<a class="yt" href="'+E(p.link)+'" target="_blank" rel="noopener"><img loading="lazy" src="https://img.youtube.com/vi/'+y+'/hqdefault.jpg" alt=""><i>▶</i></a>':'<a class="lnk" href="'+E(p.link)+'" target="_blank" rel="noopener nofollow">🔗 '+E(p.link.replace(/^https?:\/\/(www\.)?/,"").slice(0,60))+'</a>';
   return '<article class="card'+(p.pinned?" pin":"")+'" style="--c:'+bg+'">'+(p.pinned?'<span class="pinic">📌</span>':"")+
-    '<div class="h"><span class="av">'+av+'</span><div><b>'+(p.byTeacher?"المعلم":p.name?E(p.name):"عمل طالب")+'</b><small>'+E(ago(p.at))+'</small></div></div>'+
+    '<div class="h"><span class="av">'+av+'</span><div><b>'+(p.byTeacher?"المعلم":p.name?E(p.name):"عمل طالب")+(p.cls?' <span class="cls">'+E(p.cls)+'</span>':"")+'</b><small>'+E(ago(p.at))+'</small></div></div>'+
     (p.text?'<p class="t">'+E(p.text)+'</p>':"")+media+link+(window.__likes&&p.likes?'<span class="lk">❤️ '+p.likes+'</span>':"")+'</article>';}
 fetch(API+"/w/"+KEY+"/data",{cache:"no-store"}).then(function(r){return r.json();}).then(function(j){
   if(!j||!j.ok){grid.innerHTML='<div class="empty"><div style="font-size:3rem">🔒</div><b>هذا الرابط غير متاح</b></div>';return;}

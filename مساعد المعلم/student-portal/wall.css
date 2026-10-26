@@ -32,6 +32,7 @@ html.wall-on #toast{z-index:2147483640!important}
 .wc-h>div{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.3}
 .wc-h b{font-size:.95rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .wc-h small{color:#64748b;font-size:.74rem}
+.wc-cls{display:inline-block;margin-inline-start:.3rem;background:#fff;border:1.5px solid #1e293b;border-radius:99px;padding:0 .45rem;font-size:.72rem;font-weight:700;vertical-align:middle}
 .wc-av{flex:none;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-weight:900;background:hsl(var(--h),70%,85%);border:2px solid #1e293b;font-size:1rem}
 .wc-del{border:0;background:rgba(255,255,255,.7);border-radius:50%;width:30px;height:30px;cursor:pointer}
 .wc-t{margin:0;white-space:pre-wrap;word-break:break-word;font-size:1rem;line-height:1.75;font-weight:600}
