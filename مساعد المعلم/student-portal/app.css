@@ -1896,3 +1896,7 @@ a.rmd-go{text-decoration:none;display:inline-block;background:linear-gradient(#1
 .ann-img img,.ann-vid{max-width:100%}
 /* سطر «📌 السؤال السابق» في المهمة العلاجية يظهر في سطر مستقل فوق السؤال */
 #q-text{white-space:pre-line}
+/* 🗳️ زر «صفحة التصويت» في الإعلان: أخضر وبارز */
+.ann-btn.ann-vote{background:linear-gradient(180deg,#E9F8EF,#D6F1E0);border-color:#9ED9B4;box-shadow:0 2px 8px rgba(22,128,61,.15)}
+.ann-btn.ann-vote .ann-btn-tx b{color:#166534;font-size:1.05rem}
+.ann-btn.ann-vote .ann-btn-go{background:#16a34a;color:#fff;border-radius:99px;padding:.25rem .7rem}

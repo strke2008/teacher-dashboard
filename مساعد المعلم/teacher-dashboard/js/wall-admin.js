@@ -114,6 +114,21 @@ function votersImport(){
   };
   inp.click();
 }
+/* 🗳️ إعلان التصويت الجاهز: يملأ نموذج الإعلان بنص وزر يفتح التصويت من البوابة (يدخل الطالب بحسابه تلقائيًا) — المعلم يراجعه ثم ينشره */
+async function annVoteTemplate(){
+  const v=await voteLinkGet(true);
+  if(!v||!v.linked){ toast('اربط موقع المسابقة أولًا','bad'); return voteLinkForm(annVoteTemplate); }
+  const portal=(()=>{ try{ return (localStorage.getItem(K_SITE)||SITE_URL||'').trim().replace(/\/+$/,''); }catch(e){ return ''; } })();
+  const go=portal?portal+'/?open=vote':String(v.url||'').replace(/\/+$/,'')+'/';
+  const t=document.getElementById('ann-title'), b=document.getElementById('ann-body'); if(!t||!b) return;
+  if((t.value.trim()||b.value.trim())&&!confirm('سيُستبدل العنوان والنص المكتوبان بإعلان التصويت. متابعة؟')) return;
+  t.value='🗳️ التصويت مفتوح — اختر أفضل عمل!';
+  b.value=`شاهد أعمال زملائك في المسابقة وصوّت للعمل الذي أعجبك 🏆
+• تدخل بحساب البوابة تلقائيًا — لا تحتاج رمزًا جديدًا
+• لك صوت واحد فقط، وصوتك سرّي
+[ادخل صفحة التصويت](${go})`;
+  t.scrollIntoView({behavior:'smooth',block:'center'}); toast('🗳️ جهّزت إعلان التصويت — راجعه ثم اضغط «انشر الإعلان»','good');
+}
 async function voteUnlink(){ if(!confirm('فك الربط بموقع المسابقة؟')) return; await WALL_ENV.post('/vote-link',{unlink:true}); VOTE_LINK=null; voteLinkRow(); }
 function voteLinkForm(after){
   const v=VOTE_LINK||{};

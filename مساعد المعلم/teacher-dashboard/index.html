@@ -60,7 +60,7 @@
 <script src="simplified-nav.js?v=f116046b" defer></script>
 <script src="tab-polish.js?v=bd1e2e02" defer></script>
 <script src="js/wall.js?v=5d3fa6b3" defer></script>
-<script src="js/wall-admin.js?v=b8f86902" defer></script>
+<script src="js/wall-admin.js?v=775566ef" defer></script>
 <style id="comprehensive-print-identical-all-devices">
 /* 🖨️ الكشف الشامل: نفس التخطيط الفيزيائي على الجوال والكمبيوتر.
    هذه القواعد تأتي في آخر الرأس لتتغلب على أي قواعد شاشة سابقة. */
@@ -599,6 +599,7 @@
 <div class="sheet" id="ann-sheet">
 <div class="sheet-head" style="margin:0 0 .5rem"><div><h3 style="margin:0">📢 إعلان أو ملفات للطلاب</h3>
 <span class="sub">صورة أو فيديو أو PDF أو عرض PowerPoint يظهر في الصفحة الرئيسية لبوابة الطالب — لإعلان مشروع أو مشاركة ملف</span></div></div>
+<div class="row" style="gap:.5rem;margin:0 0 .5rem"><button class="btn ghost" type="button" onclick="annVoteTemplate()">🗳️ إعلان التصويت جاهز</button></div>
 <div class="field"><label>العنوان</label><input class="inp" id="ann-title" maxlength="140" placeholder="مثال: مشروع الفصل — نموذج الخلية"></div>
 <div class="field"><label>النص (اختياري)</label><textarea class="inp" id="ann-body" rows="3" maxlength="3000" placeholder="تفاصيل الإعلان، المطلوب، الموعد…"></textarea><small class="ann-hint">🔘 الرابط يظهر للطلاب زرًّا. لتسميته اكتب الاسم ثم الرابط في السطر نفسه: <code>وثيقة المسابقة https://…</code></small></div>
 <div class="field"><label>لمن؟</label><div id="ann-classes" class="ann-cls"></div></div>

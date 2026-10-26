@@ -37,7 +37,8 @@ function annLinkify(text){
   const btn=(m,label)=>{
     const trail=(m.match(/[.,،؛:!?)\]]+$/)||[''])[0], u=trail?m.slice(0,-trail.length):m;
     const href=(/^www\./i.test(u)?'https://':'')+u.replace(/&amp;/g,'&'), L=annLinkInfo(href);
-    btns.push(`<a class="ann-btn" href="${esc(href)}" target="_blank" rel="noopener noreferrer"><span class="ann-btn-ic">${L.ic}</span><span class="ann-btn-tx"><b>${label||esc(L.t)}</b><small>${esc(L.sub)}</small></span><span class="ann-btn-go">فتح ←</span></a>`);
+    const self=(()=>{ try{ return new URL(href).origin===location.origin; }catch(e){ return false; } })();   // رابط البوابة نفسها (مثل التصويت) يُفتح في الصفحة نفسها
+    btns.push(`<a class="ann-btn${L.vote?' ann-vote':''}" href="${esc(href)}"${self?'':' target="_blank" rel="noopener noreferrer"'}><span class="ann-btn-ic">${L.ic}</span><span class="ann-btn-tx"><b>${label||esc(L.t)}</b><small>${esc(L.sub)}</small></span><span class="ann-btn-go">فتح ←</span></a>`);
     return `\u0000${btns.length-1}\u0000${trail}`;
   };
   const URL_S='(?:https?:\\/\\/[^\\s<>"\']+|www\\.[^\\s<>"\']+)';
@@ -58,6 +59,7 @@ function annLinkInfo(href){
   let name=''; try{ name=decodeURIComponent(seg); }catch(e){ name=seg; }
   const m=/\.([a-z0-9]{2,5})$/i.exec(name), ext=m?m[1].toLowerCase():'';
   if(ANN_EXT[ext]){ const t=name.slice(0,-(ext.length+1)).replace(/[-_]+/g,' ').replace(/\s+/g,' ').trim(); return { ic:ANN_EXT[ext][0], t:t||ANN_EXT[ext][1], sub:`${ANN_EXT[ext][1]} · ${host}` }; }
+  if(U.searchParams.get('open')==='vote') return { ic:'🗳️', t:'صفحة التصويت', sub:'تدخل بحساب البوابة تلقائيًا', vote:true };
   if(/(^|\.)youtube\.com$|^youtu\.be$/.test(host)) return { ic:'▶️', t:'مشاهدة الفيديو', sub:'يوتيوب' };
   if(/docs\.google\.com$/.test(host)&&/\/forms\//.test(U.pathname)||/^forms\.gle$/.test(host)) return { ic:'📝', t:'فتح النموذج', sub:'نماذج Google' };
   if(/docs\.google\.com$|drive\.google\.com$/.test(host)) return { ic:'📁', t:'فتح الملف', sub:'Google Drive' };
