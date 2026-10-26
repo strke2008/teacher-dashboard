@@ -34,7 +34,8 @@ async function wallAdminLoad(){
 async function wallPubOpen(id){
   if(!WALL_ADMIN.find(x=>x.id===id)) await wallAdminLoad();
   const w=WALL_ADMIN.find(x=>x.id===id); if(!w) return toast('تعذّر جلب الحائط','bad');
-  const url=w.pub?WALL_ENV.api()+'/w/'+w.pub:'', nm=w.pubNames||'first';
+  // الرابط على موقع البوابة نفسه (مثل رابط أولياء الأمور /parent)؛ يُذكر الخادم فقط إن اختلف عن الافتراضي
+  const api=WALL_ENV.api(), url=w.pub?getSite().replace(/\/+$/,'')+'/w?k='+w.pub+(api!=='https://homework.ahmadalmarzooq2009.workers.dev'?'&a='+encodeURIComponent(api):''):'', nm=w.pubNames||'first';
   const box=wallSheet(`<h3>🌐 رابط الحائط للعامة — ${esc(w.title)}</h3>
     <div class="muted">من يفتح الرابط يرى الأعمال <b>المعتمدة فقط</b> — بلا تسجيل دخول، ولا يستطيع النشر أو الإعجاب. يصلح لأولياء الأمور وحساب المدرسة.</div>
     <label>أسماء الطلاب في الصفحة العامة<select id="wp-names">
