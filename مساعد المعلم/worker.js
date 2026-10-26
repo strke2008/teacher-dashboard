@@ -6785,7 +6785,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       return new Response(WALL_PUB_HTML.replaceAll('__TITLE__', () => H(String(w.title).includes(w.emoji || '🧱') ? w.title : `${w.emoji || '🧱'} ${w.title}`)).replaceAll('__DESC__', () => H(w.desc || 'أعمال طلابنا وإبداعاتهم')).replaceAll('__KEY__', () => key),
         { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' } });
     }
-    if (['/walls', '/wall', '/wall-post', '/wall-like', '/wall-del', '/wall-mod', '/wall-save', '/wall-delete', '/wall-file', '/wall-share', '/wall-shared', '/wall-pub', '/vote-link', '/vote-send', '/vote-voters'].includes(url.pathname)) {
+    if (['/walls', '/wall', '/wall-post', '/wall-like', '/wall-del', '/wall-mod', '/wall-save', '/wall-delete', '/wall-file', '/wall-share', '/wall-shared', '/wall-pub', '/vote-link', '/vote-send', '/vote-voters', '/vote-names'].includes(url.pathname)) {
       if (!(await wallReady(env).catch(() => false))) return json({ ok: false, error: 'no_db' }, 503);
       const isGet = request.method === 'GET';
       let b = {}; if (!isGet) { try { b = await request.json(); } catch { return json({ ok: false, error: 'bad json' }, 400); } }
@@ -6999,6 +6999,20 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       }
       // 📱 طلاب المدرسة (حتى من لا تدرّسهم) للتصويت بجوال ولي الأمر: ملفات مدرستي ⇒ موقع المسابقة مباشرة.
       //    هذا الخادم لا يحفظ شيئًا منها؛ ومن طابق اسمه طالبًا في كشفك يُرسل معه معرّفه (صوت واحد بالبوابة أو بالجوال)
+      // 🔒 أسماء من صوّت بالبوابة قبل حفظ الاسم مع الصوت: يُكملها من كشفك (للوحة المعلم في موقع المسابقة فقط)
+      if (P === '/vote-names' && !isGet) {
+        if (!isT) return json({ ok: false, error: 'unauthorized' }, 401);
+        const cfg = await voteCfg(env); if (!cfg || !cfg.token) return json({ ok: false, error: 'vote_unlinked' }, 400);
+        try {
+          const who = await voteApi(cfg, '/api/admin/voters-who', { method: 'GET' });
+          const need = [...new Set((who.rows || []).filter(r => r.sid && !r.name).map(r => String(r.sid)))];
+          if (!need.length) return json({ ok: true, filled: 0 });
+          const byId = new Map((await loadRoster(env)).filter(x => x && x.id).map(x => [String(x.id), x]));
+          const rows = need.map(sid => byId.get(sid)).filter(Boolean).map(x => ({ sid: String(x.id), name: String(x.name || ''), cls: String(x.cls || x.className || '') }));
+          if (rows.length) await voteApi(cfg, '/api/admin/vnames', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rows }) });
+          return json({ ok: true, filled: rows.length, unknown: need.length - rows.length });
+        } catch (e) { return json({ ok: false, error: e.code === 'vote_auth' ? 'vote_auth' : String(e.message || e) }, 502); }
+      }
       if (P === '/vote-voters') {
         const cfg = await voteCfg(env); if (!cfg || !cfg.token) return json({ ok: false, error: 'vote_unlinked' }, 400);
         try {

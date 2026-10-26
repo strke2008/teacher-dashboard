@@ -117,7 +117,9 @@ async function voteLinkRow(){
   el.innerHTML=v.linked?`🏆 مرتبط بموقع المسابقة: <b dir="ltr">${esc(v.url.replace(/^https:\/\//,''))}</b> · <a href="#" onclick="voteLinkForm(voteLinkRow);return false">تغيير</a> · <a href="#" onclick="voteUnlink();return false">فك الربط</a>
       <div class="row" style="gap:.5rem;align-items:center;flex-wrap:wrap;margin-top:.5rem"><button class="btn tick" type="button" onclick="votersImport()">📱 طلاب المدرسة للتصويت (بجوال ولي الأمر)</button><span id="voters-count" style="font-weight:700;color:var(--ink,#1e293b)"></span></div>`
     :`🏆 اربط موقع المسابقة لترسل له أفضل الأعمال من الحائط بضغطة — <a href="#" onclick="voteLinkForm(voteLinkRow);return false">ربط</a>`;
-  if(v.linked) votersCount();
+  if(v.linked){ votersCount();
+    // 🔒 أكمل أسماء من صوّت بالبوابة قبل حفظ الاسم (تظهر لك فقط في لوحة موقع المسابقة) — مرة لكل فتح للوحة
+    if(!window.__voteNamesDone){ window.__voteNamesDone=true; WALL_ENV.post('/vote-names',{}).catch(()=>{}); } }
 }
 /* 📱 طلاب المدرسة كلها (حتى من لا تدرّسهم) للتصويت بجوال ولي الأمر — بملفات مدرستي نفسها التي تستورد بها طلابك.
    لا تُحفظ في مساعد المعلم: تُرسل لموقع المسابقة مباشرة، وهو يحفظ بصمة الرقم لا الرقم. */
