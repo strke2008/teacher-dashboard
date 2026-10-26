@@ -176,23 +176,46 @@ function wallPick(list) {
   }
   document.getElementById('wcp-list').innerHTML = WALL_COMP.files.map((f, i) => `<span class="wcp-chip">${String(f.type).startsWith('image/') ? '🖼️' : String(f.type).startsWith('video/') ? '🎥' : '📄'} ${wallEsc(f.name)} <small>${wallSize(f.size)}</small><button type="button" onclick="WALL_COMP.files.splice(${i},1);wallPick([])" aria-label="إزالة">×</button></span>`).join('');
 }
+// جزء واحد عبر XHR: تقدّم حيّ بالبايت + مهلة دقيقتين (كان fetch بلا مهلة: شبكة معلّقة = زر نشر معطّل للأبد)
+function wallPutPart(url, chunk, onBytes) {
+  return new Promise(res => {
+    const x = new XMLHttpRequest(); let sent = 0;
+    x.open('POST', url); x.setRequestHeader('Content-Type', 'application/octet-stream'); x.timeout = 120000;
+    x.upload.onprogress = e => { if (e.lengthComputable) { onBytes(e.loaded - sent); sent = e.loaded; } };
+    const fail = err => { onBytes(-sent); sent = 0; res({ ok: false, error: err }); };
+    x.onload = () => { let j = null; try { j = JSON.parse(x.responseText); } catch (e) {} if (j && j.ok) { onBytes(chunk.size - sent); res(j); } else fail((j && j.error) || 'http ' + x.status); };
+    x.onerror = () => fail('net'); x.ontimeout = () => fail('timeout');
+    x.send(chunk);
+  });
+}
+// ضغط الصورة قبل الرفع إن لم توفّر الصفحة ضاغطًا (لوحة المعلم): أقصى بُعد 2000 بكسل، JPEG
+async function wallShrink(f) {
+  if (!/^image\/(jpeg|png|webp)$/.test(f.type || '') || f.size < 600 * 1024) return f;
+  try {
+    const bmp = await createImageBitmap(f), s = Math.min(1, 2000 / Math.max(bmp.width, bmp.height));
+    const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(bmp.width * s)); c.height = Math.max(1, Math.round(bmp.height * s));
+    const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(bmp, 0, 0, c.width, c.height);
+    const b = await new Promise(r => c.toBlob(r, 'image/jpeg', .85));
+    return b && b.size < f.size ? new File([b], String(f.name || 'صورة').replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' }) : f;
+  } catch (e) { return f; }
+}
 // رفع ملف على أجزاء 10MB مباشرة إلى R2 (نفس مسار تسليم المشاريع)، كل جزء يُعاد حتى 3 مرات
 async function wallUpload(f, onBytes) {
   const st = await WALL_ENV.post('/file-up/start', { wall: WALL.cur, fname: f.name, type: f.type || '', size: f.size });
-  if (!st || !st.ok) throw new Error((st && st.error) || 'upload');
+  if (!st || !st.ok) throw new Error((st && st.error) === 'auth_cancel' || (st && st.error) === 'wall_closed' ? st.error : 'upload:' + ((st && st.error) || 'start'));
   const api = WALL_ENV.api(), ps = st.partSize || 10485760, parts = [];
   try {
     for (let n = 1, off = 0; off < f.size; n++, off += ps) {
       const chunk = f.slice(off, Math.min(f.size, off + ps)); let j = null;
       for (let t = 0; t < 3 && !(j && j.ok); t++) {
         if (t) await new Promise(r => setTimeout(r, 1500 * t));
-        try { const r = await fetch(`${api}/file-up/part?u=${encodeURIComponent(st.uploadId)}&n=${n}`, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: chunk }); j = await r.json().catch(() => null); } catch (e) { j = null; }
+        j = await wallPutPart(`${api}/file-up/part?u=${encodeURIComponent(st.uploadId)}&n=${n}`, chunk, onBytes);
       }
-      if (!(j && j.ok)) throw new Error('upload');
-      parts.push({ partNumber: j.partNumber, etag: j.etag }); onBytes(chunk.size);
+      if (!(j && j.ok)) throw new Error('upload:' + ((j && j.error) || 'net'));
+      parts.push({ partNumber: j.partNumber, etag: j.etag });
     }
     const d = await fetch(api + '/file-up/done', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ u: st.uploadId, parts }) }).then(r => r.json()).catch(() => ({}));
-    if (!d.ok) throw new Error(d.error || 'upload');
+    if (!d.ok) throw new Error('upload:' + (d.error || 'done'));
     return st.uploadId;
   } catch (e) { fetch(api + '/file-up/abort', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ u: st.uploadId }) }).catch(() => {}); throw e; }
 }
@@ -205,10 +228,12 @@ async function wallSend() {
   WALL.sending = true; go.disabled = true;
   try {
     const files = [];
-    for (const f of WALL_COMP.files) files.push(WALL_ENV.compress ? await WALL_ENV.compress(f) : f);
-    const total = files.reduce((a, f) => a + f.size, 0); let done = 0; const pre = [];
-    if (files.length) prog.classList.remove('hide');
-    for (const f of files) pre.push(await wallUpload(f, n => { done += n; prog.querySelector('i').style.width = Math.round(done / total * 100) + '%'; prog.querySelector('span').textContent = `${wallSize(done)} من ${wallSize(total)}`; }));
+    if (WALL_COMP.files.length) { prog.classList.remove('hide'); prog.querySelector('i').style.width = '0'; prog.querySelector('span').textContent = '⏳ جارٍ تجهيز الملفات…'; }
+    for (const f of WALL_COMP.files) files.push(WALL_ENV.compress ? await WALL_ENV.compress(f) : await wallShrink(f));
+    const total = files.reduce((a, f) => a + f.size, 0) || 1; let done = 0; const pre = [];
+    if (files.length) prog.querySelector('span').textContent = '⬆️ بدء الرفع…';
+    for (const f of files) pre.push(await wallUpload(f, n => { done = Math.max(0, done + n); const pc = Math.min(100, Math.round(done / total * 100)); prog.querySelector('i').style.width = pc + '%'; prog.querySelector('span').textContent = `⬆️ ${pc}% — ${wallSize(done)} من ${wallSize(total)}`; }));
+    if (files.length) prog.querySelector('span').textContent = '✅ اكتمل الرفع — جارٍ النشر…';
     const j = await WALL_ENV.post('/wall-post', { wall: WALL.cur, text, link, pre });
     if (!j || !j.ok) {
       const e = j && j.error;
@@ -218,6 +243,10 @@ async function wallSend() {
     wallToast(j.status === 'pending' ? '✅ وصل منشورك — يظهر لزملائك بعد اعتماد المعلم' : '✅ نُشر إبداعك على الحائط', 'good');
     WALL.data._sig = ''; await wallLoad();
   } catch (e) {
-    wallToast(e.message && !/^upload|^[a-z_]+$/.test(e.message) ? e.message : 'تعذّر رفع الملف — تحقق من الإنترنت', 'bad');
+    const m = String(e.message || ''), why = m.startsWith('upload:') ? m.slice(7) : '';
+    const txt = m === 'auth_cancel' ? 'أدخل رمزك السري لتنشر' : m === 'wall_closed' ? 'أغلق المعلم النشر في هذا الحائط'
+      : why === 'net' || why === 'timeout' ? 'انقطع الاتصال أثناء رفع الملف — تحقق من الإنترنت وحاول مرة أخرى'
+      : why ? `تعذّر رفع الملف (${why})` : m && !/^[a-z_]+$/.test(m) ? m : 'تعذّر النشر — حاول مرة أخرى';
+    wallToast(txt, 'bad'); if (prog) { prog.querySelector('span').textContent = '❌ ' + txt; }
   } finally { WALL.sending = false; if (go) go.disabled = false; }
 }
