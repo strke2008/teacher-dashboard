@@ -673,6 +673,20 @@ async function loadDashboardAcademic(force=false){
   return DASH_ACADEMIC_LOADING;
 }
 
+/* 🔄 الرجوع للوحة (تبويب/جهاز): تُقرأ الفترة الجارية من الخادم — إن انتقلت من جهاز آخر تُحدَّث الكشوف ومهام اليوم بدل البقاء على القديمة */
+(function(){ let last=0;
+  const sig=a=>{ a=a||{}; const s=a.semesters||{}; return [a.currentSemester,(s['1']||{}).status,(s['1']||{}).activePeriod,(s['2']||{}).status,(s['2']||{}).activePeriod].join('|'); };
+  document.addEventListener('visibilitychange',async()=>{
+    if(document.visibilityState!=='visible'||!DASH_ACADEMIC||Date.now()-last<60000) return; last=Date.now();
+    const before=sig(DASH_ACADEMIC), a=await loadDashboardAcademic(true).catch(()=>null);
+    if(!a||sig(a)===before) return;
+    COMP_GRADES=null; COMP_GRADES_RAW=false; COMP_GRADES_CACHE.clear(); COMP_GRADES_LOADED_AT.clear();
+    try{ CT_GRADES=null; CT_DATA=null; }catch(e){}
+    toast('📅 تغيّرت الفترة الدراسية (من جهاز آخر) — حُدّثت اللوحة','good');
+    try{ if(typeof renderAll==='function') renderAll(); }catch(e){}
+    try{ if(typeof renderTodayHub==='function') renderTodayHub(true); }catch(e){}
+  });
+})();
 function renderDashboardAcademicControl(){
   const semValue=Number(document.getElementById('comp-semester')?.value||DASH_ACADEMIC?.currentSemester||1)===2?2:1;
   const sem=(DASH_ACADEMIC?.semesters||{})[String(semValue)]||{};
@@ -743,7 +757,8 @@ async function startPeriod2FromDashboard(){
 
 async function startSemester2FromDashboard(){
   const s1=(DASH_ACADEMIC?.semesters||{})['1']||{};
-  if(s1.status!=='closed') return;
+  // الخادم يغلق الفصل الأول بنفسه إن كان في فترته الثانية — كان الزر لا يفعل شيئًا لأنه يشترط أن يكون مغلقًا مسبقًا
+  if(!(s1.status==='closed'||(s1.status!=='not_started'&&Number(s1.activePeriod)===2))) return;
   const ok=await askConfirm('سيتم اعتماد درجات الفصل الأول وإغلاقه، ثم بدء الفصل الدراسي الثاني بالفترة الأولى. بيانات الفصل الأول ستبقى محفوظة في الأرشيف ولن تختلط بالرصد الجديد. هل تريد المتابعة؟',{title:'بدء الفصل الدراسي الثاني',yes:'🔒 إغلاق الأول وبدء الثاني',no:'إلغاء',danger:true});
   if(!ok)return;
   const btn=document.getElementById('dashboard-academic-action'); if(btn)btn.disabled=true;
@@ -1964,6 +1979,21 @@ function ctExamSP(){ const a=ctSemActive(), sem=Number(window._ctExSem||a.sem)==
   const S=((typeof DASH_ACADEMIC!=='undefined'&&DASH_ACADEMIC)||{}).semesters?.[sem]||{};
   const closed=S.status==='closed'||(S.periodStatus||{})[per]==='closed'||(per===1&&Number(S.activePeriod)===2);
   return { sem, per, closed }; }
+/* 🛡️ الحفظ في دفتر فترة: يُتحقق من حالتها في نسخة الخادم الحديثة (ctSave يجلبها قبل التعديل) — جهاز آخر قد يكون أغلق الفترة
+   وهذه الصفحة ما زالت تراها مفتوحة، فكانت الدرجات تُكتب في فترة مغلقة (لقطتها ثابتة) ولا تصل للفترة الجارية */
+function ctBookW(d,sem,per){
+  const a=d&&d.academic&&typeof d.academic==='object'?d.academic:null, S=a&&a.semesters&&a.semesters[String(sem)];
+  if(S&&(S.status==='closed'||(S.periodStatus||{})[String(per)]==='closed'||(Number(per)===1&&Number(S.activePeriod)===2))){ const e=new Error('period_closed'); e.code='period_closed'; throw e; }
+  return ctBook(d,sem,per);
+}
+async function ctPeriodMoved(e){
+  if(!(e&&e.code==='period_closed')) return false;
+  try{ await loadDashboardAcademic(true); }catch(_){}
+  window._ctExSem=''; window._ctExPer=''; CT_DATA=null; CT_GRADES=null;
+  try{ COMP_GRADES=null; COMP_GRADES_CACHE.clear(); COMP_GRADES_LOADED_AT.clear(); }catch(_){}
+  toast('🔒 هذه الفترة أُغلقت (من جهاز آخر) — لم يُحفظ شيء. حدّثت الصفحة على الفترة الجارية، أعد الإدخال.','bad');
+  renderClassTools(true); return true;
+}
 function ctExams(box){
   const {sem,per,closed}=ctExamSP(), cls=ctValidCls(window._ctExCls);
   const b=ctBook(JSON.parse(JSON.stringify(CT_DATA)),sem,per), max=b.tests.reduce((t,x)=>t+Math.max(0,Number(x.max)||0),0);
@@ -1997,7 +2027,7 @@ async function ctExamMutate(fn,ok){
   if(CT_BUSY) return;
   const {sem,per,closed}=ctExamSP(); if(closed){ toast('🔒 الفترة مغلقة — درجاتها من لقطة الإغلاق ولا تُعدَّل','bad'); return; }
   CT_BUSY=true;
-  try{ await ctSave(d=>fn(ctBook(d,sem,per))); if(ok) toast(ok,'good'); }catch(e){ toast('تعذّر الحفظ — تحقق من الاتصال','bad'); }
+  try{ await ctSave(d=>fn(ctBookW(d,sem,per))); if(ok) toast(ok,'good'); }catch(e){ if(await ctPeriodMoved(e)){ CT_BUSY=false; return; } toast('تعذّر الحفظ — تحقق من الاتصال','bad'); }
   CT_BUSY=false; renderClassTools();
 }
 function ctExamAdd(){ ctExamMutate(b=>{ b.tests.push({id:'ex'+Date.now().toString(36)+Math.random().toString(36).slice(2,7),title:'اختبار '+(b.tests.length+1),max:10,date:ctToday(),at:Date.now()}); },'أُضيف اختبار'); }
@@ -2044,14 +2074,14 @@ async function ctExamRevert(sid,tid,v){
   const label=v===null?'فارغة':v;
   if(!(await askConfirm(`تُعاد الدرجة إلى ${label}. ويُسجَّل هذا الإرجاع أيضًا في السجل.`,{title:'إرجاع الدرجة؟',yes:'أرجعها',no:'إلغاء'}))) return;
   try{
-    await ctSave(d=>{ const b=ctBook(d,sem,per), t=b.tests.find(x=>String(x.id)===String(tid)); if(!t) return;
+    await ctSave(d=>{ const b=ctBookW(d,sem,per), t=b.tests.find(x=>String(x.id)===String(tid)); if(!t) return;
       const bucket=b.scores[String(sid)]=b.scores[String(sid)]||{}, pv=bucket[String(tid)], cur=pv&&typeof pv==='object'?Number(pv.score):Number(pv);
       const from=Number.isFinite(cur)?cur:null; if(from===v) return;
       ctExamLogPush(b,{sid:String(sid),tid:String(tid),from,to:v,at:Date.now(),undo:1});
       if(v===null){ delete bucket[String(tid)]; if(!Object.keys(bucket).length) delete b.scores[String(sid)]; }
       else bucket[String(tid)]={score:Math.max(0,Math.min(Number(t.max)||0,v)),at:Date.now()}; });
     toast('أُرجعت الدرجة ✓','good'); renderClassTools(); ctExamHistory();
-  }catch(e){ toast('تعذّر الحفظ — تحقق من الاتصال','bad'); }
+  }catch(e){ if(await ctPeriodMoved(e)) return; toast('تعذّر الحفظ — تحقق من الاتصال','bad'); }
 }
 async function ctExamFromBackups(btn){
   const out=document.getElementById('exh-bk-out'); if(!out) return;
@@ -2088,7 +2118,7 @@ async function ctExamScore(sid,tid,el){
   const {sem,per,closed}=ctExamSP(), n=String(el.value).trim(); if(closed){ toast('🔒 الفترة مغلقة — درجاتها من لقطة الإغلاق ولا تُعدَّل','bad'); renderClassTools(); return; }
   el.classList.add('saving');
   try{
-    await ctSave(d=>{ const b=ctBook(d,sem,per), t=b.tests.find(x=>String(x.id)===String(tid)); if(!t) return;
+    await ctSave(d=>{ const b=ctBookW(d,sem,per), t=b.tests.find(x=>String(x.id)===String(tid)); if(!t) return;
       const bucket=b.scores[String(sid)]=b.scores[String(sid)]||{};
       const pv=bucket[String(tid)], before=pv&&typeof pv==='object'?Number(pv.score):Number(pv), from=Number.isFinite(before)?before:null;
       const nv=n===''?null:Math.max(0,Math.min(Number(t.max)||0,Number(examAr2En(n))));
@@ -2101,7 +2131,7 @@ async function ctExamScore(sid,tid,el){
     const vals=b.tests.map(t=>{const v=by[String(t.id)];const n=v&&typeof v==='object'?Number(v.score):Number(v);return Number.isFinite(n)?Math.min(Number(t.max)||0,n):null}).filter(v=>v!==null);
     const r=vals.reduce((a,v)=>a+v,0), row=el.closest('tr');
     if(row){ const a=row.querySelector('.ct-raw'), z=row.querySelector('.ct-20'); if(a) a.textContent=vals.length?r:'—'; if(z) z.innerHTML=vals.length&&mx>0?`<b>${+(r/mx*20).toFixed(2)}</b>`:'—'; }
-  }catch(e){ el.classList.remove('saving'); el.classList.add('err'); toast('تعذّر حفظ الدرجة','bad'); try{ const b=ctBook(JSON.parse(JSON.stringify(CT_DATA)),sem,per), by=(b.scores||{})[String(sid)]||{}, v=by[String(tid)]; el.value=(v&&typeof v==='object')?(v.score??''):((v??'')===''? '':v); }catch(_){} }
+  }catch(e){ el.classList.remove('saving'); if(await ctPeriodMoved(e)) return; el.classList.add('err'); toast('تعذّر حفظ الدرجة','bad'); try{ const b=ctBook(JSON.parse(JSON.stringify(CT_DATA)),sem,per), by=(b.scores||{})[String(sid)]||{}, v=by[String(tid)]; el.value=(v&&typeof v==='object')?(v.score??''):((v??'')===''? '':v); }catch(_){} }
 }
 
 /* ── 🗂️ السجلات: مراجعة الرصد وتعديله حسب الفصل والتاريخ ── */
@@ -2548,9 +2578,9 @@ function ctExamPastePreview(tid){
 async function ctExamPasteApply(tid){
   const R=ctExamPasteParse(tid); if(!R.out.length){ ctExamPastePreview(tid); toast('لم أجد درجات صالحة','bad'); return; }
   const {sem,per,closed}=ctExamSP(); if(closed){ toast('🔒 الفترة مغلقة — درجاتها من لقطة الإغلاق ولا تُعدَّل','bad'); return; }
-  try{ await ctSave(d=>{ const b=ctBook(d,sem,per); R.out.forEach(x=>{ const k=String(x.s.id); b.scores[k]=b.scores[k]||{}; b.scores[k][String(tid)]={score:x.v,at:Date.now()}; }); });
+  try{ await ctSave(d=>{ const b=ctBookW(d,sem,per); R.out.forEach(x=>{ const k=String(x.s.id); b.scores[k]=b.scores[k]||{}; b.scores[k][String(tid)]={score:x.v,at:Date.now()}; }); });
     closeModal(); toast(`📋 حُفظت ${R.out.length} درجة${R.bad.length?` · تُرك ${R.bad.length} سطرًا`:''}`,'good'); }
-  catch(e){ toast('تعذّر الحفظ','bad'); }
+  catch(e){ if(await ctPeriodMoved(e)){ closeModal(); return; } toast('تعذّر الحفظ','bad'); }
   renderClassTools();
 }
 function ctExamExport(){

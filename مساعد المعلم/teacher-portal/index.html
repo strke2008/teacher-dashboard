@@ -1740,6 +1740,12 @@ function save(){ try{ remSyncSoon(); remBadge(); }catch(e){}
       const r=await fetch(API+'/classroom',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:token,data:snapshot,clientAt:Date.now()})});
       if(!r.ok) throw new Error('save failed');
       markSaveState('','محفوظ');
+      // 🔒 الخادم رفض تعديل دفتر فترة مغلقة (أُغلقت من جهاز آخر): حدّث الحالة الأكاديمية ونبّه المعلم
+      const j=await r.json().catch(()=>({}));
+      if(j&&j.closedKept){ toast('🔒 الفترة أُغلقت من لوحة التحكم — درجات الاختبار لم تُحفظ فيها. انتقلت للفترة الجارية، أعد إدخالها.');
+        try{ const r2=await fetch(`${API}/classroom?t=${encodeURIComponent(token)}`), j2=await r2.json();
+          if(j2.ok&&j2.data){ if(j2.data.examBooks) data.examBooks=j2.data.examBooks; if(j2.data.academic) data.academic=j2.data.academic; localStorage.setItem('teacher_classroom_v1',JSON.stringify(data)); }
+          await loadAcademic(); await loadGrades(); renderExamGrades(); }catch(e){} }
     }catch(e){ markSaveState('off','محليًا'); }
   });
   return saveChain;

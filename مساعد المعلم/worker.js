@@ -9242,7 +9242,10 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         academic.currentSemester=2;
         const s2=academic.semesters['2'];
         s2.status='open'; s2.closedAt=0; s2.activePeriod=1; s2.periodStatus={'1':'open','2':'pending'}; s2.periodSnapshots={};
-        s2.periods={'1':{start:gToday(),startAt:Date.now(),end:'',endAt:0},'2':{start:'',startAt:0,end:'',endAt:0}};
+        // تواريخ حددها المعلم مسبقًا للفصل الثاني (من الإعدادات) تبقى؛ وإلا يبدأ اليوم
+        const pre=s2.periods||{}, p1=pre['1']||{}, p2=pre['2']||{};
+        s2.periods={'1':p1.start?{start:p1.start,startAt:0,end:p1.end||'',endAt:0}:{start:gToday(),startAt:Date.now(),end:p1.end||'',endAt:0},
+          '2':{start:p2.start||'',startAt:0,end:p2.end||'',endAt:0}};
       } else if(b.action==='end_year') {
         if(academic.currentSemester!==2) return json({error:'semester2_not_current'},409);
         const second=academic.semesters['2'];
@@ -9320,7 +9323,8 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         if(semester===1&&p==='1'){ data.term={start:ns,end:ne}; }
         data.terms=data.terms&&typeof data.terms==='object'?data.terms:{}; data.terms[p]={start:ns,end:ne};
       }
-      if(b.action!=='end_year' && b.action!=='start_semester2') academic.currentSemester=semester;
+      // تعديل التواريخ لا يغيّر الفصل الجاري: كان حفظ تواريخ الفصل الثاني (قبل بدئه) يجعله «الجاري» وهو لم يبدأ فتختفي الدرجات
+      if(b.action!=='end_year' && b.action!=='start_semester2' && b.action!=='set_dates') academic.currentSemester=semester;
       data.academic=academic; data.savedAt=Date.now(); await env.HW.put('teacher:classroom',JSON.stringify(data));
       return json({ok:true,academic});
     }
@@ -9483,7 +9487,21 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         ...(serverAcademic ? { academic: serverAcademic } : {}),
         savedAt:Date.now()
       };
+      /* 🔒 دفتر اختبارات فترة مغلقة يبقى كما هو على الخادم: جهاز لم يعلم بالإغلاق (بوابة مفتوحة من قبل) كان يكتب فيه
+         درجات يظنها للفترة الجارية — اللقطة المعتمدة لا تتغير بها، فتضيع الدرجة بلا تنبيه. الآن لا تُقبل، ويُبلَّغ الجهاز */
+      let closedKept=0;
+      if(serverAcademic && old.examBooks && typeof old.examBooks==='object'){
+        const ac=academicNormalize({academic:JSON.parse(JSON.stringify(serverAcademic))});
+        for(const sn of ['1','2']) for(const pn of ['1','2']){
+          if(!periodIsClosed(ac.semesters[sn]||{},Number(pn))) continue;
+          const ob=old.examBooks[sn]&&old.examBooks[sn][pn], nb=safe.examBooks&&safe.examBooks[sn]&&safe.examBooks[sn][pn];
+          const canon=v=>JSON.stringify(v,(k,x)=>x&&typeof x==='object'&&!Array.isArray(x)?Object.fromEntries(Object.keys(x).sort().map(y=>[y,x[y]])):x);
+          if(ob===undefined||canon(ob)===canon(nb)) continue;
+          safe.examBooks={...safe.examBooks,[sn]:{...(safe.examBooks[sn]||{}),[pn]:ob}}; closedKept++;
+        }
+      }
       await env.HW.put('teacher:classroom',JSON.stringify(safe));
+      if(closedKept) return json({ok:true,savedAt:safe.savedAt,closedKept});
       return json({ok:true,savedAt:safe.savedAt});
     }
 
