@@ -20,15 +20,15 @@
 <meta content="black" name="apple-mobile-web-app-status-bar-style"/>
 <meta content="yes" name="mobile-web-app-capable"/>
 <meta content="root-cause-sync-v2" name="sync-fix-version"/>
-<link rel="stylesheet" href="app.css?v=caf855e9">
+<link rel="stylesheet" href="app.css?v=3b329507">
 <script src="js/01-right-sidebar-navigation-js.js?v=41ea29b3" defer></script>
-<script src="js/02.js?v=e58733f7" defer></script>
-<script src="js/03-projects-students-logic-v13.js?v=ea094a72" defer></script>
+<script src="js/02.js?v=618e5664" defer></script>
+<script src="js/03-projects-students-logic-v13.js?v=d4950f64" defer></script>
 <script src="js/04.js?v=5a7c663e" defer></script>
 <script src="js/05.js?v=a7c074c3" defer></script>
 <script src="js/06.js?v=4e76f64a" defer></script>
 <script src="js/07.js?v=ee4fadce" defer></script>
-<script src="js/08.js?v=4ec4b149" defer></script>
+<script src="js/08.js?v=283a478f" defer></script>
 <script src="js/09.js?v=ef17fc2a" defer></script>
 <script src="js/10.js?v=bbaf2a38" defer></script>
 <script src="js/11.js?v=8ccd78e3" defer></script>
@@ -57,10 +57,10 @@
 <script src="js/33-online-js.js?v=1825d97f" defer></script>
 <script src="js/34-skill-outcomes-js.js?v=4273a664" defer></script>
 <script src="theme-picker.js?v=5b5f90af" defer></script>
-<script src="simplified-nav.js?v=f116046b" defer></script>
+<script src="simplified-nav.js?v=66a25b2f" defer></script>
 <script src="tab-polish.js?v=bd1e2e02" defer></script>
 <script src="js/wall.js?v=24960a43" defer></script>
-<script src="js/wall-admin.js?v=5445b920" defer></script>
+<script src="js/wall-admin.js?v=8ef1469d" defer></script>
 <style id="comprehensive-print-identical-all-devices">
 /* 🖨️ الكشف الشامل: نفس التخطيط الفيزيائي على الجوال والكمبيوتر.
    هذه القواعد تأتي في آخر الرأس لتتغلب على أي قواعد شاشة سابقة. */
@@ -488,7 +488,7 @@
 </style>
 <link rel="stylesheet" id="late-css" href="app-late.css?v=0c0adedd">
 <link rel="stylesheet" href="theme-picker.css?v=1a23a1e9">
-<link rel="stylesheet" href="simplified-nav.css?v=8fbfd58e">
+<link rel="stylesheet" href="simplified-nav.css?v=154681ae">
 <link rel="stylesheet" href="tab-polish.css?v=b9d66f7c">
 <link rel="stylesheet" href="audit-fixes.css?v=a05870b6">
 <link rel="stylesheet" href="wall.css?v=af13d2ec">
@@ -545,6 +545,7 @@
 <section class="app-nav-group">
 <div class="app-nav-title">🏅 التواصل والتحفيز</div>
 <button class="tab" data-tab="messages" type="button"><span class="app-nav-icon">💬</span><span>رسائل الطلاب</span></button>
+<button class="tab" data-tab="walls" type="button"><span class="app-nav-icon">🧱</span><span>حائط الإبداع</span></button>
 <button class="tab" data-tab="classtools" data-view="certs" type="button"><span class="app-nav-icon">🏅</span><span>الشهادات</span></button>
 <button class="tab" data-tab="exam-shop" type="button"><span class="app-nav-icon">🎓</span><span>متجر الدرجات</span></button>
 </section>
@@ -583,10 +584,10 @@
 </div>
 <div><div class="sheet"><div class="feature-list" id="dash-next-actions"></div></div></div>
 </section>
-<!-- ═══ رسائل الطلاب ═══ -->
-<section class="panel" id="p-messages">
+<!-- ═══ حائط الإبداع ═══ -->
+<section class="panel" id="p-walls">
 <div class="sheet-head">
-<div><h2>رسائل الطلاب</h2><span class="sub">أرسل رسالة تظهر داخل مساحة الطالب</span></div>
+<div><h2>🧱 حائط الإبداع</h2><span class="sub">منشورات الطلاب على الحوائط — اعتمدها واعرضها</span></div>
 <span class="spacer"></span>
 </div>
 <div class="sheet" id="wall-sheet">
@@ -595,6 +596,13 @@
 <span class="spacer"></span><button class="btn tick" type="button" onclick="wallEdit()">＋ حائط جديد</button></div>
 <div id="vote-link-row" class="muted" style="font-size:.84rem;margin:-.2rem 0 .6rem"></div>
 <div id="wall-admin-list" class="wall-admin-list"><div class="muted">جارٍ التحميل…</div></div>
+</div>
+</section>
+<!-- ═══ رسائل الطلاب ═══ -->
+<section class="panel" id="p-messages">
+<div class="sheet-head">
+<div><h2>رسائل الطلاب</h2><span class="sub">أرسل رسالة تظهر داخل مساحة الطالب</span></div>
+<span class="spacer"></span>
 </div>
 <div class="sheet" id="ann-sheet">
 <div class="sheet-head" style="margin:0 0 .5rem"><div><h3 style="margin:0">📢 إعلان أو ملفات للطلاب</h3>

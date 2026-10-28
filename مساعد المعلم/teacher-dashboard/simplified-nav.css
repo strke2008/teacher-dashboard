@@ -58,3 +58,8 @@ body.simp-nav #main-nav .app-nav-group{display:none!important}
 @media print{
   #simp-bottomnav,#simp-scrim,#simp-sheet,#simp-strip{display:none!important}
 }
+/* 🔴 عدّادات المشاريع وحائط الإبداع على القائمة المخصّصة */
+#simp-bottomnav button{position:relative}
+#simp-bottomnav .simp-bdg.proj-badge{top:2px;inset-inline-end:18%}
+.simp-sec .simp-bdg,.simp-sh-page .simp-bdg{margin-inline-start:auto}
+.simp-chip .simp-bdg{margin-inline-start:.3rem;min-width:18px;height:18px;line-height:18px;font-size:.68rem;padding:0 5px}

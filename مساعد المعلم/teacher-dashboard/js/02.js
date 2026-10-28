@@ -532,13 +532,13 @@ function goTab(name){
       ['—','👥 الطلاب والمتابعة'],['students','👥 الطلاب وملفاتهم'],['plans','🩺 الخطط العلاجية'],['classtools:duties','🎖️ مهام الطلاب'],
       ['—','📝 الاختبارات والدرجات'],['classtools:exams','📝 دفتر الاختبارات'],['exam','🖨️ الاختبار الورقي'],['nafs','🧭 نافس ونواتج التعلم'],['reports','📑 الكشوف'],
       ['—','📈 التقارير والتحليل'],['grades','📊 تقارير الأنشطة'],['classtools:analysis','📈 المستويات والمهارات'],['classtools:classfile','🏫 ملف الفصل'],['classtools:portfolio','🧾 ملف الإنجاز'],
-      ['—','🏅 التواصل والتحفيز'],['messages','💬 رسائل الطلاب'],['classtools:certs','🏅 الشهادات'],['exam-shop','🎓 متجر الدرجات'],
+      ['—','🏅 التواصل والتحفيز'],['messages','💬 رسائل الطلاب'],['walls','🧱 حائط الإبداع'],['classtools:certs','🏅 الشهادات'],['exam-shop','🎓 متجر الدرجات'],
       ['—','⚙️'],['data','⚙️ الإعدادات']];
     const portal = getPortal();
     openModal(`<div style="padding:1rem">
       <h3 style="margin:0 0 .8rem">المزيد</h3>
-      ${items.map(([k,l])=>k==='—'?`<div class="more-grp">${l}</div>`:`<button class="btn ghost${k==='projects'?' more-proj-btn':''}" style="width:100%;min-height:46px;margin-bottom:.4rem;justify-content:flex-start"
-        onclick="goTab('${k}')">${l}${k==='projects'?`<span class="proj-badge-in${PROJ_PENDING?'':' hide'}">${PROJ_PENDING>99?'99+':PROJ_PENDING||''}</span>`:''}</button>`).join('')}
+      ${items.map(([k,l])=>k==='—'?`<div class="more-grp">${l}</div>`:`<button class="btn ghost" data-more="${k}" style="width:100%;min-height:46px;margin-bottom:.4rem;justify-content:flex-start"
+        onclick="goTab('${k}')">${l}${(k==='projects'||k==='walls')?(n=>`<span class="proj-badge-in${n?'':' hide'}">${n>99?'99+':n||''}</span>`)(NAV_BADGES[k]||0):''}</button>`).join('')}
       ${portal?`<button class="btn ghost" style="width:100%;min-height:48px;margin-bottom:.5rem;justify-content:flex-start"
         onclick="closeModal();openPortal()">🧭 بوابة المعلم ↗</button>`:''}
       <button class="btn" style="width:100%;min-height:44px" onclick="closeModal()">إغلاق</button>
@@ -551,7 +551,9 @@ document.querySelectorAll('.tab,.mobile-nav button[data-tab]').forEach(t => t.on
   document.querySelectorAll('.tab,.mobile-nav button[data-tab]').forEach(x => x.classList.toggle('on', x.dataset.tab === t.dataset.tab && (x.dataset.view||'') === (t.dataset.view||'')));
   document.querySelectorAll('.panel').forEach(p => p.classList.toggle('on', p.id === 'p-' + t.dataset.tab));
   if (t.dataset.tab === 'dashboard') { renderDashboard(); syncStore(true); try{ renderTodayHub(true); }catch(e){} }
-  if (t.dataset.tab === 'messages') { initStudentMessages(); msgqLoad(); try{ annInit(); annLoad(); }catch(e){} try{ wallAdminLoad(); }catch(e){} }
+  if (t.dataset.tab === 'messages') { initStudentMessages(); msgqLoad(); try{ annInit(); annLoad(); }catch(e){} }
+  if (t.dataset.tab === 'walls') { try{ wallAdminLoad(); }catch(e){} }
+  if (t.dataset.tab !== 'projects') { try{ projLeave(); }catch(e){} }
   if (t.dataset.tab === 'students') { renderReqs(); renderDevWarn(); renderStudentsCenter(); syncStore(true); }
   if (t.dataset.tab === 'hw') { renderHw(); pullAll(true); }
   if (t.dataset.tab === 'grades') {

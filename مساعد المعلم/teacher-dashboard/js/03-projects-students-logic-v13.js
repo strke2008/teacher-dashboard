@@ -134,20 +134,44 @@ function renderProjectFilters(){
   if(projects.some(x=>x.id===curP)) p.value=curP;
   if(classes.includes(curC)) c.value=curC;
 }
-/* 🔴 عدّاد المشاريع بانتظار المراجعة: على تبويب «المشاريع» وزر «المزيد» وداخل قائمته */
-let PROJ_PENDING=0, PROJ_BADGE_AT=0;
+/* 🔴 عدّادات التبويبات (المشاريع، حائط الإبداع): على التبويب نفسه، وزر «المزيد» يجمعها، وداخل قائمته */
+const NAV_BADGES={};
+function navBadgeSet(tab,n,title){
+  const v=Math.max(0,Number(n)||0); NAV_BADGES[tab]=v;
+  const fmt=x=>x>99?'99+':String(x);
+  const put=(el,x,t)=>{ let b=el.querySelector('.proj-badge');
+    if(!x){ if(b) b.remove(); return; }
+    if(!b){ b=document.createElement('span'); b.className='proj-badge'; el.appendChild(b); }
+    b.textContent=fmt(x); b.title=t; };
+  document.querySelectorAll(`.tab[data-tab="${tab}"]`).forEach(el=>put(el,v,title||''));
+  const tot=Object.values(NAV_BADGES).reduce((a,b)=>a+b,0);
+  const more=document.getElementById('nav-more-btn'); if(more) put(more,tot,'جديد في المشاريع أو حائط الإبداع');
+  const mi=document.querySelector(`[data-more="${tab}"] .proj-badge-in`); if(mi){ mi.textContent=v?fmt(v):''; mi.classList.toggle('hide',!v); }
+  try{ if(window.simpNavBadges) window.simpNavBadges(); }catch(e){}   // القائمة المخصّصة (simplified-nav.js)
+}
+/* المشاريع: العدّاد = بانتظار المراجعة + ما سلّمه الطلاب بعد آخر مرة فتحت فيها التبويب
+   (كان يعدّ «بانتظار المراجعة» فقط ⇒ المشروع المقبول تلقائيًا لا يظهر له تنبيه أبدًا) */
+let PROJ_PENDING=0, PROJ_BADGE_AT=0, PROJ_NEW_FROM=0;
+const PROJ_SEEN_K='proj_seen_at_v1';
+function projSeenAt(){ try{ return Number(localStorage.getItem(PROJ_SEEN_K))||0; }catch(e){ return 0; } }
+function projSeenSet(t){ try{ localStorage.setItem(PROJ_SEEN_K,String(t)); }catch(e){} }
+function projIsNew(x){ const seen=PROJ_NEW_FROM||projSeenAt(); return !!seen && Number(x&&x.at||0)>seen; }
 function projBadgeSet(n){
   PROJ_PENDING=Math.max(0,Number(n)||0);
-  const txt=PROJ_PENDING>99?'99+':String(PROJ_PENDING);
-  document.querySelectorAll('.tab[data-tab="projects"],#nav-more-btn').forEach(el=>{
-    let b=el.querySelector('.proj-badge');
-    if(!PROJ_PENDING){ if(b) b.remove(); return; }
-    if(!b){ b=document.createElement('span'); b.className='proj-badge'; el.appendChild(b); }
-    b.textContent=txt; b.title=PROJ_PENDING+' مشروع بانتظار المراجعة';
-  });
-  const mi=document.querySelector('.more-proj-btn .proj-badge-in'); if(mi){ mi.textContent=PROJ_PENDING?txt:''; mi.classList.toggle('hide',!PROJ_PENDING); }
+  navBadgeSet('projects',PROJ_PENDING,PROJ_PENDING+' مشروع جديد أو بانتظار المراجعة');
 }
-function projPendingOf(rows){ return (rows||[]).filter(x=>projectReviewStatus(x).key==='pending').length; }
+function projPendingOf(rows){
+  rows=rows||[]; let seen=projSeenAt();
+  // أول تشغيل: ما سُلِّم قبل اليوم ليس «جديدًا»
+  if(!seen){ seen=Date.now(); projSeenSet(seen); }
+  return rows.filter(x=>projectReviewStatus(x).key==='pending'||Number(x.at||0)>seen).length;
+}
+/* فتح تبويب المشاريع ⇒ ما فيه صار «مرئيًا»؛ تبقى علامة «جديد» على البطاقات حتى تغادر التبويب */
+function projMarkSeen(){
+  if(!PROJ_NEW_FROM) PROJ_NEW_FROM=projSeenAt()||1;
+  projSeenSet(Date.now());
+}
+function projLeave(){ PROJ_NEW_FROM=0; }
 async function projBadgeRefresh(force){
   if(!force && Date.now()-PROJ_BADGE_AT<60e3) return;
   const api=getApi(), tok=getTok(); if(!api||!tok) return;
@@ -162,7 +186,7 @@ setTimeout(()=>projBadgeRefresh(true),2500);
 setInterval(()=>{ if(!document.hidden) projBadgeRefresh(true); },3*60e3);
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden) projBadgeRefresh(false); });
 function renderProjects(){
-  try{ if(PROJECTS_LOADED) projBadgeSet(projPendingOf(PROJECTS_DATA)); }catch(e){}
+  try{ if(PROJECTS_LOADED){ if(document.getElementById('p-projects')?.classList.contains('on')) projMarkSeen(); projBadgeSet(projPendingOf(PROJECTS_DATA)); } }catch(e){}
   const list=document.getElementById('projects-list'), state=document.getElementById('projects-state'), sum=document.getElementById('projects-summary');
   if(!list||!state) return;
   const rows=projectFiltered();
@@ -195,7 +219,7 @@ function renderProjects(){
          <button class="btn sm project-accept" type="button" onclick="reviewProject('accept', ${idx})">✅ قبول بعد المراجعة</button>`
       : `<button class="btn tick sm" type="button" onclick="openProjectViewer(${idx})">👁️ عرض المشروع</button>`;
     return `<article class="project-card">
-      <div class="project-card-head"><div><h3>${projectEsc(x.studentName)}</h3><div class="project-meta">${projectEsc(x.title)} · ${projectEsc(projectStudentClass(x)||'الفصل غير محدد')}</div></div><div class="project-head-pills">${projectReviewStatusHtml(x)}<span class="pill quiet">${projectEsc(projectKindLabel(files))}</span></div></div>
+      <div class="project-card-head"><div><h3>${projectEsc(x.studentName)}</h3><div class="project-meta">${projectEsc(x.title)} · ${projectEsc(projectStudentClass(x)||'الفصل غير محدد')}</div></div><div class="project-head-pills">${projIsNew(x)?'<span class="pill proj-new-pill">🆕 جديد</span>':''}${projectReviewStatusHtml(x)}<span class="pill quiet">${projectEsc(projectKindLabel(files))}</span></div></div>
       <div class="projects-grade-box"><span class="project-count">المشاريع المحتسبة: <b>${gi.submitted} / ${gi.total}</b></span><span class="project-grade">درجة المشاريع: ${gi.grade.toLocaleString('en-US',{maximumFractionDigits:2})} / ${PROJECTS_MAX_GRADE}</span></div>
       <div class="project-meta">🕐 ${projectEsc(projectFormatDate(x.at))}</div>
       <div class="project-files">${thumbs}${more}</div>

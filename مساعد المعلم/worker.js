@@ -6806,9 +6806,9 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
 
       if (P === '/walls' && isGet) {
         const all = await wallList(env);
-        const { results } = await env.DB.prepare("SELECT wall, COUNT(*) AS n, SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pend, MAX(at) AS last FROM wposts WHERE status != 'hidden' OR ?1 GROUP BY wall").bind(isT ? 1 : 0).all();
+        const { results } = await env.DB.prepare("SELECT wall, COUNT(*) AS n, SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pend, MAX(at) AS last, SUM(CASE WHEN at > ?2 OR status = 'pending' THEN 1 ELSE 0 END) AS nw FROM wposts WHERE status != 'hidden' OR ?1 GROUP BY wall").bind(isT ? 1 : 0, isT ? (Number(url.searchParams.get('since')) || 0) : 0).all();
         const cnt = new Map((results || []).map(r => [r.wall, r]));
-        if (isT) return json({ ok: true, rows: all.map(w => ({ ...w, count: (cnt.get(w.id) || {}).n || 0, pending: (cnt.get(w.id) || {}).pend || 0, last: (cnt.get(w.id) || {}).last || 0 })) });
+        if (isT) return json({ ok: true, rows: all.map(w => ({ ...w, count: (cnt.get(w.id) || {}).n || 0, pending: (cnt.get(w.id) || {}).pend || 0, last: (cnt.get(w.id) || {}).last || 0, fresh: (cnt.get(w.id) || {}).nw || 0 })) });   // fresh: منشورات بعد «since» (آخر فتح للتبويب) أو تنتظر الاعتماد ⇒ عدّاد تبويب حائط الإبداع
         const st = await readerSt(); if (!st) return json({ ok: false, error: 'student not recognized' }, 403);
         return json({ ok: true, rows: all.filter(w => wallFor(w, st)).map(w => ({ id: w.id, title: w.title, desc: w.desc || '', emoji: w.emoji || '🧱', color: w.color || 'sky', open: !!w.open, at: w.at,
           count: ((cnt.get(w.id) || {}).n || 0) - ((cnt.get(w.id) || {}).pend || 0), last: (cnt.get(w.id) || {}).last || 0 })) });

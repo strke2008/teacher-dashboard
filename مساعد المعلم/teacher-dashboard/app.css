@@ -32,7 +32,8 @@
 .exh-g{margin-top:.6rem;display:grid;gap:.35rem}.exh-gh{font-weight:800;font-size:.86rem}.exh-gh small{color:var(--ink-soft);font-weight:600}
 
 /* 🔴 عدّاد المشاريع بانتظار المراجعة */
-.tab[data-tab="projects"],#nav-more-btn{position:relative}
+.tab[data-tab="projects"],.tab[data-tab="walls"],#nav-more-btn{position:relative}
+.proj-new-pill{background:#FDE7EA;color:#B3263B;font-weight:800}
 .proj-badge{position:absolute;top:2px;inset-inline-end:2px;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:#D6455B;color:#fff;font-size:.68rem;font-weight:900;line-height:18px;text-align:center;box-shadow:0 0 0 2px #fff;pointer-events:none}
 .proj-badge-in{margin-inline-start:.5rem;display:inline-block;min-width:22px;height:22px;padding:0 7px;border-radius:999px;background:#D6455B;color:#fff;font-size:.75rem;font-weight:900;line-height:22px;text-align:center}
 .proj-badge-in.hide{display:none}

@@ -24,7 +24,7 @@
     { key:'students', icon:'👥', label:'الطلاب',             pages:[['students',null],['classtools','records'],['plans',null],['classtools','duties']] },
     { key:'exams',    icon:'📝', label:'الاختبارات والدرجات', pages:[['classtools','exams'],['exam',null],['nafs',null],['classtools','analysis'],['grades',null]] },
     { key:'reports',  icon:'📊', label:'التقارير والملفات',   pages:[['reports',null],['classtools','classfile'],['classtools','portfolio']] },
-    { key:'contact',  icon:'💬', label:'التواصل والتحفيز',   pages:[['messages',null],['classtools','certs'],['exam-shop',null]] },
+    { key:'contact',  icon:'💬', label:'التواصل والتحفيز',   pages:[['messages',null],['walls',null],['classtools','certs'],['exam-shop',null]] },
     { key:'settings', icon:'⚙️', label:'الإعدادات',          pages:[['data',null]] }
   ];
   var PINS_KEY = 'simp_pins_v1';
@@ -113,7 +113,7 @@
     var b = origBtn(tab, view);
     if(!b) return { icon:'•', label: tab };
     var icon = b.querySelector('.app-nav-icon');
-    var spans = b.querySelectorAll('span');
+    var spans = b.querySelectorAll('span:not(.proj-badge)');   // العدّاد ليس جزءًا من الاسم
     var label = spans.length ? spans[spans.length-1].textContent.trim() : b.textContent.trim();
     return { icon: icon ? icon.textContent.trim() : '•', label: label };
   }
@@ -209,11 +209,12 @@
       sec.pages.forEach(function(pg){
         var info = origLabel(pg[0], pg[1]);
         var on = pg[0]===activeTab && (pg[1]||null)===(activeView||null);
-        html += '<button type="button" class="simp-chip'+(on?' on':'')+'" data-simp-tab="'+pg[0]+'"'+(pg[1]?' data-simp-view="'+pg[1]+'"':'')+'>'
+        html += '<button type="button" class="simp-chip'+(on?' on':'')+'" data-simp-key="'+keyOf(pg[0], pg[1])+'" data-simp-tab="'+pg[0]+'"'+(pg[1]?' data-simp-view="'+pg[1]+'"':'')+'>'
           + '<span>'+info.icon+'</span><span>'+info.label+'</span></button>';
       });
       strip.innerHTML = html;
       strip.hidden = false;
+      paintBadges();
       strip.querySelectorAll('.simp-chip').forEach(function(b){
         b.addEventListener('click', function(){
           activate(b.getAttribute('data-simp-tab'), b.getAttribute('data-simp-view'));
@@ -263,6 +264,7 @@
         pins.slice(MOBILE_BAR_PINS).forEach(function(p){
           var info = origLabel(p.tab, p.view);
           var b = mkBtn('simp-sh-page', '<span>'+info.icon+'</span><span>'+info.label+'</span>');
+          b.setAttribute('data-simp-key', keyOf(p.tab, p.view));
           b.addEventListener('click', function(){ closeSheet(); activate(p.tab, p.view); });
           sheet.appendChild(b);
         });
@@ -276,6 +278,7 @@
         rest.forEach(function(pg){
           var info = origLabel(pg[0], pg[1]);
           var b = mkBtn('simp-sh-page', '<span>'+info.icon+'</span><span>'+info.label+'</span>');
+          b.setAttribute('data-simp-key', keyOf(pg[0], pg[1]));
           b.addEventListener('click', function(){ closeSheet(); activate(pg[0], pg[1]); });
           sheet.appendChild(b);
         });
@@ -283,6 +286,7 @@
       sheet.appendChild(sheetCloseBtn());
       sheet.classList.add('on');
       scrim.classList.add('on');
+      paintBadges();
     }
 
     function movePin(k, dir){
@@ -429,6 +433,7 @@
         b.addEventListener('click', function(){ activate(p.tab, p.view); });
         pinWrap.appendChild(b);
       });
+      paintBadges();
     }
 
     // ---- الشريط السفلي (جوال): أول 4 مثبّتات + المزيد ----
@@ -451,7 +456,32 @@
       barMoreBtn.setAttribute('data-simp-more', '1');
       barMoreBtn.addEventListener('click', openMore);
       bar.appendChild(barMoreBtn);
+      paintBadges();
     }
+
+    // ---- 🔴 العدّادات (المشاريع، حائط الإبداع…): تأتي من navBadgeSet في 03-projects ----
+    // على الصفحة المثبّتة نفسها، وعلى «المزيد» مجموع ما ليس ظاهرًا في الشريط، وداخل ورقة «المزيد» وشريط القسم.
+    function badgeMap(){ try{ return (typeof NAV_BADGES !== 'undefined' && NAV_BADGES) || {}; }catch(e){ return {}; } }
+    function fmtN(n){ return n > 99 ? '99+' : String(n); }
+    function putBadge(el, n, cls){
+      var b = el.querySelector('.simp-bdg');
+      if(!n){ if(b) b.remove(); return; }
+      if(!b){ b = document.createElement('span'); el.appendChild(b); }
+      b.className = 'simp-bdg ' + cls; b.textContent = fmtN(n);
+    }
+    function paintBadges(){
+      if(!box) return;
+      var m = badgeMap();
+      var sideKeys = {}, barKeys = {};
+      box.querySelectorAll('[data-simp-pin]').forEach(function(el){ var k = el.getAttribute('data-simp-pin'); sideKeys[k] = 1; putBadge(el, m[k] || 0, 'proj-badge-in'); });
+      bar.querySelectorAll('[data-simp-pin]').forEach(function(el){ var k = el.getAttribute('data-simp-pin'); barKeys[k] = 1; putBadge(el, m[k] || 0, 'proj-badge'); });
+      var restSide = 0, restBar = 0;
+      Object.keys(m).forEach(function(k){ if(!sideKeys[k]) restSide += m[k] || 0; if(!barKeys[k]) restBar += m[k] || 0; });
+      putBadge(moreBtn, restSide, 'proj-badge-in');
+      if(barMoreBtn) putBadge(barMoreBtn, restBar, 'proj-badge');
+      document.querySelectorAll('#simp-sheet [data-simp-key], #simp-strip [data-simp-key]').forEach(function(el){ putBadge(el, m[el.getAttribute('data-simp-key')] || 0, 'proj-badge-in'); });
+    }
+    window.simpNavBadges = paintBadges;
 
     // ---- المزامنة: أي تبديل أصلي يحدّث النشط والشريط والذاكرة ----
     function sync(){

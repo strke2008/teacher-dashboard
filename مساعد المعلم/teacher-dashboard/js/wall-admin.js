@@ -1,4 +1,4 @@
-/* 🧱 حوائط الإبداع — إدارة المعلم (تبويب «رسائل الطلاب»): إنشاء/تعديل/حذف، وفتح الحائط بأدوات الاعتماد والعرض */
+/* 🧱 حوائط الإبداع — إدارة المعلم (تبويب «حائط الإبداع»): إنشاء/تعديل/حذف، وفتح الحائط بأدوات الاعتماد والعرض */
 const WALL_ENV={ teacher:true,
   api:()=>getApi().replace(/\/+$/,''),
   who:()=>'&t='+encodeURIComponent(getTok()),
@@ -8,16 +8,31 @@ const WALL_ENV={ teacher:true,
 let WALL_ADMIN=[];
 /* 🧱 منشورات تنتظر الاعتماد ⇒ سطر في «مهام اليوم» (لا يعتمد المعلم على إشعار الجوال وحده) */
 let TD_WALLS=null;
+/* 🔴 عدّاد تبويب «حائط الإبداع»: منشورات بعد آخر فتح للتبويب + ما ينتظر اعتمادك */
+const WALL_SEEN_K='wall_seen_at_v1'; let WALL_BADGE_AT=0;
+function wallSeenAt(){ try{ let v=Number(localStorage.getItem(WALL_SEEN_K))||0; if(!v){ v=Date.now(); localStorage.setItem(WALL_SEEN_K,String(v)); } return v; }catch(e){ return Date.now(); } }
+function wallsUrl(){ return WALL_ENV.api()+'/walls?t='+encodeURIComponent(getTok())+'&since='+wallSeenAt()+'&_='+Date.now(); }
+function wallBadgeFrom(rows){
+  const n=(rows||[]).reduce((a,w)=>a+(Number(w.fresh)||0),0);
+  if(typeof navBadgeSet==='function') navBadgeSet('walls',n,n+' منشور جديد أو ينتظر اعتمادك');
+}
 async function tdWallsLoad(){
   if(!getApi()||!getTok()) return;
-  try{ const r=await fetch(WALL_ENV.api()+'/walls?t='+encodeURIComponent(getTok())+'&_='+Date.now(),{cache:'no-store'}); const j=await r.json();
-    if(j&&j.ok){ TD_WALLS=(j.rows||[]).filter(w=>w.pending>0).map(w=>({id:w.id,title:w.title,emoji:w.emoji,pending:w.pending})); if(typeof thDraw==='function') thDraw(); } }catch(e){}
+  WALL_BADGE_AT=Date.now();
+  try{ const r=await fetch(wallsUrl(),{cache:'no-store'}); const j=await r.json();
+    if(j&&j.ok){ TD_WALLS=(j.rows||[]).filter(w=>w.pending>0).map(w=>({id:w.id,title:w.title,emoji:w.emoji,pending:w.pending})); wallBadgeFrom(j.rows); if(typeof thDraw==='function') thDraw(); } }catch(e){}
 }
+function wallBadgeRefresh(force){ if(!force&&Date.now()-WALL_BADGE_AT<60e3) return; if(document.getElementById('p-walls')?.classList.contains('on')) wallAdminLoad(); else tdWallsLoad(); }
+setTimeout(()=>wallBadgeRefresh(true),3000);
+setInterval(()=>{ if(!document.hidden) wallBadgeRefresh(true); },3*60e3);
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden) wallBadgeRefresh(false); });
 async function wallAdminLoad(){
   const box=document.getElementById('wall-admin-list'); if(!box||!getApi()||!getTok()) return;
-  let j=null; try{ const r=await fetch(WALL_ENV.api()+'/walls?t='+encodeURIComponent(getTok())+'&_='+Date.now(),{cache:'no-store'}); j=await r.json(); }catch(e){}
+  let j=null; try{ const r=await fetch(wallsUrl(),{cache:'no-store'}); j=await r.json(); }catch(e){}
   if(!j||!j.ok){ box.innerHTML=`<div class="muted">${j&&j.error==='no_db'?'الحوائط تحتاج قاعدة D1 مربوطة بالخادم باسم DB':'تعذّر جلب الحوائط — تحقق من الاتصال'}</div>`; return; }
-  WALL_ADMIN=j.rows||[]; voteLinkRow();
+  WALL_ADMIN=j.rows||[]; voteLinkRow(); WALL_BADGE_AT=Date.now();
+  // التبويب مفتوح ⇒ ما فيه صار مرئيًا؛ يبقى في العدّاد ما ينتظر اعتمادك فقط
+  if(document.getElementById('p-walls')?.classList.contains('on')){ try{ localStorage.setItem(WALL_SEEN_K,String(Date.now())); }catch(e){} wallBadgeFrom(WALL_ADMIN.map(w=>({fresh:w.pending}))); } else wallBadgeFrom(WALL_ADMIN);
   TD_WALLS=WALL_ADMIN.filter(w=>w.pending>0).map(w=>({id:w.id,title:w.title,emoji:w.emoji,pending:w.pending})); if(typeof thDraw==='function') try{ thDraw(); }catch(e){}
   box.innerHTML=WALL_ADMIN.length?`<div class="walls-list">${WALL_ADMIN.map(w=>{ const c=WALL_COLORS[w.color]||WALL_COLORS.sky;
     return `<div class="wall-tile${w.color==='night'?' dark':''}" style="--wbg:${c[0]};--wac:${c[1]};cursor:default">

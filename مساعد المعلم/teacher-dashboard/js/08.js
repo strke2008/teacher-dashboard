@@ -169,7 +169,7 @@ function pushRenderCard(message){
 /* فتح التسليم الذي أرسل الإشعار: «آخر التسليمات» ثم إبراز الصف */
 async function openSubmissionFromPush(data){
   if(!data) return;
-  if(data.type==='wall' || data.open==='wall'){ goTab('messages'); if(data.id) setTimeout(()=>{ try{ wallOpen(String(data.id)); }catch(_){} },500); return; }
+  if(data.type==='wall' || data.open==='wall'){ goTab('walls'); if(data.id) setTimeout(()=>{ try{ wallOpen(String(data.id)); }catch(_){} },500); return; }
   if(data.type==='ask' || data.open==='asks'){
     // الضغط على التنبيه واللوحة مفتوحة: الرسالة نفسها مع التنبيه، طبّقها فورًا بدل انتظار الجلب (نسخة الخادم قد تتأخر دقيقة)
     if(data.item && typeof askApplyPush==='function'){ try{ askApplyPush(data.item); }catch(_){} }
@@ -219,7 +219,8 @@ if('serviceWorker' in navigator){
     if(ev.data && ev.data.type==='push-sub' && ev.data.data){ const d=ev.data.data;
       // ⚡ البيانات في الإشعار نفسه تُعرض فورًا؛ ثم مزامنة للتأكيد (قد يعيد الخادم نسخة قديمة لدقيقة — لا تمحو ما عُرض)
       if(d.type==='ask'){ try{ askApplyPush(d.item); }catch(e){} }
-      else if(d.hw){ try{ liveApplyPushRow(d); }catch(e){} try{ liveCheckOne(String(d.hw)); }catch(e){} } }
+      else if(d.type==='wall'){ try{ wallBadgeRefresh(true); }catch(e){} }
+      else if(d.hw){ try{ liveApplyPushRow(d); }catch(e){} try{ liveCheckOne(String(d.hw)); }catch(e){} try{ projBadgeRefresh(true); }catch(e){} } }
     // ⚡ اللوحة تُفتح من النسخة المحفوظة على الجهاز؛ إن وُجد إصدار أحدث نعرض زر تحديث بدل إعادة تحميل مفاجئة
     if(ev.data && ev.data.type==='dash-update') dashShowUpdate();
   });
