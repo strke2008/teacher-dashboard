@@ -949,7 +949,15 @@ function termHasTs(T, t) {
   if ((T.explicit || T.startSet) && T.start && d < T.start) return false; if ((T.explicit || T.endSet) && T.end && d > T.end) return false; return true;
 }
 /* 🗓️ وقت إسناد النشاط (نفس hwAssignedAt في اللوحة) */
-function actAssignedAt(h) { const t = Number(h.firstPub || h.at) || 0; if (t) return t; const m = /^s([0-9a-z]{8,9})/.exec(String(h.id || '')); const x = m ? parseInt(m[1], 36) : 0; return x > 1.5e12 && x < 4e12 ? x : (Number(h.publishedAt) || 0); }
+/* 🗓️ وقت إسناد النشاط (يحدد فترته): أول نشر، وإلا آخر نشر، وإلا وقت آخر تعديل أو الإنشاء — ولا يكون أبدًا بعد أول تسليم له:
+   إعادة النشر بعد التعديل كانت تختم firstPub بيومها في النشاط القديم الذي لا يحمله، فينتقل نشاط من الفترة الأولى إلى الثانية
+   ويُستبعد من درجتها (ظهر «سلّم 0 من 5» لطالب سلّم أنشطة الفترة كلها). أول تسليم دليل قاطع: لا يُسلَّم نشاط قبل نشره */
+function actAssignedAt(h) {
+  if (!h) return 0; const m = /^s([0-9a-z]{8,9})/.exec(String(h.id || '')), x = m ? parseInt(m[1], 36) : 0;
+  const t = Number(h.firstPub || h.publishedAt || h.at) || (x > 1.5e12 && x < 4e12 ? x : 0);
+  let s0 = 0; for (const v of Object.values(h.subs || {})) { const u = Number(v && (v.fat || v.at)) || 0; if (u > 1.5e12 && (!s0 || u < s0)) s0 = u; }
+  return s0 && (!t || s0 < t) ? s0 : t;
+}
 /* 📌 تسليم ينتمي لفترة الإتقان؟ بقاعدة درجة الأنشطة نفسها: النشاط نُشر في الفترة، والتسليم قبل إغلاقها
    (لا بتاريخ التسليم — كان التسليم المتأخر لنشاط الفترة يُحسب في الأنشطة ويسقط من الإتقان) */
 function subInPeriod(h, sub, range) {
@@ -972,7 +980,7 @@ function closedTerms(data) {
 function srepActsLive(state, data, sid, name, cls, sem, per) {
   sid = String(sid); cls = String(cls || '');
   const forCls = h => { const l = Array.isArray(h.clsList) && h.clsList.length ? h.clsList.map(String) : (h.cls ? [String(h.cls)] : []); return !l.length || l.includes(cls); };
-  const T = gradeTermRange(data, per, sem), aAt = h => { const t = Number(h.firstPub || h.at) || 0; if (t) return t; const m = /^s([0-9a-z]{8,9})/.exec(String(h.id || '')); const x = m ? parseInt(m[1], 36) : 0; return x > 1.5e12 && x < 4e12 ? x : (Number(h.publishedAt) || 0); };
+  const T = gradeTermRange(data, per, sem), aAt = actAssignedAt;
   const inT = h => termHasTs(T, aAt(h));
   const termActs = (Array.isArray(state && state.assignments) ? state.assignments : []).filter(h => h && ['normal', 'reading', 'lab'].includes(h.kind || 'normal') && !h.noGrade && (h.sid || h.published || (Array.isArray(h.s) && h.s.length)) && forCls(h) && inT(h)
     && (!(Array.isArray(h.s) && h.s.length) || h.s.map(String).includes(sid) || h.s.map(String).includes(String(name))));
@@ -6153,7 +6161,7 @@ export default {
       try { const ts = JSON.parse(await env.HW.get('tstate:main')) || {};
         // احتياط: معرّف النشاط في اللوحة يبدأ بوقت إنشائه (s + Date.now بالأساس 36)
         const idTs = id => { const m = /^s([0-9a-z]{8})/.exec(String(id || '')); const v = m ? parseInt(m[1], 36) : 0; return v > 1.5e12 && v < Date.now() + 864e5 ? v : 0; };
-        for (const h of (Array.isArray(ts.assignments) ? ts.assignments : [])) if (h && h.sid) { pubMap[String(h.sid)] = Number(h.publishedAt || h.at) || idTs(h.id); firstMap[String(h.sid)] = Number(h.firstPub || h.at) || idTs(h.id); } } catch {}
+        for (const h of (Array.isArray(ts.assignments) ? ts.assignments : [])) if (h && h.sid) { pubMap[String(h.sid)] = Number(h.publishedAt || h.at) || idTs(h.id); firstMap[String(h.sid)] = actAssignedAt(h) || idTs(h.id); } } catch {}
       let shut = []; try { shut = closedTerms(JSON.parse(await env.HW.get('teacher:classroom')) || {}); } catch {}
       const hwKeysMine = await listAllKeysCached(env, 'hw:');
       // ⚡ كانت 4 قراءات متتابعة لكل نشاط، والطالب ينتظرها كلها قبل ظهور قائمته.

@@ -796,10 +796,13 @@ async function runDashboardAcademicAction(){
    الدرجة على التسليم: (ما سلّمه ÷ المطلوب منه) × 10، ولكل فترة أنشطتها حسب وقت نشر النشاط. */
 const GRADE_KINDS=['normal','reading','lab'];
 function hwCounts(h){ return !!h && GRADE_KINDS.includes(h.kind||'normal') && !h.noGrade; }
+/* نفس actAssignedAt في الخادم: أول نشر ← آخر نشر ← آخر تعديل/الإنشاء، ولا يتجاوز أول تسليم (لا يُسلَّم نشاط قبل نشره) */
 function hwAssignedAt(h){
-  const t=Number(h&&(h.firstPub||h.at))||0; if(t) return t;
-  const m=/^s([0-9a-z]{8,9})/.exec(String(h&&h.id||'')); const x=m?parseInt(m[1],36):0;   // uid() يبدأ بوقت الإنشاء
-  return (x>1.5e12&&x<4e12)?x:(Number(h&&h.publishedAt)||0);
+  if(!h) return 0;
+  const m=/^s([0-9a-z]{8,9})/.exec(String(h.id||'')); const x=m?parseInt(m[1],36):0;   // uid() يبدأ بوقت الإنشاء
+  const t=Number(h.firstPub||h.publishedAt||h.at)||((x>1.5e12&&x<4e12)?x:0);
+  let s0=0; for(const v of Object.values(h.subs||{})){ const u=Number(v&&(v.fat||v.at))||0; if(u>1.5e12&&(!s0||u<s0)) s0=u; }
+  return s0&&(!t||s0<t)?s0:t;
 }
 function hwInTerm(h,term){
   if(!term) return true;
@@ -11055,7 +11058,7 @@ async function publishHwSilently(h){
   let j=null; try{ j=await r.json(); }catch(e){}
   if(r.status===401) throw new Error('unauthorized');
   if(!r.ok || !j || !j.ok) throw new Error('publish');
-  h.published=true; delete h.dirty; h.publishedAt=Date.now(); if(!h.firstPub) h.firstPub=h.publishedAt;
+  h.published=true; delete h.dirty; if(!h.firstPub) h.firstPub=(h.publishedAt&&hwAssignedAt(h))||Date.now(); h.publishedAt=Date.now();   // لا يُختم «أول نشر» بيوم إعادة النشر
   try{if(REM_ON&&twinAuto())twinQueue(h)}catch(e){}
   try{skillQueue(h)}catch(e){}
   return payload;
@@ -11219,8 +11222,8 @@ async function openLink(id){
     // ثبّت نتيجة النشر محليًا قبل إعادة تشغيل المزامنة.
     h.published = true;
     delete h.dirty;
+    if(!h.firstPub) h.firstPub = (h.publishedAt && hwAssignedAt(h)) || Date.now();   // نشاط قديم بلا firstPub: وقته الأبكر المعروف لا يوم إعادة النشر
     h.publishedAt = Date.now();
-    if(!h.firstPub) h.firstPub = h.publishedAt;
     save(K.hw, HW);
     try{ if(REM_ON&&twinAuto()) twinQueue(h); }catch(e){}
     try{ skillQueue(h); }catch(e){}
