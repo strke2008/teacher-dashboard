@@ -161,3 +161,6 @@ html[data-pt-cards="glass"] .hs-jmap{background:rgba(255,255,255,.74);-webkit-ba
 .jm-now div{flex:1;min-width:0;font-size:.8rem;line-height:1.55;color:var(--ink-soft)}.jm-now div b{display:block;font-size:.9rem;color:var(--ink)}
 .jm-go{border:0;border-radius:12px;background:var(--hs,#1B9C6B);color:#fff;font:inherit;font-weight:700;font-size:.86rem;padding:.55rem .95rem;cursor:pointer;white-space:nowrap;flex:none}
 .hs-jmap{--hs:var(--acc,var(--tick,#1B9C6B));--hs-2:var(--acc-2,#2FBF85)}
+/* 🔴 عدّاد الجديد داخل ورقة «حسابي» */
+.hs-pan .hs-item{position:relative}
+.hs-item-bdg{margin-inline-start:auto;min-width:24px;height:24px;line-height:24px;border-radius:99px;padding:0 7px;background:#E5484D;color:#fff;font-size:.78rem;font-weight:800;text-align:center;flex:none}

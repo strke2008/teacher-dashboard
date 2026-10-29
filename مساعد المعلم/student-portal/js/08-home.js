@@ -106,7 +106,7 @@
     if($id('hs-nav')) return;
     const n = document.createElement('nav'); n.id = 'hs-nav'; n.className = 'hs-nav'; n.setAttribute('aria-label', 'التنقل');
     n.innerHTML = [['home','🏠','الرئيسية'],['acts','📋','أنشطتي'],['board','🏆','الصدارة'],['store','🛒','المتجر'],['me','👤','حسابي']]
-      .map(([k, i, t]) => `<button type="button" data-nav="${k}" class="${k === 'home' ? 'on' : ''}"><i>${i}</i>${t}${k === 'acts' ? '<span class="hs-bdg" id="hs-acts-bdg" hidden></span>' : ''}</button>`).join('');
+      .map(([k, i, t]) => `<button type="button" data-nav="${k}" class="${k === 'home' ? 'on' : ''}"><i>${i}</i>${t}${k === 'acts' ? '<span class="hs-bdg" id="hs-acts-bdg" hidden></span>' : k === 'me' ? '<span class="hs-bdg" id="hs-me-bdg" hidden></span>' : ''}</button>`).join('');
     document.body.appendChild(n);
     n.querySelectorAll('[data-nav]').forEach(b => b.onclick = () => go(b.dataset.nav));
   }
@@ -235,6 +235,21 @@
     const tg = () => j.classList.toggle('hs-open'); h.addEventListener('click', tg); h.addEventListener('keydown', e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); tg(); } });
   }
 
+  /* 🔴 الجديد في «حسابي»: رسائل التنبيهات غير المقروءة + تقرير أسبوع/فترة جديد — على الزر وداخل الورقة */
+  function meCounts(){
+    const shown = id => { const e = $id(id); return !!(e && !e.classList.contains('hide')); };
+    const un = $id('space-unread');
+    return { notes: un && !un.classList.contains('hide') ? (num(un.textContent) || 0) : 0, report: (shown('my-report-new') ? 1 : 0) + (shown('my-report-new-p') ? 1 : 0) };
+  }
+  function meBadge(){
+    const c = meCounts(), n = c.notes + c.report, b = $id('hs-me-bdg');
+    if(b){ b.hidden = !n; b.textContent = n > 9 ? '9+' : String(n); }
+    const sh = $id('hs-sheet'); if(!sh) return;
+    [['notes', c.notes], ['report', c.report]].forEach(([k, v]) => { const it = sh.querySelector(`[data-me="${k}"]`); if(!it) return;
+      let d = it.querySelector('.hs-item-bdg'); if(!v){ if(d) d.remove(); return; }
+      if(!d){ d = document.createElement('b'); d.className = 'hs-item-bdg'; it.appendChild(d); } d.textContent = v > 9 ? '9+' : String(v); });
+  }
+
   /* ── ورقة «حسابي» ── */
   function closeSheet(){ const s = $id('hs-sheet'); if(s) s.remove(); }
   function openSheet(){
@@ -251,7 +266,7 @@
       ${item('order', '🧩', 'ترتيب صفحتي', 'رتّب الأقسام وأخفِ ما لا تحتاجه')}
       ${item('old', '↩️', 'التصميم القديم', 'ارجع لشكل البوابة السابق — وتعود للجديد متى شئت')}
       ${item('switch', '👥', 'لست أنا', 'تسجيل الخروج والدخول باسم آخر', 'warn')}</div>`;
-    document.body.appendChild(s);
+    document.body.appendChild(s); meBadge();
     s.onclick = e => { if(e.target === s){ closeSheet(); onScroll(); } };
     s.querySelectorAll('[data-me]').forEach(b => b.onclick = () => {
       const k = b.dataset.me; closeSheet(); onScroll();
@@ -280,6 +295,10 @@
     mo(document.body, navVisible, { attributes:true, attributeFilter:['class'] });
     mo($id('space-progress-pct'), statsDraw, { childList:true, characterData:true, subtree:true });
     mo($id('gate-bal'), statsDraw, { childList:true, characterData:true, subtree:true });
+    mo($id('space-unread'), meBadge, { attributes:true, attributeFilter:['class'], childList:true, characterData:true, subtree:true });
+    mo($id('my-report-new'), meBadge, { attributes:true, attributeFilter:['class'] });
+    mo($id('my-report-new-p'), meBadge, { attributes:true, attributeFilter:['class'] });
+    meBadge();
     mo($id('all-activities-count'), () => { badge(); actsOpen(); }, { childList:true, characterData:true, subtree:true });
     mo($id('student-journey'), () => { journeyInit(); jmapDraw(); }, { childList:true, subtree:true, characterData:true, attributes:true, attributeFilter:['class'] });
     jmapDraw();
