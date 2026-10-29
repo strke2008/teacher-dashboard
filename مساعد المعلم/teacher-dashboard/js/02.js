@@ -5820,7 +5820,8 @@ function omrMeasure(){
   const allQ=document.querySelectorAll('#exam-paper .ex-q, #exam-paper .ex-tf, #exam-paper .ex-amtq').length;
   const cells=[...page.querySelectorAll('.ex-mcode i')];
   const mcode=cells.length>1 ? { cells:cells.map(R), on:cells.findIndex(c=>c.classList.contains('on')) } : null;   // رمز النموذج
-  return { anchors, questions, mcode, skipped: allQ-questions.length, pageH:+(pr.height*k).toFixed(1) };
+  const fid=[...page.querySelectorAll(':scope > .ex-fid')].map(R);   // علامات الزوايا: أعلى اليسار، أعلى اليمين، أسفل اليمين، أسفل اليسار (المفرّغة)
+  return { anchors, questions, mcode, ...(fid.length===4?{marks:fid}:{}), skipped: allQ-questions.length, pageH:+(pr.height*k).toFixed(1) };
 }
 async function omrSendTemplate(){
   const box=document.getElementById('exam-paper');
@@ -6585,7 +6586,20 @@ function examStatusDecorate(){
   st.style.color='';
   st.dataset.src=st.textContent;
 }
+/* ⬛ علامات الزوايا: أربعة مربعات سوداء في زوايا كل صفحة فيها مربعات إجابة، واحد منها مفرّغ (أسفل اليسار) لمعرفة الاتجاه.
+   الجوال يقيس منها الورقة، فتُقرأ ولو طُبعت مصغّرة («ملاءمة الصفحة») أو قُصّت حافتها. لا تغيّر مكان أي شيء في الورقة. */
+function examFiducials(){
+  document.querySelectorAll('#exam-paper .exam-page').forEach(pg => {
+    if(pg.querySelector(':scope > .ex-fid') || !pg.querySelector('.ex-box')) return;
+    pg.insertAdjacentHTML('beforeend', ['tl','tr','br','bl'].map(c => `<i class="ex-fid ${c}" aria-hidden="true"></i>`).join(''));
+  });
+}
 function examBuild(force){
+  const r = examBuild0(force);
+  try{ examFiducials(); }catch(e){}
+  return r;
+}
+function examBuild0(force){
   const box = document.getElementById('exam-paper');
   if(!box) return;
   examTplSyncUI();

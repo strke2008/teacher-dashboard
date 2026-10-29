@@ -5345,6 +5345,53 @@ const OMR = (() => {
     const k = 1 / S.f;
     return { quad: best.quad.map(([x, y]) => [(x + 0.5) * k, (y + 0.5) * k]), rect: FRAME, frame: true, area: best.area / (w * h) };
   }
+  /* ⬛ علامات الزوايا المطبوعة (أربعة مربعات سوداء، أسفل اليسار مفرّغ): مراكزها تعطي الورقة بدقة
+     ولو طُبعت مصغّرة («ملاءمة الصفحة») أو قُصّت حافتها أو التصقت بسطح فاتح.
+     marks: مستطيلاتها بالمم بالترتيب: أعلى اليسار، أعلى اليمين، أسفل اليمين، أسفل اليسار. */
+  function findMarks(G, marks) {
+    const S = downscale(G, 1200), { w, h } = S, B = boxBlur(S, Math.max(6, Math.round(Math.max(w, h) / 60)));
+    const dark = new Uint8Array(w * h);
+    for (let i = 0; i < w * h; i++) if (B.g[i] > 35 && S.g[i] < B.g[i] * 0.62) dark[i] = 1;
+    const lab = new Int32Array(w * h), q = new Int32Array(w * h), C = [], maxS = 0.09 * Math.max(w, h);
+    let id = 0;
+    for (let i0 = 0; i0 < w * h; i0++) {
+      if (!dark[i0] || lab[i0]) continue; id++;
+      let qh = 0, qt = 0, x0 = w, x1 = 0, y0 = h, y1 = 0, sx = 0, sy = 0, big = false; q[qt++] = i0; lab[i0] = id;
+      while (qh < qt) { const p = q[qh++], x = p % w, y = (p / w) | 0; sx += x; sy += y;
+        if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+        if (x1 - x0 > maxS || y1 - y0 > maxS) big = true;
+        if (x > 0 && dark[p - 1] && !lab[p - 1]) { lab[p - 1] = id; q[qt++] = p - 1; }
+        if (x < w - 1 && dark[p + 1] && !lab[p + 1]) { lab[p + 1] = id; q[qt++] = p + 1; }
+        if (y > 0 && dark[p - w] && !lab[p - w]) { lab[p - w] = id; q[qt++] = p - w; }
+        if (y < h - 1 && dark[p + w] && !lab[p + w]) { lab[p + w] = id; q[qt++] = p + w; } }
+      const bw = x1 - x0 + 1, bh = y1 - y0 + 1;
+      if (big || qt < 12 || bw < 4 || bh < 4 || bw / bh > 2.2 || bh / bw > 2.2 || qt / (bw * bh) < 0.5) continue;
+      const cx = sx / qt, cy = sy / qt, j = Math.round(cy) * w + Math.round(cx);
+      C.push({ x: cx, y: cy, s: Math.sqrt(qt), hollow: S.g[j] > B.g[j] * 0.75 && !dark[j] });
+    }
+    if (C.length < 4 || C.length > 4000) return null;
+    // لكل زاوية في الصورة: أبعد المرشحين في اتجاهها، ثم أفضل رباعي يحقق شكل العلامات
+    const dirs = [c => -(c.x + c.y), c => c.x - c.y, c => c.x + c.y, c => c.y - c.x];
+    const top = dirs.map(f => C.slice().sort((a, b) => f(b) - f(a)).slice(0, 6));
+    const mc = marks.map(r => [r[0] + r[2] / 2, r[1] + r[3] / 2]), mmW = mc[1][0] - mc[0][0], mmH = mc[3][1] - mc[0][1], mSide = (marks[0][2] + marks[1][2] + marks[2][2]) / 3;
+    const L = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+    let best = null;
+    for (const a of top[0]) for (const b of top[1]) for (const c of top[2]) for (const d of top[3]) {
+      const Q = [a, b, c, d]; if (new Set(Q).size < 4) continue;
+      const hl = Q.map((p, i) => p.hollow ? i : -1).filter(i => i >= 0); if (hl.length !== 1) continue;
+      const ss = Q.map(p => p.s); if (Math.max(...ss) > 2.2 * Math.min(...ss)) continue;
+      let conv = true; for (let i = 0; i < 4; i++) { const p = Q[i], n = Q[(i + 1) % 4], m = Q[(i + 2) % 4]; if ((n.x - p.x) * (m.y - n.y) - (n.y - p.y) * (m.x - n.x) <= 0) { conv = false; break; } }
+      if (!conv) continue;
+      const rot = (hl[0] + 1) % 4, O = [0, 1, 2, 3].map(i => Q[(i + rot) % 4]);   // بترتيب الورقة (المفرّغة = أسفل اليسار)
+      const pw = (L(O[0], O[1]) + L(O[3], O[2])) / 2, ph = (L(O[0], O[3]) + L(O[1], O[2])) / 2;
+      const ar = (ph / pw) / (mmH / mmW); if (ar < 0.72 || ar > 1.35) continue;
+      const exp = mSide * pw / mmW, ms = ss.reduce((x, y) => x + y, 0) / 4; if (ms < 0.45 * exp || ms > 1.8 * exp) continue;
+      const area = pw * ph; if (!best || area > best.area) best = { O, area };
+    }
+    if (!best) return null;
+    const k = 1 / S.f;
+    return { quad: best.O.map(p => [(p.x + 0.5) * k, (p.y + 0.5) * k]), rect: [mc[0][0], mc[0][1], mmW, mmH], marks: true, area: best.area / (w * h) };
+  }
   /* تحويل منظوري: 4 نقاط مصدر (مم) ← 4 نقاط هدف (بكسل) */
   function homography(src, dst) {
     const A = [], b = [];
@@ -5419,13 +5466,15 @@ const OMR = (() => {
     return best;
   }
   /* محاذاة الصفحة: تجربة الاتجاهات الأربعة + إزاحة ومقياس، باختيار أعلى تباين للحواف */
-  function alignPage(G, quad, M, scan, extra, rect) {
+  function alignPage(G, quad, M, scan, extra, rect, fixed) {
     const allPts = [].concat(...M.anchors.map(r => outlinePts(r, 1.5)), ...M.questions.flatMap(q => q.boxes.map(r => outlinePts(r, 0.8))));
     const set = { lines: [].concat(...M.anchors.map(r => outlinePts(r, 1.5))), boxes: M.questions.flatMap(q => q.boxes.map(r => outlinePts(r, 0.8))).concat(extra ? extra.cells.map(r => outlinePts(r, 0.5)) : []) };
     const R = rect || [0, 0, PAPER.w, PAPER.h];
     const corners = [[R[0], R[1]], [R[0] + R[2], R[1]], [R[0] + R[2], R[1] + R[3]], [R[0], R[1] + R[3]]];
     let best = null;
-    const rots = scan ? [0, 2] : [0, 1, 2, 3], angs = scan ? [-1.5, -1, -0.5, 0, 0.5, 1, 1.5] : [0], scs = scan ? [1, 0.985] : [1, 0.985, 0.97];
+    // علامات الزوايا: الاتجاه والمقياس معروفان، والمحتوى طُبع معها فلا إزاحة طباعة تُذكر
+    const rots = fixed ? [0] : scan ? [0, 2] : [0, 1, 2, 3], angs = scan && !fixed ? [-1.5, -1, -0.5, 0, 0.5, 1, 1.5] : [0], scs = fixed ? [1] : scan ? [1, 0.985] : [1, 0.985, 0.97];
+    const RY = fixed ? [-1.5, 1.5] : [-4.5, 1.5], RX = fixed ? 1.5 : 2.5;
     const Hof = (rot, ang, s) => {
       const dst = [0, 1, 2, 3].map(i => quad[(i + rot) % 4]);
       const ca = Math.cos(ang * Math.PI / 180), sa = Math.sin(ang * Math.PI / 180);
@@ -5434,11 +5483,11 @@ const OMR = (() => {
     };
     // ١) الاتجاه أولًا (مقارنة سريعة بلا دوران)، ٢) ثم الدوران والمقياس لذلك الاتجاه وحده
     let rot = 0, rb = -1e9;
-    for (const r of rots) { const q = searchSet(G, Hof(r, 0, 1), set, 2.5, [-4.5, 1.5], 1, 0.9); if (q.s > rb) { rb = q.s; rot = r; } }
+    if (rots.length > 1) for (const r of rots) { const q = searchSet(G, Hof(r, 0, 1), set, RX, RY, 1, 0.9); if (q.s > rb) { rb = q.s; rot = r; } }
     for (const ang of angs) for (const s of scs) {
       const H = Hof(rot, ang, s);
       // الطباعة تُزيح المحتوى لأعلى دائمًا (−1.5…−3.5 مم مقيسة) ⇒ نافذة عمودية غير متماثلة تمنع الانزلاق صفًا لأسفل
-      const r = searchSet(G, H, set, 2.5, [-4.5, 1.5], 0.5, 0.9);
+      const r = searchSet(G, H, set, RX, RY, 0.5, 0.9);
       if (!best || r.s > best.s) best = { ...r, H, rot, sc: s };
     }
     // تنقيح دقيق حول الأفضل
@@ -5506,6 +5555,7 @@ const OMR = (() => {
   }
   function prepare(img, o = {}) {
     const G = img.g ? img : gray(img);
+    if (o.marks && !o.noMarks) { const mk = findMarks(G, o.marks); if (mk) return { G, found: mk }; }
     const p = preparePaper(G, o);
     if (!p.error) return p;
     const f = prepareFrame(G);                                // سطح فاتح: الإطار المطبوع بديل الحافة
@@ -5529,22 +5579,27 @@ const OMR = (() => {
   /* 🔢 رمز النموذج أولًا: محاذاة على العنوان وخانة الاسم فقط (متطابقان في كل النماذج)،
      فلا تفشل قراءة الرمز لأن تخطيط أسئلة نموذج آخر مختلف */
   function code(img, M, o = {}) {
-    const pr = prepare(img, o); if (pr.error) return { ok: false, error: pr.error, quad: pr.quad };
+    const pr = prepare(img, { ...o, marks: M.marks }); if (pr.error) return { ok: false, error: pr.error, quad: pr.quad };
     if (!M.mcode || !M.mcode.cells) return { ok: true, code: null, prep: pr };
     const qTop = Math.min(...M.questions.flatMap(q => q.boxes.map(b => b[1])));
     const head = M.anchors.filter(a => a[1] + a[3] < qTop - 3);
-    const at = p => { const P = alignPage(p.G, p.found.quad, { anchors: head, questions: [] }, !!p.found.scan, { cells: M.mcode.cells }, p.found.rect); return readCode(p.G, P, M); };
+    const at = p => { const P = alignPage(p.G, p.found.quad, { anchors: head, questions: [] }, !!p.found.scan, { cells: M.mcode.cells }, p.found.rect, !!p.found.marks); return readCode(p.G, P, M); };
     let c = at(pr);
+    if (c === null && pr.found.marks) { const p2 = prepare(pr.G, { ...o, noMarks: true }); if (!p2.error) { const c2 = at(p2); if (c2 !== null) return { ok: true, code: c2, prep: p2 }; } }
     if (c === null && !pr.found.frame) { const f = prepareFrame(pr.G); if (f && !f.error) { const c2 = at(f); if (c2 !== null) return { ok: true, code: c2, prep: f }; } }
     return { ok: true, code: c, prep: pr };
   }
   function read(img, M, opts = {}) {
     const t0 = opts.t0 || Date.now();
-    const pr = opts.prep || prepare(img, opts);
+    const pr = opts.prep || prepare(img, { ...opts, marks: M.marks });
     if (pr.error) return { ok: false, error: pr.error };
     const G = pr.G, found = pr.found;
-    const P = alignPage(G, found.quad, M, !!found.scan, null, found.rect);
+    const P = alignPage(G, found.quad, M, !!found.scan, null, found.rect, !!found.marks);
     const retryFrame = (why) => {
+      if (found.marks) {                                               // العلامات لم تكفِ (نادر): الطريقة القديمة بحافة الورقة أو إطارها
+        const p2 = prepare(G, { ...opts, noMarks: true }); if (p2.error) return why;
+        const r2 = read(null, M, { ...opts, prep: p2, t0 }); return r2.ok ? r2 : why;
+      }
       if (found.frame || opts.noFrameRetry) return why;               // حتى «المسح»: طاولة بيضاء تلتحم بالورقة فتبدو كمسح ضوئي
       const f = prepareFrame(G); if (!f || f.error) return why;
       const r2 = read(null, M, { ...opts, prep: f, noFrameRetry: true, t0 });
@@ -5577,9 +5632,9 @@ const OMR = (() => {
     if (unaligned >= 2 && !opts.noGate) return retryFrame({ ok: false, error: 'uneven', unaligned, code });
     const correct = answers.filter(a => a.status === 'ok' && a.pick === a.key).length;
     const review = answers.filter(a => a.status !== 'ok').length;
-    return { ok: true, code, answers, correct, review, H: P.H, quad: found.quad, pageScore: +P.score.toFixed(1), ms: Date.now() - t0, dbg: { dx: P.dx, dy: P.dy, rot: P.rot, secs: [...secShift.values()] } };
+    return { ok: true, code, answers, correct, review, H: P.H, quad: found.quad, pageScore: +P.score.toFixed(1), ms: Date.now() - t0, dbg: { via: found.marks ? 'marks' : found.frame ? 'frame' : found.scan ? 'scan' : 'paper', dx: P.dx, dy: P.dy, rot: P.rot, secs: [...secShift.values()] } };
   }
-  return { read, code, prepare, prepareFrame, findFrame, gray, findPaper, homography, apply, T, _t: { readCode, alignPage, searchSet, outlinePts, boxScore, edgeScore } };
+  return { read, code, prepare, prepareFrame, findFrame, findMarks, gray, findPaper, homography, apply, T, _t: { readCode, alignPage, searchSet, outlinePts, boxScore, edgeScore } };
 })();
 
 /* ═══════════ 📷 المصحّح الآلي — واجهة بوابة المعلم ═══════════

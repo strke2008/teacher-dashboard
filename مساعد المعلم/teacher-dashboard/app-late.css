@@ -58,6 +58,11 @@
 .exam-model-controls .field{min-width:150px}
 /* إطار الورقة الرسمي */
 .exam-page::before{content:'';position:absolute;inset:4.5mm;border:1px solid #9DB8B5;border-radius:4px;pointer-events:none}
+/* ⬛ علامات الزوايا للتصحيح بالجوال: حدود لا خلفية (تُطبع ولو أُطفئت «رسومات الخلفية») */
+.exam-page>.ex-fid{position:absolute;width:0;height:0;border:2.5mm solid #000;box-sizing:content-box;z-index:3;pointer-events:none}
+.exam-page>.ex-fid.tl{top:5.5mm;left:5.5mm}.exam-page>.ex-fid.tr{top:5.5mm;right:5.5mm}
+.exam-page>.ex-fid.br{bottom:5.5mm;right:5.5mm}
+.exam-page>.ex-fid.bl{bottom:5.5mm;left:5.5mm;width:2.2mm;height:2.2mm;border-width:1.4mm}
 
 .ex-head{display:grid;grid-template-columns:minmax(0,1fr) 42mm minmax(0,1fr);grid-template-areas:"right logo left";align-items:center;gap:3mm;
   position:relative;overflow:visible;

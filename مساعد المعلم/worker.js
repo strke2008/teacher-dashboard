@@ -7328,6 +7328,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
               ...(q.q ? { q: String(q.q).slice(0, 600) } : {}), ...(Array.isArray(q.o) && q.o.length === q.boxes.length ? { o: q.o.map(x => String(x || '').slice(0, 200)) } : {}) })),
           mcode: m.mcode && Array.isArray(m.mcode.cells) && m.mcode.cells.length >= 2 && m.mcode.cells.length <= 6 && m.mcode.cells.every(rect) && Number.isInteger(m.mcode.on)
             ? { cells: m.mcode.cells.map(r => r.map(Number)), on: m.mcode.on } : null,
+          ...(Array.isArray(m.marks) && m.marks.length === 4 && m.marks.every(rect) ? { marks: m.marks.map(r => r.map(Number)) } : {}),
           skipped: Math.max(0, Math.round(num(m.skipped) || 0)),
           total: Math.max(0, num(m.total) || 0)
         })).filter(m => m.questions.length);
