@@ -5849,15 +5849,21 @@ async function omrSendTemplate(){
   if(!n){ toast('لا توجد أسئلة اختيار أو صح/خطأ في الصفحة الأولى','bad'); return; }
   const title=String(document.getElementById('ex-title')?.value||'اختبار قصير').trim();
   const total=(()=>{ const s=document.getElementById('ex-status')?.textContent||''; const m=/المجموع\s+([\d.]+)/.exec(s); return m?Number(m[1]):n*mark; })();
-  const sig=JSON.stringify([title, models.map(x=>x.questions.map(q=>[q.t,q.key]))]);
+  // 🔖 النسخة = بصمة مفتاح الإجابة ومواقع المربعات. تعديل الاختبار بعد طباعته يصنع نسخة جديدة بجانب القديمة
+  // (كانت تُستبدل بصمت فتُصحَّح الأوراق المطبوعة قبل التعديل بمفتاح الإجابة الجديد)
+  const sig=JSON.stringify([title, mark, models.map(x=>x.questions.map(q=>[q.t,q.key,q.boxes.map(r=>r.map(v=>Math.round(v)))]))]);
   let h=5381; for(let i=0;i<sig.length;i++) h=((h<<5)+h+sig.charCodeAt(i))|0;
-  const tpl={ id: window.__LOADED_PAPER_EXAM_ID || ('x'+(h>>>0).toString(36)), title, mark, total, autoTotal:n*mark, models, at:Date.now() };
+  let th=5381; for(let i=0;i<title.length;i++) th=((th<<5)+th+title.charCodeAt(i))|0;   // اختبار غير محفوظ: أساسه عنوانه
+  const ver=(h>>>0).toString(36).slice(0,6), base=String(window.__LOADED_PAPER_EXAM_ID||('x'+(th>>>0).toString(36))).replace(/[^A-Za-z0-9_-]/g,'').slice(0,30)||'x';
+  let prevVers=[]; try{ const L=await (await fetch(api.replace(/\/+$/,'')+'/omr/list?t='+encodeURIComponent(tok))).json(); prevVers=(L.templates||[]).filter(e=>String(e.id).startsWith(base+'-v')&&e.id!==base+'-v'+ver); }catch(e){}
+  const vn=prevVers.length?` (نسخة ${prevVers.length+1})`:'';
+  const tpl={ id: base+'-v'+ver, title: title+vn, mark, total, autoTotal:n*mark, models, at:Date.now() };
   try{
     const r=await fetch(api.replace(/\/+$/,'')+'/omr/template',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:tok,template:tpl})});
     const j=await r.json().catch(()=>({}));
     if(!r.ok||!j.ok) throw new Error(j.error||('HTTP '+r.status));
     const skipped=models[0].skipped;
-    toast(`📷 جاهز للتصحيح الآلي: ${n} سؤالًا${count>1?` · ${count} نماذج`:''}${skipped?` · ${skipped} خارج الصفحة الأولى تُصحَّح يدويًا`:''}${tpl.total>tpl.autoTotal?` · الجزء الآلي ${tpl.autoTotal} من ${tpl.total}`:''}`,'good');
+    toast(`${prevVers.length?`🔖 نسخة جديدة${vn} — تغيّر الاختبار، والأوراق المطبوعة قبله تُصحَّح بنسختها السابقة · `:''}📷 جاهز للتصحيح الآلي: ${n} سؤالًا${count>1?` · ${count} نماذج`:''}${skipped?` · ${skipped} خارج الصفحة الأولى تُصحَّح يدويًا`:''}${tpl.total>tpl.autoTotal?` · الجزء الآلي ${tpl.autoTotal} من ${tpl.total}`:''}`,'good');
   }catch(e){ toast('تعذّر الإرسال: '+(e.message||''),'bad'); }
 }
 

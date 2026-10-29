@@ -867,6 +867,8 @@ body:has(#bh-mbar:not([hidden])) #behavior{padding-bottom:70px}
 .omr-pend{font-style:normal;color:#9A6512;font-weight:700}.omr-ok{font-style:normal;color:#137A53;font-weight:700}
 .omr-mbody{padding:0 12px 12px;display:grid;gap:10px}
 .omr-q{min-height:46px}
+.omr-manual{display:grid;gap:4px;font-size:.82rem;font-weight:700;color:inherit}.omr-manual small{font-weight:600;opacity:.75}.omr-manual .inp{min-height:46px;font-size:1.05rem;font-weight:800;text-align:center}
+.omr-res .omr-manual{margin:8px 0;color:#16233A;background:#FFF7E6;border-radius:12px;padding:8px 10px}
 .omr-slist{display:grid;gap:6px;max-height:42vh;overflow:auto}
 .omr-sbtn{min-height:46px;border-radius:12px;border:1px solid #E6ECF4;background:#F8FAFC;color:#16233A;font:inherit;font-weight:700;text-align:start;padding:8px 12px;cursor:pointer}
 .omr-sbtn.on{background:#DBEAFE;border-color:#3B82F6}.omr-sbtn small{font-weight:600;color:#5A6B84}
@@ -5594,6 +5596,15 @@ function omrTotals(mi = OMRUI.model){
   const T = OMRUI.tpl, M = T.models[mi], mark = Number(T.mark)||1, auto = M.questions.length*mark;
   return { auto, total: Number(M.total) || (mi === 0 ? Number(T.total) : 0) || auto };
 }
+/* ✍️ الجزء اليدوي (مقالي/فراغات/أسئلة خارج الصفحة الأولى): المعلم يكتب درجته فتُرصد الدرجة كاملة —
+   كان «تصوير الفصل» يحفظ الجزء الآلي وحده كأنه الدرجة كلها (8 من 20 لطالب يستحق أكثر) */
+function omrManualMax(mi){ const tt = omrTotals(mi); return Math.max(0, +(tt.total - tt.auto).toFixed(2)); }
+function omrManualOk(v, mi){ const mx = omrManualMax(mi); if(!mx) return true; const n = Number(v); return v !== '' && v !== null && v !== undefined && Number.isFinite(n) && n >= 0 && n <= mx + 1e-9; }
+function omrManualHTML(id, val, mi, on){
+  const mx = omrManualMax(mi); if(!mx) return '';
+  return `<label class="omr-manual"><span>✍️ درجة الجزء اليدوي <small>(من ${mx} — المقالي وما خارج المسح)</small></span>
+    <input class="inp" type="number" inputmode="decimal" min="0" max="${mx}" step="0.25" id="${id}" value="${val ?? ''}" placeholder="0 – ${mx}" oninput="${on}"></label>`;
+}
 function omrScoreOf(res){
   const mark = Number(OMRUI.tpl.mark)||1, tt = omrTotals();
   const n = res.answers.filter(a => a.final === a.key).length;
@@ -5618,7 +5629,7 @@ async function omrOpen(){
   const saved = (()=>{ try{ return JSON.parse(localStorage.getItem('omr_last_v1')||'{}'); }catch(e){ return {}; } })();
   const cls = currentClass || classes()[0] || '';
   $('omr-body').innerHTML = `<div class="omr-card">
-    <label>الاختبار الورقي<select class="inp" id="omr-tpl">${list_.map(x=>`<option value="${esc(x.id)}" ${x.id===saved.tpl?'selected':''}>${esc(x.title)} · ${x.n} سؤالًا${x.models>1?` · ${x.models} نماذج`:''}</option>`).join('')}</select></label>
+    <label>الاختبار الورقي<select class="inp" id="omr-tpl">${list_.map(x=>`<option value="${esc(x.id)}" ${x.id===saved.tpl?'selected':''}>${esc(x.title)} · ${x.n} سؤالًا${x.models>1?` · ${x.models} نماذج`:''}${x.at?` · جُهّز ${new Date(x.at).toLocaleDateString('ar-SA-u-ca-gregory',{day:'numeric',month:'numeric'})}`:''}</option>`).join('')}</select></label>
     <label id="omr-model-wrap" style="display:none">النموذج<select class="inp" id="omr-model"></select></label>
     <label>يُرصد في<select class="inp" id="omr-test">${tests.map(t=>`<option value="${esc(t.id)}" ${String(t.id)===saved.test?'selected':''}>${esc(t.title)} (من ${t.max})</option>`).join('')}</select></label>
     <label>الفصل<select class="inp" id="omr-cls">${classes().map(c=>`<option ${c===cls?'selected':''}>${esc(c)}</option>`).join('')}</select></label>
@@ -5984,9 +5995,9 @@ function omrShowResult(){
       const lab = a.t==='tf' ? (a.final===0?'صح':a.final===1?'خطأ':a.final===-1?'فارغ':'?') : (a.final===-1?'فارغ':a.final===null?'?':L[a.final]);
       return `<button type="button" class="omr-q ${st}" onclick="omrFix(${i})"><i>${i+1}</i>${lab}</button>`; }).join('')}</div>
     <div id="omr-fix"></div>
-    ${partial?`<p class="omr-note">هذا الجزء الآلي فقط (${tt.auto} من ${tt.total}) — أكمل بقية الدرجة يدويًا في «رصد الاختبارات».</p>`:''}
+    ${partial?`<p class="omr-note">قُرئ الجزء الآلي (${tt.auto} من ${tt.total}) — اكتب درجة الجزء اليدوي لتُرصد الدرجة كاملة.</p>${omrManualHTML('omr-manual', OMRUI.manual ?? '', OMRUI.model, "OMRUI.manual=this.value;const b=document.getElementById('omr-save');if(b)b.disabled=!omrManualOk(this.value)||!!document.querySelector('.omr-q.rev')")}`:''}
     <div class="omr-row">
-      <button class="btn primary" type="button" id="omr-save" ${pending||partial||!who?'disabled':''} onclick="omrSave()">💾 حفظ لـ ${esc(who?who.name:'—')}</button>
+      <button class="btn primary" type="button" id="omr-save" ${pending||(partial&&!omrManualOk(OMRUI.manual))||!who?'disabled':''} onclick="omrSave()">💾 حفظ لـ ${esc(who?who.name:'—')}</button>
       ${OMRUI.photoMode ? `<label class="btn ghost omr-file-btn">↻ أعد التصوير<input type="file" accept="image/*" capture="environment" hidden onchange="omrPhoto(this)"></label>` : OMRUI.queue && OMRUI.queue.length ? `<button class="btn ghost" type="button" onclick="omrSkip()">⏭ تخطي الورقة</button>` : `<button class="btn ghost" type="button" onclick="omrRescan()">↻ إعادة المسح</button>`}</div></div>`;
 }
 function omrFix(i){
@@ -6017,14 +6028,16 @@ function omrWrongOf(answers, model){
 async function omrSave(){
   const r = OMRUI.result, T = OMRUI.tpl, test = omrTest(); if(!test || !OMRUI.sid) return;
   const sc = omrScoreOf(r), tt = omrTotals();
-  const val = Math.abs(tt.total - test.max) > 1e-9 ? +(sc.raw / tt.total * test.max).toFixed(2) : sc.raw;
+  const man = omrManualMax() ? Number(($('omr-manual') || {}).value) : 0;
+  if(omrManualMax() && !omrManualOk(($('omr-manual') || {}).value)){ toast('اكتب درجة الجزء اليدوي أولًا'); return; }
+  const raw = +(sc.raw + man).toFixed(2), val = Math.abs(tt.total - test.max) > 1e-9 ? +(raw / tt.total * test.max).toFixed(2) : raw;
   const b = examBook(), prev = b.scores[String(OMRUI.sid)] && b.scores[String(OMRUI.sid)][String(OMRUI.testId)];
   if(prev !== undefined && !(await askConfirm('لهذا الطالب درجة مرصودة في هذا الاختبار. استبدالها بالقراءة الجديدة؟', { title:'استبدال الدرجة؟', yes:'استبدل', no:'إلغاء' }))) return;
   // 📷 الأسئلة التي أخطأ فيها تُحفظ مع الدرجة: منها تُبنى المهمة العلاجية للاختبار
   await setExamScore(OMRUI.sid, OMRUI.testId, String(val), false, omrWrongOf(r.answers, OMRUI.model));
   const who = list(OMRUI.cls).find(s=>s.id===OMRUI.sid);
   toast(`✓ ${who?who.name:''}: ${val} من ${test.max}`);
-  OMRUI.sid = omrNextStudent(); OMRUI.savedN = (OMRUI.savedN||0) + 1;
+  OMRUI.sid = omrNextStudent(); OMRUI.savedN = (OMRUI.savedN||0) + 1; OMRUI.manual = '';
   if(OMRUI.stream){ OMRUI.waitSwap = true; OMRUI.savedSig = OMRUI.liveSig || null; }   // لا يُعاد التقاط الورقة نفسها لطالب آخر
   omrRefreshStudents();
   if(OMRUI.queue && OMRUI.queue.length){ OMRUI.qi++; omrQueueNext(); } else omrRescan();
@@ -6122,8 +6135,11 @@ async function omrMatch(){
 }
 function omrSheetScore(s){
   const mark = Number(OMRUI.tpl.mark)||1, tt = omrTotals(s.model), n = s.answers.filter(a => a.final === a.key).length;
-  return { raw: +(n*mark).toFixed(2), auto: tt.auto, total: tt.total, pending: s.answers.filter(a => a.final === null).length };
+  const needMan = omrManualMax(s.model) > 0, manOk = omrManualOk(s.manual, s.model);
+  return { raw: +(n*mark).toFixed(2), auto: tt.auto, total: tt.total, pending: s.answers.filter(a => a.final === null).length,
+    needMan, manOk, full: +(n*mark + (needMan && manOk ? Number(s.manual) : 0)).toFixed(2) };
 }
+function omrSheetManual(id, v){ const s = OMRUI.sheets.find(x => x.id === id); if(!s) return; s.manual = v; OMRDB.put(s); }
 function omrMatchRender(){
   const S = OMRUI.sheets, done = S.filter(s => s.saved).length, T = OMRUI.tpl;
   const used = new Set(S.filter(s => s.sid).map(s => String(s.sid)));
@@ -6139,7 +6155,7 @@ function omrMatchRender(){
       return `<div class="omr-mc${s.saved ? ' saved' : ''}${open ? ' open' : ''}" id="mc-${s.id}">
         <button type="button" class="omr-mtop" onclick="omrMatchOpen('${s.id}')">
           <img class="omr-name" src="${s.name}" alt="شريط الاسم">
-          <span class="omr-mline"><b>${sc.pending ? '؟' : sc.raw}</b> / ${sc.auto}${ml}${sc.pending ? ` · <i class="omr-pend">⚠️ ${sc.pending} للتأكيد</i>` : ''}${s.saved ? ` · <i class="omr-ok">✓ ${esc(who ? who.name : '')}</i>` : who ? ` · ${esc(who.name)}` : ''}</span>
+          <span class="omr-mline"><b>${sc.pending ? '؟' : sc.raw}</b> / ${sc.auto}${sc.needMan ? (sc.manOk ? ` + ✍️ ${Number(s.manual)} = <b>${sc.full}</b> / ${sc.total}` : ` · <i class="omr-pend">✍️ الجزء اليدوي</i>`) : ''}${ml}${sc.pending ? ` · <i class="omr-pend">⚠️ ${sc.pending} للتأكيد</i>` : ''}${s.saved ? ` · <i class="omr-ok">✓ ${esc(who ? who.name : '')}</i>` : who ? ` · ${esc(who.name)}` : ''}</span>
         </button>
         ${open && !s.saved ? omrMatchBody(s, used) : ''}
       </div>`; }).join('')}</div>`;
@@ -6157,6 +6173,8 @@ function omrMatchBody(s, used){
       return `<div class="omr-fixbox"><b>السؤال ${i+1} — ${why[a.status] || ''}</b><div class="omr-crop" id="crop-${s.id}-${i}"><img src="${s.img}" alt=""></div>
         <div class="omr-opts">${opts.map(([v, l]) => `<button type="button" class="btn ghost" onclick="omrSheetSet('${s.id}',${i},${v})">${l}</button>`).join('')}
         <button type="button" class="btn ghost" onclick="omrSheetSet('${s.id}',${i},-1)">فارغ</button></div></div>`; }).join('')}
+    ${omrManualHTML('man-' + s.id, s.manual ?? '', s.model, `omrSheetManual('${s.id}',this.value)`)}
+    ${omrManualMax(s.model) && s.sid ? `<button type="button" class="btn primary" onclick="omrMatchPick('${s.id}','${esc(String(s.sid))}')">💾 حفظ الدرجة كاملة</button>` : ''}
     <input class="inp omr-q" id="omr-q" placeholder="ابحث باسم الطالب…" oninput="omrMatchFilter('${s.id}')" autocomplete="off">
     <div class="omr-slist" id="omr-slist">${studs.map(x => { const has = b.scores[String(x.id)] && b.scores[String(x.id)][String(OMRUI.testId)] !== undefined;
       return `<button type="button" class="omr-sbtn${String(x.id) === String(s.sid) ? ' on' : ''}" data-n="${esc(omrNorm(x.name))}" onclick="omrMatchPick('${s.id}','${esc(x.id)}')">${esc(x.name)}${has ? ' <small>· مرصود</small>' : ''}</button>`; }).join('')}</div>
@@ -6166,16 +6184,19 @@ function omrMatchBody(s, used){
 }
 function omrMatchOpen(id){ OMRUI.openId = OMRUI.openId === id ? null : id; omrMatchRender(); const el = $('mc-' + id); if(el) el.scrollIntoView({ block:'start', behavior:'smooth' }); }
 function omrMatchFilter(){ const q = omrNorm($('omr-q').value); document.querySelectorAll('#omr-slist .omr-sbtn').forEach(b => { b.style.display = !q || b.dataset.n.includes(q) ? '' : 'none'; }); }
-function omrSheetSet(id, i, v){ const s = OMRUI.sheets.find(x => x.id === id); if(!s) return; s.answers[i].final = v; OMRDB.put(s); if(s.sid && !s.answers.some(a => a.final === null)) omrSheetSave(s); else omrMatchRender(); }
+function omrSheetSet(id, i, v){ const s = OMRUI.sheets.find(x => x.id === id); if(!s) return; s.answers[i].final = v; OMRDB.put(s); if(s.sid && !s.answers.some(a => a.final === null) && omrManualOk(s.manual, s.model)) omrSheetSave(s); else omrMatchRender(); }
 async function omrMatchPick(id, sid){
   const s = OMRUI.sheets.find(x => x.id === id); if(!s) return;
   s.sid = sid; OMRDB.put(s);
   if(s.answers.some(a => a.final === null)){ omrMatchRender(); toast('أكمل الأسئلة الصفراء لتُحفظ الدرجة'); return; }
+  if(!omrManualOk(s.manual, s.model)){ omrMatchRender(); toast('اكتب درجة الجزء اليدوي لتُحفظ الدرجة كاملة'); setTimeout(() => $('man-' + s.id)?.focus(), 50); return; }
   await omrSheetSave(s);
 }
 async function omrSheetSave(s){
   const test = omrTest(); if(!test){ toast('عمود الرصد غير موجود'); return; }
-  const sc = omrSheetScore(s), val = Math.abs(sc.total - test.max) > 1e-9 ? +(sc.raw / sc.total * test.max).toFixed(2) : sc.raw;
+  const sc = omrSheetScore(s);
+  if(sc.needMan && !sc.manOk){ toast('اكتب درجة الجزء اليدوي أولًا'); return; }   // لا تُحفظ الدرجة الآلية وحدها كأنها الدرجة كلها
+  const val = Math.abs(sc.total - test.max) > 1e-9 ? +(sc.full / sc.total * test.max).toFixed(2) : sc.full;
   const b = examBook(), prev = b.scores[String(s.sid)] && b.scores[String(s.sid)][String(OMRUI.testId)];
   if(prev !== undefined && !(await askConfirm('لهذا الطالب درجة مرصودة في هذا الاختبار. استبدالها بهذه الورقة؟', { title:'استبدال الدرجة؟', yes:'استبدل', no:'إلغاء' }))){ s.sid = null; OMRDB.put(s); omrMatchRender(); return; }
   await setExamScore(s.sid, OMRUI.testId, String(val), false, omrWrongOf(s.answers, s.model));
