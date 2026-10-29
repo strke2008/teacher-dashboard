@@ -4728,6 +4728,8 @@ async function gateLoad(nm, opts){
     ]);
     const hasMe = !!(b.ok && b.total > 1), hasCls = !!(cb.ok && (cb.classes || []).length > 1 && (cb.classes || []).some(c => c.me)),
       hasAll = !!(cb.ok && (cb.classes || []).length > 1 && (cb.top || []).length > 1 && cb.mine);
+    // 🏠 ترتيبي في الصفحة الرئيسية (home.js)
+    try{ window.__hsRank = hasMe ? { r: b.myRank, n: b.total } : null; document.dispatchEvent(new Event('hs-rank')); }catch(e){}
     if(!hasMe && !hasCls && !hasAll) return;
     const medal = ['🥇','🥈','🥉'];
     const mineHTML = () => `
