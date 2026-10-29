@@ -3,13 +3,23 @@
    فتُفتح اللوحة فورًا من الجهاز ويُجلب الإصدار الأحدث في الخلفية.
    بيانات الطلاب والدرجات والتسليمات لا تُحفظ إطلاقًا: تُجلب دائمًا من الخادم (نطاق آخر لا يمرّ هنا).
    لا يحتوي أي سر: المفتاح العام يُجلب من الخادم، والخاص لا يغادر Cloudflare. */
-const SW_VERSION = 'push-v2+static-v3';
-const STATIC = 'dash-static-v1';
+const SW_VERSION = 'push-v2+static-v4';
+const STATIC = 'dash-static-v2';   // v2: يمسح ما حُفظ قبل التحقق من البصمة (قد يكون فيه ملف قديم بعنوان جديد)
 const SCOPE = new URL(self.registration ? self.registration.scope : './', self.location.href);
 const PAGE_KEY = new URL('index.html', SCOPE).href;
 const isStaticFile = u => /\.(css|js|webmanifest|png|svg|webp|ico|woff2?)$/i.test(u.pathname) && !/\/sw\.js$/i.test(u.pathname);
 const isPage = u => u.pathname === SCOPE.pathname || u.pathname === new URL(PAGE_KEY).pathname;
 
+/* 🔏 ‎?v=‎ هي أول 8 من بصمة SHA-1 لمحتوى الملف (stamp_dashboard.py). أثناء الرفع قد تصل الصفحة الجديدة قبل ملفاتها،
+   فيُجلب العنوان الجديد بمحتوى قديم ويُحفظ للأبد (ملف بإصدار ثابت لا يُعاد جلبه) — فلا يُحفظ إلا ما تطابق بصمته */
+async function verOk(url, res){
+  const u = new URL(url), v = u.searchParams.get('v') || '';
+  if (!/^[0-9a-f]{8}$/.test(v) || !/\.(js|css)$/i.test(u.pathname)) return true;
+  try {
+    const d = new Uint8Array(await crypto.subtle.digest('SHA-1', await res.clone().arrayBuffer()));
+    return [...d.slice(0, 4)].map(x => x.toString(16).padStart(2, '0')).join('') === v;
+  } catch (e) { return true; }
+}
 async function notifyUpdate(){
   const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
   for (const c of all) c.postMessage({ type: 'dash-update' });
@@ -18,7 +28,7 @@ async function notifyUpdate(){
 async function syncAssets(html){
   const cache = await caches.open(STATIC);
   const want = new Set([...html.matchAll(/(?:href|src)="([^"]+\?v=[^"]+)"/g)].map(m => new URL(m[1], PAGE_KEY).href));
-  await Promise.all([...want].map(async u => { if (!(await cache.match(u))) { try { const r = await fetch(u, { cache: 'no-cache' }); if (r.ok) await cache.put(u, r); } catch {} } }));
+  await Promise.all([...want].map(async u => { if (!(await cache.match(u))) { try { const r = await fetch(u, { cache: 'no-cache' }); if (r.ok && await verOk(u, r)) await cache.put(u, r); } catch {} } }));
   for (const req of await cache.keys()) { const u = new URL(req.url); if (u.search.includes('v=') && !want.has(req.url)) await cache.delete(req); }
 }
 async function pageFromNetwork(request, oldP, waitUntil, servedFresh){
@@ -67,7 +77,7 @@ self.addEventListener('fetch', event => {
     const cache = await caches.open(STATIC);
     const hit = await cache.match(req);
     if (hit && u.search.includes('v=')) return hit;            // ملف بإصدار ثابت: لا يتغير أبدًا
-    const net = fetch(req, { cache: 'no-cache' }).then(r => { if (r.ok && r.type === 'basic') cache.put(req, r.clone()); return r; });
+    const net = fetch(req, { cache: 'no-cache' }).then(async r => { if (r.ok && r.type === 'basic' && await verOk(req.url, r)) cache.put(req, r.clone()); return r; });
     if (hit) { event.waitUntil(net.catch(() => {})); return hit; }
     return net;
   })());

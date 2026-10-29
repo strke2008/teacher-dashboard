@@ -95,7 +95,7 @@ function tdAbsentLine(){
   return `<div class="td-abs"><b>🙋 غائبو اليوم (${ab.length}):</b>${ab.slice(0,12).map(s=>`<a href="#" onclick="event.preventDefault();ctOpenProfile('${thEsc(s.id)}')" title="${thEsc(s.cls||'')}">${thEsc(tdShortName(s.name))}</a>`).join('')}${ab.length>12?`<span class="muted">+${ab.length-12}</span>`:''}</div>`;
 }
 
-/* ═════════ 🌙 ملخص نهاية اليوم (بعد آخر حصة) — والخميس ملخص الأسبوع ═════════ */
+/* ═════════ 🌙 ملخص نهاية اليوم (بعد آخر حصة) — في بطاقة الحالة نفسها (tdHero) ═════════ */
 function tdDaySummary(D,k,T,rec){
   const g=((D.schedule||{}).grid||{})[String(k.dow)]||{}, miss=T.filter(t=>!rec(t)), m=miss.length, done=T.length-m;
   const go=t=>`tdQuick('${thEsc(g[String(t.n)])}')`;
