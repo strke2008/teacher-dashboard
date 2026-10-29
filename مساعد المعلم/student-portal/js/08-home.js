@@ -23,7 +23,7 @@
     const api = layApi(), tok = laySession(); if(!api || !tok) return Promise.resolve();
     const L = layRead();
     return fetch(api + '/home-layout', { method:'POST', keepalive:true, headers:{ 'Content-Type':'application/json' },
-      body: JSON.stringify({ session: tok, op:'set', layout:{ o: L.o || [], h: L.h || [], at: Number(L.at) || Date.now(), style: isClassic() ? 'classic' : 'new' } }) }).catch(() => {});
+      body: JSON.stringify({ session: tok, op:'set', layout:{ o: L.o || [], h: L.h || [], ...(Array.isArray(L.nav) ? { nav: L.nav } : {}), at: Number(L.at) || Date.now(), style: isClassic() ? 'classic' : 'new' } }) }).catch(() => {});
   }
   let laySynced = '';
   async function laySync(){
@@ -34,10 +34,10 @@
       if(!j || !j.ok || sidNow() !== sid) return;
       const S = j.layout, L = layRead();
       if(S && (!L.at || Number(S.at) > Number(L.at))){
-        layWrite({ o: S.o, h: S.h, at: S.at });
+        layWrite({ o: S.o, h: S.h, ...(Array.isArray(S.nav) ? { nav: S.nav } : {}), at: S.at });
         const wantClassic = S.style === 'classic';
         if(wantClassic !== isClassic()){ try{ if(wantClassic) localStorage.setItem('home_style', 'classic'); else localStorage.removeItem('home_style'); }catch(e){} location.reload(); return; }
-        if(!isClassic()) layApply();
+        if(!isClassic()){ layApply(); navBuild(); }
       } else if(L.at && (!S || Number(L.at) > Number(S.at))) layPush();   // تعديل على هذا الجهاز لم يصل الخادم بعد
     }catch(e){ laySynced = ''; }
   }
@@ -98,17 +98,58 @@
       if(box && box.classList.contains('hide') && t && !t.disabled) t.click();
       scrollTo($id('gate-store').classList.contains('hide') ? $id('gate-bal') : $id('gate-store')); setOn('store'); return;
     }
+    if(k === 'notes'){ scrollTo(document.querySelector('#gate-space .space-notices')); setOn('notes'); return; }
+    if(k === 'report'){ const box = $id('my-report-box'), t = $id('my-report-toggle'); if(box && box.classList.contains('hide') && t) t.click(); scrollTo($id('my-report-panel')); setOn('report'); return; }
+    if(k === 'journey'){ scrollTo($id('hs-jmap')); setOn('journey'); return; }
     if(k === 'me') openSheet();
   }
   function setOn(k){ document.querySelectorAll('.hs-nav [data-nav]').forEach(b => b.classList.toggle('on', b.dataset.nav === k)); }
 
+  /* 📱 الشريط السفلي يحدده الطالب: «الرئيسية» أوله و«حسابي» آخره دائمًا، وما بينهما يختاره (حتى 4) —
+     وما لم يختره يظهر داخل «حسابي». الافتراضي: أنشطتي · التنبيهات · تقريري · الصدارة */
+  const NAV_POOL = [['acts','📋','أنشطتي','كل أنشطتك والمطلوب منك'],['notes','🔔','التنبيهات','الرسائل والتحديثات'],['report','📄','تقريري','تقرير الأسبوع وتقرير الفترة'],
+    ['board','🏆','الصدارة','فصلي · كل الفصول · الفصول'],['store','🛒','المتجر','بطاقات بنقاطك'],['journey','🗺️','رحلتي','خريطة مسارك']];
+  const NAV_DEF = ['acts','notes','report','board'], NAV_MAX = 4;
+  const navPick = () => layGet().nav;
   function navInit(){
     if($id('hs-nav')) return;
     const n = document.createElement('nav'); n.id = 'hs-nav'; n.className = 'hs-nav'; n.setAttribute('aria-label', 'التنقل');
-    n.innerHTML = [['home','🏠','الرئيسية'],['acts','📋','أنشطتي'],['board','🏆','الصدارة'],['store','🛒','المتجر'],['me','👤','حسابي']]
-      .map(([k, i, t]) => `<button type="button" data-nav="${k}" class="${k === 'home' ? 'on' : ''}"><i>${i}</i>${t}${k === 'acts' ? '<span class="hs-bdg" id="hs-acts-bdg" hidden></span>' : k === 'me' ? '<span class="hs-bdg" id="hs-me-bdg" hidden></span>' : ''}</button>`).join('');
-    document.body.appendChild(n);
+    document.body.appendChild(n); navBuild();
+  }
+  function navBuild(){
+    const n = $id('hs-nav'); if(!n) return;
+    const cur = (n.querySelector('.on') || {}).dataset?.nav || 'home';
+    const items = [['home','🏠','الرئيسية'], ...navPick().map(k => NAV_POOL.find(x => x[0] === k)), ['me','👤','حسابي']];
+    n.classList.toggle('n6', items.length > 5);
+    n.innerHTML = items.map(([k, i, t]) => `<button type="button" data-nav="${k}" class="${k === cur ? 'on' : ''}"><i>${i}</i>${t}<span class="hs-bdg" id="hs-${k}-bdg" hidden></span></button>`).join('');
     n.querySelectorAll('[data-nav]').forEach(b => b.onclick = () => go(b.dataset.nav));
+    try{ badge(); meBadge(); layHideNav(); }catch(e){}
+  }
+  function openNavCfg(){
+    closeSheet();
+    const draw = () => {
+      const pick = navPick(), s = $id('hs-sheet') || Object.assign(document.createElement('div'), { id:'hs-sheet', className:'hs-sheet' });
+      const row = ([k, i, t, sub], on, idx) => `<div class="hs-ord-row${on ? '' : ' off'}"><span class="hs-ord-n">${on ? idx + 1 : ''}</span><span class="hs-ord-t">${i} ${t}<small class="hs-nav-sub">${sub}</small></span>
+        ${on ? `<button type="button" data-nup="${k}" ${idx ? '' : 'disabled'} aria-label="لأعلى">↑</button><button type="button" data-ndn="${k}" ${idx < pick.length - 1 ? '' : 'disabled'} aria-label="لأسفل">↓</button><button type="button" data-nrm="${k}" aria-label="إزالة من الشريط">✕</button>`
+          : `<button type="button" class="hs-nav-add" data-nadd="${k}" ${pick.length >= NAV_MAX ? 'disabled' : ''}>＋ أضف</button>`}</div>`;
+      s.innerHTML = `<div class="hs-pan" role="dialog" aria-label="أزرار الشريط"><div class="hs-grab"></div>
+        <div class="hs-ord-h"><b>📱 أزرار الشريط السفلي</b><small>«الرئيسية» و«حسابي» ثابتان، واختر بينهما حتى ${NAV_MAX} أزرار. ما لا تختاره تجده داخل «حسابي».</small></div>
+        <div class="hs-navpv">${[['home','🏠','الرئيسية'], ...pick.map(k => NAV_POOL.find(x => x[0] === k)), ['me','👤','حسابي']].map(([k, i, t]) => `<span><i>${i}</i>${t}</span>`).join('')}</div>
+        <div class="hs-ord">${pick.map((k, i) => row(NAV_POOL.find(x => x[0] === k), true, i)).join('')}
+          ${NAV_POOL.filter(x => !pick.includes(x[0])).map(x => row(x, false)).join('')}</div>
+        ${pick.length >= NAV_MAX ? '<p class="hs-nav-full">الشريط ممتلئ — أزل زرًّا لتضيف غيره</p>' : ''}
+        <div class="hs-ord-foot"><button type="button" class="hs-ord-reset" data-nreset>↩ الافتراضي</button><button type="button" class="hs-ord-done" data-done>تم ✓</button></div></div>`;
+      if(!s.parentNode){ document.body.appendChild(s); s.onclick = e => { if(e.target === s){ closeSheet(); onScroll(); } }; }
+      const save = nav => { const L = layGet(); laySave({ ...L, nav }); draw(); };
+      const mv = (k, d) => { const p = navPick(), i = p.indexOf(k), j = i + d; if(j < 0 || j >= p.length) return; [p[i], p[j]] = [p[j], p[i]]; save(p); };
+      s.querySelectorAll('[data-nup]').forEach(b => b.onclick = () => mv(b.dataset.nup, -1));
+      s.querySelectorAll('[data-ndn]').forEach(b => b.onclick = () => mv(b.dataset.ndn, 1));
+      s.querySelectorAll('[data-nrm]').forEach(b => b.onclick = () => save(navPick().filter(x => x !== b.dataset.nrm)));
+      s.querySelectorAll('[data-nadd]').forEach(b => b.onclick = () => { const p = navPick(); if(p.length < NAV_MAX) save([...p, b.dataset.nadd]); });
+      s.querySelector('[data-nreset]').onclick = () => save(NAV_DEF.slice());
+      s.querySelector('[data-done]').onclick = () => { closeSheet(); onScroll(); };
+    };
+    draw(); setOn('me');
   }
   // يظهر الشريط في الصفحة الرئيسية فقط (لا أثناء حل نشاط أو داخل لعبة أو مراجعة)
   function navVisible(){
@@ -132,9 +173,11 @@
   function onScroll(){
     clearTimeout(scT); scT = setTimeout(() => {
       if(!document.documentElement.classList.contains('hs-nav-on') || $id('hs-sheet')) return;
-      const marks = [['acts', $id('all-activities-panel')], ['board', $id('gate-board')], ['store', $id('gate-store')]];
-      let cur = 'home'; const y = window.innerHeight * 0.45;
-      for(const [k, el] of marks){ if(el && el.offsetParent && el.getBoundingClientRect().top < y) cur = k; }
+      const el = { acts: $id('all-activities-panel'), board: $id('gate-board'), store: $id('gate-store'), notes: document.querySelector('#gate-space .space-notices'), report: $id('my-report-panel'), journey: $id('hs-jmap') };
+      const marks = navPick().map(k => [k, el[k]]);
+      // القسم الأقرب فوق منتصف الشاشة (لا آخر قسم في ترتيب الشريط)
+      let cur = 'home', best = -Infinity; const y = window.innerHeight * 0.45;
+      for(const [k, el] of marks){ if(!el || !el.offsetParent) continue; const t = el.getBoundingClientRect().top; if(t < y && t > best){ best = t; cur = k; } }
       if(window.scrollY < 80) cur = 'home';
       setOn(cur);
     }, 80);
@@ -161,9 +204,10 @@
     const keys = BLOCKS.map(b => b.k), o = (L && Array.isArray(L.o) ? L.o : []).filter(k => keys.includes(k));
     keys.forEach(k => { if(!o.includes(k)) o.push(k); });     // قسم جديد يُضاف في آخره
     const h = (L && Array.isArray(L.h) ? L.h : []).filter(k => keys.includes(k) && !BLOCKS.find(b => b.k === k).lock);
-    return { o, h };
+    const nav = Array.isArray(L.nav) ? L.nav.filter(k => NAV_POOL.some(x => x[0] === k)).slice(0, NAV_MAX) : NAV_DEF.slice();
+    return { o, h, nav };
   }
-  function laySave(L){ layWrite({ o: L.o, h: L.h, at: Date.now() }); layApply(); clearTimeout(layPushT); layPushT = setTimeout(layPush, 700); }
+  function laySave(L){ layWrite({ o: L.o, h: L.h, nav: L.nav, at: Date.now() }); layApply(); navBuild(); clearTimeout(layPushT); layPushT = setTimeout(layPush, 700); }
   function layApply(){
     const L = layGet();
     const fixed = [[document.querySelector('#s-gate > .sheet:not(#gate-space)'), 0], [document.querySelector('#gate-space .student-space-head'), 1],
@@ -171,8 +215,10 @@
     fixed.forEach(([el, n]) => { if(el) el.style.order = n; });
     L.o.forEach((k, i) => { const b = BLOCKS.find(x => x.k === k); (b.el() || []).forEach(el => { if(!el) return; el.style.order = 10 + i * 10; el.classList.toggle('hs-off', L.h.includes(k)); }); });
     // قسم مخفي ⇒ زره في الشريط السفلي يختفي أيضًا
-    [['board', 'board'], ['store', 'store']].forEach(([k, nav]) => { const b = document.querySelector(`.hs-nav [data-nav="${nav}"]`); if(b) b.hidden = L.h.includes(k); });
+    layHideNav();
   }
+  // قسم مخفي من «ترتيب صفحتي» ⇒ زرّه في الشريط يختفي (الصدارة/المتجر/رحلتي)
+  function layHideNav(){ const L = layGet(); ['board','store','journey'].forEach(k => { const b = document.querySelector(`.hs-nav [data-nav="${k}"]`); if(b) b.hidden = L.h.includes(k); }); }
   function openOrder(){
     closeSheet();
     const draw = () => {
@@ -242,10 +288,11 @@
     return { notes: un && !un.classList.contains('hide') ? (num(un.textContent) || 0) : 0, report: (shown('my-report-new') ? 1 : 0) + (shown('my-report-new-p') ? 1 : 0) };
   }
   function meBadge(){
-    const c = meCounts(), n = c.notes + c.report, b = $id('hs-me-bdg');
-    if(b){ b.hidden = !n; b.textContent = n > 9 ? '9+' : String(n); }
+    const c = meCounts(), pick = navPick(), set = (id, v) => { const b = $id(id); if(b){ b.hidden = !v; b.textContent = v > 9 ? '9+' : String(v); } };
+    set('hs-notes-bdg', c.notes); set('hs-report-bdg', c.report);
+    set('hs-me-bdg', (pick.includes('notes') ? 0 : c.notes) + (pick.includes('report') ? 0 : c.report));   // «حسابي» يعدّ ما ليس على الشريط
     const sh = $id('hs-sheet'); if(!sh) return;
-    [['notes', c.notes], ['report', c.report]].forEach(([k, v]) => { const it = sh.querySelector(`[data-me="${k}"]`); if(!it) return;
+    [['notes', c.notes], ['report', c.report]].forEach(([k, v]) => { const it = sh.querySelector(`[data-me="go:${k}"]`); if(!it) return;
       let d = it.querySelector('.hs-item-bdg'); if(!v){ if(d) d.remove(); return; }
       if(!d){ d = document.createElement('b'); d.className = 'hs-item-bdg'; it.appendChild(d); } d.textContent = v > 9 ? '9+' : String(v); });
   }
@@ -260,20 +307,19 @@
     const item = (k, i, t, sub, cls) => `<button type="button" class="hs-item ${cls || ''}" data-me="${k}"><i>${i}</i><span>${t}${sub ? `<small>${sub}</small>` : ''}</span></button>`;
     s.innerHTML = `<div class="hs-pan" role="dialog" aria-label="حسابي"><div class="hs-grab"></div>
       <div class="hs-who"><span class="avatar">${av ? av.innerHTML : '🎓'}</span><div><b>${nm.replace(/^أهلاً\s*/, '').replace(/[👋]/g, '').trim() || 'حسابي'}</b><small>${hello()}</small></div></div>
+      ${NAV_POOL.filter(x => !navPick().includes(x[0]) && x[0] !== 'acts' && !(layGet().h.includes(x[0]))).map(([k, i, t, sub]) => item('go:' + k, i, t, sub)).join('')}
       ${item('theme', '🎨', 'مظهري', 'الألوان والصورة والإطار')}
-      ${item('report', '📄', 'تقريري', 'تقرير الأسبوع وتقرير الفترة')}
-      ${item('notes', '🔔', 'التنبيهات', 'الرسائل والتحديثات')}
       ${item('order', '🧩', 'ترتيب صفحتي', 'رتّب الأقسام وأخفِ ما لا تحتاجه')}
+      ${item('navcfg', '📱', 'أزرار الشريط السفلي', 'اختر ما يظهر في الشريط')}
       ${item('old', '↩️', 'التصميم القديم', 'ارجع لشكل البوابة السابق — وتعود للجديد متى شئت')}
       ${item('switch', '👥', 'لست أنا', 'تسجيل الخروج والدخول باسم آخر', 'warn')}</div>`;
     document.body.appendChild(s); meBadge();
     s.onclick = e => { if(e.target === s){ closeSheet(); onScroll(); } };
     s.querySelectorAll('[data-me]').forEach(b => b.onclick = () => {
       const k = b.dataset.me; closeSheet(); onScroll();
-      if(k === 'theme'){ const x = $id('pt-open'); if(x) x.click(); }
-      else if(k === 'report'){ const p = $id('my-report-panel'), box = $id('my-report-box'), t = $id('my-report-toggle');
-        if(box && box.classList.contains('hide') && t) t.click(); scrollTo(p); }
-      else if(k === 'notes') scrollTo(document.querySelector('#gate-space .space-notices'));
+      if(k.startsWith('go:')) go(k.slice(3));
+      else if(k === 'theme'){ const x = $id('pt-open'); if(x) x.click(); }
+      else if(k === 'navcfg') openNavCfg();
       else if(k === 'old') setStyle(true);
       else if(k === 'order') openOrder();
       else if(k === 'switch'){ const x = document.querySelector('#gate-space .sp-switch'); if(x) x.click(); }

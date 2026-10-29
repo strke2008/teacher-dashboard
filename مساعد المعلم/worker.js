@@ -8940,7 +8940,8 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         if (!L) { await env.HW.delete(key); return json({ ok: true, layout: null }); }
         const k = v => typeof v === 'string' && /^[a-z]{2,12}$/.test(v);
         const o = [...new Set((Array.isArray(L.o) ? L.o : []).filter(k))].slice(0, 30), h = [...new Set((Array.isArray(L.h) ? L.h : []).filter(k))].filter(x => o.includes(x)).slice(0, 30);
-        const out = { o, h, style: L.style === 'classic' ? 'classic' : 'new', at: Math.min(Date.now() + 60e3, Number(L.at) || Date.now()) };
+        const nav = Array.isArray(L.nav) ? [...new Set(L.nav.filter(k))].slice(0, 4) : null;   // أزرار الشريط السفلي التي اختارها (بين «الرئيسية» و«حسابي»)
+        const out = { o, h, ...(nav ? { nav } : {}), style: L.style === 'classic' ? 'classic' : 'new', at: Math.min(Date.now() + 60e3, Number(L.at) || Date.now()) };
         let cur = null; try { cur = JSON.parse(await env.HW.get(key) || 'null'); } catch {}
         if (cur && Number(cur.at) > out.at) return json({ ok: true, layout: cur, stale: true });   // نسخة أحدث من جهاز آخر
         await env.HW.put(key, JSON.stringify(out));

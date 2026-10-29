@@ -164,3 +164,10 @@ html[data-pt-cards="glass"] .hs-jmap{background:rgba(255,255,255,.74);-webkit-ba
 /* 🔴 عدّاد الجديد داخل ورقة «حسابي» */
 .hs-pan .hs-item{position:relative}
 .hs-item-bdg{margin-inline-start:auto;min-width:24px;height:24px;line-height:24px;border-radius:99px;padding:0 7px;background:#E5484D;color:#fff;font-size:.78rem;font-weight:800;text-align:center;flex:none}
+/* 📱 أزرار الشريط التي يختارها الطالب */
+.hs-nav.n6 button{font-size:.64rem}.hs-nav.n6 button i{font-size:1.25rem}
+.hs-navpv{display:flex;justify-content:space-around;gap:.2rem;margin:0 0 .7rem;padding:.45rem .3rem;border-radius:14px;background:color-mix(in srgb,var(--ink) 5%,transparent)}
+.hs-navpv span{display:grid;justify-items:center;font-size:.62rem;font-weight:700;color:var(--ink-soft);min-width:0}.hs-navpv i{font-style:normal;font-size:1.1rem}
+.hs-nav-sub{display:block;font-size:.72rem;color:var(--ink-soft);font-weight:500}
+.hs-ord-row .hs-nav-add{width:auto;padding:0 .8rem;font-size:.85rem;color:var(--acc,var(--tick,#1B9C6B))}
+.hs-nav-full{margin:.5rem .2rem 0;font-size:.78rem;color:#8A5A00;text-align:center}
