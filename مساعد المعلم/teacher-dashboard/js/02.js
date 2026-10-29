@@ -4011,7 +4011,7 @@ async function renderComprehensive(force=false){
           <td class="clevel">—</td></tr>`;
       }
       const pScore=p.score==null?0:p.score, hScore=h.score==null?0:h.score;
-      const unrec=[]; if(!p.measured)unrec.push('المشاركة'); if(!h.measured)unrec.push('الواجب'); if(!b.measured)unrec.push('السلوك'); if(!exam.measured)unrec.push('الاختبار');
+      const unrec=[]; if(!p.measured)unrec.push('المشاركة'); if(!h.measured)unrec.push('الواجب'); /* السلوك يبدأ كاملًا (10) ولا ينقص إلا بملاحظة سلبية: بلا ملاحظات = 10 مستحقة، لا «لم يُرصد» */ if(!exam.measured)unrec.push('الاختبار');
       const workTotal=Math.round((pScore+hScore+bScore+aScore)*10)/10;
       const total=Math.round((workTotal+examScore)*10)/10;
       const level=compAnnualLevel(total);
