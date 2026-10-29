@@ -2788,3 +2788,23 @@ details.pq-sec[open]>summary.pq-h{margin-bottom:.3rem}
 }
 /* القوائم المخفية في صفحة الرسائل (msg-hidden-control) كانت تأخذ عرض .inp الكامل وهي absolute فتمدّ الصفحة أفقيًا في الجوال */
 .msg-hidden-control{width:1px!important;min-width:0!important;max-width:1px!important;overflow:hidden!important}
+/* 📱 نموذج الخطة العلاجية في الجوال: كل حقل بعرض النافذة، ومربعات الاختيار بجانب نصها، والشريط السفلي لا يغطي النافذة */
+@media screen and (max-width:700px){
+  #plan-form .pf-dialog .row>label{flex:1 1 100%!important;min-width:0!important;align-self:stretch!important}
+  #plan-form label:has(>input[type=checkbox]){flex-direction:row!important;align-items:center!important;flex-wrap:wrap!important}
+  #plan-form label:has(>input[type=checkbox])>span{flex:1 1 100%}
+  #plan-form label .inp{width:100%}
+}
+body.pf-open #simp-bottomnav,body.pf-open .askf-btn{display:none!important}
+/* أسئلة نافس: عنصر شبكة لا يتجاوز عرض البطاقة (كان الشكل/الجدول داخل السؤال يمدّه خارج الشاشة في الجوال) */
+.nafs-qs{grid-template-columns:minmax(0,1fr)}
+.nafs-q{min-width:0;overflow-wrap:anywhere}
+.nafs-q .nf-fig,.nafs-q table{max-width:100%}
+.nafs-q .nf-fig{overflow-x:auto}
+/* 📱 أرقام تنبيهات الأنشطة: العنوان تحت الرقم كان 9.9px — يُقرأ الآن */
+@media screen and (max-width:700px){ .alert-kpis span,.missing-kpis span{font-size:.72rem!important} }
+/* 📱 حوائط الإبداع (المعلم): كل حائط بعرض الشاشة وأزراره في صف — كانت البطاقة نصف الشاشة والأزرار عمودًا ضيقًا */
+@media screen and (max-width:700px){
+  #p-walls .walls-list{grid-template-columns:minmax(0,1fr)}
+  #p-walls .wall-tile .row .btn{flex:1 1 auto}
+}
