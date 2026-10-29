@@ -831,16 +831,15 @@ function madSummaryEntry(r) {
 }
 async function attachMadrasati(env, data) {
   try {
+    // ⚡ القراءات المستقلة معًا (تُجمع في استعلام واحد) بدل خمس قراءات متتالية — النتيجة نفسها
+    // 🚫 excluded: واجبات استبعدها المعلم من التقييم · 🧽 forgiven: واجبات مسحها الطالب ببطاقة «مسح خصم مدرستي»
+    const [sumRaw, sumV, linksRaw, excluded, forgiven] = await Promise.all([env.HW.get('mad:summary'), env.HW.get('mad:summary:v'), env.HW.get('mad:links'), madExcluded(env), madForgivenRead(env)]);
     let summary = null;
-    try { summary = JSON.parse(await env.HW.get('mad:summary') || 'null'); } catch {}
+    try { summary = JSON.parse(sumRaw || 'null'); } catch {}
     // ملخص من نسخة سابقة (بلا تاريخ البداية) يُعاد بناؤه مرة واحدة
-    if (summary && (await env.HW.get('mad:summary:v')) !== '2') summary = null;
+    if (summary && sumV !== '2') summary = null;
     if (!summary) { const idx = await env.HW.get('mad:index'); summary = idx && idx !== '[]' ? await madBuildSummary(env) : {}; }
-    let links = {}; try { links = JSON.parse(await env.HW.get('mad:links') || '{}') || {}; } catch {}
-    // 🚫 واجبات استبعدها المعلم من التقييم: لا تدخل الدرجة ولا الكشوف ولا التقارير ولا التذكير
-    const excluded = await madExcluded(env);
-    // 🧽 واجبات مسحها الطالب ببطاقة «مسح خصم مدرستي»: لا تُخصم ولا تظهر في «لم يحل»
-    const forgiven = await madForgivenRead(env);
+    let links = {}; try { links = JSON.parse(linksRaw || '{}') || {}; } catch {}
     const bySid = {};
     for (const [key, a] of Object.entries(summary)) {
       if (excluded.has(key)) continue;
@@ -1036,10 +1035,11 @@ async function srepLiveReports(env, st, reports) {
   }
   return out;
 }
-async function studentReportGrades(env, semester, period) {
-  const data = await attachMadrasati(env, await loadClassroom(env));
+// pre (اختياري): الفصل والحالة إن قُرئا في الطلب نفسه — لا قراءة ثانية لهما (صفحة ولي الأمر كانت تقرؤهما مرتين وثلاثًا)
+async function studentReportGrades(env, semester, period, pre) {
+  const data = await attachMadrasati(env, pre && pre.classroom ? pre.classroom : await loadClassroom(env));
   let students = [], assignments = [];
-  try { const st = JSON.parse(await env.HW.get('tstate:main') || '{}'); students = (st.students || []).filter(x => x && x.id); assignments = st.assignments || []; } catch {}
+  try { const st = pre && pre.state ? pre.state : JSON.parse(await env.HW.get('tstate:main') || '{}'); students = (st.students || []).filter(x => x && x.id); assignments = st.assignments || []; } catch {}
   // 🔒 الفترة المغلقة: لقطتها المحفوظة لحظة الإغلاق (نفس ما يعرضه /grades للمعلم) — لا إعادة حساب بدرجات اليوم
   const S = ((academicNormalize(data) || {}).semesters || {})[String(semester)] || {}, snap = (S.periodSnapshots || {})[String(period)];
   if (snap && periodIsClosed(S, period)) return { data, students, grades: { ...snap, closed: true } };
@@ -1095,12 +1095,13 @@ function periodsAvail(data) {
 }
 async function loadClassroom(env) {
   let data = {};
+  const fgP = hwForgivenRead(env).catch(() => undefined);   // ⚡ مستقل عن بقية القراءات: يبدأ معها
   try { const raw = await env.HW.get('teacher:classroom'); if (raw) data = JSON.parse(raw) || {}; } catch { data = {}; }
   await overlayPlanPatches(env, data);
   await attachSkills(env, data);
   const out = await overlayExamBonuses(env, data);
   // 📘 واجبات فصل مسح الطالب خصمها ببطاقة المتجر — تُقرأ مع الكشف (غير قابلة للتسلسل فلا تُحفظ معه)
-  try { Object.defineProperty(out, '__hwfg', { value: await hwForgivenRead(env), enumerable: false, configurable: true }); } catch {}
+  try { Object.defineProperty(out, '__hwfg', { value: await fgP, enumerable: false, configurable: true }); } catch {}
   return out;
 }
 async function addExamBonus(env, data, sid, sem, per, add, extra) {
@@ -6186,13 +6187,19 @@ export default {
       const fails = parseInt(await env.HW.get(fk), 10) || 0;
       if (fails >= 8) return json({ ok: false, error: 'locked' }, 429);
       const ph = parPhone(b.phone), nm = String(b.name || '').slice(0, 120);
-      const P = await parentsRead(env), roster = await loadRoster(env);
+      const [P, roster] = await Promise.all([parentsRead(env), loadRoster(env)]);   // ⚡ معًا (استعلام واحد) بدل واحد بعد الآخر
       const hits = ph && parNorm(nm).length >= 2 ? roster.filter(x => P[String(x.id)] && P[String(x.id)].p === ph && parNameMatch(nm, x.name)) : [];
       if (!hits.length) { await env.HW.put(fk, String(fails + 1), { expirationTtl: 3600 }); return json({ ok: false, error: 'no_match', left: Math.max(0, 7 - fails) }, 404); }
       const st = hits[0], sid = String(st.id);
       // إخوة بنفس الجوال: تظهر أسماؤهم ليختار ولي الأمر بينهم
       const siblings = roster.filter(x => String(x.id) !== sid && P[String(x.id)] && P[String(x.id)].p === ph).map(x => { const w = String(x.name).trim().split(/\s+/); return w.length > 1 ? `${w[0]} ${w[w.length - 1]}` : w[0]; });
-      let state = {}; try { state = JSON.parse(await env.HW.get('tstate:main')) || {}; } catch {}
+      // ⚡ ما يحتاجه التقرير كله يُطلب معًا: الحالة، فهرس التقارير المنشورة، الرسائل، والفصل — بدل سلسلة قراءات متتالية
+      const [stRaw, srIdx, msgs0, cls0] = await Promise.all([
+        env.HW.get('tstate:main').catch(() => null),
+        env.HW.get(`srep:idx:${sid}`).then(v => { try { return JSON.parse(v || 'null'); } catch { return null; } }).catch(() => null),
+        readMessages(env, { id: sid, name: st.name }).catch(() => null),
+        loadClassroom(env).catch(() => null)]);
+      let state = {}; try { state = JSON.parse(stRaw) || {}; } catch {}
       const cls = String(st.cls || ''), today = new Date(Date.now() + 3 * 3600000).toISOString().slice(0, 10);
       const forCls = h => { const l = Array.isArray(h.clsList) && h.clsList.length ? h.clsList.map(String) : (h.cls ? [String(h.cls)] : []); return !l.length || l.includes(cls); };
       // الأنشطة بدون درجة (تدريب) لا تدخل في تقرير ولي الأمر
@@ -6203,27 +6210,28 @@ export default {
         if (sub) done.push({ t: String(h.title || '').slice(0, 80), at: Number(sub.at) || 0, c: Number(sub.correct) || 0, n: Number(sub.total) || 0 });
         else missing.push({ t: String(h.title || '').slice(0, 80), due: String(h.due || ''), late: !!(h.due && h.due < today) }); }
       const readJ = async k => { try { return JSON.parse(await env.HW.get(k) || 'null'); } catch { return null; } };
-      const reports = []; for (const x of ((await readJ(`srep:idx:${sid}`)) || []).slice(0, 4)) { const r = await readJ(`srep:${x.semester}:${x.period}:${sid}`); if (r) reports.push(r); }
+      const reports = (await Promise.all(((srIdx) || []).slice(0, 4).map(x => readJ(`srep:${x.semester}:${x.period}:${sid}`)))).filter(Boolean);
       reports.sort((a, c) => (c.semester - a.semester) || (c.period - a.period));
-      let weekly = null; try { const ms = await readMessages(env, { id: sid, name: st.name }); const w = ms.filter(m => m && m.type === 'weekly').sort((a, c) => String(c.createdAt).localeCompare(String(a.createdAt)))[0];
+      let weekly = null; try { const ms = msgs0 || await readMessages(env, { id: sid, name: st.name }); const w = ms.filter(m => m && m.type === 'weekly').sort((a, c) => String(c.createdAt).localeCompare(String(a.createdAt)))[0];
         if (w) { const i = String(w.body || '').indexOf('⟨WK⟩'); weekly = { at: w.createdAt, text: (i < 0 ? w.body : w.body.slice(0, i)).trim().slice(0, 1200), d: i < 0 ? null : (() => { try { return JSON.parse(w.body.slice(i + 4)); } catch { return null; } })() }; } } catch {}
       // 📈 مستواه الآن: نفس حساب «تقرير الفترة» للفترة الجارية (ولو لم يُنشر بعد)
       let live = null, liveErr = '', skills = null;
       let periods = [], view = null;
-      try { const data0 = await loadClassroom(env); periods = periodsAvail(data0);
+      try { const data0 = cls0 || await loadClassroom(env); periods = periodsAvail(data0);
         // ولي الأمر يختار الفترة (الجارية افتراضيًا، أو فترة مغلقة كالأولى بعد إغلاقها)
         // بلا اختيار: خلال 3 أسابيع من إغلاق فترة تُفتح على نتيجتها النهائية (ما يهم ولي الأمر)، ثم على الجارية
         const recent = periods.filter(x => x.closed && x.closedAt && Date.now() - x.closedAt < 21 * 864e5).sort((a, c) => c.closedAt - a.closedAt)[0];
         view = periods.find(x => x.sem === Number(b.sem) && x.per === Number(b.per)) || recent || periods.find(x => x.active) || periods[periods.length - 1] || { sem: 1, per: 1 };
         const sem = view.sem, per = view.per;
-        const { data, grades } = await studentReportGrades(env, sem, per), g = grades.students.find(x => String(x.id) === sid);
+        const { data, grades } = await studentReportGrades(env, sem, per, { classroom: data0, state }), g = grades.students.find(x => String(x.id) === sid);
         if (g) { const pub = reports.find(r => r.semester === sem && r.period === per);
           live = studentReportBuild(data, g, sem, per, pub ? pub.teacherNote : '', srepActsLive(state, data, sid, st.name, cls, sem, per));
           if (String((state.repcfg && state.repcfg.parentSkills) || '') !== 'off') skills = parentSkills(data, g, sid); } else liveErr = 'not_in_grades'; } catch (e) { liveErr = String(e && e.message || e).slice(0, 120); }
       if (fails) await env.HW.delete(fk);
-      let top3 = []; try { top3 = ((JSON.parse(await env.HW.get('top3') || '{}') || {})[sid] || []).slice(0, 3); } catch {}
+      const [top3Raw, certTpl] = await Promise.all([env.HW.get('top3').catch(() => null), certTplRead(env)]);
+      let top3 = []; try { top3 = ((JSON.parse(top3Raw || '{}') || {})[sid] || []).slice(0, 3); } catch {}
       return json({ ok: true, live, periods, view, ...(liveErr ? { liveErr } : {}), ...(skills ? { skills } : {}), top3, student: { name: st.name, cls }, siblings, acts: { total: acts.length, done: done.sort((a, c) => c.at - a.at).slice(0, 15), doneN: done.length, missing: missing.slice(0, 20) }, reports, weekly,
-        cert: { ...certText(await certTplRead(env), /\d/.test(cls) ? cls : ''), date: certDateLine(Date.now()), cls: /\d/.test(cls) ? cls : '' },
+        cert: { ...certText(certTpl, /\d/.test(cls) ? cls : ''), date: certDateLine(Date.now()), cls: /\d/.test(cls) ? cls : '' },
         teacher: String((state.repcfg && state.repcfg.teacher) || ''), subject: String((state.repcfg && state.repcfg.subject) || ''), school: String((state.repcfg && state.repcfg.school) || '') });
     }
     if (url.pathname === '/mine' && request.method === 'GET') {
