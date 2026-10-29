@@ -1042,7 +1042,7 @@ const periodIsClosed = (S, per) => S.status === 'closed' || (S.periodStatus || {
 function classBoardBuild(state, data, sem, per) {
   const T = gradeTermRange(data, per, sem), acts = (Array.isArray(state && state.assignments) ? state.assignments : []).filter(h => h && ['normal', 'reading', 'lab'].includes(h.kind || 'normal') && !h.noGrade && !h.remedial
     && (h.sid || h.published) && termHasTs(T, actAssignedAt(h)));
-  const by = {};
+  const by = {}, stu = [];
   for (const s of (Array.isArray(state && state.students) ? state.students : [])) {
     const cls = String(s && s.cls || '').trim(); if (!s || !s.id || !cls) continue;
     const sid = String(s.id), nm = String(s.name || '');
@@ -1053,11 +1053,14 @@ function classBoardBuild(state, data, sem, per) {
     for (const h of mine) { const sub = h.subs && (h.subs[sid] || h.subs[nm]); if (!sub) continue; done++;
       const t = Number(sub.total) || 0; got += t > 0 ? Math.max(0, Math.min(1, (Number(sub.correct) || 0) / t)) : 1; }
     const c = by[cls] = by[cls] || { cls, n: 0, pct: 0, subs: 0, need: 0, heroes: 0 };
+    stu.push({ sid, nm, cls, pct: Math.round(got / mine.length * 100), done, need: mine.length });
     c.n++; c.pct += got / mine.length * 100; c.subs += done; c.need += mine.length; if (done === mine.length) c.heroes++;
   }
   const classes = Object.values(by).map(c => ({ cls: c.cls, n: c.n, avg: Math.round(c.pct / c.n), sub: c.need ? Math.round(c.subs / c.need * 100) : 0, heroes: c.heroes }))
     .sort((a, b) => (b.avg - a.avg) || (b.sub - a.sub) || String(a.cls).localeCompare(String(b.cls), 'ar'));
-  return { label: SREP_LABELS.per[per] || '', classes };
+  // 🌍 صدارة الطلاب على كل الفصول: نفس النسبة، ثم الأكثر تسليمًا
+  stu.sort((a, b) => (b.pct - a.pct) || (b.done - a.done) || String(a.nm).localeCompare(String(b.nm), 'ar'));
+  return { label: SREP_LABELS.per[per] || '', classes, stu };
 }
 function periodsAvail(data) {
   const ac = academicNormalize(data) || {}, cur = ac.currentSemester === 2 ? 2 : 1, out = [];
@@ -7408,12 +7411,18 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         else if (M.wk !== wk) { M.prev = M.cur || {}; M.wk = wk; }
         M.cur = Object.fromEntries(B.classes.map((c, i) => [c.cls, i + 1]));
         B.classes.forEach((c, i) => { const p = (M.prev || {})[c.cls]; c.move = p ? p - (i + 1) : 0; });
+        // أول 10 بأسمائهم ولقبهم ولون اسمهم (من المتجر) — مرة واحدة لكل حساب
+        B.top = await Promise.all((B.stu || []).slice(0, 10).map(async (x, i) => { const who = { id: x.sid, name: x.nm };
+          const [t, g] = await Promise.all([readByIdentity(env, 'ttl:', who, { migrate: false }).then(r => r.value).catch(() => ''), nameGlow(env, who).catch(() => '')]);
+          return { rank: 1 + B.stu.findIndex(y => y.pct === x.pct), sid: x.sid, name: x.nm, cls: x.cls, pct: x.pct, title: t || '', glow: g || '' }; }));   // المتساوون في النسبة يتشاركون المركز
         B.at = Date.now();
         try { await env.HW.put('cboard-wk', JSON.stringify(M)); await env.HW.put('cboard', JSON.stringify(B), { expirationTtl: 3600 }); } catch {}
       }
-      let myCls = '';
-      try { const roster = await loadRoster(env); const st = roster.find(x => sidIn && String(x.id) === sidIn) || roster.find(x => name && String(x.name).trim() === name); myCls = st ? String(st.cls || '') : ''; } catch {}
-      return json({ ok: true, label: B.label, myCls, classes: B.classes.map(c => ({ cls: c.cls, avg: c.avg, sub: c.sub, n: c.n, move: c.move || 0, ...(c.cls === myCls ? { me: true, heroes: c.heroes } : {}) })) });
+      let myCls = '', mySid = sidIn;
+      try { const roster = await loadRoster(env); const st = roster.find(x => sidIn && String(x.id) === sidIn) || roster.find(x => name && String(x.name).trim() === name); myCls = st ? String(st.cls || '') : ''; if (st) mySid = String(st.id); } catch {}
+      const SL = B.stu || [], mr = SL.find(x => x.sid === mySid), above = mr ? SL.filter(x => x.pct > mr.pct) : [];
+      return json({ ok: true, label: B.label, myCls, top: (B.top || []).map(({ sid, ...x }) => sid === mySid ? { ...x, me: true } : x), total: SL.length,
+        ...(mr ? { mine: { rank: above.length + 1, pct: mr.pct, done: mr.done, need: mr.need, ...(above.length ? { nextPct: above[above.length - 1].pct } : {}) } } : {}), classes: B.classes.map(c => ({ cls: c.cls, avg: c.avg, sub: c.sub, n: c.n, move: c.move || 0, ...(c.cls === myCls ? { me: true, heroes: c.heroes } : {}) })) });
     }
     if (url.pathname === '/board' && request.method === 'GET') {
       const name = String(url.searchParams.get('name') || '').trim();

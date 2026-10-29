@@ -4554,6 +4554,21 @@ function updateAllActivitiesSummary(rows){
     : 'لا توجد أنشطة منشورة حاليًا';
 }
 
+/* 🌍 صدارة الطلاب على كل الفصول: أول 10 باسمهم وفصلهم، وترتيب الطالب نفسه ولو لم يكن منهم */
+function allBoardHTML(cb, nm){
+  const T = cb.top || [], M = cb.mine || {}, medal = ['🥇','🥈','🥉'];
+  const row = r => `<div class="ab-row${r.me ? ' me' : ''}"><span class="ab-rk">${medal[r.rank - 1] || r.rank}</span>
+    <span class="ab-nm"><span class="${nmCls(r.glow)}">${esc(r.name)}</span>${r.title ? ` <span style="font-size:.85rem" title="لقب">${titleLabel(r.title)}</span>` : ''}</span>
+    <span class="ab-cls">${esc(r.cls)}</span><b class="ab-v">${r.pct}%</b></div>`;
+  const inTop = T.some(r => r.me);
+  const gap = M.nextPct != null ? Math.max(1, M.nextPct - M.pct) : 0;
+  return `<div class="cb-hd"><b>🌍 صدارة كل الفصول${cb.label ? ' — ' + esc(cb.label) : ''}</b><small>نسبة درجاتك في أنشطة البوابة مقارنةً بطلاب كل الفصول</small></div>
+    ${T.map(row).join('')}
+    ${!inTop && M.rank ? `<div class="ab-dots">⋯</div><div class="ab-row me"><span class="ab-rk">${M.rank}</span><span class="ab-nm">أنت</span><span class="ab-cls">${esc(cb.myCls || '')}</span><b class="ab-v">${M.pct}%</b></div>` : ''}
+    <div class="cb-me">ترتيبك <b>${M.rank}</b> من ${cb.total} في كل الفصول
+      <div class="cb-meta"><span>📈 نسبتك <b>${M.pct}%</b></span><span>📬 سلّمت <b>${M.done}</b> من ${M.need}</span></div>
+      ${M.rank === 1 ? '<span class="cb-gap top">👑 أنت في المركز الأول على كل الفصول — حافظ عليه!</span>' : `<span class="cb-gap">🎯 ينقصك ${gap}% لتتقدّم مركزًا — كل نشاط تسلّمه بإتقان يرفعك!</span>`}</div>`;
+}
 /* 🏫 صدارة الفصول: منصّة للثلاثة الأوائل، والباقي بأشرطة، وسطر فصل الطالب (ترتيبه، حركته هذا الأسبوع، ما ينقصه لتجاوز الفصل الأعلى) */
 function classBoardHTML(cb){
   const C = cb.classes || [], me = C.find(c => c.me), mi = C.indexOf(me);
@@ -4664,8 +4679,9 @@ async function gateLoad(nm, opts){
       fetch(api + '/board?name=' + encodeURIComponent(nm)).then(r => r.json()).catch(() => ({})),
       fetch(api + '/class-board?name=' + encodeURIComponent(nm) + (mySid ? '&sid=' + encodeURIComponent(mySid) : '')).then(r => r.json()).catch(() => ({}))
     ]);
-    const hasMe = !!(b.ok && b.total > 1), hasCls = !!(cb.ok && (cb.classes || []).length > 1 && (cb.classes || []).some(c => c.me));
-    if(!hasMe && !hasCls) return;
+    const hasMe = !!(b.ok && b.total > 1), hasCls = !!(cb.ok && (cb.classes || []).length > 1 && (cb.classes || []).some(c => c.me)),
+      hasAll = !!(cb.ok && (cb.classes || []).length > 1 && (cb.top || []).length > 1 && cb.mine);
+    if(!hasMe && !hasCls && !hasAll) return;
     const medal = ['🥇','🥈','🥉'];
     const mineHTML = () => `
         
@@ -4690,9 +4706,10 @@ async function gateLoad(nm, opts){
           </div>`;
     let mode = 'me'; try{ mode = localStorage.getItem('board_mode_v1') || 'me'; }catch(e){}
     const draw = () => {
-      if(mode === 'cls' && !hasCls) mode = 'me'; if(mode === 'me' && !hasMe) mode = 'cls';
-      const seg = hasMe && hasCls ? `<div class="cb-seg" role="tablist"><button type="button" role="tab" data-cbm="me" aria-selected="${mode==='me'}" class="${mode==='me'?'on':''}">🏆 صدارة فصلي</button><button type="button" role="tab" data-cbm="cls" aria-selected="${mode==='cls'}" class="${mode==='cls'?'on':''}">🏫 صدارة الفصول</button></div>` : '';
-      $('gate-board').innerHTML = `<div class="sheet" style="padding:.85rem 1rem">${seg}${mode === 'cls' ? classBoardHTML(cb) : mineHTML()}</div>`;
+      const tabs = [['me', '🏆 فصلي', hasMe], ['all', '🌍 كل الفصول', hasAll], ['cls', '🏫 الفصول', hasCls]].filter(t => t[2]);
+      if(!tabs.some(t => t[0] === mode)) mode = tabs[0][0];
+      const seg = tabs.length > 1 ? `<div class="cb-seg" role="tablist">${tabs.map(t => `<button type="button" role="tab" data-cbm="${t[0]}" aria-selected="${mode===t[0]}" class="${mode===t[0]?'on':''}">${t[1]}</button>`).join('')}</div>` : '';
+      $('gate-board').innerHTML = `<div class="sheet" style="padding:.85rem 1rem">${seg}${mode === 'cls' ? classBoardHTML(cb) : mode === 'all' ? allBoardHTML(cb, nm) : mineHTML()}</div>`;
       $('gate-board').querySelectorAll('[data-cbm]').forEach(x => x.onclick = () => { mode = x.dataset.cbm; try{ localStorage.setItem('board_mode_v1', mode); }catch(e){} draw(); });
     };
     draw();
