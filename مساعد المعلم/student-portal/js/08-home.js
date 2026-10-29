@@ -3,6 +3,18 @@
 (function(){
   const $id = id => document.getElementById(id);
   const HS = { pct:null, pts:null, rank:null };
+  /* 🔀 الطالب يختار: التصميم الجديد (الافتراضي) أو القديم — محفوظ على جهازه */
+  const isClassic = () => { try{ return localStorage.getItem('home_style') === 'classic'; }catch(e){ return false; } };
+  function setStyle(classic){
+    try{ if(classic) localStorage.setItem('home_style', 'classic'); else localStorage.removeItem('home_style'); }catch(e){}
+    location.reload();
+  }
+  // في التصميم القديم: زر صغير بجانب «مظهري» و«لست أنا» للعودة للجديد
+  function classicBtn(){
+    const box = document.querySelector('#gate-space .sp-head-btns'); if(!box || box.querySelector('.hs-new-btn')) return;
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'pt-gear hs-new-btn'; b.textContent = '✨ التصميم الجديد';
+    b.onclick = () => setStyle(false); box.appendChild(b);
+  }
 
   function hello(){
     const h = new Date().getHours();
@@ -109,6 +121,7 @@
       ${item('theme', '🎨', 'مظهري', 'الألوان والصورة والإطار')}
       ${item('report', '📄', 'تقريري', 'تقرير الأسبوع وتقرير الفترة')}
       ${item('notes', '🔔', 'التنبيهات', 'الرسائل والتحديثات')}
+      ${item('old', '↩️', 'التصميم القديم', 'ارجع لشكل البوابة السابق — وتعود للجديد متى شئت')}
       ${item('switch', '👥', 'لست أنا', 'تسجيل الخروج والدخول باسم آخر', 'warn')}</div>`;
     document.body.appendChild(s);
     s.onclick = e => { if(e.target === s){ closeSheet(); onScroll(); } };
@@ -118,11 +131,17 @@
       else if(k === 'report'){ const p = $id('my-report-panel'), box = $id('my-report-box'), t = $id('my-report-toggle');
         if(box && box.classList.contains('hide') && t) t.click(); scrollTo(p); }
       else if(k === 'notes') scrollTo(document.querySelector('#gate-space .space-notices'));
+      else if(k === 'old') setStyle(true);
       else if(k === 'switch'){ const x = document.querySelector('#gate-space .sp-switch'); if(x) x.click(); }
     });
   }
 
   function init(){
+    if(isClassic()){   // التصميم القديم كما كان: بلا شريط ولا أرقام ولا تحية — فقط زر العودة للجديد
+      classicBtn();
+      const sp = $id('gate-space'); if(sp) new MutationObserver(classicBtn).observe(sp, { attributes:true, attributeFilter:['class'], childList:true, subtree:true });
+      window.hsGo = () => {}; return;
+    }
     headInit(); statsInit(); navInit(); navVisible(); badge();
     const mo = (el, fn, opt) => { if(el) new MutationObserver(fn).observe(el, opt); };
     mo($id('s-gate'), navVisible, { attributes:true, attributeFilter:['class'] });
