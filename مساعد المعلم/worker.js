@@ -4307,7 +4307,8 @@ function awayClean(a, total) {
   const n = Math.max(0, Math.min(999, Math.round(Number(a.n) || 0))); if (!n) return null;
   const secs = Math.max(0, Math.min(86400, Math.round(Number(a.secs) || 0)));
   const q = [...new Set((Array.isArray(a.q) ? a.q : []).map(Number).filter(i => Number.isInteger(i) && i >= 0 && i < Math.max(1, Number(total) || 200)))].slice(0, 100);
-  return { n, secs, q };
+  const r = Math.max(0, Math.min(99, Math.round(Number(a.r) || 0)));   // كم مرة أُعيدت أسئلته (الخروج 3 مرات)
+  return { n, secs, q, ...(r ? { r } : {}) };
 }
 // أسئلة خرج عندها وأجاب عنها صحيحًا (هي ما يُشكّ فيه)
 function awayCorrectItems(a, d) { d = String(d || ''); return (a && Array.isArray(a.q) ? a.q : []).filter(i => d[i] === '1').sort((x, y) => x - y); }

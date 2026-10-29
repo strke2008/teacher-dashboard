@@ -8563,8 +8563,8 @@ function actTitle(q, i){
    الطالب يعيد حل أخطائه فقط بمهلة قراءة يفرضها الخادم، وتظهر نتيجته هنا وتصلك إشعارًا. */
 const RT_LOW_PCT = 50;
 /* 🚪 خرج من صفحة النشاط أثناء الحل (يرسله جهاز الطالب): يُعرض إن تجاوزت مدته 10 ث أو تكرر 3 مرات */
-function awayOf(v){ const a=v&&v.away; if(!a||!a.n) return null; const secs=Number(a.secs)||0; return (secs>=10||a.n>=3)?{n:a.n,secs,q:Array.isArray(a.q)?a.q:[],ok:(Array.isArray(a.q)?a.q:[]).filter(i=>String(v.d||'')[i]==='1').length}:null; }
-function awayLabel(a){ const m=Math.floor(a.secs/60), s=a.secs%60; return `🚪 خرج ${a.n===1?'مرة':a.n===2?'مرتين':a.n+' مرات'} · ${m?m+' د ':''}${s} ث`; }
+function awayOf(v){ const a=v&&v.away; if(!a||!a.n) return null; const secs=Number(a.secs)||0; return (secs>=10||a.n>=3)?{n:a.n,secs,r:Number(a.r)||0,q:Array.isArray(a.q)?a.q:[],ok:(Array.isArray(a.q)?a.q:[]).filter(i=>String(v.d||'')[i]==='1').length}:null; }
+function awayLabel(a){ const m=Math.floor(a.secs/60), s=a.secs%60; return `🚪 خرج ${a.n===1?'مرة':a.n===2?'مرتين':a.n+' مرات'} · ${m?m+' د ':''}${s} ث${a.r?` · 🔁 أُعيدت أسئلته ${a.r===1?'مرة':a.r===2?'مرتين':a.r+' مرات'}`:''}`; }
 function rtCandidates(h, subs){
   const pol = activityKindPolicy(h);
   if(!pol.score || h.kind==='files') return [];

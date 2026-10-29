@@ -1019,31 +1019,42 @@ function paceStartServer(){
 }
 /* 🚪 الخروج من صفحة النشاط أثناء الحل (للبحث عن الإجابة في موقع آخر): يُسجَّل عدد المرات والمدة والأسئلة المفتوحة عندها،
    ويُرسل مع التسليم فيراه المعلم، وإن أصاب الطالب أسئلة وهو خارجها تصله «مهمة تحقق» بها. الطالب يعلم بذلك قبل البدء وعند العودة. */
-const AWAY = { n:0, ms:0, q:[], t0:0, qi:-1 };
+const AWAY = { n:0, ms:0, q:[], t0:0, qi:-1, round:0, resets:0 };
+const AWAY_RESET_AT = 3;   // الخروج للمرة الثالثة ⇒ تُمسح الإجابات ويبدأ النشاط من أوله
 function awaySolving(){ const quiz = $('s-quiz'); return !!(startedAt && quiz && !quiz.classList.contains('hide') && HW && Array.isArray(HW.q) && !isStyleHW()); }
 function awayNote(){
   const quiz = $('s-quiz'); if(!quiz) return;
   let el = $('away-note'); if(!el){ el = document.createElement('div'); el.id = 'away-note'; quiz.insertBefore(el, quiz.firstChild); }
-  if(!AWAY.n){ el.className = 'away-note'; el.innerHTML = '🔒 ابقَ في هذه الصفحة حتى تسلّم — الخروج منها أثناء الحل يُسجَّل ويراه معلمك.'; return; }
-  const m = Math.floor(AWAY.ms/60000), sec = Math.round(AWAY.ms/1000)%60;
+  if(!AWAY.n){ el.className = 'away-note'; el.innerHTML = `🔒 ابقَ في هذه الصفحة حتى تسلّم — الخروج منها يُسجَّل ويراه معلمك، والخروج <b>${AWAY_RESET_AT} مرات</b> يعيد الأسئلة من البداية.`; return; }
+  const m = Math.floor(AWAY.ms/60000), sec = Math.round(AWAY.ms/1000)%60, left = AWAY_RESET_AT - AWAY.round;
   el.className = 'away-note warn';
-  el.innerHTML = `⚠️ خرجت من صفحة النشاط <b>${AWAY.n === 1 ? 'مرة' : AWAY.n === 2 ? 'مرتين' : AWAY.n + ' مرات'}</b> (${m ? m + ' د ' : ''}${sec} ث) — سُجّل ذلك لمعلمك. أجب بنفسك 💪`;
+  el.innerHTML = AWAY.round === 0 && AWAY.resets
+    ? `🔁 خرجت ${AWAY_RESET_AT} مرات فأُعيدت الأسئلة من البداية${AWAY.resets > 1 ? ` (للمرة ${AWAY.resets})` : ''} — سُجّل ذلك لمعلمك. ابقَ في الصفحة حتى تسلّم.`
+    : `⚠️ خرجت من صفحة النشاط <b>${AWAY.n === 1 ? 'مرة' : AWAY.n === 2 ? 'مرتين' : AWAY.n + ' مرات'}</b> (${m ? m + ' د ' : ''}${sec} ث) — سُجّل ذلك لمعلمك.<br>${left === 1 ? '<b>خروج واحد آخر</b>' : `<b>${left} مرات خروج</b>`} وتُعاد الأسئلة من البداية وتُمسح إجاباتك.`;
 }
-function awayReset(){ Object.assign(AWAY, { n:0, ms:0, q:[], t0:0, qi:-1 }); awayNote(); }
+function awayReset(){ Object.assign(AWAY, { n:0, ms:0, q:[], t0:0, qi:-1, round:0, resets:0 }); awayNote(); }
+/* 🔁 العقوبة: تُمسح الإجابات ويعود للسؤال الأول، ويبدأ وقت الحل من جديد (الخادم يقيس الوتيرة من البدء الجديد) */
+function awayRestart(){
+  AWAY.round = 0; AWAY.resets++;
+  startedAt = Date.now(); paceStartServer();
+  ans = HW.q.map(()=>null); built = solveBuilt(); idx = 0;
+  paceReset(); render(); awayNote();
+  try{ window.scrollTo({ top:0, behavior:'smooth' }); }catch(e){}
+}
 document.addEventListener('visibilitychange', () => {
   if(document.hidden){ if(awaySolving()){ AWAY.t0 = Date.now(); AWAY.qi = typeof idx === 'number' ? idx : -1; } return; }
   if(!AWAY.t0) return;
   const d = Date.now() - AWAY.t0; AWAY.t0 = 0;
   if(d < 1500 || !awaySolving()) return;                 // ومضة (إشعار عابر) لا تُعدّ
-  AWAY.n++; AWAY.ms += d; if(AWAY.qi >= 0 && !AWAY.q.includes(AWAY.qi)) AWAY.q.push(AWAY.qi);
-  awayNote();
+  AWAY.n++; AWAY.ms += d; AWAY.round++; if(AWAY.qi >= 0 && !AWAY.q.includes(AWAY.qi)) AWAY.q.push(AWAY.qi);
+  if(AWAY.round >= AWAY_RESET_AT) awayRestart(); else awayNote();
 });
 // نسخ نص السؤال للصقه في محرك بحث: ممنوع داخل شاشة الحل (حقول الكتابة مستثناة)
 ['copy','cut','contextmenu'].forEach(ev => document.addEventListener(ev, e => {
   const t = e.target; if(!awaySolving() || !t || !t.closest || !t.closest('#s-quiz') || t.closest('input,textarea')) return;
   e.preventDefault(); if(ev !== 'contextmenu') try{ toast('📋 النسخ غير متاح أثناء حل النشاط'); }catch(_){}
 }));
-function awayPayload(){ return AWAY.n ? { n: AWAY.n, secs: Math.round(AWAY.ms/1000), q: AWAY.q.slice(0, 100) } : null; }
+function awayPayload(){ return AWAY.n ? { n: AWAY.n, secs: Math.round(AWAY.ms/1000), q: AWAY.q.slice(0, 100), r: AWAY.resets } : null; }
 function startSolving(){
   startedAt = Date.now();
   awayReset();
@@ -1053,14 +1064,17 @@ function startSolving(){
   hintUsed = {};
   ans = HW.q.map(()=>null);
   paceReset();
-  built = HW.q.map(q=>{
+  built = solveBuilt();
+  hide('s-pre'); show('s-quiz'); render();
+}
+function solveBuilt(){
+  return HW.q.map(q=>{
     const k = q.t || 'q';
     if(k==='a') return { pool: shuffle(String(q.w||'').replace(/\s/g,'').split('')) };
     if(k==='s') return { pool: shuffle(String(q.s||'').trim().split(/\s+/)) };
     if(k==='m') return { right: shuffle((q.p||[]).map((x,i)=>({t:x[1], i}))), pick:null };
     return {};
   });
-  hide('s-pre'); show('s-quiz'); render();
 }
 
 /* 💡 قائمة أسماء الفصل: يكتب، يرى اسمه، يضغط عليه — كما في البوابة تمامًا.
