@@ -34,7 +34,9 @@
        (221 قاعدة في app.css تعمل فقط عند :root[data-ui-theme="dark"])، فبقيت الخانات البيضاء الثابتة بيضاء.
        الآن نفعّل الوضع الداكن الأصلي نفسه فقط عند اختيار خلفية داكنة حرة من الألوان، حتى يبقى النص مقروءًا، ونزامن مفتاحه الأصلي. */
     var dark=isDark(); document.documentElement.dataset.uiTheme=dark?'dark':'light';
-    try{localStorage.setItem('hwapp_ui_theme_v1',dark?'dark':'light');}catch(e){} }
+    try{localStorage.setItem('hwapp_ui_theme_v1',dark?'dark':'light');}catch(e){}
+    /* لون شريط حالة الجوال يتبع لون الشريط العلوي للثيم */
+    try{var m=document.querySelector('meta[name="theme-color"]');if(m&&theme.vars['--app-nav-bg'])m.setAttribute('content',theme.vars['--app-nav-bg']);}catch(e){} }
   function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify(theme));}catch(e){}}
   var sessionChanged=false, serverTimer=null;
   function save(){theme.at=Date.now();saveLocal();scheduleServerSave();}

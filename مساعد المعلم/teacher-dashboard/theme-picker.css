@@ -3,6 +3,8 @@
    اللوحة الأصلية تستخدم متغيرات CSS أصلًا، لذلك الثيم يغيّر قيمها فقط.
    لا يوجد أي زر عائم ولا أي عنصر ثابت: قسم الثيمات داخل صفحة الإعدادات فقط. */
 .masthead{border-bottom:3px solid var(--ui-accent,#C9A86A)!important}
+/* الشريط العلوي كان كحليًا ثابتًا (rgba(22,35,58)) فلا يتغير مع الثيم؛ الآن بلون القائمة مثل الشريط السفلي */
+.masthead{background:var(--app-nav-bg,#16233A)!important}
 #thm-settings-sheet .thm-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:12px}
 #thm-settings-sheet .thm-card{border:2px solid var(--ui-border,#DCE5F0);border-radius:14px;padding:10px;background:var(--ui-surface,#fff);color:var(--ink,#16233A);cursor:pointer;text-align:right;font:inherit}
 #thm-settings-sheet .thm-card.on{border-color:var(--ui-accent,#C9A86A);box-shadow:0 0 0 3px rgba(201,168,106,.3)}

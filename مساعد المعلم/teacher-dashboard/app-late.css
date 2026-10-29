@@ -1734,13 +1734,13 @@ thead .madr-name{background:var(--ui-surface-2,#F7FAFD)}
 .td-sum{background:linear-gradient(135deg,rgba(27,156,107,.08),rgba(37,99,235,.06));border:1px solid var(--ui-border,#e5e7eb);border-radius:14px;padding:.7rem .9rem;margin-bottom:.6rem}
 .td-sum-g{display:flex;flex-wrap:wrap;gap:.4rem .9rem;font-size:.85rem;margin-top:.4rem}
 /* 🎯 صفحة اليوم (التصميم أ): بطاقة حالة واحدة + شرائح الحصص + أربعة أرقام في سطر */
-.td-hero{display:flex;align-items:center;gap:.85rem;background:linear-gradient(135deg,#1d3a6b,#16233a);color:#fff;border-radius:18px;padding:.85rem 1rem;margin-bottom:.55rem;box-shadow:0 8px 22px rgba(22,35,58,.18)}
-.td-ring{--p:0;flex:none;width:64px;height:64px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(#f5b83d calc(var(--p)*1%),rgba(255,255,255,.16) 0)}
-.td-ring i{width:50px;height:50px;border-radius:50%;background:#1b3159;display:grid;place-items:center;font-style:normal;font-weight:800;font-size:.95rem;direction:ltr}
+.td-hero{display:flex;align-items:center;gap:.85rem;background:var(--app-nav-bg,#16233a);background-image:linear-gradient(135deg,rgba(255,255,255,.1),rgba(0,0,0,.12));color:var(--app-nav-text,#fff);border-radius:18px;padding:.85rem 1rem;margin-bottom:.55rem;box-shadow:0 8px 22px rgba(22,35,58,.18)}
+.td-ring{--p:0;flex:none;width:64px;height:64px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--app-nav-active,#f5b83d) calc(var(--p)*1%),rgba(255,255,255,.16) 0)}
+.td-ring i{width:50px;height:50px;border-radius:50%;background:var(--app-nav-bg,#1b3159);display:grid;place-items:center;font-style:normal;font-weight:800;font-size:.95rem;direction:ltr}
 .td-hero-t{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:.2rem}
 .td-hero-t b{font-size:1rem;line-height:1.45}.td-hero-t small{font-size:.8rem;opacity:.85;line-height:1.5}
 .td-hero .td-ok{color:#7be0b0;margin:0}
-.td-hero-go{margin-top:.3rem;border:0;border-radius:10px;background:#f5b83d;color:#16233a;font:inherit;font-weight:800;font-size:.86rem;padding:.4rem .9rem;cursor:pointer}
+.td-hero-go{margin-top:.3rem;border:0;border-radius:10px;background:var(--app-nav-active,#f5b83d);color:var(--app-nav-active-text,#16233a);font:inherit;font-weight:800;font-size:.86rem;padding:.4rem .9rem;cursor:pointer}
 .td-hero-go:hover{filter:brightness(1.05)}
 .td-hero+.td-pers{margin:0 0 .65rem}
 .td-pers .td-per.miss{border-color:#efc56f;background:#fff7e6;color:#8a5a00;font-weight:700}
