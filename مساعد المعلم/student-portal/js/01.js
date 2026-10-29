@@ -422,6 +422,12 @@ async function boot(){
     $('locked-name').textContent = lk;
     $('who-locked').classList.remove('hide');
     $('who-form').classList.add('hide');
+    // 👤 الطالب مسجّل دخوله: لا شاشة «تحلّ باسم / لست أنا» — مباشرة إلى شاشة البدء
+    // (تبقى s-who مجهّزة للرجوع إليها من شاشة الرمز أو عند تعذّر التعرف على الاسم)
+    const r = findStudent(lk);
+    if(!r.err){ await beginWith(r.idx); return; }
+    $('who-locked').classList.add('hide');
+    $('who-form').classList.remove('hide');
   }
   show('s-who');
 }
@@ -617,7 +623,10 @@ async function beginWith(i){
 
   hide('s-who');
   show('s-pre');
-  $('pre-name').textContent = myName;
+  // شاشة واحدة قبل الحل: عنوان النشاط وبياناته مع اسم الطالب ورصيده
+  $('pre-act').textContent = $('who-title').textContent;
+  $('pre-meta').textContent = $('who-sub').textContent;
+  $('pre-name').textContent = '👋 ' + myName;
   await loadStore(true);
   // 🎯 شاشة ما قبل الحل للبدء فقط: رسائل المعلم مكانها صفحة الطالب الرئيسية (التنبيهات) لا هنا
 }
