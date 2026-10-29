@@ -2918,6 +2918,7 @@ function gateIsNew(h){ const a=Number(h.at)||0; return !h.done && a>0 && Date.no
 function gateCounts(h){ return h.gr != null ? !!Number(h.gr) : ['normal','reading','lab'].includes(String(h.kind||'normal')); }
 function gateGradeTag(h){
   // 🔒 نشاط من فترة أُغلقت درجاتها: حلّه يفيده في نقاط التميّز والتعلّم فقط
+  if(h.imp) return `<span class="hw-gr on imp" title="فرصة تحسين من معلمك">🔓 فرصة تحسين · يُحسب لدرجة الفترة السابقة حتى ${esc(gateDayLabel(h.imp))}</span>`;
   if(Number(h.grc)) return '<span class="hw-gr shut" title="أُغلقت درجات فترة هذا النشاط — تسليمه الآن لا يغيّر درجتك">🔒 انتهت فترته · حلّه لنقاط التميّز فقط، ولا يُحسب في درجتك</span>';
   return gateCounts(h)
     ? '<span class="hw-gr on" title="تسليمه يُحتسب في درجة الأنشطة">📊 يدخل في درجتك</span>'
@@ -2930,6 +2931,7 @@ function gatePubLabel(h){
   const txt=n<=0?'اليوم':n===1?'أمس':n===2?'قبل يومين':n<=10?`قبل ${n} أيام`:new Date(a).toLocaleDateString('ar-SA-u-ca-gregory',{day:'numeric',month:'long'});
   return `🕒 نُشر ${txt} · `;
 }
+function gateDayLabel(d){ const t=new Date(String(d)+'T12:00:00Z'); return isNaN(t)?String(d||''):`${['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'][t.getUTCDay()]} ${t.getUTCDate()}/${t.getUTCMonth()+1}`; }
 function gateActionable(h, t){
   if(Number(h.extra||h.extraAttempts||0)>0) return true;
   if(h.kind==='files'&&String(h.reviewStatus||'').toLowerCase()==='rejected'&&Number(h.resubmitUntil||0)>Date.now()) return true;
@@ -4804,8 +4806,14 @@ async function gateLoad(nm, opts){
       </div>` : '';
 
     // 🔎 المراجعة المطلوبة من المعلم تظهر في الصفحة الرئيسية (مساحة الطالب) لا داخل «جميع أنشطتي»
-    { const sr = $('space-review'); if(sr) sr.innerHTML = reviewBox.replace('margin-bottom:1rem','margin:0 0 .9rem'); }
-    $('gate-list').innerHTML = (document.getElementById('space-review') ? '' : reviewBox) + gateGroups(activityRows, h=>{
+    // 🔓 فرصة تحسين فترة مغلقة: أنشطتها التي لم تُسلَّم تُحسب لدرجتها إن سُلّمت قبل نهاية الفرصة
+    const impRows = activityRows.filter(h => h.imp && !h.done);
+    const impBox = impRows.length ? `<div class="sheet imp-box"><div class="imp-ic">🔓</div><div style="flex:1">
+      <b>فرصة لتحسين درجتك في الفترة السابقة!</b>
+      <p>معلمك فتح لك ${impRows.length === 1 ? 'نشاطًا لم تسلّمه' : impRows.length === 2 ? 'نشاطين لم تسلّمهما' : impRows.length + ' أنشطة لم تسلّمها'} — سلّم${impRows.length > 1 ? 'ها' : 'ه'} قبل نهاية <b>${esc(gateDayLabel(impRows[0].imp))}</b> ويُحسب في درجتك.</p>
+      <div class="imp-list">${impRows.slice(0, 6).map(h => `<span>📌 ${esc(h.t || 'نشاط')}</span>`).join('')}${impRows.length > 6 ? `<span>+${impRows.length - 6}</span>` : ''}</div></div></div>` : '';
+    { const sr = $('space-review'); if(sr) sr.innerHTML = impBox + reviewBox.replace('margin-bottom:1rem','margin:0 0 .9rem'); }
+    $('gate-list').innerHTML = (document.getElementById('space-review') ? '' : impBox + reviewBox) + gateGroups(activityRows, h=>{
     if(window.__startGate === false && startGated(h) && !h.done){
       return `
       <button type="button" class="hw-item hw-locked" data-id="${esc(h.id)}" data-start-locked="1">

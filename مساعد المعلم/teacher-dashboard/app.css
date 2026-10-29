@@ -6178,3 +6178,9 @@ button.pill.hw-gr{cursor:pointer}
 /* 📝 اختبارات الخطة: أسماؤها وتواريخها، وما لم يُحتسب لغياب تاريخه */
 .plan-exam-l{flex-basis:100%;display:grid;gap:.15rem;font-size:.76rem;color:var(--ink-soft)}
 .plan-exam-un{flex-basis:100%;font-size:.76rem;padding:.35rem .55rem;border-radius:8px;background:rgba(200,138,46,.1);color:#8A5A00}
+/* 🔓 فرصة تحسين فترة مغلقة */
+.imp-btn{margin-inline-start:.4rem}.imp-btn.on{background:#E3F4EC;color:#13734F;border-color:#9ED7BC}
+.imp-state{border-radius:12px;padding:.55rem .8rem;background:var(--paper,#F4F6FA);font-size:.9rem}.imp-state.on{background:#E3F4EC;color:#13734F;font-weight:700}
+.imp-list{display:grid;gap:.3rem;max-height:46vh;overflow:auto}
+.imp-row{display:flex;flex-wrap:wrap;align-items:center;gap:.25rem .7rem;padding:.45rem .6rem;border-radius:10px;background:var(--paper,#F4F6FA);font-size:.88rem}
+.imp-row b{flex:1;min-width:140px}.imp-g{margin-inline-start:auto;color:#13734F}

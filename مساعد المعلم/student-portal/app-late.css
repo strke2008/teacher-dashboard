@@ -200,3 +200,9 @@
 .away-note.warn{background:#FFF1F3;color:#B4232F;border:1px solid #F3C2CA;opacity:1;font-weight:700}
 #s-quiz{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 #s-quiz input,#s-quiz textarea{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}
+/* 🔓 فرصة تحسين الفترة السابقة */
+.imp-box{display:flex;gap:.8rem;align-items:flex-start;margin-bottom:1rem;border:1.5px solid rgba(27,156,107,.45);background:linear-gradient(135deg,rgba(27,156,107,.10),rgba(27,156,107,.03))}
+.imp-box .imp-ic{font-size:1.6rem;line-height:1}
+.imp-box b{display:block;margin-bottom:.2rem}.imp-box p{margin:.1rem 0 .5rem;font-size:.88rem;line-height:1.7}.imp-box p b{display:inline;color:var(--tick,#1B9C6B)}
+.imp-box .imp-list{display:flex;flex-wrap:wrap;gap:.3rem}.imp-box .imp-list span{font-size:.76rem;font-weight:700;border-radius:99px;padding:2px 9px;background:color-mix(in srgb,var(--tick,#1B9C6B) 12%,transparent)}
+.hw-gr.imp{background:rgba(27,156,107,.14);color:#13734F}

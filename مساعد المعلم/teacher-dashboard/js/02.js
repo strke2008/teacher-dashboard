@@ -850,8 +850,10 @@ function compActivitiesForStudent(s,term){
   });
 }
 /* 🔒 بعد إغلاق الفترة: لا يُحسب لها إلا ما سُلّم قبل لحظة الإغلاق (term.closedAt، أو endAt للإغلاقات القديمة) */
+/* 🔓 فرصة التحسين تمدّ لحظة القطع إلى نهايتها (term.improve.until) — نفس termCut في الخادم */
+function termCut(term){ const c=Number(term&&(term.closedAt||term.endAt))||0, u=Number(term&&term.improve&&term.improve.until)||0; return c&&u>c?u:c; }
 function compSubmissionCount(acts,s,term){
-  const sid=String(s.id), name=String(s.name||''), cut=Number(term&&(term.closedAt||term.endAt))||0;
+  const sid=String(s.id), name=String(s.name||''), cut=termCut(term);
   return acts.filter(h=>{
     const subs=h.subs||{}, sub=subs[sid]||subs[name];
     if(!sub) return false;
@@ -2796,7 +2798,7 @@ async function sfPeriod(el,sid){
 /* 🔍 لماذا «لم يُقَس» الإتقان؟ نفس شروط الخادم: نشاط عادي/مختبر · له أسئلة · نُشر في الفترة (كدرجة الأنشطة) وسُلّم قبل إغلاقها.
    إن وجدنا هنا تسليمات تصلح للقياس والخادم لم يقسها فنسخة الخادم ناقصة أو worker.js قديم. */
 function ctMasteryWhy(sid){
-  const T=(CT_GRADES&&CT_GRADES.term)||null, S=String(sid), c={kind:0,noq:0,out:0,late:0,ok:0}, cut=Number(T&&(T.closedAt||T.endAt))||0;
+  const T=(CT_GRADES&&CT_GRADES.term)||null, S=String(sid), c={kind:0,noq:0,out:0,late:0,ok:0}, cut=termCut(T);
   for(const h of HW||[]){ const v=h&&h.subs&&h.subs[S]; if(!v) continue;
     if(!['normal','lab'].includes(h.kind||'normal')){ c.kind++; continue; }
     if(!(Number(v.total)>0)){ c.noq++; continue; }
@@ -18435,7 +18437,52 @@ function vspDraw(){
   const sp=ctSem(), b=document.getElementById('vsp-btn'), bn=document.getElementById('vsp-banner'), L=vspList();
   if(b){ b.style.display=L.length>1?'':'none'; b.innerHTML=`📅 <span class="vsp-sem">${sp.sem===2?'الفصل الثاني':'الفصل الأول'} · </span>${sp.per===2?'الفترة الثانية':'الفترة الأولى'}${sp.viewing?' 🔒':''}`; b.classList.toggle('on',!!sp.viewing); }
   if(bn){ bn.classList.toggle('hide',!sp.viewing);
-    if(sp.viewing) bn.innerHTML=`<span>👁️ تعرض بيانات <b>${vspLabel(sp)}</b> (مغلقة) — في الكشوف وملف الفصل والتقارير وشهادات الأوائل. الرصد الجديد يبقى على الفترة الجارية.</span><button class="btn sm" type="button" onclick="vspSet(0)">↩️ العودة للفترة الحالية</button>`; }
+    if(sp.viewing) bn.innerHTML=`<span>👁️ تعرض بيانات <b>${vspLabel(sp)}</b> (مغلقة) — في الكشوف وملف الفصل والتقارير وشهادات الأوائل. الرصد الجديد يبقى على الفترة الجارية.</span><button class="btn sm" type="button" onclick="vspSet(0)">↩️ العودة للفترة الحالية</button>${impBannerBtn(sp)}`; }
+}
+/* 🔓 فرصة تحسين فترة مغلقة: يفتح المعلم للطلاب مدة يسلّمون فيها أنشطة الفترة التي لم يسلّموها، فتُحسب لها.
+   الدرجة لا تنقص (تسليم إضافي فقط)، والرصد اليدوي (المشاركة والواجب والسلوك والاختبارات) يبقى مقفلًا. */
+function impOf(sem,per){
+  const a=(typeof DASH_ACADEMIC!=='undefined'&&DASH_ACADEMIC)||{}, snap=(((a.semesters||{})[sem]||{}).periodSnapshots||{})[per], I=snap&&snap.term&&snap.term.improve;
+  if(!I) return null; const until=Number(I.until)||0;
+  return { ...I, until, on: until>Date.now(), day: new Date(until+3*3600000-1000).toISOString().slice(0,10), term: snap.term };
+}
+function impDayLabel(d){ const t=new Date(d+'T12:00:00Z'); return isNaN(t)?d:`${['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'][t.getUTCDay()]} ${t.getUTCDate()}/${t.getUTCMonth()+1}`; }
+function impBannerBtn(sp){
+  const I=impOf(sp.sem,sp.per);
+  return `<button class="btn sm imp-btn${I&&I.on?' on':''}" type="button" onclick="impOpen(${sp.sem},${sp.per})">${I&&I.on?`🔓 فرصة التحسين مفتوحة حتى ${impDayLabel(I.day)}`:'🔓 فرصة تحسين للطلاب'}</button>`;
+}
+// من حسّن؟ درجة الأنشطة بلحظة الإغلاق الأصلية مقابلها بعد امتداد الفرصة
+function impGains(sem,per){
+  const I=impOf(sem,per); if(!I) return [];
+  const t0={...I.term}; delete t0.improve;
+  return (Array.isArray(STUDENTS)?STUDENTS:[]).map(s=>{ const acts=compActivitiesForStudent(s,I.term); if(!acts.length) return null;
+    const a=compSubmissionCount(acts,s,t0), b=compSubmissionCount(acts,s,I.term); if(b<=a) return null;
+    return { s, n:acts.length, a, b, g0:Math.round(a/acts.length*100)/10, g1:Math.round(b/acts.length*100)/10 }; }).filter(Boolean).sort((x,y)=>(y.b-y.a)-(x.b-x.a));
+}
+async function impOpen(sem,per){
+  const I=impOf(sem,per), lbl=vspLabel({sem,per});
+  const def=new Date(Date.now()+3*3600000+7*864e5).toISOString().slice(0,10), min=new Date(Date.now()+3*3600000).toISOString().slice(0,10);
+  const draw=()=>{ const I=impOf(sem,per), G=impGains(sem,per);
+    openModal(`<h2>🔓 فرصة تحسين — ${esc(lbl)}</h2>
+      <p class="muted" style="font-size:.86rem;line-height:1.8;margin:.1rem 0 .7rem">تفتح للطلاب مدة يسلّمون فيها <b>أنشطة ${esc(lbl)} التي لم يسلّموها</b>، فتُحسب لدرجة الأنشطة فيها. تظهر لهم في البوابة بموعد نهاية الفرصة.<br>
+      ✓ الدرجة لا تنقص أبدًا · 🔒 المشاركة والواجبات والسلوك والاختبارات تبقى مقفلة · بعد انتهائها تثبت النتيجة الجديدة في الكشوف وصفحة ولي الأمر.</p>
+      ${I&&I.on?`<div class="imp-state on">🔓 مفتوحة حتى نهاية <b>${impDayLabel(I.day)}</b></div>`:I?`<div class="imp-state">انتهت آخر فرصة في ${impDayLabel(I.day)}</div>`:''}
+      <div class="row" style="gap:.5rem;align-items:flex-end;flex-wrap:wrap;margin:.7rem 0">
+        <label class="field" style="margin:0;flex:1;min-width:170px"><span>${I&&I.on?'تمديد حتى':'مفتوحة حتى نهاية يوم'}</span><input class="inp" type="date" id="imp-until" min="${min}" value="${I&&I.on?I.day:def}"></label>
+        <button class="btn tick" type="button" id="imp-go">${I&&I.on?'💾 حفظ الموعد':'🔓 افتح الفرصة'}</button>
+        ${I&&I.on?'<button class="btn ghost" type="button" id="imp-stop">⏹️ إنهاء الآن</button>':''}
+      </div>
+      ${I?`<h3 style="margin:.9rem 0 .4rem;font-size:.98rem">📈 من حسّن درجته (${G.length})</h3>
+        ${G.length?`<div class="imp-list">${G.map(x=>`<div class="imp-row"><b>${esc(x.s.name)}</b><span class="muted">${esc(x.s.cls||'')}</span><span>سلّم ${x.b-x.a} ${x.b-x.a>2?'أنشطة':x.b-x.a===2?'نشاطين':'نشاطًا'}</span><span class="imp-g">${x.g0} ← <b>${x.g1}</b> / 10</span></div>`).join('')}</div>`:'<p class="muted">لم يسلّم أحد بعد — تظهر هنا التسليمات الجديدة (اضغط 🔄 في الأنشطة لجلب آخرها).</p>'}`:''}
+      <div class="modal-foot"><button class="btn ghost" type="button" onclick="closeModal()">إغلاق</button></div>`);
+    const send=async(body,msg)=>{ try{ await postDashboardAcademic({action:'improve',semester:sem,period:per,...body}); toast(msg,'good'); try{ vspDraw(); }catch(e){} try{ await ctEnsureGrades(true); }catch(e){} draw(); }
+      catch(e){ toast(e.message==='until_past'?'اختر تاريخًا من اليوم فصاعدًا':e.message==='too_long'?'أقصى مدة 60 يومًا':'تعذّر الحفظ: '+e.message,'bad'); } };
+    document.getElementById('imp-go').onclick=()=>{ const v=document.getElementById('imp-until').value; if(!v) return toast('اختر تاريخ النهاية','bad');
+      send({until:v}, `🔓 فرصة التحسين مفتوحة حتى ${impDayLabel(v)} — تظهر للطلاب في البوابة`); };
+    const st=document.getElementById('imp-stop'); if(st) st.onclick=()=>{ if(confirm('إنهاء فرصة التحسين الآن؟ ما سُلّم قبل الآن يبقى محسوبًا.')) send({stop:true},'⏹️ انتهت فرصة التحسين — ما سُلّم خلالها محسوب'); };
+  };
+  try{ if(typeof pullAll==='function') pullAll(true); }catch(e){}
+  draw();
 }
 function vspOpen(){
   const L=vspList(), cur=ctSem();
@@ -18443,7 +18490,8 @@ function vspOpen(){
   openModal(`<h2>📅 الفترة المعروضة</h2>
     <p class="muted" style="font-size:.86rem;margin:.1rem 0 .8rem">اختر الفترة التي تريد رؤية بياناتها في كل اللوحة: الكشوف، ملف الفصل والأوائل، المستويات، تقارير الطلاب. الرصد الجديد يبقى على الفترة الجارية دائمًا.</p>
     <div class="vsp-list">${L.map(x=>`<button type="button" class="vsp-opt ${x.sem===cur.sem&&x.per===cur.per?'on':''}" onclick="vspSet(${x.active?0:`{sem:${x.sem},per:${x.per}}`})">
-      <b>${vspLabel(x)}</b><small>${x.active?'● الفترة الجارية':'🔒 مغلقة — بياناتها كما أُغلقت'}</small></button>`).join('')}</div>
+      <b>${vspLabel(x)}</b><small>${x.active?'● الفترة الجارية':(impOf(x.sem,x.per)&&impOf(x.sem,x.per).on?'🔓 مغلقة — فرصة التحسين مفتوحة':'🔒 مغلقة — بياناتها كما أُغلقت')}</small></button>`).join('')}</div>
+    ${L.filter(x=>x.closed).map(x=>`<button type="button" class="btn ghost sm" style="margin-top:.5rem" onclick="impOpen(${x.sem},${x.per})">🔓 فرصة تحسين ${vspLabel(x)}</button>`).join(' ')}
     <div class="modal-foot"><button class="btn ghost" type="button" onclick="closeModal()">إغلاق</button></div>`);
 }
 // أول تحميل والمعلم على فترة مغلقة: الكشف الشامل وسجل مدرستي يفتحان عليها أيضًا (مرة واحدة، ثم يبقى اختياره اليدوي)

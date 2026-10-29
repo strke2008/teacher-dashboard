@@ -963,8 +963,14 @@ function actAssignedAt(h) {
 function subInPeriod(h, sub, range) {
   if (!range) return true;
   if (!termHasTs(range, actAssignedAt(h))) return false;
-  const cut = Number(range.closedAt || range.endAt) || 0, t = Number(sub.fat || sub.at) || 0;
+  const cut = termCut(range), t = Number(sub.fat || sub.at) || 0;
   return !cut || !t || t < cut;
+}
+/* 🔓 فرصة تحسين فترة مغلقة (term.improve = {from, until}): ما سُلّم حتى نهايتها يُحسب للفترة كأنه قبل الإغلاق —
+   أي أن لحظة القطع تمتد إلى نهاية الفرصة. الدرجة لا تنقص بها (تسليم إضافي فقط)، والرصد اليدوي يبقى مقفلًا. */
+function termCut(term) {
+  const c = Number(term && (term.closedAt || term.endAt)) || 0, u = Number(term && term.improve && term.improve.until) || 0;
+  return c && u > c ? u : c;
 }
 /* 🔒 الفترات المغلقة (من لقطاتها): حدودها ولحظة إغلاقها — ما نُشر فيها وسُلّم بعد الإغلاق لا يُحسب لها */
 function closedTerms(data) {
@@ -972,9 +978,10 @@ function closedTerms(data) {
   for (const sn of ['1', '2']) { const S = (ac.semesters || {})[sn] || {};
     for (const pn of ['1', '2']) { const snap = (S.periodSnapshots || {})[pn];
       if (!snap || !snap.term || !(S.status === 'closed' || (S.periodStatus || {})[pn] === 'closed')) continue;
-      const cut = Number(snap.term.closedAt || snap.term.endAt || S.closedAt) || 0;
+      const cut0 = Number(snap.term.closedAt || snap.term.endAt || S.closedAt) || 0, cut = termCut({ ...snap.term, closedAt: cut0 });
+      const I = snap.term.improve, imp = I && Number(I.until) > Date.now() ? { until: Number(I.until), day: new Date(Number(I.until) + 3 * 3600000 - 1000).toISOString().slice(0, 10) } : null;
       // فترة أُغلقت ونهايتها مفتوحة (الفترة الثانية عند إغلاق الفصل): نهايتها لحظة إغلاقها — وإلا عُدّ كل نشاط بعدها منها فظهر للطالب «مغلقًا»
-      out.push({ T: Number(snap.term.endAt) || (snap.term.endSet && snap.term.end) ? snap.term : { ...snap.term, endAt: cut }, cut }); } }
+      out.push({ T: Number(snap.term.endAt) || (snap.term.endSet && snap.term.end) ? snap.term : { ...snap.term, endAt: cut0 }, cut, imp }); } }
   return out;
 }
 function srepActsLive(state, data, sid, name, cls, sem, per) {
@@ -6299,6 +6306,8 @@ export default {
             // 🔒 نشاط فترةٍ أُغلقت: إن لم يُسلَّم قبل إغلاقها فحلّه الآن لنقاط التميّز فقط (grc)
             const t = firstMap[String(p.id)] || Number(p.pubAt) || 0, c = g && t ? shut.find(x => x.cut && termHasTs(x.T, t)) : null;
             const early = c && sub && (Number(sub.fat || sub.at) || 0) && (Number(sub.fat || sub.at) < c.cut);
+            // 🔓 فرصة تحسين مفتوحة لفترته: لم يُسلَّم بعد ⇒ يُحسب إن سُلّم قبل نهايتها، وموعده نهايتها
+            if (c && !early && c.imp && !sub) return { gr: 1, imp: c.imp.day, due: c.imp.day };
             return { gr: g && (!c || early) ? 1 : 0, ...(c && !early ? { grc: 1 } : {}) }; })(),
           n: Array.isArray(p.q) ? p.q.length : 0,
           // 🧭 نشاط نافس: تعرضه البوابة في خانة «نافس»
@@ -9406,6 +9415,19 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         sem.periodSnapshots['1']=snap;
         sem.activePeriod=2;
         sem.periodStatus=sem.periodStatus||{}; sem.periodStatus['1']='closed'; sem.periodStatus['2']='open';
+      } else if(b.action==='improve') {
+        /* 🔓 فرصة تحسين لفترة مغلقة: until = آخر يوم (YYYY-MM-DD، حتى نهايته بتوقيت الرياض)، أو stop لإنهائها الآن */
+        const p=String(Number(b.period)===2?2:1), snap=(sem.periodSnapshots||{})[p];
+        if(!snap||!snap.term||!periodIsClosed(sem,Number(p))) return json({error:'period_not_closed'},409);
+        if(b.stop){ if(snap.term.improve) snap.term.improve={...snap.term.improve, until:Math.min(Date.now(), Number(snap.term.improve.until)||Date.now()), stoppedAt:Date.now()}; }
+        else {
+          if(!/^\d{4}-\d{2}-\d{2}$/.test(String(b.until||''))) return json({error:'bad_date'},400);
+          const until=Date.parse(String(b.until)+'T23:59:59+03:00');
+          if(!(until>Date.now())) return json({error:'until_past'},400);
+          if(until-Date.now()>60*864e5) return json({error:'too_long'},400);
+          const prev=snap.term.improve;
+          snap.term.improve={ from: prev&&Number(prev.until)>Date.now()?Number(prev.from):Date.now(), until, rounds:(Number(prev&&prev.rounds)||0)+(prev&&Number(prev.until)>Date.now()?0:1) };
+        }
       } else if(b.action==='set_period') {
         const p=Number(b.period)===2?2:1; sem.activePeriod=p; sem.periodStatus=sem.periodStatus||{}; sem.periodStatus[String(p)]='open';
       } else if(b.action==='open') { sem.status='open'; sem.closedAt=0; }
@@ -9428,7 +9450,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         data.terms=data.terms&&typeof data.terms==='object'?data.terms:{}; data.terms[p]={start:ns,end:ne};
       }
       // تعديل التواريخ لا يغيّر الفصل الجاري: كان حفظ تواريخ الفصل الثاني (قبل بدئه) يجعله «الجاري» وهو لم يبدأ فتختفي الدرجات
-      if(b.action!=='end_year' && b.action!=='start_semester2' && b.action!=='set_dates') academic.currentSemester=semester;
+      if(b.action!=='end_year' && b.action!=='start_semester2' && b.action!=='set_dates' && b.action!=='improve') academic.currentSemester=semester;
       data.academic=academic; data.savedAt=Date.now(); await env.HW.put('teacher:classroom',JSON.stringify(data));
       return json({ok:true,academic});
     }
