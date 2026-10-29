@@ -111,10 +111,13 @@
   function setOn(k){ document.querySelectorAll('.hs-nav [data-nav]').forEach(b => b.classList.toggle('on', b.dataset.nav === k)); }
 
   /* 📱 الشريط السفلي يحدده الطالب: «الرئيسية» أوله و«حسابي» آخره دائمًا، وما بينهما يختاره (حتى 4) —
-     وما لم يختره يظهر داخل «حسابي». الافتراضي: أنشطتي · التنبيهات · تقريري · الصدارة */
+     وما لم يختره يظهر داخل «حسابي». الافتراضي: أنشطتي · التنبيهات · الصدارة · المتجر (وتقريري داخل «حسابي» برقمه الأحمر) */
   const NAV_POOL = [['acts','📋','أنشطتي','كل أنشطتك والمطلوب منك'],['notes','🔔','التنبيهات','الرسائل والتحديثات'],['report','📄','تقريري','تقرير الأسبوع وتقرير الفترة'],
     ['board','🏆','الصدارة','فصلي · كل الفصول · الفصول'],['store','🛒','المتجر','بطاقات بنقاطك'],['journey','🗺️','رحلتي','خريطة مسارك'],['walls','🧱','الإبداع','حائط الإبداع وأعمال زملائك']];
-  const NAV_DEF = ['acts','notes','report','board'], NAV_MAX = 4;
+  const NAV_DEF = ['acts','notes','board','store'], NAV_MAX = 4;
+  // الافتراضي القديم كان يُحفظ مع ترتيب الصفحة دون أن يختاره الطالب — يُعامل كأنه لم يختر شيئًا
+  const NAV_OLD = 'acts,notes,report,board';
+  const navOwn = nav => Array.isArray(nav) && nav.join() !== NAV_OLD && nav.join() !== NAV_DEF.join();
   const navPick = () => layGet().nav;
   function navInit(){
     if($id('hs-nav')) return;
@@ -210,10 +213,10 @@
     const keys = BLOCKS.map(b => b.k), o = (L && Array.isArray(L.o) ? L.o : []).filter(k => keys.includes(k));
     keys.forEach(k => { if(!o.includes(k)) o.push(k); });     // قسم جديد يُضاف في آخره
     const h = (L && Array.isArray(L.h) ? L.h : []).filter(k => keys.includes(k) && !BLOCKS.find(b => b.k === k).lock);
-    const nav = Array.isArray(L.nav) ? L.nav.filter(k => NAV_POOL.some(x => x[0] === k)).slice(0, NAV_MAX) : NAV_DEF.slice();
+    const nav = navOwn(L.nav) ? L.nav.filter(k => NAV_POOL.some(x => x[0] === k)).slice(0, NAV_MAX) : NAV_DEF.slice();
     return { o, h, nav };
   }
-  function laySave(L){ layWrite({ o: L.o, h: L.h, nav: L.nav, at: Date.now() }); layApply(); navBuild(); clearTimeout(layPushT); layPushT = setTimeout(layPush, 700); }
+  function laySave(L){ layWrite({ o: L.o, h: L.h, ...(navOwn(L.nav) ? { nav: L.nav } : {}), at: Date.now() }); layApply(); navBuild(); clearTimeout(layPushT); layPushT = setTimeout(layPush, 700); }
   function layApply(){
     const L = layGet();
     const fixed = [[document.querySelector('#s-gate > .sheet:not(#gate-space)'), 0], [document.querySelector('#gate-space .student-space-head'), 1],
