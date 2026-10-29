@@ -101,6 +101,11 @@
     if(k === 'notes'){ scrollTo(document.querySelector('#gate-space .space-notices')); setOn('notes'); return; }
     if(k === 'report'){ const box = $id('my-report-box'), t = $id('my-report-toggle'); if(box && box.classList.contains('hide') && t) t.click(); scrollTo($id('my-report-panel')); setOn('report'); return; }
     if(k === 'journey'){ scrollTo($id('hs-jmap')); setOn('journey'); return; }
+    if(k === 'walls'){
+      const w = $id('space-walls');
+      if(!w || !w.children.length){ if(typeof toast === 'function') toast('لا يوجد حائط إبداع مفتوح لفصلك الآن'); setOn('home'); return; }
+      scrollTo(w); setOn('walls'); return;
+    }
     if(k === 'me') openSheet();
   }
   function setOn(k){ document.querySelectorAll('.hs-nav [data-nav]').forEach(b => b.classList.toggle('on', b.dataset.nav === k)); }
@@ -108,7 +113,7 @@
   /* 📱 الشريط السفلي يحدده الطالب: «الرئيسية» أوله و«حسابي» آخره دائمًا، وما بينهما يختاره (حتى 4) —
      وما لم يختره يظهر داخل «حسابي». الافتراضي: أنشطتي · التنبيهات · تقريري · الصدارة */
   const NAV_POOL = [['acts','📋','أنشطتي','كل أنشطتك والمطلوب منك'],['notes','🔔','التنبيهات','الرسائل والتحديثات'],['report','📄','تقريري','تقرير الأسبوع وتقرير الفترة'],
-    ['board','🏆','الصدارة','فصلي · كل الفصول · الفصول'],['store','🛒','المتجر','بطاقات بنقاطك'],['journey','🗺️','رحلتي','خريطة مسارك']];
+    ['board','🏆','الصدارة','فصلي · كل الفصول · الفصول'],['store','🛒','المتجر','بطاقات بنقاطك'],['journey','🗺️','رحلتي','خريطة مسارك'],['walls','🧱','الإبداع','حائط الإبداع وأعمال زملائك']];
   const NAV_DEF = ['acts','notes','report','board'], NAV_MAX = 4;
   const navPick = () => layGet().nav;
   function navInit(){
@@ -174,7 +179,7 @@
   function onScroll(){
     clearTimeout(scT); scT = setTimeout(() => {
       if(!document.documentElement.classList.contains('hs-nav-on') || $id('hs-sheet')) return;
-      const el = { acts: $id('all-activities-panel'), board: $id('gate-board'), store: $id('gate-store'), notes: document.querySelector('#gate-space .space-notices'), report: $id('my-report-panel'), journey: $id('hs-jmap') };
+      const el = { acts: $id('all-activities-panel'), board: $id('gate-board'), store: $id('gate-store'), notes: document.querySelector('#gate-space .space-notices'), report: $id('my-report-panel'), journey: $id('hs-jmap'), walls: $id('space-walls') };
       const marks = navPick().map(k => [k, el[k]]);
       // القسم الأقرب فوق منتصف الشاشة (لا آخر قسم في ترتيب الشريط)
       let cur = 'home', best = -Infinity; const y = window.innerHeight * 0.45;
@@ -219,7 +224,7 @@
     layHideNav();
   }
   // قسم مخفي من «ترتيب صفحتي» ⇒ زرّه في الشريط يختفي (الصدارة/المتجر/رحلتي)
-  function layHideNav(){ const L = layGet(); ['board','store','journey'].forEach(k => { const b = document.querySelector(`.hs-nav [data-nav="${k}"]`); if(b) b.hidden = L.h.includes(k); }); }
+  function layHideNav(){ const L = layGet(); ['board','store','journey','walls'].forEach(k => { const b = document.querySelector(`.hs-nav [data-nav="${k}"]`); if(b) b.hidden = L.h.includes(k); }); }
   function openOrder(){
     closeSheet();
     const draw = () => {
@@ -286,14 +291,16 @@
   function meCounts(){
     const shown = id => { const e = $id(id); return !!(e && !e.classList.contains('hide')); };
     const un = $id('space-unread');
-    return { notes: un && !un.classList.contains('hide') ? (num(un.textContent) || 0) : 0, report: (shown('my-report-new') ? 1 : 0) + (shown('my-report-new-p') ? 1 : 0) };
+    const wl = $id('space-walls');
+    return { notes: un && !un.classList.contains('hide') ? (num(un.textContent) || 0) : 0, report: (shown('my-report-new') ? 1 : 0) + (shown('my-report-new-p') ? 1 : 0),
+      walls: wl ? wl.querySelectorAll('.wall-tile .new').length : 0 };   // حوائط فيها منشورات جديدة
   }
   function meBadge(){
     const c = meCounts(), pick = navPick(), set = (id, v) => { const b = $id(id); if(b){ b.hidden = !v; b.textContent = v > 9 ? '9+' : String(v); } };
-    set('hs-notes-bdg', c.notes); set('hs-report-bdg', c.report);
-    set('hs-me-bdg', (pick.includes('notes') ? 0 : c.notes) + (pick.includes('report') ? 0 : c.report));   // «حسابي» يعدّ ما ليس على الشريط
+    set('hs-notes-bdg', c.notes); set('hs-report-bdg', c.report); set('hs-walls-bdg', c.walls);
+    set('hs-me-bdg', (pick.includes('notes') ? 0 : c.notes) + (pick.includes('report') ? 0 : c.report) + (pick.includes('walls') ? 0 : c.walls));   // «حسابي» يعدّ ما ليس على الشريط
     const sh = $id('hs-sheet'); if(!sh) return;
-    [['notes', c.notes], ['report', c.report]].forEach(([k, v]) => { const it = sh.querySelector(`[data-me="go:${k}"]`); if(!it) return;
+    [['notes', c.notes], ['report', c.report], ['walls', c.walls]].forEach(([k, v]) => { const it = sh.querySelector(`[data-me="go:${k}"]`); if(!it) return;
       let d = it.querySelector('.hs-item-bdg'); if(!v){ if(d) d.remove(); return; }
       if(!d){ d = document.createElement('b'); d.className = 'hs-item-bdg'; it.appendChild(d); } d.textContent = v > 9 ? '9+' : String(v); });
   }
@@ -345,6 +352,7 @@
     mo($id('space-unread'), meBadge, { attributes:true, attributeFilter:['class'], childList:true, characterData:true, subtree:true });
     mo($id('my-report-new'), meBadge, { attributes:true, attributeFilter:['class'] });
     mo($id('my-report-new-p'), meBadge, { attributes:true, attributeFilter:['class'] });
+    mo($id('space-walls'), meBadge, { childList:true, subtree:true });
     meBadge();
     mo($id('all-activities-count'), () => { badge(); actsOpen(); }, { childList:true, characterData:true, subtree:true });
     mo($id('student-journey'), () => { journeyInit(); jmapDraw(); }, { childList:true, subtree:true, characterData:true, attributes:true, attributeFilter:['class'] });
