@@ -4299,8 +4299,21 @@ function rtWrong(activity, sub) {
   qs.forEach((q, i) => { if (d.length === qs.length ? d[i] !== '1' : !gradeAnswer(activity, q, sub && sub.ans ? sub.ans[i] : null)) out.push(i); });
   return out;
 }
+/* 🚪 الخروج من صفحة النشاط أثناء الحل (تبديل التطبيق أو التبويب): يرسله جهاز الطالب مع التسليم —
+   عدد المرات، والمدة، وأرقام الأسئلة التي كانت مفتوحة عند الخروج. يُنظَّف ولا يُوثق به لأكثر من إشارة للمعلم. */
+const AWAY_MIN_SECS = 10;
+function awayClean(a, total) {
+  if (!a || typeof a !== 'object') return null;
+  const n = Math.max(0, Math.min(999, Math.round(Number(a.n) || 0))); if (!n) return null;
+  const secs = Math.max(0, Math.min(86400, Math.round(Number(a.secs) || 0)));
+  const q = [...new Set((Array.isArray(a.q) ? a.q : []).map(Number).filter(i => Number.isInteger(i) && i >= 0 && i < Math.max(1, Number(total) || 200)))].slice(0, 100);
+  return { n, secs, q };
+}
+// أسئلة خرج عندها وأجاب عنها صحيحًا (هي ما يُشكّ فيه)
+function awayCorrectItems(a, d) { d = String(d || ''); return (a && Array.isArray(a.q) ? a.q : []).filter(i => d[i] === '1').sort((x, y) => x - y); }
 function rtReason(rr, sub) {
   const pct = sub && Number(sub.total) > 0 ? Math.round(Number(sub.correct) * 100 / Number(sub.total)) : null;
+  if (String(rr && rr.reason || '') === 'away') return { code: 'away', pct, text: 'خرجت من صفحة النشاط أثناء حل بعض الأسئلة — أعد حلها هنا بنفسك دون أن تخرج من الصفحة.' };
   const low = pct !== null && pct < RT_LOW, fast = String(rr && rr.reason || 'fast') === 'fast';
   const code = fast && low ? 'guess' : low ? 'low' : fast ? 'fast' : 'teacher';
   const text = code === 'guess' ? `أنهيت النشاط بسرعة كبيرة وكانت نتيجتك ${pct}% — يبدو أنك اخترت إجابات دون قراءة.`
@@ -4374,13 +4387,14 @@ async function handleReviewTask(url, env, ctx, b) {
   const tKey = identityKey(`rt:${hw}:`, st);
   let task = null; try { task = JSON.parse(await env.HW.get(tKey) || 'null'); } catch {}
   const qs = Array.isArray(L.activity.q) ? L.activity.q : [];
+  const isAway = String(L.rr && L.rr.reason || '') === 'away' && Array.isArray(L.rr.items);
   if (!task || !Array.isArray(task.items)) {
-    task = { items: rtWrong(L.activity, L.sub), ans: {}, started: Date.now(), last: Date.now() };
+    task = { items: isAway ? L.rr.items.map(Number).filter(i => Number.isInteger(i) && i >= 0 && i < qs.length) : rtWrong(L.activity, L.sub), ans: {}, started: Date.now(), last: Date.now() };
     await env.HW.put(tKey, JSON.stringify(task), { expirationTtl: 60 * 60 * 24 * 30 });
   }
   const view = () => ({ ok: true, title: String(L.activity.t || ''), reason: rtReason(L.rr, L.sub), dwell: RT_DWELL,
     total: Number(L.sub.total) || qs.length, correct: Number(L.sub.correct) || 0,
-    items: task.items.map(i => rtPublicQ(qs[i] || {}, i, L.sub.ans ? L.sub.ans[i] : null)),
+    items: task.items.map(i => rtPublicQ(qs[i] || {}, i, L.sub.ans && !isAway ? L.sub.ans[i] : null)),   // مهمة التحقق: بلا إجابته السابقة
     answered: Object.fromEntries(Object.entries(task.ans).map(([i, x]) => [i, { ok: x.ok, right: rtRight(qs[i] || {}) }])),
     waitMs: Math.max(0, task.last + RT_DWELL * 1000 - Date.now()) });
 
@@ -6310,7 +6324,7 @@ export default {
           extra,
           reviewPending: !!reviewReq,
           review: reviewReq ? (() => { let rr = {}; try { rr = JSON.parse(reviewReq) || {}; } catch {}
-            const r = rtReason(rr, sub); return { code: r.code, text: r.text, pct: r.pct, wrong: sub ? rtWrong(p, sub).length : 0 }; })() : null,
+            const r = rtReason(rr, sub); return { code: r.code, text: r.text, pct: r.pct, wrong: r.code === 'away' && Array.isArray(rr.items) ? rr.items.length : sub ? rtWrong(p, sub).length : 0 }; })() : null,
           correct: sub ? sub.correct : null,
           total: sub ? sub.total : null,
           files: sub && Array.isArray(sub.files) ? sub.files : [],
@@ -7248,8 +7262,12 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       if (st.ambiguous) return json({ error: 'ambiguous student' }, 409);
       if (!(await env.HW.get(`hw:${hw}`))) return json({ error: 'activity not found' }, 404);
       const key = identityKey(`rr:${hw}:`, st);
-      const reason = ['fast','low','teacher'].includes(String(b.reason)) ? String(b.reason) : 'fast';
-      await env.HW.put(key, JSON.stringify({sid:st.id||'',name:st.name||name,at:Date.now(),localId:String(b.localId||''),reason}), {expirationTtl:60*60*24*30});
+      const reason = ['fast','low','teacher','away'].includes(String(b.reason)) ? String(b.reason) : 'fast';
+      let items = null;
+      if (reason === 'away') { try { const sf = await readByIdentity(env, `s:${hw}:`, st, { migrate: false }); const sb = sf.value ? JSON.parse(sf.value) : null;
+        const A = sb && sb.away; items = A ? (awayCorrectItems(A, sb.d).length ? awayCorrectItems(A, sb.d) : (A.q || [])) : []; } catch { items = []; }
+        if (!items.length) return json({ error: 'no_away_questions' }, 409); }
+      await env.HW.put(key, JSON.stringify({sid:st.id||'',name:st.name||name,at:Date.now(),localId:String(b.localId||''),reason,...(items?{items}:{})}), {expirationTtl:60*60*24*30});
       try { await env.HW.delete(identityKey(`rt:${hw}:`, st)); } catch {}      // طلب جديد = مهمة جديدة
       if (st.id && st.name) { const legacy=`rr:${hw}:${st.name}`; if(legacy!==key){try{await env.HW.delete(legacy);}catch{}} }
       try { const rev=parseInt(await env.HW.get('meta:rev'),10)||0; await env.HW.put('meta:rev',String(rev+1)); } catch {}
@@ -7995,13 +8013,14 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       const secs = serverSecs !== null ? Math.min(86400, serverSecs) : Math.max(0, Math.min(86400, parseInt(b.secs, 10) || 0));   // زمن الخادم أولًا
       let ansArr = null;
       try { if (Array.isArray(b.ans)) ansArr = JSON.parse(JSON.stringify(b.ans)).slice(0, 200); } catch {}
+      const away = awayClean(b.away, total);
 
       // سجل موحّد: نفس الحقول في التسليم العادي وتسليم الملفات
       const submittedAt = Date.now();
       const wasResubmission = !!found.value;
       await env.HW.put(key, JSON.stringify({
         sid: st.id || '', name: st.name || name, cls: st.cls || '',
-        correct, total, pts, d, dev, secs, ans: ansArr,
+        correct, total, pts, d, dev, secs, ans: ansArr, ...(away ? { away } : {}),
         files: [], fileSubmission: false, at: submittedAt,
         stageScores,
         readingOverall,
@@ -8065,8 +8084,10 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
           const pct = total ? Math.round(correct * 100 / total) : null;
           const fast = fastR && correct < total;   // سريع بلا أخطاء: لا أسئلة يعيدها (المعلم يرى السرعة في التقرير ويطلب المراجعة يدويًا)
           const low = pct !== null && pct < RT_LOW;
-          const hasRem = low && !fast ? (await remIndex(env, st.id)).some(x => x && x.src === `act:${hw}`) : false;
-          if (fast || (low && !hasRem)) {
+          // 🚪 خرج من الصفحة وقتًا يُعتدّ به وأصاب أسئلة وهو خارجها ⇒ «مهمة تحقق» بتلك الأسئلة نفسها
+          const awayItems = !fast && away && away.secs >= AWAY_MIN_SECS ? awayCorrectItems(away, d) : [];
+          const hasRem = low && !fast && !awayItems.length ? (await remIndex(env, st.id)).some(x => x && x.src === `act:${hw}`) : false;
+          if (fast || awayItems.length || (low && !hasRem)) {
             const rrKey = identityKey(`rr:${hw}:`, st);
             const rrdKey = identityKey(`rrd:${hw}:`, st);
             const legacyRrKey = st.name ? `rr:${hw}:${st.name}` : '';
@@ -8075,7 +8096,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
               legacyRrKey ? env.HW.get(legacyRrKey) : Promise.resolve(null)
             ]);
             if (!rrEx && !rrdEx && !legacyEx) {
-              await env.HW.put(rrKey, JSON.stringify({ sid: st.id || '', name: st.name || name, at: Date.now(), localId: '', reason: fast ? 'fast' : 'low', auto: true }), { expirationTtl: 60 * 60 * 24 * 30 });
+              await env.HW.put(rrKey, JSON.stringify({ sid: st.id || '', name: st.name || name, at: Date.now(), localId: '', reason: fast ? 'fast' : awayItems.length ? 'away' : 'low', ...(awayItems.length && !fast ? { items: awayItems } : {}), auto: true }), { expirationTtl: 60 * 60 * 24 * 30 });
               try { await env.HW.delete(identityKey(`rt:${hw}:`, st)); } catch {}
               if (legacyRrKey && legacyRrKey !== rrKey) { try { await env.HW.delete(legacyRrKey); } catch {} }
             }

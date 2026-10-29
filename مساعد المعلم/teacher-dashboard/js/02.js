@@ -8562,26 +8562,29 @@ function actTitle(q, i){
 /* 🔎 مهمة التصحيح من تقرير النشاط: من نتيجته أقل من 50% أو أنهى بسرعة مريبة.
    الطالب يعيد حل أخطائه فقط بمهلة قراءة يفرضها الخادم، وتظهر نتيجته هنا وتصلك إشعارًا. */
 const RT_LOW_PCT = 50;
+/* 🚪 خرج من صفحة النشاط أثناء الحل (يرسله جهاز الطالب): يُعرض إن تجاوزت مدته 10 ث أو تكرر 3 مرات */
+function awayOf(v){ const a=v&&v.away; if(!a||!a.n) return null; const secs=Number(a.secs)||0; return (secs>=10||a.n>=3)?{n:a.n,secs,q:Array.isArray(a.q)?a.q:[],ok:(Array.isArray(a.q)?a.q:[]).filter(i=>String(v.d||'')[i]==='1').length}:null; }
+function awayLabel(a){ const m=Math.floor(a.secs/60), s=a.secs%60; return `🚪 خرج ${a.n===1?'مرة':a.n===2?'مرتين':a.n+' مرات'} · ${m?m+' د ':''}${s} ث`; }
 function rtCandidates(h, subs){
   const pol = activityKindPolicy(h);
   if(!pol.score || h.kind==='files') return [];
   return subs.map(([sid,v])=>{
     const tot = Number(v.total)||0, pct = tot ? Math.round((Number(v.correct)||0)*100/tot) : null;
-    const fast = isSuspiciouslyFast(h,v), low = pct!==null && pct < RT_LOW_PCT;
-    return { sid, s:byId(sid), pct, fast, low, secs:Number(v.secs)||0 };
-  }).filter(x=>x.s && (x.fast || x.low)).sort((a,b)=>(a.pct??101)-(b.pct??101));
+    const fast = isSuspiciouslyFast(h,v), low = pct!==null && pct < RT_LOW_PCT, away = awayOf(v);
+    return { sid, s:byId(sid), pct, fast, low, away, secs:Number(v.secs)||0 };
+  }).filter(x=>x.s && (x.fast || x.low || x.away)).sort((a,b)=>(a.pct??101)-(b.pct??101));
 }
 function rtCandidatesHTML(h, subs){
   const list = rtCandidates(h, subs);
   if(!list.length) return '';
-  return `<div class="rep-sec" style="display:flex;align-items:center;justify-content:center;gap:.6rem"><span>🔎 يحتاجون مهمة تصحيح (${list.length})</span></div>
+  return `<div class="rep-sec" style="display:flex;align-items:center;justify-content:center;gap:.6rem"><span>🔎 يحتاجون متابعة (${list.length})</span></div>
     <div class="rep-box rt-box" style="padding:.4rem .6rem;margin-bottom:.7rem">
-      <p class="muted" style="font-size:.76rem;margin:.1rem 0 .4rem">يعيد الطالب حل أخطائه فقط، سؤالًا سؤالًا بمهلة قراءة، وتظهر نتيجته هنا.</p>
+      <p class="muted" style="font-size:.76rem;margin:.1rem 0 .4rem">🔎 مهمة التصحيح: يعيد الطالب حل أخطائه فقط، سؤالًا سؤالًا بمهلة قراءة.${list.some(x=>x.away)?' 🔍 مهمة التحقق (لمن 🚪 خرج من الصفحة أثناء الحل): يعيد الأسئلة التي أصابها وهو خارجها دون رؤية إجابته — فإن أخطأها الآن فدرجته لم تكن من حلّه. تُرسل تلقائيًا إن خرج 10 ث فأكثر وأصاب وهو خارجها.':''} وتظهر النتيجة هنا.</p>
       ${list.map(x=>`<div class="rt-row" id="rt-row-${esc(x.sid)}">
         <div class="rt-who"><b>${esc(x.s.name)}</b>
-          <span class="rt-tags">${x.pct!==null?`<span class="pill" style="background:${x.low?'rgba(214,69,91,.1)':'rgba(27,156,107,.1)'};color:${x.low?'var(--pen)':'var(--tick)'}">${x.pct}%</span>`:''}${x.fast?`<span class="pill" style="background:rgba(200,138,46,.12);color:#9A6512">⚡ ${x.secs}ث</span>`:''}</span>
+          <span class="rt-tags">${x.pct!==null?`<span class="pill" style="background:${x.low?'rgba(214,69,91,.1)':'rgba(27,156,107,.1)'};color:${x.low?'var(--pen)':'var(--tick)'}">${x.pct}%</span>`:''}${x.fast?`<span class="pill" style="background:rgba(200,138,46,.12);color:#9A6512">⚡ ${x.secs}ث</span>`:''}${x.away?`<span class="pill" style="background:rgba(214,69,91,.1);color:var(--pen)" title="${x.away.q.length?'كان خارج الصفحة أثناء الأسئلة: '+x.away.q.map(i=>i+1).join('، ')+' — أصاب منها '+x.away.ok:''}">${awayLabel(x.away)}${x.away.q.length?` · أصاب ${x.away.ok} من ${x.away.q.length} وهو خارجها`:''}</span>`:''}</span>
           <small class="rt-st" id="rt-st-${esc(x.sid)}">…</small></div>
-        <button class="btn sm" type="button" id="rt-btn-${esc(x.sid)}" onclick="this.disabled=true;sendFastReviewRequest('${esc(x.sid)}','${esc(h.id)}','${x.fast?'fast':'low'}')">🔎 مهمة تصحيح</button>
+        <button class="btn sm" type="button" id="rt-btn-${esc(x.sid)}" data-rs="${x.fast?'fast':x.away?'away':'low'}" onclick="this.disabled=true;sendFastReviewRequest('${esc(x.sid)}','${esc(h.id)}','${x.fast?'fast':x.away?'away':'low'}')">${!x.fast&&x.away?'🔍 مهمة تحقق':'🔎 مهمة تصحيح'}</button>
       </div>`).join('')}
     </div>`;
 }
@@ -8601,9 +8604,10 @@ async function rtStatusLoad(localId){
     if(x && x.pending){ el.textContent='⏳ أُرسلت — بانتظار الطالب'; el.classList.add('wait'); btn.textContent='إعادة الإرسال'; }
     else if(x && x.done){
       const d = x.done, mins = Math.max(1, Math.round((Number(d.secs)||0)/60));
-      el.textContent = d.wrong ? `✅ صحّح ${d.fixed} من ${d.auto}${d.wrong>d.auto?` · اطّلع على ${d.wrong-d.auto}`:''} · ${mins} د` : '✅ أكّد أنه سيتأنّى';
+      el.textContent = d.reason==='away' ? `🔍 تحقّق: أصاب ${d.fixed} من ${d.auto} حين أعادها دون خروج${d.auto&&d.fixed/d.auto<0.5?' — نتيجته الأصلية لا تعكس مستواه':''}`
+        : d.wrong ? `✅ صحّح ${d.fixed} من ${d.auto}${d.wrong>d.auto?` · اطّلع على ${d.wrong-d.auto}`:''} · ${mins} د` : '✅ أكّد أنه سيتأنّى';
       el.classList.add(d.wrong && d.fixed < d.auto ? 'part' : 'ok'); btn.textContent='مهمة جديدة';
-    } else { el.textContent='لم تُرسل بعد'; btn.textContent='🔎 مهمة تصحيح'; }
+    } else { el.textContent='لم تُرسل بعد'; btn.textContent=btn.dataset.rs==='away'?'🔍 مهمة تحقق':'🔎 مهمة تصحيح'; }
   });
 }
 
@@ -8943,7 +8947,7 @@ async function pullResults(id, silent){
           pts,
           d:row.d||'',
           dev:row.dev||'',
-          secs:row.secs||0,
+          secs:row.secs||0, away:row.away&&typeof row.away==='object'?row.away:null,
           ans:Array.isArray(row.ans) ? row.ans : null,
           files:Array.isArray(row.files) ? row.files : [],
           reviewStatus: h.kind==='files' ? String(row.reviewStatus||'pending').toLowerCase() : (row.reviewStatus||''),
@@ -8985,7 +8989,7 @@ async function pullResults(id, silent){
       pts,
       d:row.d||'',
       dev:row.dev||'',
-      secs:row.secs||0,
+      secs:row.secs||0, away:row.away&&typeof row.away==='object'?row.away:null,
       ans: Array.isArray(row.ans) ? row.ans : null,   // 🧠 لازمة لحساب نمط التعلّم والمراجعة
       files: Array.isArray(row.files) ? row.files : [],
       reviewStatus: h.kind==='files' ? String(row.reviewStatus||'pending').toLowerCase() : (row.reviewStatus||''),
@@ -12521,7 +12525,7 @@ function liveBuildLocalSubmission(hw, row){
     pts,
     d:row?.d || '',
     dev:row?.dev || '',
-    secs:Number(row?.secs) || 0,
+    secs:Number(row?.secs) || 0, away:row?.away&&typeof row.away==='object'?row.away:null,
     at:liveRowTime(row)
   };
 }
@@ -12553,7 +12557,7 @@ function addLiveRowToLocal(hw, row){
     pts:Math.round((hw.pts || 0) * correct / total),
     d:row?.d || '',
     dev:row?.dev || '',
-    secs:Number(row?.secs) || 0,
+    secs:Number(row?.secs) || 0, away:row?.away&&typeof row.away==='object'?row.away:null,
     files:Array.isArray(row?.files) ? row.files : [],
     at:serverAt
   };
@@ -16704,7 +16708,7 @@ function openBadges(studentId){
 }
 
 async function sendFastReviewRequest(studentId, hwId, reason){
-  reason = reason==='low' ? 'low' : 'fast';
+  reason = reason==='low' ? 'low' : reason==='away' ? 'away' : 'fast';
   const s=byId(studentId), h=HW.find(x=>String(x.id)===String(hwId));
   if(!s||!h) return;
   const api=getApi(), tok=getTok();
@@ -16714,7 +16718,7 @@ async function sendFastReviewRequest(studentId, hwId, reason){
     const j=await r.json().catch(()=>({}));
     if(!r.ok || !j.ok) throw new Error(j.detail || j.error || `HTTP ${r.status}`);
     dismissAlert(alertKey(['fast-student',h.id,s.id]));
-    toast(`تم إرسال مهمة تصحيح إلى ${s.name} ✓ — يصلك إشعار بنتيجتها`,'good');
+    toast(`تم إرسال ${reason==='away'?'مهمة تحقق':'مهمة تصحيح'} إلى ${s.name} ✓ — يصلك إشعار بنتيجتها`,'good');
     rtStatusLoad(h.id);   // حدّث الحالة في تقرير النشاط إن كان مفتوحًا
   }catch(e){ console.error(e); toast(`تعذّر إرسال طلب المراجعة: ${e.message || 'خطأ غير معروف'}`,'bad'); const b=document.getElementById('rt-btn-'+studentId); if(b) b.disabled=false; }
 }

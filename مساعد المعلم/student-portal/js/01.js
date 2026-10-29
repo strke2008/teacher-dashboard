@@ -1017,8 +1017,36 @@ function paceStartServer(){
   fetch(api + '/start', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ hw:HW.id, sid:mySid||'', name:myName||lockedName()||'', session:getStoreSession() }) })
     .then(r => r.json()).then(j => { if(j && j.ok && Number.isFinite(j.minSecs)) Object.assign(PACE, { perQ:j.perQ, minSecs:j.minSecs, readSecs:j.readSecs||0 }); }).catch(()=>{});
 }
+/* 🚪 الخروج من صفحة النشاط أثناء الحل (للبحث عن الإجابة في موقع آخر): يُسجَّل عدد المرات والمدة والأسئلة المفتوحة عندها،
+   ويُرسل مع التسليم فيراه المعلم، وإن أصاب الطالب أسئلة وهو خارجها تصله «مهمة تحقق» بها. الطالب يعلم بذلك قبل البدء وعند العودة. */
+const AWAY = { n:0, ms:0, q:[], t0:0, qi:-1 };
+function awaySolving(){ const quiz = $('s-quiz'); return !!(startedAt && quiz && !quiz.classList.contains('hide') && HW && Array.isArray(HW.q) && !isStyleHW()); }
+function awayNote(){
+  const quiz = $('s-quiz'); if(!quiz) return;
+  let el = $('away-note'); if(!el){ el = document.createElement('div'); el.id = 'away-note'; quiz.insertBefore(el, quiz.firstChild); }
+  if(!AWAY.n){ el.className = 'away-note'; el.innerHTML = '🔒 ابقَ في هذه الصفحة حتى تسلّم — الخروج منها أثناء الحل يُسجَّل ويراه معلمك.'; return; }
+  const m = Math.floor(AWAY.ms/60000), sec = Math.round(AWAY.ms/1000)%60;
+  el.className = 'away-note warn';
+  el.innerHTML = `⚠️ خرجت من صفحة النشاط <b>${AWAY.n === 1 ? 'مرة' : AWAY.n === 2 ? 'مرتين' : AWAY.n + ' مرات'}</b> (${m ? m + ' د ' : ''}${sec} ث) — سُجّل ذلك لمعلمك. أجب بنفسك 💪`;
+}
+function awayReset(){ Object.assign(AWAY, { n:0, ms:0, q:[], t0:0, qi:-1 }); awayNote(); }
+document.addEventListener('visibilitychange', () => {
+  if(document.hidden){ if(awaySolving()){ AWAY.t0 = Date.now(); AWAY.qi = typeof idx === 'number' ? idx : -1; } return; }
+  if(!AWAY.t0) return;
+  const d = Date.now() - AWAY.t0; AWAY.t0 = 0;
+  if(d < 1500 || !awaySolving()) return;                 // ومضة (إشعار عابر) لا تُعدّ
+  AWAY.n++; AWAY.ms += d; if(AWAY.qi >= 0 && !AWAY.q.includes(AWAY.qi)) AWAY.q.push(AWAY.qi);
+  awayNote();
+});
+// نسخ نص السؤال للصقه في محرك بحث: ممنوع داخل شاشة الحل (حقول الكتابة مستثناة)
+['copy','cut','contextmenu'].forEach(ev => document.addEventListener(ev, e => {
+  const t = e.target; if(!awaySolving() || !t || !t.closest || !t.closest('#s-quiz') || t.closest('input,textarea')) return;
+  e.preventDefault(); if(ev !== 'contextmenu') try{ toast('📋 النسخ غير متاح أثناء حل النشاط'); }catch(_){}
+}));
+function awayPayload(){ return AWAY.n ? { n: AWAY.n, secs: Math.round(AWAY.ms/1000), q: AWAY.q.slice(0, 100) } : null; }
 function startSolving(){
   startedAt = Date.now();
+  awayReset();
   /* 🔐 مصدر كل سؤال (النشاط + رقمه) لتحقق نافس على الخادم عبر /hw-check */
   HW.q.forEach((q,i)=>{ if(q){ if(q._qi===undefined) q._qi=i; if(!q._hw) q._hw=HW.id; } });
   paceStartServer();
@@ -1650,6 +1678,8 @@ async function startRetryFromGate(hwId, nm){
 function rtReviewText(h){ return (h && h.review && h.review.text) || 'طلب منك معلمك مراجعة إجاباتك في هذا النشاط.'; }
 function rtTaskLine(h, plain){
   const n = h && h.review ? Number(h.review.wrong) : null;
+  if(h && h.review && h.review.code === 'away' && n > 0){ const w = n===1?'سؤالًا واحدًا':n===2?'سؤالين':`${n} ${n>10?'سؤالًا':'أسئلة'}`;
+    return plain ? `أعد حل ${w} دون الخروج من الصفحة.` : `المطلوب: أعد حل <b>${w}</b> حللتها وأنت خارج صفحة النشاط — ابقَ في الصفحة حتى تنتهي.`; }
   if(n === 0) return plain ? 'إجاباتك صحيحة — أكّد أنك ستتأنى.' : 'إجاباتك كانت صحيحة، لكن خذ وقتك في النشاط القادم.';
   if(n > 0) return plain ? `أعد حل ${n} ${n===1?'سؤال':n===2?'سؤالين':'أسئلة'} أخطأت فيها.` : `المطلوب: أعد حل <b>${n}</b> ${n===1?'سؤال':n===2?'سؤالين':'أسئلة'} أخطأت فيها — بتأنٍّ، ومحاولة واحدة لكل سؤال.`;
   return plain ? '' : 'أعد حل الأسئلة التي أخطأت فيها بتأنٍّ.';
@@ -1684,7 +1714,7 @@ async function openReviewTask(hwId, nm){
 function rtHead(){
   const j = RT.data, n = j.items.length;
   const done = Math.min(RT.idx, n);
-  return `<div class="rt-top"><b>🔎 مهمة التصحيح</b><button class="rt-x" onclick="rtClose(false)" aria-label="إغلاق">✕</button></div>
+  return `<div class="rt-top"><b>${j.reason && j.reason.code === 'away' ? '🔍 مهمة تحقق' : '🔎 مهمة التصحيح'}</b><button class="rt-x" onclick="rtClose(false)" aria-label="إغلاق">✕</button></div>
     <div class="rt-title">«${esc(j.title||'النشاط')}»</div>
     <div class="rt-reason">${esc(j.reason && j.reason.text || '')}</div>
     ${n?`<div class="rt-prog"><span style="width:${Math.round(done/n*100)}%"></span></div><div class="rt-step">${done<n?`سؤال ${done+1} من ${n}`:'اكتملت الأسئلة'}</div>`:''}`;
@@ -1763,6 +1793,7 @@ function rtSummary(){
   const panel = document.querySelector('#rt-sheet .rt-panel'); if(!panel) return;
   const vals = Object.values(RT.data.answered||{}), auto = vals.filter(x=>x.ok!==null).length, fixed = vals.filter(x=>x.ok===true).length;
   const msg = !RT.data.items.length ? 'شكرًا لتأكيدك — أُبلغ معلمك.'
+    : RT.data.reason && RT.data.reason.code === 'away' ? `أجبت ${fixed} من ${auto} صحيحًا هذه المرة.`
     : fixed === auto ? `ممتاز! صحّحت كل الأسئلة (${fixed} من ${auto}).`
     : `صحّحت ${fixed} من ${auto}. راجع الإجابات الصحيحة التي ظهرت لك قبل النشاط القادم.`;
   panel.innerHTML = rtHead() + `<div class="rt-done"><div class="rt-big">${!RT.data.items.length||fixed===auto?'🌟':'💪'}</div><b>${msg}</b>
@@ -4752,7 +4783,7 @@ async function gateLoad(nm, opts){
               <b>«${esc(h.t || 'النشاط')}»</b>
               <div class="rt-why">${esc(rtReviewText(h))}</div>
               <div class="rt-task">${rtTaskLine(h)}</div>
-              <button class="btn tick rt-go" type="button" onclick="openReviewTask('${esc(h.id)}','${esc(nm)}')">${(h.review&&h.review.wrong===0)?'✓ قرأت الملاحظة وسأتأنّى':'🔎 ابدأ مهمة التصحيح'}</button>
+              <button class="btn tick rt-go" type="button" onclick="openReviewTask('${esc(h.id)}','${esc(nm)}')">${(h.review&&h.review.wrong===0)?'✓ قرأت الملاحظة وسأتأنّى':(h.review&&h.review.code==='away')?'🔍 ابدأ مهمة التحقق':'🔎 ابدأ مهمة التصحيح'}</button>
             </div>`).join('')}
           </div>
         </div>
@@ -6154,7 +6185,7 @@ async function finish(){
       try{
         const r = await fetch(api+'/submit',{method:'POST',headers:{'Content-Type':'application/json'},
           body:JSON.stringify({hw:HW.id,name:myName,sid:mySid||'',session:getStoreSession(),correct,total,pts,d:detail,dev:devId(),
-            secs: startedAt ? Math.round((Date.now()-startedAt)/1000) : 0,
+            secs: startedAt ? Math.round((Date.now()-startedAt)/1000) : 0, away: awayPayload(),
             ans: HW.q.map((q,i)=>serAns(q, ans[i], built[i]))})});
         const j = await r.json();
         // نشاط محذوف أو رابط قديم: خطأ نهائي لا يُصلحه تكرار المحاولة،

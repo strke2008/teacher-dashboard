@@ -195,3 +195,8 @@
 .ab-cls{flex:none;font-size:.72rem;font-weight:800;border-radius:99px;padding:1px 8px;background:color-mix(in srgb,var(--ink,#16233A) 8%,transparent)}
 .ab-v{flex:none;min-width:42px;text-align:end;font-size:.88rem}
 .ab-dots{text-align:center;opacity:.5;line-height:1;margin:.1rem 0 .25rem}
+/* 🚪 تنبيه الخروج من صفحة النشاط + منع تحديد نص الأسئلة أثناء الحل */
+.away-note{font-size:.8rem;line-height:1.6;text-align:center;border-radius:12px;padding:.45rem .7rem;margin:0 0 .7rem;background:color-mix(in srgb,var(--ink,#16233A) 6%,transparent);opacity:.9}
+.away-note.warn{background:#FFF1F3;color:#B4232F;border:1px solid #F3C2CA;opacity:1;font-weight:700}
+#s-quiz{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#s-quiz input,#s-quiz textarea{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}
