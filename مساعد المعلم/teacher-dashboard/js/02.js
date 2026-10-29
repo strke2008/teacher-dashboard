@@ -12346,6 +12346,8 @@ async function pushStateNow(_retry){
     if(result.savedAt){
       syncSaveBase(syncStatePayload(),Number(result.savedAt));
     }
+    // ختم التغيير الذي أحدثه هذا الحفظ نفسه: فحص /rev التالي لا يعيد تنزيل اللقطة بسببه (خادم قديم بلا stateAt ⇒ كالسابق)
+    if(result.stateAt) window.__OWN_STATE_AT=Number(result.stateAt);
     return true;
   };
 
@@ -18351,6 +18353,8 @@ renderAll();
       try{ const r=await fetch(`${getApi()}/rev?t=${encodeURIComponent(getTok())}`,{cache:'no-store'}); if(r.ok) probe=await r.json().catch(()=>null); }catch(e){}
       const stale = Date.now()-lastFull > 5*60000;   // تنزيل كامل احتياطي كل 5 دقائق
       const known = probe && probe.ok && Number(probe.stateAt) > 0;     // الخادم القديم لا يعيد stateAt ⇒ نتصرف كالسابق
+      // تغيير الحالة الذي سببه حفظ هذه اللوحة نفسها ليس جديدًا — بياناته عندنا (أي حفظ آخر بعده يغيّر الختم فيُنزَّل)
+      if(known && Number(probe.stateAt)===window.__OWN_STATE_AT && initialized && !force && !stale) lastStateAt = Number(probe.stateAt);
       const stateChanged = force || !initialized || stale || !known || Number(probe.stateAt)!==lastStateAt;
       const revChanged = force || !initialized || stale || !probe || !probe.ok || probe.rev!==lastRevSeen;
 

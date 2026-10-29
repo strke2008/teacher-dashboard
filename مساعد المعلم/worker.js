@@ -1120,7 +1120,7 @@ function examWaste(bonus, g) {
 }
 // ⚡ ختم آخر تعديل على tstate:main (مفتاح صغير): /rev يعيده فتعرف اللوحة بطلب صغير هل تغيّرت بيانات الطلاب والأنشطة
 //    بدل تنزيل اللقطة كاملة كل 5 ثوانٍ. يُستدعى بعد كل كتابة لـ tstate:main.
-async function stateStamp(env) { try { await env.HW.put('meta:stateAt', String(Date.now())); } catch {} }
+async function stateStamp(env) { const at = Date.now(); try { await env.HW.put('meta:stateAt', String(at)); } catch {} return at; }   // يعيد الختم: اللوحة تعرف أن التغيير منها فلا تعيد التنزيل
 async function bumpRev(env) {
   try { const rev = parseInt(await env.HW.get('meta:rev'), 10) || 0; await env.HW.put('meta:rev', String(rev + 1)); } catch {}
 }
@@ -9784,7 +9784,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
 
       const stamp = Math.max(Date.now(), curSaved + 1);
       const nextState = { ...b.data, savedAt: stamp };
-      await env.HW.put('tstate:main', JSON.stringify(nextState)); await stateStamp(env);
+      await env.HW.put('tstate:main', JSON.stringify(nextState)); const stateAt = await stateStamp(env);
 
       // 👥 حدّث قوائم الطلاب داخل الأنشطة المنشورة تلقائياً.
       // النشاط المنشور يحتفظ بلقطة من الطلاب وقت النشر، لذلك كان الطالب
@@ -9847,7 +9847,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       }
 
       await rebuildNameIndex(env);          // 🗂️ حدّث فهرس الأسماء
-      return json({ ok: true, savedAt: stamp });
+      return json({ ok: true, savedAt: stamp, stateAt });
     }
 
     // ── 🗑️ حذف نشاط منشور (يختفي فوراً عن الطلاب) ──
