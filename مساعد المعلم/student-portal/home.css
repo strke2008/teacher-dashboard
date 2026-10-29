@@ -171,3 +171,8 @@ html[data-pt-cards="glass"] .hs-jmap{background:rgba(255,255,255,.74);-webkit-ba
 .hs-nav-sub{display:block;font-size:.72rem;color:var(--ink-soft);font-weight:500}
 .hs-ord-row .hs-nav-add{width:auto;padding:0 .8rem;font-size:.85rem;color:var(--acc,var(--tick,#1B9C6B))}
 .hs-nav-full{margin:.5rem .2rem 0;font-size:.78rem;color:#8A5A00;text-align:center}
+/* «أضف» واضح: الصفوف المتاحة بلا بهتان، والزر ممتلئ بلون المظهر — يبهت فقط حين يمتلئ الشريط */
+.hs-nav-grp{font-size:.8rem;font-weight:800;color:var(--ink-soft);margin:.55rem .3rem .1rem}
+.hs-ord-row.hs-nav-avail{background:none;border:1.5px dashed color-mix(in srgb,var(--ink) 16%,transparent)}
+.hs-ord-row .hs-nav-add{background:var(--acc,var(--tick,#1B9C6B));color:#fff;font-weight:800;box-shadow:0 2px 6px color-mix(in srgb,var(--acc,var(--tick,#1B9C6B)) 35%,transparent)}
+.hs-ord-row .hs-nav-add:disabled{background:color-mix(in srgb,var(--ink) 10%,transparent);color:var(--ink-soft);box-shadow:none;opacity:1}

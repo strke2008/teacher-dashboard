@@ -129,13 +129,14 @@
     closeSheet();
     const draw = () => {
       const pick = navPick(), s = $id('hs-sheet') || Object.assign(document.createElement('div'), { id:'hs-sheet', className:'hs-sheet' });
-      const row = ([k, i, t, sub], on, idx) => `<div class="hs-ord-row${on ? '' : ' off'}"><span class="hs-ord-n">${on ? idx + 1 : ''}</span><span class="hs-ord-t">${i} ${t}<small class="hs-nav-sub">${sub}</small></span>
+      const row = ([k, i, t, sub], on, idx) => `<div class="hs-ord-row${on ? '' : ' hs-nav-avail'}"><span class="hs-ord-n">${on ? idx + 1 : ''}</span><span class="hs-ord-t">${i} ${t}<small class="hs-nav-sub">${sub}</small></span>
         ${on ? `<button type="button" data-nup="${k}" ${idx ? '' : 'disabled'} aria-label="لأعلى">↑</button><button type="button" data-ndn="${k}" ${idx < pick.length - 1 ? '' : 'disabled'} aria-label="لأسفل">↓</button><button type="button" data-nrm="${k}" aria-label="إزالة من الشريط">✕</button>`
           : `<button type="button" class="hs-nav-add" data-nadd="${k}" ${pick.length >= NAV_MAX ? 'disabled' : ''}>＋ أضف</button>`}</div>`;
       s.innerHTML = `<div class="hs-pan" role="dialog" aria-label="أزرار الشريط"><div class="hs-grab"></div>
         <div class="hs-ord-h"><b>📱 أزرار الشريط السفلي</b><small>«الرئيسية» و«حسابي» ثابتان، واختر بينهما حتى ${NAV_MAX} أزرار. ما لا تختاره تجده داخل «حسابي».</small></div>
         <div class="hs-navpv">${[['home','🏠','الرئيسية'], ...pick.map(k => NAV_POOL.find(x => x[0] === k)), ['me','👤','حسابي']].map(([k, i, t]) => `<span><i>${i}</i>${t}</span>`).join('')}</div>
         <div class="hs-ord">${pick.map((k, i) => row(NAV_POOL.find(x => x[0] === k), true, i)).join('')}
+          ${NAV_POOL.some(x => !pick.includes(x[0])) ? `<div class="hs-nav-grp">＋ أضف إلى الشريط</div>` : ''}
           ${NAV_POOL.filter(x => !pick.includes(x[0])).map(x => row(x, false)).join('')}</div>
         ${pick.length >= NAV_MAX ? '<p class="hs-nav-full">الشريط ممتلئ — أزل زرًّا لتضيف غيره</p>' : ''}
         <div class="hs-ord-foot"><button type="button" class="hs-ord-reset" data-nreset>↩ الافتراضي</button><button type="button" class="hs-ord-done" data-done>تم ✓</button></div></div>`;
