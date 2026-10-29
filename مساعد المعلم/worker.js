@@ -7323,7 +7323,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         const models = (Array.isArray(x.models) ? x.models : []).slice(0, 6).map(m => ({
           letter: String(m.letter || '').slice(0, 2),
           anchors: (Array.isArray(m.anchors) ? m.anchors : []).filter(rect).slice(0, 20).map(r => r.map(Number)),
-          questions: (Array.isArray(m.questions) ? m.questions : []).slice(0, 60).filter(q => q && (q.t === 'mc' || q.t === 'tf') && Array.isArray(q.boxes) && q.boxes.length >= 2 && q.boxes.length <= 6 && q.boxes.every(rect) && Number.isInteger(q.key) && q.key >= 0 && q.key < q.boxes.length)
+          questions: (Array.isArray(m.questions) ? m.questions : []).slice(0, 60).filter(q => q && (q.t === 'mc' || q.t === 'tf' || q.t === 'mt') && Array.isArray(q.boxes) && q.boxes.length >= 2 && q.boxes.length <= 6 && q.boxes.every(rect) && Number.isInteger(q.key) && q.key >= 0 && q.key < q.boxes.length)
             .map(q => ({ t: q.t, key: q.key, boxes: q.boxes.map(r => r.map(Number)),
               ...(q.q ? { q: String(q.q).slice(0, 600) } : {}), ...(Array.isArray(q.o) && q.o.length === q.boxes.length ? { o: q.o.map(x => String(x || '').slice(0, 200)) } : {}) })),
           mcode: m.mcode && Array.isArray(m.mcode.cells) && m.mcode.cells.length >= 2 && m.mcode.cells.length <= 6 && m.mcode.cells.every(rect) && Number.isInteger(m.mcode.on)

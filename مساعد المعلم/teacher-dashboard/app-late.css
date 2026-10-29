@@ -2818,3 +2818,35 @@ body.pf-open #simp-bottomnav,body.pf-open .askf-btn{display:none!important}
 @media screen and (max-width:420px){ .vsp-banner .vsp-t b{font-weight:800} .vsp-banner .imp-btn:not(.on){padding:.22rem .45rem!important} }
 .vsp-banner .imp-btn:not(.on){background:transparent!important;color:#78350F!important;border:1px solid #F59E0B!important}
 @media screen and (max-width:700px){ .vsp-banner .vsp-sem{display:none} }
+
+/* 📷 القالب ٥: ورقة واحدة يصححها الجوال — خيارات في سطر، والوصل بمربعات أرقام */
+.exam-page[data-auto] .ex-opts.four{grid-template-columns:repeat(4,minmax(0,1fr))}
+.exam-page[data-auto] .ex-q{padding-block:1.3mm}
+.exam-page[data-auto] .ex-qt{line-height:1.3}
+.ex-amt-a{display:grid;grid-template-columns:1fr 1fr;gap:1mm 5mm;padding:1.6mm 3mm;border-bottom:1px solid #D7E3E1;font-weight:700;line-height:1.3}
+.ex-amt-a>span{display:flex;gap:2mm;align-items:flex-start}
+.ex-amtq{display:grid;grid-template-columns:5mm 1fr auto;gap:2mm;align-items:center;padding:1.4mm 3mm;border-bottom:1px solid #D7E3E1;font-weight:700;line-height:1.3}
+.ex-amtq:last-child{border-bottom:0}
+.ex-amt-o{display:flex;gap:3.2mm;direction:rtl}
+.ex-amto{display:inline-flex;align-items:center;gap:1mm;font-weight:900;color:#0E5B4E;white-space:nowrap}
+.ex-amto.key .ex-box{background:#0E5B4E;position:relative}
+.ex-amto.key .ex-box::after{content:'✓';color:#fff;font-size:.62em;position:absolute;inset:0;display:grid;place-items:center;font-weight:900}
+.exam-page[data-fit] .ex-amtq,.exam-page[data-fit] .ex-amt-a{padding-block:.9mm}
+/* القالب ٥: عمودان عند الحاجة — العنوان بعرض القسم، وكل فقرة خلية */
+.exam-page[data-auto] .ex-sec.ex-cols{display:grid;grid-template-columns:1fr 1fr;column-gap:0}
+.exam-page[data-auto] .ex-sec.ex-cols>.ex-sec-head{grid-column:1/-1}
+.exam-page[data-auto] .ex-sec.ex-cols>.ex-q,.exam-page[data-auto] .ex-sec.ex-cols>.ex-tf{border-inline-start:1px solid #D7E3E1}
+.exam-page[data-auto] .ex-sec.ex-cols>.ex-q:nth-child(even),.exam-page[data-auto] .ex-sec.ex-cols>.ex-tf:nth-child(even){border-inline-start:0}
+.exam-page[data-auto] .ex-sec.ex-cols .ex-opts{padding-inline-start:4mm}
+.exam-page[data-auto] .ex-sec.ex-cols .ex-tf{grid-template-columns:6mm 1fr 13mm 13mm;gap:1.2mm}
+.exam-page[data-auto] .ex-sec.ex-cols .ex-opts,.exam-page[data-auto] .ex-sec.ex-cols .ex-opts.four{grid-template-columns:1fr 1fr}
+.exam-page[data-auto] .ex-sec.ex-cols .ex-opt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* القالب ٥: رأس أصغر عند الضغط (الشعار والبيانات كما هي، بمساحة أقل) + درجة ضغط رابعة خاصة به */
+.exam-page[data-auto][data-fit] .ex-head{min-height:25mm;padding-bottom:1.2mm}
+.exam-page[data-auto][data-fit] .ex-logo{--exam-logo-size:24mm!important}
+.exam-page[data-auto][data-fit] .ex-side{line-height:1.3}
+.exam-page[data-auto][data-fit] .ex-title{margin:1.4mm auto 1.2mm;padding-block:.6mm}
+.exam-page[data-auto][data-fit] .ex-student>div{min-height:6.5mm;padding-block:.8mm}
+.exam-page[data-auto][data-fit="4"]{font-size:10.8pt!important;line-height:1.2}
+.exam-page[data-auto][data-fit="4"] .ex-q,.exam-page[data-auto][data-fit="4"] .ex-tf,.exam-page[data-auto][data-fit="4"] .ex-amtq,.exam-page[data-auto][data-fit="4"] .ex-amt-a{padding-block:.5mm}
+.exam-page[data-auto][data-fit="4"] .ex-sec-head{padding-block:.9mm}

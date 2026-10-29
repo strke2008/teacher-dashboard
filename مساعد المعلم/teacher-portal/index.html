@@ -5992,7 +5992,7 @@ function omrShowResult(){
   $('omr-result').innerHTML = `<div class="omr-res">
     <div class="omr-score"><b>${pending?'؟':sc.raw}</b><span>/ ${sc.total}</span>${scaled!==null&&!pending?`<small>تُرصد ${scaled} من ${test.max}</small>`:''}</div>
     <div class="omr-qs">${r.answers.map((a,i)=>{ const st = a.final===null ? 'rev' : a.final===a.key ? 'ok' : 'no';
-      const lab = a.t==='tf' ? (a.final===0?'صح':a.final===1?'خطأ':a.final===-1?'فارغ':'?') : (a.final===-1?'فارغ':a.final===null?'?':L[a.final]);
+      const lab = a.t==='tf' ? (a.final===0?'صح':a.final===1?'خطأ':a.final===-1?'فارغ':'?') : (a.final===-1?'فارغ':a.final===null?'?':a.t==='mt'?String(a.final+1):L[a.final]);
       return `<button type="button" class="omr-q ${st}" onclick="omrFix(${i})"><i>${i+1}</i>${lab}</button>`; }).join('')}</div>
     <div id="omr-fix"></div>
     ${partial?`<p class="omr-note">قُرئ الجزء الآلي (${tt.auto} من ${tt.total}) — اكتب درجة الجزء اليدوي لتُرصد الدرجة كاملة.</p>${omrManualHTML('omr-manual', OMRUI.manual ?? '', OMRUI.model, "OMRUI.manual=this.value;const b=document.getElementById('omr-save');if(b)b.disabled=!omrManualOk(this.value)||!!document.querySelector('.omr-q.rev')")}`:''}
@@ -6002,7 +6002,7 @@ function omrShowResult(){
 }
 function omrFix(i){
   const a = OMRUI.result.answers[i], L = ['أ','ب','ج','د','هـ','و'], n = OMRUI.tpl.models[OMRUI.model].questions[i].boxes.length;
-  const opts = a.t==='tf' ? [[0,'صح'],[1,'خطأ']] : Array.from({length:n},(_,k)=>[k,L[k]]);
+  const opts = a.t==='tf' ? [[0,'صح'],[1,'خطأ']] : Array.from({length:n},(_,k)=>[k,a.t==='mt'?String(k+1):L[k]]);   // الوصل: أرقام العمود الأول
   const why = { multi:'مربعان معلّمان', faint:'علامة باهتة', blank:'لم يُعلَّم شيء', unaligned:'لم يتضح المربع' }[a.status] || '';
   $('omr-fix').innerHTML = `<div class="omr-fixbox"><b>السؤال ${i+1}${why?` — ${why}`:''}</b>
     <div class="omr-crop"><img src="${OMRUI.frozen}" id="omr-crop-img" alt=""></div>
@@ -6169,7 +6169,7 @@ function omrMatchBody(s, used){
   const b = examBook();
   const studs = list(OMRUI.cls).filter(x => !used.has(String(x.id)) || String(x.id) === String(s.sid));
   return `<div class="omr-mbody">
-    ${pend.map(({ a, i }) => { const n = M.questions[i].boxes.length, opts = a.t === 'tf' ? [[0,'صح'],[1,'خطأ']] : Array.from({ length:n }, (_, k) => [k, L[k]]);
+    ${pend.map(({ a, i }) => { const n = M.questions[i].boxes.length, opts = a.t === 'tf' ? [[0,'صح'],[1,'خطأ']] : Array.from({ length:n }, (_, k) => [k, a.t === 'mt' ? String(k+1) : L[k]]);
       return `<div class="omr-fixbox"><b>السؤال ${i+1} — ${why[a.status] || ''}</b><div class="omr-crop" id="crop-${s.id}-${i}"><img src="${s.img}" alt=""></div>
         <div class="omr-opts">${opts.map(([v, l]) => `<button type="button" class="btn ghost" onclick="omrSheetSet('${s.id}',${i},${v})">${l}</button>`).join('')}
         <button type="button" class="btn ghost" onclick="omrSheetSet('${s.id}',${i},-1)">فارغ</button></div></div>`; }).join('')}

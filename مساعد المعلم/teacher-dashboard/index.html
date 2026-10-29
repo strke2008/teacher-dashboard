@@ -23,7 +23,7 @@
 <link rel="stylesheet" href="app.css?v=16178ead">
 <script src="js/00-fetch-dedupe-js.js?v=e77498d1" defer></script>
 <script src="js/01-right-sidebar-navigation-js.js?v=41ea29b3" defer></script>
-<script src="js/02.js?v=33118589" defer></script>
+<script src="js/02.js?v=23a8bfb5" defer></script>
 <script src="js/03-projects-students-logic-v13.js?v=d4950f64" defer></script>
 <script src="js/04.js?v=5a7c663e" defer></script>
 <script src="js/05.js?v=a7c074c3" defer></script>
@@ -488,7 +488,7 @@
 .exam-shop-status.open{background:#E4F4EC;color:#167852}.exam-shop-status.closed{background:#FFF1F2;color:#9F2538}
 @media screen and (max-width:600px){.exam-shop-kpis{grid-template-columns:1fr 1fr}.exam-shop-student{grid-template-columns:1fr 105px}.exam-shop-student small{grid-column:1}.exam-shop-student .exam-shop-used{display:none}}
 </style>
-<link rel="stylesheet" id="late-css" href="app-late.css?v=59e553a0">
+<link rel="stylesheet" id="late-css" href="app-late.css?v=a88cb5f3">
 <link rel="stylesheet" href="theme-picker.css?v=8ddeba87">
 <link rel="stylesheet" href="simplified-nav.css?v=154681ae">
 <link rel="stylesheet" href="tab-polish.css?v=b9d66f7c">
@@ -1097,6 +1097,7 @@
 <div class="field" style="margin:0 0 .7rem"><label>قالب الاختبار</label>
 <select class="inp" id="ex-tpl" onchange="examTplChanged()">
 <option value="t1">قالب ١ — ورقة واحدة: ٥ اختيار من متعدد + ٥ صح/خطأ</option>
+<option value="t5">قالب ٥ — 📷 ورقة واحدة يصححها الجوال كلها: اختيار + صح/خطأ + وصل</option>
 <option value="t2">قالب ٢ — ٢٠ سؤالًا (ورقتان): ٥ اختيار + ٥ صح/خطأ | ٥ وصل + ٥ أكمل الفراغ</option>
 <option value="t3">قالب ٣ — مرن (ورقتان): ٥ اختيار + ٥ صح/خطأ | ٥ وصل + «أجب عن كل مما يلي»</option>
 <option value="t4">قالب ٤ — مصمَّم: تختار لكل صفحة نوع الأسئلة وعددها ودرجتها</option>
@@ -1138,6 +1139,8 @@
 <input class="inp" id="ex-nmc" max="20" min="0" oninput="examBuild()" type="number" value="5"/></div>
 <div class="field"><label>فقرات صح / خطأ</label>
 <input class="inp" id="ex-ntf" max="20" min="0" oninput="examBuild()" type="number" value="5"/></div>
+<div class="field" id="ex-nmt-f" style="display:none"><label>أزواج الوصل <span class="muted" style="font-weight:400">(٠ أو ٢–٦ · يضع الطالب ✓ في مربع الرقم)</span></label>
+<input class="inp" id="ex-nmt" max="6" min="0" oninput="examBuild()" type="number" value="4"/></div>
 <div class="field"><label>درجة الفقرة</label>
 <input class="inp" id="ex-mark" max="10" min="1" oninput="examBuild()" type="number" value="1"/></div>
 <div class="field"><label>معلم المادة</label>
