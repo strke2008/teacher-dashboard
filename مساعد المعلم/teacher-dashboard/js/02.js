@@ -3972,7 +3972,7 @@ function compMobHTML(rows,classes,cls,avg){
   </div>
   <div class="cm-offbar no-print"><button type="button" class="btn ghost sm" onclick="compMobOfficial()">${document.getElementById('comp-table')?.classList.contains('cm-official')?'📱 العرض المختصر':'🖨️ الكشف الرسمي'}</button></div>`;
 }
-function compMobOfficial(){ const t=document.getElementById('comp-table'); if(!t) return; t.classList.toggle('cm-official');
+function compMobOfficial(id){ const t=document.getElementById(id||'comp-table'); if(!t) return; t.classList.toggle('cm-official');
   const m=t.querySelector('.comp-mob'); if(m) m.classList.toggle('cm-hide',t.classList.contains('cm-official'));
   const b=t.querySelector('.cm-offbar button'); if(b) b.textContent=t.classList.contains('cm-official')?'📱 العرض المختصر':'🖨️ الكشف الرسمي'; }
 function compMobOpen(i){
@@ -4224,7 +4224,7 @@ async function renderWeekly(force=false){
   for(const b of B){
     if(!b || !dset.has(String(b.date||''))) continue;
     const k = String(b.studentId||'');
-    if(!behBy.has(k)) behBy.set(k,{pos:0,neg:0,icons:[]});
+    if(!behBy.has(k)) behBy.set(k,{pos:0,neg:0,icons:[],labels:[]});
     const o = behBy.get(k);
     if(b.type==='positive') o.pos++; else o.neg++;
     // 🎭 الأيقونة وحدها في الجدول (لتقصر الصفوف) والاسم الكامل في المفتاح
@@ -4232,7 +4232,7 @@ async function renderWeekly(force=false){
     const label = String(b.category||b.note||'').trim();
     const head = label.split(/\s+/)[0] || '';
     const ic = (head && !/[\u0600-\u06FF]/.test(head)) ? head : (b.type==='positive'?'🟢':'🔴');
-    o.icons.push(ic);
+    o.icons.push(ic); o.labels.push([String(b.date||''),label||(b.type==='positive'?'ملاحظة إيجابية':'ملاحظة سلبية'),b.type==='positive']);
     wkLegend.set(label || (b.type==='positive'?'ملاحظة إيجابية':'ملاحظة سلبية'), ic);
   }
 
@@ -4324,7 +4324,45 @@ async function renderWeekly(force=false){
       <div class="muted" style="font-size:.8rem;margin-top:.5rem">🚩 انتباه: لم يشارك مرتين فأكثر، أو لم ينجز الواجب مرتين فأكثر، أو لديه ملاحظة سلوكية سلبية واحدة على الأقل هذا الأسبوع.</div>
       ${repFoot()}
     </div>
-  </div></div>`;
+  </div></div>${wkMobHTML(built,classes,cls,{shared:sumShared,missed:sumMissed,absent:sumAbsent,done:sumDone,undone:sumUndone,pos:sumPos,neg:sumNeg})}`;
+}
+
+/* 📱 الكشف الأسبوعي في الجوال: نفس فكرة الكشف الشامل — أرقام مضغوطة والاسم ثابت، والتفاصيل عند لمس الطالب */
+let WK_MOB=[], WK_MOB_FLAG=false;
+function wkMobHTML(built,classes,cls,sum){
+  WK_MOB=built;
+  const t=document.getElementById('wk-table'), off=!!(t&&t.classList.contains('cm-official'));
+  const show=built.map((x,i)=>[x,i]).filter(([x])=>!WK_MOB_FLAG||x.flag);
+  const chip=(l,on,go)=>`<button type="button" class="${on?'on':''}" onclick="${go}">${l}</button>`;
+  const setCls=c=>`document.getElementById('wk-class').value='${esc(c)}';renderWeekly()`;
+  const of=(a,b,bad)=>(a+b)?`<span class="${bad?'cm-bad':''}">${a}<small>/${a+b}</small></span>`:'<span class="cm-mut">—</span>';
+  const n=(v,c)=>v?`<span class="${c||''}">${v}</span>`:'<span class="cm-mut">—</span>';
+  const beh=x=>(x.bh.pos||x.bh.neg)?`${x.bh.pos?`<bdi dir="ltr" class="cm-pos">+${x.bh.pos}</bdi>`:''}${x.bh.neg?`<bdi dir="ltr" class="cm-bad">−${x.bh.neg}</bdi>`:''}`:'<span class="cm-mut">—</span>';
+  return `<div class="comp-mob no-print${off?' cm-hide':''}">
+    <div class="cm-chips">${chip('الكل',!cls,setCls(''))}${classes.map(c=>chip(esc(c),cls===c,setCls(c))).join('')}${chip('🚩 يحتاج انتباه',WK_MOB_FLAG,'WK_MOB_FLAG=!WK_MOB_FLAG;renderWeekly()')}</div>
+    <div class="cm-tw"><table class="cm-t"><thead><tr><th class="cm-nm">الطالب</th><th>مشاركة<small>شارك/رُصد</small></th><th>غياب</th><th>واجب<small>أنجز/رُصد</small></th><th>سلوك</th><th>الحالة</th></tr></thead>
+    <tbody>${show.length?show.map(([x,i])=>`<tr onclick="wkMobOpen(${i})"><td class="cm-nm"><b>${esc(x.s.name||'')}</b><small>${esc(String(x.s.cls||x.s.className||x.s.class||''))}</small></td>
+      <td>${of(x.shared,x.missed,x.missed>=2)}</td><td>${n(x.absent,'cm-warn')}</td><td>${of(x.done,x.undone,x.undone>=2)}</td><td class="cm-beh">${beh(x)}</td>
+      <td>${x.nothing?'<small class="cm-mut">لم يُرصد</small>':x.flag?'🚩':'✅'}</td></tr>`).join('')
+      :'<tr><td colspan="6" class="cm-miss">لا يوجد طلاب يحتاجون انتباهًا هذا الأسبوع 🌿</td></tr>'}</tbody>
+    <tfoot><tr><td class="cm-nm">الفصل</td><td>${sum.shared}<small>/${sum.shared+sum.missed}</small></td><td>${sum.absent}</td><td>${sum.done}<small>/${sum.done+sum.undone}</small></td><td><bdi dir="ltr" class="cm-pos">+${sum.pos}</bdi> <bdi dir="ltr" class="cm-bad">−${sum.neg}</bdi></td><td>—</td></tr></tfoot></table></div>
+    <div class="cm-leg"><span>🚩 لم يشارك أو لم ينجز مرتين فأكثر، أو ملاحظة سلبية</span><span>المس الطالب للتفاصيل</span></div>
+  </div>
+  <div class="cm-offbar no-print"><button type="button" class="btn ghost sm" onclick="compMobOfficial('wk-table')">${off?'📱 العرض المختصر':'🖨️ الكشف الرسمي'}</button></div>`;
+}
+function wkMobOpen(i){
+  const x=WK_MOB[i]; if(!x) return; document.getElementById('cm-sheet')?.remove();
+  const row=(l,v,nt)=>`<div class="cm-row"><span>${l}</span><div><b>${v}</b>${nt?`<small>${nt}</small>`:''}</div></div>`;
+  const dn=d=>{ try{ return new Date(d+'T12:00:00').toLocaleDateString('ar-SA-u-ca-gregory',{weekday:'long'}); }catch(e){ return d; } };
+  const v=document.createElement('div'); v.id='cm-sheet'; v.className='cm-veil'; v.onclick=e=>{ if(e.target===v) v.remove(); };
+  v.innerHTML=`<div class="cm-sheet" role="dialog" aria-label="تفاصيل ${esc(x.s.name||'')}"><div class="cm-grab"></div>
+    <div class="cm-sh"><div><b>${esc(x.s.name||'')}</b><small>${esc(String(x.s.cls||x.s.className||x.s.class||''))} · هذا الأسبوع</small></div><div class="cm-big"><b>${x.nothing?'—':x.flag?'🚩':'✅'}</b><small>${x.nothing?'لم يُرصد':x.flag?'يحتاج انتباهًا':'لا ملاحظات'}</small></div></div>
+    ${row('المشاركة',`شارك ${x.shared} · لم يشارك ${x.missed}`,x.missed>=2?'⚠️ لم يشارك مرتين فأكثر':'')}
+    ${row('الحضور',x.absent?`غائب ${x.absent}`:'لا غياب','')}
+    ${row('الواجب',`أنجز ${x.done} · لم ينجز ${x.undone}${x.excused?` · معذور ${x.excused}`:''}`,x.undone>=2?'⚠️ لم ينجز مرتين فأكثر':'')}
+    ${row('السلوك',(x.bh.pos||x.bh.neg)?`🟢 ${x.bh.pos} · 🔴 ${x.bh.neg}`:'لا ملاحظات',(x.bh.labels||[]).map(([d,l,pos])=>`${pos?'🟢':'🔴'} ${esc(l)} — ${esc(dn(d))}`).join('<br>'))}
+    <button type="button" class="btn ghost" style="width:100%;margin-top:.7rem" onclick="document.getElementById('cm-sheet').remove()">إغلاق</button></div>`;
+  document.body.appendChild(v);
 }
 
 function printWeekly(){

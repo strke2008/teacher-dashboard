@@ -2744,3 +2744,9 @@ details.pq-sec[open]>summary.pq-h{margin-bottom:.3rem}
 @media print{ .comp-mob,.cm-offbar,.cm-veil{display:none!important} #comp-table .comp-report{display:block!important} }
 .cm-t th:last-child,.cm-t td:last-child{padding-inline-end:.5rem}
 .cm-t td{padding-block:.42rem}
+/* 📱 الكشف الأسبوعي في الجوال يستعمل نفس أنماط الكشف الشامل المضغوط */
+.cm-t td small{font-size:.66rem;color:var(--ink-soft);font-weight:600}
+.cm-bad{color:#b3263a;font-weight:800}.cm-pos{color:#1a7a48;font-weight:800}.cm-t .cm-warn{color:#8a5a00;font-weight:800}
+.cm-beh bdi+bdi{margin-inline-start:.3rem}
+@media screen and (max-width:700px){ #wk-table:not(.cm-official) .comp-report{display:none} }
+@media print{ #wk-table .comp-report{display:block!important} }
