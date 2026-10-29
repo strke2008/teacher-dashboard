@@ -47,6 +47,7 @@ html:not([data-pt]) #s-gate .sheet{border-radius:20px;box-shadow:0 1px 3px rgba(
 .hs-nav{display:none}
 @media (max-width:760px){
   html.hs-nav-on .hs-nav{display:flex}
+  html.hs-nav-on.hs-nav-cover .hs-nav{display:none}
   html.hs-nav-on body{padding-bottom:calc(76px + env(safe-area-inset-bottom,0px))}
   html.hs-nav-on .sfab-btn{bottom:calc(88px + env(safe-area-inset-bottom,0px))}
   html.hs-nav-on .sfab-pan{bottom:calc(150px + env(safe-area-inset-bottom,0px))}

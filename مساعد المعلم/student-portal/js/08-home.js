@@ -165,7 +165,19 @@
     const gate = $id('s-gate'), sp = $id('gate-space');
     const on = !!(gate && sp && !gate.classList.contains('hide') && !sp.classList.contains('hide') && !document.body.classList.contains('rev-mode'));
     document.documentElement.classList.toggle('hs-nav-on', on);
+    navCover();
   }
+  /* نافذة فوق الصفحة (راسل معلمك، تأكيد، بطاقة…) أو لوحة مفاتيح مفتوحة ⇒ الشريط يختفي حتى لا يغطي أزرارها كـ«إرسال» */
+  function overlayOpen(){
+    for(const el of document.body.children){
+      if(el.id === 'hs-nav' || el.id === 'hs-sheet' || el.tagName === 'SCRIPT') continue;
+      const cs = getComputedStyle(el); if(cs.position !== 'fixed' || cs.display === 'none' || cs.visibility === 'hidden') continue;
+      const r = el.getBoundingClientRect(); if(r.width >= innerWidth * .9 && r.height >= innerHeight * .8) return true;
+    }
+    return false;
+  }
+  function typing(){ const a = document.activeElement; return !!(a && (a.tagName === 'TEXTAREA' || a.isContentEditable || (a.tagName === 'INPUT' && !/^(button|submit|checkbox|radio|range|file|color|reset|image)$/.test(a.type)))); }
+  function navCover(){ document.documentElement.classList.toggle('hs-nav-cover', typing() || overlayOpen()); }
   // عدد الأنشطة المطلوبة الآن على «أنشطتي»
   function badge(){
     const b = $id('hs-acts-bdg'); if(!b) return;
@@ -350,6 +362,8 @@
     mo($id('gate-space'), () => { navVisible(); headInit(); statsInit(); if(!$id('gate-space').classList.contains('hide')) laySync(); }, { attributes:true, attributeFilter:['class'] });
     laySync();
     mo(document.body, navVisible, { attributes:true, attributeFilter:['class'] });
+    mo(document.body, navCover, { childList:true });
+    document.addEventListener('focusin', navCover); document.addEventListener('focusout', () => setTimeout(navCover, 0));
     mo($id('space-progress-pct'), statsDraw, { childList:true, characterData:true, subtree:true });
     mo($id('gate-bal'), statsDraw, { childList:true, characterData:true, subtree:true });
     mo($id('space-unread'), meBadge, { attributes:true, attributeFilter:['class'], childList:true, characterData:true, subtree:true });
