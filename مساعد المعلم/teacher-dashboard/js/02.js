@@ -3948,6 +3948,45 @@ function compHwNote(h){
   const mad=`مدرستي ${f(md.score)}/5: ${!md.linked?'غير مربوط':md.measured?`لم يحل ${md.missed||0}${md.inGrace?` · ${md.inGrace} مفتوح`:''}`:'لا واجبات'}`;
   return `${cls}<br>${mad}`;
 }
+/* 📱 الكشف الشامل في الجوال: جدول مضغوط بالأرقام فقط والاسم ثابت، والتفاصيل عند لمس الطالب.
+   الكشف الرسمي (للطباعة والكمبيوتر) يبقى كما هو، ويُعرض في الجوال بزر «الكشف الرسمي». */
+let COMP_MOB=[], COMP_MOB_NEED=false;
+const COMP_MOB_LV={'ممتاز':'g1','جيد جدًا':'g2','جيد':'g3','يحتاج متابعة':'g4','يحتاج دعم':'g5'};
+function compMobHTML(rows,classes,cls,avg){
+  COMP_MOB=rows;
+  const f=v=>v==null?'<span class="cm-mut">—</span>':String(Math.round(v*10)/10);
+  const show=rows.map((r,i)=>[r,i]).filter(([r])=>!COMP_MOB_NEED||r.miss||/يحتاج/.test(r.level));
+  const chip=(l,on,go)=>`<button type="button" class="${on?'on':''}" onclick="${go}">${l}</button>`;
+  const setCls=c=>`document.getElementById('comp-class').value='${esc(c)}';renderComprehensive()`;
+  return `<div class="comp-mob no-print${document.getElementById('comp-table')?.classList.contains('cm-official')?' cm-hide':''}">
+    <div class="cm-chips">${chip('الكل',!cls,setCls(''))}${classes.map(c=>chip(esc(c),cls===c,setCls(c))).join('')}${chip('⚠️ يحتاج دعم/متابعة',COMP_MOB_NEED,'COMP_MOB_NEED=!COMP_MOB_NEED;renderComprehensive()')}</div>
+    <div class="cm-tw"><table class="cm-t"><thead><tr><th class="cm-nm">الطالب</th><th>مشاركة<small>10</small></th><th>واجب<small>10</small></th><th>سلوك<small>10</small></th><th>أنشطة<small>10</small></th><th>اختبار<small>20</small></th><th>مجموع<small>60</small></th></tr></thead>
+    <tbody>${show.length?show.map(([r,i])=>r.miss
+      ?`<tr><td class="cm-nm"><b>${esc(r.name)}</b><small>${esc(r.cls)}</small></td><td colspan="6" class="cm-miss">لم تصل بياناته — «🔄 تحديث»</td></tr>`
+      :`<tr onclick="compMobOpen(${i})"><td class="cm-nm"><b>${esc(r.name)}</b><small>${esc(r.cls)}</small></td><td>${f(r.p)}</td><td>${f(r.h)}</td><td>${f(r.b)}</td><td>${f(r.a)}</td><td>${f(r.ex)}</td>
+        <td class="cm-tot ${COMP_MOB_LV[r.level]||''}">${f(r.total)}${r.unrec.length?'<i class="cm-dot" title="مجموع مؤقت"></i>':''}</td></tr>`).join('')
+      :'<tr><td colspan="7" class="cm-miss">لا يوجد طلاب يحتاجون دعمًا أو متابعة 🌿</td></tr>'}</tbody>
+    <tfoot><tr><td class="cm-nm">متوسط</td><td>${avg.p}</td><td>${avg.h}</td><td>${avg.b}</td><td>${avg.a}</td><td>${avg.ex}</td><td>${avg.t}</td></tr></tfoot></table></div>
+    <div class="cm-leg"><span><i class="cm-dot"></i> مجموع مؤقت — بعض الدرجات لم تُرصد</span><span>المس الطالب للتفاصيل</span></div>
+    <div class="cm-lv">${Object.entries(COMP_MOB_LV).map(([l,c])=>`<span class="${c}">${l}</span>`).join('')}</div>
+  </div>
+  <div class="cm-offbar no-print"><button type="button" class="btn ghost sm" onclick="compMobOfficial()">${document.getElementById('comp-table')?.classList.contains('cm-official')?'📱 العرض المختصر':'🖨️ الكشف الرسمي'}</button></div>`;
+}
+function compMobOfficial(){ const t=document.getElementById('comp-table'); if(!t) return; t.classList.toggle('cm-official');
+  const m=t.querySelector('.comp-mob'); if(m) m.classList.toggle('cm-hide',t.classList.contains('cm-official'));
+  const b=t.querySelector('.cm-offbar button'); if(b) b.textContent=t.classList.contains('cm-official')?'📱 العرض المختصر':'🖨️ الكشف الرسمي'; }
+function compMobOpen(i){
+  const r=COMP_MOB[i]; if(!r) return; document.getElementById('cm-sheet')?.remove();
+  const row=(l,v,n)=>`<div class="cm-row"><span>${l}</span><div><b>${v}</b>${n?`<small>${n}</small>`:''}</div></div>`;
+  const f=(v,m)=>v==null?'<span class="cm-warn">لم يُرصد بعد</span>':`${Math.round(v*10)/10}/${m}`;
+  const v=document.createElement('div'); v.id='cm-sheet'; v.className='cm-veil'; v.onclick=e=>{ if(e.target===v) v.remove(); };
+  v.innerHTML=`<div class="cm-sheet" role="dialog" aria-label="تفاصيل ${esc(r.name)}"><div class="cm-grab"></div>
+    <div class="cm-sh"><div><b>${esc(r.name)}</b><small>${esc(r.cls)}</small></div><div class="cm-big ${COMP_MOB_LV[r.level]||''}"><b>${Math.round(r.total*10)/10}</b><small>من 60 · ${esc(r.level)}</small></div></div>
+    ${row('المشاركة',f(r.p,10),r.np)}${row('الواجب',f(r.h,10),r.nh)}${row('السلوك',f(r.b,10),r.nb)}${row('الأنشطة والمهام',f(r.a,10),r.na)}${row('الاختبار',f(r.ex,20),'')}
+    ${r.unrec.length?`<div class="cm-note">⚠️ مجموع مؤقت — لم يُرصد: ${esc(r.unrec.join('، '))}</div>`:''}
+    <button type="button" class="btn ghost" style="width:100%;margin-top:.7rem" onclick="document.getElementById('cm-sheet').remove()">إغلاق</button></div>`;
+  document.body.appendChild(v);
+}
 async function renderComprehensive(force=false){
   try{ vspSyncSelects(); }catch(e){}
   const state=document.getElementById('comp-state');
@@ -3987,7 +4026,7 @@ async function renderComprehensive(force=false){
 
     let sums={p:0,h:0,b:0,a:0,exam:0,total:0};
     let assignedTotal=0,submittedTotal=0;
-    let counted=0; const missingSync=[];
+    let counted=0; const missingSync=[], mob=[];   // mob: صفوف عرض الجوال المضغوط (الأرقام نفسها)
     const html=rows.map((s,i)=>{
       const sid=String(s.id||'');
       const g=(G.map&&G.map[sid])||null;
@@ -4005,6 +4044,7 @@ async function renderComprehensive(force=false){
       // الأصفار على ورقة رسمية تعني «رسب»، والحقيقة أنها «لم تصل بياناته».
       if(!g){
         missingSync.push(String(s.name||''));
+        mob.push({name:String(s.name||''),cls:String(s.cls||s.className||s.class||''),miss:true});
         return `<tr class="comp-unsynced">
           <td class="cnum">${i+1}</td>
           <td class="cnm"><b>${esc(s.name||'')}</b><small>${esc(String(s.cls||s.className||s.class||''))}</small></td>
@@ -4020,6 +4060,9 @@ async function renderComprehensive(force=false){
       counted++;
       sums.p+=pScore; sums.h+=hScore; sums.b+=bScore; sums.a+=aScore; sums.exam+=examScore; sums.total+=total;
       assignedTotal+=acts.length; submittedTotal+=submitted;
+      mob.push({name:String(s.name||''),cls:String(s.cls||s.className||s.class||''),p:pScore,h:hScore,b:bScore,a:aScore,ex:exam.measured?examScore:null,total,level,unrec,
+        np:p.measured?`شارك ${p.yes} · لم يشارك ${p.no}`:'لم يُرصد بعد', nh:compHwNote(h), nb:`${bNeg?`${bNeg} ملاحظة سلبية`:'بلا ملاحظات سلبية'}${bPos?` · ${bPos} إيجابي`:''}`,
+        na:acts.length?`${submitted} من ${acts.length} نشاطًا مسلّمًا`:'لا أنشطة مطلوبة — تُحتسب كاملة'});
       return `<tr>
         <td class="cnum">${i+1}</td>
         <td class="cnm"><b>${esc(s.name||'')}</b><small>${esc(String(s.cls||s.className||s.class||''))}</small></td>
@@ -4064,7 +4107,7 @@ async function renderComprehensive(force=false){
         </div>
         ${repFoot()}
       </div>
-    </div></div>`:'<div class="empty" style="padding:2rem;text-align:center">لا توجد بيانات للعرض.</div>';
+    </div></div>${compMobHTML(mob,classes,cls,{p:avg(sums.p),h:avg(sums.h),b:avg(sums.b),a:avg(sums.a),ex:avg(sums.exam),t:avg(sums.total)})}`:'<div class="empty" style="padding:2rem;text-align:center">لا توجد بيانات للعرض.</div>';
   };
 
   state.textContent = arr.length ? (cls?`جاري تجهيز كشف ${cls}…`:'جاري تجهيز الكشف…') : 'لا يوجد طلاب في الكشف.';
