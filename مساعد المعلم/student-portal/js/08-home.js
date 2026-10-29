@@ -5,9 +5,41 @@
   const HS = { pct:null, pts:null, rank:null };
   /* 🔀 الطالب يختار: التصميم الجديد (الافتراضي) أو القديم — محفوظ على جهازه */
   const isClassic = () => { try{ return localStorage.getItem('home_style') === 'classic'; }catch(e){ return false; } };
-  function setStyle(classic){
+  async function setStyle(classic){
     try{ if(classic) localStorage.setItem('home_style', 'classic'); else localStorage.removeItem('home_style'); }catch(e){}
+    try{ const L = layRead(); layWrite({ ...L, at: Date.now() }); await layPush(); }catch(e){}   // التصميم يتبعه على أجهزته
     location.reload();
+  }
+  /* ☁️ الترتيب والتصميم في الخادم (مربوطان بجلسة الطالب): يطبَّق على كل أجهزته، والأحدث يغلب */
+  const LAY_KEY = 'home_layout_v1';
+  const sidNow = () => { try{ return String(mySid || ''); }catch(e){ return ''; } };
+  function layRead(){ let L = null; try{ L = JSON.parse(localStorage.getItem(LAY_KEY) || 'null'); }catch(e){}
+    return L && typeof L === 'object' && (!L.sid || L.sid === sidNow()) ? L : {}; }   // ترتيب أخٍ على الجهاز نفسه لا يُطبَّق
+  function layWrite(L){ try{ localStorage.setItem(LAY_KEY, JSON.stringify({ ...L, sid: sidNow() })); }catch(e){} }
+  function layApi(){ try{ return typeof ptApi === 'function' ? ptApi() : ''; }catch(e){ return ''; } }
+  function laySession(){ try{ return typeof getStoreSession === 'function' ? getStoreSession() : ''; }catch(e){ return ''; } }
+  let layPushT = 0;
+  function layPush(){
+    const api = layApi(), tok = laySession(); if(!api || !tok) return Promise.resolve();
+    const L = layRead();
+    return fetch(api + '/home-layout', { method:'POST', keepalive:true, headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ session: tok, op:'set', layout:{ o: L.o || [], h: L.h || [], at: Number(L.at) || Date.now(), style: isClassic() ? 'classic' : 'new' } }) }).catch(() => {});
+  }
+  let laySynced = '';
+  async function laySync(){
+    const sid = sidNow(), api = layApi(), tok = laySession(); if(!sid || !api || !tok || laySynced === sid) return;
+    laySynced = sid;
+    try{
+      const j = await (await fetch(api + '/home-layout', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ session: tok, op:'get' }) })).json();
+      if(!j || !j.ok || sidNow() !== sid) return;
+      const S = j.layout, L = layRead();
+      if(S && (!L.at || Number(S.at) > Number(L.at))){
+        layWrite({ o: S.o, h: S.h, at: S.at });
+        const wantClassic = S.style === 'classic';
+        if(wantClassic !== isClassic()){ try{ if(wantClassic) localStorage.setItem('home_style', 'classic'); else localStorage.removeItem('home_style'); }catch(e){} location.reload(); return; }
+        if(!isClassic()) layApply();
+      } else if(L.at && (!S || Number(L.at) > Number(S.at))) layPush();   // تعديل على هذا الجهاز لم يصل الخادم بعد
+    }catch(e){ laySynced = ''; }
   }
   // في التصميم القديم: زر صغير بجانب «مظهري» و«لست أنا» للعودة للجديد
   function classicBtn(){
@@ -124,15 +156,14 @@
     { k:'report',  t:'📄 تقريري',                           el:() => [$id('my-report-panel')] },
     { k:'ask',     t:'💬 اسأل معلمك',                       el:() => [$id('space-ask')] },
   ];
-  const LAY_KEY = 'home_layout_v1';
   function layGet(){
-    let L = null; try{ L = JSON.parse(localStorage.getItem(LAY_KEY) || 'null'); }catch(e){}
+    const L = layRead();
     const keys = BLOCKS.map(b => b.k), o = (L && Array.isArray(L.o) ? L.o : []).filter(k => keys.includes(k));
     keys.forEach(k => { if(!o.includes(k)) o.push(k); });     // قسم جديد يُضاف في آخره
     const h = (L && Array.isArray(L.h) ? L.h : []).filter(k => keys.includes(k) && !BLOCKS.find(b => b.k === k).lock);
     return { o, h };
   }
-  function laySave(L){ try{ localStorage.setItem(LAY_KEY, JSON.stringify(L)); }catch(e){} layApply(); }
+  function laySave(L){ layWrite({ o: L.o, h: L.h, at: Date.now() }); layApply(); clearTimeout(layPushT); layPushT = setTimeout(layPush, 700); }
   function layApply(){
     const L = layGet();
     const fixed = [[document.querySelector('#s-gate > .sheet:not(#gate-space)'), 0], [document.querySelector('#gate-space .student-space-head'), 1],
@@ -159,7 +190,7 @@
       s.querySelectorAll('[data-up]').forEach(b => b.onclick = () => mv(b.dataset.up, -1));
       s.querySelectorAll('[data-dn]').forEach(b => b.onclick = () => mv(b.dataset.dn, 1));
       s.querySelectorAll('[data-eye]').forEach(b => b.onclick = () => { const L2 = layGet(), k = b.dataset.eye; L2.h = L2.h.includes(k) ? L2.h.filter(x => x !== k) : [...L2.h, k]; laySave(L2); draw(); });
-      s.querySelector('[data-reset]').onclick = () => { try{ localStorage.removeItem(LAY_KEY); }catch(e){} layApply(); draw(); };
+      s.querySelector('[data-reset]').onclick = () => { laySave({ o: BLOCKS.map(b => b.k), h: [] }); draw(); };
       s.querySelector('[data-done]').onclick = () => { closeSheet(); onScroll(); };
     };
     draw(); setOn('me');
@@ -210,13 +241,15 @@
   function init(){
     if(isClassic()){   // التصميم القديم كما كان: بلا شريط ولا أرقام ولا تحية — فقط زر العودة للجديد
       classicBtn();
-      const sp = $id('gate-space'); if(sp) new MutationObserver(classicBtn).observe(sp, { attributes:true, attributeFilter:['class'], childList:true, subtree:true });
+      const sp = $id('gate-space'); if(sp) new MutationObserver(() => { classicBtn(); if(!sp.classList.contains('hide')) laySync(); }).observe(sp, { attributes:true, attributeFilter:['class'], childList:true, subtree:true });
+      laySync();
       window.hsGo = () => {}; return;
     }
     headInit(); statsInit(); navInit(); navVisible(); badge(); layApply(); journeyInit();
     const mo = (el, fn, opt) => { if(el) new MutationObserver(fn).observe(el, opt); };
     mo($id('s-gate'), navVisible, { attributes:true, attributeFilter:['class'] });
-    mo($id('gate-space'), () => { navVisible(); headInit(); statsInit(); }, { attributes:true, attributeFilter:['class'] });
+    mo($id('gate-space'), () => { navVisible(); headInit(); statsInit(); if(!$id('gate-space').classList.contains('hide')) laySync(); }, { attributes:true, attributeFilter:['class'] });
+    laySync();
     mo(document.body, navVisible, { attributes:true, attributeFilter:['class'] });
     mo($id('space-progress-pct'), statsDraw, { childList:true, characterData:true, subtree:true });
     mo($id('gate-bal'), statsDraw, { childList:true, characterData:true, subtree:true });

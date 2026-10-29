@@ -298,10 +298,17 @@ function sfabRows(){ const have=new Set(ASK_ROWS.flatMap(x=>[x.mid,x.rmid]).filt
 function sfabMid(x){ return x.kind==='t'?x.mid:x.rmid; }
 function sfabNew(x){ return !SFAB.seen.has(x.id)&&!SFAB.seen.has('m:'+sfabMid(x))&&(x.kind==='t'||ASK_UI.fresh.has(x.id)); }
 function sfabSeenAll(){ sfabRows().forEach(x=>{ if(sfabNew(x)){ SFAB.seen.add(x.id); if(sfabMid(x)) SFAB.seen.add('m:'+sfabMid(x)); } }); sfabSaveSeen(); }
+/* ظاهر فعلًا؟ (offsetParent) — مع استثناء الحاوية المفرودة (display:contents في التصميم الجديد لترتيب الأقسام):
+   لا صندوق لها فتُقاس بأبيها */
+function uiVisible(id){
+  const e=typeof id==='string'?document.getElementById(id):id; if(!e||e.classList.contains('hide')) return false;
+  if(e.offsetParent!==null) return true;
+  return getComputedStyle(e).display==='contents'&&!!e.parentElement&&uiVisible(e.parentElement);
+}
 function stuFabWanted(){
   // يظهر إن اختاره المعلم، أو والمعلم فاتح الدردشة مع هذا الطالب
   if(ASK_META.mode!=='fab'&&ASK_META.mode!=='both'&&!ASK_META.chat) return false;
-  const vis=id=>{ const e=document.getElementById(id); return !!(e&&!e.classList.contains('hide')&&e.offsetParent!==null); };
+  const vis=uiVisible;
   if(!vis('gate-space')) return false;
   if(document.getElementById('ask-veil')||vis('live-room')) return false;
   const jw=document.getElementById('journey-workspace'); if(jw&&jw.classList.contains('journey-page')&&!jw.classList.contains('hide')&&jw.offsetParent!==null) return false;
@@ -398,7 +405,7 @@ setInterval(()=>{ try{ stuFabRender(); }catch(e){} },900);
    وعند العودة للبوابة بعد غياب، وكل دقيقة أثناء فتحها: فحص خفيف للمحادثات فقط. */
 const LIVE_REF={at:Date.now()};
 function portalIdleHome(){
-  const vis=id=>{ const e=document.getElementById(id); return !!(e&&!e.classList.contains('hide')&&e.offsetParent!==null); };
+  const vis=uiVisible;
   if(!vis('gate-space')||vis('live-room')||document.getElementById('ask-veil')) return false;
   const jw=document.getElementById('journey-workspace'); if(jw&&jw.classList.contains('journey-page')&&!jw.classList.contains('hide')&&jw.offsetParent!==null) return false;
   const a=document.activeElement; if(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return false;
@@ -432,7 +439,7 @@ const PRES={t:0,busy:false};
 function askReplyTo(){ stuFabToggle(true); setTimeout(()=>document.getElementById('sfab-txt')?.focus(),60); }
 function presWhere(){
   try{ if(typeof LIVE!=='undefined'&&LIVE&&LIVE.cur&&!LIVE.done) return '🎮 في المسابقة المباشرة'; }catch(e){}
-  const vis=id=>{ const e=document.getElementById(id); return !!(e&&!e.classList.contains('hide')&&e.offsetParent!==null); };
+  const vis=uiVisible;
   if(vis('gate-space')) return '🏠 الصفحة الرئيسية';
   try{ if(typeof HW!=='undefined'&&HW&&HW.t) return '✏️ يحل: '+String(HW.t).slice(0,60); }catch(e){}
   return '📱 في البوابة';

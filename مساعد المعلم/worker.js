@@ -8929,6 +8929,26 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
     }
 
     // ── 🎨 تخصيص مظهري: تفضيلات المظهر لكل طالب (الجلسة الموقّعة فقط) ──
+    /* 🧩 ترتيب صفحة الطالب الرئيسية (الأقسام وما أخفاه، والتصميم الجديد/القديم) — يتبعه على كل أجهزته.
+       الأحدث يغلب (at)، والمفاتيح أسماء أقسام قصيرة فقط. */
+    if (url.pathname === '/home-layout' && request.method === 'POST') {
+      let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
+      const auth = await requireStudentSession(env, b); if (auth.res) return auth.res;
+      const key = `hlay:${auth.st.id}`;
+      if (b.op === 'set') {
+        const L = b.layout && typeof b.layout === 'object' ? b.layout : null;
+        if (!L) { await env.HW.delete(key); return json({ ok: true, layout: null }); }
+        const k = v => typeof v === 'string' && /^[a-z]{2,12}$/.test(v);
+        const o = [...new Set((Array.isArray(L.o) ? L.o : []).filter(k))].slice(0, 30), h = [...new Set((Array.isArray(L.h) ? L.h : []).filter(k))].filter(x => o.includes(x)).slice(0, 30);
+        const out = { o, h, style: L.style === 'classic' ? 'classic' : 'new', at: Math.min(Date.now() + 60e3, Number(L.at) || Date.now()) };
+        let cur = null; try { cur = JSON.parse(await env.HW.get(key) || 'null'); } catch {}
+        if (cur && Number(cur.at) > out.at) return json({ ok: true, layout: cur, stale: true });   // نسخة أحدث من جهاز آخر
+        await env.HW.put(key, JSON.stringify(out));
+        return json({ ok: true, layout: out });
+      }
+      let cur = null; try { cur = JSON.parse(await env.HW.get(key) || 'null'); } catch {}
+      return json({ ok: true, layout: cur });
+    }
     if (url.pathname === '/prefs' && request.method === 'POST') {
       let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
       const auth = await requireStudentSession(env, b); if (auth.res) return auth.res;
