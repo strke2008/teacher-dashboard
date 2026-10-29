@@ -1039,6 +1039,26 @@ function semCloseSnapshots(sem, students, data, assignments, semester) {
 }
 const periodIsClosed = (S, per) => S.status === 'closed' || (S.periodStatus || {})[String(per)] === 'closed' || (Number(per) === 1 && Number(S.activePeriod) === 2);
 /* 📅 الفترات المتاحة للعرض (لولي الأمر والطالب): المغلقة كلها + الجارية — لا ما لم يبدأ */
+function classBoardBuild(state, data, sem, per) {
+  const T = gradeTermRange(data, per, sem), acts = (Array.isArray(state && state.assignments) ? state.assignments : []).filter(h => h && ['normal', 'reading', 'lab'].includes(h.kind || 'normal') && !h.noGrade && !h.remedial
+    && (h.sid || h.published) && termHasTs(T, actAssignedAt(h)));
+  const by = {};
+  for (const s of (Array.isArray(state && state.students) ? state.students : [])) {
+    const cls = String(s && s.cls || '').trim(); if (!s || !s.id || !cls) continue;
+    const sid = String(s.id), nm = String(s.name || '');
+    const mine = acts.filter(h => { const l = Array.isArray(h.clsList) && h.clsList.length ? h.clsList.map(String) : (h.cls ? [String(h.cls)] : []);
+      return (!l.length || l.includes(cls)) && (!(Array.isArray(h.s) && h.s.length) || h.s.map(String).includes(sid) || h.s.map(String).includes(nm)); });
+    if (!mine.length) continue;
+    let got = 0, done = 0;
+    for (const h of mine) { const sub = h.subs && (h.subs[sid] || h.subs[nm]); if (!sub) continue; done++;
+      const t = Number(sub.total) || 0; got += t > 0 ? Math.max(0, Math.min(1, (Number(sub.correct) || 0) / t)) : 1; }
+    const c = by[cls] = by[cls] || { cls, n: 0, pct: 0, subs: 0, need: 0, heroes: 0 };
+    c.n++; c.pct += got / mine.length * 100; c.subs += done; c.need += mine.length; if (done === mine.length) c.heroes++;
+  }
+  const classes = Object.values(by).map(c => ({ cls: c.cls, n: c.n, avg: Math.round(c.pct / c.n), sub: c.need ? Math.round(c.subs / c.need * 100) : 0, heroes: c.heroes }))
+    .sort((a, b) => (b.avg - a.avg) || (b.sub - a.sub) || String(a.cls).localeCompare(String(b.cls), 'ar'));
+  return { label: SREP_LABELS.per[per] || '', classes };
+}
 function periodsAvail(data) {
   const ac = academicNormalize(data) || {}, cur = ac.currentSemester === 2 ? 2 : 1, out = [];
   for (const sn of [1, 2]) { const S = (ac.semesters || {})[String(sn)] || {}; if (!S.status || S.status === 'not_started') continue;
@@ -7369,6 +7389,32 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
     }
 
     // ── 🏆 لوحة صدارة الفصل (بلا كشف أرصدة الآخرين بالتفصيل) ──
+    /* 🏫 صدارة الفصول: متوسط نسب طلاب كل فصل في أنشطة الفترة الجارية المحتسبة (من لم يسلّم = صفر) —
+       عادلة بين الفصل الكبير والصغير، وكل تسليم يرفع فصله. لا أسماء طلاب: أسماء الفصول والنسب فقط.
+       الحساب من نسخة اللوحة (tstate:main) بلا قراءة لكل تسليم، ويُخزَّن 60 ثانية للفصول كلها. */
+    if (url.pathname === '/class-board' && request.method === 'GET') {
+      const sidIn = String(url.searchParams.get('sid') || '').trim(), name = String(url.searchParams.get('name') || '').trim();
+      if (!sidIn && !name) return json({ error: 'missing name' }, 400);
+      let B = null; try { B = JSON.parse(await env.HW.get('cboard') || 'null'); } catch {}
+      if (!B || Date.now() - (B.at || 0) > 60e3) {
+        let state = {}; try { state = JSON.parse(await env.HW.get('tstate:main')) || {}; } catch {}
+        const data = await loadClassroom(env), cur = periodsAvail(data).find(x => x.active);
+        if (!cur) return json({ ok: true, classes: [] });
+        B = classBoardBuild(state, data, cur.sem, cur.per);
+        // 📈 حركة الأسبوع: ترتيب آخر الأسبوع الماضي ← هذا الأسبوع (الأسبوع يبدأ الأحد بتوقيت الرياض)، ويبدأ من جديد مع كل فترة
+        const wk = Math.floor((Math.floor((Date.now() + 3 * 3600000) / 864e5) + 4) / 7), pk = `${cur.sem}/${cur.per}`;
+        let M = {}; try { M = JSON.parse(await env.HW.get('cboard-wk') || '{}') || {}; } catch {}
+        if (M.pk !== pk) M = { pk, wk, prev: {}, cur: {} };
+        else if (M.wk !== wk) { M.prev = M.cur || {}; M.wk = wk; }
+        M.cur = Object.fromEntries(B.classes.map((c, i) => [c.cls, i + 1]));
+        B.classes.forEach((c, i) => { const p = (M.prev || {})[c.cls]; c.move = p ? p - (i + 1) : 0; });
+        B.at = Date.now();
+        try { await env.HW.put('cboard-wk', JSON.stringify(M)); await env.HW.put('cboard', JSON.stringify(B), { expirationTtl: 3600 }); } catch {}
+      }
+      let myCls = '';
+      try { const roster = await loadRoster(env); const st = roster.find(x => sidIn && String(x.id) === sidIn) || roster.find(x => name && String(x.name).trim() === name); myCls = st ? String(st.cls || '') : ''; } catch {}
+      return json({ ok: true, label: B.label, myCls, classes: B.classes.map(c => ({ cls: c.cls, avg: c.avg, sub: c.sub, n: c.n, move: c.move || 0, ...(c.cls === myCls ? { me: true, heroes: c.heroes } : {}) })) });
+    }
     if (url.pathname === '/board' && request.method === 'GET') {
       const name = String(url.searchParams.get('name') || '').trim();
       if (!name) return json({ error: 'missing name' }, 400);

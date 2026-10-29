@@ -4554,6 +4554,24 @@ function updateAllActivitiesSummary(rows){
     : 'لا توجد أنشطة منشورة حاليًا';
 }
 
+/* 🏫 صدارة الفصول: منصّة للثلاثة الأوائل، والباقي بأشرطة، وسطر فصل الطالب (ترتيبه، حركته هذا الأسبوع، ما ينقصه لتجاوز الفصل الأعلى) */
+function classBoardHTML(cb){
+  const C = cb.classes || [], me = C.find(c => c.me), mi = C.indexOf(me);
+  const pl = n => n === 1 ? 'مركزًا' : n === 2 ? 'مركزين' : n + ' مراكز';
+  const mv = c => c.move > 0 ? `<span class="cb-up">· ▲ تقدّم ${pl(c.move)} هذا الأسبوع</span>` : c.move < 0 ? `<span class="cb-dn">· ▼ تراجع ${pl(-c.move)} هذا الأسبوع</span>` : '';
+  const star = c => c.me ? ' ⭐' : '';
+  const pod = [C[1], C[0], C[2]].map((c, i) => { const r = [2, 1, 3][i]; if(!c) return '<div></div>';
+    return `<div class="cb-p r${r}${c.me ? ' me' : ''}">${r === 1 ? '<div class="cb-crown">👑</div>' : ''}<div class="cb-cls">${esc(c.cls)}${star(c)}</div><div class="cb-pc">${c.avg}%</div><div class="cb-blk">${r}</div></div>`; }).join('');
+  const above = mi > 0 ? C[mi - 1] : null, gap = above ? Math.max(1, above.avg - me.avg) : 0;
+  const hn = n => n === 1 ? 'طالب واحد من فصلك سلّم' : n === 2 ? 'طالبان من فصلك سلّما' : `${n} ${n > 10 ? 'طالبًا' : 'طلاب'} من فصلك سلّموا`;
+  return `<div class="cb-hd"><b>🏫 صدارة الفصول${cb.label ? ' — ' + esc(cb.label) : ''}</b><small>متوسط نسب طلاب الفصل في أنشطة البوابة (من لم يسلّم يُحسب صفرًا)</small></div>
+    <div class="cb-pod">${pod}</div>
+    ${C.slice(3).map((c, i) => `<div class="cb-row${c.me ? ' me' : ''}"><span class="cb-rk">${i + 4}</span><span class="cb-nm">${esc(c.cls)}${star(c)}</span><span class="cb-bar" style="--p:${c.avg}%"><i></i></span><span class="cb-v">${c.avg}%</span></div>`).join('')}
+    ${me ? `<div class="cb-me">فصلك <b>${esc(me.cls)}</b> في المركز <b>${mi + 1}</b> من ${C.length} ${mv(me)}
+      <div class="cb-meta"><span>📈 المتوسط <b>${me.avg}%</b></span><span>📬 التسليم <b>${me.sub}%</b></span><span>👥 ${me.n} ${me.n > 10 ? 'طالبًا' : 'طلاب'}</span></div>
+      ${above ? `<span class="cb-gap">🎯 ينقصكم ${gap}% لتتجاوزوا ${esc(above.cls)} — كل نشاط تسلّمه يرفع فصلك!</span>` : '<span class="cb-gap top">👑 فصلكم في الصدارة — حافظوا عليها!</span>'}
+      ${me.heroes ? `<div class="cb-chips"><span class="cb-chip">🏅 ${hn(me.heroes)} كل أنشطة الفترة</span></div>` : ''}</div>` : ''}`;
+}
 async function gateLoad(nm, opts){
   const restored = !!(opts && opts.restored);
   myName = String(nm || '').trim();
@@ -4641,15 +4659,16 @@ async function gateLoad(nm, opts){
   // فيبقى الطالب أمام «جارٍ تحميل نشاطاتك…» بلا سبب. الصندوق يملأ نفسه لاحقًا.
   (async () => {
    try{
-    const b = await (
-      await fetch(api + '/board?name=' + encodeURIComponent(nm))
-    ).json();
-
-    if(b.ok && b.total > 1){
-      const medal = ['🥇','🥈','🥉'];
-
-      $('gate-board').innerHTML = `
-        <div class="sheet" style="padding:.85rem 1rem">
+    // 🏫 صدارة فصلي + صدارة الفصول تُجلبان معًا؛ زرّان للتبديل (الاختيار محفوظ على الجهاز)
+    const [b, cb] = await Promise.all([
+      fetch(api + '/board?name=' + encodeURIComponent(nm)).then(r => r.json()).catch(() => ({})),
+      fetch(api + '/class-board?name=' + encodeURIComponent(nm) + (mySid ? '&sid=' + encodeURIComponent(mySid) : '')).then(r => r.json()).catch(() => ({}))
+    ]);
+    const hasMe = !!(b.ok && b.total > 1), hasCls = !!(cb.ok && (cb.classes || []).length > 1 && (cb.classes || []).some(c => c.me));
+    if(!hasMe && !hasCls) return;
+    const medal = ['🥇','🥈','🥉'];
+    const mineHTML = () => `
+        
           <div class="center muted" style="font-size:.82rem;margin-bottom:.5rem">
             🏆 صدارة ${b.cls ? esc(b.cls) : 'فصلك'}
             <div style="font-size:.72rem;opacity:.85">بنسبة درجاتك في أنشطة الفصل</div>
@@ -4668,9 +4687,15 @@ async function gateLoad(nm, opts){
             padding-top:.45rem;text-align:center;font-size:.88rem">
             ترتيبك <b style="color:var(--ink)">${b.myRank}</b> من ${b.total}
             ${b.myMax ? `<span class="muted" style="font-size:.8rem"> · نسبتك <b>${b.myPct}%</b> (${b.myPts}/${b.myMax})</span>` : ''}
-          </div>
-        </div>`;
-    }
+          </div>`;
+    let mode = 'me'; try{ mode = localStorage.getItem('board_mode_v1') || 'me'; }catch(e){}
+    const draw = () => {
+      if(mode === 'cls' && !hasCls) mode = 'me'; if(mode === 'me' && !hasMe) mode = 'cls';
+      const seg = hasMe && hasCls ? `<div class="cb-seg" role="tablist"><button type="button" role="tab" data-cbm="me" aria-selected="${mode==='me'}" class="${mode==='me'?'on':''}">🏆 صدارة فصلي</button><button type="button" role="tab" data-cbm="cls" aria-selected="${mode==='cls'}" class="${mode==='cls'?'on':''}">🏫 صدارة الفصول</button></div>` : '';
+      $('gate-board').innerHTML = `<div class="sheet" style="padding:.85rem 1rem">${seg}${mode === 'cls' ? classBoardHTML(cb) : mineHTML()}</div>`;
+      $('gate-board').querySelectorAll('[data-cbm]').forEach(x => x.onclick = () => { mode = x.dataset.cbm; try{ localStorage.setItem('board_mode_v1', mode); }catch(e){} draw(); });
+    };
+    draw();
    }catch(e){}
   })();
 
