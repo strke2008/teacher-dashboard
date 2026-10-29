@@ -1592,6 +1592,8 @@ thead .madr-name{background:var(--ui-surface-2,#F7FAFD)}
 .td-per small{color:var(--ink-soft);margin-inline-start:.45rem;padding-inline-start:.45rem;border-inline-start:1px solid var(--ui-border,#d6dbe3);font-size:.7rem;display:inline-block;unicode-bidi:isolate;direction:ltr}
 .td-per.done{border-color:#1b9c6b;background:rgba(27,156,107,.08)}.td-per.cur{border-color:#2563eb;background:rgba(37,99,235,.1);font-weight:800}
 .td-per.miss{border-color:#d6455b;background:rgba(214,69,91,.07)}
+/* الوقت يسار اسم الفصل وبينهما فاصل (العنصر LTR فالفاصل على يمينه فعليًا) */
+.td-per small{margin:0 .45rem 0 0;padding:0 .45rem 0 0;border-inline-start:0;border-right:1px solid var(--ui-border,#d6dbe3)}
 .td-kpis{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.7rem}
 .td-kpi{border:1px solid var(--ui-border,#e5e7eb);background:var(--ui-surface,#fff);border-radius:999px;padding:.3rem .8rem;font:inherit;font-size:.82rem;cursor:pointer;color:var(--ink)}
 .td-kpi span{color:var(--ink-soft)}.td-kpi b{margin-inline-start:.2rem}
@@ -1731,6 +1733,31 @@ thead .madr-name{background:var(--ui-surface-2,#F7FAFD)}
 .td-ev.ex{background:rgba(214,69,91,.1);color:#a3283c;font-weight:700}.td-ev.act{background:rgba(37,99,235,.08)}.td-ev.rm{background:rgba(224,161,0,.12)}
 .td-sum{background:linear-gradient(135deg,rgba(27,156,107,.08),rgba(37,99,235,.06));border:1px solid var(--ui-border,#e5e7eb);border-radius:14px;padding:.7rem .9rem;margin-bottom:.6rem}
 .td-sum-g{display:flex;flex-wrap:wrap;gap:.4rem .9rem;font-size:.85rem;margin-top:.4rem}
+/* 🎯 صفحة اليوم (التصميم أ): بطاقة حالة واحدة + شرائح الحصص + أربعة أرقام في سطر */
+.td-hero{display:flex;align-items:center;gap:.85rem;background:linear-gradient(135deg,#1d3a6b,#16233a);color:#fff;border-radius:18px;padding:.85rem 1rem;margin-bottom:.55rem;box-shadow:0 8px 22px rgba(22,35,58,.18)}
+.td-ring{--p:0;flex:none;width:64px;height:64px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(#f5b83d calc(var(--p)*1%),rgba(255,255,255,.16) 0)}
+.td-ring i{width:50px;height:50px;border-radius:50%;background:#1b3159;display:grid;place-items:center;font-style:normal;font-weight:800;font-size:.95rem;direction:ltr}
+.td-hero-t{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:.2rem}
+.td-hero-t b{font-size:1rem;line-height:1.45}.td-hero-t small{font-size:.8rem;opacity:.85;line-height:1.5}
+.td-hero .td-ok{color:#7be0b0;margin:0}
+.td-hero-go{margin-top:.3rem;border:0;border-radius:10px;background:#f5b83d;color:#16233a;font:inherit;font-weight:800;font-size:.86rem;padding:.4rem .9rem;cursor:pointer}
+.td-hero-go:hover{filter:brightness(1.05)}
+.td-hero+.td-pers{margin:0 0 .65rem}
+.td-pers .td-per.miss{border-color:#efc56f;background:#fff7e6;color:#8a5a00;font-weight:700}
+.td-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.45rem;margin-bottom:.75rem;max-width:620px}
+.td-kpi{display:flex;flex-direction:column;align-items:center;gap:.1rem;border-radius:14px;padding:.45rem .2rem}
+.td-kpi b{font-size:1.25rem;margin:0;line-height:1.2}.td-kpi span{font-size:.72rem;white-space:nowrap}
+.td-kpi.on b{color:#13734f}
+.td-wkend{display:flex;align-items:center;justify-content:space-between;gap:.5rem;width:100%;margin-top:.5rem;padding:.55rem .7rem;border:1px dashed #b9c6d8;border-radius:12px;background:transparent;font:inherit;font-size:.86rem;color:var(--ink);cursor:pointer}
+.td-wkend .go{color:#2457b8;font-weight:800}
+@media screen and (max-width:700px){
+  .td-pers{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}.td-pers::-webkit-scrollbar{display:none}
+  .td-pers .td-per{flex:none}
+  .td-head{gap:.45rem}.td-head>div:first-child{flex-basis:100%}.td-search{min-width:0;flex:1 1 0}
+  .td-head>.btn{flex:none;padding-inline:.6rem}
+  .askf-btn{width:46px;height:46px}
+  #p-dashboard{padding-bottom:64px}
+}
 @media screen and (max-width:700px){.td-week{grid-template-columns:repeat(5,minmax(110px,1fr));overflow-x:auto}}
 
 /* ── <style id=sch-times-css> ── */

@@ -97,15 +97,18 @@ function tdAbsentLine(){
 
 /* ═════════ 🌙 ملخص نهاية اليوم (بعد آخر حصة) — والخميس ملخص الأسبوع ═════════ */
 function tdDaySummary(D,k,T,rec){
-  const P=(D.participation||{})[k.day]||{}, st=r=>r&&(typeof r==='string'?r:r.status);
-  const ab=Object.values(P).filter(r=>/غائب/.test(st(r)||'')).length;
-  const t0=Date.parse(k.day+'T00:00:00+03:00'); let subs=0; HW.forEach(h=>Object.values(h.subs||{}).forEach(v=>{ if(v&&+v.at>=t0) subs++; }));
-  const beh=(D.behavior||[]).filter(x=>x&&!x.deleted&&x.date===k.day), pos=beh.filter(x=>x.type==='positive').length;
-  const done=T.filter(rec).length, thu=k.dow===4;
-  return `<div class="td-sum"><b>🌙 انتهت حصص اليوم — ${done===T.length?'رصدتها كلها 👏':`رُصد ${done} من ${T.length}`}</b>
-    <div class="td-sum-g"><span>🙋 الغياب: <b>${ab}</b></span><span>📥 تسليمات اليوم: <b>${subs}</b></span><span>🌟 ملاحظات إيجابية: <b>${pos}</b></span><span>⚠️ سلوكية: <b>${beh.length-pos}</b></span></div>
-    ${done<T.length?`<div class="td-pers" style="margin-top:.5rem">${T.filter(t=>!rec(t)).map(t=>`<button type="button" class="td-per miss" onclick="tdQuick('${thEsc(((D.schedule||{}).grid||{})[String(k.dow)][String(t.n)])}')">! ${t.n} · ${thEsc(((D.schedule||{}).grid||{})[String(k.dow)][String(t.n)])} — ارصدها</button>`).join('')}</div>`:''}
-    ${thu?`<div style="margin-top:.55rem;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap"><b>📆 نهاية الأسبوع</b><button class="btn sm" onclick="kashfGo('weekly');setTimeout(()=>wrOpen(),600)">📤 إرسال تقارير الأسبوع للطلاب</button></div>`:''}</div>`;
+  const g=((D.schedule||{}).grid||{})[String(k.dow)]||{}, miss=T.filter(t=>!rec(t)), m=miss.length, done=T.length-m;
+  const go=t=>`tdQuick('${thEsc(g[String(t.n)])}')`;
+  return tdHero(done,T.length,'🌙 انتهت حصص اليوم',m?`بقي رصد ${m===1?'حصة واحدة':m===2?'حصتين':m+' حصص'}`:'رصدتها كلها 👏',
+      m?`<button type="button" class="td-hero-go" onclick="${go(miss[0])}">✍️ ارصد الآن</button>`:'')
+    +(m?`<div class="td-pers">${miss.map(t=>`<button type="button" class="td-per miss" onclick="${go(t)}">! ${t.n} · <bdi>${thEsc(g[String(t.n)])}</bdi></button>`).join('')}</div>`:'');
+}
+/* 📆 الخميس بعد آخر حصة: سطر رفيع لإرسال تقارير الأسبوع (في آخر «مهام اليوم») */
+function tdWeekEndRow(){
+  const D=CT_DATA, k=tdKsaNow(); if(!D||k.dow!==4) return '';
+  const sc=D.schedule||{}, g=(sc.grid||{})[String(k.dow)]||{}, T=tdTimes(sc).filter(t=>g[String(t.n)]);
+  if(!T.length||T.some(t=>t.em>k.min)) return '';
+  return `<button type="button" class="td-wkend" onclick="kashfGo('weekly');setTimeout(()=>wrOpen(),600)"><span>📆 <b>نهاية الأسبوع</b></span><span class="go">📤 أرسل تقارير الأسبوع ‹</span></button>`;
 }
 
 /* ═════════ 📅 شريط الأسبوع: مواعيد الأنشطة والاختبارات والتذكيرات المؤرخة ═════════ */

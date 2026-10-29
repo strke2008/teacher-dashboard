@@ -11,7 +11,10 @@ function tlHOf(c,k){ const v=c.h[k]; if(typeof v==='number'&&v>0) return {key:'p
 function tlRows(k){ return tlHOf(tlGet(),k).rows; }
 let TL_ON=false;
 function tlGet(){ let c=null; try{ c=JSON.parse(localStorage.getItem(TL_KEY)||'null'); }catch(e){}
-  c=c&&typeof c==='object'?c:{}; const o=(Array.isArray(c.order)?c.order:[]).filter(k=>TL_DEF.order.includes(k));
+  c=c&&typeof c==='object'?c:{};
+  // الجوال بلا ترتيب محفوظ: «أرقام عامة» في الآخر — المهام أولًا بعد بطاقة الحالة
+  const narrow=!Array.isArray(c.order)&&typeof matchMedia==='function'&&matchMedia('(max-width:760px)').matches;
+  const o=(Array.isArray(c.order)?c.order:narrow?TL_DEF.order.filter(k=>k!=='stats').concat('stats'):[]).filter(k=>TL_DEF.order.includes(k));
   // بطاقة جديدة لم تكن في ترتيب المعلم المحفوظ: تُضاف بعد سابقتها في الترتيب الافتراضي (لا في الآخر)
   TL_DEF.order.forEach((k,i)=>{ if(o.includes(k)) return; let at=o.length; for(let j=i-1;j>=0;j--){ const p=o.indexOf(TL_DEF.order[j]); if(p>=0){ at=p+1; break; } } o.splice(at,0,k); });
   // الترتيب المحفوظ قبل نظام الـ12 عمودًا كانت أعراضه من 6

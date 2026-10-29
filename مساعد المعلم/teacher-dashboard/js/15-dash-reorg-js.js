@@ -202,28 +202,33 @@ function tdNowBar(){
   const cur=T.find(t=>k.min>=t.sm&&k.min<t.em), next=T.find(t=>t.sm>k.min);
   const pend=T.filter(t=>t.em<=k.min&&!rec(t)).pop();
   const go=t=>`tdQuick('${thEsc(g[String(t.n)])}')`;
-  let head;
   if(!cur&&!next) return tdDaySummary(D,k,T,rec);   // انتهى اليوم: ملخص (وفيه الحصص غير المرصودة)
-  if(cur&&!rec(cur)) head=`<b>⏰ الآن: الحصة ${cur.n} · <bdi>${thEsc(g[String(cur.n)])}</bdi></b><small>تنتهي ${cur.e}</small><button class="btn tick sm" onclick="${go(cur)}">🗂️ ارصدها</button>`;
-  else if(pend) head=`<b>⚠️ الحصة ${pend.n} · <bdi>${thEsc(g[String(pend.n)])}</bdi> انتهت ولم تُرصد</b><button class="btn sm" onclick="${go(pend)}">🗂️ ارصدها الآن</button>`;
-  else if(cur) head=`<b>⏰ الآن: الحصة ${cur.n} · <bdi>${thEsc(g[String(cur.n)])}</bdi></b><small>تنتهي ${cur.e}</small><span class="td-ok">✓ رُصدت</span>`;
-  else if(next) head=`<b>⏭️ القادمة: الحصة ${next.n} · <bdi>${thEsc(g[String(next.n)])}</bdi></b><small>تبدأ ${next.s}</small>`;
-  else return tdDaySummary(D,k,T,rec);
+  const nm=t=>`الحصة ${t.n} · <bdi>${thEsc(g[String(t.n)])}</bdi>`, btn=(t,l)=>`<button type="button" class="td-hero-go" onclick="${go(t)}">✍️ ${l}</button>`;
+  const nxt=next?`القادمة: ${nm(next)} · ${next.s}`:'';
+  let hd;
+  if(cur&&!rec(cur)) hd=[`⏰ الآن: ${nm(cur)}`,`تنتهي ${cur.e}`,btn(cur,'ارصدها')];
+  else if(pend) hd=[`⚠️ ${nm(pend)} انتهت ولم تُرصد`,cur?`الآن: ${nm(cur)} · ✓ رُصدت`:nxt,btn(pend,'ارصدها الآن')];
+  else if(cur) hd=[`⏰ الآن: ${nm(cur)}`,`<span class="td-ok">✓ رُصدت</span>${nxt?' · '+nxt:''}`,''];
+  else hd=[`⏭️ القادمة: ${nm(next)}`,`تبدأ ${next.s}`,''];
   const chip=t=>{ const st=rec(t)?'done':(cur&&cur.n===t.n)?'cur':t.em<=k.min?'miss':'soon';
     return `<button type="button" class="td-per ${st}" onclick="${go(t)}" title="${t.s}–${t.e}">${st==='done'?'✓':st==='cur'?'●':st==='miss'?'!':'○'} ${t.n} · <bdi>${thEsc(g[String(t.n)])}</bdi><small>${t.s}</small></button>`; };
-  return `<div class="td-now"><div class="td-now-h">${head}</div><div class="td-pers">${T.map(chip).join('')}</div></div>`;
+  return tdHero(T.filter(rec).length,T.length,...hd)+`<div class="td-pers">${T.map(chip).join('')}</div>`;
+}
+/* 🎯 بطاقة الحالة: دائرة الرصد (المرصود من حصص اليوم) + العنوان + سطر + زر واحد */
+function tdHero(done,all,title,sub,btn){
+  return `<div class="td-hero"><div class="td-ring" style="--p:${all?Math.round(done/all*100):0}" title="مرصود اليوم"><i>${done}/${all}</i></div>
+    <div class="td-hero-t"><b>${title}</b>${sub?`<small>${sub}</small>`:''}${btn||''}</div></div>`;
 }
 function tdKpis(){
-  const D=(typeof CT_DATA!=='undefined'&&CT_DATA)||null, k=tdKsaNow(), out=[];
-  if(D&&k.dow>=0&&k.dow<=4){ const g=((D.schedule||{}).grid||{})[String(k.dow)]||{}, cl=Object.values(g).filter(Boolean);
-    if(cl.length) out.push(['🗂️','مرصود اليوم',`${cl.filter(c=>tdRecorded(D,c,k.day)).length}/${cl.length}`,"ctGo('records')"]); }
+  // أرقام اليوم الأربعة في سطر واحد (الرصد في دائرة البطاقة، والمتأخرون والخطط ضمن «مهام اليوم» متى وُجدت)
+  const D=(typeof CT_DATA!=='undefined'&&CT_DATA)||null, k=tdKsaNow();
   const t0=Date.parse(k.day+'T00:00:00+03:00'); let subs=0; HW.forEach(h=>Object.values(h.subs||{}).forEach(v=>{ if(v&&+v.at>=t0) subs++; }));
-  out.push(['📥','تسليمات اليوم',subs,"document.querySelector('#dash-recent')?.closest('details')?.setAttribute('open','');thGoTo('dash-recent')"]);
-  const late=(STUDENTS||[]).filter(s=>getStudentMissingActivities(s).length).length;
-  out.push(['⏰','طلاب متأخرون',late,'openBulkReminder()']);
-  const plans=((typeof CT_GRADES!=='undefined'&&CT_GRADES&&CT_GRADES.plans)||(typeof PLAN_DATA!=='undefined'&&PLAN_DATA&&PLAN_DATA.plans)||[]).filter(p=>p.status!=='done'&&p.timing&&p.timing.expired).length;
-  out.push(['🩺','خطط تنتظر قرارك',plans,"plansGo('need')"]);
-  return `<div class="td-kpis">${out.map(([i,l,v,go])=>`<button type="button" class="td-kpi" onclick="${go}">${i} <span>${l}</span> <b>${v}</b></button>`).join('')}</div>`;
+  const subGo="document.querySelector('#dash-recent')?.closest('details')?.setAttribute('open','');thGoTo('dash-recent')";
+  const L=[['🙋','غياب',null,"ctGo('records')"],['📥','تسليمات',subs,subGo],['🌟','إيجابية',null,"ctGo('records')"],['⚠️','سلوكية',null,"ctGo('records')"]];
+  if(D){ const P=(D.participation||{})[k.day]||{}, st=r=>r&&(typeof r==='string'?r:r.status);
+    const beh=(D.behavior||[]).filter(x=>x&&!x.deleted&&x.date===k.day), pos=beh.filter(x=>x.type==='positive').length;
+    L[0][2]=Object.values(P).filter(r=>/غائب/.test(st(r)||'')).length; L[2][2]=pos; L[3][2]=beh.length-pos; }
+  return `<div class="td-kpis">${L.map(([i,l,v,go])=>`<button type="button" class="td-kpi${v?' on':''}" onclick="${go}"><b>${v==null?'—':v}</b><span>${i} ${l}</span></button>`).join('')}</div>`;
 }
 function brOpenFor(id){ BR.act=String(id); BR.cls=''; BR.sel=null; BR.only=null; openBulkReminder(); }
 function tdTasks(){
@@ -318,7 +323,7 @@ function thDrawNow(){
   const sT=document.getElementById('td-slot-tasks'), sW=document.getElementById('td-slot-week');
   const tasksHTML=`<div class="td-card td-taskcard"><div class="td-card-h"><b>✅ مهام اليوم</b><a href="#" class="td-link" onclick="event.preventDefault();rmgOpen()">⏰ تذكيراتي</a><small>${open.length?`${open.length} ${open.length===1?'مهمة':'مهام'}`:''}${hid?` · <a href="#" onclick="event.preventDefault();tdUndoAll()">إظهار المنجزة (${hid})</a>`:''}</small></div>
       ${main.length?main.map(row).join(''):(TH_BUSY&&!CT_DATA?'<div class="muted" style="padding:.6rem">⏳ جارٍ الفحص…</div>':'<div class="td-empty">🌿 لا شيء عاجل — كل شيء تحت السيطرة</div>')}
-      ${low.length?`<details class="td-low"><summary>أقل أهمية (${low.length})</summary>${low.map(row).join('')}</details>`:''}</div>`;
+      ${low.length?`<details class="td-low"><summary>أقل أهمية (${low.length})</summary>${low.map(row).join('')}</details>`:''}${typeof tdWeekEndRow==='function'?tdWeekEndRow():''}</div>`;
   const head=`${tdNowBar()}${tdKpis()}${tdAbsentLine()}`;
   // لا نعيد رسم البطاقة والمعلم يكتب ردًا فيها (التحديث الدوري كان سيمسح ما كتبه)
   { const sA=document.getElementById('td-slot-asks'); if(sA && !(sA.contains(document.activeElement) && /^(TEXTAREA|INPUT)$/.test(document.activeElement.tagName))){ try{ sA.innerHTML=asksCardHTML(); }catch(e){} } }
