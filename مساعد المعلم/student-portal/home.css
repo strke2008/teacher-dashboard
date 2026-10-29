@@ -97,3 +97,40 @@ html[data-pt-theme="galaxy"] .hs-pan .hs-item,html[data-pt-theme="spaceweek"] .h
 html[data-pt-theme="galaxy"] .hs-pan .hs-item i,html[data-pt-theme="spaceweek"] .hs-pan .hs-item i{background:rgba(255,255,255,.08)}
 html[data-pt-theme="galaxy"] .hs-pan small,html[data-pt-theme="spaceweek"] .hs-pan small{color:#9AA6C8}
 html[data-pt-theme="galaxy"] .hs-pan .hs-item.warn,html[data-pt-theme="spaceweek"] .hs-pan .hs-item.warn{color:#FF8A9B}
+
+/* ── 🧩 ترتيب الأقسام: الصفحة عمود مرن، وحاوية المساحة تُفرد أقسامها فيه (display:contents) ليرتّبها الطالب ── */
+#s-gate{display:flex;flex-direction:column}
+#s-gate.hide{display:none}
+#gate-space:not(.hide){display:contents}
+#s-gate .hs-off{display:none!important}
+#gate-space > .student-space-head{margin:0 0 .85rem}
+#gate-space > .now-compact{margin:0 0 .9rem}
+#gate-space > #space-review:not(:empty),#gate-space > #space-plan:not(:empty),#gate-space > #space-certs:not(:empty),
+#gate-space > #space-ann:not(:empty),#gate-space > #space-walls:not(:empty),#gate-space > #space-ask:not(:empty){margin:0 0 .8rem}
+#gate-space > #my-report-panel{margin:0 0 .8rem!important}
+/* التنبيهات بطاقة مستقلة بعد أن خرجت من بطاقة المساحة */
+#gate-space > .space-notices{background:var(--paper-2,#fff);border:1px solid color-mix(in srgb,var(--rule) 70%,transparent);border-radius:20px;padding:.8rem .85rem;margin:0 0 .8rem;box-shadow:0 1px 3px rgba(22,35,58,.05)}
+html[data-pt-cards="glass"] #gate-space > .space-notices{background:rgba(255,255,255,.74);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+#gate-bal{display:none}   /* الرصيد صار في «نقاطي» أعلى الصفحة ومع المتجر */
+/* رحلتي مختصرة: العنوان والنسبة والشريط، وتُفتح بالضغط */
+#student-journey .journey-head{cursor:pointer;position:relative;padding-inline-end:1.6rem}
+#student-journey .journey-head::after{content:'⌄';position:absolute;inset-inline-end:.2rem;top:.1rem;font-size:1.2rem;color:var(--ink-soft);transition:transform .2s}
+#student-journey.hs-open .journey-head::after{transform:rotate(180deg)}
+#student-journey:not(.hs-open) #journey-steps{display:none}
+
+/* ورقة «ترتيب صفحتي» */
+.hs-ord-h{margin:0 .2rem .7rem}.hs-ord-h b{display:block;font-size:1.05rem}.hs-ord-h small{color:var(--ink-soft);font-size:.8rem}
+.hs-ord{display:grid;gap:.35rem;max-height:56vh;overflow:auto;padding:.1rem}
+.hs-ord-row{display:flex;align-items:center;gap:.45rem;padding:.45rem .5rem;border-radius:14px;background:color-mix(in srgb,var(--ink) 4%,transparent)}
+.hs-ord-row.off{opacity:.5}
+.hs-ord-n{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-size:.75rem;font-weight:800;background:var(--paper-2,#fff);flex:none}
+.hs-ord-t{flex:1;min-width:0;font-weight:600;font-size:.92rem}
+.hs-ord-row button,.hs-ord-lock{width:36px;height:36px;border-radius:11px;border:0;background:var(--paper-2,#fff);font:inherit;font-size:1.05rem;font-weight:800;color:var(--ink);cursor:pointer;display:grid;place-items:center;flex:none}
+.hs-ord-row button:disabled{opacity:.3;cursor:default}
+.hs-ord-lock{background:none;font-size:.9rem;opacity:.6;cursor:default}
+.hs-ord-foot{display:flex;gap:.5rem;margin-top:.8rem}
+.hs-ord-foot button{flex:1;min-height:46px;border-radius:14px;border:0;font:inherit;font-weight:700;font-size:.95rem;cursor:pointer}
+.hs-ord-reset{background:color-mix(in srgb,var(--ink) 6%,transparent);color:var(--ink)}
+.hs-ord-done{background:var(--acc,var(--tick,#1B9C6B));color:#fff}
+html[data-pt-theme="galaxy"] .hs-ord-row,html[data-pt-theme="spaceweek"] .hs-ord-row{background:rgba(255,255,255,.06)}
+html[data-pt-theme="galaxy"] .hs-ord-row button,html[data-pt-theme="galaxy"] .hs-ord-n,html[data-pt-theme="spaceweek"] .hs-ord-row button,html[data-pt-theme="spaceweek"] .hs-ord-n{background:rgba(255,255,255,.1);color:#E6EBFA}

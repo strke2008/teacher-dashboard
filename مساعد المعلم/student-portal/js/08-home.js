@@ -108,6 +108,75 @@
     }, 80);
   }
 
+  /* ── 🧩 ترتيب الصفحة: الطالب يرتّب الأقسام ويخفي ما لا يحتاجه (على جهازه). لا تُنقل العناصر في الصفحة —
+     الترتيب بصريًا (CSS order) فلا يتأثر أي منطق يعتمد عليها. الأقسام الأساسية لا تُخفى. ── */
+  const BLOCKS = [
+    { k:'review',  t:'🔎 مهام التصحيح وفرص التحسين', lock:1, el:() => [$id('space-review')] },
+    { k:'ann',     t:'📢 إعلانات المعلم',            lock:1, el:() => [$id('space-ann')] },
+    { k:'acts',    t:'📚 جميع أنشطتي',               lock:1, el:() => [$id('all-activities-panel')] },
+    { k:'notices', t:'🔔 التنبيهات',                 lock:1, el:() => [document.querySelector('#gate-space .space-notices')] },
+    { k:'plan',    t:'🎯 خطتي العلاجية',             lock:1, el:() => [$id('space-plan')] },
+    { k:'journey', t:'🗺️ رحلتي التعليمية',                  el:() => [$id('student-journey'), $id('journey-workspace')] },
+    { k:'board',   t:'🏆 الصدارة',                          el:() => [$id('gate-board')] },
+    { k:'store',   t:'🛒 المتجر',                           el:() => [$id('gate-bal'), $id('gate-store')] },
+    { k:'walls',   t:'🧱 حائط الإبداع',                     el:() => [$id('space-walls')] },
+    { k:'certs',   t:'🏅 شهاداتي',                          el:() => [$id('space-certs')] },
+    { k:'report',  t:'📄 تقريري',                           el:() => [$id('my-report-panel')] },
+    { k:'ask',     t:'💬 اسأل معلمك',                       el:() => [$id('space-ask')] },
+  ];
+  const LAY_KEY = 'home_layout_v1';
+  function layGet(){
+    let L = null; try{ L = JSON.parse(localStorage.getItem(LAY_KEY) || 'null'); }catch(e){}
+    const keys = BLOCKS.map(b => b.k), o = (L && Array.isArray(L.o) ? L.o : []).filter(k => keys.includes(k));
+    keys.forEach(k => { if(!o.includes(k)) o.push(k); });     // قسم جديد يُضاف في آخره
+    const h = (L && Array.isArray(L.h) ? L.h : []).filter(k => keys.includes(k) && !BLOCKS.find(b => b.k === k).lock);
+    return { o, h };
+  }
+  function laySave(L){ try{ localStorage.setItem(LAY_KEY, JSON.stringify(L)); }catch(e){} layApply(); }
+  function layApply(){
+    const L = layGet();
+    const fixed = [[document.querySelector('#s-gate > .sheet:not(#gate-space)'), 0], [document.querySelector('#gate-space .student-space-head'), 1],
+      [document.querySelector('#gate-space .now-compact'), 2], [$id('live-card'), 3]];
+    fixed.forEach(([el, n]) => { if(el) el.style.order = n; });
+    L.o.forEach((k, i) => { const b = BLOCKS.find(x => x.k === k); (b.el() || []).forEach(el => { if(!el) return; el.style.order = 10 + i * 10; el.classList.toggle('hs-off', L.h.includes(k)); }); });
+    // قسم مخفي ⇒ زره في الشريط السفلي يختفي أيضًا
+    [['board', 'board'], ['store', 'store']].forEach(([k, nav]) => { const b = document.querySelector(`.hs-nav [data-nav="${nav}"]`); if(b) b.hidden = L.h.includes(k); });
+  }
+  function openOrder(){
+    closeSheet();
+    const draw = () => {
+      const L = layGet();
+      const s = $id('hs-sheet') || Object.assign(document.createElement('div'), { id:'hs-sheet', className:'hs-sheet' });
+      s.innerHTML = `<div class="hs-pan" role="dialog" aria-label="ترتيب صفحتي"><div class="hs-grab"></div>
+        <div class="hs-ord-h"><b>🧩 ترتيب صفحتي</b><small>رتّب الأقسام بالأسهم، وأخفِ ما لا تحتاجه. 🔒 الأقسام الأساسية لا تُخفى.</small></div>
+        <div class="hs-ord">${L.o.map((k, i) => { const b = BLOCKS.find(x => x.k === k), off = L.h.includes(k);
+          return `<div class="hs-ord-row${off ? ' off' : ''}"><span class="hs-ord-n">${i + 1}</span><span class="hs-ord-t">${b.t}</span>
+            <button type="button" data-up="${k}" ${i ? '' : 'disabled'} aria-label="لأعلى">↑</button><button type="button" data-dn="${k}" ${i < L.o.length - 1 ? '' : 'disabled'} aria-label="لأسفل">↓</button>
+            ${b.lock ? '<span class="hs-ord-lock" title="قسم أساسي">🔒</span>' : `<button type="button" class="hs-eye" data-eye="${k}" aria-label="${off ? 'إظهار' : 'إخفاء'}">${off ? '🙈' : '👁️'}</button>`}</div>`; }).join('')}</div>
+        <div class="hs-ord-foot"><button type="button" class="hs-ord-reset" data-reset>↩ الترتيب الافتراضي</button><button type="button" class="hs-ord-done" data-done>تم ✓</button></div></div>`;
+      if(!s.parentNode){ document.body.appendChild(s); s.onclick = e => { if(e.target === s){ closeSheet(); onScroll(); } }; }
+      const mv = (k, d) => { const L2 = layGet(), i = L2.o.indexOf(k), j = i + d; if(j < 0 || j >= L2.o.length) return; [L2.o[i], L2.o[j]] = [L2.o[j], L2.o[i]]; laySave(L2); draw(); };
+      s.querySelectorAll('[data-up]').forEach(b => b.onclick = () => mv(b.dataset.up, -1));
+      s.querySelectorAll('[data-dn]').forEach(b => b.onclick = () => mv(b.dataset.dn, 1));
+      s.querySelectorAll('[data-eye]').forEach(b => b.onclick = () => { const L2 = layGet(), k = b.dataset.eye; L2.h = L2.h.includes(k) ? L2.h.filter(x => x !== k) : [...L2.h, k]; laySave(L2); draw(); });
+      s.querySelector('[data-reset]').onclick = () => { try{ localStorage.removeItem(LAY_KEY); }catch(e){} layApply(); draw(); };
+      s.querySelector('[data-done]').onclick = () => { closeSheet(); onScroll(); };
+    };
+    draw(); setOn('me');
+  }
+  // «جميع أنشطتي» مفتوحة عند الدخول (مرة واحدة)، و«رحلتي» مختصرة تُفتح بالضغط
+  let actsOpened = false;
+  function actsOpen(){
+    if(actsOpened) return; const list = $id('gate-list'), t = $id('all-activities-toggle'), p = $id('all-activities-panel');
+    if(!list || !t || !p || p.classList.contains('hide')) return;
+    actsOpened = true; if(list.classList.contains('hide')){ const y = window.scrollY; t.click(); window.scrollTo(0, y); }
+  }
+  function journeyInit(){
+    const j = $id('student-journey'), h = j && j.querySelector('.journey-head'); if(!h || h.dataset.hs) return;
+    h.dataset.hs = '1'; h.setAttribute('role', 'button'); h.tabIndex = 0;
+    const tg = () => j.classList.toggle('hs-open'); h.addEventListener('click', tg); h.addEventListener('keydown', e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); tg(); } });
+  }
+
   /* ── ورقة «حسابي» ── */
   function closeSheet(){ const s = $id('hs-sheet'); if(s) s.remove(); }
   function openSheet(){
@@ -121,6 +190,7 @@
       ${item('theme', '🎨', 'مظهري', 'الألوان والصورة والإطار')}
       ${item('report', '📄', 'تقريري', 'تقرير الأسبوع وتقرير الفترة')}
       ${item('notes', '🔔', 'التنبيهات', 'الرسائل والتحديثات')}
+      ${item('order', '🧩', 'ترتيب صفحتي', 'رتّب الأقسام وأخفِ ما لا تحتاجه')}
       ${item('old', '↩️', 'التصميم القديم', 'ارجع لشكل البوابة السابق — وتعود للجديد متى شئت')}
       ${item('switch', '👥', 'لست أنا', 'تسجيل الخروج والدخول باسم آخر', 'warn')}</div>`;
     document.body.appendChild(s);
@@ -132,6 +202,7 @@
         if(box && box.classList.contains('hide') && t) t.click(); scrollTo(p); }
       else if(k === 'notes') scrollTo(document.querySelector('#gate-space .space-notices'));
       else if(k === 'old') setStyle(true);
+      else if(k === 'order') openOrder();
       else if(k === 'switch'){ const x = document.querySelector('#gate-space .sp-switch'); if(x) x.click(); }
     });
   }
@@ -142,14 +213,15 @@
       const sp = $id('gate-space'); if(sp) new MutationObserver(classicBtn).observe(sp, { attributes:true, attributeFilter:['class'], childList:true, subtree:true });
       window.hsGo = () => {}; return;
     }
-    headInit(); statsInit(); navInit(); navVisible(); badge();
+    headInit(); statsInit(); navInit(); navVisible(); badge(); layApply(); journeyInit();
     const mo = (el, fn, opt) => { if(el) new MutationObserver(fn).observe(el, opt); };
     mo($id('s-gate'), navVisible, { attributes:true, attributeFilter:['class'] });
     mo($id('gate-space'), () => { navVisible(); headInit(); statsInit(); }, { attributes:true, attributeFilter:['class'] });
     mo(document.body, navVisible, { attributes:true, attributeFilter:['class'] });
     mo($id('space-progress-pct'), statsDraw, { childList:true, characterData:true, subtree:true });
     mo($id('gate-bal'), statsDraw, { childList:true, characterData:true, subtree:true });
-    mo($id('all-activities-count'), badge, { childList:true, characterData:true, subtree:true });
+    mo($id('all-activities-count'), () => { badge(); actsOpen(); }, { childList:true, characterData:true, subtree:true });
+    mo($id('student-journey'), journeyInit, { childList:true, subtree:true });
     document.addEventListener('hs-rank', statsDraw);
     window.addEventListener('scroll', onScroll, { passive:true });
     document.addEventListener('keydown', e => { if(e.key === 'Escape') closeSheet(); });
