@@ -132,7 +132,7 @@
   function onScroll(){
     clearTimeout(scT); scT = setTimeout(() => {
       if(!document.documentElement.classList.contains('hs-nav-on') || $id('hs-sheet')) return;
-      const marks = [['acts', $id('all-activities-panel')], ['board', $id('gate-board')], ['store', $id('gate-bal')]];
+      const marks = [['acts', $id('all-activities-panel')], ['board', $id('gate-board')], ['store', $id('gate-store')]];
       let cur = 'home'; const y = window.innerHeight * 0.45;
       for(const [k, el] of marks){ if(el && el.offsetParent && el.getBoundingClientRect().top < y) cur = k; }
       if(window.scrollY < 80) cur = 'home';
