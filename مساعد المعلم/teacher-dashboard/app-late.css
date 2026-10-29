@@ -2808,3 +2808,13 @@ body.pf-open #simp-bottomnav,body.pf-open .askf-btn{display:none!important}
   #p-walls .walls-list{grid-template-columns:minmax(0,1fr)}
   #p-walls .wall-tile .row .btn{flex:1 1 auto}
 }
+/* 📅 شريط الفترة المغلقة: سطر واحد رفيع غير مزعج */
+.vsp-banner{flex-wrap:nowrap!important;gap:.4rem!important;padding:.3rem .8rem!important;font-size:.8rem!important}
+.vsp-banner .vsp-t{flex:1 1 auto!important;min-width:0!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vsp-banner .vsp-t small{opacity:.8;font-size:.72rem}
+.vsp-banner .btn{flex:none;padding:.22rem .6rem!important;font-size:.74rem!important;min-height:0!important;white-space:nowrap}
+.vsp-banner .imp-btn{margin:0!important}
+.vsp-banner .vsp-back{background:#16233a!important;color:#fff!important;border-color:#16233a!important}
+@media screen and (max-width:420px){ .vsp-banner .vsp-t b{font-weight:800} .vsp-banner .imp-btn:not(.on){padding:.22rem .45rem!important} }
+.vsp-banner .imp-btn:not(.on){background:transparent!important;color:#78350F!important;border:1px solid #F59E0B!important}
+@media screen and (max-width:700px){ .vsp-banner .vsp-sem{display:none} }

@@ -18522,7 +18522,9 @@ function vspDraw(){
   const sp=ctSem(), b=document.getElementById('vsp-btn'), bn=document.getElementById('vsp-banner'), L=vspList();
   if(b){ b.style.display=L.length>1?'':'none'; b.innerHTML=`📅 <span class="vsp-sem">${sp.sem===2?'الفصل الثاني':'الفصل الأول'} · </span>${sp.per===2?'الفترة الثانية':'الفترة الأولى'}${sp.viewing?' 🔒':''}`; b.classList.toggle('on',!!sp.viewing); }
   if(bn){ bn.classList.toggle('hide',!sp.viewing);
-    if(sp.viewing) bn.innerHTML=`<span>👁️ تعرض بيانات <b>${vspLabel(sp)}</b> (مغلقة) — في الكشوف وملف الفصل والتقارير وشهادات الأوائل. الرصد الجديد يبقى على الفترة الجارية.</span><button class="btn sm" type="button" onclick="vspSet(0)">↩️ العودة للفترة الحالية</button>${impBannerBtn(sp)}`; }
+    // سطر واحد رفيع (كان ثلث شاشة الجوال ويتكرر في كل صفحة): الفترة + فرصة التحسين + الرجوع — والشرح مرة واحدة لكل جهاز
+    if(sp.viewing){ bn.innerHTML=`<span class="vsp-t" title="الكشوف وملف الفصل والتقارير وشهادات الأوائل لهذه الفترة — الرصد الجديد يبقى على الفترة الجارية">👁️ <b><span class="vsp-sem">${sp.sem===2?'الفصل الثاني':'الفصل الأول'} · </span>${sp.per===2?'الفترة الثانية':'الفترة الأولى'}</b> <small>مغلقة</small></span>${impBannerBtn(sp)}<button class="btn sm vsp-back" type="button" onclick="vspSet(0)">↩️ الحالية</button>`;
+      try{ if(!localStorage.getItem('vsp_note_seen_v1')){ localStorage.setItem('vsp_note_seen_v1','1'); toast('👁️ تعرض فترة مغلقة في الكشوف والتقارير وملف الفصل — الرصد الجديد يبقى على الفترة الجارية','good'); } }catch(e){} } }
 }
 /* 🔓 فرصة تحسين فترة مغلقة: يفتح المعلم للطلاب مدة يسلّمون فيها أنشطة الفترة التي لم يسلّموها، فتُحسب لها.
    الدرجة لا تنقص (تسليم إضافي فقط)، والرصد اليدوي (المشاركة والواجب والسلوك والاختبارات) يبقى مقفلًا. */
@@ -18534,7 +18536,7 @@ function impOf(sem,per){
 function impDayLabel(d){ const t=new Date(d+'T12:00:00Z'); return isNaN(t)?d:`${['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'][t.getUTCDay()]} ${t.getUTCDate()}/${t.getUTCMonth()+1}`; }
 function impBannerBtn(sp){
   const I=impOf(sp.sem,sp.per);
-  return `<button class="btn sm imp-btn${I&&I.on?' on':''}" type="button" onclick="impOpen(${sp.sem},${sp.per})">${I&&I.on?`🔓 فرصة التحسين مفتوحة حتى ${impDayLabel(I.day)}`:'🔓 فرصة تحسين للطلاب'}</button>`;
+  return `<button class="btn sm imp-btn${I&&I.on?' on':''}" type="button" onclick="impOpen(${sp.sem},${sp.per})" title="${I&&I.on?`فرصة التحسين مفتوحة حتى ${impDayLabel(I.day)}`:'افتح فرصة تحسين للطلاب'}">${I&&I.on?`🔓 <span class="vsp-sem">الفرصة </span>حتى ${impDayLabel(I.day)}`:'🔓 فرصة تحسين'}</button>`;
 }
 // من حسّن؟ درجة الأنشطة بلحظة الإغلاق الأصلية مقابلها بعد امتداد الفرصة
 function impGains(sem,per){
