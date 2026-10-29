@@ -2750,3 +2750,32 @@ details.pq-sec[open]>summary.pq-h{margin-bottom:.3rem}
 .cm-beh bdi+bdi{margin-inline-start:.3rem}
 @media screen and (max-width:700px){ #wk-table:not(.cm-official) .comp-report{display:none} }
 @media print{ #wk-table .comp-report{display:block!important} }
+
+/* ── 📱 نسخة الجوال للجداول العريضة (js/35-mobile-tables-js.js) والتقارير الرسمية على الشاشة ── */
+@media screen and (max-width:700px){
+  .mt-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%;border-radius:10px}
+  table.mt-on{font-size:.78rem}
+  table.mt-on th,table.mt-on td{white-space:nowrap}
+  table.mt-on .mt-nm{position:sticky;right:0;z-index:1;background:var(--ui-surface,#fff);white-space:normal;min-width:96px;max-width:130px;box-shadow:-6px 0 8px -6px rgba(0,0,0,.18)}
+  table.mt-on thead .mt-nm{z-index:2}
+  table.mt-on tbody tr{cursor:pointer}
+  /* ترويسة الوزارة مختصرة على شاشة الجوال (الطباعة كما هي) */
+  .rep-head{padding:.6rem .8rem!important;gap:.4rem!important}
+  .rep-head .logo{width:46px!important;height:46px!important}
+  .rep-head .t,.rep-head .mid{padding:0!important;font-size:.78rem!important;line-height:1.45!important}
+  .rep-head .t b{font-size:.86rem!important}.rep-head .t span{font-size:.7rem!important}
+  .rep-in{padding:.7rem .6rem!important}
+  .rep-info{grid-template-columns:1fr 1fr!important;gap:.35rem!important}
+}
+@media print{ .mt-wrap{overflow:visible!important} table.mt-on .mt-nm{position:static!important;box-shadow:none!important} }
+/* ترويسة الوزارة (rh2) في الجوال: سطر واحد صغير بدل شاشة كاملة — الطباعة كما هي */
+@media screen and (max-width:700px){
+  html body .rep-head.rh2{grid-template-columns:1fr auto 1fr!important;gap:.4rem!important;padding:.5rem .7rem .9rem!important;border-radius:0 0 14px 14px!important;text-align:start}
+  html body .rep-head.rh2 .t{text-align:right!important;line-height:1.35!important}
+  html body .rep-head.rh2 .yr{text-align:left!important;line-height:1.35!important}
+  html body .rep-head.rh2 .t b{font-size:.68rem!important}
+  html body .rep-head.rh2 .t span,html body .rep-head.rh2 .yr span{font-size:.58rem!important}
+  html body .rep-head.rh2 .yr span:first-child{font-size:.62rem!important}
+  html body .rep-head.rh2 .logo{width:70px!important;height:38px!important;margin:0!important}
+  html body .rep-title{font-size:.9rem}
+}
