@@ -5348,7 +5348,7 @@ const OMR = (() => {
   /* ⬛ علامات الزوايا المطبوعة (أربعة مربعات سوداء، أسفل اليسار مفرّغ): مراكزها تعطي الورقة بدقة
      ولو طُبعت مصغّرة («ملاءمة الصفحة») أو قُصّت حافتها أو التصقت بسطح فاتح.
      marks: مستطيلاتها بالمم بالترتيب: أعلى اليسار، أعلى اليمين، أسفل اليمين، أسفل اليسار. */
-  function findMarks(G, marks) {
+  function findMarks(G, marks, M) {
     const S = downscale(G, 1200), { w, h } = S, B = boxBlur(S, Math.max(6, Math.round(Math.max(w, h) / 60)));
     const dark = new Uint8Array(w * h);
     for (let i = 0; i < w * h; i++) if (B.g[i] > 35 && S.g[i] < B.g[i] * 0.62) dark[i] = 1;
@@ -5366,8 +5366,18 @@ const OMR = (() => {
         if (y < h - 1 && dark[p + w] && !lab[p + w]) { lab[p + w] = id; q[qt++] = p + w; } }
       const bw = x1 - x0 + 1, bh = y1 - y0 + 1;
       if (big || qt < 12 || bw < 4 || bh < 4 || bw / bh > 2.2 || bh / bw > 2.2 || qt / (bw * bh) < 0.5) continue;
-      const cx = sx / qt, cy = sy / qt, j = Math.round(cy) * w + Math.round(cx);
-      C.push({ x: cx, y: cy, s: Math.sqrt(qt), hollow: S.g[j] > B.g[j] * 0.75 && !dark[j] });
+      // شكل العلامة نفسها: حلقة داكنة على ٠٫٣٨ من ضلعها (بين فتحة المفرّغة وحافتها)، ومحيط فاتح معزول حولها (لا حروف ولا خطوط ملاصقة).
+      // مربع الإجابة الفارغ (حدّ رفيع) داخله فاتح فيُرفض، والمظلَّل عادةً تلاصقه حروف الخيار.
+      const cx = sx / qt, cy = sy / qt, hf = (bw + bh) / 4, at = (dx, dy) => sample(S, cx + dx, cy + dy);
+      const ring = [], out = [];
+      for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4; ring.push(at(Math.cos(a) * hf * 0.76, Math.sin(a) * hf * 0.76)); }
+      for (let k = 0; k < 16; k++) { const a = k * Math.PI / 8; out.push(at(Math.cos(a) * hf * 2, Math.sin(a) * hf * 2)); }
+      const med = v => v.slice().sort((x, y) => x - y)[v.length >> 1], ink = med(ring), paper = med(out);
+      if (ring.filter(v => v > ink + 0.45 * (paper - ink)).length > 1 || paper - ink < 0.35 * paper) continue;   // عيّنة واحدة على حافة مغبّشة مسموحة
+      const mid = ink + 0.55 * (paper - ink);
+      if (out.filter(v => v > mid).length < 14) continue;
+      const c0 = (at(0, 0) + at(1, 0) + at(-1, 0) + at(0, 1) + at(0, -1)) / 5;
+      C.push({ x: cx, y: cy, s: 2 * hf, hollow: c0 > mid });
     }
     if (C.length < 4 || C.length > 4000) return null;
     // لكل زاوية في الصورة: أبعد المرشحين في اتجاهها، ثم أفضل رباعي يحقق شكل العلامات
@@ -5375,7 +5385,7 @@ const OMR = (() => {
     const top = dirs.map(f => C.slice().sort((a, b) => f(b) - f(a)).slice(0, 6));
     const mc = marks.map(r => [r[0] + r[2] / 2, r[1] + r[3] / 2]), mmW = mc[1][0] - mc[0][0], mmH = mc[3][1] - mc[0][1], mSide = (marks[0][2] + marks[1][2] + marks[2][2]) / 3;
     const L = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
-    let best = null;
+    const ok = [];
     for (const a of top[0]) for (const b of top[1]) for (const c of top[2]) for (const d of top[3]) {
       const Q = [a, b, c, d]; if (new Set(Q).size < 4) continue;
       const hl = Q.map((p, i) => p.hollow ? i : -1).filter(i => i >= 0); if (hl.length !== 1) continue;
@@ -5385,12 +5395,18 @@ const OMR = (() => {
       const rot = (hl[0] + 1) % 4, O = [0, 1, 2, 3].map(i => Q[(i + rot) % 4]);   // بترتيب الورقة (المفرّغة = أسفل اليسار)
       const pw = (L(O[0], O[1]) + L(O[3], O[2])) / 2, ph = (L(O[0], O[3]) + L(O[1], O[2])) / 2;
       const ar = (ph / pw) / (mmH / mmW); if (ar < 0.72 || ar > 1.35) continue;
-      const exp = mSide * pw / mmW, ms = ss.reduce((x, y) => x + y, 0) / 4; if (ms < 0.45 * exp || ms > 1.8 * exp) continue;
-      const area = pw * ph; if (!best || area > best.area) best = { O, area };
+      const exp = mSide * pw / mmW, ms = ss.reduce((x, y) => x + y, 0) / 4; if (ms < 0.55 * exp || ms > 1.6 * exp) continue;
+      ok.push({ O, area: pw * ph });
     }
-    if (!best) return null;
-    const k = 1 / S.f;
-    return { quad: best.O.map(p => [(p.x + 0.5) * k, (p.y + 0.5) * k]), rect: [mc[0][0], mc[0][1], mmW, mmH], marks: true, area: best.area / (w * h) };
+    // التحقق الأخير: إطارات الأقسام والعنوان من القالب تقع حيث تقول العلامات (لا نثق بأربع بقع تشبه العلامات)
+    const k = 1 / S.f, rect = [mc[0][0], mc[0][1], mmW, mmH], src = [[rect[0], rect[1]], [rect[0] + mmW, rect[1]], [rect[0] + mmW, rect[1] + mmH], [rect[0], rect[1] + mmH]];
+    const set = M && M.anchors && M.anchors.length ? { lines: [].concat(...M.anchors.map(r => outlinePts(r, 2))), boxes: (M.questions || []).flatMap(q => q.boxes.map(r => outlinePts(r, 1))) } : null;
+    for (const c of ok.sort((a, b) => b.area - a.area).slice(0, 4)) {
+      const quad = c.O.map(p => [(p.x + 0.5) * k, (p.y + 0.5) * k]);
+      if (set) { const sc = searchSet(G, homography(src, quad), set, 1.5, 1.5, 0.5, 0.9); findMarks.last = sc.s; if (sc.s < 14) continue; }
+      return { quad, rect, marks: true, area: c.area / (w * h) };
+    }
+    return null;
   }
   /* تحويل منظوري: 4 نقاط مصدر (مم) ← 4 نقاط هدف (بكسل) */
   function homography(src, dst) {
@@ -5555,7 +5571,7 @@ const OMR = (() => {
   }
   function prepare(img, o = {}) {
     const G = img.g ? img : gray(img);
-    if (o.marks && !o.noMarks) { const mk = findMarks(G, o.marks); if (mk) return { G, found: mk }; }
+    if (o.marks && !o.noMarks) { const mk = findMarks(G, o.marks, o.model); if (mk) return { G, found: mk }; }
     const p = preparePaper(G, o);
     if (!p.error) return p;
     const f = prepareFrame(G);                                // سطح فاتح: الإطار المطبوع بديل الحافة
@@ -5579,7 +5595,7 @@ const OMR = (() => {
   /* 🔢 رمز النموذج أولًا: محاذاة على العنوان وخانة الاسم فقط (متطابقان في كل النماذج)،
      فلا تفشل قراءة الرمز لأن تخطيط أسئلة نموذج آخر مختلف */
   function code(img, M, o = {}) {
-    const pr = prepare(img, { ...o, marks: M.marks }); if (pr.error) return { ok: false, error: pr.error, quad: pr.quad };
+    const pr = prepare(img, { ...o, marks: M.marks, model: M }); if (pr.error) return { ok: false, error: pr.error, quad: pr.quad };
     if (!M.mcode || !M.mcode.cells) return { ok: true, code: null, prep: pr };
     const qTop = Math.min(...M.questions.flatMap(q => q.boxes.map(b => b[1])));
     const head = M.anchors.filter(a => a[1] + a[3] < qTop - 3);
@@ -5591,7 +5607,7 @@ const OMR = (() => {
   }
   function read(img, M, opts = {}) {
     const t0 = opts.t0 || Date.now();
-    const pr = opts.prep || prepare(img, { ...opts, marks: M.marks });
+    const pr = opts.prep || prepare(img, { ...opts, marks: M.marks, model: M });
     if (pr.error) return { ok: false, error: pr.error };
     const G = pr.G, found = pr.found;
     const P = alignPage(G, found.quad, M, !!found.scan, null, found.rect, !!found.marks);
@@ -5688,7 +5704,7 @@ async function omrOpen(){
     <label id="omr-model-wrap" style="display:none">النموذج<select class="inp" id="omr-model"></select></label>
     <label>يُرصد في<select class="inp" id="omr-test">${tests.map(t=>`<option value="${esc(t.id)}" ${String(t.id)===saved.test?'selected':''}>${esc(t.title)} (من ${t.max})</option>`).join('')}</select></label>
     <label>الفصل<select class="inp" id="omr-cls">${classes().map(c=>`<option ${c===cls?'selected':''}>${esc(c)}</option>`).join('')}</select></label>
-    <p class="omr-note">اطبع الاختبار بالحجم الفعلي (100%). اطلب من الطلاب وضع ✓ أو التظليل <b>داخل المربع</b>.</p>
+    <p class="omr-note">اطلب من الطلاب وضع ✓ أو التظليل <b>داخل المربع</b>. الأوراق الجديدة فيها ⬛ مربعات سوداء في زواياها تُقرأ بأي مقاس طباعة؛ الأقدم منها: اطبعها بالحجم الفعلي (100%).</p>
     <button class="btn primary wide" id="omr-go" type="button">📷 ابدأ المسح</button></div>`;
   const loadModels = async () => {
     const id = $('omr-tpl').value;
@@ -5725,12 +5741,12 @@ async function omrScan(){
     <button class="btn primary wide omr-match-btn" id="omr-match-btn" type="button" onclick="omrMatch()" style="display:none"></button>
     <div class="omr-stu-row" ${OMRUI.batch?'style="display:none"':''}>${omrStudentsSelect()}</div>
     <div class="omr-pick" id="omr-pick">
-      ${omrShootBtn('📸 تصوير ورقة', 'كاميرا الجوال — الورقة كاملة مع هامش صغير حولها')}
+      ${omrShootBtn('📸 تصوير ورقة', 'كاميرا الجوال — الورقة كاملة والمربعات السوداء الأربعة داخل الصورة')}
       <button class="btn ghost omr-big2" type="button" onclick="omrStartCamera()">⚡ تصوير تلقائي<small class="omr-sub">وجّه الجوال فيلتقط الورقة وحده</small></button>
       <label class="btn ghost omr-big2 omr-file-btn">📄 ملف PDF من الماسح الضوئي
         <input type="file" accept="application/pdf,image/*" multiple id="omr-file" hidden></label>
       <details class="omr-how"><summary>نصائح التصوير والمسح</summary>
-        <p style="margin:4px 0"><b>التصوير:</b> من الأعلى مباشرة، والورقة كاملة، واترك هامشًا صغيرًا حولها — يعمل على أي سطح.</p>
+        <p style="margin:4px 0"><b>التصوير:</b> من الأعلى قدر الإمكان، والمربعات السوداء الأربعة في زوايا الورقة داخل الصورة — يعمل على أي سطح، ولو كان طرف الورقة خارجها قليلًا. تجنّب ظلّ يدك أو الجوال فوق المربعات.</p>
         <p style="margin:4px 0 2px"><b>المسح لفصل كامل:</b></p>
         <ol><li>افتح تطبيق <b>الملفات</b> ← ⋯ أعلى الشاشة ← <b>مسح المستندات</b> (أو من <b>الملاحظات</b> ← 📎 ← مسح المستندات).</li>
           <li>امسح أوراق الطلاب متتالية — الماسح يلتقطها تلقائيًا ويقصّها ويعدّلها.</li>
@@ -5950,7 +5966,19 @@ function omrTick(){
   const c = OMRUI.small || (OMRUI.small = document.createElement('canvas'));
   c.width = Math.round(vw * k); c.height = Math.round(vh * k);
   const x = c.getContext('2d', { willReadFrequently:true }); x.drawImage(v, 0, 0, c.width, c.height);
-  let pr = OMR.prepare(x.getImageData(0, 0, c.width, c.height), { noScan:true }), sc = k;
+  // ⬛ ورقة بعلامات زوايا: نتتبّع العلامات نفسها (تعمل ولو طرف الورقة خارج الصورة أو السطح فاتح أو الطباعة مصغّرة)
+  const MM = OMRUI.tpl && OMRUI.tpl.models[OMRUI.auto ? 0 : OMRUI.model], MK = MM && MM.marks;
+  let pr = null, sc = k;
+  if(MK){
+    const tryMk = (cv, kk) => { const G = OMR.gray(cv.getContext('2d', { willReadFrequently:true }).getImageData(0, 0, cv.width, cv.height)); const f = OMR.findMarks(G, MK, MM); if(f){ pr = { G, found: f }; sc = kk; } };
+    tryMk(c, k);
+    if(!pr && (OMRUI.mkTick = (OMRUI.mkTick || 0) + 1) % 2 === 0){            // بعيدة/صغيرة: نسخة أكبر كل ثاني نبضة
+      const k2 = Math.min(1, 1100 / Math.max(vw, vh)), c2 = OMRUI.mid || (OMRUI.mid = document.createElement('canvas'));
+      c2.width = Math.round(vw * k2); c2.height = Math.round(vh * k2); c2.getContext('2d', { willReadFrequently:true }).drawImage(v, 0, 0, c2.width, c2.height);
+      tryMk(c2, k2);
+    }
+  }
+  if(!pr) pr = OMR.prepare(x.getImageData(0, 0, c.width, c.height), { noScan:true });
   if(pr.error){
     // سطح فاتح: الإطار المطبوع رفيع ويختفي عند التصغير — نبحث عنه في نسخة أكبر
     const k2 = Math.min(1, 1600 / Math.max(vw, vh)), c2 = OMRUI.mid || (OMRUI.mid = document.createElement('canvas'));
@@ -5966,12 +5994,16 @@ function omrTick(){
     if(OMRUI.waitSwap) OMRUI.waitSwap = false;
     OMRUI.qprev = null; OMRUI.still = 0; OMRUI.stable = 0;
     omrDrawQuad(pr.quad ? pr.quad.map(([a, b]) => [a / sc, b / sc]) : null, false, [vw, vh]);      // زوايا هذه اللحظة فقط
-    if(st) st.textContent = pr.error === 'cut'
+    if(st) st.textContent = MK
+      ? (land ? 'ضع الورقة بالعرض — والمربعات السوداء الأربعة في زواياها داخل الصورة' : 'خلّ المربعات السوداء الأربعة في زوايا الورقة داخل الصورة')
+      : pr.error === 'cut'
       ? (land ? 'ضع الورقة بالعرض، أو ابتعد قليلًا — طرفها خارج الصورة' : OMR_MSG.cut)
       : (land ? 'ضع الورقة بالعرض داخل الصورة — الكاميرا عرضية' : 'وجّه الجوال على ورقة الإجابة كاملة');
     return;
   }
-  const q = pr.found.quad.map(([a, b]) => [a / sc, b / sc]);
+  // الإطار المعروض: حدود الصفحة كاملة محسوبة من العلامات (لا مراكز العلامات)
+  const fq = pr.found.marks ? (() => { const R = pr.found.rect, H = OMR.homography([[R[0], R[1]], [R[0] + R[2], R[1]], [R[0] + R[2], R[1] + R[3]], [R[0], R[1] + R[3]]], pr.found.quad); return [[0, 0], [210, 0], [210, 297], [0, 297]].map(([a, b]) => OMR.apply(H, a, b)); })() : pr.found.quad;
+  const q = fq.map(([a, b]) => [a / sc, b / sc]);
   const diag = Math.hypot(vw, vh);
   const move = OMRUI.qprev ? Math.max(...q.map((p, i) => Math.hypot(p[0] - OMRUI.qprev[i][0], p[1] - OMRUI.qprev[i][1]))) / diag : 1;
   if(OMRUI.waitSwap && move > 0.15 && OMRUI.qprev) OMRUI.waitSwap = false;       // الورقة تحرّكت كثيرًا = ورقة أخرى
