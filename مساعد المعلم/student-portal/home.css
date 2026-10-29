@@ -134,3 +134,30 @@ html[data-pt-cards="glass"] #gate-space > .space-notices{background:rgba(255,255
 .hs-ord-done{background:var(--acc,var(--tick,#1B9C6B));color:#fff}
 html[data-pt-theme="galaxy"] .hs-ord-row,html[data-pt-theme="spaceweek"] .hs-ord-row{background:rgba(255,255,255,.06)}
 html[data-pt-theme="galaxy"] .hs-ord-row button,html[data-pt-theme="galaxy"] .hs-ord-n,html[data-pt-theme="spaceweek"] .hs-ord-row button,html[data-pt-theme="spaceweek"] .hs-ord-n{background:rgba(255,255,255,.1);color:#E6EBFA}
+
+/* ── 🗺️ «رحلتي» خريطة مسار (تحل محل بطاقة الرحلة الطويلة في التصميم الجديد؛ الأصلية تبقى مخفية مصدرًا للبيانات) ── */
+#student-journey{display:none!important}
+.hs-jmap{margin:0 0 .9rem;background:var(--paper-2,#fff);border:1px solid color-mix(in srgb,var(--rule) 70%,transparent);border-radius:20px;padding:.85rem .9rem .8rem;box-shadow:0 1px 3px rgba(22,35,58,.05);scroll-margin-top:72px}
+.hs-jmap.hide{display:none}
+html[data-pt-cards="glass"] .hs-jmap{background:rgba(255,255,255,.74);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+.jm-h{display:flex;align-items:center;gap:.5rem;margin-bottom:.7rem}.jm-h b{font-size:.95rem}
+.jm-h span{margin-inline-start:auto;font-size:.78rem;font-weight:800;color:var(--hs,#1B9C6B);background:color-mix(in srgb,var(--hs,#1B9C6B) 12%,transparent);border-radius:99px;padding:2px 9px}
+.jm-road{position:relative;display:flex;justify-content:space-between;align-items:flex-start}
+.jm-road::before,.jm-road i{content:'';position:absolute;top:19px;inset-inline-start:21px;height:4px;border-radius:99px}
+.jm-road::before{inset-inline-end:21px;background:repeating-linear-gradient(90deg,color-mix(in srgb,var(--ink) 14%,transparent) 0 8px,transparent 8px 14px)}
+.jm-road i{width:calc((100% - 42px) * var(--w,0));background:linear-gradient(90deg,var(--hs,#1B9C6B),var(--hs-2,#2FBF85));transition:width .6s}
+.jm-n{position:relative;z-index:1;display:grid;justify-items:center;gap:.25rem;width:42px;border:0;background:none;padding:0;font:inherit;color:var(--ink);cursor:pointer}
+.jm-n em{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;font-style:normal;font-size:1.15rem;background:var(--paper-2,#fff);border:2px solid color-mix(in srgb,var(--ink) 14%,transparent);position:relative;transition:transform .15s}
+.jm-n:active em{transform:scale(.92)}
+.jm-n.done em{background:var(--hs,#1B9C6B);border-color:var(--hs,#1B9C6B);color:#fff;font-size:1rem;font-weight:900}
+.jm-n.cur em{width:50px;height:50px;margin-top:-4px;border:3px solid var(--hs,#1B9C6B);box-shadow:0 0 0 6px color-mix(in srgb,var(--hs,#1B9C6B) 18%,transparent);animation:jmPulse 1.8s ease-in-out infinite}
+@keyframes jmPulse{50%{box-shadow:0 0 0 10px color-mix(in srgb,var(--hs,#1B9C6B) 7%,transparent)}}
+@media (prefers-reduced-motion:reduce){.jm-n.cur em{animation:none}}
+.jm-n.wait em{opacity:.42;filter:grayscale(1)}
+.jm-n b.bd{position:absolute;top:-6px;inset-inline-end:-6px;min-width:19px;height:19px;line-height:19px;border-radius:99px;background:#E5484D;color:#fff;font-size:.66rem;font-weight:800;padding:0 4px;box-shadow:0 0 0 2px var(--paper-2,#fff)}
+.jm-n small{font-size:.66rem;font-weight:700;color:var(--ink-soft);text-align:center;line-height:1.3;white-space:nowrap}
+.jm-n.cur small{color:var(--hs,#1B9C6B);font-weight:800}
+.jm-now{display:flex;align-items:center;gap:.6rem;margin-top:.75rem;padding:.6rem .7rem;border-radius:14px;background:color-mix(in srgb,var(--hs,#1B9C6B) 8%,transparent)}
+.jm-now div{flex:1;min-width:0;font-size:.8rem;line-height:1.55;color:var(--ink-soft)}.jm-now div b{display:block;font-size:.9rem;color:var(--ink)}
+.jm-go{border:0;border-radius:12px;background:var(--hs,#1B9C6B);color:#fff;font:inherit;font-weight:700;font-size:.86rem;padding:.55rem .95rem;cursor:pointer;white-space:nowrap;flex:none}
+.hs-jmap{--hs:var(--acc,var(--tick,#1B9C6B));--hs-2:var(--acc-2,#2FBF85)}

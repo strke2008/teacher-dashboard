@@ -143,12 +143,12 @@
   /* ── 🧩 ترتيب الصفحة: الطالب يرتّب الأقسام ويخفي ما لا يحتاجه (على جهازه). لا تُنقل العناصر في الصفحة —
      الترتيب بصريًا (CSS order) فلا يتأثر أي منطق يعتمد عليها. الأقسام الأساسية لا تُخفى. ── */
   const BLOCKS = [
+    { k:'journey', t:'🗺️ رحلتي (خريطة المسار)',            el:() => [$id('hs-jmap'), $id('journey-workspace')] },
     { k:'review',  t:'🔎 مهام التصحيح وفرص التحسين', lock:1, el:() => [$id('space-review')] },
     { k:'ann',     t:'📢 إعلانات المعلم',            lock:1, el:() => [$id('space-ann')] },
     { k:'acts',    t:'📚 جميع أنشطتي',               lock:1, el:() => [$id('all-activities-panel')] },
     { k:'notices', t:'🔔 التنبيهات',                 lock:1, el:() => [document.querySelector('#gate-space .space-notices')] },
     { k:'plan',    t:'🎯 خطتي العلاجية',             lock:1, el:() => [$id('space-plan')] },
-    { k:'journey', t:'🗺️ رحلتي التعليمية',                  el:() => [$id('student-journey'), $id('journey-workspace')] },
     { k:'board',   t:'🏆 الصدارة',                          el:() => [$id('gate-board')] },
     { k:'store',   t:'🛒 المتجر',                           el:() => [$id('gate-bal'), $id('gate-store')] },
     { k:'walls',   t:'🧱 حائط الإبداع',                     el:() => [$id('space-walls')] },
@@ -202,6 +202,33 @@
     if(!list || !t || !p || p.classList.contains('hide')) return;
     actsOpened = true; if(list.classList.contains('hide')){ const y = window.scrollY; t.click(); window.scrollTo(0, y); }
   }
+  /* 🗺️ «رحلتي» خريطة مسار: المراحل نقاط على طريق واحد، الحالية نابضة، وسطر «خطوتك الآن» بزر «انطلق».
+     تُقرأ من بطاقة الرحلة الأصلية (تبقى مخفية) ويضغط كل نقطة زرّها الأصلي — منطق الرحلة كما هو. */
+  const JM_SHORT = { 'اكتشف طريقة تعلمك':'طريقتي', 'اعرف مستواك':'مستواي', 'ابدأ رحلة التعلم':'أتعلّم', 'طبّق وجرّب':'أجرّب', 'نافس':'نافس', 'الألعاب':'ألعب', 'طوّر مستواك':'أتطوّر' };
+  function jmapDraw(){
+    const src = $id('student-journey'), anchor = $id('gate-space'); if(!src || !anchor) return;
+    let box = $id('hs-jmap');
+    if(!box){ box = document.createElement('section'); box.id = 'hs-jmap'; box.className = 'hs-jmap'; box.setAttribute('aria-label', 'رحلتي');
+      const after = $id('student-journey'); after.parentNode.insertBefore(box, after); layApply(); }
+    const steps = [...src.querySelectorAll('#journey-steps .journey-step')];
+    box.classList.toggle('hide', src.classList.contains('hide') || !steps.length);
+    if(!steps.length) return;
+    const D = steps.map(el => ({ el, t: (el.querySelector('.js-title')?.textContent || '').trim().replace(/^[0-9٠-٩]+[.)]\s*/, ''),
+      ic: (el.querySelector('.js-icon')?.childNodes[0]?.textContent || '').trim(), note: (el.querySelector('.js-note')?.textContent || '').trim(),
+      done: el.classList.contains('done'), cur: el.classList.contains('current'), wait: el.classList.contains('wait'), bd: el.querySelector('.js-badge')?.textContent || '' }));
+    let ci = D.findIndex(x => x.cur); if(ci < 0) ci = D.findIndex(x => !x.done && !x.wait);
+    const reach = Math.max(D.map(x => x.done).lastIndexOf(true), ci), w = reach > 0 ? reach / (D.length - 1) : 0, cur = D[ci];
+    const pct = ($id('journey-percent') || {}).textContent || '';
+    box.innerHTML = `<div class="jm-h"><b>🗺️ رحلتي</b><span>${pct}</span></div>
+      <div class="jm-road" style="--w:${w}"><i></i>${D.map((x, i) => `<button type="button" class="jm-n ${x.done ? 'done' : i === ci ? 'cur' : x.wait ? 'wait' : ''}" data-jm="${i}" aria-label="${x.t}${x.done ? ' — مكتملة' : i === ci ? ' — خطوتك الآن' : x.wait ? ' — قريبًا' : ''}"><em>${x.done ? '✓' : x.ic}${x.bd && !x.done ? `<b class="bd">${x.bd}</b>` : ''}</em><small>${JM_SHORT[x.t] || x.t}</small></button>`).join('')}</div>
+      ${cur ? `<div class="jm-now"><div><b>📍 خطوتك الآن: ${cur.t}</b>${cur.bd ? `عندك ${cur.bd} ${+cur.bd === 1 ? 'نشاط ينتظرك' : 'أنشطة تنتظرك'} هنا` : (cur.note || 'الخطوة التالية في رحلتك')}</div><button type="button" class="jm-go" data-jm="${ci}">انطلق ←</button></div>`
+        : `<div class="jm-now done"><div><b>🌟 أكملت رحلتك حتى الآن</b>واصل — كل مرحلة جديدة تظهر هنا</div></div>`}`;
+    box.querySelectorAll('[data-jm]').forEach(b => b.onclick = () => {
+      const x = D[+b.dataset.jm]; if(!x) return;
+      if(x.el.onclick){ x.el.click(); return; }
+      try{ toast(x.note || (x.wait ? 'هذه المرحلة تُفتح لاحقًا' : x.t)); }catch(e){}
+    });
+  }
   function journeyInit(){
     const j = $id('student-journey'), h = j && j.querySelector('.journey-head'); if(!h || h.dataset.hs) return;
     h.dataset.hs = '1'; h.setAttribute('role', 'button'); h.tabIndex = 0;
@@ -254,7 +281,8 @@
     mo($id('space-progress-pct'), statsDraw, { childList:true, characterData:true, subtree:true });
     mo($id('gate-bal'), statsDraw, { childList:true, characterData:true, subtree:true });
     mo($id('all-activities-count'), () => { badge(); actsOpen(); }, { childList:true, characterData:true, subtree:true });
-    mo($id('student-journey'), journeyInit, { childList:true, subtree:true });
+    mo($id('student-journey'), () => { journeyInit(); jmapDraw(); }, { childList:true, subtree:true, characterData:true, attributes:true, attributeFilter:['class'] });
+    jmapDraw();
     document.addEventListener('hs-rank', statsDraw);
     window.addEventListener('scroll', onScroll, { passive:true });
     document.addEventListener('keydown', e => { if(e.key === 'Escape') closeSheet(); });
