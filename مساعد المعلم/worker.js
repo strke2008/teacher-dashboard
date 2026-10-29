@@ -943,7 +943,15 @@ function studentReportBuild(data, g, semester, period, teacherNote, acts) {
 }
 /* 💻 المهام الأدائية (أنشطة البوابة) من 10 — نفس حساب لوحة المعلم: أنشطة الفترة المحتسبة لفصله، والدرجة بنسبة ما سلّمه */
 /* هل وقت نشر النشاط t داخل حدود الفترة T؟ (نفس قاعدة compActivitiesForStudent في اللوحة) */
+const TERM_TS = new WeakMap();   // ⚡ نفس الفترة ونفس الوقت يتكرران آلاف المرات في الطلب الواحد
 function termHasTs(T, t) {
+  if (!t || !T) return true;
+  if (typeof T !== 'object') return termHasTs0(T, t);
+  let m = TERM_TS.get(T); if (!m) { m = new Map(); TERM_TS.set(T, m); }
+  if (m.has(t)) return m.get(t);
+  const v = termHasTs0(T, t); m.set(t, v); return v;
+}
+function termHasTs0(T, t) {
   if (!t || !T) return true; if (T.startAt && t < T.startAt) return false; if (T.endAt && t >= T.endAt) return false;
   const d = new Date(t + 3 * 3600000).toISOString().slice(0, 10);
   if ((T.explicit || T.startSet) && T.start && d < T.start) return false; if ((T.explicit || T.endSet) && T.end && d > T.end) return false; return true;
@@ -952,7 +960,15 @@ function termHasTs(T, t) {
 /* 🗓️ وقت إسناد النشاط (يحدد فترته): أول نشر، وإلا آخر نشر، وإلا وقت آخر تعديل أو الإنشاء — ولا يكون أبدًا بعد أول تسليم له:
    إعادة النشر بعد التعديل كانت تختم firstPub بيومها في النشاط القديم الذي لا يحمله، فينتقل نشاط من الفترة الأولى إلى الثانية
    ويُستبعد من درجتها (ظهر «سلّم 0 من 5» لطالب سلّم أنشطة الفترة كلها). أول تسليم دليل قاطع: لا يُسلَّم نشاط قبل نشره */
+// ⚡ يُحسب مرة لكل نشاط في الطلب الواحد: كان يمرّ على كل تسليمات النشاط لكل طالب (171 طالبًا × 33 نشاطًا × 171 تسليمًا)
+// فكان تقرير طالب واحد يستغرق أكثر من ثانية. النتيجة نفسها تمامًا — النشاط كائن جديد في كل طلب فلا يبقى شيء قديم.
+const ACT_AT = new WeakMap();
 function actAssignedAt(h) {
+  if (!h || typeof h !== 'object') return 0;
+  if (ACT_AT.has(h)) return ACT_AT.get(h);
+  const v = actAssignedAt0(h); ACT_AT.set(h, v); return v;
+}
+function actAssignedAt0(h) {
   if (!h) return 0; const m = /^s([0-9a-z]{8,9})/.exec(String(h.id || '')), x = m ? parseInt(m[1], 36) : 0;
   const t = Number(h.firstPub || h.publishedAt || h.at) || (x > 1.5e12 && x < 4e12 ? x : 0);
   let s0 = 0; for (const v of Object.values(h.subs || {})) { const u = Number(v && (v.fat || v.at)) || 0; if (u > 1.5e12 && (!s0 || u < s0)) s0 = u; }
