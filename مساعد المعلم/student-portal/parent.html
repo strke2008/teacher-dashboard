@@ -75,6 +75,23 @@ details summary{cursor:pointer;margin:.3rem 0}
 .det .how{color:var(--soft);font-size:.85rem;margin:8px 0 0}.det .tip{background:#fff;border-radius:10px;padding:8px 10px;margin:8px 0 0;font-size:.88rem}
 .dk{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px dashed var(--rule)}.dk.low{background:#FFF1F3;border-radius:8px;padding:6px 8px;color:var(--bad)}
 .dsub{background:#fff;border-radius:10px;padding:8px 10px;margin:6px 0;font-size:.9rem}
+/* 🧠 مهارات ابنكم */
+.sk-sub{color:var(--soft);font-size:.8rem;margin:-.3rem 0 .4rem}
+.sk-grp{font-weight:800;font-size:.85rem;margin:14px 0 8px}
+.sk-row{border:1px solid color-mix(in srgb,var(--c) 25%,#fff);background:color-mix(in srgb,var(--c) 6%,#fff);border-radius:14px;padding:10px 12px;margin-bottom:8px}
+.sk-top{display:flex;align-items:center;gap:8px}.sk-nm{font-weight:800;flex:1;min-width:0}.sk-pc{font-weight:900;color:var(--c);font-size:1.05rem}
+.sk-meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:6px 0 7px;font-size:.74rem;color:var(--soft)}
+.sk-unit{background:#EEF2F8;color:#3B4A63;border-radius:99px;padding:1px 8px;font-weight:700}
+.sk-lv{background:var(--c);color:#fff;border-radius:99px;padding:1px 8px;font-weight:800}
+.sk-bar{height:8px;border-radius:99px;background:#E6EBF2;position:relative;overflow:hidden}
+.sk-bar i{position:absolute;inset-block:0;inset-inline-start:0;width:var(--p);background:var(--c);border-radius:99px}
+.sk-bar b{position:absolute;inset-block:0;inset-inline-start:80%;width:2px;background:#13734F;opacity:.55}
+.sk-more{font:inherit;font-size:.78rem;color:var(--acc);font-weight:800;display:block;width:100%;text-align:end;margin:7px 0 0;background:none;border:0;padding:2px 0;cursor:pointer;box-shadow:none;min-height:0}
+.sk-help{margin-top:9px;padding-top:9px;border-top:1px dashed color-mix(in srgb,var(--c) 30%,#fff);font-size:.84rem;line-height:1.7}.sk-help p{margin:0 0 4px}
+.sk-tch{color:#13734F;font-weight:700}
+.sk-chips{display:flex;flex-wrap:wrap;gap:6px}.sk-chip{background:#E3F4EC;color:#13734F;border-radius:99px;padding:4px 10px;font-size:.8rem;font-weight:800}
+.sk-note{font-size:.74rem;color:var(--soft);margin:12px 0 0;line-height:1.6}
+.sk-ok{background:#E3F4EC;color:#13734F;border-radius:14px;padding:12px;font-weight:700;line-height:1.7}
 
 .ring b small{display:block;font-size:.62rem;color:var(--soft);font-weight:700;margin-top:-4px}
 .ring b{flex-direction:column;line-height:1.1}
@@ -384,6 +401,26 @@ function parentDetails(R, A){
       ${M.forgiven?`<p class="grp" style="color:#6B4FB8">🎫 عوّضها بنقاط تميّزه (${M.forgiven}):</p>${(M.forgivenList||[]).length?`<ul>${M.forgivenList.map(t=>`<li>${esc(t)}</li>`).join('')}</ul>`:''}`:''}`; }
   return D;
 }
+/* 🧠 مهارات ابنكم: أضعف 3 مهارات دون المطلوب + ما أتقنه (من الخادم: j.skills) */
+const SK_LV={found:['يحتاج تأسيسًا','#B4232F'],support:['يحتاج دعمًا','#C2410C'],review:['يحتاج مراجعة','#B7791F']};
+function skTip(x){ const n=`«${esc(x.skill)}»`;
+  return x.band==='found'?`اطلبوا منه أن يشرح لكم ${n} بكلماته، وراجعوا معه درسها من الكتاب، ثم حلّوا معًا مثالًا واحدًا قبل أن يحاول وحده.`
+    :x.band==='support'?`راجعوا معه الأسئلة التي أخطأ فيها في ${n} من أنشطته في البوابة، واطلبوا منه حلّ سؤال مشابه وتصحيحه بنفسه.`
+    :`مستواه قريب من المطلوب — تدريب قصير على ${n} (سؤالان أو ثلاثة) يكفي ليتقنها.`; }
+function skillsHTML(S){
+  if(!S||!S.measured) return '';
+  const W=S.weak||[], G=S.strong||[];
+  const row=(x,i)=>{ const L=SK_LV[x.band]||SK_LV.review;
+    return `<div class="sk-row" style="--c:${L[1]}"><div class="sk-top"><span class="sk-nm">${esc(x.skill)}</span><span class="sk-pc">${x.rate}%</span></div>
+      <div class="sk-meta"><span class="sk-lv">${L[0]}</span>${x.unit?`<span class="sk-unit">📘 ${esc(x.unit)}</span>`:''}<span>من ${x.total} ${x.total>10?'سؤالًا':'أسئلة'}</span></div>
+      <div class="sk-bar" style="--p:${x.rate}%" role="img" aria-label="${x.rate}% والمطلوب 80%"><i></i><b></b></div>
+      <button type="button" class="sk-more" data-skh="${i}" aria-expanded="${i===0}">${i===0?'إخفاء ▴':'🏠 كيف أساعده؟ ▾'}</button>
+      <div class="sk-help${i===0?'':' hide'}" id="skh${i}"><p>🏠 <b>في البيت:</b> ${skTip(x)}</p>${x.plan?'<p class="sk-tch">✓ المعلم يتابعه في هذه المهارة ضمن خطة علاجية.</p>':''}</div></div>`; };
+  return `<section class="card sk-card"><h2>🧠 مهارات ابنكم في المادة</h2><p class="sk-sub">من إجاباته في أنشطة البوابة والمختبر الافتراضي — تتحدّث تلقائيًا</p>
+    ${W.length?`<div class="sk-grp">🎯 يحتاج دعمًا في</div>${W.map(row).join('')}`:`<div class="sk-ok">🌟 لا توجد مهارة ضعيفة حاليًا — مستواه في كل المهارات المقيسة فوق المطلوب.</div>`}
+    ${G.length?`<div class="sk-grp">🌟 أتقنها</div><div class="sk-chips">${G.map(x=>`<span class="sk-chip">✓ ${esc(x)}</span>`).join('')}</div>`:''}
+    <p class="sk-note">النسبة من آخر إجاباته في كل مهارة (الخط الأخضر = المطلوب 80%)، فتتحسّن مباشرة مع تحسّن إجاباته. المهارات من نواتج التعلم الرسمية للمادة.</p></section>`;
+}
 function render(j, phone){
   const CV=!!(j.view&&(j.periods||[]).find(x=>x.sem===j.view.sem&&x.per===j.view.per&&x.closed));
   const s=j.student, A=j.acts||{}, R=j.live||(j.reports||[])[0]||null, late=(A.missing||[]).filter(x=>x.late), open=(A.missing||[]).filter(x=>!x.late);
@@ -424,6 +461,7 @@ function render(j, phone){
       ${!(C&&C.max)&&!(M&&M.max)?bar('الواجبات',hS,10,'','📕','hw'):''}
       ${bar('المهام الأدائية',aS,10,AC?`سلّم ${AC.done} من ${AC.n} من أنشطة البوابة`:'','💻','acts')}
     </div></section>
+    ${skillsHTML(j.skills)}
     <section class="card"><h2>📝 الاختبارات <span class="h-sc">${exOn?exS:'—'} من 20</span></h2><div class="tiles">
       ${exOn?bar('الاختبارات',exS,20,(R.exam.tests||[]).filter(t=>t.score!=null).map(t=>`${esc(t.title)}: ${t.score} من ${t.max}`).join(' · ')+(R.exam.bonus>0?` · 🎁 +${+(+R.exam.bonus).toFixed(2)} بنقاط التميّز`:''),'📝','exam'):`<div class="tile none"><div class="t-top"><span class="t-ic">📝</span><span class="t-nm">الاختبارات</span></div><span class="t-sub">لم تُرصد درجات بعد</span></div>`}
     </div><div id="det" class="det hide"></div>${R.teacherNote?`<p class="note" style="margin-top:12px">📝 <b>ملاحظة المعلم:</b> ${esc(R.teacherNote)}</p>`:''}</section>`;
@@ -441,6 +479,7 @@ function render(j, phone){
       if(was){ d.classList.add('hide'); return; }
       t.classList.add('on'); t.closest('section').appendChild(d); d.style.setProperty('--c', getComputedStyle(t).getPropertyValue('--c')); d.innerHTML=DET[k]||''; d.classList.remove('hide'); d.scrollIntoView({behavior:'smooth',block:'nearest'}); };
     t.onclick=open; t.onkeydown=e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); open(); } }; });
+  $('out').querySelectorAll('[data-skh]').forEach(b=>b.onclick=()=>{ const d=$('skh'+b.dataset.skh), open=d.classList.toggle('hide')===false; b.setAttribute('aria-expanded',open); b.textContent=open?'إخفاء ▴':'🏠 كيف أساعده؟ ▾'; });
   $('out-btn').onclick=()=>{ try{ localStorage.removeItem(KEY); }catch(e){} $('out').innerHTML=''; $('login').classList.remove('hide'); };
   $('out').querySelectorAll('[data-sib]').forEach(b=>b.onclick=()=>go(b.dataset.sib, phone));
   // 📅 فترة أخرى (مثل الفترة الأولى بعد إغلاقها): نفس التقرير بدرجاتها كما أُغلقت

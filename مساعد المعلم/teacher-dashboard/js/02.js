@@ -14259,6 +14259,8 @@ function offNamesStatus(){
 }
 function loadRepCfg(){
   try{offNamesLoad()}catch(e){}
+  { const c=document.getElementById('rc-parskills'); if(c){ c.checked=rcGet('parentSkills')!=='off';
+      c.onchange=()=>{ REPCFG.parentSkills=c.checked?'':'off'; rcSave(); toast(c.checked?'✓ المهارات تظهر لولي الأمر':'أُخفيت المهارات من صفحة ولي الأمر'); }; } }
   RC.forEach(k=>{ const e=document.getElementById('rc-'+k); if(e) e.value = rcGet(k); });
   document.querySelectorAll('.rcf').forEach(e=>{
     e.oninput = ()=>{ REPCFG[e.id.slice(3)] = e.value; rcSave(); renderAnalysis(); document.querySelectorAll(`.offn[data-rc="${e.id.slice(3)}"]`).forEach(x=>x.value=e.value); try{offNamesStatus()}catch(_){} };

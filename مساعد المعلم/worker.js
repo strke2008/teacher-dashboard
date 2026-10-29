@@ -1677,6 +1677,24 @@ function officialProfile(data, assignments, sid, range) {
 function weakSkills(data, assignments, sid, range) {
   return officialProfile(data, assignments, sid, range).filter(x => !x.prior && !x.early && x.rate < SKILL_GAP).sort((a, b) => a.rate - b.rate).slice(0, 4);
 }
+/* 🧠 مهارات الطالب لولي الأمر: نواتج الفصل الحالي المقيسة (3 أسئلة فأكثر · آخر 6 إجابات) —
+   أضعف 3 دون المطلوب (80%)، وما أتقنه، وهل هو في خطة علاجية قائمة على المهارة. يُخفيه المعلم من الإعدادات (repcfg.parentSkills='off') */
+function parentSkills(data, g, sid) {
+  const cur = (Array.isArray(g && g.official) ? g.official : []).filter(x => x && !x.prior && !x.early);
+  const inPlan = new Set();
+  for (const pl of (Array.isArray(data && data.plans) ? data.plans : [])) {
+    if (!pl || (pl.status || 'active') === 'done') continue;
+    const ids = Array.isArray(pl.studentIds) && pl.studentIds.length ? pl.studentIds : [pl.studentId];
+    if (!ids.map(String).includes(String(sid))) continue;
+    for (const k of (Array.isArray(pl.skills) ? pl.skills : [])) { const o = skOutcome(k); inPlan.add(o ? o.key : skCanon(k)); }
+  }
+  const row = x => { const o = skOutcome(x.skill); return { skill: o ? o.short : String(x.skill).replace(/^نافس:\s*/, ''), unit: x.unit || (o && o.unit) || '', rate: x.rate, total: x.total, band: skillBand(x.rate).key, plan: inPlan.has(x.skill) }; };
+  return {
+    weak: cur.filter(x => x.rate < SKILL_TARGET).sort((a, b) => a.rate - b.rate).slice(0, 3).map(row),
+    strong: cur.filter(x => x.rate >= SKILL_TARGET).sort((a, b) => b.rate - a.rate || b.total - a.total).slice(0, 8).map(x => row(x).skill),
+    measured: cur.length
+  };
+}
 /* إجراءات علاجية تسمّي المهارة نفسها وتناسب مستواها */
 function skillActions(sk) {
   const n = `«${sk.skill}»`;
@@ -6129,7 +6147,7 @@ export default {
       let weekly = null; try { const ms = await readMessages(env, { id: sid, name: st.name }); const w = ms.filter(m => m && m.type === 'weekly').sort((a, c) => String(c.createdAt).localeCompare(String(a.createdAt)))[0];
         if (w) { const i = String(w.body || '').indexOf('⟨WK⟩'); weekly = { at: w.createdAt, text: (i < 0 ? w.body : w.body.slice(0, i)).trim().slice(0, 1200), d: i < 0 ? null : (() => { try { return JSON.parse(w.body.slice(i + 4)); } catch { return null; } })() }; } } catch {}
       // 📈 مستواه الآن: نفس حساب «تقرير الفترة» للفترة الجارية (ولو لم يُنشر بعد)
-      let live = null, liveErr = '';
+      let live = null, liveErr = '', skills = null;
       let periods = [], view = null;
       try { const data0 = await loadClassroom(env); periods = periodsAvail(data0);
         // ولي الأمر يختار الفترة (الجارية افتراضيًا، أو فترة مغلقة كالأولى بعد إغلاقها)
@@ -6139,10 +6157,11 @@ export default {
         const sem = view.sem, per = view.per;
         const { data, grades } = await studentReportGrades(env, sem, per), g = grades.students.find(x => String(x.id) === sid);
         if (g) { const pub = reports.find(r => r.semester === sem && r.period === per);
-          live = studentReportBuild(data, g, sem, per, pub ? pub.teacherNote : '', srepActsLive(state, data, sid, st.name, cls, sem, per)); } else liveErr = 'not_in_grades'; } catch (e) { liveErr = String(e && e.message || e).slice(0, 120); }
+          live = studentReportBuild(data, g, sem, per, pub ? pub.teacherNote : '', srepActsLive(state, data, sid, st.name, cls, sem, per));
+          if (String((state.repcfg && state.repcfg.parentSkills) || '') !== 'off') skills = parentSkills(data, g, sid); } else liveErr = 'not_in_grades'; } catch (e) { liveErr = String(e && e.message || e).slice(0, 120); }
       if (fails) await env.HW.delete(fk);
       let top3 = []; try { top3 = ((JSON.parse(await env.HW.get('top3') || '{}') || {})[sid] || []).slice(0, 3); } catch {}
-      return json({ ok: true, live, periods, view, ...(liveErr ? { liveErr } : {}), top3, student: { name: st.name, cls }, siblings, acts: { total: acts.length, done: done.sort((a, c) => c.at - a.at).slice(0, 15), doneN: done.length, missing: missing.slice(0, 20) }, reports, weekly,
+      return json({ ok: true, live, periods, view, ...(liveErr ? { liveErr } : {}), ...(skills ? { skills } : {}), top3, student: { name: st.name, cls }, siblings, acts: { total: acts.length, done: done.sort((a, c) => c.at - a.at).slice(0, 15), doneN: done.length, missing: missing.slice(0, 20) }, reports, weekly,
         cert: { ...certText(await certTplRead(env), /\d/.test(cls) ? cls : ''), date: certDateLine(Date.now()), cls: /\d/.test(cls) ? cls : '' },
         teacher: String((state.repcfg && state.repcfg.teacher) || ''), subject: String((state.repcfg && state.repcfg.subject) || ''), school: String((state.repcfg && state.repcfg.school) || '') });
     }
