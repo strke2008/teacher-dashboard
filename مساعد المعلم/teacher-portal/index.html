@@ -5571,13 +5571,14 @@ const OMR = (() => {
     if (darkOnly) return { fill: dark / (N * N), ink: sum / (N * N), paper, color: 0 };
     return { fill: Math.max(dark / (N * N), colorFill), ink: sum / (N * N), paper, color: +colorFill.toFixed(3) };
   }
-  const T = { blank: 0.07, mark: 0.14, rival: 0.55, align: 6 };
+  const T = { blank: 0.07, mark: 0.14, rival: 0.45, second: 0.105, align: 6, alignSure: 3.5 };
   function decide(fills) {
     const idx = fills.map((f, i) => [f.fill + f.ink * 0.5, i]).sort((a, b) => b[0] - a[0]);
     const [top, second] = [idx[0], idx[1] || [0, -1]];
     if (top[0] < T.blank) return { status: 'blank', pick: -1 };
     // مربعان: أي ثانٍ بلغ حد العلامة، أو قريب من الأول — للمراجعة مهما كانت النسبة
-    if (second[0] >= T.mark || (second[0] >= T.blank && second[0] >= top[0] * T.rival)) return { status: 'multi', pick: top[1], alt: second[1] };
+    // مربعان معلّمان: الثاني قد يضعف كثيرًا في صورة خافتة/مغبّشة (علامة ✓ رفيعة) — أي أثر واضح فيه يكفي للمراجعة
+    if (second[0] >= T.mark || second[0] >= T.second || (second[0] >= T.blank && second[0] >= top[0] * T.rival)) return { status: 'multi', pick: top[1], alt: second[1] };
     if (top[0] < T.mark) return { status: 'faint', pick: top[1] };
     return { status: 'ok', pick: top[1] };
   }
@@ -5648,7 +5649,7 @@ const OMR = (() => {
   /* 🔢 رمز النموذج أولًا: محاذاة على العنوان وخانة الاسم فقط (متطابقان في كل النماذج)،
      فلا تفشل قراءة الرمز لأن تخطيط أسئلة نموذج آخر مختلف */
   function code(img, M, o = {}) {
-    const pr = prepare(img, { ...o, marks: M.marks, model: M }); if (pr.error) return { ok: false, error: pr.error, quad: pr.quad };
+    const pr = o.prep || prepare(img, { ...o, marks: M.marks, model: M }); if (pr.error) return { ok: false, error: pr.error, quad: pr.quad };
     if (!M.mcode || !M.mcode.cells) return { ok: true, code: null, prep: pr };
     const qTop = Math.min(...M.questions.flatMap(q => q.boxes.map(b => b[1])));
     const head = M.anchors.filter(a => a[1] + a[3] < qTop - 3);
@@ -5693,12 +5694,17 @@ const OMR = (() => {
       const fills = q.boxes.map(r => { const b = searchSet(G, P.H, { boxes: [outlinePts(r, 0.5)], strict: true }, 1, 1, 0.25, 0.7, [qs.dx, qs.dy]); return { ...boxFill(G, P.H, r, b.dx, b.dy), dx: b.dx, dy: b.dy, align: b.s }; });
       const d = decide(fills);
       const align = Math.min(...fills.map(f => f.align));
-      const dd = align < (opts.alignT ?? T.align) ? { status: 'unaligned', pick: -1 } : d;   // لا نرى إطار المربع حيث نتوقعه: لا قراءة واثقة
+      // الهندسة مضبوطة (علامات الزوايا أو صفحة قوّمناها بأنفسنا): خطوط المربع الباهتة في فيديو ناعم تكفي بحد أدنى أقل
+      // (المربع في مكانه ≈ 4–9، والإزاحة الخاطئة ≈ −2…2)
+      const dd = align < (opts.alignT ?? (found.marks || found.flat ? T.alignSure : T.align)) ? { status: 'unaligned', pick: -1 } : d;   // لا نرى إطار المربع حيث نتوقعه: لا قراءة واثقة
       return { i: qi, t: q.t, key: q.key, ...dd, align: +align.toFixed(1), fills: fills.map(f => +(f.fill + f.ink * 0.5).toFixed(3)), boxes: q.boxes.map((r, k) => ({ r, dx: fills[k].dx, dy: fills[k].dy })) };
     });
     // أكثر من سؤال لا يُرى إطاره = هندسة الصورة خاطئة في جزء من الورقة (ظل/انحناء): لا نثق بالبقية
     const unaligned = answers.filter(a => a.status === 'unaligned').length;
-    if (unaligned >= 2 && !opts.noGate) return retryFrame({ ok: false, error: 'uneven', unaligned, code });
+    // بعلامات الزوايا الهندسة مضبوطة من الطباعة نفسها: مربع خطوطه باهتة في الصورة (فيديو ناعم/بعيد) لا يعني صورة خاطئة —
+    // يُعرض سؤاله للتأكيد بدل رفض الورقة كلها. نرفض فقط إن غاب أكثر من 40% منها
+    const gate = found.marks || found.flat ? unaligned > Math.max(1, answers.length * 0.4) : unaligned >= 2;
+    if (gate && !opts.noGate) return retryFrame({ ok: false, error: 'uneven', unaligned, code });
     const correct = answers.filter(a => a.status === 'ok' && a.pick === a.key).length;
     const review = answers.filter(a => a.status !== 'ok').length;
     return { ok: true, code, scode: readSCode(G, P, M), answers, correct, review, H: P.H, quad: found.quad, pageScore: +P.score.toFixed(1), ms: Date.now() - t0, dbg: { via: found.marks ? 'marks' : found.frame ? 'frame' : found.scan ? 'scan' : 'paper', dx: P.dx, dy: P.dy, rot: P.rot, secs: [...secShift.values()] } };
@@ -5712,7 +5718,7 @@ const OMR = (() => {
    الصور لا تُرفع لأي مكان: كل المعالجة على الجوال. */
 const OMRUI = { tpl:null, model:0, auto:false, testId:'', cls:'', stream:null, timer:0, busy:false, last:null, stable:0, result:null, sid:'', frozen:null };
 const OMR_MSG = { no_paper:'ضع الورقة كاملة داخل الإطار', cut:'ابتعد قليلًا — الورقة مقصوصة من الإطار',
-  weak_align:'الورقة غير واضحة — أعد المسح أو قرّب الجوال', uneven:'الإضاءة غير متساوية أو الورقة مثنية — عدّل الزاوية',
+  weak_align:'الورقة غير واضحة — أعد المسح أو قرّب الجوال', uneven:'مربعات الإجابة غير واضحة — قرّب الجوال أو زد الإضاءة أو افرد الورقة',
   no_code:'لم يُقرأ رمز النموذج بجانب العنوان — قرّب الجوال، أو اختر النموذج يدويًا' };
 const omrApi = p => API.replace(/\/+$/,'') + p;
 /* مجموع النموذج المختار نفسه: النماذج قد تحمل أسئلة مختلفة العدد */
@@ -5981,8 +5987,9 @@ async function omrStartCameraRun(){
   const portraitScreen = window.innerHeight >= window.innerWidth;
   let saved = -1; try{ const sv = localStorage.getItem('omr_cam_try'); if(sv !== null && /^\d+$/.test(sv)) saved = Number(sv); }catch(e){}   // Number(null)=0 كان يبدأ بالصيغة المنخفضة دائمًا
   // الماسح: أعلى دقة أولًا (الورقة تُقصّ من اللقطة الكاملة فكل بكسل يفيد)
-  const order = OMRUI.scanMode ? [3, 6, 2, 5, 4, 1, 7, 8, 9, 0] : [...(saved >= 0 && saved < OMR_CAM_TRIES.length ? [saved] : []), ...OMR_CAM_ORDER].filter((v, i, a) => a.indexOf(v) === i);
-  const need = OMRUI.scanMode ? 1440 : OMR_MIN_SIDE;
+  // أعلى دقة أولًا في الوضعين: الورقة تُقصّ من اللقطة الكاملة، وفيديو 1080 ناعم تختفي فيه خطوط المربعات الرفيعة
+  const order = OMRUI.scanMode ? [3, 6, 2, 5, 4, 1, 7, 8, 9, 0] : [6, 3, ...(saved >= 0 && saved < OMR_CAM_TRIES.length ? [saved] : []), ...OMR_CAM_ORDER].filter((v, i, a) => a.indexOf(v) === i);
+  const need = 1440;
   // بث واحد في كل لحظة. المقبول فورًا: طولي بجانب قصير ≥ 1080. وإلا نختار من المجرَّب:
   // طولي ≥ 900، ثم عرضي ≥ 1080 (مع «ضع الورقة بالعرض»)، ثم الأعلى دقة — الدقة أهم من الاتجاه.
   let best = null; const seen = [];
@@ -6125,7 +6132,7 @@ function omrTick(){
   OMRUI.qprev = q; OMRUI.still = move < 0.012 ? OMRUI.still + 1 : 0;
   if(!OMRUI.still){ OMRUI.acc = []; OMRUI.shHist = []; }                         // تحرّك: القراءات المجمّعة والوضوح يبدآن من جديد
   omrDrawQuad(q, !OMRUI.waitSwap, [vw, vh], OMRUI.waitSwap);
-  OMRUI.scanGeo = { rect: pr.found.rect || [0, 0, 210, 297], quad: pr.found.quad.map(([a, b]) => [a / sc, b / sc]) };   // للقص من اللقطة الكاملة
+  OMRUI.scanGeo = { rect: pr.found.rect || [0, 0, 210, 297], quad: pr.found.quad.map(([a, b]) => [a / sc, b / sc]), marks: !!pr.found.marks };   // للقص من اللقطة الكاملة
   if(OMRUI.forceShot && !OMRUI.waitSwap){ if(st) st.textContent = 'جارٍ القراءة…'; omrProcess(v, vw, vh, false); return; }   // زر الالتقاط: بلا انتظار والوضوح: على النسخة الصغيرة، داخل الورقة فقط (بإحداثيات الصفحة بالمم)
   const Gs = sc === k && pr.G ? pr.G : OMR.gray(x.getImageData(0, 0, c.width, c.height));
   const Rp = pr.found.rect || [0, 0, 210, 297];
@@ -6152,12 +6159,13 @@ function omrTick(){
 }
 /* 📄 تقويم الورقة كماسح المستندات: من اللقطة بدقتها الكاملة (لا المصغّرة) إلى صفحة مستوية 6.4 بكسل/مم
    مع هامش 4 مم حولها — المربعات أكبر بالبكسل والقارئ يجد العلامات في صفحة مستقيمة */
+const OMR_FLAT = { kp: 6.4, m: 4 };                                           // بكسل/مم، وهامش حول الصفحة بالمم
 function omrFlatten(src, w, h, geo, out){
   const fc = OMRUI.fullCv || (OMRUI.fullCv = document.createElement('canvas')); fc.width = w; fc.height = h;
   const fx = fc.getContext('2d', { willReadFrequently:true }); fx.drawImage(src, 0, 0, w, h);
   const S = fx.getImageData(0, 0, w, h).data, R = geo.rect;
   const H = OMR.homography([[R[0], R[1]], [R[0] + R[2], R[1]], [R[0] + R[2], R[1] + R[3]], [R[0], R[1] + R[3]]], geo.quad);
-  const kp = 6.4, X0 = -4, Y0 = -4, cw = Math.round(218 * kp), ch = Math.round(305 * kp);
+  const kp = OMR_FLAT.kp, X0 = -OMR_FLAT.m, Y0 = -OMR_FLAT.m, cw = Math.round((210 + 2 * OMR_FLAT.m) * kp), ch = Math.round((297 + 2 * OMR_FLAT.m) * kp);
   out.width = cw; out.height = ch; const ox = out.getContext('2d', { willReadFrequently:true }), D = ox.createImageData(cw, ch), d = D.data;
   for(let v = 0; v < ch; v++){
     const my = Y0 + v / kp;
@@ -6213,17 +6221,26 @@ function omrProcess(src, w, h, single){
   OMRUI.busy = true;
   try{
     let img; const c = $('omr-canvas'), T = OMRUI.tpl;
-    if(!single && OMRUI.stream && OMRUI.scanGeo) img = omrFlatten(src, w, h, OMRUI.scanGeo, c);   // 📄 الورقة مقوّمة من اللقطة الكاملة
+    let flatPrep = null;
+    if(!single && OMRUI.stream && OMRUI.scanGeo){
+      img = omrFlatten(src, w, h, OMRUI.scanGeo, c);                                // 📄 الورقة مقوّمة من اللقطة الكاملة
+      // موضع الصفحة في الصورة المقوّمة معروف (صنعناها): لا نعيد اكتشافه. كانت إعادة البحث تفشل في صورة ناعمة
+      // فتُعامَل كمسح ضوئي حوافه حواف الورقة — والهامش 4 مم يُزيح كل المربعات فتُرفض الورقة
+      const G = OMR.gray(img), M0 = T.models[OMRUI.auto ? 0 : OMRUI.model], mk = M0 && M0.marks ? OMR.findMarks(G, M0.marks, M0) : null;
+      const P = (x, y) => [(x + OMR_FLAT.m) * OMR_FLAT.kp, (y + OMR_FLAT.m) * OMR_FLAT.kp];
+      flatPrep = mk ? { G, found: mk } : { G, found: { quad: [P(0, 0), P(210, 0), P(210, 297), P(0, 297)], rect: [0, 0, 210, 297], marks: OMRUI.scanGeo.marks, flat: true } };
+    }
     else { const k = Math.min(1, 1600/Math.max(w,h)), cw = Math.round(w*k), ch = Math.round(h*k);
       c.width = cw; c.height = ch; const x = c.getContext('2d', { willReadFrequently:true }); x.drawImage(src, 0, 0, cw, ch); img = x.getImageData(0,0,cw,ch); }
     let r;
     // 🔢 النموذج آليًا: الرمز أولًا (محاذاة على العنوان وحده)، ثم القراءة بخريطة النموذج المكتشف
     if(OMRUI.auto){
-      const cr = OMR.code(img, T.models[0], { noScan: !single });
+      const cr = OMR.code(img, T.models[0], { noScan: !single, prep: flatPrep });
       if(!cr.ok) r = { ok:false, error:cr.error };
       else if(cr.code === null || cr.code === undefined || !T.models[cr.code]) r = { ok:false, error:'no_code' };   // لا تصحيح بمفتاح غير مؤكد
       else { OMRUI.model = cr.code; r = OMR.read(img, T.models[cr.code], { prep: cr.prep }); }
-    } else r = OMR.read(img, T.models[OMRUI.model], { noScan: !single });
+    } else r = OMR.read(img, T.models[OMRUI.model], { noScan: !single, ...(flatPrep ? { prep: flatPrep } : {}) });
+    OMRUI.lastPrep = flatPrep;                                                     // للتشخيص
     const st = $('omr-status');
     if(!r.ok){
       OMRUI.stable = 0;
