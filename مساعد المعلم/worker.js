@@ -818,7 +818,7 @@ async function overlayExamBonuses(env, data) {
   });
   return data;
 }
-/* 🏅 شهادة شكر وتقدير من المتجر (600): نص شهادة المعلم نفسه (/cert-tpl)، والتاريخ هجري مع الميلادي */
+/* 🏅 شهادة شكر وتقدير من المتجر (1500): نص شهادة المعلم نفسه (/cert-tpl)، والتاريخ هجري مع الميلادي */
 const PCERT_DEF = { pre: 'يتقدم معلم المادة بالشكر والتقدير للطالب', dua: 'سائلين المولى له دوام التوفيق والنجاح',
   rTitle: 'معلم المادة', rName: '', lTitle: 'مدير المدرسة', lName: '', reason: 'تميّزه واجتهاده في الأنشطة' };
 function certDateLine(at) {
@@ -9251,7 +9251,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
       const card = String(b.card || '').replace(/[^a-z0-9_]/gi, '').slice(0, 24);
       // 💰 السعر يُحسم في الخادم، لا من المتصفح.
-      const STORE_PRICES={exam3:1000,exam2:750,exam1:450,exam05:250,thanks:300,theme_gold:250,theme_diamond:250,theme_saudi:250,theme_spaceweek:250,frame:200,namecolor:300,title:200,dbl:150,retry:80,early:60,ticket:50,hint:30,fifty:40,madforgive:MAD_FORGIVE_PRICE,hwforgive:HW_FORGIVE_PRICE,avatars:250,cert:600};
+      const STORE_PRICES={exam3:1000,exam2:750,exam1:450,exam05:250,thanks:1000,theme_gold:250,theme_diamond:250,theme_saudi:250,theme_spaceweek:250,frame:200,namecolor:300,title:200,dbl:150,retry:80,early:60,ticket:50,hint:30,fifty:40,madforgive:MAD_FORGIVE_PRICE,hwforgive:HW_FORGIVE_PRICE,avatars:250,cert:1500};
       const price=salePx(Number(STORE_PRICES[card]||0),await storeSaleGet(env));   // 🏷️ تخفيض المتجر
       if(['exam05','exam1','exam2','exam3'].includes(card)) return json({ok:false,error:'exam_direct'},400);
       // 🧽 بطاقة مسح خصم مدرستي تُشترى وتُستخدم معًا على واجب بعينه من /mad-forgive — لا تُشترى فارغة

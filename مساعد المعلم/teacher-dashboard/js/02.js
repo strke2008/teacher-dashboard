@@ -67,14 +67,14 @@ const byId = id => STUDENTS.find(s => s.id === id);
 /* بطاقات المتجر — نقاط النشاط فقط */
 const CARDS = [
   { id:'dbl',    name:'نقاط مضاعفة',      price:150, ic:'⭐', teacher:false },
-  { id:'thanks', name:'رسالة شكر للأهل',  price:300, ic:'💌', teacher:true  },
+  { id:'thanks', name:'رسالة شكر للأهل',  price:1000, ic:'💌', teacher:true  },
   { id:'retry',  name:'إعادة محاولة',     price:80,  ic:'🔁', teacher:false },
   { id:'hint',   name:'تلميح',            price:30,  ic:'💡', teacher:false },
   { id:'ticket', name:'تذكرتا مسابقة (2 بسعر 1)', price:50,  ic:'🎟️', teacher:false },
   { id:'madforgive', name:'مسح خصم مدرستي', price:250, ic:'🧽', teacher:false },
   { id:'hwforgive', name:'مسح خصم واجب الفصل', price:250, ic:'📘', teacher:false },
   { id:'fifty', name:'حذف إجابتين', price:40, ic:'✂️', teacher:false },
-  { id:'cert', name:'شهادة شكر وتقدير', price:600, ic:'🏅', teacher:false },
+  { id:'cert', name:'شهادة شكر وتقدير', price:1500, ic:'🏅', teacher:false },
   { id:'avatars', name:'رموز حصرية', price:250, ic:'🐉', teacher:false },
   { id:'theme_gold', name:'مظهر ذهبي حصري', price:250, ic:'✨', teacher:false },
   { id:'theme_diamond', name:'مظهر ماسي حصري', price:250, ic:'💎', teacher:false },
@@ -2269,7 +2269,7 @@ function ctCertMoeSave(){
   try{ localStorage.setItem(CT_MOE_KEY,JSON.stringify({pre:v('cm-pre'),dua:v('cm-dua'),rTitle:v('cm-rt'),rName:v('cm-rn'),lTitle:v('cm-lt'),lName:v('cm-ln')})); }catch(e){}
   closeModal(); toast('حُفظ نص الشهادة','good'); ctCertTplPush();
 }
-/* 🏅 شهادات المتجر (يشتريها الطالب بـ 600 نقطة) تصدر من الخادم بنص شهادتك وتوقيعاتك نفسها:
+/* 🏅 شهادات المتجر (يشتريها الطالب بـ 1500 نقطة) تصدر من الخادم بنص شهادتك وتوقيعاتك نفسها:
    يُرسل النص بعد ملء المدرسة والمادة والمعلم والمدير، ويبقى {الفصل} ليُملأ لكل طالب. يُرسل فقط إذا تغيّر. */
 async function ctCertTplPush(){
   const api=getApi(), tok=getTok(); if(!api||!tok) return;

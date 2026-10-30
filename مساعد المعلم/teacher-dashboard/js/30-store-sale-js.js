@@ -3,7 +3,7 @@
    الخادم يحفظها (/store-sale) ويحسب السعر المخفّض عند كل شراء؛ هنا الضبط والمعاينة فقط. */
 let SALE_CUR = null;
 let SALE_DIRTY = false;
-const SALE_SAMPLE = [['🏆 رفع الاختبار +3', 1000], ['🏆 رفع الاختبار +2', 750], ['🏆 رفع الاختبار +1', 450], ['🏆 رفع الاختبار +0.5', 250], ['🏅 شهادة شكر', 600], ['🌈 اسم ملوّن', 300], ['⭐ نقاط مضاعفة', 150], ['💡 تلميح', 30]];
+const SALE_SAMPLE = [['🏅 شهادة شكر', 1500], ['🏆 رفع الاختبار +3', 1000], ['🏆 رفع الاختبار +2', 750], ['🏆 رفع الاختبار +1', 450], ['🏆 رفع الاختبار +0.5', 250], ['🌈 اسم ملوّن', 300], ['⭐ نقاط مضاعفة', 150], ['💡 تلميح', 30]];
 const salePx = (p, pct) => pct ? Math.max(1, Math.round(p * (100 - pct) / 100)) : p;
 function saleApi(){ return (getApi() || '').replace(/\/+$/, ''); }
 function saleFmt(t){ try{ return new Date(t).toLocaleString('ar-SA-u-ca-gregory-nu-latn', { weekday:'long', day:'numeric', month:'long', hour:'numeric', minute:'2-digit' }); }catch(e){ return ''; } }
