@@ -6750,18 +6750,22 @@ function examAutoMatch(o){
   const dupB = A.filter((p, i, arr) => seenB.get(rdNormAr(p.b)) > 1 && arr.findIndex(q => rdNormAr(q.b) === rdNormAr(p.b)) === i).map(p => p.b);
   if(dupB.length) notes.push(`⚠️ الوصل: «${dupB.join('»، «')}» ${dupB.length > 1 ? 'مكررة' : 'مكررة'} في العمود الثاني — الطالب لا يفرّق بين السطرين، غيّر إحداها`);
   let B = o.shuffle(A.map((p, i) => ({ t:p.b, ans:i })), o.seed + '|amt|' + (o.modelIndex || 0));
-  if(B.every((b, i) => b.ans === i)) B = B.slice(1).concat(B[0]);      // لا تتطابق الإجابات مع ترتيب العمود الأول
+  // الأعمدة متقابلة في السطر نفسه: لا تقع إجابة أي عبارة في سطرها (تُكشف بالنظر). تبديل كل موضع ثابت مع جاره يزيله
+  for(let i = 0; i < B.length; i++) if(B[i].ans === i){ const j = (i + 1) % B.length; [B[i], B[j]] = [B[j], B[i]]; }
+  for(let i = 0; i < B.length; i++) if(B[i].ans === i){ const j = (i + B.length - 1) % B.length; [B[i], B[j]] = [B[j], B[i]]; }
   return { A, B, notes, marks: A.length * o.mark };
 }
-/* الوصل بشكل الوصل التقليدي: العمود الأول يمين ← مربعات التضليل في الوسط ← العمود الثاني يسار.
-   مربعات كل سطر لعبارة العمود الثاني في السطر نفسه (السهم ◀ يشير إليها)، وتحت كل مربع رقم عبارة العمود الأول */
+/* الوصل بشكل الوصل التقليدي: عبارات العمود الأول يمين (بلا رقم ولا حرف: هي ما يُجاب عنه) ← مربعات التضليل في الوسط
+   وتحت كل مربع رقمه ← العمود الثاني يسار مرقّمًا (الخيارات). كل تركيز الطالب: أي رقم يناسب هذه الجملة */
 function examAutoMatchSec(AM, o){
-  const head = `<div class="ex-amt-h" data-mid="mta"><span>العمود الأول</span><span>رقم العمود الأول المناسب</span><span>العمود الثاني</span></div>`;
-  const rows = AM.B.map((b, i) => `<div class="ex-amtq" data-mid="mtq${i}">
-    <span class="ex-amt-c1">${AM.A[i] ? `<b class="ex-num">${o.D(i+1)}</b><span class="ex-amt-c1t">${escExamText(AM.A[i].a)}</span>` : ''}</span>
-    <span class="ex-amt-o">${AM.A.map((_, j) => `<span class="ex-amto${o.key && j === b.ans ? ' key' : ''}"><span class="ex-box"></span><i>${o.D(j+1)}</i></span>`).join('')}<b class="ex-amt-ar">◀</b></span>
-    <span class="ex-amt-c2"><span class="ex-ltr">(${EX_LET[i] || ''})</span><span class="ex-amt-t">${escExamText(b.t)}</span></span></div>`).join('');
-  return `<div class="ex-sec ex-amt">${examSecHead('h-amt', `السؤال ${o.no}: صِل كل عبارة في العمود الثاني برقم ما يناسبها من العمود الأول:`, AM.marks, o.D)}${head}${rows}</div>`;
+  const head = `<div class="ex-amt-h" data-mid="mta"><span>العمود الأول</span><span>رقم الإجابة من العمود الثاني</span><span>العمود الثاني</span></div>`;
+  // الأسطر = العبارات (يسار «|» عند المعلم) بترتيبها، والعمود الثاني = ما يناسبها مخلوطًا ومرقّمًا؛ مفتاح السطر i = موضع ما يناسبه
+  const rows = AM.A.map((p, i) => { const ans = AM.B.findIndex(b => b.ans === i);
+    return `<div class="ex-amtq" data-mid="mtq${i}">
+    <span class="ex-amt-c1"><span class="ex-amt-t">${escExamText(p.a)}</span></span>
+    <span class="ex-amt-o">${AM.B.map((_, j) => `<span class="ex-amto${o.key && j === ans ? ' key' : ''}"><span class="ex-box"></span><i>${o.D(j+1)}</i></span>`).join('')}</span>
+    <span class="ex-amt-c2">${AM.B[i] ? `<b class="ex-num">${o.D(i+1)}</b><span class="ex-amt-c1t">${escExamText(AM.B[i].t)}</span>` : ''}</span></div>`; }).join('');
+  return `<div class="ex-sec ex-amt">${examSecHead('h-amt', `السؤال ${o.no}: ضلّل أمام كل عبارة في العمود الأول رقم ما يناسبها من العمود الثاني:`, AM.marks, o.D)}${head}${rows}</div>`;
 }
 function examAutoRender(c){
   const { AM, units, headHtml, contHead, pageAttrs, box, D, key, mc, tf } = c;
