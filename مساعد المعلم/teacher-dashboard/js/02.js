@@ -6745,24 +6745,27 @@ function examAutoMatch(o){
   const A = examModelLines(M.pairs, n, o, 'الوصل', notes, 'match').filter(p => p && p.a && p.b);
   if(A.length < n) notes.push(`الوصل: ${A.length} من ${n} أزواج فقط`);
   if(A.length < 2) return { A:[], B:[], notes, marks:0, empty:true };
-  // عبارة مكررة في العمود الثاني لها إجابتان مختلفتان: الطالب لا يفرّق بين السطرين ويُخطَّأ وهو مصيب
-  const seenB = new Map(); A.forEach(p => { const k = rdNormAr(p.b); seenB.set(k, (seenB.get(k) || 0) + 1); });
-  const dupB = A.filter((p, i, arr) => seenB.get(rdNormAr(p.b)) > 1 && arr.findIndex(q => rdNormAr(q.b) === rdNormAr(p.b)) === i).map(p => p.b);
-  if(dupB.length) notes.push(`⚠️ الوصل: «${dupB.join('»، «')}» ${dupB.length > 1 ? 'مكررة' : 'مكررة'} في العمود الثاني — الطالب لا يفرّق بين السطرين، غيّر إحداها`);
-  let B = o.shuffle(A.map((p, i) => ({ t:p.b, ans:i })), o.seed + '|amt|' + (o.modelIndex || 0));
+  // الجملة (الطرف الأطول) في العمود الأول بلا ترقيم، والكلمة (الأقصر) مرقّمة في العمود الثاني — أيًّا كان ترتيب المعلم للزوج
+  const len = k => A.reduce((t, p) => t + String(p[k]).length, 0);
+  const flip = len('b') > len('a');
+  const S = A.map(p => flip ? p.b : p.a), W = A.map(p => flip ? p.a : p.b);
+  // نص مكرر في أي عمود لإجابتين مختلفتين: الطالب لا يفرّق بينهما ويُخطَّأ وهو مصيب
+  const dups = L => L.filter((t, i) => L.findIndex(u => rdNormAr(u) === rdNormAr(t)) !== i).filter((t, i, arr) => arr.findIndex(u => rdNormAr(u) === rdNormAr(t)) === i);
+  [[dups(S), 'الأول'], [dups(W), 'الثاني']].forEach(([d, c]) => { if(d.length) notes.push(`⚠️ الوصل: «${d.join('»، «')}» مكررة في العمود ${c} — الطالب لا يفرّق بينها، غيّر إحداها`); });
+  let B = o.shuffle(W.map((t, i) => ({ t, ans:i })), o.seed + '|amt|' + (o.modelIndex || 0));
   // الأعمدة متقابلة في السطر نفسه: لا تقع إجابة أي عبارة في سطرها (تُكشف بالنظر). تبديل كل موضع ثابت مع جاره يزيله
   for(let i = 0; i < B.length; i++) if(B[i].ans === i){ const j = (i + 1) % B.length; [B[i], B[j]] = [B[j], B[i]]; }
   for(let i = 0; i < B.length; i++) if(B[i].ans === i){ const j = (i + B.length - 1) % B.length; [B[i], B[j]] = [B[j], B[i]]; }
-  return { A, B, notes, marks: A.length * o.mark };
+  return { A, S, B, notes, marks: A.length * o.mark };
 }
 /* الوصل بشكل الوصل التقليدي: عبارات العمود الأول يمين (بلا رقم ولا حرف: هي ما يُجاب عنه) ← مربعات التضليل في الوسط
    وتحت كل مربع رقمه ← العمود الثاني يسار مرقّمًا (الخيارات). كل تركيز الطالب: أي رقم يناسب هذه الجملة */
 function examAutoMatchSec(AM, o){
   const head = `<div class="ex-amt-h" data-mid="mta"><span>العمود الأول</span><span>رقم الإجابة من العمود الثاني</span><span>العمود الثاني</span></div>`;
-  // الأسطر = العبارات (يسار «|» عند المعلم) بترتيبها، والعمود الثاني = ما يناسبها مخلوطًا ومرقّمًا؛ مفتاح السطر i = موضع ما يناسبه
+  // الأسطر = الجمل بترتيب المعلم، والعمود الثاني = ما يناسبها مخلوطًا ومرقّمًا؛ مفتاح السطر i = موضع ما يناسبه
   const rows = AM.A.map((p, i) => { const ans = AM.B.findIndex(b => b.ans === i);
     return `<div class="ex-amtq" data-mid="mtq${i}">
-    <span class="ex-amt-c1"><span class="ex-amt-t">${escExamText(p.a)}</span></span>
+    <span class="ex-amt-c1"><span class="ex-amt-t">${escExamText(AM.S[i])}</span></span>
     <span class="ex-amt-o">${AM.B.map((_, j) => `<span class="ex-amto${o.key && j === ans ? ' key' : ''}"><span class="ex-box"></span><i>${o.D(j+1)}</i></span>`).join('')}</span>
     <span class="ex-amt-c2">${AM.B[i] ? `<b class="ex-num">${o.D(i+1)}</b><span class="ex-amt-c1t">${escExamText(AM.B[i].t)}</span>` : ''}</span></div>`; }).join('');
   return `<div class="ex-sec ex-amt">${examSecHead('h-amt', `السؤال ${o.no}: ضلّل أمام كل عبارة في العمود الأول رقم ما يناسبها من العمود الثاني:`, AM.marks, o.D)}${head}${rows}</div>`;
