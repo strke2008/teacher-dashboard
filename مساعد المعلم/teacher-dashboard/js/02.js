@@ -5856,7 +5856,7 @@ function omrMeasure(){
     const tx=e=>String(e&&e.textContent||'').replace(/\s+/g,' ').trim().slice(0,600);
     const qt=mc?tx(q.querySelector('.ex-qt span:last-child')):mt?tx(q.querySelector('.ex-amt-t')):tx([...q.children].find(c=>c.tagName==='SPAN'&&!c.classList.contains('ex-num')&&!c.classList.contains('ex-tf-c')));
     // الوصل: خيارات السؤال = عبارات العمود الأول بترتيبها (رقم المربع)
-    const opts=mc?cells.map(c=>tx(c.querySelector('span:last-child'))):mt?[...page.querySelectorAll('.ex-amt-a > span')].map(sp=>tx(sp).replace(/^\S+\s*/,'')):[];
+    const opts=mc?cells.map(c=>tx(c.querySelector('span:last-child'))):mt?[...page.querySelectorAll('.ex-amt-c1t')].map(tx):[];
     if(boxes.length>=2 && key>=0) questions.push({ t:mc?'mc':mt?'mt':'tf', boxes, key, ...(qt?{q:qt}:{}), ...((mc||mt)&&opts.length===boxes.length&&opts.every(Boolean)?{o:opts}:{}) });
   });
   const allQ=document.querySelectorAll('#exam-paper .ex-q, #exam-paper .ex-tf, #exam-paper .ex-amtq').length;
@@ -6745,15 +6745,23 @@ function examAutoMatch(o){
   const A = examModelLines(M.pairs, n, o, 'الوصل', notes, 'match').filter(p => p && p.a && p.b);
   if(A.length < n) notes.push(`الوصل: ${A.length} من ${n} أزواج فقط`);
   if(A.length < 2) return { A:[], B:[], notes, marks:0, empty:true };
+  // عبارة مكررة في العمود الثاني لها إجابتان مختلفتان: الطالب لا يفرّق بين السطرين ويُخطَّأ وهو مصيب
+  const seenB = new Map(); A.forEach(p => { const k = rdNormAr(p.b); seenB.set(k, (seenB.get(k) || 0) + 1); });
+  const dupB = A.filter((p, i, arr) => seenB.get(rdNormAr(p.b)) > 1 && arr.findIndex(q => rdNormAr(q.b) === rdNormAr(p.b)) === i).map(p => p.b);
+  if(dupB.length) notes.push(`⚠️ الوصل: «${dupB.join('»، «')}» ${dupB.length > 1 ? 'مكررة' : 'مكررة'} في العمود الثاني — الطالب لا يفرّق بين السطرين، غيّر إحداها`);
   let B = o.shuffle(A.map((p, i) => ({ t:p.b, ans:i })), o.seed + '|amt|' + (o.modelIndex || 0));
   if(B.every((b, i) => b.ans === i)) B = B.slice(1).concat(B[0]);      // لا تتطابق الإجابات مع ترتيب العمود الأول
   return { A, B, notes, marks: A.length * o.mark };
 }
+/* الوصل بشكل الوصل التقليدي: العمود الأول يمين ← مربعات التضليل في الوسط ← العمود الثاني يسار.
+   مربعات كل سطر لعبارة العمود الثاني في السطر نفسه (السهم ◀ يشير إليها)، وتحت كل مربع رقم عبارة العمود الأول */
 function examAutoMatchSec(AM, o){
-  const a = `<div class="ex-amt-a" data-mid="mta">${AM.A.map((p, i) => `<span><b class="ex-num">${o.D(i+1)}</b>${escExamText(p.a)}</span>`).join('')}</div>`;
-  const rows = AM.B.map((b, i) => `<div class="ex-amtq" data-mid="mtq${i}"><span class="ex-ltr">${EX_LET[i] || ''}</span><span class="ex-amt-t">${escExamText(b.t)}</span>
-    <span class="ex-amt-o">${AM.A.map((_, j) => `<span class="ex-amto${o.key && j === b.ans ? ' key' : ''}"><span class="ex-box"></span>${o.D(j+1)}</span>`).join('')}</span></div>`).join('');
-  return `<div class="ex-sec">${examSecHead('h-amt', `السؤال ${o.no}: صِل كل عبارة بما يناسبها من العمود الأول — ضع (✓) في مربع رقمها:`, AM.marks, o.D)}${a}${rows}</div>`;
+  const head = `<div class="ex-amt-h" data-mid="mta"><span>العمود الأول</span><span>رقم العمود الأول المناسب</span><span>العمود الثاني</span></div>`;
+  const rows = AM.B.map((b, i) => `<div class="ex-amtq" data-mid="mtq${i}">
+    <span class="ex-amt-c1">${AM.A[i] ? `<b class="ex-num">${o.D(i+1)}</b><span class="ex-amt-c1t">${escExamText(AM.A[i].a)}</span>` : ''}</span>
+    <span class="ex-amt-o">${AM.A.map((_, j) => `<span class="ex-amto${o.key && j === b.ans ? ' key' : ''}"><span class="ex-box"></span><i>${o.D(j+1)}</i></span>`).join('')}<b class="ex-amt-ar">◀</b></span>
+    <span class="ex-amt-c2"><span class="ex-ltr">(${EX_LET[i] || ''})</span><span class="ex-amt-t">${escExamText(b.t)}</span></span></div>`).join('');
+  return `<div class="ex-sec ex-amt">${examSecHead('h-amt', `السؤال ${o.no}: صِل كل عبارة في العمود الثاني برقم ما يناسبها من العمود الأول:`, AM.marks, o.D)}${head}${rows}</div>`;
 }
 function examAutoRender(c){
   const { AM, units, headHtml, contHead, pageAttrs, box, D, key, mc, tf } = c;
