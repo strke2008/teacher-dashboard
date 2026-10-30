@@ -7408,9 +7408,32 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       }
       if (url.pathname === '/omr/papers/delete' && request.method === 'POST') {
         const idx = await omrPapersIdx(env), t = String(b.test || ''), e = idx[t]; if (!e) return json({ ok: true });
+        if (b.sid) {                                                     // ورقة طالب واحد (من المعاينة)
+          const sid = String(b.sid); await env.HW.delete(`omrp:${sid}:${t}`);
+          e.sids = (e.sids || []).filter(x => x !== sid); if (!e.sids.length) delete idx[t];
+          await env.HW.put('omrp:idx', JSON.stringify(idx)); return json({ ok: true, n: e.sids.length });
+        }
         for (const s of e.sids || []) await env.HW.delete(`omrp:${s}:${t}`);
         delete idx[t]; await env.HW.put('omrp:idx', JSON.stringify(idx));
         return json({ ok: true });
+      }
+      // 👁️ معاينة المعلم قبل النشر: قائمة الأوراق (الاسم، درجة الختم، والدرجة المرصودة الآن) ثم الصور واحدة واحدة
+      if (url.pathname === '/omr/papers/list') {
+        const t = String(url.searchParams.get('test') || ''), idx = await omrPapersIdx(env), e = idx[t]; if (!e) return json({ ok: true, papers: [] });
+        const [roster, cls] = await Promise.all([loadRoster(env).catch(() => []), loadClassroom(env).catch(() => null)]);
+        const nameOf = id => { const r = roster.find(x => String(x.id) === String(id)); return r ? { name: r.name, cls: r.cls || '' } : { name: '', cls: '' }; };
+        const nowOf = sid => { const books = cls && cls.examBooks || {}; for (const sm of Object.keys(books)) for (const pr of Object.keys(books[sm] || {})) { const bk = books[sm][pr];
+          if (bk && Array.isArray(bk.tests) && bk.tests.some(x => String(x.id) === t)) { const v = bk.scores && bk.scores[sid] && bk.scores[sid][t]; const n = v && typeof v === 'object' ? Number(v.score) : Number(v); return Number.isFinite(n) ? n : null; } } return null; };
+        const out = [];
+        for (const sid of e.sids || []) { let r = null; try { r = JSON.parse(await env.HW.get(`omrp:${sid}:${t}`) || 'null'); } catch {}
+          if (r) out.push({ sid, ...nameOf(sid), score: r.score, max: r.max, now: nowOf(sid), at: r.at, right: (r.marks || []).filter(m => m === 1).length, n: (r.marks || []).length }); }
+        out.sort((a, c) => String(a.cls).localeCompare(String(c.cls), 'ar') || String(a.name).localeCompare(String(c.name), 'ar'));
+        return json({ ok: true, title: e.title, pub: !!e.pub, key: !!e.key, papers: out });
+      }
+      if (url.pathname === '/omr/papers/img') {
+        const t = String(url.searchParams.get('test') || ''), sid = String(url.searchParams.get('sid') || '');
+        let r = null; try { r = JSON.parse(await env.HW.get(`omrp:${sid}:${t}`) || 'null'); } catch {}
+        return r ? json({ ok: true, img: r.img, keyBoxes: r.keyBoxes || [], marks: r.marks || [] }) : json({ ok: false, error: 'notfound' }, 404);
       }
       // ⚙️ إعدادات التصحيح الآلي (من لوحة التحكم) — تقرؤها بوابة المعلم مع القائمة
       if (url.pathname === '/omr/settings' && request.method === 'POST') {

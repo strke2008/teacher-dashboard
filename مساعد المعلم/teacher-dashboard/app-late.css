@@ -2885,3 +2885,20 @@ body.pf-open #simp-bottomnav,body.pf-open .askf-btn{display:none!important}
 .omrm-acts{display:flex;gap:4px;flex:none}.omrm-acts .btn{min-width:36px;padding:4px 6px}
 .omrm-ren{display:flex;gap:.3rem}.omrm-ren .inp{min-height:34px;padding:4px 8px}
 @media(max-width:560px){.omrm-row{flex-wrap:wrap}.omrm-acts{width:100%;justify-content:flex-end}}
+
+/* 👁️ معاينة أوراق الاختبار قبل النشر */
+.opv-veil{position:fixed;inset:0;z-index:12000;background:rgba(10,16,28,.6);display:flex;align-items:center;justify-content:center;padding:14px}
+.opv-box{background:var(--ui-bg,#fff);color:var(--ink,#16233a);border-radius:18px;width:min(1100px,100%);max-height:92vh;overflow:auto;padding:14px 16px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.opv-head{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:.6rem;position:sticky;top:-14px;background:inherit;padding:.4rem 0;z-index:1}
+.opv-head>div{flex:1;display:grid}.opv-head small{color:var(--muted,#5a6b84);font-size:.8rem}
+.opv-warn{background:#fbf1e0;color:#96651b;border-radius:10px;padding:.5rem .7rem;font-size:.84rem;margin:0 0 .6rem}
+.opv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:.7rem}
+.opv-card{border:1px solid var(--ui-border,#e0e7f0);border-radius:12px;padding:.5rem;display:grid;gap:.4rem;align-content:start}
+.opv-card.bad{border-color:#e0a21f;box-shadow:0 0 0 2px rgba(224,162,31,.25)}
+.opv-img{aspect-ratio:210/297;background:#f1f5fa;border-radius:8px;overflow:hidden;display:grid;place-items:center;cursor:zoom-in}.opv-img img{width:100%;height:100%;object-fit:contain;display:block}
+.opv-meta{display:grid;gap:2px}.opv-meta small{color:var(--muted,#5a6b84);font-size:.74rem}
+.opv-sc{font-size:.8rem;font-weight:800;color:#C8102E}.opv-sc i{font-style:normal;color:#96651b}
+.opv-full{position:fixed;inset:0;z-index:12100;background:rgba(0,0,0,.9);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px;cursor:zoom-out}
+.opv-fimg{position:relative;max-height:88vh;aspect-ratio:210/297}.opv-fimg img{height:100%;max-width:96vw;object-fit:contain;display:block}
+.opv-fimg i{position:absolute;border:2px dashed #16A34A;border-radius:3px}
+.opv-full span{color:#fff;font-size:.82rem;margin-top:6px;text-align:center}

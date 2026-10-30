@@ -5862,6 +5862,7 @@ function omrManageRender(){
       ${(OMRM.papers||[]).length?`<div class="omrm-list">${OMRM.papers.map(t=>`<div class="omrm-row"><div class="omrm-main"><b>${esc(t.title)}</b><small>${t.n} ${t.n===1?'ورقة':'أوراق'} · آخرها ${d(t.at)}</small>
           <span class="omrm-chips">${t.pub?'<i class="ok">📢 منشورة</i>':'<i>🔒 غير منشورة</i>'}${t.pub&&t.key?'<i class="ok">✅ الإجابات الصحيحة ظاهرة</i>':''}</span></div>
         <div class="omrm-acts" style="flex-wrap:wrap;justify-content:flex-end">
+          <button class="btn ghost sm" type="button" onclick="omrPapersPreview('${esc(t.test)}')">👁️ معاينة</button>
           <button class="btn ${t.pub?'ghost':'tick'} sm" type="button" onclick="omrPapersPub('${esc(t.test)}',{pub:${!t.pub}})">${t.pub?'إيقاف النشر':'📢 نشر'}</button>
           ${t.pub?`<button class="btn ghost sm" type="button" title="تظهر الإجابة الصحيحة بإطار أخضر متقطع عند كل سؤال أخطأ فيه — أظهرها بعد أن تنتهي كل الفصول من الاختبار" onclick="omrPapersPub('${esc(t.test)}',{key:${!t.key}})">${t.key?'إخفاء الإجابات':'✅ إظهار الإجابات'}</button>`:''}
           <button class="btn ghost sm" type="button" title="حذف صور أوراق هذا الاختبار" onclick="omrPapersDel('${esc(t.test)}')">🗑️</button></div></div>`).join('')}</div>`
@@ -5895,6 +5896,37 @@ async function omrPapersPub(test,ch){
     toast(ch.pub===true?'📢 نُشرت — تظهر للطلاب وأولياء الأمور':ch.pub===false?'أُوقف النشر':ch.key?'✅ الإجابات الصحيحة ظاهرة':'أُخفيت الإجابات الصحيحة','good'); }
   catch(e){ toast('تعذّر التعديل','bad'); }
   omrManageRender();
+}
+/* 👁️ معاينة الأوراق قبل النشر: كل ورقة باسم صاحبها وختمها، مع تنبيه إن تغيّرت الدرجة المرصودة بعد الختم */
+async function omrPapersPreview(test){
+  const v=document.createElement('div'); v.className='opv-veil'; v.innerHTML='<div class="opv-box"><p class="muted" style="padding:2rem;text-align:center">جارٍ تحميل الأوراق…</p></div>'; document.body.appendChild(v);
+  const close=()=>{ v.remove(); omrManageRender(); }; v.onclick=e=>{ if(e.target===v) close(); };
+  let j; try{ j=await omrApiCall('/omr/papers/list?test='+encodeURIComponent(test)); }catch(e){ v.querySelector('.opv-box').innerHTML='<p class="muted" style="padding:2rem">تعذّر التحميل.</p>'; return; }
+  const P=j.papers||[], diff=P.filter(x=>x.now!=null&&Math.abs(x.now-x.score)>1e-9);
+  const render=()=>{ v.querySelector('.opv-box').innerHTML=`<div class="opv-head"><div><b>👁️ معاينة أوراق «${esc(j.title)}»</b><small>${P.length} ${P.length===1?'ورقة':'أوراق'} · ${j.pub?'📢 منشورة':'🔒 لم تُنشر بعد'}</small></div>
+      ${j.pub?'':`<button class="btn tick" type="button" id="opv-pub">📢 نشر الكل (${P.length})</button>`}<button class="btn ghost" type="button" id="opv-x">إغلاق</button></div>
+    ${diff.length?`<p class="opv-warn">⚠️ ${diff.length} ${diff.length===1?'ورقة':'أوراق'} درجة ختمها غير الدرجة المرصودة الآن (عُدّلت بعد التصحيح). احذفها أو أعد تصحيحها قبل النشر.</p>`:''}
+    <div class="opv-grid">${P.map((x,i)=>`<div class="opv-card${x.now!=null&&Math.abs(x.now-x.score)>1e-9?' bad':''}" data-i="${i}">
+        <div class="opv-img" data-open="${i}"><span class="muted">…</span></div>
+        <div class="opv-meta"><b>${esc(x.name||'طالب')}</b><small>${esc(x.cls)}${x.n?` · الصحيح ${x.right} من ${x.n}`:''}</small>
+          <span class="opv-sc">الختم: ${x.score} / ${x.max}${x.now!=null&&Math.abs(x.now-x.score)>1e-9?` · <i>المرصودة الآن ${x.now}</i>`:''}</span></div>
+        <button class="btn ghost sm" type="button" data-del="${i}" title="لا تُنشر هذه الورقة">🗑️ استبعاد</button></div>`).join('')||'<p class="muted">لا أوراق.</p>'}</div>`;
+    v.querySelector('#opv-x').onclick=close;
+    const pb=v.querySelector('#opv-pub'); if(pb) pb.onclick=async()=>{ await omrPapersPub(test,{pub:true}); j.pub=true; render(); };
+    v.querySelectorAll('[data-del]').forEach(b=>b.onclick=async()=>{ const x=P[+b.dataset.del]; if(!(await askConfirm(`استبعاد ورقة ${x.name||'الطالب'}؟ تُحذف صورتها ولا تُنشر — الدرجة المرصودة لا تتأثر.`,{title:'استبعاد الورقة',yes:'استبعد',no:'إلغاء',danger:true}))) return;
+      try{ await omrApiCall('/omr/papers/delete',{test,sid:x.sid}); P.splice(+b.dataset.del,1); const t=(OMRM.papers||[]).find(y=>y.test===test); if(t) t.n=P.length; toast('✓ استُبعدت','good'); render(); }catch(e){ toast('تعذّر الحذف','bad'); } });
+    v.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>{ const x=P[+b.dataset.open]; if(!x.img) return;
+      const o=document.createElement('div'); o.className='opv-full'; o.onclick=()=>o.remove();
+      o.innerHTML=`<div class="opv-fimg"><img src="${x.img}" alt="">${(x.keyBoxes||[]).map(k=>`<i style="left:${k[0]*100}%;top:${k[1]*100}%;width:${k[2]*100}%;height:${k[3]*100}%"></i>`).join('')}</div><span>${esc(x.name)} · ${x.score} / ${x.max}${j.key?' · الإطار المتقطع = الإجابة الصحيحة (ظاهرة للطلاب)':''} — اضغط للإغلاق</span>`;
+      document.body.appendChild(o); });
+    load(); };
+  // الصور واحدة بعد الأخرى (كل صورة ~120 ك.ب) — تظهر البطاقات فورًا
+  let busy=false; const load=async()=>{ if(busy) return; busy=true;
+    for(let i=0;i<P.length;i++){ const x=P[i]; if(!v.isConnected) break;
+      if(!x.img){ try{ const r=await omrApiCall(`/omr/papers/img?test=${encodeURIComponent(test)}&sid=${encodeURIComponent(x.sid)}`); x.img=r.img; x.keyBoxes=r.keyBoxes; }catch(e){ x.img=''; } }
+      const box=v.querySelector(`[data-open="${i}"]`); if(box&&x.img) box.innerHTML=`<img src="${x.img}" alt="">`; }
+    busy=false; };
+  render();
 }
 async function omrPapersDel(test){
   const t=(OMRM.papers||[]).find(x=>x.test===test); if(!t) return;
