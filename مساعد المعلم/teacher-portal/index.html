@@ -914,6 +914,7 @@ body:has(#bh-mbar:not([hidden])) #behavior{padding-bottom:70px}
 .omr-mthumb{width:92px;height:auto;max-height:130px;object-fit:contain;border-radius:10px;border:1px solid var(--rule);cursor:zoom-in;flex:none;align-self:center}
 .omr-minfo{flex:1;min-width:0;display:grid;gap:4px;align-content:center}.omr-minfo b{font-size:.95rem}.omr-minfo small{font-size:.73rem;font-weight:600;color:var(--ink-soft)}
 .omr-minfo .btn{min-height:40px;font-size:.85rem;padding:6px 10px}
+.omr-steps{margin:0;padding-inline-start:20px;display:grid;gap:8px;font-size:.84rem;line-height:1.7}.omr-steps small{display:block;color:var(--ink-soft);font-size:.74rem}
 .omr-bhead{display:grid;gap:2px}.omr-bhead b{font-size:1.05rem}.omr-bhead small{font-weight:600;color:var(--ink-soft)}
 .omr-bimg{width:100%;height:auto;max-height:58vh;object-fit:contain;border-radius:var(--r-sm);border:1px solid var(--rule);cursor:zoom-in;display:block}
 .omr-blegend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:.72rem;font-weight:600;color:var(--ink-soft)}.omr-blegend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-inline-end:4px;vertical-align:middle}
@@ -5769,8 +5770,7 @@ async function omrScan(){
         <button class="tile c-teal omr-tile wide2" type="button" onclick="omrStartCamera()"><span class="ic">⚡</span><b>تصوير تلقائي</b><span>ثبّت الجوال وضع الأوراق فوق بعض — يلتقط كل ورقة وحده</span></button>
         <label class="tile c-accent omr-tile"><span class="ic">📸</span><b>تصوير ورقة</b><span>صورة واحدة بكاميرا الجوال</span>
           <input type="file" accept="image/*" capture="environment" hidden onchange="omrPhoto(this)"></label>
-        <label class="tile c-violet omr-tile"><span class="ic">📄</span><b>ملف PDF</b><span>من الماسح الضوئي أو الصور</span>
-          <input type="file" accept="application/pdf,image/*" multiple id="omr-file" hidden></label>
+        <button class="tile c-violet omr-tile" type="button" onclick="omrScanGuide()"><span class="ic">📄</span><b>ماسح المستندات</b><span>ماسح الآيفون أو ملف PDF — أوضح تصوير</span></button>
       </div>
       <details class="omr-how"><summary>نصائح التصوير والمسح</summary>
         <p style="margin:4px 0"><b>التصوير:</b> من الأعلى قدر الإمكان، والمربعات السوداء الأربعة في زوايا الورقة داخل الصورة — يعمل على أي سطح، ولو كان طرف الورقة خارجها قليلًا. تجنّب ظلّ يدك أو الجوال فوق المربعات.</p>
@@ -5788,7 +5788,7 @@ async function omrScan(){
       <button class="btn primary omr-act-match" id="omr-act-match" type="button" onclick="omrMatch()" style="display:none"></button></div>`;
   $('omr-stu').onchange = e => { OMRUI.sid = e.target.value; };
   omrBatchCounter();
-  $('omr-file').onchange = async e => { const files = [...e.target.files]; e.target.value=''; if(files.length) omrLoadFiles(files); };
+
 }
 /* 📸 التصوير: كاميرا الآيفون الأصلية (صورة كاملة الدقة بتركيزها التلقائي) — لا بث فيديو.
    المحرك يكتشف الورقة ويقوّمها بنفسه كما يفعل الماسح. */
@@ -5798,6 +5798,23 @@ function omrShootBtn(label, sub){
 }
 function omrPhoto(inp){ const f = inp.files && inp.files[0]; inp.value = ''; if(f) omrLoadFiles([f], true); }
 /* 📄 طابور الأوراق: PDF (كل صفحة ورقة) أو صور — يُرسم كل عنصر عند دوره فقط (ذاكرة الجوال) */
+/* 📄 ماسح المستندات: الموقع لا يستطيع تشغيل ماسح الآيفون بنفسه، فنشرح الخطوات ثم يُختار الملف الناتج.
+   الماسح يلتقط بدقة الكاميرا الكاملة ويقصّ ويقوّم، ويلتقط الأوراق تلقائيًا واحدة بعد أخرى */
+function omrScanGuide(){
+  const st = $('omr-status'); if(st) st.textContent = '';
+  $('omr-result').innerHTML = `<div class="omr-res omr-guide-card">
+    <b style="font-size:1rem">📄 تصوير الفصل بماسح المستندات</b>
+    <ol class="omr-steps">
+      <li>افتح تطبيق <b>الملفات</b> ← <b>⋯</b> أعلى الشاشة ← <b>مسح المستندات</b><small>أو من <b>الملاحظات</b> ← 📎 ← مسح المستندات</small></li>
+      <li>اختر من الأعلى فلتر <b>ملوّن</b> أو <b>تدرّج رمادي</b> — لا «أبيض وأسود»<small>«أبيض وأسود» قد يمسح التظليل الخفيف بالرصاص</small></li>
+      <li>ضع الأوراق واحدة بعد الأخرى — الماسح يلتقط كل ورقة وحده عند ثباتها</li>
+      <li>اضغط <b>حفظ</b> (ملف PDF واحد لكل الفصل)، ثم ارجع هنا</li>
+    </ol>
+    <label class="btn primary wide omr-big">📂 اختر ملف المسح<small>PDF أو صور — يُقرأ كل الصفحات</small>
+      <input type="file" accept="application/pdf,image/*" multiple hidden onchange="const f=[...this.files];this.value='';if(f.length)omrLoadFiles(f)"></label>
+  </div>`;
+  try{ $('omr-result').scrollIntoView({ block:'start', behavior:'smooth' }); }catch(e){}
+}
 async function omrLoadFiles(files, photo){
   OMRUI.photoMode = !!photo; if(!photo) OMRUI.dupN = 0;
   const st = $('omr-status'); st.textContent = 'جارٍ فتح الملف…';
@@ -5813,6 +5830,7 @@ async function omrLoadFiles(files, photo){
   }catch(err){ st.textContent = 'تعذّر فتح الملف — تأكد أنه PDF أو صورة'; return; }
   if(!q.length){ st.textContent = 'لا صفحات في الملف'; return; }
   omrStopCamera(); OMRUI.queue = q; OMRUI.qi = 0; OMRUI.skipped = []; if(!photo) OMRUI.savedN = 0;
+  OMRUI.fileFrom = (OMRUI.sheets || []).length;                                   // أوراق هذا الملف: تُعرض كلها بعد القراءة
   const pk = $('omr-pick'); if(pk) pk.style.display = 'none';
   omrQueueNext();
 }
@@ -5839,7 +5857,7 @@ async function omrQueueNext(){
     let src;
     if(it.pdf){
       const page = await it.pdf.getPage(it.n), v1 = page.getViewport({ scale:1 });
-      const vp = page.getViewport({ scale: 1400 / v1.width });
+      const vp = page.getViewport({ scale: 1600 / Math.max(v1.width, v1.height) });     // الضلع الأطول 1600 (حد القراءة نفسه)
       src = document.createElement('canvas'); src.width = Math.round(vp.width); src.height = Math.round(vp.height);
       await page.render({ canvasContext: src.getContext('2d'), viewport: vp }).promise;
     } else src = await createImageBitmap(it.file, { imageOrientation:'from-image' });
@@ -5863,9 +5881,12 @@ function omrQueueDone(){
   if(OMRUI.batch && !OMRUI.photoMode){
     const n = OMRUI.queue.length, sk = OMRUI.skipped, got = OMRUI.sheets.length, dup = OMRUI.dupN || 0;
     $('omr-status').textContent = `✓ انتهى الملف: في الدفعة ${got} ${got===1?'ورقة':'أوراق'}`;
-    $('omr-result').innerHTML = `<div class="omr-res">${sk.length ? `<p class="omr-note" style="color:#9A6512"><b>لم تُقرأ ${sk.length}:</b> الصفحات ${sk.join('، ')} — أعد مسحها أو صوّرها.</p>` : ''}
-      ${dup ? `<p class="omr-note" style="color:#5A6B84">${dup} ${dup===1?'صفحة مكررة لم تُضف':'صفحات مكررة لم تُضف'} (مصوّرة مسبقًا في الدفعة).</p>` : ''}
-      <button class="btn primary wide" type="button" onclick="omrMatch()">🔗 ربط الأوراق بالطلاب (${got})</button></div>`;
+    const added = OMRUI.sheets.slice(OMRUI.fileFrom || 0);
+    $('omr-result').innerHTML = `<div class="omr-res">${sk.length ? `<p class="omr-note" style="color:var(--amber-ink)"><b>لم تُقرأ ${sk.length}:</b> الصفحات ${sk.join('، ')} — أعد مسحها أو صوّرها.</p>` : ''}
+      ${dup ? `<p class="omr-note">${dup} ${dup===1?'صفحة مكررة لم تُضف':'صفحات مكررة لم تُضف'} (مصوّرة مسبقًا في الدفعة).</p>` : ''}
+      <button class="btn primary wide" type="button" onclick="omrMatch()">🔗 راجع واربط الأوراق بالطلاب (${got})</button></div>
+      ${added.length ? `<p class="omr-note" style="margin:12px 2px 0">👀 ما قُرئ من كل صفحة — اضغط الصورة لتكبيرها:</p>${added.map((sh, k) => omrBatchMini(sh, false, 'bim-' + k)).join('')}` : ''}`;
+    added.forEach((sh, k) => omrBatchCardDraw(sh, 'bim-' + k));
     OMRUI.queue = []; return;
   }
   if(OMRUI.photoMode){
@@ -6397,10 +6418,10 @@ function omrBatchForce(){
   else omrBatchAfterSingle(false, sh);
 }
 /* بطاقة مصغّرة تحت الكاميرا: الكاميرا تبقى ظاهرة كاملة أثناء تبديل الأوراق */
-function omrBatchMini(sh, dup){
+function omrBatchMini(sh, dup, id = 'omr-bimg'){
   const A = sh.answers, mark = Number(OMRUI.tpl.mark) || 1;
   const pend = A.filter(a => a.final === null).length, ok = A.filter(a => a.final !== null && a.final === a.key).length;
-  return `<div class="omr-mini ${dup ? 'dup' : ''}"><canvas class="omr-mthumb" id="omr-bimg" onclick="omrBatchCardFull()" aria-label="صورة الورقة — اضغط للتكبير"></canvas>
+  return `<div class="omr-mini ${dup ? 'dup' : ''}" id="mini-${sh.id}"><canvas class="omr-mthumb" id="${id}" onclick="omrBatchCardFull('${id}')" aria-label="صورة الورقة — اضغط للتكبير"></canvas>
     <div class="omr-minfo">${dup ? `<b>⚠️ تبدو نفس ورقة مصوّرة — لم تُضف</b><small>إن كانت ورقة طالب آخر أضفها:</small>
         <button class="btn primary" type="button" onclick="omrBatchForce()">➕ ورقة أخرى — أضفها</button>`
       : `<b>✓ الورقة ${OMRUI.sheets.indexOf(sh) + 1}: ${+(ok * mark).toFixed(2)} من ${+(A.length * mark).toFixed(2)}${pend ? ' مبدئيًا' : ''}</b>
@@ -6424,8 +6445,8 @@ function omrBatchCard(sh, actions, dup){
     ${actions || ''}
     ${dup ? '' : `<button class="btn ghost" type="button" onclick="omrBatchUndo('${sh.id}')">🗑 الصورة غير صحيحة — احذفها وأعد التصوير</button>`}</div>`;
 }
-function omrBatchCardDraw(sh){
-  const cv = $('omr-bimg'); if(!cv) return;
+function omrBatchCardDraw(sh, id = 'omr-bimg'){
+  const cv = $(id); if(!cv) return;
   const im = new Image(); im.onload = () => {
     // قصّ الصورة على الورقة وحدها (المربعات أكبر وأوضح)
     const PG = [[0, 0], [210, 0], [210, 297], [0, 297]].map(([X, Y]) => OMR.apply(sh.H, X, Y).map(v => v * sh.fs));
@@ -6451,8 +6472,8 @@ function omrBatchCardDraw(sh){
   };
   im.src = sh.img;
 }
-function omrBatchCardFull(){
-  const cv = $('omr-bimg'); if(!cv || !cv.width) return;
+function omrBatchCardFull(id = 'omr-bimg'){
+  const cv = $(id); if(!cv || !cv.width) return;
   const o = document.createElement('div'); o.className = 'omr-full'; o.onclick = () => o.remove();
   o.innerHTML = `<img src="${cv.toDataURL('image/jpeg', 0.85)}" alt=""><span>اضغط للإغلاق</span>`; document.body.appendChild(o);
 }
@@ -6460,6 +6481,8 @@ async function omrBatchUndo(id){
   OMRUI.sheets = OMRUI.sheets.filter(x => x.id !== id); try{ OMRDB.del(id); }catch(e){}
   omrBatchCounter();
   const n = OMRUI.sheets.length;
+  // قائمة صفحات ملف المسح: نحذف بطاقة الصفحة وحدها وتبقى البقية
+  const card = $('mini-' + id); if(card && !OMRUI.stream && document.querySelectorAll('#omr-result .omr-mini').length > 1){ card.remove(); $('omr-status').textContent = `حُذفت — في الدفعة ${n} ${n===1?'ورقة':'أوراق'}`; return; }
   $('omr-status').textContent = 'حُذفت — صوّر الورقة من جديد';
   if(OMRUI.stream){ OMRUI.waitSwap = false; OMRUI.savedSig = null; OMRUI.lastPv = null; OMRUI.last = null; OMRUI.stable = 0; $('omr-result').innerHTML = ''; return; }
   $('omr-result').innerHTML = `<div class="omr-res omr-dark">${omrShootBtn('📸 صوّر الورقة من جديد', `في الدفعة ${n} ${n===1?'ورقة':'أوراق'}`)}
