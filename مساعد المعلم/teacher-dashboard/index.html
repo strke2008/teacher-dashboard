@@ -23,7 +23,7 @@
 <link rel="stylesheet" href="app.css?v=16178ead">
 <script src="js/00-fetch-dedupe-js.js?v=e77498d1" defer></script>
 <script src="js/01-right-sidebar-navigation-js.js?v=41ea29b3" defer></script>
-<script src="js/02.js?v=91024091" defer></script>
+<script src="js/02.js?v=c8086541" defer></script>
 <script src="js/03-projects-students-logic-v13.js?v=d4950f64" defer></script>
 <script src="js/04.js?v=5a7c663e" defer></script>
 <script src="js/05.js?v=a7c074c3" defer></script>
@@ -1097,11 +1097,11 @@
 </div>
 <div class="field" style="margin:0 0 .7rem"><label>قالب الاختبار</label>
 <select class="inp" id="ex-tpl" onchange="examTplChanged()">
-<option value="t1">قالب ١ — ورقة واحدة: ٥ اختيار من متعدد + ٥ صح/خطأ</option>
-<option value="t5">قالب ٥ — 📷 ورقة واحدة يصححها الجوال كلها: اختيار + صح/خطأ + وصل</option>
-<option value="t2">قالب ٢ — ٢٠ سؤالًا (ورقتان): ٥ اختيار + ٥ صح/خطأ | ٥ وصل + ٥ أكمل الفراغ</option>
-<option value="t3">قالب ٣ — مرن (ورقتان): ٥ اختيار + ٥ صح/خطأ | ٥ وصل + «أجب عن كل مما يلي»</option>
-<option value="t4">قالب ٤ — مصمَّم: تختار لكل صفحة نوع الأسئلة وعددها ودرجتها</option>
+<option selected value="t5">قالب ١ — 📷 تصحيح آلي بالجوال: ورقة واحدة (اختيار + صح/خطأ + وصل)</option>
+<option value="t1">قالب ٢ — ورقة واحدة: ٥ اختيار من متعدد + ٥ صح/خطأ</option>
+<option value="t2">قالب ٣ — ٢٠ سؤالًا (ورقتان): ٥ اختيار + ٥ صح/خطأ | ٥ وصل + ٥ أكمل الفراغ</option>
+<option value="t3">قالب ٤ — مرن (ورقتان): ٥ اختيار + ٥ صح/خطأ | ٥ وصل + «أجب عن كل مما يلي»</option>
+<option value="t4">قالب ٥ — مصمَّم: تختار لكل صفحة نوع الأسئلة وعددها ودرجتها</option>
 </select></div>
 <input id="ex-flex" type="hidden" value=""/>
 <div class="sheet" id="ex-flex-ui" style="display:none;margin:.2rem 0 1rem;padding:.85rem"></div>
@@ -1109,7 +1109,7 @@
 <div class="exm-bar" id="ex-extra-models" style="display:none"></div>
 <input id="ex-extra-pins" type="hidden" value="{}"/>
 <div class="muted" style="font-size:.76rem;line-height:1.8;margin-bottom:.6rem">
-        الصفحة الأولى تخرج بنفس تصميم القالب ١ من بنك الأسئلة أعلاه (٥ + ٥ ثابتة). أسئلة الصفحة الثانية تُكتب هنا سطرًا لكل سؤال، أو تُسحب من النشاط/الملف إن كان فيه أسئلة وصل وأكمل الفراغ. المحتوى لا يتجاوز صفحتين: تُضغط المسافات تلقائيًا إن لزم.
+        الصفحة الأولى تخرج بنفس تصميم القالب ٢ من بنك الأسئلة أعلاه (٥ + ٥ ثابتة). أسئلة الصفحة الثانية تُكتب هنا سطرًا لكل سؤال، أو تُسحب من النشاط/الملف إن كان فيه أسئلة وصل وأكمل الفراغ. المحتوى لا يتجاوز صفحتين: تُضغط المسافات تلقائيًا إن لزم.
       </div>
 <div class="field"><label>الوصل — ٥ أزواج، سطر لكل زوج: العمود الأول | ما يناسبه <span class="muted">(سطر يبدأ بـ | يضيف خيارًا مشتتًا)</span></label>
 <textarea class="inp" id="ex-match-txt" oninput="examBuild()" rows="5" style="min-height:7rem;font-family:inherit" placeholder="الخلية | وحدة البناء والوظيفة في الكائن الحي"></textarea></div>

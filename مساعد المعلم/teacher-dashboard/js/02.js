@@ -6264,7 +6264,7 @@ function examTplSyncUI(){
   const openGrid = document.querySelector('#ex-extra-open > .grid2'); if(openGrid) openGrid.style.display = t === 't4' ? 'none' : '';
   const pull = document.querySelector('#ex-extra > .row:last-child'); if(pull) pull.style.display = '';
   const note = document.querySelector('#ex-extra > .muted'); if(note) note.style.display = t === 't4' ? 'none' : '';
-  const mk = document.getElementById('ex-mark'); if(mk){ mk.disabled = t === 't4'; mk.title = t === 't4' ? 'في القالب ٤ لكل قسم درجته' : ''; }
+  const mk = document.getElementById('ex-mark'); if(mk){ mk.disabled = t === 't4'; mk.title = t === 't4' ? 'في القالب ٥ (المصمَّم) لكل قسم درجته' : ''; }
   ['ex-nmc','ex-ntf'].forEach(id => {                 // القالبان ٢ و٣: ٥ + ٥ ثابتة · القالب ٤: مجموع أقسامه
     const el = document.getElementById(id); if(!el) return;
     if(t === 't1' || t === 't5'){ if(el.dataset.keep !== undefined){ el.value = el.dataset.keep; delete el.dataset.keep; } el.disabled = false; }
@@ -6544,7 +6544,7 @@ function examApplyExtras(ex, quiet){
 function examPullExtras(){
   const src = document.getElementById('ex-src')?.value || 'hw';
   const ex = src === 'hw' ? examExtrasFromActivity() : examJsonExtras();
-  if(!ex.match.length && !ex.fill.length && !ex.open.length){ toast(src === 'ai' ? 'لم يُولَّد وصل أو فراغ بعد — اختر القالب ٢ أو ٣ ثم ولّد من جديد' : 'لا توجد أسئلة وصل أو أكمل الفراغ في هذا المصدر', 'bad'); return; }
+  if(!ex.match.length && !ex.fill.length && !ex.open.length){ toast(src === 'ai' ? 'لم يُولَّد وصل أو فراغ بعد — اختر القالب ٣ أو ٤ ثم ولّد من جديد' : 'لا توجد أسئلة وصل أو أكمل الفراغ في هذا المصدر', 'bad'); return; }
   examApplyExtras(ex);
 }
 
