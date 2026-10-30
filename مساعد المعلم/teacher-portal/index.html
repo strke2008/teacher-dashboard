@@ -839,48 +839,54 @@ body:has(#bh-mbar:not([hidden])) #behavior{padding-bottom:70px}
   .rem-days{display:flex;flex-wrap:wrap;gap:6px}.rem-days label{display:flex;flex-direction:row;align-items:center;gap:4px;border:1px solid var(--line,#E2E8F0);border-radius:10px;padding:6px 8px;font-weight:600}
 
 /* 📷 المصحّح الآلي */
-.omr-sheet{position:fixed;inset:0;z-index:180;background:#0B1322;color:#EEF2F7;display:flex;flex-direction:column;padding-top:var(--safe-t);direction:rtl}
-.omr-top{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px}
+.omr-sheet{position:fixed;inset:0;z-index:180;background:radial-gradient(circle at 100% 0,rgba(201,214,229,.20),transparent 28rem),var(--paper);color:var(--ink);display:flex;flex-direction:column;direction:rtl}
+/* شريط علوي بلون ترويسة البوابة، والمحتوى بطاقات البوابة نفسها */
+.omr-top{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--header);color:#fff;padding:calc(8px + var(--safe-t)) 12px 8px;min-height:var(--header-h);box-shadow:0 2px 10px rgba(0,0,0,.12)}
 .omr-top b{font-size:1rem}
-.omr-x{width:42px;height:42px;border-radius:12px;background:rgba(255,255,255,.1);color:#fff;border:0;font-size:1rem}
-.omr-body{flex:1;overflow:auto;padding:0 12px calc(16px + var(--safe-b))}
-.omr-card{background:#fff;color:var(--ink,#16233A);border-radius:16px;padding:14px;display:grid;gap:10px}
+.omr-x{width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.14);font-size:1rem}
+.omr-body{flex:1;overflow:auto;padding:12px 12px calc(16px + var(--safe-b));max-width:640px;width:100%;margin:0 auto}
+.omr-card{background:var(--surface);color:var(--ink);border:1px solid var(--rule);border-radius:var(--r);padding:14px;display:grid;gap:10px;box-shadow:var(--shadow)}
 .omr-card label{display:grid;gap:4px;font-size:.82rem;font-weight:700}
-.omr-note{font-size:.78rem;line-height:1.7;opacity:.85;margin:0}
-.omr-card .omr-note{color:#5A6B84;opacity:1}
+.omr-note{font-size:.76rem;line-height:1.7;color:var(--ink-soft);margin:0}
 .omr-stu-row{margin-bottom:8px}.omr-stu{width:100%;min-height:46px;font-weight:700}
-.omr-cam{position:relative;border-radius:16px;overflow:hidden;background:#000;aspect-ratio:3/4;max-height:58vh;margin:0 auto}
+.omr-cam{position:relative;border-radius:var(--r-lg);overflow:hidden;background:#000;aspect-ratio:3/4;max-height:60vh;margin:0 auto;box-shadow:var(--shadow-lift);border:1px solid var(--rule)}
 .omr-cam video{width:100%;height:100%;object-fit:contain;display:block}
 .omr-ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .omr-sub{display:block;font-size:.72rem;font-weight:600;opacity:.8}
-.omr-batch-tg{display:flex;gap:10px;align-items:flex-start;background:rgba(255,255,255,.08);border-radius:14px;padding:10px 12px;margin-bottom:10px;cursor:pointer}
-.omr-batch-tg input{width:22px;height:22px;margin-top:2px;flex:none;accent-color:#22C55E}
-.omr-batch-tg span{display:grid;gap:2px}.omr-batch-tg small{font-size:.74rem;opacity:.8;line-height:1.6}
+.omr-batch-tg{display:flex;gap:12px;align-items:center;justify-content:space-between;background:var(--surface);border:1px solid var(--rule);border-radius:var(--r);padding:12px 13px;margin:0 0 10px;cursor:pointer;box-shadow:var(--shadow);font-size:inherit;color:inherit}
+.omr-batch-tg span{display:grid;gap:3px;min-width:0}.omr-batch-tg b{font-size:.9rem;color:var(--ink)}.omr-batch-tg small{font-size:.72rem;color:var(--ink-soft);line-height:1.6;font-weight:500}
+.omr-switch{appearance:none;-webkit-appearance:none;flex:none;width:46px;height:28px;border-radius:999px;background:var(--surface-3);border:1px solid var(--rule-strong);position:relative;cursor:pointer;transition:background .15s;margin:0}
+.omr-switch::after{content:'';position:absolute;top:2px;right:2px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .15s}
+.omr-switch:checked{background:var(--green);border-color:var(--green)}.omr-switch:checked::after{transform:translateX(-18px)}
+.omr-tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.omr-tile{min-height:118px;cursor:pointer;font:inherit;color:inherit}.omr-tile.wide2{grid-column:1/-1;min-height:0}
+.omr-tile .ic{font-size:1.25rem}.omr-tile span:not(.ic){padding-left:0}
 .omr-match-btn{min-height:52px;margin-bottom:10px;font-weight:800}
 #omr-body.cam-on .omr-batch-tg,#omr-body.cam-on .omr-match-btn{display:none!important}
 .omr-actions .omr-act-match{grid-column:1/-1;order:-1;min-height:52px;font-weight:800}
 .omr-actions{margin-top:8px}
 .omr-mhead{display:flex;justify-content:space-between;align-items:baseline;margin:2px 0 10px}.omr-mhead span{font-size:.8rem;opacity:.8}
 .omr-mlist{display:grid;gap:10px;margin-top:12px}
-.omr-mc{background:#fff;color:#16233A;border-radius:14px;overflow:hidden;border:2px solid transparent}
-.omr-mc.open{border-color:#3B82F6}.omr-mc.saved{opacity:.72}
+.omr-mc{background:var(--surface);color:var(--ink);border-radius:var(--r);overflow:hidden;border:1px solid var(--rule);box-shadow:var(--shadow)}
+.omr-mc.open{border:2px solid var(--accent)}.omr-mc.saved{opacity:.72}
 .omr-mtop{display:block;width:100%;background:none;border:0;padding:0;text-align:inherit;color:inherit;font:inherit;cursor:pointer}
-.omr-name{display:block;width:100%;height:auto;background:#f4f4f2;border-bottom:1px solid #E6ECF4}
+.omr-name{display:block;width:100%;height:auto;background:#f4f4f2;border-bottom:1px solid var(--rule)}
 .omr-mline{display:block;padding:8px 12px;font-size:.84rem}.omr-mline b{font-size:1.1rem}
-.omr-pend{font-style:normal;color:#9A6512;font-weight:700}.omr-ok{font-style:normal;color:#137A53;font-weight:700}
+.omr-pend{font-style:normal;color:var(--amber-ink);font-weight:700}.omr-ok{font-style:normal;color:var(--green-ink);font-weight:700}
 .omr-mbody{padding:0 12px 12px;display:grid;gap:10px}
 .omr-q{min-height:46px}
 .omr-manual{display:grid;gap:4px;font-size:.82rem;font-weight:700;color:inherit}.omr-manual small{font-weight:600;opacity:.75}.omr-manual .inp{min-height:46px;font-size:1.05rem;font-weight:800;text-align:center}
-.omr-res .omr-manual{margin:8px 0;color:#16233A;background:#FFF7E6;border-radius:12px;padding:8px 10px}
+.omr-res .omr-manual{margin:8px 0;color:var(--ink);background:var(--amber-soft);border-radius:var(--r-sm);padding:8px 10px}
 .omr-slist{display:grid;gap:6px;max-height:42vh;overflow:auto}
-.omr-sbtn{min-height:46px;border-radius:12px;border:1px solid #E6ECF4;background:#F8FAFC;color:#16233A;font:inherit;font-weight:700;text-align:start;padding:8px 12px;cursor:pointer}
-.omr-sbtn.on{background:#DBEAFE;border-color:#3B82F6}.omr-sbtn small{font-weight:600;color:#5A6B84}
+.omr-sbtn{min-height:46px;border-radius:var(--r-sm);border:1px solid var(--rule);background:var(--surface-2);color:var(--ink);font:inherit;font-weight:700;text-align:start;padding:8px 12px;cursor:pointer}
+.omr-sbtn.on{background:var(--accent-soft);border-color:var(--accent)}.omr-sbtn small{font-weight:600;color:var(--ink-soft)}
 .omr-full{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:calc(10px + var(--safe-t)) 8px calc(10px + var(--safe-b))}
 .omr-full img{max-width:100%;max-height:92vh;object-fit:contain}.omr-full span{color:#fff;font-size:.8rem;margin-top:6px}
 
 .omr-diag{position:absolute;bottom:6px;inset-inline-start:8px;font-size:.66rem;color:rgba(255,255,255,.7);background:rgba(0,0,0,.35);padding:1px 6px;border-radius:6px;direction:ltr}   /* المعاينة = ما يُحلَّل فعلًا */
 .omr-guide{position:absolute;inset:6% 10%;border:2px dashed rgba(255,255,255,.55);border-radius:10px;pointer-events:none}
-.omr-status{text-align:center;font-weight:700;margin:10px 0;min-height:1.4em}
+.omr-status{text-align:center;font-weight:700;font-size:.86rem;margin:10px auto;min-height:1.4em;width:fit-content;max-width:100%;background:var(--surface);border:1px solid var(--rule);border-radius:999px;padding:8px 14px;box-shadow:var(--shadow);color:var(--ink)}
+.omr-status:empty{display:none}
 .omr-actions,.omr-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .omr-actions .btn,.omr-row .btn{min-height:48px}
 .omr-row .btn:disabled{opacity:.42;filter:grayscale(.6)}
@@ -891,24 +897,26 @@ body:has(#bh-mbar:not([hidden])) #behavior{padding-bottom:70px}
 .omr-big2{min-height:52px}
 .omr-file-btn{display:flex;align-items:center;justify-content:center;cursor:pointer}
 .omr-dark{background:transparent;padding:0}
-.omr-how{background:rgba(255,255,255,.07);border-radius:12px;padding:8px 12px;font-size:.8rem;line-height:1.8}
-.omr-how summary{cursor:pointer;font-weight:700}.omr-how ol{margin:6px 0 0;padding-inline-start:18px}
-.omr-res{background:#fff;color:#16233A;border-radius:16px;padding:12px;margin-top:10px;display:grid;gap:10px}
+.omr-how{background:var(--surface);border:1px solid var(--rule);border-radius:var(--r);padding:10px 13px;font-size:.78rem;line-height:1.8;color:var(--ink-soft);box-shadow:var(--shadow)}
+.omr-how b{color:var(--ink)}
+.omr-how summary{cursor:pointer;font-weight:700;color:var(--ink)}.omr-how ol{margin:6px 0 0;padding-inline-start:18px}
+.omr-res{background:var(--surface);color:var(--ink);border:1px solid var(--rule);border-radius:var(--r);padding:13px;margin-top:10px;display:grid;gap:10px;box-shadow:var(--shadow)}
+.omr-res.omr-dark{background:transparent;border:0;box-shadow:none;padding:0}
 .omr-score{display:flex;align-items:baseline;justify-content:center;gap:6px}
-.omr-score b{font-size:2.8rem;line-height:1}.omr-score span{font-size:1.1rem;color:#5A6B84}.omr-score small{display:block;width:100%;text-align:center;font-size:.8rem;color:#5A6B84;margin-inline-start:8px}
+.omr-score b{font-size:2.8rem;line-height:1}.omr-score span{font-size:1.1rem;color:var(--ink-soft)}.omr-score small{display:block;width:100%;text-align:center;font-size:.8rem;color:var(--ink-soft);margin-inline-start:8px}
 .omr-qs{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
 .omr-q{min-height:48px;border-radius:12px;border:0;font-weight:800;font-size:.95rem;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.2}
 .omr-q i{font-style:normal;font-size:.66rem;opacity:.75}
-.omr-mini{display:flex;gap:10px;align-items:stretch;background:#fff;color:#16233A;border-radius:14px;padding:8px;margin-top:8px}
-.omr-mini.dup{background:#FFF7E6}
-.omr-mthumb{width:92px;height:auto;max-height:130px;object-fit:contain;border-radius:8px;border:1px solid #E6ECF4;cursor:zoom-in;flex:none;align-self:center}
-.omr-minfo{flex:1;min-width:0;display:grid;gap:4px;align-content:center}.omr-minfo b{font-size:.95rem}.omr-minfo small{font-size:.74rem;font-weight:700;color:#5A6B84}
+.omr-mini{display:flex;gap:11px;align-items:stretch;background:var(--surface);color:var(--ink);border:1px solid var(--rule);border-radius:var(--r);padding:9px;margin-top:8px;box-shadow:var(--shadow)}
+.omr-mini.dup{background:var(--amber-soft);border-color:color-mix(in srgb,var(--amber) 45%,transparent)}
+.omr-mthumb{width:92px;height:auto;max-height:130px;object-fit:contain;border-radius:10px;border:1px solid var(--rule);cursor:zoom-in;flex:none;align-self:center}
+.omr-minfo{flex:1;min-width:0;display:grid;gap:4px;align-content:center}.omr-minfo b{font-size:.95rem}.omr-minfo small{font-size:.73rem;font-weight:600;color:var(--ink-soft)}
 .omr-minfo .btn{min-height:40px;font-size:.85rem;padding:6px 10px}
-.omr-bhead{display:grid;gap:2px}.omr-bhead b{font-size:1.05rem}.omr-bhead small{font-weight:700;color:#5A6B84}
-.omr-bimg{width:100%;height:auto;max-height:58vh;object-fit:contain;border-radius:10px;border:1px solid #E6ECF4;cursor:zoom-in;display:block}
-.omr-blegend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:.74rem;font-weight:700;color:#5A6B84}.omr-blegend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-inline-end:4px;vertical-align:middle}
+.omr-bhead{display:grid;gap:2px}.omr-bhead b{font-size:1.05rem}.omr-bhead small{font-weight:600;color:var(--ink-soft)}
+.omr-bimg{width:100%;height:auto;max-height:58vh;object-fit:contain;border-radius:var(--r-sm);border:1px solid var(--rule);cursor:zoom-in;display:block}
+.omr-blegend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:.72rem;font-weight:600;color:var(--ink-soft)}.omr-blegend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-inline-end:4px;vertical-align:middle}
 .omr-bcard .omr-qs{pointer-events:none}
-.omr-q.ok{background:#E3F5EC;color:#137A53}.omr-q.no{background:#FDE7EA;color:#B23346}.omr-q.rev{background:#FFF3DC;color:#9A6512;outline:2px solid #E0A21F}
+.omr-q.ok{background:var(--green-soft);color:var(--green-ink)}.omr-q.no{background:var(--red-soft);color:var(--red-ink)}.omr-q.rev{background:var(--amber-soft);color:var(--amber-ink);outline:2px solid var(--amber)}
 .omr-fixbox{border:1px solid #E6ECF4;border-radius:12px;padding:10px;display:grid;gap:8px}
 .omr-crop{position:relative;overflow:hidden;border-radius:8px;background:#eee}
 .omr-crop img{position:absolute;top:0;left:0;max-width:none;transform-origin:0 0}
@@ -5748,15 +5756,18 @@ async function omrScan(){
   OMRUI.batch = bp === '1';
   await omrBatchLoad();
   $('omr-body').innerHTML = `
-    <label class="omr-batch-tg"><input type="checkbox" id="omr-batch" ${OMRUI.batch?'checked':''} onchange="omrBatchToggle(this.checked)">
-      <span><b>📚 تصوير الفصل ثم ربط الأسماء</b><small>صوّر الأوراق كلها متتالية، ثم اربط كل ورقة بصاحبها من اسمه المكتوب</small></span></label>
+    <label class="omr-batch-tg"><span><b>📚 تصوير الفصل ثم ربط الأسماء</b><small>صوّر الأوراق كلها متتالية، ثم اربط كل ورقة بصاحبها من اسمه المكتوب</small></span>
+      <input type="checkbox" class="omr-switch" id="omr-batch" ${OMRUI.batch?'checked':''} onchange="omrBatchToggle(this.checked)"></label>
     <button class="btn primary wide omr-match-btn" id="omr-match-btn" type="button" onclick="omrMatch()" style="display:none"></button>
     <div class="omr-stu-row" ${OMRUI.batch?'style="display:none"':''}>${omrStudentsSelect()}</div>
     <div class="omr-pick" id="omr-pick">
-      ${omrShootBtn('📸 تصوير ورقة', 'كاميرا الجوال — الورقة كاملة والمربعات السوداء الأربعة داخل الصورة')}
-      <button class="btn ghost omr-big2" type="button" onclick="omrStartCamera()">⚡ تصوير تلقائي<small class="omr-sub">وجّه الجوال فيلتقط الورقة وحده</small></button>
-      <label class="btn ghost omr-big2 omr-file-btn">📄 ملف PDF من الماسح الضوئي
-        <input type="file" accept="application/pdf,image/*" multiple id="omr-file" hidden></label>
+      <div class="omr-tiles">
+        <button class="tile c-teal omr-tile wide2" type="button" onclick="omrStartCamera()"><span class="ic">⚡</span><b>تصوير تلقائي</b><span>ثبّت الجوال وضع الأوراق فوق بعض — يلتقط كل ورقة وحده</span></button>
+        <label class="tile c-accent omr-tile"><span class="ic">📸</span><b>تصوير ورقة</b><span>صورة واحدة بكاميرا الجوال</span>
+          <input type="file" accept="image/*" capture="environment" hidden onchange="omrPhoto(this)"></label>
+        <label class="tile c-violet omr-tile"><span class="ic">📄</span><b>ملف PDF</b><span>من الماسح الضوئي أو الصور</span>
+          <input type="file" accept="application/pdf,image/*" multiple id="omr-file" hidden></label>
+      </div>
       <details class="omr-how"><summary>نصائح التصوير والمسح</summary>
         <p style="margin:4px 0"><b>التصوير:</b> من الأعلى قدر الإمكان، والمربعات السوداء الأربعة في زوايا الورقة داخل الصورة — يعمل على أي سطح، ولو كان طرف الورقة خارجها قليلًا. تجنّب ظلّ يدك أو الجوال فوق المربعات.</p>
         <p style="margin:4px 0 2px"><b>المسح لفصل كامل:</b></p>
@@ -5766,7 +5777,7 @@ async function omrScan(){
     </div>
     <div class="omr-cam" style="display:none"><video id="omr-video" playsinline muted autoplay></video><canvas id="omr-pv" class="omr-ov"></canvas><span class="omr-diag" id="omr-diag"></span></div>
     <canvas id="omr-canvas" hidden></canvas>
-    <div class="omr-status" id="omr-status">اختر طريقة المسح</div>
+    <div class="omr-status" id="omr-status"></div>
     <div id="omr-result"></div>
     <div class="omr-actions" style="display:none"><button class="btn ghost" type="button" onclick="omrStopCamera()">⏹ إيقاف الكاميرا</button>
       <button class="btn ghost" type="button" onclick="omrClose(true)">تغيير الاختبار</button>
