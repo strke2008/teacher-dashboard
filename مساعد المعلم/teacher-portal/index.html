@@ -883,6 +883,8 @@ body:has(#bh-mbar:not([hidden])) #behavior{padding-bottom:70px}
 .omr-full{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:calc(10px + var(--safe-t)) 8px calc(10px + var(--safe-b))}
 .omr-full img{max-width:100%;max-height:92vh;object-fit:contain}.omr-full span{color:#fff;font-size:.8rem;margin-top:6px}
 
+.omr-torch{position:absolute;top:10px;inset-inline-start:10px;z-index:2;border:1px solid rgba(255,255,255,.35);background:rgba(15,23,42,.6);color:#fff;font:inherit;font-weight:700;font-size:.8rem;border-radius:999px;padding:7px 12px;cursor:pointer}
+.omr-torch.on{background:#FACC15;color:#1B273E;border-color:#FACC15}
 .omr-diag{position:absolute;bottom:6px;inset-inline-start:8px;font-size:.66rem;color:rgba(255,255,255,.7);background:rgba(0,0,0,.35);padding:1px 6px;border-radius:6px;direction:ltr}   /* المعاينة = ما يُحلَّل فعلًا */
 .omr-guide{position:absolute;inset:6% 10%;border:2px dashed rgba(255,255,255,.55);border-radius:10px;pointer-events:none}
 .omr-status{text-align:center;font-weight:700;font-size:.86rem;margin:10px auto;min-height:1.4em;width:fit-content;max-width:100%;background:var(--surface);border:1px solid var(--rule);border-radius:999px;padding:8px 14px;box-shadow:var(--shadow);color:var(--ink)}
@@ -5400,6 +5402,7 @@ const OMR = (() => {
       const c0 = (at(0, 0) + at(1, 0) + at(-1, 0) + at(0, 1) + at(0, -1)) / 5;
       C.push({ x: cx, y: cy, s: 2 * hf, hollow: c0 > mid });
     }
+    findMarks.cands = C.length <= 400 ? C.map(c => [(c.x + 0.5) / S.f, (c.y + 0.5) / S.f]) : [];   // للتوجيه الحي: أي زاوية ظاهرة
     if (C.length < 4 || C.length > 4000) return null;
     // لكل زاوية في الصورة: أبعد المرشحين في اتجاهها، ثم أفضل رباعي يحقق شكل العلامات
     const dirs = [c => -(c.x + c.y), c => c.x - c.y, c => c.x + c.y, c => c.y - c.x];
@@ -5671,7 +5674,7 @@ const OMR = (() => {
     const review = answers.filter(a => a.status !== 'ok').length;
     return { ok: true, code, answers, correct, review, H: P.H, quad: found.quad, pageScore: +P.score.toFixed(1), ms: Date.now() - t0, dbg: { via: found.marks ? 'marks' : found.frame ? 'frame' : found.scan ? 'scan' : 'paper', dx: P.dx, dy: P.dy, rot: P.rot, secs: [...secShift.values()] } };
   }
-  return { read, code, prepare, prepareFrame, findFrame, findMarks, gray, findPaper, homography, apply, T, _t: { readCode, alignPage, searchSet, outlinePts, boxScore, edgeScore } };
+  return { read, code, prepare, prepareFrame, findFrame, findMarks, gray, findPaper, homography, apply, T, _t: { readCode, alignPage, searchSet, outlinePts, boxScore, edgeScore, decide } };
 })();
 
 /* ═══════════ 📷 المصحّح الآلي — واجهة بوابة المعلم ═══════════
@@ -5776,7 +5779,7 @@ async function omrScan(){
           <li>امسح أوراق الطلاب متتالية — الماسح يلتقطها تلقائيًا ويقصّها ويعدّلها.</li>
           <li>احفظ الملف، ثم ارجع هنا واضغط «مسح ضوئي أو صورة» واختره.</li></ol></details>
     </div>
-    <div class="omr-cam" style="display:none"><video id="omr-video" playsinline muted autoplay></video><canvas id="omr-pv" class="omr-ov"></canvas><span class="omr-diag" id="omr-diag"></span></div>
+    <div class="omr-cam" style="display:none"><video id="omr-video" playsinline muted autoplay></video><canvas id="omr-pv" class="omr-ov"></canvas><span class="omr-diag" id="omr-diag"></span><button type="button" class="omr-torch" id="omr-torch" hidden onclick="omrTorch()">🔦 الفلاش</button></div>
     <canvas id="omr-canvas" hidden></canvas>
     <div class="omr-status" id="omr-status"></div>
     <div id="omr-result"></div>
@@ -5948,9 +5951,16 @@ async function omrStartCameraRun(){
   if(!best){ st.textContent = 'تعذّر تشغيل الكاميرا — استخدم «📸 تصوير ورقة»'; return; }
   const v = $('omr-video'); if(v.srcObject !== best.s){ v.srcObject = best.s; await v.play().catch(()=>{}); }
   OMRUI.stream = best.s; OMRUI.camTry = best.k; OMRUI.lowRes = Math.min(best.w, best.h) < 900;
+  // 🔦 الفلاش: يظهر الزر فقط إن سمح به المتصفح (أندرويد غالبًا؛ سفاري الآيفون لا يسمح)
+  OMRUI.torch = false; try{ const tr = best.s.getVideoTracks()[0], cp = tr && tr.getCapabilities ? tr.getCapabilities() : {}; const tb = $('omr-torch'); if(tb){ tb.hidden = !cp.torch; tb.classList.remove('on'); } }catch(e){}
   try{ localStorage.setItem('omr_cam_try', String(best.k)); }catch(e){}
   $('omr-pick').style.display = 'none'; $('omr-result').innerHTML = ''; OMRUI.photoMode = false; OMRUI.queue = [];
   omrStartLoop();
+}
+async function omrTorch(){
+  const tr = OMRUI.stream && OMRUI.stream.getVideoTracks ? OMRUI.stream.getVideoTracks()[0] : null; if(!tr) return;
+  try{ await tr.applyConstraints({ advanced: [{ torch: !OMRUI.torch }] }); OMRUI.torch = !OMRUI.torch; const b = $('omr-torch'); if(b) b.classList.toggle('on', OMRUI.torch); }
+  catch(e){ toast('الفلاش غير متاح في هذا المتصفح'); }
 }
 function omrStopCamera(){
   omrStopLoop(); omrKillStreams(); OMRUI.camGen = (OMRUI.camGen || 0) + 1;       // يُلغي أي تشغيل جارٍ لم يكتمل
@@ -5987,6 +5997,17 @@ function omrPaint(){
     x.lineWidth = 4 * dpr; x.strokeStyle = wait ? '#3B82F6' : ok ? '#22C55E' : '#F59E0B'; x.fillStyle = wait ? 'rgba(59,130,246,.10)' : ok ? 'rgba(34,197,94,.15)' : 'rgba(245,158,11,.12)';
     x.beginPath(); q.forEach(([px, py], k) => { const X = ox + px * s, Y = oy + py * s; k ? x.lineTo(X, Y) : x.moveTo(X, Y); }); x.closePath(); x.fill(); x.stroke();
   }
+  const same = OMRUI.curDims && OMRUI.curDims[0] === vw && OMRUI.curDims[1] === vh;
+  // نقاط الزوايا: خضراء = المربع الأسود ظاهر، حمراء = غائب أو مظلَّل
+  if(same && OMRUI.curDots) OMRUI.curDots.forEach(([px, py, ok]) => { const X = ox + px * s, Y = oy + py * s, R = 9 * dpr;
+    x.beginPath(); x.arc(X, Y, R, 0, 7); x.fillStyle = ok ? '#22C55E' : 'rgba(239,68,68,.25)'; x.fill(); x.lineWidth = 3 * dpr; x.strokeStyle = ok ? '#fff' : '#EF4444'; x.stroke(); });
+  if(same && OMRUI.curGlare){ const [gx, gy] = OMRUI.curGlare; x.beginPath(); x.arc(ox + gx * s, oy + gy * s, 34 * dpr, 0, 7); x.setLineDash([6 * dpr, 5 * dpr]); x.lineWidth = 3 * dpr; x.strokeStyle = '#FACC15'; x.stroke(); x.setLineDash([]); }
+  if(OMRUI.curHint){                                                              // التنبيه على الصورة نفسها: يُرى والعين على الورقة
+    x.font = `700 ${13 * dpr}px system-ui,sans-serif`; x.textAlign = 'center'; x.textBaseline = 'middle';
+    const t = OMRUI.curHint, tw = Math.min(W - 16 * dpr, x.measureText(t).width + 24 * dpr), th = 32 * dpr, bx = (W - tw) / 2, by = H - th - 34 * dpr;   // أسفل الصورة: لا يتقاطع مع زر الفلاش
+    x.fillStyle = 'rgba(15,23,42,.78)'; x.beginPath(); if(x.roundRect) x.roundRect(bx, by, tw, th, 12 * dpr); else x.rect(bx, by, tw, th); x.fill();
+    x.fillStyle = '#fff'; x.fillText(t, W / 2, by + th / 2, tw - 16 * dpr);
+  }
 }
 function omrDrawQuad(q, ok, dims, wait){ OMRUI.curQuad = q; OMRUI.curOk = !!ok; OMRUI.curDims = dims || null; OMRUI.curWait = !!wait; }
 function omrTick(){
@@ -5999,7 +6020,7 @@ function omrTick(){
   const MM = OMRUI.tpl && OMRUI.tpl.models[OMRUI.auto ? 0 : OMRUI.model], MK = MM && MM.marks;
   let pr = null, sc = k;
   if(MK){
-    const tryMk = (cv, kk) => { const G = OMR.gray(cv.getContext('2d', { willReadFrequently:true }).getImageData(0, 0, cv.width, cv.height)); const f = OMR.findMarks(G, MK, MM); if(f){ pr = { G, found: f }; sc = kk; } };
+    const tryMk = (cv, kk) => { const G = OMR.gray(cv.getContext('2d', { willReadFrequently:true }).getImageData(0, 0, cv.width, cv.height)); OMR.findMarks.cands = []; const f = OMR.findMarks(G, MK, MM); OMRUI.mkC = { c: OMR.findMarks.cands || [], s: kk }; if(f){ pr = { G, found: f }; sc = kk; } };
     tryMk(c, k);
     if(!pr && (OMRUI.mkTick = (OMRUI.mkTick || 0) + 1) % 2 === 0){            // بعيدة/صغيرة: نسخة أكبر كل ثاني نبضة
       const k2 = Math.min(1, 1100 / Math.max(vw, vh)), c2 = OMRUI.mid || (OMRUI.mid = document.createElement('canvas'));
@@ -6018,10 +6039,21 @@ function omrTick(){
   }
   const st = $('omr-status');
   const land = vw > vh, dg = $('omr-diag'); if(dg) dg.textContent = `${vw}×${vh} · ${land ? 'عرضي' : 'طولي'} · ص${(OMRUI.camTry ?? -1) + 1}`;
+  // 🎯 توجيه حي: نقطة على كل زاوية (خضراء = المربع الأسود ظاهر)، وتنبيه للزاوية الغائبة
+  OMRUI.curDots = null; OMRUI.curHint = ''; OMRUI.curGlare = null;
+  if(MK && !pr.error){
+    const R = pr.found.marks ? pr.found.rect : (pr.found.rect || [0, 0, 210, 297]);
+    const Hm = OMR.homography([[R[0], R[1]], [R[0] + R[2], R[1]], [R[0] + R[2], R[1] + R[3]], [R[0], R[1] + R[3]]], pr.found.quad);
+    const exp = MK.map(m => OMR.apply(Hm, m[0] + m[2] / 2, m[1] + m[3] / 2).map(v => v / sc));
+    const cands = OMRUI.mkC ? OMRUI.mkC.c.map(([a, b]) => [a / OMRUI.mkC.s, b / OMRUI.mkC.s]) : [], tol = 0.035 * Math.hypot(vw, vh);
+    OMRUI.curDots = exp.map(e => [e[0], e[1], !!pr.found.marks || cands.some(c => Math.hypot(c[0] - e[0], c[1] - e[1]) < tol)]);
+    const miss = OMRUI.curDots.filter(d => !d[2]).map(d => `${d[1] < vh / 2 ? 'أعلى' : 'أسفل'} ${d[0] < vw / 2 ? 'اليسار' : 'اليمين'}`);
+    if(miss.length && miss.length < 4) OMRUI.curHint = `⬛ المربع الأسود ${miss.join(' و')} غير ظاهر — أدخله في الصورة أو أبعد الظل عنه`;
+  }
   // الورقة غابت عن الإطار = بُدّلت: يُسمح بالتقاط جديد
   if(pr.error){
     if(OMRUI.waitSwap) OMRUI.waitSwap = false;
-    OMRUI.qprev = null; OMRUI.still = 0; OMRUI.stable = 0;
+    OMRUI.qprev = null; OMRUI.still = 0; OMRUI.stable = 0; OMRUI.acc = []; OMRUI.shHist = []; OMRUI.glareN = 0;
     omrDrawQuad(pr.quad ? pr.quad.map(([a, b]) => [a / sc, b / sc]) : null, false, [vw, vh]);      // زوايا هذه اللحظة فقط
     if(st) st.textContent = MK
       ? (land ? 'ضع الورقة بالعرض — والمربعات السوداء الأربعة في زواياها داخل الصورة' : 'خلّ المربعات السوداء الأربعة في زوايا الورقة داخل الصورة')
@@ -6037,7 +6069,15 @@ function omrTick(){
   const move = OMRUI.qprev ? Math.max(...q.map((p, i) => Math.hypot(p[0] - OMRUI.qprev[i][0], p[1] - OMRUI.qprev[i][1]))) / diag : 1;
   if(OMRUI.waitSwap && move > 0.15 && OMRUI.qprev) OMRUI.waitSwap = false;       // الورقة تحرّكت كثيرًا = ورقة أخرى
   OMRUI.qprev = q; OMRUI.still = move < 0.012 ? OMRUI.still + 1 : 0;
+  if(!OMRUI.still){ OMRUI.acc = []; OMRUI.shHist = []; }                         // تحرّك: القراءات المجمّعة والوضوح يبدآن من جديد
   omrDrawQuad(q, !OMRUI.waitSwap, [vw, vh], OMRUI.waitSwap);
+  // ✨ اللمعة والوضوح: على النسخة الصغيرة، داخل الورقة فقط (بإحداثيات الصفحة بالمم)
+  const Gs = sc === k && pr.G ? pr.G : OMR.gray(x.getImageData(0, 0, c.width, c.height));
+  const Rp = pr.found.rect || [0, 0, 210, 297];
+  const Hp = OMR.homography([[Rp[0], Rp[1]], [Rp[0] + Rp[2], Rp[1]], [Rp[0] + Rp[2], Rp[1] + Rp[3]], [Rp[0], Rp[1] + Rp[3]]], pr.found.quad.map(([a, b]) => [a * k / sc, b * k / sc]));
+  const gq = omrPageQuality(Gs, Hp);
+  if(gq.glare){ OMRUI.curGlare = [gq.glare[0] / k, gq.glare[1] / k]; OMRUI.curHint = '✨ لمعة ضوء على الورقة — ميّل الجوال قليلًا أو غيّر مكانه'; }
+  OMRUI.glareN = gq.glare ? (OMRUI.glareN || 0) + 1 : 0; OMRUI.glareMm = gq.glareMm;
   if(OMRUI.lowRes && st && !OMRUI.waitSwap){ st.textContent = 'دقة الكاميرا منخفضة لقراءة المربعات — استخدم «📸 تصوير ورقة»'; }
   if(OMRUI.waitSwap){
     if(st && !OMRUI.dupSheet) st.textContent = OMRUI.batch ? `✓ في الدفعة ${OMRUI.sheets.length} — ضع الورقة التالية فوقها` : 'بدّل الورقة بورقة الطالب التالي';
@@ -6048,8 +6088,44 @@ function omrTick(){
   }
   if(OMRUI.lowRes) return;                                                      // لا قراءة بدقة لا تكفي
   if(OMRUI.still < 2){ if(st) st.textContent = 'ثبّت الجوال…'; return; }
+  if(gq.glare && OMRUI.glareN < 8){ if(st) st.textContent = 'لمعة ضوء فوق الورقة — ميّل الجوال قليلًا'; return; }   // بعد ثانيتين نقرأ على أي حال
+  // 🔍 أوضح لقطة: لا نقرأ لقطة أقل حدة بوضوح من أفضل لقطة في الثانيتين الأخيرتين (اهتزاز أو تركيز لم يكتمل)
+  const sh = OMRUI.shHist || (OMRUI.shHist = []); sh.push(gq.sharp); if(sh.length > 8) sh.shift();
+  if(sh.length < 3 || gq.sharp < 0.85 * Math.max(...sh)){ if(st) st.textContent = 'ثبّت الجوال… يضبط الوضوح'; return; }
   if(st) st.textContent = 'جارٍ القراءة…';
   omrProcess(v, vw, vh, false);                                                   // الورقة ثابتة: قراءة كاملة بالدقة الكاملة
+}
+/* جودة اللقطة داخل الورقة: الحدّة (متوسط مربع التدرّج) واللمعة (بقعة أفتح بوضوح من بياض الورق) */
+function omrPageQuality(G, H){
+  const vals = [], pts = [], mm = [];
+  for(let y = 40; y <= 285; y += 6) for(let x = 12; x <= 198; x += 6){
+    const p = OMR.apply(H, x, y), X = Math.round(p[0]), Y = Math.round(p[1]);
+    if(X < 1 || Y < 1 || X >= G.w - 1 || Y >= G.h - 1) continue; vals.push(G.g[Y * G.w + X]); pts.push([X, Y]); mm.push([x, y]);
+  }
+  let glare = null, glareMm = null;
+  if(vals.length > 50){
+    const med = vals.slice().sort((a, b) => a - b)[vals.length >> 1];
+    if(med < 228){ const hot = pts.map((p, i) => i).filter(i => vals[i] > Math.max(med + 22, 236));
+      if(hot.length >= 6){ glare = [hot.reduce((t, i) => t + pts[i][0], 0) / hot.length, hot.reduce((t, i) => t + pts[i][1], 0) / hot.length]; glareMm = hot.map(i => mm[i]); } }
+  }
+  const P = [[0, 0], [210, 0], [210, 297], [0, 297]].map(([a, b]) => OMR.apply(H, a, b));
+  const x0 = Math.max(1, Math.min(...P.map(p => p[0])) | 0), x1 = Math.min(G.w - 2, Math.max(...P.map(p => p[0])) | 0);
+  const y0 = Math.max(1, Math.min(...P.map(p => p[1])) | 0), y1 = Math.min(G.h - 2, Math.max(...P.map(p => p[1])) | 0);
+  let s = 0, n = 0;
+  for(let y = y0; y < y1; y += 2) for(let x = x0; x < x1; x += 2){ const i = y * G.w + x, gx = G.g[i + 1] - G.g[i - 1], gy = G.g[i + G.w] - G.g[i - G.w]; s += gx * gx + gy * gy; n++; }
+  return { sharp: n ? s / n : 0, glare, glareMm };
+}
+/* 🧮 دمج عدة لقطات للورقة نفسها: متوسط امتلاء كل مربع ثم القرار — العلامة الباهتة التي تظهر وتختفي بين اللقطات تستقر */
+function omrFuse(rs){
+  const last = rs[rs.length - 1];
+  const answers = last.answers.map((a, i) => {
+    const ok = rs.map(r => r.answers[i]).filter(x => x.status !== 'unaligned' && x.fills && x.fills.length === a.fills.length);
+    if(ok.length < Math.ceil(rs.length / 2)) return a;
+    const avg = a.fills.map((_, k) => +(ok.reduce((t, x) => t + x.fills[k], 0) / ok.length).toFixed(3));
+    const d = OMR._t.decide(avg.map(v => ({ fill: v, ink: 0 })));
+    return { ...a, ...d, alt: d.alt, fills: avg };
+  });
+  return { ...last, answers, fused: rs.length };
 }
 function omrProcess(src, w, h, single){
   OMRUI.busy = true;
@@ -6071,7 +6147,7 @@ function omrProcess(src, w, h, single){
       if(single && OMRUI.queue && OMRUI.queue.length){ omrPageFailed(OMR_MSG[r.error] || 'لم تُقرأ'); return; }
       if(st) st.textContent = (single ? '📸 ' : '') + (OMR_MSG[r.error] || 'أعد المحاولة');
       return; }
-    const sig = OMRUI.model + ':' + r.answers.map(a => a.status==='ok' ? a.pick : a.status[0]).join(',');   // بصمة القراءة
+    let sig = OMRUI.model + ':' + r.answers.map(a => a.status==='ok' ? a.pick : a.status[0]).join(',');   // بصمة القراءة
     if(!single){
       if(OMRUI.savedSig){
         const a = OMRUI.savedSig.split(':'), b = sig.split(':'), pa = (a[1]||'').split(','), pb = (b[1]||'').split(',');
@@ -6082,9 +6158,16 @@ function omrProcess(src, w, h, single){
         if(same){ OMRUI.waitSwap = true; if(st) st.textContent = OMRUI.batch ? `✓ الورقة ${OMRUI.sheets.length} في الدفعة — ضع الورقة التالية فوقها` : 'هذه الورقة حُفظت — بدّلها بورقة الطالب التالي'; return; }
         OMRUI.waitSwap = false; OMRUI.savedSig = null;                     // ورقة مختلفة فعلًا
       }
-      OMRUI.stable = (OMRUI.last === sig) ? OMRUI.stable + 1 : 0; OMRUI.last = sig;
-      if(OMRUI.stable < 1){ if(st) st.textContent = 'ثبّت الجوال…'; return; }   // قراءتان متطابقتان متتاليتان
-      OMRUI.liveSig = sig;
+      // ثلاث لقطات للورقة نفسها ثم الدمج. إجابة واضحة تغيّرت بين لقطتين = ورقة أخرى أو اهتزاز: نبدأ من جديد
+      const acc = OMRUI.acc || (OMRUI.acc = []);
+      if(acc.length && (acc[0].m !== OMRUI.model || r.answers.some((a, i) => a.status === 'ok' && acc.some(p => p.r.answers[i] && p.r.answers[i].status === 'ok' && p.r.answers[i].pick !== a.pick)))) acc.length = 0;
+      acc.push({ r, m: OMRUI.model });
+      if(acc.length < 3){ if(st) st.textContent = `جارٍ القراءة… ${acc.length} من 3`; return; }
+      r = omrFuse(acc.map(p => p.r)); OMRUI.acc = [];
+      // قرأنا رغم اللمعة: كل سؤال تقع مربعاته تحتها يُعرض للتأكيد بدل أن يُصحَّح (اللمعة قد تمسح علامة الطالب)
+      if(OMRUI.glareMm && OMRUI.glareMm.length) r.answers = r.answers.map(a => (a.boxes || []).some(b => OMRUI.glareMm.some(([gx, gy]) => Math.abs(gx - (b.r[0] + b.r[2] / 2)) < 7 && Math.abs(gy - (b.r[1] + b.r[3] / 2)) < 7)) ? { ...a, status: 'glare' } : a);
+      sig = OMRUI.model + ':' + r.answers.map(a => a.status==='ok' ? a.pick : a.status[0]).join(',');
+      OMRUI.last = sig; OMRUI.liveSig = sig;
     }
     if(OMRUI.batch){ omrBatchAdd(r, c, img, sig, single); return; }      // 🗂️ الدفعة: أضف واستمر
     omrStopLoop();
@@ -6123,7 +6206,7 @@ function omrShowResult(){
 function omrFix(i){
   const a = OMRUI.result.answers[i], L = ['أ','ب','ج','د','هـ','و'], n = OMRUI.tpl.models[OMRUI.model].questions[i].boxes.length;
   const opts = a.t==='tf' ? [[0,'صح'],[1,'خطأ']] : Array.from({length:n},(_,k)=>[k,a.t==='mt'?String(k+1):L[k]]);   // الوصل: أرقام العمود الأول
-  const why = { multi:'مربعان معلّمان', faint:'علامة باهتة', blank:'لم يُعلَّم شيء', unaligned:'لم يتضح المربع' }[a.status] || '';
+  const why = { multi:'مربعان معلّمان', faint:'علامة باهتة', blank:'لم يُعلَّم شيء', unaligned:'لم يتضح المربع', glare:'لمعة ضوء فوقه' }[a.status] || '';
   const qq = OMRUI.tpl.models[OMRUI.model].questions[i].q;
   $('omr-fix').innerHTML = `<div class="omr-fixbox"><b>السؤال ${i+1}${why?` — ${why}`:''}</b>${qq ? `<small class="omr-qtxt">${esc(String(qq).slice(0, 90))}</small>` : ''}
     <div class="omr-crop" id="omr-crop-box"></div>
@@ -6436,7 +6519,7 @@ function omrMatchRender(){
 }
 function omrMatchBody(s, used){
   const L = ['أ','ب','ج','د','هـ','و'], M = OMRUI.tpl.models[s.model];
-  const why = { multi:'مربعان معلّمان', faint:'علامة باهتة', blank:'لم يُعلَّم شيء', unaligned:'لم يتضح المربع' };
+  const why = { multi:'مربعان معلّمان', faint:'علامة باهتة', blank:'لم يُعلَّم شيء', unaligned:'لم يتضح المربع', glare:'لمعة ضوء فوقه' };
   const pend = s.answers.map((a, i) => ({ a, i })).filter(x => x.a.final === null);
   const b = examBook();
   const studs = list(OMRUI.cls).filter(x => !used.has(String(x.id)) || String(x.id) === String(s.sid));
