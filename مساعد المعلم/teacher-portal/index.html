@@ -918,7 +918,8 @@ body:has(#bh-mbar:not([hidden])) #behavior{padding-bottom:70px}
 .omr-bcard .omr-qs{pointer-events:none}
 .omr-q.ok{background:var(--green-soft);color:var(--green-ink)}.omr-q.no{background:var(--red-soft);color:var(--red-ink)}.omr-q.rev{background:var(--amber-soft);color:var(--amber-ink);outline:2px solid var(--amber)}
 .omr-fixbox{border:1px solid #E6ECF4;border-radius:12px;padding:10px;display:grid;gap:8px}
-.omr-crop{position:relative;overflow:hidden;border-radius:8px;background:#eee}
+.omr-crop{position:relative;overflow:hidden;border-radius:var(--r-sm);background:var(--surface-3);border:1px solid var(--rule);min-height:40px;cursor:zoom-in}
+.omr-qtxt{display:block;font-size:.76rem;color:var(--ink-soft);font-weight:600;line-height:1.6;margin:-2px 0 4px}
 .omr-crop img{position:absolute;top:0;left:0;max-width:none;transform-origin:0 0}
 .omr-opts{display:flex;gap:6px;flex-wrap:wrap}.omr-opts .btn{flex:1;min-height:46px;min-width:60px}
 
@@ -6123,20 +6124,71 @@ function omrFix(i){
   const a = OMRUI.result.answers[i], L = ['أ','ب','ج','د','هـ','و'], n = OMRUI.tpl.models[OMRUI.model].questions[i].boxes.length;
   const opts = a.t==='tf' ? [[0,'صح'],[1,'خطأ']] : Array.from({length:n},(_,k)=>[k,a.t==='mt'?String(k+1):L[k]]);   // الوصل: أرقام العمود الأول
   const why = { multi:'مربعان معلّمان', faint:'علامة باهتة', blank:'لم يُعلَّم شيء', unaligned:'لم يتضح المربع' }[a.status] || '';
-  $('omr-fix').innerHTML = `<div class="omr-fixbox"><b>السؤال ${i+1}${why?` — ${why}`:''}</b>
-    <div class="omr-crop"><img src="${OMRUI.frozen}" id="omr-crop-img" alt=""></div>
+  const qq = OMRUI.tpl.models[OMRUI.model].questions[i].q;
+  $('omr-fix').innerHTML = `<div class="omr-fixbox"><b>السؤال ${i+1}${why?` — ${why}`:''}</b>${qq ? `<small class="omr-qtxt">${esc(String(qq).slice(0, 90))}</small>` : ''}
+    <div class="omr-crop" id="omr-crop-box"></div>
     <div class="omr-opts">${opts.map(([v,l])=>`<button type="button" class="btn ${a.final===v?'primary':'ghost'}" onclick="omrSet(${i},${v})">${l}</button>`).join('')}
       <button type="button" class="btn ${a.final===-1?'primary':'ghost'}" onclick="omrSet(${i},-1)">فارغ</button></div></div>`;
   omrCrop(i);
 }
 /* قصاصة السؤال من الصورة المجمّدة: موضع مربعاته عبر التحويل المنظوري نفسه */
 function omrCrop(i){
-  const r = OMRUI.result, a = r.answers[i], img = $('omr-crop-img'); if(!img || !a.boxes) return;
-  const pts = a.boxes.flatMap(b => { const [x,y,w,h]=b.r; return [OMR.apply(r.H,x+b.dx-2,y+b.dy-2), OMR.apply(r.H,x+w+b.dx+2,y+h+b.dy+2)]; });
-  const xs = pts.map(p=>p[0]), ys = pts.map(p=>p[1]);
-  const x0 = Math.min(...xs)-30, x1 = Math.max(...xs)+30, y0 = Math.min(...ys)-18, y1 = Math.max(...ys)+18;
-  const c = $('omr-canvas'), W = c.width, H = c.height, box = img.parentElement, bw = box.clientWidth || 320, s = bw/(x1-x0);
-  img.style.width = (W*s)+'px'; img.style.transform = `translate(${-x0*s}px,${-y0*s}px)`; box.style.height = ((y1-y0)*s)+'px';
+  const r = OMRUI.result, a = r.answers[i], box = $('omr-crop-box'); if(!box || !a.boxes) return;
+  omrRowCrop(box, OMRUI.frozen, r.H, 1, a, i);
+}
+/* ✂️ قصاصة السؤال: السطر كاملًا بعرض الورقة (نص السؤال ورقمه ومربعاته)، والسؤال المقصود مؤطَّر وما حوله باهت —
+   كانت القصاصة تُكبَّر على المربعات وحدها فتظهر صفوف صح/خطأ متشابهة بلا رقم ولا نص، ولا يُعرف أيها المقصود */
+function omrRowCrop(box, src, H, fs, a, qi){
+  const mc = a.t === 'mc', bs = a.boxes.map(b => [b.r[0] + b.dx, b.r[1] + b.dy, b.r[2], b.r[3]]);
+  const top = Math.min(...bs.map(b => b[1])), bot = Math.max(...bs.map(b => b[1] + b[3]));
+  const l = Math.min(...bs.map(b => b[0])), r = Math.max(...bs.map(b => b[0] + b[2]));
+  // الاختيار: خياراته على عرض الورقة. صح/خطأ والوصل: مكبَّرة على المربعات وعناوينها (نص السؤال مكتوب فوق القصاصة)
+  const rx0 = mc ? 7 : Math.max(5, l - 11), rx1 = mc ? 203 : Math.min(205, r + 16);
+  const qy0 = top - (mc ? 2.6 : 1.8), qy1 = bot + (mc ? 5 : 1.8), ry0 = qy0 - (mc ? 1.5 : 4.5), ry1 = qy1 + (mc ? 1.5 : 4.5);   // نص الخيار قد يلتف لسطرين تحت مربعه
+  const P = (x, y) => OMR.apply(H, x, y).map(v => v * fs);
+  // الاختيار العريض (4 خيارات في سطر): نصفان فوق بعض (أ ب ثم ج د) ليكبر النص
+  const sx = bs.map(b => [b[0], b[0] + b[2]]).sort((a, b) => b[0] - a[0]);
+  const segs = mc && r - l > 110 && sx.length >= 3 ? (() => { const sp = sx[Math.ceil(sx.length / 2)][1] + 1.2; return [[sp, rx1], [rx0, sp + 1]]; })() : [[rx0, rx1]];
+  const im = new Image();
+  im.onload = () => {
+    const dpr = window.devicePixelRatio || 1, bw = (box.clientWidth || 320), W = Math.round(bw * dpr);
+    const parts = segs.map(([a, b]) => {
+      const C = [P(a, ry0), P(b, ry0), P(b, ry1), P(a, ry1)];
+      const x0 = Math.max(0, Math.min(...C.map(p => p[0]))), x1 = Math.min(im.naturalWidth, Math.max(...C.map(p => p[0])));
+      const y0 = Math.max(0, Math.min(...C.map(p => p[1]))), y1 = Math.min(im.naturalHeight, Math.max(...C.map(p => p[1])));
+      const k = W / Math.max(1, x1 - x0); return { a, b, x0, x1, y0, y1, k, h: Math.round((y1 - y0) * k) };
+    });
+    if(parts.some(q => q.x1 - q.x0 < 10 || q.y1 - q.y0 < 5)) return;
+    const gap = parts.length > 1 ? Math.round(6 * dpr) : 0;
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = parts.reduce((t, q) => t + q.h, 0) + gap * (parts.length - 1);
+    cv.style.width = '100%'; cv.style.display = 'block';
+    const x = cv.getContext('2d'); x.fillStyle = '#E6ECF4'; x.fillRect(0, 0, cv.width, cv.height);
+    const poly = (pts) => { x.beginPath(); pts.forEach((p, j) => j ? x.lineTo(p[0], p[1]) : x.moveTo(p[0], p[1])); x.closePath(); };
+    let oy = 0;
+    parts.forEach((q, pi) => {
+      x.save(); x.beginPath(); x.rect(0, oy, W, q.h); x.clip(); x.translate(0, oy);
+      x.drawImage(im, q.x0, q.y0, q.x1 - q.x0, q.y1 - q.y0, 0, 0, W, q.h);
+      const T = (X, Y) => { const p = P(X, Y); return [(p[0] - q.x0) * q.k, (p[1] - q.y0) * q.k]; };
+      const Q = [T(q.a + .6, qy0), T(q.b - .6, qy0), T(q.b - .6, qy1), T(q.a + .6, qy1)];
+      // ما خارج السؤال باهت
+      x.beginPath(); x.rect(0, 0, W, q.h); Q.slice().reverse().forEach((p, j) => j ? x.lineTo(p[0], p[1]) : x.moveTo(p[0], p[1])); x.closePath();
+      x.fillStyle = 'rgba(255,255,255,.62)'; x.fill('evenodd');
+      x.lineWidth = 2.5 * dpr; x.strokeStyle = '#C88A2E'; poly(Q); x.stroke();
+      x.lineWidth = 2 * dpr; x.strokeStyle = '#E0A21F';
+      bs.forEach(b => { poly([T(b[0] - .8, b[1] - .8), T(b[0] + b[2] + .8, b[1] - .8), T(b[0] + b[2] + .8, b[1] + b[3] + .8), T(b[0] - .8, b[1] + b[3] + .8)]); x.stroke(); });
+      if(pi === 0){                                                               // رقم السؤال على السطر نفسه
+        const fz = Math.max(11 * dpr, Math.min(20 * dpr, (Q[2][1] - Q[1][1]) * 0.55));
+        x.font = `800 ${fz}px system-ui,sans-serif`; const lab = String(qi + 1), tw = x.measureText(lab).width + fz * 0.9, th = fz * 1.35;
+        const bx = Math.min(W - tw - 3 * dpr, Q[1][0] - tw / 2), by = Math.max(2 * dpr, (Q[1][1] + Q[2][1]) / 2 - th / 2);
+        x.fillStyle = '#C88A2E'; x.beginPath(); if(x.roundRect) x.roundRect(bx, by, tw, th, th / 2); else x.rect(bx, by, tw, th); x.fill();
+        x.fillStyle = '#fff'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(lab, bx + tw / 2, by + th / 2 + 1);
+      }
+      x.restore(); oy += q.h + gap;
+    });
+    box.innerHTML = ''; box.style.height = ''; box.appendChild(cv);
+    box.onclick = () => { const o = document.createElement('div'); o.className = 'omr-full'; o.onclick = () => o.remove(); o.innerHTML = `<img src="${cv.toDataURL('image/jpeg', .9)}" alt=""><span>اضغط للإغلاق</span>`; document.body.appendChild(o); };
+  };
+  im.src = src;
 }
 function omrSet(i, v){ OMRUI.result.answers[i].final = v; omrShowResult(); if(OMRUI.result.answers.some(a=>a.final===null)) { const j = OMRUI.result.answers.findIndex(a=>a.final===null); omrFix(j); } }
 function omrWrongOf(answers, model){
@@ -6385,7 +6437,8 @@ function omrMatchBody(s, used){
   const studs = list(OMRUI.cls).filter(x => !used.has(String(x.id)) || String(x.id) === String(s.sid));
   return `<div class="omr-mbody">
     ${pend.map(({ a, i }) => { const n = M.questions[i].boxes.length, opts = a.t === 'tf' ? [[0,'صح'],[1,'خطأ']] : Array.from({ length:n }, (_, k) => [k, a.t === 'mt' ? String(k+1) : L[k]]);
-      return `<div class="omr-fixbox"><b>السؤال ${i+1} — ${why[a.status] || ''}</b><div class="omr-crop" id="crop-${s.id}-${i}"><img src="${s.img}" alt=""></div>
+      const qt = M.questions[i].q ? esc(String(M.questions[i].q).slice(0, 90)) : '';
+      return `<div class="omr-fixbox"><b>السؤال ${i+1} — ${why[a.status] || ''}</b>${qt ? `<small class="omr-qtxt">${qt}</small>` : ''}<div class="omr-crop" id="crop-${s.id}-${i}"></div>
         <div class="omr-opts">${opts.map(([v, l]) => `<button type="button" class="btn ghost" onclick="omrSheetSet('${s.id}',${i},${v})">${l}</button>`).join('')}
         <button type="button" class="btn ghost" onclick="omrSheetSet('${s.id}',${i},-1)">فارغ</button></div></div>`; }).join('')}
     ${omrManualHTML('man-' + s.id, s.manual ?? '', s.model, `omrSheetManual('${s.id}',this.value)`)}
@@ -6422,12 +6475,8 @@ async function omrSheetSave(s){
   omrMatchRender();
 }
 function omrSheetCrop(s, i){
-  const box = $(`crop-${s.id}-${i}`); if(!box) return; const img = box.querySelector('img'), a = s.answers[i]; if(!a.boxes) return;
-  const pts = a.boxes.flatMap(b => { const [x, y, w, h] = b.r; return [OMR.apply(s.H, x + b.dx - 2, y + b.dy - 2), OMR.apply(s.H, x + w + b.dx + 2, y + h + b.dy + 2)]; }).map(([x, y]) => [x * s.fs, y * s.fs]);
-  const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
-  const x0 = Math.min(...xs) - 24, x1 = Math.max(...xs) + 24, y0 = Math.min(...ys) - 14, y1 = Math.max(...ys) + 14;
-  const go = () => { const bw = box.clientWidth || 320, sc = bw / (x1 - x0); img.style.width = (img.naturalWidth * sc) + 'px'; img.style.transform = `translate(${-x0 * sc}px,${-y0 * sc}px)`; box.style.height = ((y1 - y0) * sc) + 'px'; };
-  if(img.complete && img.naturalWidth) go(); else img.onload = go;
+  const box = $(`crop-${s.id}-${i}`), a = s.answers[i]; if(!box || !a.boxes) return;
+  omrRowCrop(box, s.img, s.H, s.fs, a, i);
 }
 function omrSheetView(id){
   const s = OMRUI.sheets.find(x => x.id === id); if(!s) return;
