@@ -2841,6 +2841,7 @@ body.pf-open #simp-bottomnav,body.pf-open .askf-btn{display:none!important}
 .ex-amtq:last-child{border-bottom:0}
 .ex-amt-c1,.ex-amt-c2{display:flex;align-items:center;gap:2mm;padding:1.2mm 3mm}
 .ex-amt-c2{background:#F8FBFA}
+.ex-amt-c1::before{content:'';flex:0 0 1.8mm;height:1.8mm;border-radius:50%;background:#0E5B4E}
 .ex-amt-o{display:flex;gap:2.4mm;direction:rtl;align-items:center;padding:.8mm 3mm;border-inline:1.3px dashed #B9CCC9;background:#FCFDFD}
 .ex-amto{display:inline-flex;flex-direction:column;align-items:center;gap:.8mm;font-weight:900;color:#0E5B4E;white-space:nowrap;line-height:1}
 .ex-amto i{font-style:normal;font-size:.72em}
