@@ -883,6 +883,7 @@ body:has(#bh-mbar:not([hidden])) #behavior{padding-bottom:70px}
 .omr-sbtn{min-height:46px;border-radius:var(--r-sm);border:1px solid var(--rule);background:var(--surface-2);color:var(--ink);font:inherit;font-weight:700;text-align:start;padding:8px 12px;cursor:pointer}
 .omr-sbtn.on{background:var(--accent-soft);border-color:var(--accent)}.omr-sbtn small{font-weight:600;color:var(--ink-soft)}
 .omr-full{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:calc(10px + var(--safe-t)) 8px calc(10px + var(--safe-b))}
+.ex-nm[data-ex-paper]{cursor:pointer}.ex-pap{font-weight:400;margin-inline-end:4px;font-size:.95em}
 .omr-full img{max-width:100%;max-height:92vh;object-fit:contain}.omr-full span{color:#fff;font-size:.8rem;margin-top:6px}
 
 .omr-shutter{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);z-index:2;width:62px;height:62px;border-radius:50%;background:#fff;border:5px solid rgba(255,255,255,.45);background-clip:padding-box;box-shadow:0 0 0 2px rgba(15,23,42,.35);cursor:pointer}
@@ -3541,8 +3542,30 @@ function exCurTest(){const b=examBook();let t=b.tests.find(x=>String(x.id)===EX_
   return t||null;}
 function exPick(id){EX_CUR=String(id);examFilter.test=EX_CUR;if($('exam-vr-test'))$('exam-vr-test').value=EX_CUR;exKbClose(false);renderExamGrades();}
 function exVal(sid,t){const v=((examBook().scores[String(sid)]||{})[String(t.id)]);if(v&&typeof v==='object'&&v.absent)return 'غ';const sc=v&&typeof v==='object'?v.score:v;return sc==null||sc===''||!Number.isFinite(Number(sc))?'':String(Number(sc));}
+/* 📄 أوراق التصحيح الآلي المحفوظة لهذا الاختبار: بجانب اسم صاحبها أيقونة تفتح ورقته بالختم */
+const EXPAP={test:'',sids:new Map(),busy:false,at:0};
+async function exPapersLoad(test){
+  if(!test||EXPAP.busy||(EXPAP.test===test&&Date.now()-EXPAP.at<60000)) return;
+  EXPAP.busy=true;
+  try{ const j=await (await fetch(`${API}/omr/papers/list?t=${encodeURIComponent(token)}&test=${encodeURIComponent(test)}`)).json();
+    EXPAP.test=test; EXPAP.at=Date.now(); EXPAP.pub=!!j.pub; EXPAP.pubCls=j.pubCls||[];
+    EXPAP.sids=new Map((j.papers||[]).map(x=>[String(x.sid),x])); }catch(e){}
+  EXPAP.busy=false;
+  if(EXPAP.sids.size) renderExamGrades();
+}
+async function exPaperOpen(sid){
+  const x=EXPAP.sids.get(String(sid)); if(!x) return;
+  const v=document.createElement('div'); v.className='omr-full'; v.style.cursor='zoom-out'; v.onclick=()=>v.remove();
+  v.innerHTML='<span>جارٍ فتح الورقة…</span>'; document.body.appendChild(v);
+  try{ const j=await (await fetch(`${API}/omr/papers/img?t=${encodeURIComponent(token)}&test=${encodeURIComponent(EXPAP.test)}&sid=${encodeURIComponent(sid)}`)).json(); if(!j.ok) throw 0;
+    const on=EXPAP.pub||EXPAP.pubCls.includes(x.cls), diff=x.now!=null&&Math.abs(x.now-x.score)>1e-9;
+    v.innerHTML=`<img src="${j.img}" alt="ورقة ${esc(x.name)}"><span>${esc(x.name)} · الختم ${x.score} / ${x.max}${diff?` · ⚠️ المرصودة الآن ${x.now}`:''} · ${on?'📢 منشورة لولي الأمر':'🔒 لم تُنشر بعد'} — اضغط للإغلاق</span>`;
+  }catch(e){ v.innerHTML='<span>تعذّر فتح الورقة — اضغط للإغلاق</span>'; }
+}
+document.addEventListener('click',e=>{ const b=e.target.closest&&e.target.closest('[data-ex-paper]'); if(b){ e.preventDefault(); e.stopPropagation(); exPaperOpen(b.dataset.exPaper); } },true);
 function renderExamGrades(){
   const cls=$('cls')?.value||'',q=String($('exam-search')?.value||'').trim(),b=examBook(),max=examMaxTotal(),t=exCurTest(),locked=academicClosed();
+  if(t) exPapersLoad(String(t.id));
   examFilter.test=t?String(t.id):'';
   const base=list(cls).filter(s=>!q||s.name.includes(q));
   const rows=!t||examFilter.mode!=='missing'?base:base.filter(s=>examIsMissing(s.id));
@@ -3557,7 +3580,8 @@ function renderExamGrades(){
   if(!t){ if($('exam-list'))$('exam-list').innerHTML='<div class="empty">أضف اختبارًا من «＋ اختبار» لتبدأ الرصد.</div>'; return; }
   if($('exam-list'))$('exam-list').innerHTML=rows.map((s,i)=>{const v=exVal(s.id,t), final=examFor(s.id), cur=EXKB.sid===String(s.id);
     const shown=cur?(EXKB.buf===''?'':EXKB.buf):v;
-    return `<div class="ex-row${cur?' cur':''}" data-ex-row="${esc(s.id)}"><div class="ex-nm"><i>${i+1}</i><span>${esc(s.name)}${b.tests.length>1||final!=null?`<small>النهائي ${final==null?'—':fmt(final)} / 20</small>`:''}</span></div>
+    const pap=EXPAP.test===String(t.id)&&EXPAP.sids.has(String(s.id));
+    return `<div class="ex-row${cur?' cur':''}" data-ex-row="${esc(s.id)}"><div class="ex-nm"${pap?` data-ex-paper="${esc(s.id)}" role="button" title="عرض ورقته المصححة"`:''}><i>${i+1}</i><span>${pap?'<b class="ex-pap">📄</b>':''}${esc(s.name)}${b.tests.length>1||final!=null?`<small>النهائي ${final==null?'—':fmt(final)} / 20</small>`:''}</span></div>
       <button type="button" class="ex-cell${cur?' f':shown==='غ'?' ab':shown!==''?' ok':''}" data-ex-cell="${esc(s.id)}" ${locked?'disabled':''} aria-label="درجة ${esc(s.name)}">${shown==='غ'?'غائب':esc(shown)}${cur?'<em class="ex-caret"></em>':''}</button>
       <button type="button" class="ex-full" data-ex-full="${esc(s.id)}" ${locked?'disabled':''} title="درجة كاملة (${fmt(t.max)})" aria-label="درجة كاملة">💯</button></div>`;}).join('')||`<div class="empty">${examFilter.mode==='missing'?'✓ رُصد الجميع في هذا الاختبار':'لا يوجد طلاب مطابقون.'}</div>`;
 }
@@ -6741,6 +6765,7 @@ async function omrUploadPaper(sid, src, H, fs, answers, val){
     const P = await omrPaperImage(src, H, fs || 1, answers, val, test.max);
     await fetch(omrApi('/omr/paper'), { method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ t: token, sid: String(sid), test: String(OMRUI.testId), title: test.title || 'اختبار', score: val, max: test.max, sem: Number(gradeSemester) || 1, ...P }) });
+    EXPAP.at = 0;                                                                   // تظهر أيقونة 📄 بجانب اسمه في الرصد
   }catch(e){}
 }
 /* 💾 حفظ كل ورقة مربوطة (من رمز الاسم أو يدويًا) وأسئلتها محسومة — الباقي يبقى للمراجعة */
