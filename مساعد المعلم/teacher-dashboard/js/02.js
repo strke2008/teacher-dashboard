@@ -5268,6 +5268,8 @@ function examHwIds(){ return String(document.getElementById('ex-hw')?.value || '
 function examHwActs(){ const ids = examHwIds(); return ids.map(id => HW.find(x => String(x.id) === id)).filter(Boolean); }
 function examHwRenderPick(){
   const box = document.getElementById('ex-hw-pick'); if(!box) return;
+  // إعادة الرسم تبدأ القائمة من أولها: نحفظ موضع التمرير فيبقى المعلم عند النشاط الذي حدّده
+  const keepTop = box.querySelector('.exhw-list')?.scrollTop || 0;
   const list = examHwList(), on = new Set(examHwIds());
   if(!list.length){ box.innerHTML = '<div class="exam-bank-empty">لا توجد أنشطة فيها بنك أسئلة</div>'; return; }
   const q = String(window._exHwQ || '').trim();
@@ -5282,6 +5284,7 @@ function examHwRenderPick(){
       <input type="checkbox" ${on.has(String(h.id)) ? 'checked' : ''} onchange="examHwToggle('${esc(String(h.id))}',this.checked)">
       <span class="exhw-t">${esc(h.title||'نشاط')}</span><span class="exhw-c">${cnt(h)}</span></label>`).join('')}</div>`;
   examHwFilter();
+  const L = box.querySelector('.exhw-list'); if(L && keepTop) L.scrollTop = keepTop;
 }
 function examHwFilter(){
   const q = String(window._exHwQ || '').trim();
