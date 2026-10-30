@@ -3202,7 +3202,10 @@ function renderAcademicControls(){
  if(lock){lock.textContent=s.status==='closed'?'🔒 الفصل مغلق':'🔒 إدارة إغلاق الفصل من لوحة التحكم';lock.classList.toggle('bad',s.status==='closed');lock.classList.toggle('gold',s.status!=='closed');lock.disabled=true;lock.title='إغلاق الفصل وبدء الفصل التالي يتم من لوحة التحكم';}
  const n=$('academic-status'); if(n)n.textContent=s.status==='closed'?'الفصل مغلق ومحفوظ في الأرشيف. التعديل العادي على درجاته متوقف.':`الفترة الحالية للرصد: ${activePeriod()===1?'الأولى':'الثانية'} · الفصل مفتوح للرصد والتعديل.`;
 }
-async function loadAcademic(){try{const r=await fetch(`${API}/academic?t=${encodeURIComponent(token)}`);const j=await r.json();if(j.ok&&j.academic){data.academic=j.academic;academicYear=String(data.academic.year||'');gradeSemester=Number(data.academic.currentSemester)===2?2:1;gradePeriod=Number((data.academic.semesters?.[String(gradeSemester)]?.activePeriod))===2?2:1;}}catch(e){}renderAcademicControls();if($('grade-period'))$('grade-period').value=String(gradePeriod);if($('exam-period'))$('exam-period').value=String(gradePeriod)}
+/* الفصل والفترة الجاريان من آخر حالة أكاديمية محفوظة على الجهاز: كانت البوابة تبدأ بالفترة الأولى دائمًا
+   حتى يرد الخادم، فتظهر دفاتر الفترة الأولى لحظة ثم تقفز للثانية */
+function academicApply(ac){ if(!ac||typeof ac!=='object')return; academicYear=String(ac.year||'');gradeSemester=Number(ac.currentSemester)===2?2:1;gradePeriod=Number((ac.semesters?.[String(gradeSemester)]?.activePeriod))===2?2:1; }
+async function loadAcademic(){try{const r=await fetch(`${API}/academic?t=${encodeURIComponent(token)}`);const j=await r.json();if(j.ok&&j.academic){data.academic=j.academic;academicApply(data.academic);try{localStorage.setItem('teacher_classroom_v1',JSON.stringify(data));}catch(e){}}}catch(e){}renderAcademicControls();if($('grade-period'))$('grade-period').value=String(gradePeriod);if($('exam-period'))$('exam-period').value=String(gradePeriod)}
 async function saveAcademicMeta(){data.academic=data.academic||{};data.academic.year=String($('academic-year')?.value||'').trim();data.academic.currentSemester=gradeSemester;await save();renderAcademicControls()}
 async function startPeriod2(){ toast('انتقال الفترة يُدار من لوحة التحكم باعتبارها المصدر الأساسي للحالة الأكاديمية.'); }
 async function toggleSemesterLock(){ toast('إغلاق الفصل وبدء الفصل التالي يُدار من لوحة التحكم.'); }
@@ -4231,7 +4234,8 @@ function boot(){
  window.__portalBooted=true; try{ schAutoClose(); }catch(e){}
  try{ ctxInit(); }catch(e){}   // السياق من الجدول قبل أول رسم للشاشات
  try{ ppAfterBoot(); }catch(e){}   // 🔔 فتح تنبيه حصة = بدء الحصة تلقائيًا + مزامنة مواعيد التنبيه
- renderDaily();renderRecords();renderBehaviorButtons();renderCustomBehaviorTemplates();renderBeh();renderMessages();fillMessageSearch();renderCert();renderLevels();renderStudents();renderDuties();renderHome();renderAcademicControls();renderExamConfig();renderExamGrades();loadAcademic().then(()=>{renderExamConfig();return loadGrades();});
+ try{ academicApply(data.academic); for(const id of ['grade-period','exam-period']) if($(id))$(id).value=String(gradePeriod); }catch(e){}
+ renderDaily();renderRecords();renderBehaviorButtons();renderCustomBehaviorTemplates();renderBeh();renderMessages();fillMessageSearch();renderCert();renderLevels();renderStudents();renderDuties();renderHome();renderAcademicControls();renderExamConfig();renderExamGrades();loadAcademic().then(()=>{renderExamConfig();renderExamGrades();return loadGrades();});
 }
 
 async function start(){
