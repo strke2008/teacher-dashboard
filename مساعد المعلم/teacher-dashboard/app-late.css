@@ -2911,3 +2911,9 @@ body.pf-open #simp-bottomnav,body.pf-open .askf-btn{display:none!important}
 .opv-tabs{display:flex;flex-wrap:wrap;gap:.35rem;margin:0 0 .6rem}
 .opv-tab{font:inherit;font-size:.82rem;font-weight:700;border:1px solid var(--ui-border,#d5e0ec);background:#f4f7fb;color:#2e4e70;border-radius:999px;padding:4px 12px;cursor:pointer}
 .opv-tab.on{background:#3B5F86;border-color:#3B5F86;color:#fff}.opv-tab small{opacity:.75}
+
+.omrm-undo{color:#b03348!important;border-color:#f0c4cc!important}
+.omrm-clsb .omrm-x{font-weight:900;margin-inline-start:2px;opacity:.7}
+.omr-undo{position:fixed;inset-inline:12px;bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:13000;max-width:520px;margin:auto;background:#16233A;color:#fff;border-radius:14px;padding:10px 12px;display:flex;align-items:center;gap:10px;box-shadow:0 10px 30px rgba(0,0,0,.3);font-size:.88rem}
+.omr-undo span{flex:1}.omr-undo .btn{background:#fff;color:#16233A;border:0;font-weight:800}
+.omr-undo-x{background:none;border:0;color:#fff;opacity:.7;font-size:1rem;cursor:pointer}
