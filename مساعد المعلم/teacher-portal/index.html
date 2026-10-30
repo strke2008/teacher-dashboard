@@ -883,7 +883,7 @@ body:has(#bh-mbar:not([hidden])) #behavior{padding-bottom:70px}
 .omr-sbtn{min-height:46px;border-radius:var(--r-sm);border:1px solid var(--rule);background:var(--surface-2);color:var(--ink);font:inherit;font-weight:700;text-align:start;padding:8px 12px;cursor:pointer}
 .omr-sbtn.on{background:var(--accent-soft);border-color:var(--accent)}.omr-sbtn small{font-weight:600;color:var(--ink-soft)}
 .omr-full{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:calc(10px + var(--safe-t)) 8px calc(10px + var(--safe-b))}
-.ex-nm[data-ex-paper]{cursor:pointer}.ex-pap{font-weight:400;margin-inline-end:4px;font-size:.95em}
+.ex-nm[data-ex-paper]{cursor:pointer}.exp-acts{display:flex;gap:8px;margin-top:8px}.exp-acts .btn{min-height:44px;min-width:110px}.exp-del{background:#fdecee!important;color:#b03348!important;border-color:#f3c3cb!important}.ex-pap{font-weight:400;margin-inline-end:4px;font-size:.95em}
 .omr-full img{max-width:100%;max-height:92vh;object-fit:contain}.omr-full span{color:#fff;font-size:.8rem;margin-top:6px}
 
 .omr-shutter{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);z-index:2;width:62px;height:62px;border-radius:50%;background:#fff;border:5px solid rgba(255,255,255,.45);background-clip:padding-box;box-shadow:0 0 0 2px rgba(15,23,42,.35);cursor:pointer}
@@ -3555,12 +3555,17 @@ async function exPapersLoad(test){
 }
 async function exPaperOpen(sid){
   const x=EXPAP.sids.get(String(sid)); if(!x) return;
-  const v=document.createElement('div'); v.className='omr-full'; v.style.cursor='zoom-out'; v.onclick=()=>v.remove();
+  const v=document.createElement('div'); v.className='omr-full'; v.onclick=e=>{ if(e.target===v||e.target.closest('[data-x]')) v.remove(); };
   v.innerHTML='<span>جارٍ فتح الورقة…</span>'; document.body.appendChild(v);
   try{ const j=await (await fetch(`${API}/omr/papers/img?t=${encodeURIComponent(token)}&test=${encodeURIComponent(EXPAP.test)}&sid=${encodeURIComponent(sid)}`)).json(); if(!j.ok) throw 0;
     const on=EXPAP.pub||EXPAP.pubCls.includes(x.cls), diff=x.now!=null&&Math.abs(x.now-x.score)>1e-9;
-    v.innerHTML=`<img src="${j.img}" alt="ورقة ${esc(x.name)}"><span>${esc(x.name)} · الختم ${x.score} / ${x.max}${diff?` · ⚠️ المرصودة الآن ${x.now}`:''} · ${on?'📢 منشورة لولي الأمر':'🔒 لم تُنشر بعد'} — اضغط للإغلاق</span>`;
-  }catch(e){ v.innerHTML='<span>تعذّر فتح الورقة — اضغط للإغلاق</span>'; }
+    v.innerHTML=`<img src="${j.img}" alt="ورقة ${esc(x.name)}"><span>${esc(x.name)} · الختم ${x.score} / ${x.max}${diff?` · ⚠️ المرصودة الآن ${x.now}`:''} · ${on?'📢 منشورة لولي الأمر':'🔒 لم تُنشر بعد'}</span>
+      <div class="exp-acts"><button type="button" class="btn" data-x>إغلاق</button><button type="button" class="btn exp-del" data-del>🗑️ حذف الورقة نهائيًا</button></div>`;
+    v.querySelector('[data-del]').onclick=async()=>{
+      if(!(await askConfirm(`حذف صورة ورقة ${x.name} نهائيًا؟ تختفي من بوابته وتقرير ولي أمره ولا يمكن استرجاعها. الدرجة المرصودة لا تتأثر.`,{title:'حذف الورقة',yes:'احذف نهائيًا',no:'إلغاء'}))) return;
+      try{ const r=await (await fetch(`${API}/omr/papers/delete`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:token,test:EXPAP.test,sid:String(sid)})})).json(); if(!r.ok) throw 0;
+        EXPAP.sids.delete(String(sid)); v.remove(); toast('🗑️ حُذفت الورقة نهائيًا'); renderExamGrades(); }catch(e){ toast('تعذّر الحذف — تحقق من الاتصال'); } };
+  }catch(e){ v.innerHTML='<span>تعذّر فتح الورقة</span><div class="exp-acts"><button type="button" class="btn" data-x>إغلاق</button></div>'; }
 }
 document.addEventListener('click',e=>{ const b=e.target.closest&&e.target.closest('[data-ex-paper]'); if(b){ e.preventDefault(); e.stopPropagation(); exPaperOpen(b.dataset.exPaper); } },true);
 function renderExamGrades(){
