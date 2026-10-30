@@ -2049,7 +2049,8 @@ async function ctExamDel(id){
   const {sem,per}=ctExamSP(), b=ctBook(JSON.parse(JSON.stringify(CT_DATA)),sem,per);
   if(b.tests.length<=1){ toast('يجب إبقاء اختبار واحد على الأقل','bad'); return; }
   if(!(await askConfirm('تُحذف درجات هذا الاختبار لكل الطلاب أيضًا، ولا يمكن التراجع.',{title:'حذف الاختبار؟',yes:'احذف',no:'إبقاء',danger:true}))) return;
-  ctExamMutate(b=>{ b.tests=b.tests.filter(x=>String(x.id)!==String(id)); for(const sid of Object.keys(b.scores||{})) if(b.scores[sid]) delete b.scores[sid][String(id)]; },'حُذف الاختبار');
+  ctExamMutate(b=>{ b.tests=b.tests.filter(x=>String(x.id)!==String(id)); for(const sid of Object.keys(b.scores||{})) if(b.scores[sid]) delete b.scores[sid][String(id)];
+    b.delTests=(Array.isArray(b.delTests)?b.delTests:[]).concat([{id:String(id),at:Date.now()}]).slice(-200); },'حُذف الاختبار');
 }
 /* 🕘 سجل تعديل درجات الاختبارات: كل تغيير يُحفظ (قبل ← بعد) في دفتر الفترة نفسه على الخادم،
    فيُعرف ما كانت عليه الدرجة ويُرجَع إليها بضغطة. آخر 300 تعديل لكل فترة، وآخر 3 لكل خانة تظهر في تلميحها. */
@@ -2085,7 +2086,7 @@ async function ctExamRevert(sid,tid,v){
       const bucket=b.scores[String(sid)]=b.scores[String(sid)]||{}, pv=bucket[String(tid)], cur=pv&&typeof pv==='object'?Number(pv.score):Number(pv);
       const from=Number.isFinite(cur)?cur:null; if(from===v) return;
       ctExamLogPush(b,{sid:String(sid),tid:String(tid),from,to:v,at:Date.now(),undo:1});
-      if(v===null){ delete bucket[String(tid)]; if(!Object.keys(bucket).length) delete b.scores[String(sid)]; }
+      if(v===null){ bucket[String(tid)]={del:true,at:Date.now()}; }   // علامة حذف بطابع (لا تعيدها نسخة قديمة)
       else bucket[String(tid)]={score:Math.max(0,Math.min(Number(t.max)||0,v)),at:Date.now()}; });
     toast('أُرجعت الدرجة ✓','good'); renderClassTools(); ctExamHistory();
   }catch(e){ if(await ctPeriodMoved(e)) return; toast('تعذّر الحفظ — تحقق من الاتصال','bad'); }
@@ -2130,7 +2131,7 @@ async function ctExamScore(sid,tid,el){
       const pv=bucket[String(tid)], before=pv&&typeof pv==='object'?Number(pv.score):Number(pv), from=Number.isFinite(before)?before:null;
       const nv=n===''?null:Math.max(0,Math.min(Number(t.max)||0,Number(examAr2En(n))));
       if(from!==nv && !(nv!==null&&!Number.isFinite(nv))) ctExamLogPush(b,{sid:String(sid),tid:String(tid),from,to:nv,at:Date.now()});
-      if(n===''){ delete bucket[String(tid)]; if(!Object.keys(bucket).length) delete b.scores[String(sid)]; }
+      if(n===''){ bucket[String(tid)]={del:true,at:Date.now()}; }
       else { const v=Math.max(0,Math.min(Number(t.max)||0,Number(examAr2En(n)))); if(Number.isFinite(v)){ bucket[String(tid)]={score:v,at:Date.now()}; el.value=v; } } });
     el.classList.remove('saving'); el.classList.add('saved'); setTimeout(()=>el.classList.remove('saved'),900);
     // تحديث مجموع الطالب في صفّه فقط
@@ -5925,13 +5926,15 @@ async function omrPapersPreview(test){
         <div class="opv-img" data-open="${i}"><span class="muted">…</span></div>
         <div class="opv-meta"><b>${esc(x.name||'طالب')}</b><small>${esc(x.cls)}${x.n?` · الصحيح ${x.right} من ${x.n}`:''}</small>
           <span class="opv-sc">الختم: ${x.score} / ${x.max}${x.now!=null&&Math.abs(x.now-x.score)>1e-9?` · <i>المرصودة الآن ${x.now}</i>`:''}</span></div>
-        <button class="btn ghost sm" type="button" data-del="${i}" title="لا تُنشر هذه الورقة">🗑️ استبعاد</button></div>`).join('')||'<p class="muted">لا أوراق.</p>'}</div>`;
+        <button class="btn ghost sm" type="button" data-del="${i}" title="تُحذف الورقة ودرجته في هذا الاختبار">🗑️ حذف الورقة والدرجة</button></div>`).join('')||'<p class="muted">لا أوراق.</p>'}</div>`;
     v.querySelector('#opv-x').onclick=close;
     v.querySelectorAll('[data-cls]').forEach(b=>b.onclick=()=>{ F=b.dataset.cls; window.__opvCls=F; render(); });
     const ub=v.querySelector('#opv-unpub'); if(ub) ub.onclick=async()=>{ const r=await omrPapersPub(test,{pub:false}); if(r){ j.pub=r.pub; j.pubCls=r.pubCls||[]; } render(); };
     const pb=v.querySelector('#opv-pub'); if(pb) pb.onclick=async()=>{ const r=await omrPapersPub(test,F?{pub:!pb.dataset.on,cls:F,all:CL}:{pub:true}); if(r){ j.pub=r.pub; j.pubCls=r.pubCls||[]; } render(); };
-    v.querySelectorAll('[data-del]').forEach(b=>b.onclick=async()=>{ const x=P[+b.dataset.del]; if(!(await askConfirm(`استبعاد ورقة ${x.name||'الطالب'}؟ تُحذف صورتها ولا تُنشر — الدرجة المرصودة لا تتأثر.`,{title:'استبعاد الورقة',yes:'استبعد',no:'إلغاء',danger:true}))) return;
-      try{ await omrApiCall('/omr/papers/delete',{test,sid:x.sid}); P.splice(+b.dataset.del,1); const t=(OMRM.papers||[]).find(y=>y.test===test); if(t) t.n=P.length; toast('✓ استُبعدت','good'); render(); }catch(e){ toast('تعذّر الحذف','bad'); } });
+    v.querySelectorAll('[data-del]').forEach(b=>b.onclick=async()=>{ const x=P[+b.dataset.del]; if(!(await askConfirm(`حذف ورقة ${x.name||'الطالب'} ودرجته في هذا الاختبار؟ تُحذف صورتها ولا تُنشر، وتُمسح الدرجة ليُعاد تصحيحه.`,{title:'حذف الورقة والدرجة',yes:'احذف',no:'إلغاء',danger:true}))) return;
+      try{ await omrApiCall('/omr/papers/delete',{test,sid:x.sid});
+        // الدرجة تُمسح معها (علامة حذف بطابع زمني في كل دفتر فيه هذا الاختبار)
+        try{ await ctSave(d=>{ const B=d.examBooks||{}; for(const sm of Object.keys(B)) for(const pr of Object.keys(B[sm]||{})){ const bk=B[sm][pr]; if(bk&&Array.isArray(bk.tests)&&bk.tests.some(t=>String(t.id)===String(test))){ bk.scores=bk.scores||{}; const k=String(x.sid); bk.scores[k]=bk.scores[k]||{}; bk.scores[k][String(test)]={del:true,at:Date.now()}; } } }); }catch(e){} P.splice(+b.dataset.del,1); const t=(OMRM.papers||[]).find(y=>y.test===test); if(t) t.n=P.length; toast('✓ استُبعدت','good'); render(); }catch(e){ toast('تعذّر الحذف','bad'); } });
     v.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>{ const x=P[+b.dataset.open]; if(!x.img) return;
       const o=document.createElement('div'); o.className='opv-full'; o.onclick=()=>o.remove();
       o.innerHTML=`<div class="opv-fimg"><img src="${x.img}" alt="">${(x.keyBoxes||[]).map(k=>`<i style="left:${k[0]*100}%;top:${k[1]*100}%;width:${k[2]*100}%;height:${k[3]*100}%"></i>`).join('')}</div><span>${esc(x.name)} · ${x.score} / ${x.max}${j.key?' · الإطار المتقطع = الإجابة الصحيحة (ظاهرة للطلاب)':''} — اضغط للإغلاق</span>`;

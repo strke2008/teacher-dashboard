@@ -9689,8 +9689,13 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
           for(const p of new Set([...Object.keys(ao),...Object.keys(bo)])){
             const ab=ao[p]&&typeof ao[p]==='object'?ao[p]:{};
             const bb=bo[p]&&typeof bo[p]==='object'?bo[p]:{};
+            // اختبار حذفه أي جهاز (delTests بطابع زمني) لا يعيده جهاز بنسخة قديمة
+            const delT=new Map();
+            for(const d of [...(Array.isArray(ab.delTests)?ab.delTests:[]),...(Array.isArray(bb.delTests)?bb.delTests:[])]){ if(d&&d.id){ const k=String(d.id); if(!delT.has(k)||(Number(d.at)||0)>delT.get(k)) delT.set(k,Number(d.at)||0); } }
             const testsMap=new Map();
-            for(const t of [...(Array.isArray(ab.tests)?ab.tests:[]),...(Array.isArray(bb.tests)?bb.tests:[])]){if(t&&t.id)testsMap.set(String(t.id),t)}
+            for(const t of [...(Array.isArray(ab.tests)?ab.tests:[]),...(Array.isArray(bb.tests)?bb.tests:[])]){if(t&&t.id&&!delT.has(String(t.id)))testsMap.set(String(t.id),t)}
+            // ترتيب الاختبارات كما في النسخة الواردة، ثم ما أضافه جهاز آخر
+            const order=[...(Array.isArray(bb.tests)?bb.tests:[]),...(Array.isArray(ab.tests)?ab.tests:[])].map(t=>t&&String(t.id)).filter((v,i,a)=>v&&a.indexOf(v)===i&&testsMap.has(v));
             const scores={};
             const mergeScores=(src)=>{
               const sm=src&&typeof src==='object'?src:{};
@@ -9704,7 +9709,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
               }
             };
             mergeScores(ab.scores); mergeScores(bb.scores);
-            out[sem][p]={tests:[...testsMap.values()].slice(0,100),scores};
+            out[sem][p]={tests:order.map(k=>testsMap.get(k)).slice(0,100),scores,...(delT.size?{delTests:[...delT].map(([id,at])=>({id,at})).slice(-200)}:{})};
           }
         }
         return out;
@@ -9772,8 +9777,10 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       examGrades:mergeExamGrades(old.examGrades,x.examGrades),
       // 📝 دفاتر الاختبارات: يجب حفظها على الخادم، بما فيها تسميات الاختبارات،
       // وإلا تختفي التسمية عند إعادة تحميل البوابة لأن الخادم يعيد نسخة بلا examBooks.
+      // كل درجة بطابعها الزمني والأحدث يغلب (والحذف علامة del بطابع): جهاز بنسخة قديمة كان يكتب الدفتر كله
+      // فيعيد درجة حُذفت من جهاز آخر أو يمحو درجة رُصدت للتو
       examBooks:(x.examBooks&&typeof x.examBooks==='object')
-          ? x.examBooks
+          ? mergeExamBooks(old.examBooks,x.examBooks)
           : (old.examBooks||{}),
       // 🎓 بطاقات رفع درجات الاختبارات — لا تُسقط عند مزامنة البوابة.
       examBonuses:(x.examBonuses&&typeof x.examBonuses==='object')

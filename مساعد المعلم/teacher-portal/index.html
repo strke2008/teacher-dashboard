@@ -3513,13 +3513,16 @@ async function deleteExamTest(id){
   const b=examBook();if(b.tests.length<=1){toast('يجب إبقاء اختبار واحد على الأقل.');return}
   b.tests=b.tests.filter(x=>String(x.id)!==String(id));
   for(const sid of Object.keys(b.scores||{})){if(b.scores[sid])delete b.scores[sid][String(id)];}
+  b.delTests=(Array.isArray(b.delTests)?b.delTests:[]).concat([{id:String(id),at:Date.now()}]).slice(-200);
   renderExamConfig();renderExamGrades();await save();toast('تم حذف الاختبار');
 }
+/* درجة مرصودة فعلًا (لا علامة حذف): رقم أو {score} أو غائب */
+function exHas(sid,testId){const v=(examBook().scores[String(sid)]||{})[String(testId)];return v!=null&&!(typeof v==='object'&&v.del);}
 async function setExamScore(sid,testId,value,quiet,extra){
   if(academicClosed()){toast(academicSem().status==='closed'?'الفصل مغلق. افتحه للضرورة أولًا.':academicLockMsg());renderExamGrades();return}
   const b=examBook(),t=b.tests.find(x=>String(x.id)===String(testId));if(!t)return;
   const n=String(value).trim(), bucket=b.scores[String(sid)]=b.scores[String(sid)]||{};
-  if(n===''){delete bucket[String(testId)];if(!Object.keys(bucket).length)delete b.scores[String(sid)];}
+  if(n===''){bucket[String(testId)]={del:true,at:Date.now()};}   // 🗑️ علامة حذف بطابع: لا تعيدها نسخة قديمة من جهاز آخر
   // 🚫 غائب: علامة فقط — لا درجة (تُحتسب كدرجة لم تُرصد حتى تُرصد له درجة)، لكنه لا يُعدّ «لم يُرصد»
   else if(n==='غ'||n==='غائب'){bucket[String(testId)]={absent:true,at:Date.now()};}
   else{const score=Math.max(0,Math.min(Number(t.max)||0,Number(n)));if(!Number.isFinite(score))return;bucket[String(testId)]={score,at:Date.now(),...(extra&&typeof extra==='object'?extra:{})};}
@@ -3562,9 +3565,11 @@ async function exPaperOpen(sid){
     v.innerHTML=`<img src="${j.img}" alt="ورقة ${esc(x.name)}"><span>${esc(x.name)} · الختم ${x.score} / ${x.max}${diff?` · ⚠️ المرصودة الآن ${x.now}`:''} · ${on?'📢 منشورة لولي الأمر':'🔒 لم تُنشر بعد'}</span>
       <div class="exp-acts"><button type="button" class="btn" data-x>إغلاق</button><button type="button" class="btn exp-del" data-del>🗑️ حذف الورقة نهائيًا</button></div>`;
     v.querySelector('[data-del]').onclick=async()=>{
-      if(!(await askConfirm(`حذف صورة ورقة ${x.name} نهائيًا؟ تختفي من بوابته وتقرير ولي أمره ولا يمكن استرجاعها. الدرجة المرصودة لا تتأثر.`,{title:'حذف الورقة',yes:'احذف نهائيًا',no:'إلغاء'}))) return;
+      if(!(await askConfirm(`حذف ورقة ${x.name} ودرجته في هذا الاختبار نهائيًا؟ تختفي الورقة من بوابته وتقرير ولي أمره، وتُمسح الدرجة ليُعاد تصحيحه.`,{title:'حذف الورقة والدرجة',yes:'احذف نهائيًا',no:'إلغاء'}))) return;
       try{ const r=await (await fetch(`${API}/omr/papers/delete`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:token,test:EXPAP.test,sid:String(sid)})})).json(); if(!r.ok) throw 0;
-        EXPAP.sids.delete(String(sid)); v.remove(); toast('🗑️ حُذفت الورقة نهائيًا'); renderExamGrades(); }catch(e){ toast('تعذّر الحذف — تحقق من الاتصال'); } };
+        EXPAP.sids.delete(String(sid)); v.remove();
+        if(exHas(sid,EXPAP.test)) await setExamScore(String(sid),EXPAP.test,'',true);              // الدرجة تُمسح معها
+        toast('🗑️ حُذفت الورقة والدرجة'); renderExamGrades(); }catch(e){ toast('تعذّر الحذف — تحقق من الاتصال'); } };
   }catch(e){ v.innerHTML='<span>تعذّر فتح الورقة</span><div class="exp-acts"><button type="button" class="btn" data-x>إغلاق</button></div>'; }
 }
 document.addEventListener('click',e=>{ const b=e.target.closest&&e.target.closest('[data-ex-paper]'); if(b){ e.preventDefault(); e.stopPropagation(); exPaperOpen(b.dataset.exPaper); } },true);
@@ -5775,7 +5780,7 @@ function omrScoreOf(res){
 function omrTest(){ return examBook().tests.find(t => String(t.id)===String(OMRUI.testId)) || null; }
 function omrNextStudent(){
   const b = examBook(), L = list(OMRUI.cls);
-  const s = L.find(x => !(b.scores[String(x.id)] && b.scores[String(x.id)][String(OMRUI.testId)] !== undefined));
+  const s = L.find(x => !exHas(x.id, OMRUI.testId));
   return s ? s.id : (L[0] && L[0].id) || '';
 }
 async function omrOpen(){
@@ -5818,7 +5823,7 @@ async function omrOpen(){
 }
 function omrStudentsSelect(){
   const b = examBook();
-  return `<select class="inp omr-stu" id="omr-stu">${list(OMRUI.cls).map(s=>{ const done = b.scores[String(s.id)] && b.scores[String(s.id)][String(OMRUI.testId)] !== undefined;
+  return `<select class="inp omr-stu" id="omr-stu">${list(OMRUI.cls).map(s=>{ const done = exHas(s.id, OMRUI.testId);
     return `<option value="${esc(s.id)}" ${s.id===OMRUI.sid?'selected':''}>${done?'✓ ':''}${esc(s.name)}</option>`; }).join('')}</select>`;
 }
 async function omrScan(){
@@ -6425,7 +6430,7 @@ async function omrSave(){
   const man = omrManualMax() ? Number(($('omr-manual') || {}).value) : 0;
   if(omrManualMax() && !omrManualOk(($('omr-manual') || {}).value)){ toast('اكتب درجة الجزء اليدوي أولًا'); return; }
   const raw = +(sc.raw + man).toFixed(2), val = Math.abs(tt.total - test.max) > 1e-9 ? +(raw / tt.total * test.max).toFixed(2) : raw;
-  const b = examBook(), prev = b.scores[String(OMRUI.sid)] && b.scores[String(OMRUI.sid)][String(OMRUI.testId)];
+  const b = examBook(), prev = exHas(OMRUI.sid, OMRUI.testId) ? true : undefined;
   if(prev !== undefined && !(await askConfirm('لهذا الطالب درجة مرصودة في هذا الاختبار. استبدالها بالقراءة الجديدة؟', { title:'استبدال الدرجة؟', yes:'استبدل', no:'إلغاء' }))) return;
   // 📷 الأسئلة التي أخطأ فيها تُحفظ مع الدرجة: منها تُبنى المهمة العلاجية للاختبار
   await setExamScore(OMRUI.sid, OMRUI.testId, String(val), false, omrWrongOf(r.answers, OMRUI.model));
@@ -6705,7 +6710,7 @@ function omrMatchBody(s, used){
     ${omrManualHTML('man-' + s.id, s.manual ?? '', s.model, `omrSheetManual('${s.id}',this.value)`)}
     ${omrManualMax(s.model) && s.sid ? `<button type="button" class="btn primary" onclick="omrMatchPick('${s.id}','${esc(String(s.sid))}')">💾 حفظ الدرجة كاملة</button>` : ''}
     <input class="inp omr-q" id="omr-q" placeholder="ابحث باسم الطالب…" oninput="omrMatchFilter('${s.id}')" autocomplete="off">
-    <div class="omr-slist" id="omr-slist">${studs.map(x => { const has = b.scores[String(x.id)] && b.scores[String(x.id)][String(OMRUI.testId)] !== undefined;
+    <div class="omr-slist" id="omr-slist">${studs.map(x => { const has = exHas(x.id, OMRUI.testId);
       return `<button type="button" class="omr-sbtn${String(x.id) === String(s.sid) ? ' on' : ''}" data-n="${esc(omrNorm(x.name))}" onclick="omrMatchPick('${s.id}','${esc(x.id)}')">${esc(x.name)}${has ? ' <small>· مرصود</small>' : ''}</button>`; }).join('')}</div>
     <div class="omr-row"><button class="btn ghost" type="button" onclick="omrSheetView('${s.id}')">🖼️ الورقة كاملة</button>
       <button class="btn ghost" type="button" onclick="omrSheetDelete('${s.id}')">🗑️ حذف الورقة</button></div>
@@ -6780,7 +6785,7 @@ async function omrAutoSave(s){
   try{
     if(s.answers.some(a => a.final === null) || omrManualMax(s.model)) return;
     const test = omrTest(); if(!test) return;
-    const b = examBook(); if(b.scores[String(s.sid)] && b.scores[String(s.sid)][String(OMRUI.testId)] !== undefined) return;
+    const b = examBook(); if(exHas(s.sid, OMRUI.testId)) return;
     const sc = omrSheetScore(s), val = Math.abs(sc.total - test.max) > 1e-9 ? +(sc.full / sc.total * test.max).toFixed(2) : sc.full;
     await setExamScore(s.sid, OMRUI.testId, String(val), false, omrWrongOf(s.answers, s.model));
     s.saved = true; OMRDB.put(s); omrBatchCounter();
@@ -6805,7 +6810,7 @@ async function omrSheetSave(s){
   const sc = omrSheetScore(s);
   if(sc.needMan && !sc.manOk){ toast('اكتب درجة الجزء اليدوي أولًا'); return; }   // لا تُحفظ الدرجة الآلية وحدها كأنها الدرجة كلها
   const val = Math.abs(sc.total - test.max) > 1e-9 ? +(sc.full / sc.total * test.max).toFixed(2) : sc.full;
-  const b = examBook(), prev = b.scores[String(s.sid)] && b.scores[String(s.sid)][String(OMRUI.testId)];
+  const b = examBook(), prev = exHas(s.sid, OMRUI.testId) ? true : undefined;
   if(prev !== undefined && !(await askConfirm('لهذا الطالب درجة مرصودة في هذا الاختبار. استبدالها بهذه الورقة؟', { title:'استبدال الدرجة؟', yes:'استبدل', no:'إلغاء' }))){ s.sid = null; OMRDB.put(s); omrMatchRender(); return; }
   await setExamScore(s.sid, OMRUI.testId, String(val), false, omrWrongOf(s.answers, s.model));
   s.saved = true; OMRDB.put(s);
