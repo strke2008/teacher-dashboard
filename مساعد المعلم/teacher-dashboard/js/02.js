@@ -5004,6 +5004,7 @@ function renderExamHwBank(){
   const dupN=EXAM_HW_BANK.dup||0;
   if(c) c.title=dupN?`${dupN} ${dupN===1?'سؤال مكرر':'أسئلة مكررة'} بين الأنشطة لم ${dupN===1?'يُضف':'تُضف'}`:'';
   if(c&&dupN) c.textContent+=` · 🔁 ${dupN} مكرر حُذف`;
+  const sb=document.getElementById('ex-hw-sim-btn'); if(sb){ let g=0, all=0; try{ const G=examHwSimGroups(); all=G.length; g=G.filter(x=>x.filter(y=>y.on).length>1).length; }catch(e){} sb.textContent=g?`🔁 المتشابهة (${g})`:all?'🔁 المتشابهة ✓':'🔁 المتشابهة'; sb.classList.toggle('warn',g>0); sb.title=g?`${g} ${g===1?'مجموعة':'مجموعات'} فيها أكثر من سؤال بنفس الفكرة`:(all?'راجعت المتشابهة — كل مجموعة بقي منها سؤال واحد أو اخترت إبقاءها':'لا أسئلة متشابهة'); }
   if(!filtered.length){ list.innerHTML='<div class="exam-bank-empty">لا توجد أسئلة مطابقة للبحث.</div>'; return; }
   list.innerHTML=filtered.map(x=>{
     const idx=all.indexOf(x);
@@ -5343,7 +5344,7 @@ function examHwExportJson(){
     else if(q.t === 'f'){ if(!q.q || q.a == null) return; x = { t:'f', q:String(q.q), a:String(q.a) }; }
     else if(q.t === 'a'){ if(!q.w) return; x = { t:'a', w:String(q.w), h:String(q.h || '') }; }
     else if(q.t === 's'){ if(!q.s) return; x = { t:'s', s:String(q.s) }; }
-    else { const p = (q.p || []).filter(v => Array.isArray(v) && v[0] && v[1]).map(v => [String(v[0]), String(v[1])]); if(p.length < 2) return; x = { t:'m', p }; }
+    else { const p = (q.p || []).map((v, k) => [v, k]).filter(([v, k]) => Array.isArray(v) && v[0] && v[1] && !EXAM_HW_MPOFF.has(String(h.id) + '|' + i + '|' + k)).map(([v]) => [String(v[0]), String(v[1])]); if(p.length < 2) return; x = { t:'m', p }; }
     const k = keyOf(x); if(seen.has(k)){ dup++; return; } seen.add(k); qs.push(x);
   }));
   if(!qs.length){ toast('لا توجد أسئلة محددة للحفظ','bad'); return; }
@@ -5354,6 +5355,66 @@ function examHwExportJson(){
   a.download = (title.replace(/[\\/:*?"<>|]+/g, '_').trim().slice(0, 80) || 'مراجعة') + '.json';
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   toast(`💾 حُفظ ${qs.length} سؤال من ${acts.length} ${acts.length === 1 ? 'نشاط' : 'أنشطة'}${dup ? ` · 🔁 ${dup} مكرر لم يُضف` : ''} — للنشر: نشاط جديد ← 📥 استيراد JSON`, 'good');
+}
+/* 🔁 الأسئلة المتشابهة بين الأنشطة المحددة: نفس الفكرة بصيغة أخرى أو بنوع آخر (اختيار ↔ صح/خطأ ↔ زوج وصل).
+   المقارنة بالكلمات ذات المعنى بعد التطبيع (بلا «ال» وحروف العطف والكلمات الشائعة مثل ما/هي/التي/أي مما يلي)،
+   للسؤال وحده وللسؤال مع إجابته الصحيحة، والأعلى يُعتمد. المعلم يرى المجموعات ويختار ما يبقى — لا حذف تلقائي */
+let EXAM_HW_MPOFF = new Set();            // أزواج وصل استبعدها المعلم (تُحترم في حفظ JSON)
+const EX_SIM_STOP = new Set('ما ماذا هي هو هم التي الذي الذين في من على عن الي الى اي مما يلي ياتي الاتيه الاتي كم تساوي عند المقصود ب و او ان لا هل تعد يعد تعرف يعرف بانها بانه ذلك هذه هذا لذلك فان فما كل له لها جسم الجسم'.split(' '));
+function exSimTokens(t){
+  return rdNormAr(String(t ?? '').replace(/[٫,]/g, '.')).replace(/[÷×+=\-/]/g, ' ').split(' ').filter(w => w && !EX_SIM_STOP.has(w))
+    .map(w => { w = w.replace(/^(وال|بال|كال|فال|لل|ال)/, ''); return w.length > 4 ? w.replace(/(ات|ون|ين|ها|ه)$/, '') : w; }).filter(w => w.length > 1);
+}
+function exSimJac(a, b){ const A = new Set(a), B = new Set(b); let n = 0; A.forEach(x => { if(B.has(x)) n++; }); return n / ((A.size + B.size - n) || 1); }
+function examHwSimItems(){
+  const out = [], bank = new Map(examHwBankAll().map(x => [x.key, x]));
+  examHwActs().forEach(h => (h.qs || []).forEach((q, i) => {
+    if(!q) return; const key = String(h.id) + '|' + i, src = h.title || 'نشاط';
+    if(q.t === 'q' || q.t === 'tf'){ const b = bank.get(key); if(!b) return;
+      const ans = q.t === 'q' ? String((q.o || [])[Number(q.a) || 0] || '') : '';
+      out.push({ key, kind: q.t === 'q' ? 'mc' : 'tf', src, q: String(q.q || ''), ans, tf: q.a === true, on: b.selected !== false, tq: exSimTokens(q.q), ta: exSimTokens(String(q.q || '') + ' ' + ans) }); }
+    else if(q.t === 'm') (q.p || []).forEach((p, k) => { if(!Array.isArray(p) || !p[0] || !p[1]) return; const kk = key + '|' + k;
+      out.push({ key: kk, kind: 'mp', src, q: String(p[0]), ans: String(p[1]), on: !EXAM_HW_MPOFF.has(kk), tq: exSimTokens(p[0] + ' ' + p[1]), ta: exSimTokens(p[0] + ' ' + p[1]) }); });
+  }));
+  return out;
+}
+function examHwSimGroups(){
+  const it = examHwSimItems(), par = it.map((_, i) => i), best = it.map(() => 0);
+  const find = i => par[i] === i ? i : (par[i] = find(par[i]));
+  for(let a = 0; a < it.length; a++) for(let b = a + 1; b < it.length; b++){
+    if(it[a].key.split('|').slice(0, 2).join('|') === it[b].key.split('|').slice(0, 2).join('|')) continue;   // أزواج الوصل الواحد
+    const sc = Math.max(exSimJac(it[a].ta, it[b].ta), exSimJac(it[a].tq, it[b].tq));
+    if(sc >= 0.55){ par[find(a)] = find(b); best[a] = Math.max(best[a], sc); best[b] = Math.max(best[b], sc); }
+  }
+  const g = new Map(); it.forEach((x, i) => { if(!best[i]) return; const r = find(i); if(!g.has(r)) g.set(r, []); g.get(r).push({ ...x, sc: best[i] }); });
+  return [...g.values()].filter(v => v.length > 1).sort((a, b) => Math.max(...b.map(x => x.sc)) - Math.max(...a.map(x => x.sc)));
+}
+function examHwSimOpen(){
+  const G = examHwSimGroups(); window._exSimG = G;
+  if(!G.length){ toast('لا توجد أسئلة متشابهة بين الأنشطة المحددة 👍', 'good'); return; }
+  const KL = { mc:'اختيار', tf:'صح/خطأ', mp:'وصل' };
+  const row = (x, gi, i) => `<label class="exsim-row ${x.on ? '' : 'off'}"><input type="checkbox" ${x.on ? 'checked' : ''} data-g="${gi}" data-i="${i}" onchange="this.closest('.exsim-row').classList.toggle('off',!this.checked)">
+      <span class="exsim-t"><span class="exsim-tags"><b class="exsim-k ${x.kind}">${KL[x.kind]}</b><small>📚 ${esc(x.src)}</small></span>
+      ${x.kind === 'mp' ? `${escExamText(x.q)} <b class="exsim-ar">⟵</b> ${escExamText(x.ans)}` : escExamText(x.q)}
+      ${x.kind === 'mc' ? `<span class="exsim-ans">✓ ${escExamText(x.ans)}</span>` : x.kind === 'tf' ? `<span class="exsim-ans ${x.tf ? '' : 'no'}">${x.tf ? '✓ صح' : '✗ خطأ'}</span>` : ''}</span></label>`;
+  const n = G.reduce((t, g) => t + g.length, 0);
+  openModal(`<h2>🔁 الأسئلة المتشابهة</h2>
+    <p class="muted" style="margin:.2rem 0 .7rem;font-size:.86rem">${G.length} ${G.length === 1 ? 'مجموعة' : 'مجموعات'} (${n} سؤالًا) تسأل عن الفكرة نفسها بصيغة أخرى أو بنوع آخر. أبقِ ✓ على ما تريده واترك الباقي — المستبعد لا يدخل الاختبار ولا ملف JSON.</p>
+    <div class="row" style="gap:.4rem;flex-wrap:wrap;margin-bottom:.6rem"><button type="button" class="btn ghost sm" onclick="examHwSimQuick('first')">أبقِ الأول من كل مجموعة</button><button type="button" class="btn ghost sm" onclick="examHwSimQuick('all')">أبقِ الكل</button></div>
+    <div class="exsim-list">${G.map((g, gi) => `<div class="exsim-g"><div class="exsim-gh">مجموعة ${gi + 1} <small>· تشابه ${Math.round(Math.max(...g.map(x => x.sc)) * 100)}٪</small></div>${g.map((x, i) => row(x, gi, i)).join('')}</div>`).join('')}</div>
+    <div class="row" style="gap:.5rem;margin-top:.8rem"><button type="button" class="btn primary" onclick="examHwSimApply()">✓ تطبيق</button><button type="button" class="btn ghost" onclick="closeModal()">إلغاء</button></div>`);
+}
+function examHwSimQuick(mode){
+  document.querySelectorAll('.exsim-list input[data-g]').forEach(c => { c.checked = mode === 'all' || c.dataset.i === '0'; c.closest('.exsim-row').classList.toggle('off', !c.checked); });
+}
+function examHwSimApply(){
+  const G = window._exSimG || [], bank = new Map(examHwBankAll().map(x => [x.key, x])); let off = 0;
+  document.querySelectorAll('.exsim-list input[data-g]').forEach(c => { const x = (G[+c.dataset.g] || [])[+c.dataset.i]; if(!x) return;
+    if(!c.checked) off++;
+    if(x.kind === 'mp'){ if(c.checked) EXAM_HW_MPOFF.delete(x.key); else EXAM_HW_MPOFF.add(x.key); }
+    else { const b = bank.get(x.key); if(b) b.selected = c.checked; } });
+  closeModal(); renderExamHwBank(); examBuild();
+  toast(off ? `🔁 استُبعد ${off} ${off === 1 ? 'سؤال متشابه' : 'أسئلة متشابهة'} — لا تدخل الاختبار ولا ملف JSON` : 'أُبقيت كل الأسئلة', 'good');
 }
 function syncExamHwBank(){
   const C = examHwCollect(true);

@@ -2924,3 +2924,21 @@ body.pf-open #simp-bottomnav,body.pf-open .askf-btn{display:none!important}
 .omr-undo{position:fixed;inset-inline:12px;bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:13000;max-width:520px;margin:auto;background:#16233A;color:#fff;border-radius:14px;padding:10px 12px;display:flex;align-items:center;gap:10px;box-shadow:0 10px 30px rgba(0,0,0,.3);font-size:.88rem}
 .omr-undo span{flex:1}.omr-undo .btn{background:#fff;color:#16233A;border:0;font-weight:800}
 .omr-undo-x{background:none;border:0;color:#fff;opacity:.7;font-size:1rem;cursor:pointer}
+
+/* 🔁 الأسئلة المتشابهة (منشئ الاختبار — بنك أسئلة النشاط) */
+#ex-hw-sim-btn.warn{border-color:#E0B25B;background:#FFF7E6;color:#8A5A00}
+.exsim-list{display:flex;flex-direction:column;gap:.6rem;max-height:60vh;overflow:auto}
+.exsim-g{flex:0 0 auto;border:1px solid var(--rule,#DDE5E3);border-radius:12px;overflow:hidden}
+.exsim-gh{background:#F3F8F7;padding:.35rem .7rem;font-weight:800;font-size:.84rem}
+.exsim-gh small{color:#6B7F7C;font-weight:700}
+.exsim-row{display:flex;gap:.55rem;align-items:flex-start;padding:.5rem .7rem;border-top:1px solid #EEF3F2;cursor:pointer;line-height:1.55}
+.exsim-row input{margin-top:.3rem;flex:0 0 auto}
+.exsim-row.off .exsim-t{opacity:.45;text-decoration:line-through;text-decoration-color:#C0392B55}
+.exsim-t{flex:1;min-width:0;font-size:.9rem}
+.exsim-tags{display:flex;gap:.35rem;align-items:center;margin-bottom:.15rem}
+.exsim-tags small{color:#6B7F7C}
+.exsim-k{font-size:.7rem;padding:.05rem .45rem;border-radius:99px;background:#E8F0FE;color:#1F4E9B}
+.exsim-k.tf{background:#EEF7EE;color:#2E7D32}.exsim-k.mp{background:#FFF1E6;color:#9A4D00}
+.exsim-ans{display:inline-block;margin-inline-start:.4rem;font-size:.78rem;font-weight:800;color:#0E5B4E}
+.exsim-ans.no{color:#B3261E}
+.exsim-ar{color:#9A4D00}
