@@ -9709,7 +9709,8 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
               }
             };
             mergeScores(ab.scores); mergeScores(bb.scores);
-            out[sem][p]={tests:order.map(k=>testsMap.get(k)).slice(0,100),scores,...(delT.size?{delTests:[...delT].map(([id,at])=>({id,at})).slice(-200)}:{})};
+            // الحقول الأخرى في الدفتر (إعداداته) تبقى، والوارد يغلب
+            out[sem][p]={...ab,...bb,tests:order.map(k=>testsMap.get(k)).slice(0,100),scores,...(delT.size?{delTests:[...delT].map(([id,at])=>({id,at})).slice(-200)}:{})};
           }
         }
         return out;
@@ -9794,11 +9795,14 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       let closedKept=0;
       if(serverAcademic && old.examBooks && typeof old.examBooks==='object'){
         const ac=academicNormalize({academic:JSON.parse(JSON.stringify(serverAcademic))});
+        // نقارن بالمحفوظ بعد تطبيعه بالدمج نفسه، لا بنصه الخام: الدمج يعيد ترتيب الدفتر فيظهر «تغيير» لم يحدث،
+        // فيُرفض الحفظ ويُنقل المعلم عن الفترة الجارية وهو يرصد فيها
+        const base=mergeExamBooks(old.examBooks,{});
         for(const sn of ['1','2']) for(const pn of ['1','2']){
           if(!periodIsClosed(ac.semesters[sn]||{},Number(pn))) continue;
-          const ob=old.examBooks[sn]&&old.examBooks[sn][pn], nb=safe.examBooks&&safe.examBooks[sn]&&safe.examBooks[sn][pn];
+          const ob=old.examBooks[sn]&&old.examBooks[sn][pn], obn=base[sn]&&base[sn][pn], nb=safe.examBooks&&safe.examBooks[sn]&&safe.examBooks[sn][pn];
           const canon=v=>JSON.stringify(v,(k,x)=>x&&typeof x==='object'&&!Array.isArray(x)?Object.fromEntries(Object.keys(x).sort().map(y=>[y,x[y]])):x);
-          if(ob===undefined||canon(ob)===canon(nb)) continue;
+          if(ob===undefined||canon(obn)===canon(nb)) continue;
           safe.examBooks={...safe.examBooks,[sn]:{...(safe.examBooks[sn]||{}),[pn]:ob}}; closedKept++;
         }
       }
