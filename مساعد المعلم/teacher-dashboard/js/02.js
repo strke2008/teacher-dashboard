@@ -5381,8 +5381,12 @@ const EX_FONTS = {
 const EX_SCALE = { trad:{s:1.18,m:1.30,l:1.44}, naskh:{s:0.96,m:1.06,l:1.18}, modern:{s:0.9,m:1.0,l:1.1} };
 
 function examDigits(v, hindi){
-  return hindi ? String(v).replace(/[0-9]/g, d => '٠١٢٣٤٥٦٧٨٩'[d]) : String(v);
+  // درجات الكسور (ربع/نصف درجة للفقرة): بلا ذيول فاصلة عائمة، والفاصلة العشرية العربية «٫» مع الأرقام الهندية
+  if(typeof v === 'number' && !Number.isInteger(v)) v = +v.toFixed(2);
+  return hindi ? String(v).replace(/[0-9]/g, d => '٠١٢٣٤٥٦٧٨٩'[d]).replace(/(\d|[٠-٩])\.(?=[0-9٠-٩])/g, '$1٫') : String(v);
 }
+/* درجة الفقرة: ربع درجة فأكثر بخطوات الربع (0.25 · 0.5 · 0.75 · 1 …) */
+function examMarkVal(){ const n = Number(String(document.getElementById('ex-mark')?.value ?? '').replace(',', '.')); return Number.isFinite(n) && n > 0 ? Math.max(0.25, Math.min(10, Math.round(n * 4) / 4)) : 1; }
 
 /* يقيس ارتفاع كل فقرة فعليًا بعرض A4 وبلا تصغير، ليأتي التقسيم مطابقًا للورق */
 function examMeasure(pageAttrs, html){
@@ -6064,7 +6068,7 @@ async function omrSendTemplate(){
     if(modelSel) modelSel.value=keep.model;
     examBuild(true);
   }
-  const mark=Math.max(1, Number(document.getElementById('ex-mark')?.value)||1);
+  const mark=examMarkVal();
   const n=models[0].questions.length;
   if(!n){ toast('لا توجد أسئلة اختيار أو صح/خطأ في الصفحة الأولى','bad'); return; }
   const title=String(document.getElementById('ex-title')?.value||'اختبار قصير').trim();
@@ -6910,7 +6914,7 @@ function examBuild0(force){
   // البنك لا يكفي هذا النموذج: يُقال صراحةً بدل أن يخرج النموذج أقصر من غيره بصمت
   const shortNote = modelCount > 1 && (mc.length < nmc || tf.length < ntf)
     ? ` · ⚠️ النموذج (${examModelLetter(modelIndex)}): ${mc.length < nmc ? `${mc.length} من ${nmc} اختيار` : ''}${mc.length < nmc && tf.length < ntf ? ' و' : ''}${tf.length < ntf ? `${tf.length} من ${ntf} صح/خطأ` : ''} — البنك لا يكفي، أضف أسئلة أو قلّل التثبيت` : '';
-  const mark = Math.max(1, num('ex-mark', 1));
+  const mark = examMarkVal();
   const X = TPL === 't1' || TPL === 't4' || TPL === 't5' ? null : examExtras(TPL, { mark, modelIndex, modelCount, seed:modelSeed, shuffle:seededShuffle, mix, val });
   const FX = TPL === 't4' ? examFlexData({ mc, tf, val, modelIndex, modelCount, seed:modelSeed, shuffle:seededShuffle, mix }) : null;
   const AM = TPL === 't5' ? examAutoMatch({ mark, modelIndex, modelCount, seed:modelSeed, shuffle:seededShuffle, val }) : null;

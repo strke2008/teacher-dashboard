@@ -23,7 +23,7 @@
 <link rel="stylesheet" href="app.css?v=16178ead">
 <script src="js/00-fetch-dedupe-js.js?v=e77498d1" defer></script>
 <script src="js/01-right-sidebar-navigation-js.js?v=41ea29b3" defer></script>
-<script src="js/02.js?v=c8086541" defer></script>
+<script src="js/02.js?v=7349a8e9" defer></script>
 <script src="js/03-projects-students-logic-v13.js?v=d4950f64" defer></script>
 <script src="js/04.js?v=5a7c663e" defer></script>
 <script src="js/05.js?v=a7c074c3" defer></script>
@@ -1143,7 +1143,7 @@
 <div class="field" id="ex-nmt-f" style="display:none"><label>أزواج الوصل <span class="muted" style="font-weight:400">(٠ أو ٢–٦ · يضع الطالب ✓ في مربع الرقم)</span></label>
 <input class="inp" id="ex-nmt" max="6" min="0" oninput="examBuild()" type="number" value="4"/></div>
 <div class="field"><label>درجة الفقرة</label>
-<input class="inp" id="ex-mark" max="10" min="1" oninput="examBuild()" type="number" value="1"/></div>
+<input class="inp" id="ex-mark" inputmode="decimal" max="10" min="0.25" oninput="examBuild()" step="0.25" title="ربع درجة أو نصف أو أكثر: 0.25 · 0.5 · 0.75 · 1 …" type="number" value="1"/></div>
 <div class="field"><label>معلم المادة</label>
 <input class="inp" id="ex-teacher" oninput="examBuild()"/></div>
 <div class="field"><label>خط الكليشة</label>
