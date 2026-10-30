@@ -6990,9 +6990,11 @@ function examNamedChanged(){
   if(btn) btn.style.display = on ? '' : 'none';
   examBuild(true);
 }
-function printNamedExams(){
+async function printNamedExams(){
   const box = document.getElementById('exam-paper');
   if(!box || !box.querySelector('.ex-sec')){ toast('لا توجد فقرات للطباعة','bad'); return; }
+  // القالب في الخادم يجب أن يعرف مكان رمز الاسم: نجهّزه تلقائيًا قبل الطباعة (كان يُنسى فلا تُربط الأوراق بأسمائها)
+  if(getApi() && getTok()){ try{ await omrSendTemplate(); }catch(e){} }
   const cls = document.getElementById('ex-named-cls')?.value || '';
   const L = STUDENTS.filter(s => s && s.id && s.name && (!cls || s.cls === cls)).sort((a, b) => String(a.cls||'').localeCompare(String(b.cls||''), 'ar') || String(a.name).localeCompare(String(b.name), 'ar'));
   if(!L.length){ toast('لا طلاب في هذا الفصل','bad'); return; }

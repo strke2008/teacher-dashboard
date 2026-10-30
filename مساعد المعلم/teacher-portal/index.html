@@ -865,6 +865,7 @@ body:has(#bh-mbar:not([hidden])) #behavior{padding-bottom:70px}
 #omr-body.cam-on .omr-batch-tg,#omr-body.cam-on .omr-match-btn{display:none!important}
 .omr-actions .omr-act-match{grid-column:1/-1;order:-1;min-height:52px;font-weight:800}
 .omr-actions{margin-top:8px}
+.omr-hintline{background:var(--amber-soft);color:var(--amber-ink);border-radius:var(--r-sm);padding:8px 10px;margin:0 0 8px}
 .omr-saveall{min-height:50px;margin-bottom:8px;font-weight:800}
 .omr-mhead{display:flex;justify-content:space-between;align-items:baseline;margin:2px 0 10px}.omr-mhead span{font-size:.8rem;opacity:.8}
 .omr-mlist{display:grid;gap:10px;margin-top:12px}
@@ -5594,7 +5595,7 @@ const OMR = (() => {
   }
   /* 🧾 رمز الطالب (أوراق الأسماء): 20 مربعًا مطبوعًا. نطلب أن تُرى حدود المربعات فعلًا (ورقة بلا رمز ⇒ null)
      وكل مربع واضح: ممتلئ أو فارغ — أي مربع بين بين ⇒ null (ربط يدوي، لا تخمين) */
-  function readSCode(G, P, M) {
+  function readSCode(G, P, M, sure) {
     if (!M.scode || !Array.isArray(M.scode.cells) || M.scode.cells.length !== 20) return null;
     const cells = M.scode.cells;
     const base = searchShift(G, P.H, cells.flatMap(r => outlinePts(r, 0.4)), 1.5, 0.25, 0.5, [P.dx, P.dy]);
@@ -5612,7 +5613,9 @@ const OMR = (() => {
     const range = sv[sv.length - 1] - sv[0], thr = (sv[gi] + sv[gi + 1]) / 2;
     const bits = v.map(x => x < thr ? 1 : 0);
     readSCode.last = { frame: +(frame / cells.length).toFixed(1), gap: +(gap / (range || 1)).toFixed(2), range: Math.round(range), bits: bits.join('') };
-    if (frame / cells.length < 6 || range < 35 || gap < 0.35 * range) return null;
+    // هندسة مضبوطة (علامات/صفحة مقوّمة): لا نشترط رؤية إطارات المربعات الصغيرة (تذوب في صورة ناعمة) — يكفي فصل واضح
+    // بين الممتلئ والفارغ، ثم التكافؤ وتطابق واحد بالضبط في قائمة الطلاب
+    if ((!sure && frame / cells.length < 6) || range < 35 || gap < 0.35 * range) return null;
     return bits;
   }
   /* القراءة الكاملة لنموذج */
@@ -5707,7 +5710,7 @@ const OMR = (() => {
     if (gate && !opts.noGate) return retryFrame({ ok: false, error: 'uneven', unaligned, code });
     const correct = answers.filter(a => a.status === 'ok' && a.pick === a.key).length;
     const review = answers.filter(a => a.status !== 'ok').length;
-    return { ok: true, code, scode: readSCode(G, P, M), answers, correct, review, H: P.H, quad: found.quad, pageScore: +P.score.toFixed(1), ms: Date.now() - t0, dbg: { via: found.marks ? 'marks' : found.frame ? 'frame' : found.scan ? 'scan' : 'paper', dx: P.dx, dy: P.dy, rot: P.rot, secs: [...secShift.values()] } };
+    return { ok: true, code, scode: readSCode(G, P, M, !!(found.marks || found.flat)), answers, correct, review, H: P.H, quad: found.quad, pageScore: +P.score.toFixed(1), ms: Date.now() - t0, dbg: { via: found.marks ? 'marks' : found.frame ? 'frame' : found.scan ? 'scan' : 'paper', dx: P.dx, dy: P.dy, rot: P.rot, secs: [...secShift.values()] } };
   }
   return { read, code, prepare, prepareFrame, findFrame, findMarks, gray, findPaper, homography, apply, T, _t: { readCode, readSCode, alignPage, searchSet, outlinePts, boxScore, edgeScore, decide } };
 })();
@@ -6451,8 +6454,9 @@ function omrStudentOf(bits){
   if(!bits || bits.length !== 20 || bits.reduce((t, x) => t + x, 0) % 2) return null;      // التكافؤ: مربع واحد مقروء خطأ ⇒ لا ربط
   let h = 0; for(let i = 0; i < 16; i++) h |= bits[i] << i;
   const salt = bits[16] | (bits[17] << 1) | (bits[18] << 2);
-  const m = list(OMRUI.cls).filter(x => omrStuHash(salt, x.id) === h);
-  return m.length === 1 ? m[0] : null;
+  // الفصل المختار أولًا، ثم كل الطلاب (ورقة من فصل آخر في الدفعة)
+  for(const L of [list(OMRUI.cls), list('')]){ const m = L.filter(x => omrStuHash(salt, x.id) === h); if(m.length === 1) return m[0]; if(m.length > 1) return null; }
+  return null;
 }
 /* 🧾 بصمة الورقة: امتلاء كل مربع (مقيس نسبةً لإضاءة الورق حوله، فلا يتأثر بالظل ولا الزاوية).
    الورقة نفسها مصوّرة مرتين ⇒ 0–2 مربعات تختلف؛ ورقة طالب آخر ⇒ 5 فأكثر ولو اختار الإجابات نفسها
@@ -6480,6 +6484,7 @@ function omrBatchAdd(r, c, img, sig, single){
     answers: r.answers.map(a => ({ i: a.i, t: a.t, key: a.key, status: a.status, pick: a.pick, ...(a.alt >= 0 ? { alt: a.alt } : {}), final: a.status === 'ok' ? a.pick : null, boxes: a.boxes })),
     H: r.H, fs: k, img: sm.toDataURL('image/jpeg', 0.6), name: strip.url, vec: strip.vec, pv: omrPageVec(r), sid: null, saved: false };
   const who = omrStudentOf(r.scode); if(who){ sh.sid = who.id; sh.autoSid = true; }      // 🧾 ورقة باسمه: رُبطت وحدها
+  else if(M.scode) sh.noCode = true;                                                  // اختبار بأوراق أسماء لكن الرمز لم يُقرأ
   sh.autoSave = !!(who && OMRUI.cfg && OMRUI.cfg.autoSave);
   const st = $('omr-status');
   OMRUI.lastPv = { pv: sh.pv, vec: sh.vec };
@@ -6529,7 +6534,7 @@ function omrBatchForce(){
   else omrBatchAfterSingle(false, sh);
 }
 /* بطاقة مصغّرة تحت الكاميرا: الكاميرا تبقى ظاهرة كاملة أثناء تبديل الأوراق */
-function omrWhoLine(sh){ const w = sh.sid ? list(OMRUI.cls).find(x => String(x.id) === String(sh.sid)) : null; return w ? `<span class="omr-who">🧾 ${esc(w.name)}</span>` : ''; }
+function omrWhoLine(sh){ const w = sh.sid ? list('').find(x => String(x.id) === String(sh.sid)) : null; return w ? `<span class="omr-who">🧾 ${esc(w.name)}</span>` : ''; }
 function omrBatchMini(sh, dup, id = 'omr-bimg'){
   const A = sh.answers, mark = Number(OMRUI.tpl.mark) || 1;
   const pend = A.filter(a => a.final === null).length, ok = A.filter(a => a.final !== null && a.final === a.key).length;
@@ -6641,13 +6646,14 @@ function omrMatchRender(){
     <div class="omr-row"><button class="btn ghost" type="button" onclick="omrBackToCapture()">➕ تصوير المزيد</button>
       <button class="btn ghost" type="button" onclick="omrBatchClear()">${done===S.length && S.length ? '✓ إنهاء وحذف الصور' : '🗑️ حذف الدفعة'}</button></div>
     ${S.length ? '' : '<p class="omr-note" style="text-align:center;margin-top:18px">لا أوراق بعد — صوّر أوراق الفصل أولًا.</p>'}
+    ${S.length && !T.models.some(m => m.scode) ? '<p class="omr-note omr-hintline">🧾 للربط بالاسم تلقائيًا: في لوحة التحكم فعّل «ورقة باسم كل طالب» ثم اطبع «أوراق الأسماء» — هذا الاختبار جُهّز بدونها.</p>' : ''}
     <div class="omr-mlist">${order.map(s => {
-      const sc = omrSheetScore(s), who = s.sid ? list(OMRUI.cls).find(x => String(x.id) === String(s.sid)) : null, open = OMRUI.openId === s.id;
+      const sc = omrSheetScore(s), who = s.sid ? list('').find(x => String(x.id) === String(s.sid)) : null, open = OMRUI.openId === s.id;
       const ml = T.models.length > 1 ? ` · نموذج (${esc(T.models[s.model].letter || s.model+1)})` : '';
       return `<div class="omr-mc${s.saved ? ' saved' : ''}${open ? ' open' : ''}" id="mc-${s.id}">
         <button type="button" class="omr-mtop" onclick="omrMatchOpen('${s.id}')">
           <img class="omr-name" src="${s.name}" alt="شريط الاسم">
-          <span class="omr-mline"><b>${sc.pending ? '؟' : sc.raw}</b> / ${sc.auto}${sc.needMan ? (sc.manOk ? ` + ✍️ ${Number(s.manual)} = <b>${sc.full}</b> / ${sc.total}` : ` · <i class="omr-pend">✍️ الجزء اليدوي</i>`) : ''}${ml}${sc.pending ? ` · <i class="omr-pend">⚠️ ${sc.pending} للتأكيد</i>` : ''}${s.saved ? ` · <i class="omr-ok">✓ ${esc(who ? who.name : '')}</i>` : who ? ` · ${s.autoSid ? '🧾 ' : ''}${esc(who.name)}` : ''}</span>
+          <span class="omr-mline"><b>${sc.pending ? '؟' : sc.raw}</b> / ${sc.auto}${sc.needMan ? (sc.manOk ? ` + ✍️ ${Number(s.manual)} = <b>${sc.full}</b> / ${sc.total}` : ` · <i class="omr-pend">✍️ الجزء اليدوي</i>`) : ''}${ml}${sc.pending ? ` · <i class="omr-pend">⚠️ ${sc.pending} للتأكيد</i>` : ''}${s.saved ? ` · <i class="omr-ok">✓ ${esc(who ? who.name : '')}</i>` : who ? ` · ${s.autoSid ? '🧾 ' : ''}${esc(who.name)}` : s.noCode ? ' · <i class="omr-pend">🧾 رمز الاسم لم يُقرأ — اختر الطالب</i>' : ''}</span>
         </button>
         ${open && !s.saved ? omrMatchBody(s, used) : ''}
       </div>`; }).join('')}</div>`;
@@ -6689,7 +6695,7 @@ async function omrAutoSave(s){
     const sc = omrSheetScore(s), val = Math.abs(sc.total - test.max) > 1e-9 ? +(sc.full / sc.total * test.max).toFixed(2) : sc.full;
     await setExamScore(s.sid, OMRUI.testId, String(val), false, omrWrongOf(s.answers, s.model));
     s.saved = true; OMRDB.put(s); omrBatchCounter();
-    const who = list(OMRUI.cls).find(x => String(x.id) === String(s.sid)); toast(`💾 رُصدت: ${who ? who.name : ''} ${val} من ${test.max}`);
+    const who = list('').find(x => String(x.id) === String(s.sid)); toast(`💾 رُصدت: ${who ? who.name : ''} ${val} من ${test.max}`);
   }catch(e){}
 }
 async function omrSaveReady(){
@@ -6713,7 +6719,7 @@ async function omrSheetSave(s){
   if(prev !== undefined && !(await askConfirm('لهذا الطالب درجة مرصودة في هذا الاختبار. استبدالها بهذه الورقة؟', { title:'استبدال الدرجة؟', yes:'استبدل', no:'إلغاء' }))){ s.sid = null; OMRDB.put(s); omrMatchRender(); return; }
   await setExamScore(s.sid, OMRUI.testId, String(val), false, omrWrongOf(s.answers, s.model));
   s.saved = true; OMRDB.put(s);
-  const who = list(OMRUI.cls).find(x => String(x.id) === String(s.sid));
+  const who = list('').find(x => String(x.id) === String(s.sid));
   toast(`✓ ${who ? who.name : ''}: ${val} من ${test.max}`);
   OMRUI.openId = (OMRUI.sheets.find(x => !x.saved) || {}).id || null;
   omrMatchRender();
