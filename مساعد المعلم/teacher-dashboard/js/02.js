@@ -5825,6 +5825,85 @@ function omrMeasure(){
   const fid=[...page.querySelectorAll(':scope > .ex-fid')].map(R);   // علامات الزوايا: أعلى اليسار، أعلى اليمين، أسفل اليمين، أسفل اليسار (المفرّغة)
   return { anchors, questions, mcode, ...(fid.length===4?{marks:fid}:{}), ...(scode?{scode}:{}), skipped: allQ-questions.length, pageH:+(pr.height*k).toFixed(1) };
 }
+/* ⚙️ إدارة التصحيح الآلي: كل الاختبارات المجهّزة للجوال (حذف/إخفاء/إعادة تسمية) وإعدادات التصوير في البوابة.
+   الإعدادات تُحفظ في الخادم وتقرؤها بوابة المعلم عند فتح التصحيح الآلي. */
+const OMRM = { list:[], cfg:{}, sel:new Set(), busy:false };
+async function omrApiCall(path, body){
+  const api=getApi(), tok=getTok(); if(!api||!tok) throw new Error('noapi');
+  const base=api.replace(/\/+$/,'');
+  const r = body ? await fetch(base+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:tok,...body})}) : await fetch(base+path+(path.includes('?')?'&':'?')+'t='+encodeURIComponent(tok));
+  const j = await r.json(); if(!j || j.ok===false) throw new Error(j&&j.error||'fail'); return j;
+}
+async function omrManage(){
+  if(!getApi()||!getTok()){ toast('اضبط عنوان الخادم وكلمة السر أولًا','bad'); return; }
+  openModal(`<div class="omrm"><h3>⚙️ إعدادات التصحيح الآلي</h3><p class="muted">جارٍ التحميل…</p></div>`);
+  try{ const j=await omrApiCall('/omr/list'); OMRM.list=j.templates||[]; OMRM.cfg=j.settings||{}; OMRM.sel=new Set(); }
+  catch(e){ document.querySelector('#modal .omrm').innerHTML='<h3>⚙️ إعدادات التصحيح الآلي</h3><p class="muted">تعذّر الاتصال بالخادم.</p>'; return; }
+  // اختبارات جُهّزت قبل حفظ الخصائص في القائمة: نقرأ قالبها مرة لمعرفة علامات الزوايا وأوراق الأسماء
+  await Promise.all(OMRM.list.filter(t=>t.marks===undefined).map(async t=>{ try{ const g=await omrApiCall('/omr/get?id='+encodeURIComponent(t.id)); const ms=g.template.models||[]; t.marks=ms.every(m=>!!m.marks); t.named=ms.every(m=>!!m.scode); }catch(e){} }));
+  omrManageRender();
+}
+function omrManageRender(){
+  const box=document.querySelector('#modal .omrm'); if(!box) return;
+  const c=OMRM.cfg, L=OMRM.list, now=Date.now();
+  const d=t=>t?new Date(t).toLocaleDateString('ar-SA-u-ca-gregory',{day:'numeric',month:'numeric',year:'numeric'}):'—';
+  const tg=(k,on,lab,sub)=>`<label class="omrm-set"><span><b>${lab}</b><small>${sub}</small></span><input type="checkbox" class="omrm-sw" ${on?'checked':''} onchange="omrManageSet('${k}',this.checked)"></label>`;
+  const vis=L.filter(t=>!t.hidden).length;
+  box.innerHTML=`<h3>⚙️ إعدادات التصحيح الآلي</h3>
+    <div class="omrm-sec"><h4>📷 التصوير في بوابة المعلم</h4>
+      <label class="omrm-set"><span><b>🎯 دقة القراءة</b><small>«أدق» يجمع 3 لقطات لكل ورقة فتقلّ الأسئلة غير الواضحة (نحو ثانية ونصف للورقة)</small></span>
+        <select class="inp omrm-sel" onchange="omrManageSet('frames',Number(this.value))"><option value="3" ${c.frames!==1?'selected':''}>أدق — 3 لقطات</option><option value="1" ${c.frames===1?'selected':''}>أسرع — لقطة واحدة</option></select></label>
+      ${tg('beep',c.beep!==false,'🔔 صوت عند إضافة ورقة','نغمة عالية = أُضيفت، منخفضة = مكررة — مفيد والجوال مثبّت')}
+      ${tg('glareWait',c.glareWait!==false,'✨ الانتظار عند لمعة الضوء','ينتظر ثانيتين لتحرّك الجوال، والأسئلة تحت اللمعة تُعرض للتأكيد دائمًا')}
+      ${tg('autoSave',!!c.autoSave,'💾 رصد أوراق الأسماء تلقائيًا','ورقة عُرف صاحبها وكل أسئلتها واضحة تُرصد فورًا بلا مراجعة (لا تستبدل درجة مرصودة)')}
+    </div>
+    <div class="omrm-sec"><h4>🗂️ الاختبارات المجهّزة <span class="muted">(${L.length} · ظاهر في الجوال ${vis})</span></h4>
+      ${L.length?`<div class="omrm-bulk"><button class="btn ghost sm" type="button" onclick="omrManageSelOld()">تحديد الأقدم من 30 يومًا</button>
+        <button class="btn ghost sm" type="button" onclick="omrManageSelAll()">${OMRM.sel.size===L.length?'إلغاء التحديد':'تحديد الكل'}</button>
+        <button class="btn danger sm" type="button" ${OMRM.sel.size?'':'disabled'} onclick="omrManageDel([...OMRM.sel])">🗑️ حذف المحدد (${OMRM.sel.size})</button></div>`:'<p class="muted">لا توجد اختبارات مجهّزة بعد — من «📷 تجهيز للتصحيح الآلي».</p>'}
+      <div class="omrm-list">${L.map(t=>{ const old=now-(t.at||0)>30*864e5;
+        return `<div class="omrm-row${t.hidden?' off':''}"><input type="checkbox" ${OMRM.sel.has(t.id)?'checked':''} onchange="omrManageSel('${esc(t.id)}',this.checked)" aria-label="تحديد">
+          <div class="omrm-main"><b>${esc(t.title)}</b>
+            <small>جُهّز ${d(t.at)}${old?' · قديم':''} · ${t.n} سؤالًا${t.models>1?` · ${t.models} نماذج`:''}${t.total?` · من ${t.total}`:''}</small>
+            <span class="omrm-chips">${t.marks?'<i class="ok">⬛ علامات الزوايا</i>':t.marks===false?'<i class="warn" title="اطبعه من جديد بعد «تجهيز للتصحيح الآلي» ليقرأ أي مقاس طباعة">⚠️ بلا علامات زوايا</i>':''}${t.named?'<i class="ok">🧾 أوراق أسماء</i>':''}${t.hidden?'<i>🙈 مخفي في الجوال</i>':''}</span></div>
+          <div class="omrm-acts"><button class="btn ghost sm" type="button" title="إعادة تسمية" onclick="omrManageRename('${esc(t.id)}')">✏️</button>
+            <button class="btn ghost sm" type="button" title="${t.hidden?'إظهار في الجوال':'إخفاء من الجوال'}" onclick="omrManageHide('${esc(t.id)}',${!t.hidden})">${t.hidden?'👁️':'🙈'}</button>
+            <button class="btn ghost sm" type="button" title="حذف" onclick="omrManageDel(['${esc(t.id)}'])">🗑️</button></div></div>`; }).join('')}</div>
+      <p class="muted" style="font-size:.76rem;margin-top:.5rem">الحذف يمسح خريطة الإجابة فقط — الدرجات المرصودة لا تتأثر. الإخفاء يُبقيه محفوظًا ويخفيه من قائمة الجوال.</p>
+    </div>
+    <div class="row" style="justify-content:flex-end"><button class="btn tick" type="button" onclick="closeModal()">تم</button></div>`;
+}
+async function omrManageSet(k,v){
+  const prev={...OMRM.cfg}; OMRM.cfg[k]=v;
+  try{ const j=await omrApiCall('/omr/settings',{settings:OMRM.cfg}); OMRM.cfg=j.settings; toast('✓ حُفظ الإعداد','good'); }
+  catch(e){ OMRM.cfg=prev; toast('تعذّر الحفظ','bad'); }
+  omrManageRender();
+}
+function omrManageSel(id,on){ on?OMRM.sel.add(id):OMRM.sel.delete(id); omrManageRender(); }
+function omrManageSelAll(){ OMRM.sel = OMRM.sel.size===OMRM.list.length ? new Set() : new Set(OMRM.list.map(t=>t.id)); omrManageRender(); }
+function omrManageSelOld(){ const now=Date.now(); OMRM.sel=new Set(OMRM.list.filter(t=>now-(t.at||0)>30*864e5).map(t=>t.id)); if(!OMRM.sel.size) toast('لا اختبارات أقدم من 30 يومًا'); omrManageRender(); }
+async function omrManageDel(ids){
+  if(!ids.length) return;
+  const one=ids.length===1 ? OMRM.list.find(t=>t.id===ids[0]) : null;
+  if(!(await askConfirm(one?`حذف «${one.title}» من التصحيح الآلي؟ لن تُقرأ أوراقه المطبوعة بعد الحذف.`:`حذف ${ids.length} اختبارات من التصحيح الآلي؟ لن تُقرأ أوراقها المطبوعة بعد الحذف.`,{title:'حذف',yes:'احذف',no:'إلغاء',danger:true}))) return;
+  try{ await omrApiCall('/omr/delete',{ids}); OMRM.list=OMRM.list.filter(t=>!ids.includes(t.id)); ids.forEach(i=>OMRM.sel.delete(i)); toast(`✓ حُذف ${ids.length}`,'good'); }
+  catch(e){ toast('تعذّر الحذف','bad'); }
+  omrManageRender();
+}
+async function omrManageHide(id,hidden){
+  try{ const j=await omrApiCall('/omr/update',{id,hidden}); const t=OMRM.list.find(x=>x.id===id); if(t) t.hidden=j.template.hidden; toast(hidden?'أُخفي من قائمة الجوال':'ظاهر في الجوال','good'); }
+  catch(e){ toast('تعذّر التعديل','bad'); }
+  omrManageRender();
+}
+function omrManageRename(id){
+  const t=OMRM.list.find(x=>x.id===id); if(!t) return;
+  const row=[...document.querySelectorAll('#modal .omrm-row')].find(r=>r.querySelector(`[onclick*="omrManageRename('${CSS.escape(id)}')"]`)); const main=row&&row.querySelector('.omrm-main b'); if(!main) return;
+  main.outerHTML=`<span class="omrm-ren"><input class="inp" value="${esc(t.title)}" maxlength="120"><button class="btn tick sm" type="button">حفظ</button></span>`;
+  const w=row.querySelector('.omrm-ren'), inp=w.querySelector('input'); inp.focus(); inp.select();
+  const go=async()=>{ const v=inp.value.trim(); if(!v||v===t.title){ omrManageRender(); return; }
+    try{ await omrApiCall('/omr/update',{id,title:v}); t.title=v; toast('✓ تغيّر الاسم','good'); }catch(e){ toast('تعذّر التعديل','bad'); } omrManageRender(); };
+  w.querySelector('button').onclick=go; inp.onkeydown=e=>{ if(e.key==='Enter') go(); if(e.key==='Escape') omrManageRender(); };
+}
 async function omrSendTemplate(){
   const box=document.getElementById('exam-paper');
   if(!box || !box.querySelector('.ex-sec')){ toast('أنشئ الاختبار أولًا','bad'); return; }

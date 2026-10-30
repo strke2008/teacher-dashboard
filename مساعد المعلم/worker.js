@@ -7338,21 +7338,43 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
           autoTotal: num(x.autoTotal) || 0, models, at: Date.now() };
         await env.HW.put(`omr:t:${id}`, JSON.stringify(tpl));
         const idx = (await readIdx()).filter(e => e.id !== id);
-        idx.unshift({ id, title: tpl.title, at: tpl.at, models: models.length, n: models[0].questions.length, total: tpl.total, autoTotal: tpl.autoTotal });
+        idx.unshift({ id, title: tpl.title, at: tpl.at, models: models.length, n: models[0].questions.length, total: tpl.total, autoTotal: tpl.autoTotal,
+          marks: models.every(m => !!m.marks), named: models.every(m => !!m.scode) });
         await env.HW.put('omr:index', JSON.stringify(idx.slice(0, 40)));
         return json({ ok: true, id, questions: models[0].questions.length });
       }
-      if (url.pathname === '/omr/list') return json({ ok: true, templates: await readIdx() });
+      const readCfg = async () => { try { const c = JSON.parse(await env.HW.get('omr:settings') || '{}'); return c && typeof c === 'object' ? c : {}; } catch { return {}; } };
+      if (url.pathname === '/omr/list') return json({ ok: true, templates: await readIdx(), settings: await readCfg() });
+      // ⚙️ إعدادات التصحيح الآلي (من لوحة التحكم) — تقرؤها بوابة المعلم مع القائمة
+      if (url.pathname === '/omr/settings' && request.method === 'POST') {
+        const x = b.settings || {}, cfg = {
+          beep: x.beep !== false, frames: [1, 3].includes(Number(x.frames)) ? Number(x.frames) : 3,
+          autoSave: !!x.autoSave, glareWait: x.glareWait !== false, showHidden: false };
+        await env.HW.put('omr:settings', JSON.stringify(cfg));
+        return json({ ok: true, settings: cfg });
+      }
+      // تعديل اسم الاختبار، أو إخفاؤه من قائمة الجوال (يبقى محفوظًا ويمكن إظهاره)
+      if (url.pathname === '/omr/update' && request.method === 'POST') {
+        const id = String(b.id || '').replace(/[^A-Za-z0-9_-]/g, '');
+        const idx = await readIdx(), e = idx.find(t => t.id === id); if (!e) return json({ ok: false, error: 'notfound' }, 404);
+        if (typeof b.title === 'string' && b.title.trim()) {
+          e.title = b.title.trim().slice(0, 120);
+          const raw = await env.HW.get(`omr:t:${id}`); if (raw) { const t = JSON.parse(raw); t.title = e.title; await env.HW.put(`omr:t:${id}`, JSON.stringify(t)); }
+        }
+        if (typeof b.hidden === 'boolean') e.hidden = b.hidden;
+        await env.HW.put('omr:index', JSON.stringify(idx));
+        return json({ ok: true, template: e });
+      }
       if (url.pathname === '/omr/get') {
         const id = String(url.searchParams.get('id') || '').replace(/[^A-Za-z0-9_-]/g, '');
         const raw = await env.HW.get(`omr:t:${id}`); if (!raw) return json({ ok: false, error: 'notfound' }, 404);
         return json({ ok: true, template: JSON.parse(raw) });
       }
       if (url.pathname === '/omr/delete' && request.method === 'POST') {
-        const id = String(b.id || '').replace(/[^A-Za-z0-9_-]/g, '');
-        await env.HW.delete(`omr:t:${id}`);
-        await env.HW.put('omr:index', JSON.stringify((await readIdx()).filter(e => e.id !== id)));
-        return json({ ok: true });
+        const ids = (Array.isArray(b.ids) ? b.ids : [b.id]).map(v => String(v || '').replace(/[^A-Za-z0-9_-]/g, '')).filter(Boolean).slice(0, 40);
+        for (const id of ids) await env.HW.delete(`omr:t:${id}`);
+        await env.HW.put('omr:index', JSON.stringify((await readIdx()).filter(e => !ids.includes(e.id))));
+        return json({ ok: true, deleted: ids.length });
       }
       return json({ ok: false, error: 'not found' }, 404);
     }

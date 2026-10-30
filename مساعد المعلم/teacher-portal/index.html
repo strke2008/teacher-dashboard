@@ -5746,7 +5746,7 @@ async function omrOpen(){
   el.innerHTML = `<div class="omr-top"><button class="omr-x" onclick="omrClose()" aria-label="إغلاق">✕</button><b>📷 التصحيح الآلي</b><span></span></div><div class="omr-body" id="omr-body"><p class="omr-note">جارٍ جلب الاختبارات…</p></div>`;
   document.body.appendChild(el); document.body.style.overflow='hidden';
   let list_ = [];
-  try{ const j = await (await fetch(omrApi('/omr/list?t='+encodeURIComponent(token)))).json(); list_ = j.templates||[]; }catch(e){}
+  try{ const j = await (await fetch(omrApi('/omr/list?t='+encodeURIComponent(token)))).json(); list_ = (j.templates||[]).filter(t => !t.hidden); OMRUI.cfg = j.settings || {}; }catch(e){}   // المخفية من «إعدادات التصحيح الآلي» في اللوحة لا تظهر
   const tests = examBook().tests;
   if(!list_.length){ $('omr-body').innerHTML = `<div class="omr-card"><b>لا توجد اختبارات جاهزة للتصحيح الآلي</b><p class="omr-note">من لوحة المعلم ← الاختبار الورقي ← أنشئ الاختبار ثم اضغط «📷 تجهيز للتصحيح الآلي».</p></div>`; return; }
   if(!tests.length){ $('omr-body').innerHTML = `<div class="omr-card"><b>أضف اختبارًا في «رصد الاختبارات» أولًا</b><p class="omr-note">الدرجة تُرصد في عمود اختبار من هذه الفترة.</p></div>`; return; }
@@ -5757,6 +5757,7 @@ async function omrOpen(){
     <label id="omr-model-wrap" style="display:none">النموذج<select class="inp" id="omr-model"></select></label>
     <label>يُرصد في<select class="inp" id="omr-test">${tests.map(t=>`<option value="${esc(t.id)}" ${String(t.id)===saved.test?'selected':''}>${esc(t.title)} (من ${t.max})</option>`).join('')}</select></label>
     <label>الفصل<select class="inp" id="omr-cls">${classes().map(c=>`<option ${c===cls?'selected':''}>${esc(c)}</option>`).join('')}</select></label>
+    <p class="omr-note">لحذف الاختبارات القديمة أو إخفائها وضبط التصوير: لوحة التحكم ← الاختبار الورقي ← <b>⚙️ إعدادات التصحيح الآلي</b>.</p>
     <p class="omr-note">اطلب من الطلاب وضع ✓ أو التظليل <b>داخل المربع</b>. الأوراق الجديدة فيها ⬛ مربعات سوداء في زواياها تُقرأ بأي مقاس طباعة؛ الأقدم منها: اطبعها بالحجم الفعلي (100%).</p>
     <button class="btn primary wide" id="omr-go" type="button">📷 ابدأ المسح</button></div>`;
   const loadModels = async () => {
@@ -6142,7 +6143,7 @@ function omrTick(){
   }
   if(OMRUI.lowRes) return;                                                      // لا قراءة بدقة لا تكفي
   if(OMRUI.still < 2){ if(st) st.textContent = 'ثبّت الجوال…'; return; }
-  if(gq.glare && OMRUI.glareN < 8){ if(st) st.textContent = 'لمعة ضوء فوق الورقة — ميّل الجوال قليلًا'; return; }   // بعد ثانيتين نقرأ على أي حال
+  if(gq.glare && OMRUI.glareN < 8 && !(OMRUI.cfg && OMRUI.cfg.glareWait === false)){ if(st) st.textContent = 'لمعة ضوء فوق الورقة — ميّل الجوال قليلًا'; return; }   // بعد ثانيتين نقرأ على أي حال
   // 🔍 أوضح لقطة: لا نقرأ لقطة أقل حدة بوضوح من أفضل لقطة في الثانيتين الأخيرتين (اهتزاز أو تركيز لم يكتمل)
   const sh = OMRUI.shHist || (OMRUI.shHist = []); sh.push(gq.sharp); if(sh.length > 8) sh.shift();
   if(sh.length < 3 || gq.sharp < 0.85 * Math.max(...sh)){ if(st) st.textContent = 'ثبّت الجوال… يضبط الوضوح'; return; }
@@ -6245,7 +6246,8 @@ function omrProcess(src, w, h, single){
       if(acc.length && (acc[0].m !== OMRUI.model || r.answers.some((a, i) => a.status === 'ok' && acc.some(p => p.r.answers[i] && p.r.answers[i].status === 'ok' && p.r.answers[i].pick !== a.pick)))) acc.length = 0;
       acc.push({ r, m: OMRUI.model });
       const force = OMRUI.forceShot; OMRUI.forceShot = false;
-      if(acc.length < 3 && !force){ if(st) st.textContent = `جارٍ القراءة… ${acc.length} من 3`; return; }
+      const need = OMRUI.cfg && OMRUI.cfg.frames === 1 ? 1 : 3;                        // من إعدادات اللوحة: أدق (3) أو أسرع (1)
+      if(acc.length < need && !force){ if(st) st.textContent = `جارٍ القراءة… ${acc.length} من ${need}`; return; }
       r = omrFuse(acc.map(p => p.r)); OMRUI.acc = [];
       // قرأنا رغم اللمعة: كل سؤال تقع مربعاته تحتها يُعرض للتأكيد بدل أن يُصحَّح (اللمعة قد تمسح علامة الطالب)
       if(OMRUI.glareMm && OMRUI.glareMm.length) r.answers = r.answers.map(a => (a.boxes || []).some(b => OMRUI.glareMm.some(([gx, gy]) => Math.abs(gx - (b.r[0] + b.r[2] / 2)) < 7 && Math.abs(gy - (b.r[1] + b.r[3] / 2)) < 7)) ? { ...a, status: 'glare' } : a);
@@ -6461,6 +6463,7 @@ function omrBatchAdd(r, c, img, sig, single){
     answers: r.answers.map(a => ({ i: a.i, t: a.t, key: a.key, status: a.status, pick: a.pick, ...(a.alt >= 0 ? { alt: a.alt } : {}), final: a.status === 'ok' ? a.pick : null, boxes: a.boxes })),
     H: r.H, fs: k, img: sm.toDataURL('image/jpeg', 0.6), name: strip.url, vec: strip.vec, pv: omrPageVec(r), sid: null, saved: false };
   const who = omrStudentOf(r.scode); if(who){ sh.sid = who.id; sh.autoSid = true; }      // 🧾 ورقة باسمه: رُبطت وحدها
+  sh.autoSave = !!(who && OMRUI.cfg && OMRUI.cfg.autoSave);
   const st = $('omr-status');
   OMRUI.lastPv = { pv: sh.pv, vec: sh.vec };
   if(omrIsDup(sh)){
@@ -6472,6 +6475,7 @@ function omrBatchAdd(r, c, img, sig, single){
     return;
   }
   OMRUI.dupSheet = null; OMRUI.sheets.push(sh); OMRDB.put(sh); omrBeep(true);
+  if(sh.autoSave) omrAutoSave(sh);
   omrBatchCounter();
   if(OMRUI.stream && OMRUI.scanMode){ OMRUI.waitSwap = true; OMRUI.savedSig = sig; omrScanPause(sh, false); return; }
   if(OMRUI.stream){ OMRUI.waitSwap = true; OMRUI.savedSig = sig; if(st) st.textContent = `✓ الورقة ${OMRUI.sheets.length} في الدفعة — ضع الورقة التالية فوقها`; $('omr-result').innerHTML = omrBatchMini(sh); omrBatchCardDraw(sh); return; }
@@ -6491,6 +6495,7 @@ function omrScanPause(sh, dup){
 function omrScanNext(){ $('omr-result').innerHTML = ''; OMRUI.dupSheet = null; omrStartLoop(); }
 /* 🔔 تأكيد بلا نظر للشاشة (الجوال مثبّت والمعلم يبدّل الأوراق): نغمة عالية = أُضيفت، منخفضة = مكررة */
 function omrBeep(ok){
+  if(OMRUI.cfg && OMRUI.cfg.beep === false) return;
   try{ if(navigator.vibrate) navigator.vibrate(ok ? 60 : [40, 60, 40]); }catch(e){}
   try{ const A = OMRUI.ac; if(!A) return; if(A.resume) A.resume();
     const o = A.createOscillator(), g = A.createGain(); o.frequency.value = ok ? 880 : 300; g.gain.setValueAtTime(0.09, A.currentTime); g.gain.exponentialRampToValueAtTime(0.001, A.currentTime + (ok ? 0.16 : 0.3));
@@ -6657,6 +6662,19 @@ function omrMatchOpen(id){ OMRUI.openId = OMRUI.openId === id ? null : id; omrMa
 function omrMatchFilter(){ const q = omrNorm($('omr-q').value); document.querySelectorAll('#omr-slist .omr-sbtn').forEach(b => { b.style.display = !q || b.dataset.n.includes(q) ? '' : 'none'; }); }
 function omrSheetSet(id, i, v){ const s = OMRUI.sheets.find(x => x.id === id); if(!s) return; s.answers[i].final = v; OMRDB.put(s); if(s.sid && !s.answers.some(a => a.final === null) && omrManualOk(s.manual, s.model)) omrSheetSave(s); else omrMatchRender(); }
 /* 💾 حفظ كل ورقة مربوطة (من رمز الاسم أو يدويًا) وأسئلتها محسومة — الباقي يبقى للمراجعة */
+/* 💾 رصد تلقائي (إعداد في اللوحة): ورقة أسماء عُرف صاحبها وكل أسئلتها محسومة والجزء اليدوي لا يلزم —
+   بلا نوافذ ولا استبدال: إن كان للطالب درجة مرصودة تبقى الورقة للمراجعة */
+async function omrAutoSave(s){
+  try{
+    if(s.answers.some(a => a.final === null) || omrManualMax(s.model)) return;
+    const test = omrTest(); if(!test) return;
+    const b = examBook(); if(b.scores[String(s.sid)] && b.scores[String(s.sid)][String(OMRUI.testId)] !== undefined) return;
+    const sc = omrSheetScore(s), val = Math.abs(sc.total - test.max) > 1e-9 ? +(sc.full / sc.total * test.max).toFixed(2) : sc.full;
+    await setExamScore(s.sid, OMRUI.testId, String(val), false, omrWrongOf(s.answers, s.model));
+    s.saved = true; OMRDB.put(s); omrBatchCounter();
+    const who = list(OMRUI.cls).find(x => String(x.id) === String(s.sid)); toast(`💾 رُصدت: ${who ? who.name : ''} ${val} من ${test.max}`);
+  }catch(e){}
+}
 async function omrSaveReady(){
   const R = OMRUI.sheets.filter(x => !x.saved && x.sid && !x.answers.some(a => a.final === null) && omrManualOk(x.manual, x.model));
   for(const s of R) await omrSheetSave(s);
