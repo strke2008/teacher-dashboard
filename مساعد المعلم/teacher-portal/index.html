@@ -865,6 +865,7 @@ body:has(#bh-mbar:not([hidden])) #behavior{padding-bottom:70px}
 #omr-body.cam-on .omr-batch-tg,#omr-body.cam-on .omr-match-btn{display:none!important}
 .omr-actions .omr-act-match{grid-column:1/-1;order:-1;min-height:52px;font-weight:800}
 .omr-actions{margin-top:8px}
+.omr-saveall{min-height:50px;margin-bottom:8px;font-weight:800}
 .omr-mhead{display:flex;justify-content:space-between;align-items:baseline;margin:2px 0 10px}.omr-mhead span{font-size:.8rem;opacity:.8}
 .omr-mlist{display:grid;gap:10px;margin-top:12px}
 .omr-mc{background:var(--surface);color:var(--ink);border-radius:var(--r);overflow:hidden;border:1px solid var(--rule);box-shadow:var(--shadow)}
@@ -918,6 +919,7 @@ body:has(#bh-mbar:not([hidden])) #behavior{padding-bottom:70px}
 .omr-minfo{flex:1;min-width:0;display:grid;gap:4px;align-content:center}.omr-minfo b{font-size:.95rem}.omr-minfo small{font-size:.73rem;font-weight:600;color:var(--ink-soft)}
 .omr-minfo .btn{min-height:40px;font-size:.85rem;padding:6px 10px}
 .omr-steps{margin:0;padding-inline-start:20px;display:grid;gap:8px;font-size:.84rem;line-height:1.7}.omr-steps small{display:block;color:var(--ink-soft);font-size:.74rem}
+.omr-who{display:inline-flex;align-items:center;gap:4px;font-size:.8rem;font-weight:800;color:var(--green-ink);background:var(--green-soft);border-radius:999px;padding:2px 10px;width:fit-content}
 .omr-bhead{display:grid;gap:2px}.omr-bhead b{font-size:1.05rem}.omr-bhead small{font-weight:600;color:var(--ink-soft)}
 .omr-bimg{width:100%;height:auto;max-height:58vh;object-fit:contain;border-radius:var(--r-sm);border:1px solid var(--rule);cursor:zoom-in;display:block}
 .omr-blegend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:.72rem;font-weight:600;color:var(--ink-soft)}.omr-blegend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-inline-end:4px;vertical-align:middle}
@@ -5589,6 +5591,29 @@ const OMR = (() => {
     readCode.last = f.map(v => +v.toFixed(2));
     return (ord[0][0] >= 0.55 && ord[1][0] <= 0.25) ? ord[0][1] : null;
   }
+  /* 🧾 رمز الطالب (أوراق الأسماء): 20 مربعًا مطبوعًا. نطلب أن تُرى حدود المربعات فعلًا (ورقة بلا رمز ⇒ null)
+     وكل مربع واضح: ممتلئ أو فارغ — أي مربع بين بين ⇒ null (ربط يدوي، لا تخمين) */
+  function readSCode(G, P, M) {
+    if (!M.scode || !Array.isArray(M.scode.cells) || M.scode.cells.length !== 20) return null;
+    const cells = M.scode.cells;
+    const base = searchShift(G, P.H, cells.flatMap(r => outlinePts(r, 0.4)), 1.5, 0.25, 0.5, [P.dx, P.dy]);
+    let frame = 0; const v = [];
+    for (const r of cells) {
+      frame += boxScore(G, P.H, outlinePts(r, 0.35), base.dx, base.dy, 0.45);
+      // مركز المربع فقط (5 نقاط): الحواف المتلاصقة بين المربعات لا تدخل في القياس
+      const cx = r[0] + r[2] / 2 + base.dx, cy = r[1] + r[3] / 2 + base.dy, d = Math.min(r[2], r[3]) * 0.18;
+      let t = 0; for (const [ox, oy] of [[0, 0], [-d, -d], [d, -d], [-d, d], [d, d]]) { const p = apply(P.H, cx + ox, cy + oy); t += sample(G, p[0], p[1]); }
+      v.push(t / 5);
+    }
+    // الفصل بين الممتلئ والفارغ: أكبر فجوة بين القيم المرتبة (الطباعة نفسها: فجوة واضحة)، وإلا لا قراءة
+    const sv = v.slice().sort((a, b) => a - b); let gi = 0, gap = -1;
+    for (let k = 0; k < sv.length - 1; k++) if (sv[k + 1] - sv[k] > gap) { gap = sv[k + 1] - sv[k]; gi = k; }
+    const range = sv[sv.length - 1] - sv[0], thr = (sv[gi] + sv[gi + 1]) / 2;
+    const bits = v.map(x => x < thr ? 1 : 0);
+    readSCode.last = { frame: +(frame / cells.length).toFixed(1), gap: +(gap / (range || 1)).toFixed(2), range: Math.round(range), bits: bits.join('') };
+    if (frame / cells.length < 6 || range < 35 || gap < 0.35 * range) return null;
+    return bits;
+  }
   /* القراءة الكاملة لنموذج */
   /* الهندسة: الصورة ← الورقة (أو مسح ضوئي) ← الزوايا. مشتركة بين قراءة الرمز وقراءة الإجابات */
   function prepareFrame(G) {
@@ -5676,9 +5701,9 @@ const OMR = (() => {
     if (unaligned >= 2 && !opts.noGate) return retryFrame({ ok: false, error: 'uneven', unaligned, code });
     const correct = answers.filter(a => a.status === 'ok' && a.pick === a.key).length;
     const review = answers.filter(a => a.status !== 'ok').length;
-    return { ok: true, code, answers, correct, review, H: P.H, quad: found.quad, pageScore: +P.score.toFixed(1), ms: Date.now() - t0, dbg: { via: found.marks ? 'marks' : found.frame ? 'frame' : found.scan ? 'scan' : 'paper', dx: P.dx, dy: P.dy, rot: P.rot, secs: [...secShift.values()] } };
+    return { ok: true, code, scode: readSCode(G, P, M), answers, correct, review, H: P.H, quad: found.quad, pageScore: +P.score.toFixed(1), ms: Date.now() - t0, dbg: { via: found.marks ? 'marks' : found.frame ? 'frame' : found.scan ? 'scan' : 'paper', dx: P.dx, dy: P.dy, rot: P.rot, secs: [...secShift.values()] } };
   }
-  return { read, code, prepare, prepareFrame, findFrame, findMarks, gray, findPaper, homography, apply, T, _t: { readCode, alignPage, searchSet, outlinePts, boxScore, edgeScore, decide } };
+  return { read, code, prepare, prepareFrame, findFrame, findMarks, gray, findPaper, homography, apply, T, _t: { readCode, readSCode, alignPage, searchSet, outlinePts, boxScore, edgeScore, decide } };
 })();
 
 /* ═══════════ 📷 المصحّح الآلي — واجهة بوابة المعلم ═══════════
@@ -6231,6 +6256,7 @@ function omrProcess(src, w, h, single){
     omrStopLoop();
     OMRUI.frozen = c.toDataURL('image/jpeg', 0.7);
     r.answers.forEach(a => { a.final = a.status === 'ok' ? a.pick : null; });
+    { const who = omrStudentOf(r.scode); if(who){ OMRUI.sid = who.id; omrRefreshStudents(); OMRUI.autoWho = true; } else OMRUI.autoWho = false; }   // 🧾 ورقة باسمه
     OMRUI.result = r; omrShowResult();
   } finally { OMRUI.busy = false; }
 }
@@ -6399,6 +6425,16 @@ function omrNameStrip(r, img, M){
   return { url: cv.toDataURL('image/jpeg', 0.8), vec: vec.map((v, k) => Math.round(v / (cnt[k] || 1))) };
 }
 /* نفس الورقة مرتين؟ إجابات شبه متطابقة + شريط اسم شبه متطابق (طالبان بدرجة كاملة لا يُعدّان تكرارًا) */
+/* 🧾 أوراق الأسماء: الرمز المقروء ← الطالب. نفس البصمة التي تطبعها اللوحة (omrStuHash)، والمطابقة من قائمة الفصل
+   الحالي فقط؛ تطابق واحد بالضبط وإلا لا ربط تلقائي */
+function omrStuHash(salt, id){ let h = 0x811c9dc5; const s = salt + ':' + id; for(let i = 0; i < s.length; i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); } return (h >>> 0) & 0xffff; }
+function omrStudentOf(bits){
+  if(!bits || bits.length !== 20 || bits.reduce((t, x) => t + x, 0) % 2) return null;      // التكافؤ: مربع واحد مقروء خطأ ⇒ لا ربط
+  let h = 0; for(let i = 0; i < 16; i++) h |= bits[i] << i;
+  const salt = bits[16] | (bits[17] << 1) | (bits[18] << 2);
+  const m = list(OMRUI.cls).filter(x => omrStuHash(salt, x.id) === h);
+  return m.length === 1 ? m[0] : null;
+}
 /* 🧾 بصمة الورقة: امتلاء كل مربع (مقيس نسبةً لإضاءة الورق حوله، فلا يتأثر بالظل ولا الزاوية).
    الورقة نفسها مصوّرة مرتين ⇒ 0–2 مربعات تختلف؛ ورقة طالب آخر ⇒ 5 فأكثر ولو اختار الإجابات نفسها
    (خط كل طالب وطريقة تظليله تختلف). شريط الاسم لا يُعتمد: يتغير مع الإضاءة. */
@@ -6424,6 +6460,7 @@ function omrBatchAdd(r, c, img, sig, single){
   const sh = { id: Date.now() + '-' + Math.random().toString(36).slice(2, 7), key: omrBatchKey(), at: Date.now(), model: OMRUI.model,
     answers: r.answers.map(a => ({ i: a.i, t: a.t, key: a.key, status: a.status, pick: a.pick, ...(a.alt >= 0 ? { alt: a.alt } : {}), final: a.status === 'ok' ? a.pick : null, boxes: a.boxes })),
     H: r.H, fs: k, img: sm.toDataURL('image/jpeg', 0.6), name: strip.url, vec: strip.vec, pv: omrPageVec(r), sid: null, saved: false };
+  const who = omrStudentOf(r.scode); if(who){ sh.sid = who.id; sh.autoSid = true; }      // 🧾 ورقة باسمه: رُبطت وحدها
   const st = $('omr-status');
   OMRUI.lastPv = { pv: sh.pv, vec: sh.vec };
   if(omrIsDup(sh)){
@@ -6470,13 +6507,14 @@ function omrBatchForce(){
   else omrBatchAfterSingle(false, sh);
 }
 /* بطاقة مصغّرة تحت الكاميرا: الكاميرا تبقى ظاهرة كاملة أثناء تبديل الأوراق */
+function omrWhoLine(sh){ const w = sh.sid ? list(OMRUI.cls).find(x => String(x.id) === String(sh.sid)) : null; return w ? `<span class="omr-who">🧾 ${esc(w.name)}</span>` : ''; }
 function omrBatchMini(sh, dup, id = 'omr-bimg'){
   const A = sh.answers, mark = Number(OMRUI.tpl.mark) || 1;
   const pend = A.filter(a => a.final === null).length, ok = A.filter(a => a.final !== null && a.final === a.key).length;
   return `<div class="omr-mini ${dup ? 'dup' : ''}" id="mini-${sh.id}"><canvas class="omr-mthumb" id="${id}" onclick="omrBatchCardFull('${id}')" aria-label="صورة الورقة — اضغط للتكبير"></canvas>
     <div class="omr-minfo">${dup ? `<b>⚠️ تبدو نفس ورقة مصوّرة — لم تُضف</b><small>إن كانت ورقة طالب آخر أضفها:</small>
         <button class="btn primary" type="button" onclick="omrBatchForce()">➕ ورقة أخرى — أضفها</button>`
-      : `<b>✓ الورقة ${OMRUI.sheets.indexOf(sh) + 1}: ${+(ok * mark).toFixed(2)} من ${+(A.length * mark).toFixed(2)}${pend ? ' مبدئيًا' : ''}</b>
+      : `<b>✓ الورقة ${OMRUI.sheets.indexOf(sh) + 1}: ${+(ok * mark).toFixed(2)} من ${+(A.length * mark).toFixed(2)}${pend ? ' مبدئيًا' : ''}</b>${omrWhoLine(sh)}
         <small>${pend ? `⚠️ ${pend} غير ${pend === 1 ? 'واضح' : 'واضحة'} — تُحسم عند الربط` : 'كل الإجابات واضحة'} · اضغط الصورة لتكبيرها</small>
         <button class="btn ghost" type="button" onclick="omrBatchUndo('${sh.id}')">🗑 غير صحيحة؟ احذفها</button>`}</div></div>`;
 }
@@ -6488,7 +6526,7 @@ function omrBatchCard(sh, actions, dup){
   const mark = Number(OMRUI.tpl.mark) || 1;
   return `<div class="omr-res omr-bcard">
     <div class="omr-bhead"><b>${dup ? '⚠️ تبدو نفس ورقة مصوّرة من قبل — لم تُضف' : `الورقة ${OMRUI.sheets.indexOf(sh) + 1}: ${+(ok * mark).toFixed(2)} من ${+(A.length * mark).toFixed(2)}${pend ? ' مبدئيًا' : ''}`}</b>
-      <small>${dup ? 'إن كانت ورقة طالب آخر (نفس الإجابات ونفس طريقة التظليل) اضغط «➕ أضفها» تحت' : pend ? `⚠️ ${pend} ${pend === 1 ? 'سؤال غير واضح' : 'أسئلة غير واضحة'} — تحسمها عند ربط الأسماء` : '✓ كل الإجابات واضحة'}</small></div>
+      ${dup ? '' : omrWhoLine(sh)}<small>${dup ? 'إن كانت ورقة طالب آخر (نفس الإجابات ونفس طريقة التظليل) اضغط «➕ أضفها» تحت' : pend ? `⚠️ ${pend} ${pend === 1 ? 'سؤال غير واضح' : 'أسئلة غير واضحة'} — تحسمها عند ربط الأسماء` : '✓ كل الإجابات واضحة'}</small></div>
     <canvas class="omr-bimg" id="omr-bimg" onclick="omrBatchCardFull()" aria-label="صورة الورقة وعليها ما قُرئ"></canvas>
     <div class="omr-blegend"><span><i style="background:#16A34A"></i>صحيحة</span><span><i style="background:#DC2626"></i>خاطئة</span><span><i style="background:#F59E0B"></i>تحتاج تأكيدك</span><span>اضغط الصورة لتكبيرها</span></div>
     <div class="omr-qs">${A.map((a, i) => { const st = a.final === null ? 'rev' : a.final === a.key ? 'ok' : 'no';
@@ -6576,6 +6614,8 @@ function omrMatchRender(){
   const order = S.slice().sort((a, b) => (a.saved - b.saved) || (a.at - b.at));
   $('omr-body').innerHTML = `
     <div class="omr-mhead"><b>🔗 ربط الأوراق</b><span>${done} من ${S.length} محفوظة</span></div>
+    ${(() => { const rd = S.filter(x => !x.saved && x.sid && !x.answers.some(a => a.final === null) && omrManualOk(x.manual, x.model)).length;
+      return rd ? `<button class="btn primary wide omr-saveall" type="button" onclick="omrSaveReady()">💾 حفظ الأوراق المربوطة المكتملة (${rd})</button>` : ''; })()}
     <div class="omr-row"><button class="btn ghost" type="button" onclick="omrBackToCapture()">➕ تصوير المزيد</button>
       <button class="btn ghost" type="button" onclick="omrBatchClear()">${done===S.length && S.length ? '✓ إنهاء وحذف الصور' : '🗑️ حذف الدفعة'}</button></div>
     ${S.length ? '' : '<p class="omr-note" style="text-align:center;margin-top:18px">لا أوراق بعد — صوّر أوراق الفصل أولًا.</p>'}
@@ -6585,7 +6625,7 @@ function omrMatchRender(){
       return `<div class="omr-mc${s.saved ? ' saved' : ''}${open ? ' open' : ''}" id="mc-${s.id}">
         <button type="button" class="omr-mtop" onclick="omrMatchOpen('${s.id}')">
           <img class="omr-name" src="${s.name}" alt="شريط الاسم">
-          <span class="omr-mline"><b>${sc.pending ? '؟' : sc.raw}</b> / ${sc.auto}${sc.needMan ? (sc.manOk ? ` + ✍️ ${Number(s.manual)} = <b>${sc.full}</b> / ${sc.total}` : ` · <i class="omr-pend">✍️ الجزء اليدوي</i>`) : ''}${ml}${sc.pending ? ` · <i class="omr-pend">⚠️ ${sc.pending} للتأكيد</i>` : ''}${s.saved ? ` · <i class="omr-ok">✓ ${esc(who ? who.name : '')}</i>` : who ? ` · ${esc(who.name)}` : ''}</span>
+          <span class="omr-mline"><b>${sc.pending ? '؟' : sc.raw}</b> / ${sc.auto}${sc.needMan ? (sc.manOk ? ` + ✍️ ${Number(s.manual)} = <b>${sc.full}</b> / ${sc.total}` : ` · <i class="omr-pend">✍️ الجزء اليدوي</i>`) : ''}${ml}${sc.pending ? ` · <i class="omr-pend">⚠️ ${sc.pending} للتأكيد</i>` : ''}${s.saved ? ` · <i class="omr-ok">✓ ${esc(who ? who.name : '')}</i>` : who ? ` · ${s.autoSid ? '🧾 ' : ''}${esc(who.name)}` : ''}</span>
         </button>
         ${open && !s.saved ? omrMatchBody(s, used) : ''}
       </div>`; }).join('')}</div>`;
@@ -6616,6 +6656,12 @@ function omrMatchBody(s, used){
 function omrMatchOpen(id){ OMRUI.openId = OMRUI.openId === id ? null : id; omrMatchRender(); const el = $('mc-' + id); if(el) el.scrollIntoView({ block:'start', behavior:'smooth' }); }
 function omrMatchFilter(){ const q = omrNorm($('omr-q').value); document.querySelectorAll('#omr-slist .omr-sbtn').forEach(b => { b.style.display = !q || b.dataset.n.includes(q) ? '' : 'none'; }); }
 function omrSheetSet(id, i, v){ const s = OMRUI.sheets.find(x => x.id === id); if(!s) return; s.answers[i].final = v; OMRDB.put(s); if(s.sid && !s.answers.some(a => a.final === null) && omrManualOk(s.manual, s.model)) omrSheetSave(s); else omrMatchRender(); }
+/* 💾 حفظ كل ورقة مربوطة (من رمز الاسم أو يدويًا) وأسئلتها محسومة — الباقي يبقى للمراجعة */
+async function omrSaveReady(){
+  const R = OMRUI.sheets.filter(x => !x.saved && x.sid && !x.answers.some(a => a.final === null) && omrManualOk(x.manual, x.model));
+  for(const s of R) await omrSheetSave(s);
+  omrMatchRender();
+}
 async function omrMatchPick(id, sid){
   const s = OMRUI.sheets.find(x => x.id === id); if(!s) return;
   s.sid = sid; OMRDB.put(s);

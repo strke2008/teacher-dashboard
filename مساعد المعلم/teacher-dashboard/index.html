@@ -23,7 +23,7 @@
 <link rel="stylesheet" href="app.css?v=16178ead">
 <script src="js/00-fetch-dedupe-js.js?v=e77498d1" defer></script>
 <script src="js/01-right-sidebar-navigation-js.js?v=41ea29b3" defer></script>
-<script src="js/02.js?v=b622fecd" defer></script>
+<script src="js/02.js?v=d864ebdb" defer></script>
 <script src="js/03-projects-students-logic-v13.js?v=d4950f64" defer></script>
 <script src="js/04.js?v=5a7c663e" defer></script>
 <script src="js/05.js?v=a7c074c3" defer></script>
@@ -488,7 +488,7 @@
 .exam-shop-status.open{background:#E4F4EC;color:#167852}.exam-shop-status.closed{background:#FFF1F2;color:#9F2538}
 @media screen and (max-width:600px){.exam-shop-kpis{grid-template-columns:1fr 1fr}.exam-shop-student{grid-template-columns:1fr 105px}.exam-shop-student small{grid-column:1}.exam-shop-student .exam-shop-used{display:none}}
 </style>
-<link rel="stylesheet" id="late-css" href="app-late.css?v=a63fb589">
+<link rel="stylesheet" id="late-css" href="app-late.css?v=edf40a51">
 <link rel="stylesheet" href="theme-picker.css?v=8ddeba87">
 <link rel="stylesheet" href="simplified-nav.css?v=154681ae">
 <link rel="stylesheet" href="tab-polish.css?v=b9d66f7c">
@@ -1182,6 +1182,9 @@
 <div class="row" style="gap:.5rem;flex-wrap:wrap;margin-top:.4rem">
 <label class="row" style="gap:.4rem;font-size:.84rem;cursor:pointer">
 <input id="ex-key" onchange="examBuild()" type="checkbox"/> نموذج الإجابة (نسخة المعلم)</label>
+<label class="row" style="gap:.4rem;font-size:.84rem;cursor:pointer" title="تُطبع لكل طالب ورقته باسمه ورمز صغير يعرفه به الجوال — لا ربط بالأسماء بعد التصوير">
+<input id="ex-named" onchange="examNamedChanged()" type="checkbox"/> 🧾 ورقة باسم كل طالب</label>
+<select class="inp" id="ex-named-cls" style="display:none;width:auto;min-height:36px;padding:4px 8px" aria-label="فصل أوراق الأسماء"></select>
 <label class="row" style="gap:.4rem;font-size:.84rem;cursor:pointer">
 <input id="ex-shuffle" onchange="examBuild()" type="checkbox"/> اخلط ترتيب الفقرات</label>
 <label class="row" style="gap:.4rem;font-size:.84rem;cursor:pointer">
@@ -1190,6 +1193,7 @@
 <div aria-label="خيارات الطباعة" class="exam-print-actions" role="group">
 <button class="btn tick" onclick="printExam()" type="button">🖨️ طباعة A4</button>
 <button class="btn tick" id="ex-print-all-models" onclick="printAllExamModels()" style="display:none" type="button">🖨️ طباعة جميع النماذج</button>
+<button class="btn tick" id="ex-print-named" onclick="printNamedExams()" style="display:none" type="button">🖨️ طباعة أوراق الأسماء</button>
 <button class="btn ghost" id="ex-omr-send" onclick="omrSendTemplate()" type="button" title="يصحح بوابة المعلم أوراق هذا الاختبار بكاميرا الجوال">📷 تجهيز للتصحيح الآلي</button>
 </div>
 </div>

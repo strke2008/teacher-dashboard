@@ -7329,6 +7329,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
           mcode: m.mcode && Array.isArray(m.mcode.cells) && m.mcode.cells.length >= 2 && m.mcode.cells.length <= 6 && m.mcode.cells.every(rect) && Number.isInteger(m.mcode.on)
             ? { cells: m.mcode.cells.map(r => r.map(Number)), on: m.mcode.on } : null,
           ...(Array.isArray(m.marks) && m.marks.length === 4 && m.marks.every(rect) ? { marks: m.marks.map(r => r.map(Number)) } : {}),
+          ...(m.scode && Array.isArray(m.scode.cells) && m.scode.cells.length === 20 && m.scode.cells.every(rect) ? { scode: { cells: m.scode.cells.map(r => r.map(Number)) } } : {}),
           skipped: Math.max(0, Math.round(num(m.skipped) || 0)),
           total: Math.max(0, num(m.total) || 0)
         })).filter(m => m.questions.length);

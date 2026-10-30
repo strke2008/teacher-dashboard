@@ -5820,8 +5820,10 @@ function omrMeasure(){
   const allQ=document.querySelectorAll('#exam-paper .ex-q, #exam-paper .ex-tf, #exam-paper .ex-amtq').length;
   const cells=[...page.querySelectorAll('.ex-mcode i')];
   const mcode=cells.length>1 ? { cells:cells.map(R), on:cells.findIndex(c=>c.classList.contains('on')) } : null;   // رمز النموذج
+  const sc=[...page.querySelectorAll('.ex-scode i')];
+  const scode=sc.length===20 ? { cells:sc.map(R) } : null;              // رمز الطالب في أوراق الأسماء
   const fid=[...page.querySelectorAll(':scope > .ex-fid')].map(R);   // علامات الزوايا: أعلى اليسار، أعلى اليمين، أسفل اليمين، أسفل اليسار (المفرّغة)
-  return { anchors, questions, mcode, ...(fid.length===4?{marks:fid}:{}), skipped: allQ-questions.length, pageH:+(pr.height*k).toFixed(1) };
+  return { anchors, questions, mcode, ...(fid.length===4?{marks:fid}:{}), ...(scode?{scode}:{}), skipped: allQ-questions.length, pageH:+(pr.height*k).toFixed(1) };
 }
 async function omrSendTemplate(){
   const box=document.getElementById('exam-paper');
@@ -6713,8 +6715,9 @@ function examBuild0(force){
     </div>
     <div class="ex-title" data-mid="title">${esc(val('ex-title') || 'اختبار قصير')}${modelCount > 1 ? ` <span class="ex-model-badge">نموذج (${examModelLetter(modelIndex)})<span class="ex-mcode" aria-hidden="true">${Array.from({length:modelCount},(_,k)=>`<i${k===modelIndex?' class="on"':''}></i>`).join('')}</span></span>` : ''}</div>
     <div class="ex-student" data-mid="stu">
-      <div>اسم الطالب: ${dots}</div>
-      <div>الصف: ${dots.slice(0,14)}</div>
+      ${examNamed() ? `<div class="ex-sname">اسم الطالب: <b class="ex-nm">يُطبع اسم كل طالب هنا</b><span class="ex-scode" aria-hidden="true">${'<i></i>'.repeat(20)}</span></div>
+      <div>الصف: <b class="ex-ncls">${dots.slice(0,14)}</b></div>` : `<div>اسم الطالب: ${dots}</div>
+      <div>الصف: ${dots.slice(0,14)}</div>`}
       <div class="ex-mark"><b>الدرجة</b><span>&nbsp;</span><em>من ${D(total)}</em></div>
     </div>`;
 
@@ -6894,6 +6897,48 @@ function printExam(){
   });
 }
 
+/* 🧾 أوراق بأسماء الطلاب: كل ورقة عليها اسم صاحبها ورمز من 20 مربعًا مطبوعًا يقرؤه الجوال فيربطها بالطالب وحده.
+   الرمز = بصمة رقم الطالب الداخلي (16 بتًا) + ملح (3 بتات) يُختار حتى لا يتكرر رمز بين طلاب الطباعة + بت تكافؤ.
+   لا يُرسل للخادم أي اسم: القالب يحفظ مواقع المربعات فقط، والمطابقة في الجوال من قائمة الفصل نفسها. */
+function examNamed(){ return !!document.getElementById('ex-named')?.checked; }
+function omrStuHash(salt, id){ let h = 0x811c9dc5; const s = salt + ':' + id; for(let i = 0; i < s.length; i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); } return (h >>> 0) & 0xffff; }
+function omrStuBits(salt, id){ const h = omrStuHash(salt, id), b = []; for(let i = 0; i < 16; i++) b.push((h >> i) & 1); for(let i = 0; i < 3; i++) b.push((salt >> i) & 1); b.push(b.reduce((t, x) => t + x, 0) % 2); return b; }
+function examNamedChanged(){
+  const on = examNamed(), sel = document.getElementById('ex-named-cls'), btn = document.getElementById('ex-print-named');
+  if(sel){ sel.style.display = on ? '' : 'none';
+    if(on && !sel.options.length){ const cl = [...new Set(STUDENTS.map(s => s.cls).filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b), 'ar'));
+      sel.innerHTML = cl.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('') + (cl.length > 1 ? '<option value="">كل الفصول</option>' : ''); } }
+  if(btn) btn.style.display = on ? '' : 'none';
+  examBuild(true);
+}
+function printNamedExams(){
+  const box = document.getElementById('exam-paper');
+  if(!box || !box.querySelector('.ex-sec')){ toast('لا توجد فقرات للطباعة','bad'); return; }
+  const cls = document.getElementById('ex-named-cls')?.value || '';
+  const L = STUDENTS.filter(s => s && s.id && s.name && (!cls || s.cls === cls)).sort((a, b) => String(a.cls||'').localeCompare(String(b.cls||''), 'ar') || String(a.name).localeCompare(String(b.name), 'ar'));
+  if(!L.length){ toast('لا طلاب في هذا الفصل','bad'); return; }
+  let salt = 0; for(; salt < 8; salt++){ const seen = new Set(L.map(s => omrStuHash(salt, s.id))); if(seen.size === L.length) break; }
+  if(salt === 8){ toast('تعذّر توليد رموز مميزة — اطبع كل فصل وحده','bad'); return; }
+  const count = Math.max(1, Math.min(6, Number(document.getElementById('ex-model-count')?.value) || 1));
+  const sel = document.getElementById('ex-model'), keyEl = document.getElementById('ex-key');
+  const keep = { model: sel ? sel.value : '0', key: !!(keyEl && keyEl.checked) }, originalHtml = box.innerHTML;
+  const models = [];
+  try{ if(keyEl) keyEl.checked = false;
+    for(let m = 0; m < count; m++){ if(sel) sel.value = String(m); examBuild(true); models.push(box.innerHTML); } }
+  catch(e){ box.innerHTML = originalHtml; toast('تعذّر تجهيز الأوراق','bad'); return; }
+  finally{ if(sel) sel.value = keep.model; if(keyEl) keyEl.checked = keep.key; }
+  // النماذج تتناوب على الطلاب (أ، ب، ج…) فلا يجلس متجاوران بالنموذج نفسه
+  box.innerHTML = L.map((s, i) => { const t = document.createElement('div'); t.innerHTML = models[i % count];
+    const bits = omrStuBits(salt, s.id);
+    t.querySelectorAll('.ex-nm').forEach(e => e.textContent = s.name);
+    t.querySelectorAll('.ex-ncls').forEach(e => e.textContent = s.cls || '');
+    t.querySelectorAll('.ex-scode').forEach(e => [...e.children].forEach((c, k) => c.classList.toggle('on', !!bits[k])));
+    return t.innerHTML; }).join('');
+  toast(`تم تجهيز ${L.length} ورقة بأسماء الطلاب${count > 1 ? ' — النماذج متناوبة' : ''}`,'good');
+  const restore = () => { box.innerHTML = originalHtml; examBuild(true); window.removeEventListener('afterprint', restore); };
+  window.addEventListener('afterprint', restore);
+  unifiedA4Print({ bodyClass:'printing-exam', title:(document.getElementById('ex-title')?.value || 'اختبار') + ' - أوراق الأسماء', selector:'#exam-paper', orientation:'portrait', margin:'0' });
+}
 function printAllExamModels(){
   const box = document.getElementById('exam-paper');
   const count = Math.max(1, Math.min(6, Number(document.getElementById('ex-model-count')?.value) || 1));

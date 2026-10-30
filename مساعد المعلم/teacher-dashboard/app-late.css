@@ -55,6 +55,12 @@
 .ex-mcode{display:inline-flex;gap:.9mm;margin-inline-start:1.6mm;vertical-align:middle}
 .ex-mcode i{display:inline-block;width:2.6mm;height:2.6mm;border:.3mm solid #10323a;border-radius:.3mm;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .ex-mcode i.on{background:#10323a}
+/* 🧾 ورقة باسم الطالب: الاسم + رمز من 20 مربعًا (الممتلئ بالحدود لا بالخلفية: يُطبع ولو أُطفئت «رسومات الخلفية») */
+.ex-sname{gap:2mm;min-width:0}
+.ex-sname .ex-nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:900}
+.ex-scode{display:grid;grid-template-columns:repeat(10,2.2mm);gap:.6mm;margin-inline-start:auto;flex:none;direction:ltr}
+.ex-scode i{display:block;box-sizing:border-box;width:2.2mm;height:2.2mm;border:.25mm solid #10323a;background:#fff}
+.ex-scode i.on{border-width:1.1mm}
 .exam-model-controls .field{min-width:150px}
 /* إطار الورقة الرسمي */
 .exam-page::before{content:'';position:absolute;inset:4.5mm;border:1px solid #9DB8B5;border-radius:4px;pointer-events:none}
