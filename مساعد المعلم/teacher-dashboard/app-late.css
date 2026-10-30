@@ -81,6 +81,7 @@
 .ex-toggle input{margin:0;accent-color:#0E5B4E}
 .ex-side{font-size:.8em;line-height:1.45;font-weight:700;min-width:0;position:relative;z-index:3}
 .ex-side b{display:block;font-size:.95em;font-weight:900}
+.ex-side.right>span{display:block}
 .ex-side.right{text-align:right;padding-inline-start:2mm;grid-area:right}
 .ex-side.left{text-align:left;padding-inline-end:2mm;grid-area:left}
 .ex-logo-slot{grid-area:logo;position:relative;height:100%;min-width:0;display:flex;align-items:center;justify-content:center;z-index:1}

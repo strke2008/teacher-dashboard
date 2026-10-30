@@ -6737,6 +6737,10 @@ function examRenderTemplate(c){
 
 /* 📷 القالب ٥ — الوصل بمربعات: يضع الطالب ✓ في مربع رقم العبارة المناسبة من العمود الأول (لا يكتب رقمًا بخط يده)
    فيقرؤه الجوال كما يقرأ الاختيار من متعدد. 2–6 أزواج (حد مربعات السؤال الواحد في المصحح الآلي) */
+/* سطرا الإدارة والمكتب في رأس الورقة: «بالمنطقة الشرقية» وحدها تُكمَّل «الإدارة العامة للتعليم بالمنطقة الشرقية» و«مكتب التعليم بالمنطقة الشرقية»
+   (كانت تُطبع «مكتب التعليم: بالمنطقة الشرقية»)، والاسم الكامل يبقى كما كُتب */
+function examDeptLine(v){ v = String(v || '').trim(); if(!v) return 'الإدارة العامة للتعليم'; return /^(ال)?إدار[ةه]/.test(v) ? v : (/^ب/.test(v) ? 'الإدارة العامة للتعليم ' + v : v); }
+function examOfficeLine(v){ v = String(v || '').trim(); return /^مكتب/.test(v) ? v : (/^ب/.test(v) ? 'مكتب التعليم ' + v : 'مكتب التعليم: ' + v); }
 function examAutoMatch(o){
   const n = Math.max(0, Math.min(6, Number(examAr2En(o.val('ex-nmt'))) || 0)), notes = [];
   if(n < 2) return null;
@@ -6931,8 +6935,8 @@ function examBuild0(force){
       <div class="ex-side right">
         <b>المملكة العربية السعودية</b>
         <span>وزارة التعليم</span>
-        ${document.getElementById('ex-show-dept')?.checked ? `<span>${esc(val('ex-dept') || 'الإدارة العامة للتعليم')}</span>` : ''}
-        ${document.getElementById('ex-show-office')?.checked && val('ex-office') ? `<span>مكتب التعليم: ${esc(val('ex-office'))}</span>` : ''}
+        ${document.getElementById('ex-show-dept')?.checked ? `<span>${esc(examDeptLine(val('ex-dept')))}</span>` : ''}
+        ${document.getElementById('ex-show-office')?.checked && val('ex-office') ? `<span>${esc(examOfficeLine(val('ex-office')))}</span>` : ''}
         ${document.getElementById('ex-show-school')?.checked ? `<span class="ex-school-line">مدرسة: ${esc(val('ex-school') || dots.slice(0,18))}</span>` : ''}
       </div>
       <div class="ex-logo-slot"><div class="ex-logo" style="--exam-logo-size:${logoSize}mm">${logo}</div></div>
