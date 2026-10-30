@@ -617,13 +617,15 @@ async function presReady(env) {
 }
 /* 📄 أوراق الاختبار المصححة: omrp:<sid>:<test> (الصورة والدرجة)، وفهرس omrp:idx لكل اختبار: من رُفعت أوراقهم والنشر */
 async function omrPapersIdx(env) { try { const v = JSON.parse(await env.HW.get('omrp:idx') || '{}'); return v && typeof v === 'object' ? v : {}; } catch { return {}; } }
-async function omrPapersOf(env, sid) {
+// النشر لكل الطلاب (pub) أو لفصول محددة (pubCls)
+const omrPubFor = (e, cls) => !!(e && (e.pub || (Array.isArray(e.pubCls) && e.pubCls.includes(String(cls || '')))));
+async function omrPapersOf(env, sid, cls) {
   const idx = await omrPapersIdx(env);
-  return Object.entries(idx).filter(([, v]) => v.pub && (v.sids || []).includes(String(sid))).map(([test, v]) => ({ test, title: v.title }));
+  return Object.entries(idx).filter(([, v]) => omrPubFor(v, cls) && (v.sids || []).includes(String(sid))).map(([test, v]) => ({ test, title: v.title }));
 }
-async function omrPaperRead(env, sid, test) {
+async function omrPaperRead(env, sid, test, cls) {
   const t = String(test || ''), idx = await omrPapersIdx(env), e = idx[t];
-  if (!e || !e.pub || !(e.sids || []).includes(String(sid))) return { ok: false, error: 'not_published' };
+  if (!e || !omrPubFor(e, cls) || !(e.sids || []).includes(String(sid))) return { ok: false, error: 'not_published' };
   let r = null; try { r = JSON.parse(await env.HW.get(`omrp:${sid}:${t}`) || 'null'); } catch {}
   if (!r) return { ok: false, error: 'notfound' };
   return { ok: true, paper: { title: r.title, score: r.score, max: r.max, marks: r.marks, img: r.img, at: r.at, ...(e.key ? { keyBoxes: r.keyBoxes } : {}) } };
@@ -5814,13 +5816,13 @@ export default {
             for (const x of closed) { const { data, grades } = await studentReportGrades(env, x.sem, x.per), g = grades.students.find(y => String(y.id) === String(auth.st.id));
               if (g) reports.push({ ...studentReportBuild(data, g, x.sem, x.per, '', srepActsLive(state, data, auth.st.id, g.name || auth.st.name, g.cls || auth.st.cls, x.sem, x.per)), auto: true }); } } } catch {}
         reports.sort((a, c) => (c.semester - a.semester) || (c.period - a.period));
-        return json({ ok: true, reports: await srepLiveReports(env, auth.st, reports), papers: await omrPapersOf(env, auth.st.id).catch(() => []) });
+        return json({ ok: true, reports: await srepLiveReports(env, auth.st, reports), papers: await omrPapersOf(env, auth.st.id, auth.st.cls).catch(() => []) });
       }
       // 📄 ورقة الاختبار المصححة (للطالب نفسه): تظهر بعد أن ينشرها المعلم
       if (url.pathname === '/student-report/paper') {
         const auth = await requireStudentSession(env, b);
         if (auth.res) return auth.res;
-        return json(await omrPaperRead(env, auth.st.id, b.test));
+        return json(await omrPaperRead(env, auth.st.id, b.test, auth.st.cls));
       }
       if (!pushIsTeacher(env, b)) return json({ ok: false, error: 'unauthorized' }, 401);
 
@@ -6209,7 +6211,7 @@ export default {
       const [P, roster] = await Promise.all([parentsRead(env), loadRoster(env)]);
       const hit = ph && parNorm(nm).length >= 2 ? roster.find(x => P[String(x.id)] && P[String(x.id)].p === ph && parNameMatch(nm, x.name)) : null;
       if (!hit) return json({ ok: false, error: 'no_match' }, 404);
-      return json(await omrPaperRead(env, String(hit.id), b.test));
+      return json(await omrPaperRead(env, String(hit.id), b.test, hit.cls));
     }
     if (url.pathname === '/parent/report' && request.method === 'POST') {
       let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
@@ -6258,7 +6260,7 @@ export default {
           live = studentReportBuild(data, g, sem, per, pub ? pub.teacherNote : '', srepActsLive(state, data, sid, st.name, cls, sem, per));
           if (String((state.repcfg && state.repcfg.parentSkills) || '') !== 'off') skills = parentSkills(data, g, sid); } else liveErr = 'not_in_grades'; } catch (e) { liveErr = String(e && e.message || e).slice(0, 120); }
       if (fails) await env.HW.delete(fk);
-      const [top3Raw, certTpl, papers] = await Promise.all([env.HW.get('top3').catch(() => null), certTplRead(env), omrPapersOf(env, sid).catch(() => [])]);
+      const [top3Raw, certTpl, papers] = await Promise.all([env.HW.get('top3').catch(() => null), certTplRead(env), omrPapersOf(env, sid, st.cls).catch(() => [])]);
       let top3 = []; try { top3 = ((JSON.parse(top3Raw || '{}') || {})[sid] || []).slice(0, 3); } catch {}
       return json({ ok: true, live, periods, view, papers, ...(liveErr ? { liveErr } : {}), ...(skills ? { skills } : {}), top3, student: { name: st.name, cls }, siblings, acts: { total: acts.length, done: done.sort((a, c) => c.at - a.at).slice(0, 15), doneN: done.length, missing: missing.slice(0, 20) }, reports, weekly,
         cert: { ...certText(certTpl, /\d/.test(cls) ? cls : ''), date: certDateLine(Date.now()), cls: /\d/.test(cls) ? cls : '' },
@@ -7396,15 +7398,23 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         return json({ ok: true, n: e.sids.length, published: !!e.pub });
       }
       if (url.pathname === '/omr/papers') {
-        const idx = await omrPapersIdx(env);
-        return json({ ok: true, tests: Object.entries(idx).map(([test, v]) => ({ test, title: v.title, n: (v.sids || []).length, pub: !!v.pub, key: !!v.key, at: v.at || 0, sem: v.sem || 1 })).sort((a, c) => c.at - a.at) });
+        const [idx, roster] = await Promise.all([omrPapersIdx(env), loadRoster(env).catch(() => [])]);
+        const clsOf = id => { const r = roster.find(x => String(x.id) === String(id)); return r ? String(r.cls || '') : ''; };
+        return json({ ok: true, tests: Object.entries(idx).map(([test, v]) => { const byCls = {}; for (const s of v.sids || []) { const c = clsOf(s); byCls[c] = (byCls[c] || 0) + 1; }
+          return { test, title: v.title, n: (v.sids || []).length, pub: !!v.pub, pubCls: Array.isArray(v.pubCls) ? v.pubCls : [], byCls, key: !!v.key, at: v.at || 0, sem: v.sem || 1 }; }).sort((a, c) => c.at - a.at) });
       }
+      // النشر: لفصل واحد (cls) أو للجميع؛ وإظهار الإجابات الصحيحة للاختبار كله
       if (url.pathname === '/omr/papers/pub' && request.method === 'POST') {
         const idx = await omrPapersIdx(env), e = idx[String(b.test || '')]; if (!e) return json({ ok: false, error: 'notfound' }, 404);
-        if (typeof b.pub === 'boolean') e.pub = b.pub;
+        const set = new Set(Array.isArray(e.pubCls) ? e.pubCls : []);
+        if (typeof b.pub === 'boolean') {
+          if (typeof b.cls === 'string') { if (b.pub) set.add(b.cls); else { set.delete(b.cls); if (e.pub) { e.pub = false; for (const c of (Array.isArray(b.all) ? b.all : [])) if (c !== b.cls) set.add(String(c)); } } }
+          else { e.pub = b.pub; set.clear(); }
+        }
+        e.pubCls = [...set];
         if (typeof b.key === 'boolean') e.key = b.key;
         await env.HW.put('omrp:idx', JSON.stringify(idx));
-        return json({ ok: true, pub: !!e.pub, key: !!e.key });
+        return json({ ok: true, pub: !!e.pub, pubCls: e.pubCls, key: !!e.key });
       }
       if (url.pathname === '/omr/papers/delete' && request.method === 'POST') {
         const idx = await omrPapersIdx(env), t = String(b.test || ''), e = idx[t]; if (!e) return json({ ok: true });
@@ -7428,7 +7438,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         for (const sid of e.sids || []) { let r = null; try { r = JSON.parse(await env.HW.get(`omrp:${sid}:${t}`) || 'null'); } catch {}
           if (r) out.push({ sid, ...nameOf(sid), score: r.score, max: r.max, now: nowOf(sid), at: r.at, right: (r.marks || []).filter(m => m === 1).length, n: (r.marks || []).length }); }
         out.sort((a, c) => String(a.cls).localeCompare(String(c.cls), 'ar') || String(a.name).localeCompare(String(c.name), 'ar'));
-        return json({ ok: true, title: e.title, pub: !!e.pub, key: !!e.key, papers: out });
+        return json({ ok: true, title: e.title, pub: !!e.pub, pubCls: Array.isArray(e.pubCls) ? e.pubCls : [], key: !!e.key, papers: out });
       }
       if (url.pathname === '/omr/papers/img') {
         const t = String(url.searchParams.get('test') || ''), sid = String(url.searchParams.get('sid') || '');
