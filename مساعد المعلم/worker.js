@@ -1025,7 +1025,7 @@ function srepActsLive(state, data, sid, name, cls, sem, per) {
   return { n: termActs.length, done: tDone, score: termActs.length ? Math.round(tDone / termActs.length * 100) / 10 : GRADE_RULES.max };
 }
 /* 🔄 تقرير الفترة المرسل يبقى حيًّا حتى تُقفل الفترة: يُعاد بناؤه بالدرجات الحالية (شراء درجة، مسح واجب، رصد جديد)
-   مع إبقاء ملاحظة المعلم وتاريخ الإرسال. بعد الإقفال يثبت على آخر نسخة محفوظة. */
+   مع إبقاء ملاحظة المعلم وتاريخ الإرسال. بعد الإقفال يُبنى من لقطة الإغلاق (الدرجات النهائية الثابتة). */
 function srepPeriodOpen(data, sem, per) {
   const ac = academicNormalize(data) || {}, S = (ac.semesters || {})[String(sem)] || {};
   if (S.status === 'closed' || S.status === 'not_started') return false;
@@ -1042,7 +1042,9 @@ async function srepLiveReports(env, st, reports) {
       const key = `${r.semester}:${r.period}`;
       if (!cache.has(key)) cache.set(key, await studentReportGrades(env, r.semester, r.period));
       const { data, grades } = cache.get(key);
-      if (grades.closed || !srepPeriodOpen(data, r.semester, r.period)) { out.push(r); continue; }
+      // 🔒 الفترة المغلقة: من لقطتها النهائية (ما يراه المعلم وولي الأمر) — كانت تبقى على نسخة لحظة الإرسال،
+      // فيرى الطالب درجات قبل التسليمات والرصد اللاحق للإرسال وقبل الإغلاق
+      if (!grades.closed && !srepPeriodOpen(data, r.semester, r.period)) { out.push(r); continue; }
       const g = grades.students.find(x => String(x.id) === String(st.id)); if (!g) { out.push(r); continue; }
       const live = studentReportBuild(data, g, r.semester, r.period, r.teacherNote || '', srepActsLive(state, data, st.id, g.name || st.name, g.cls || st.cls, r.semester, r.period));
       out.push({ ...live, publishedAt: r.publishedAt, liveAt: Date.now() });
