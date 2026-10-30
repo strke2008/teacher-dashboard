@@ -6773,7 +6773,10 @@ async function omrPaperImage(src, H, fs, answers, val, max){
   return { img: out.toDataURL('image/jpeg', .7), marks, keyBoxes };
 }
 /* يُرفع بعد الرصد بلا انتظار: فشل الرفع لا يوقف التصحيح (الدرجة محفوظة أصلًا) */
-async function omrUploadPaper(sid, src, H, fs, answers, val){
+/* الرفع بالتتابع: عدة أوراق معًا كانت تُرفع بالتوازي فيمحو آخرها فهرس ما سبقه في الخادم (📄 لطالب واحد فقط) */
+let OMR_UPQ = Promise.resolve();
+function omrUploadPaper(...a){ OMR_UPQ = OMR_UPQ.then(() => omrUploadPaper1(...a)).catch(() => {}); return OMR_UPQ; }
+async function omrUploadPaper1(sid, src, H, fs, answers, val){
   try{
     const test = omrTest(); if(!test || !src || !H) return;
     const P = await omrPaperImage(src, H, fs || 1, answers, val, test.max);

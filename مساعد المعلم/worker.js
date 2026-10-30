@@ -617,6 +617,26 @@ async function presReady(env) {
 }
 /* 📄 أوراق الاختبار المصححة: omrp:<sid>:<test> (الصورة والدرجة)، وفهرس omrp:idx لكل اختبار: من رُفعت أوراقهم والنشر */
 async function omrPapersIdx(env) { try { const v = JSON.parse(await env.HW.get('omrp:idx') || '{}'); return v && typeof v === 'object' ? v : {}; } catch { return {}; } }
+/* 🩹 فهرس الأوراق من الأوراق المخزّنة نفسها: رفع عدة أوراق معًا كان يقرأ الفهرس ويكتبه بالتوازي فيمحو آخرُها ما سبقه —
+   الورقة محفوظة (omrp:<sid>:<test>) لكنها خارج الفهرس فلا تظهر 📄 إلا لطالب واحد. للمعلم فقط (عملية list واحدة) ويُكتب الفهرس المصحَّح */
+async function omrPapersRepair(env, idx) {
+  if (!env.HW.list) return idx;
+  const keys = []; let cursor;
+  try { do { const r = await env.HW.list({ prefix: 'omrp:', cursor }); for (const k of r.keys || []) keys.push(k.name); cursor = r.list_complete ? null : r.cursor; } while (cursor && keys.length < 5000); } catch { return idx; }
+  let fixed = 0;
+  for (const name of keys) {
+    if (name === 'omrp:idx') continue;
+    const rest = name.slice(5), cut = rest.lastIndexOf(':'); if (cut < 1) continue;
+    const sid = rest.slice(0, cut), test = rest.slice(cut + 1);
+    let e = idx[test];
+    if (!e) { let r = null; try { r = JSON.parse(await env.HW.get(name) || 'null'); } catch {} if (!r) continue;
+      e = idx[test] = { title: String(r.title || 'اختبار'), sids: [], pub: false, key: false, sem: Number(r.sem) || 1, at: Number(r.at) || 0 }; }
+    e.sids = Array.isArray(e.sids) ? e.sids : [];
+    if (!e.sids.includes(sid)) { e.sids.push(sid); fixed++; }
+  }
+  if (fixed) await env.HW.put('omrp:idx', JSON.stringify(idx));
+  return idx;
+}
 // النشر لكل الطلاب (pub) أو لفصول محددة (pubCls)
 const omrPubFor = (e, cls) => !!(e && (e.pub || (Array.isArray(e.pubCls) && e.pubCls.includes(String(cls || '')))));
 async function omrPapersOf(env, sid, cls) {
@@ -7400,7 +7420,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         return json({ ok: true, n: e.sids.length, published: !!e.pub });
       }
       if (url.pathname === '/omr/papers') {
-        const [idx, roster] = await Promise.all([omrPapersIdx(env), loadRoster(env).catch(() => [])]);
+        const [idx, roster] = await Promise.all([omrPapersIdx(env).then(i => omrPapersRepair(env, i)), loadRoster(env).catch(() => [])]);
         const clsOf = id => { const r = roster.find(x => String(x.id) === String(id)); return r ? String(r.cls || '') : ''; };
         return json({ ok: true, tests: Object.entries(idx).map(([test, v]) => { const byCls = {}; for (const s of v.sids || []) { const c = clsOf(s); byCls[c] = (byCls[c] || 0) + 1; }
           return { test, title: v.title, n: (v.sids || []).length, pub: !!v.pub, pubCls: Array.isArray(v.pubCls) ? v.pubCls : [], byCls, key: !!v.key, at: v.at || 0, sem: v.sem || 1 }; }).sort((a, c) => c.at - a.at) });
@@ -7419,7 +7439,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         return json({ ok: true, pub: !!e.pub, pubCls: e.pubCls, key: !!e.key });
       }
       if (url.pathname === '/omr/papers/delete' && request.method === 'POST') {
-        const idx = await omrPapersIdx(env), t = String(b.test || ''), e = idx[t]; if (!e) return json({ ok: true });
+        const idx = await omrPapersRepair(env, await omrPapersIdx(env)), t = String(b.test || ''), e = idx[t]; if (!e) return json({ ok: true });
         if (b.sid) {                                                     // ورقة طالب واحد (من المعاينة)
           const sid = String(b.sid); await env.HW.delete(`omrp:${sid}:${t}`);
           e.sids = (e.sids || []).filter(x => x !== sid); if (!e.sids.length) delete idx[t];
@@ -7431,7 +7451,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       }
       // 👁️ معاينة المعلم قبل النشر: قائمة الأوراق (الاسم، درجة الختم، والدرجة المرصودة الآن) ثم الصور واحدة واحدة
       if (url.pathname === '/omr/papers/list') {
-        const t = String(url.searchParams.get('test') || ''), idx = await omrPapersIdx(env), e = idx[t]; if (!e) return json({ ok: true, papers: [] });
+        const t = String(url.searchParams.get('test') || ''), idx = await omrPapersRepair(env, await omrPapersIdx(env)), e = idx[t]; if (!e) return json({ ok: true, papers: [] });
         const [roster, cls] = await Promise.all([loadRoster(env).catch(() => []), loadClassroom(env).catch(() => null)]);
         const nameOf = id => { const r = roster.find(x => String(x.id) === String(id)); return r ? { name: r.name, cls: r.cls || '' } : { name: '', cls: '' }; };
         const nowOf = sid => { const books = cls && cls.examBooks || {}; for (const sm of Object.keys(books)) for (const pr of Object.keys(books[sm] || {})) { const bk = books[sm][pr];
