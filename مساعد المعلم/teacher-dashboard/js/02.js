@@ -5780,15 +5780,40 @@ function examDistributedModelSlice(items, perModel, modelIndex, modelCount, seed
 /* 🗂️ توزيع الأسئلة على النماذج: ما ثبّته المعلم لنموذج يذهب إليه أولًا، والباقي (تلقائي)
    يُخلط ببذرة ثابتة ويُقسَّم بالتتابع على حاجة كل نموذج — فلا يتكرر سؤال بين نموذجين ما دام البنك يكفي. */
 function examModelValid(x, models){ return x && Number.isInteger(x.model) && x.model >= 0 && x.model < models; }
-function examModelPick(items, count, idx, models, seed){
-  items = Array.isArray(items) ? items : []; count = Math.max(0, Number(count) || 0);
-  if(!count) return [];
-  const pinned = m => items.filter(x => examModelValid(x, models) && x.model === m);
-  const auto = items.filter(x => !examModelValid(x, models));
-  const pool = examDistributedModelSlice(auto, auto.length, 0, 1, seed);
-  let off = 0; for(let m = 0; m < idx; m++) off += Math.max(0, count - pinned(m).length);
-  const mine = pinned(idx).slice(0, count);
-  return mine.concat(pool.slice(off, off + (count - mine.length)));
+/* 🔁 الأسئلة المتشابهة المُبقاة لا تجتمع في نموذج واحد: نفس مقياس «المتشابهة» (الكلمات ذات المعنى للسؤال، ومعه إجابته)،
+   ويشمل الاختيار والصح/خطأ معًا (فكرة واحدة بنوعين). مع عدة نماذج يُوزَّع كل سؤال على أول نموذج فيه مكان وليس فيه شبيهه؛
+   ومع نموذج واحد يُؤخذ غير المتشابه أولًا ولا يُلجأ للشبيه إلا إن لم يكفِ البنك */
+const EX_SIM_TOK = new WeakMap();
+function exSimTok(x){
+  let t = EX_SIM_TOK.get(x); if(t) return t;
+  const ans = x && x.kind !== 'tf' && Array.isArray(x.o) ? String(x.o[Number(x.a) || 0] || '') : '';
+  t = { q: exSimTokens(x && x.q), a: exSimTokens(String(x && x.q || '') + ' ' + ans) }; EX_SIM_TOK.set(x, t); return t;
+}
+function exSimClash(x, y){ const a = exSimTok(x), b = exSimTok(y); return Math.max(exSimJac(a.a, b.a), exSimJac(a.q, b.q)) >= 0.55; }
+function examSpreadPick(mc, tf, nmc, ntf, idx, models, seed){
+  mc = Array.isArray(mc) ? mc : []; tf = Array.isArray(tf) ? tf : [];
+  if(models < 2){
+    const got = [], pick = (L, n) => { const out = [], later = [];
+      for(const x of L){ if(out.length >= n) break; (got.some(y => exSimClash(x, y)) ? later : out).push(x); if(out.includes(x)) got.push(x); }
+      for(const x of later){ if(out.length >= n) break; out.push(x); got.push(x); }
+      const keep = new Set(out); return L.filter(x => keep.has(x)); };      // ترتيب البنك كما هو
+    const m = pick(mc, nmc); return { mc:m, tf:pick(tf, ntf) };
+  }
+  const M = Array.from({ length:models }, () => ({ mc:[], tf:[] }));
+  const pinned = (L, t) => L.filter(x => examModelValid(x, models)).forEach(x => { if(M[x.model][t].length < (t === 'mc' ? nmc : ntf)) M[x.model][t].push(x); });
+  pinned(mc, 'mc'); pinned(tf, 'tf');
+  // جولة أولى: كل سؤال في أول نموذج فيه مكان وليس فيه شبيهه، ويُؤجَّل ما لا مكان له بلا شبيه؛
+  // جولة ثانية: المؤجَّل يملأ ما بقي فقط (البنك لا يكفي) في النموذج الأقل تشابهًا — فالزائد يُترك بدل أن يجاور شبيهه
+  const clashes = (m, x) => [...M[m].mc, ...M[m].tf].filter(y => exSimClash(x, y)).length;
+  const later = { mc:[], tf:[] };
+  const pass1 = (L, t, n) => examDistributedModelSlice(L.filter(x => !examModelValid(x, models)), L.length, 0, 1, seed + '|' + t).forEach(x => {
+    const open = M.map((_, m) => m).filter(m => M[m][t].length < n); if(!open.length) return;
+    const m = open.find(m => !clashes(m, x)); if(m === undefined) later[t].push(x); else M[m][t].push(x); });
+  const pass2 = (t, n) => later[t].forEach(x => {
+    const open = M.map((_, m) => m).filter(m => M[m][t].length < n); if(!open.length) return;
+    M[open.reduce((b, m) => clashes(m, x) < clashes(b, x) ? m : b, open[0])][t].push(x); });
+  pass1(mc, 'mc', nmc); pass1(tf, 'tf', ntf); pass2('mc', nmc); pass2('tf', ntf);
+  return M[idx] || { mc:[], tf:[] };
 }
 function examModelCount(){ return Math.max(1, Math.min(6, Number(document.getElementById('ex-model-count')?.value) || 1)); }
 function examModelSel(bank, idx, x){
@@ -6945,11 +6970,10 @@ function examBuild0(force){
   if(modelCount > 1){
     const modelSeed = `${String(val('ex-title')||'اختبار')}|${String(data.label||'source')}|${modelCount}`;
 
-    mc = examModelPick(mc, nmc, modelIndex, modelCount, modelSeed + '|mc');   // يحترم تثبيت المعلم للنماذج
-    tf = examModelPick(tf, ntf, modelIndex, modelCount, modelSeed + '|tf');
+    // يحترم تثبيت المعلم للنماذج، ولا يجمع سؤالين متشابهين في نموذج واحد
+    ({ mc, tf } = examSpreadPick(mc, tf, nmc, ntf, modelIndex, modelCount, modelSeed));
   }else{
-    mc = mc.slice(0, nmc);
-    tf = tf.slice(0, ntf);
+    ({ mc, tf } = examSpreadPick(mc, tf, nmc, ntf, 0, 1, ''));
   }
 
   // طبقة أخيرة بعد تحديد الأسئلة فعليًا، لأن اختيار البنك كان يعيد الكائنات الأصلية.
