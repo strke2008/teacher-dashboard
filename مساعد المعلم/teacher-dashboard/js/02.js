@@ -6130,6 +6130,10 @@ function applySavedPaperExam(exam){
   const cfg=exam.config||{}, checks=exam.checks||{};
   EXAM_CONFIG_IDS.forEach(id=>{ const el=document.getElementById(id); if(el&&Object.prototype.hasOwnProperty.call(cfg,id)) el.value=String(cfg[id]??''); });
   EXAM_CHECK_IDS.forEach(id=>{ const el=document.getElementById(id); if(el&&Object.prototype.hasOwnProperty.call(checks,id)) el.checked=!!checks[id]; });
+  // «النموذج الحالي»: خياراته تُبنى من عدد النماذج المحفوظ ثم يُختار المحفوظ — كان يُعيَّن قبل بنائها فيبقى فارغًا
+  { const sel=document.getElementById('ex-model'), cnt=Math.max(1,Math.min(6,Number(document.getElementById('ex-model-count')?.value)||1));
+    if(sel){ sel.innerHTML=Array.from({length:cnt},(_,i)=>`<option value="${i}">نموذج (${examModelLetter(i)})</option>`).join('');
+      sel.value=String(Math.max(0,Math.min(cnt-1,Number(cfg['ex-model'])||0))); sel.disabled=cnt===1; try{ syncExamPrintAllButton(); }catch(e){} } }
   ['ex-nmc','ex-ntf'].forEach(id=>{ const el=document.getElementById(id); if(el) delete el.dataset.keep; });   // القيم المحمّلة هي الأصل
   if(!Object.prototype.hasOwnProperty.call(cfg,'ex-tpl')){ const tp=document.getElementById('ex-tpl'); if(tp) tp.value='t1'; }   // اختبار محفوظ قبل القوالب
   examTplSyncUI();
