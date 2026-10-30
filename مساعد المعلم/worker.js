@@ -615,6 +615,19 @@ async function presReady(env) {
   }
   return p;
 }
+/* 📄 أوراق الاختبار المصححة: omrp:<sid>:<test> (الصورة والدرجة)، وفهرس omrp:idx لكل اختبار: من رُفعت أوراقهم والنشر */
+async function omrPapersIdx(env) { try { const v = JSON.parse(await env.HW.get('omrp:idx') || '{}'); return v && typeof v === 'object' ? v : {}; } catch { return {}; } }
+async function omrPapersOf(env, sid) {
+  const idx = await omrPapersIdx(env);
+  return Object.entries(idx).filter(([, v]) => v.pub && (v.sids || []).includes(String(sid))).map(([test, v]) => ({ test, title: v.title }));
+}
+async function omrPaperRead(env, sid, test) {
+  const t = String(test || ''), idx = await omrPapersIdx(env), e = idx[t];
+  if (!e || !e.pub || !(e.sids || []).includes(String(sid))) return { ok: false, error: 'not_published' };
+  let r = null; try { r = JSON.parse(await env.HW.get(`omrp:${sid}:${t}`) || 'null'); } catch {}
+  if (!r) return { ok: false, error: 'notfound' };
+  return { ok: true, paper: { title: r.title, score: r.score, max: r.max, marks: r.marks, img: r.img, at: r.at, ...(e.key ? { keyBoxes: r.keyBoxes } : {}) } };
+}
 async function requireStudentSession(env, b) {
   const deny = (error = 'auth', status = 401) => ({ res: json({ ok: false, error }, status) });
   const key = await sessionKey(env);
@@ -921,7 +934,7 @@ function studentReportBuild(data, g, semester, period, teacherNote, acts) {
     book.tests.forEach((t, i) => {
       const id = String(t && t.id || `exam_${i + 1}`), max = Math.max(1, Number(t && t.max) || 10);
       const v = raw[id]; const n = v && typeof v === 'object' ? Number(v.score) : Number(v);
-      tests.push({ title: String(t && t.title || `اختبار ${i + 1}`).slice(0, 80), max, score: Number.isFinite(n) ? gClamp(n, 0, max) : null });
+      tests.push({ id, title: String(t && t.title || `اختبار ${i + 1}`).slice(0, 80), max, score: Number.isFinite(n) ? gClamp(n, 0, max) : null });
     });
   }
   const h = g.homework || {}, p = g.participation || {}, b = g.behavior || {}, e = g.exam || {};
@@ -5801,7 +5814,13 @@ export default {
             for (const x of closed) { const { data, grades } = await studentReportGrades(env, x.sem, x.per), g = grades.students.find(y => String(y.id) === String(auth.st.id));
               if (g) reports.push({ ...studentReportBuild(data, g, x.sem, x.per, '', srepActsLive(state, data, auth.st.id, g.name || auth.st.name, g.cls || auth.st.cls, x.sem, x.per)), auto: true }); } } } catch {}
         reports.sort((a, c) => (c.semester - a.semester) || (c.period - a.period));
-        return json({ ok: true, reports: await srepLiveReports(env, auth.st, reports) });
+        return json({ ok: true, reports: await srepLiveReports(env, auth.st, reports), papers: await omrPapersOf(env, auth.st.id).catch(() => []) });
+      }
+      // 📄 ورقة الاختبار المصححة (للطالب نفسه): تظهر بعد أن ينشرها المعلم
+      if (url.pathname === '/student-report/paper') {
+        const auth = await requireStudentSession(env, b);
+        if (auth.res) return auth.res;
+        return json(await omrPaperRead(env, auth.st.id, b.test));
       }
       if (!pushIsTeacher(env, b)) return json({ ok: false, error: 'unauthorized' }, 401);
 
@@ -6181,6 +6200,17 @@ export default {
       return json({ ok: true, sent: items.length, top3: T });
     }
     /* 👪 بوابة ولي الأمر: اسم الطالب + جوال ولي الأمر ← تقرير ابنه (للقراءة فقط). 8 محاولات خاطئة في الساعة لكل جهاز */
+    // 📄 ورقة اختبار ابنه المصححة: نفس تحقق تقرير ولي الأمر (الجوال + الاسم)، وتظهر بعد أن ينشرها المعلم
+    if (url.pathname === '/parent/paper' && request.method === 'POST') {
+      let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
+      const ip = request.headers.get('CF-Connecting-IP') || 'x', fk = `pfail:${ip}`;
+      if ((parseInt(await env.HW.get(fk), 10) || 0) >= 8) return json({ ok: false, error: 'locked' }, 429);
+      const ph = parPhone(b.phone), nm = String(b.name || '').slice(0, 120);
+      const [P, roster] = await Promise.all([parentsRead(env), loadRoster(env)]);
+      const hit = ph && parNorm(nm).length >= 2 ? roster.find(x => P[String(x.id)] && P[String(x.id)].p === ph && parNameMatch(nm, x.name)) : null;
+      if (!hit) return json({ ok: false, error: 'no_match' }, 404);
+      return json(await omrPaperRead(env, String(hit.id), b.test));
+    }
     if (url.pathname === '/parent/report' && request.method === 'POST') {
       let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
       const ip = request.headers.get('CF-Connecting-IP') || 'x', fk = `pfail:${ip}`;
@@ -6228,9 +6258,9 @@ export default {
           live = studentReportBuild(data, g, sem, per, pub ? pub.teacherNote : '', srepActsLive(state, data, sid, st.name, cls, sem, per));
           if (String((state.repcfg && state.repcfg.parentSkills) || '') !== 'off') skills = parentSkills(data, g, sid); } else liveErr = 'not_in_grades'; } catch (e) { liveErr = String(e && e.message || e).slice(0, 120); }
       if (fails) await env.HW.delete(fk);
-      const [top3Raw, certTpl] = await Promise.all([env.HW.get('top3').catch(() => null), certTplRead(env)]);
+      const [top3Raw, certTpl, papers] = await Promise.all([env.HW.get('top3').catch(() => null), certTplRead(env), omrPapersOf(env, sid).catch(() => [])]);
       let top3 = []; try { top3 = ((JSON.parse(top3Raw || '{}') || {})[sid] || []).slice(0, 3); } catch {}
-      return json({ ok: true, live, periods, view, ...(liveErr ? { liveErr } : {}), ...(skills ? { skills } : {}), top3, student: { name: st.name, cls }, siblings, acts: { total: acts.length, done: done.sort((a, c) => c.at - a.at).slice(0, 15), doneN: done.length, missing: missing.slice(0, 20) }, reports, weekly,
+      return json({ ok: true, live, periods, view, papers, ...(liveErr ? { liveErr } : {}), ...(skills ? { skills } : {}), top3, student: { name: st.name, cls }, siblings, acts: { total: acts.length, done: done.sort((a, c) => c.at - a.at).slice(0, 15), doneN: done.length, missing: missing.slice(0, 20) }, reports, weekly,
         cert: { ...certText(certTpl, /\d/.test(cls) ? cls : ''), date: certDateLine(Date.now()), cls: /\d/.test(cls) ? cls : '' },
         teacher: String((state.repcfg && state.repcfg.teacher) || ''), subject: String((state.repcfg && state.repcfg.subject) || ''), school: String((state.repcfg && state.repcfg.school) || '') });
     }
@@ -7345,6 +7375,43 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       }
       const readCfg = async () => { try { const c = JSON.parse(await env.HW.get('omr:settings') || '{}'); return c && typeof c === 'object' ? c : {}; } catch { return {}; } };
       if (url.pathname === '/omr/list') return json({ ok: true, templates: await readIdx(), settings: await readCfg() });
+      // 📄 أوراق الاختبار المصححة: تُرفع من بوابة المعلم بعد الرصد (صورة الورقة بالختم)، وتظهر للطالب وولي أمره بعد النشر
+      if (url.pathname === '/omr/paper' && request.method === 'POST') {
+        const sid = String(b.sid || '').slice(0, 60), test = String(b.test || '').replace(/[^\w\-:.]/g, '').slice(0, 60);
+        const img = String(b.img || '');
+        if (!sid || !test || !/^data:image\/jpeg;base64,/.test(img) || img.length > 380000) return json({ ok: false, error: 'bad paper' }, 400);
+        const sem = Math.max(1, Math.min(3, Number(b.sem) || 1));
+        const marks = (Array.isArray(b.marks) ? b.marks : []).slice(0, 80).map(v => (v === 1 ? 1 : v === 0 ? 0 : -1));
+        const keyBoxes = (Array.isArray(b.keyBoxes) ? b.keyBoxes : []).slice(0, 80).filter(r => Array.isArray(r) && r.length === 4 && r.every(v => Number.isFinite(Number(v)))).map(r => r.map(v => +Number(v).toFixed(4)));
+        const rec = { sid, test, title: String(b.title || 'اختبار').slice(0, 80), score: Number(b.score) || 0, max: Math.max(1, Number(b.max) || 10), marks, keyBoxes, img, sem, at: Date.now() };
+        const idx = await omrPapersIdx(env);
+        // نهاية الفصل الدراسي: أول ورقة من فصل جديد تحذف أوراق الفصل السابق
+        const old = Object.entries(idx).filter(([, v]) => (v.sem || 1) < sem);
+        for (const [t, v] of old) { for (const s of v.sids || []) await env.HW.delete(`omrp:${s}:${t}`); delete idx[t]; }
+        const e = idx[test] || { title: rec.title, sids: [], pub: false, key: false, sem };
+        e.title = rec.title; e.sem = sem; e.at = rec.at; if (!e.sids.includes(sid)) e.sids.push(sid);
+        idx[test] = e;
+        await env.HW.put(`omrp:${sid}:${test}`, JSON.stringify(rec));
+        await env.HW.put('omrp:idx', JSON.stringify(idx));
+        return json({ ok: true, n: e.sids.length, published: !!e.pub });
+      }
+      if (url.pathname === '/omr/papers') {
+        const idx = await omrPapersIdx(env);
+        return json({ ok: true, tests: Object.entries(idx).map(([test, v]) => ({ test, title: v.title, n: (v.sids || []).length, pub: !!v.pub, key: !!v.key, at: v.at || 0, sem: v.sem || 1 })).sort((a, c) => c.at - a.at) });
+      }
+      if (url.pathname === '/omr/papers/pub' && request.method === 'POST') {
+        const idx = await omrPapersIdx(env), e = idx[String(b.test || '')]; if (!e) return json({ ok: false, error: 'notfound' }, 404);
+        if (typeof b.pub === 'boolean') e.pub = b.pub;
+        if (typeof b.key === 'boolean') e.key = b.key;
+        await env.HW.put('omrp:idx', JSON.stringify(idx));
+        return json({ ok: true, pub: !!e.pub, key: !!e.key });
+      }
+      if (url.pathname === '/omr/papers/delete' && request.method === 'POST') {
+        const idx = await omrPapersIdx(env), t = String(b.test || ''), e = idx[t]; if (!e) return json({ ok: true });
+        for (const s of e.sids || []) await env.HW.delete(`omrp:${s}:${t}`);
+        delete idx[t]; await env.HW.put('omrp:idx', JSON.stringify(idx));
+        return json({ ok: true });
+      }
       // ⚙️ إعدادات التصحيح الآلي (من لوحة التحكم) — تقرؤها بوابة المعلم مع القائمة
       if (url.pathname === '/omr/settings' && request.method === 'POST') {
         const x = b.settings || {}, cfg = {

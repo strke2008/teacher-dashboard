@@ -5837,7 +5837,7 @@ async function omrApiCall(path, body){
 async function omrManage(){
   if(!getApi()||!getTok()){ toast('اضبط عنوان الخادم وكلمة السر أولًا','bad'); return; }
   openModal(`<div class="omrm"><h3>⚙️ إعدادات التصحيح الآلي</h3><p class="muted">جارٍ التحميل…</p></div>`);
-  try{ const j=await omrApiCall('/omr/list'); OMRM.list=j.templates||[]; OMRM.cfg=j.settings||{}; OMRM.sel=new Set(); }
+  try{ const [j,pp]=await Promise.all([omrApiCall('/omr/list'), omrApiCall('/omr/papers').catch(()=>({tests:[]}))]); OMRM.list=j.templates||[]; OMRM.cfg=j.settings||{}; OMRM.papers=pp.tests||[]; OMRM.sel=new Set(); }
   catch(e){ document.querySelector('#modal .omrm').innerHTML='<h3>⚙️ إعدادات التصحيح الآلي</h3><p class="muted">تعذّر الاتصال بالخادم.</p>'; return; }
   // اختبارات جُهّزت قبل حفظ الخصائص في القائمة: نقرأ قالبها مرة لمعرفة علامات الزوايا وأوراق الأسماء
   await Promise.all(OMRM.list.filter(t=>t.marks===undefined).map(async t=>{ try{ const g=await omrApiCall('/omr/get?id='+encodeURIComponent(t.id)); const ms=g.template.models||[]; t.marks=ms.every(m=>!!m.marks); t.named=ms.every(m=>!!m.scode); }catch(e){} }));
@@ -5856,6 +5856,17 @@ function omrManageRender(){
       ${tg('beep',c.beep!==false,'🔔 صوت عند إضافة ورقة','نغمة عالية = أُضيفت، منخفضة = مكررة — مفيد والجوال مثبّت')}
       ${tg('glareWait',c.glareWait!==false,'✨ الانتظار عند لمعة الضوء','ينتظر ثانيتين لتحرّك الجوال، والأسئلة تحت اللمعة تُعرض للتأكيد دائمًا')}
       ${tg('autoSave',!!c.autoSave,'💾 رصد أوراق الأسماء تلقائيًا','ورقة عُرف صاحبها وكل أسئلتها واضحة تُرصد فورًا بلا مراجعة (لا تستبدل درجة مرصودة)')}
+    </div>
+    <div class="omrm-sec"><h4>📄 أوراق الاختبار للطلاب وأولياء الأمور</h4>
+      <p class="muted" style="font-size:.78rem;margin:0 0 .5rem">بعد الرصد تُحفظ صورة ورقة كل طالب وعليها ختم بدرجته. لا يراها أحد حتى تنشرها — ثم تظهر للطالب في بوابته ولولي أمره في تقرير المتابعة.</p>
+      ${(OMRM.papers||[]).length?`<div class="omrm-list">${OMRM.papers.map(t=>`<div class="omrm-row"><div class="omrm-main"><b>${esc(t.title)}</b><small>${t.n} ${t.n===1?'ورقة':'أوراق'} · آخرها ${d(t.at)}</small>
+          <span class="omrm-chips">${t.pub?'<i class="ok">📢 منشورة</i>':'<i>🔒 غير منشورة</i>'}${t.pub&&t.key?'<i class="ok">✅ الإجابات الصحيحة ظاهرة</i>':''}</span></div>
+        <div class="omrm-acts" style="flex-wrap:wrap;justify-content:flex-end">
+          <button class="btn ${t.pub?'ghost':'tick'} sm" type="button" onclick="omrPapersPub('${esc(t.test)}',{pub:${!t.pub}})">${t.pub?'إيقاف النشر':'📢 نشر'}</button>
+          ${t.pub?`<button class="btn ghost sm" type="button" title="تظهر الإجابة الصحيحة بإطار أخضر متقطع عند كل سؤال أخطأ فيه — أظهرها بعد أن تنتهي كل الفصول من الاختبار" onclick="omrPapersPub('${esc(t.test)}',{key:${!t.key}})">${t.key?'إخفاء الإجابات':'✅ إظهار الإجابات'}</button>`:''}
+          <button class="btn ghost sm" type="button" title="حذف صور أوراق هذا الاختبار" onclick="omrPapersDel('${esc(t.test)}')">🗑️</button></div></div>`).join('')}</div>`
+        :'<p class="muted" style="font-size:.8rem">لا أوراق بعد — تُحفظ تلقائيًا عند رصد الدرجات من التصحيح الآلي في بوابة المعلم.</p>'}
+      <p class="muted" style="font-size:.74rem;margin-top:.45rem">تُحذف أوراق الفصل الدراسي تلقائيًا عند أول تصحيح في الفصل التالي.</p>
     </div>
     <div class="omrm-sec"><h4>🗂️ الاختبارات المجهّزة <span class="muted">(${L.length} · ظاهر في الجوال ${vis})</span></h4>
       ${L.length?`<div class="omrm-bulk"><button class="btn ghost sm" type="button" onclick="omrManageSelOld()">تحديد الأقدم من 30 يومًا</button>
@@ -5877,6 +5888,18 @@ async function omrManageSet(k,v){
   const prev={...OMRM.cfg}; OMRM.cfg[k]=v;
   try{ const j=await omrApiCall('/omr/settings',{settings:OMRM.cfg}); OMRM.cfg=j.settings; toast('✓ حُفظ الإعداد','good'); }
   catch(e){ OMRM.cfg=prev; toast('تعذّر الحفظ','bad'); }
+  omrManageRender();
+}
+async function omrPapersPub(test,ch){
+  try{ const j=await omrApiCall('/omr/papers/pub',{test,...ch}); const t=(OMRM.papers||[]).find(x=>x.test===test); if(t){ t.pub=j.pub; t.key=j.key; }
+    toast(ch.pub===true?'📢 نُشرت — تظهر للطلاب وأولياء الأمور':ch.pub===false?'أُوقف النشر':ch.key?'✅ الإجابات الصحيحة ظاهرة':'أُخفيت الإجابات الصحيحة','good'); }
+  catch(e){ toast('تعذّر التعديل','bad'); }
+  omrManageRender();
+}
+async function omrPapersDel(test){
+  const t=(OMRM.papers||[]).find(x=>x.test===test); if(!t) return;
+  if(!(await askConfirm(`حذف صور أوراق «${t.title}» (${t.n})؟ الدرجات المرصودة لا تتأثر.`,{title:'حذف الأوراق',yes:'احذف',no:'إلغاء',danger:true}))) return;
+  try{ await omrApiCall('/omr/papers/delete',{test}); OMRM.papers=OMRM.papers.filter(x=>x.test!==test); toast('✓ حُذفت','good'); }catch(e){ toast('تعذّر الحذف','bad'); }
   omrManageRender();
 }
 function omrManageSel(id,on){ on?OMRM.sel.add(id):OMRM.sel.delete(id); omrManageRender(); }

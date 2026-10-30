@@ -145,6 +145,15 @@ body.t3pv{background:#EEF2F7}body.t3pv>*:not(#t3pv){display:none!important}#t3pv
 /* 🔒 بلا تكبير بالغلط: النقر المزدوج لا يكبّر، وخانات الكتابة بخط 16px حتى لا يكبّر iPhone الصفحة عند الكتابة */
 html,body{touch-action:manipulation;-webkit-text-size-adjust:100%;text-size-adjust:100%}
 input,select,textarea{font-size:16px!important}
+.pp-btn{font:inherit;font-size:.76rem;font-weight:700;border:1px solid #c9d6e6;background:#eef3f8;color:#2e4e70;border-radius:999px;padding:3px 10px;margin-inline-start:6px;cursor:pointer}
+.pp-veil{position:fixed;inset:0;z-index:900;background:rgba(10,16,28,.72);display:flex;align-items:center;justify-content:center;padding:12px}
+.pp-box{background:#fff;color:#16233a;border-radius:16px;max-width:620px;width:100%;max-height:94vh;overflow:auto;padding:10px}
+.pp-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}.pp-head b{flex:1}.pp-head span{font-weight:800;color:#C8102E}
+.pp-x{border:0;background:#eef3f8;border-radius:10px;width:36px;height:36px;font-size:1rem;cursor:pointer}
+.pp-img{position:relative;border:1px solid #e3e9f1;border-radius:10px;overflow:hidden}.pp-img img{width:100%;display:block}
+.pp-key{position:absolute;border:2px dashed #16A34A;border-radius:3px}
+.pp-leg{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:.76rem;color:#5b6b82;margin-top:8px}.pp-leg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-inline-end:4px;vertical-align:middle}.pp-leg i.dash{border:2px dashed #16A34A;background:none}
+.pp-wait{text-align:center;padding:30px 10px;color:#5b6b82}
 </style>
 </head>
 <body>
@@ -383,7 +392,8 @@ function parentDetails(R, A){
   if(R&&R.exam){ const E=R.exam, T=(E.tests||[]);
     D.exam=`<h3>📝 الاختبارات</h3>${E.measured&&E.score!=null?why(E.score,E.max):'<p class="how">لم تُرصد درجات بعد.</p>'}
       ${T.length?`<div class="dt">${T.map(t=>{ const p=t.score==null?null:Math.round(t.score/t.max*100);
-        return `<div class="dk${p!=null&&p<70?' low':''}"><span>${esc(t.title)}</span><b>${t.score==null?'لم يُرصد':`${t.score} من ${t.max}`}</b></div>`; }).join('')}</div>`:''}
+        const pp=parPaperOf(t);
+        return `<div class="dk${p!=null&&p<70?' low':''}"><span>${esc(t.title)}</span><b>${t.score==null?'لم يُرصد':`${t.score} من ${t.max}`}${pp?` <button type="button" class="pp-btn" data-paper="${esc(pp.test)}">📄 الورقة</button>`:''}</b></div>`; }).join('')}</div>`:''}
       ${E.bonus>0?`<div class="dk" style="margin-top:8px"><span>مجموع درجاته في الاختبارات</span><b>${E.base!=null?+(+E.base).toFixed(2):+(E.score-E.bonus).toFixed(2)} من ${E.max}</b></div><div class="dk"><span>🎁 عوّضه بنقاط تميّزه</span><b style="color:var(--ok)" dir="ltr">+${+(+E.bonus).toFixed(2)}</b></div><div class="dk"><span>درجته النهائية في الاختبارات</span><b>${E.score} من ${E.max}</b></div>`:''}
       ${(()=>{ const w=T.filter(t=>t.score!=null&&t.score/t.max<0.7).sort((a,b)=>a.score/a.max-b.score/b.max)[0]; if(!w) return '';
         return `<p class="tip">💡 أقل درجاته في «${esc(w.title)}» (${w.score} من ${w.max}). نقترح مراجعة دروس هذا الاختبار معه${w.score/w.max<0.6?'، وستصله في البوابة مهمة علاجية بالأسئلة التي أخطأ فيها':''}.</p>`; })()}`; }
@@ -421,7 +431,22 @@ function skillsHTML(S){
     ${G.length?`<div class="sk-grp">🌟 أتقنها</div><div class="sk-chips">${G.map(x=>`<span class="sk-chip">✓ ${esc(x)}</span>`).join('')}</div>`:''}
     <p class="sk-note">النسبة من آخر إجاباته في كل مهارة (الخط الأخضر = المطلوب 80%)، فتتحسّن مباشرة مع تحسّن إجاباته. المهارات من نواتج التعلم الرسمية للمادة.</p></section>`;
 }
+/* 📄 ورقة الاختبار المصححة (ينشرها المعلم): زر بجانب درجة الاختبار يفتح صورة الورقة بختم الدرجة */
+let PAPERS=[], PPHONE='';
+function parPaperOf(t){ return PAPERS.find(x=>String(x.test)===String(t.id||''))||PAPERS.find(x=>!t.id&&x.title===t.title)||null; }
+async function parPaperOpen(test){
+  const v=document.createElement('div'); v.className='pp-veil'; v.innerHTML='<div class="pp-box"><p class="pp-wait">جارٍ فتح الورقة…</p></div>'; document.body.appendChild(v);
+  v.onclick=e=>{ if(e.target===v||e.target.closest('.pp-x')) v.remove(); };
+  try{ const r=await fetch(API+'/parent/paper',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:PNAME,phone:PPHONE,test})}); const j=await r.json();
+    if(!j.ok) throw 0; const P=j.paper, ok=(P.marks||[]).filter(m=>m===1).length, n=(P.marks||[]).length;
+    v.querySelector('.pp-box').innerHTML=`<div class="pp-head"><b>📄 ${esc(P.title)}</b><span>${P.score} من ${P.max}</span><button type="button" class="pp-x" aria-label="إغلاق">✕</button></div>
+      <div class="pp-img"><img src="${P.img}" alt="ورقة الاختبار المصححة">${(P.keyBoxes||[]).map(b=>`<i class="pp-key" style="left:${b[0]*100}%;top:${b[1]*100}%;width:${b[2]*100}%;height:${b[3]*100}%"></i>`).join('')}</div>
+      <div class="pp-leg"><span><i style="background:#16A34A"></i>إجابة صحيحة</span><span><i style="background:#DC2626"></i>إجابة خاطئة</span>${(P.keyBoxes||[]).length?'<span><i class="dash"></i>الإجابة الصحيحة</span>':''}${n?`<span>الصحيح آليًا: ${ok} من ${n}</span>`:''}</div>`;
+  }catch(e){ v.querySelector('.pp-box').innerHTML='<p class="pp-wait">تعذّر فتح الورقة — حاول لاحقًا.</p><button type="button" class="pp-x">إغلاق</button>'; }
+}
+document.addEventListener('click',e=>{ const b=e.target.closest&&e.target.closest('[data-paper]'); if(b){ e.preventDefault(); e.stopPropagation(); parPaperOpen(b.dataset.paper); } },true);
 function render(j, phone){
+  PAPERS=Array.isArray(j.papers)?j.papers:[]; PPHONE=phone;
   const CV=!!(j.view&&(j.periods||[]).find(x=>x.sem===j.view.sem&&x.per===j.view.per&&x.closed));
   const s=j.student, A=j.acts||{}, R=j.live||(j.reports||[])[0]||null, late=(A.missing||[]).filter(x=>x.late), open=(A.missing||[]).filter(x=>!x.late);
   // 🧮 مثل كشف الدرجات: أعمال السنة 40 (المشاركة 10 · الواجبات 10 · السلوك 10 · المهام الأدائية 10) + الاختبارات 20 = 60

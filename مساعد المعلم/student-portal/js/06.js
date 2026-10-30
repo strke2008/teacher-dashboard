@@ -146,6 +146,20 @@ function srxLevel(score,max,measured){
   const p=Number(score)*100/(Number(max)||1);
   return p>=90?['ممتاز','a']:p>=75?['جيد جدًا','b']:p>=60?['جيد','c']:['يحتاج متابعة','d'];
 }
+/* 📄 ورقتي المصححة (بعد أن ينشرها المعلم): صورة الورقة بختم الدرجة، وتحتها أرقام الأسئلة صح/خطأ */
+function myPaperOf(t){ const P=(typeof MYREP!=='undefined'&&MYREP.papers)||[]; return P.find(x=>String(x.test)===String(t.id||''))||P.find(x=>!t.id&&x.title===t.title)||null; }
+async function myPaperOpen(test){
+  const v=document.createElement('div'); v.className='pp-veil'; v.innerHTML='<div class="pp-box"><p class="pp-wait">جارٍ فتح ورقتك…</p></div>'; document.body.appendChild(v);
+  v.onclick=e=>{ if(e.target===v||e.target.closest('.pp-x')) v.remove(); };
+  const api=((typeof HW!=='undefined'&&HW&&HW.api)||API||'').replace(/\/+$/,''), E=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  try{ const res=await storeFetch(api+'/student-report/paper',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({test})}); const j=await res.json();
+    if(!j.ok) throw 0; const P=j.paper, M=P.marks||[], bad=M.map((m,i)=>m===1?0:i+1).filter(Boolean);
+    v.querySelector('.pp-box').innerHTML=`<div class="pp-head"><b>📄 ${E(P.title)}</b><span>${P.score} من ${P.max}</span><button type="button" class="pp-x" aria-label="إغلاق">✕</button></div>
+      <div class="pp-img"><img src="${P.img}" alt="ورقتي المصححة">${(P.keyBoxes||[]).map(b=>`<i class="pp-key" style="left:${b[0]*100}%;top:${b[1]*100}%;width:${b[2]*100}%;height:${b[3]*100}%"></i>`).join('')}</div>
+      ${M.length?`<div class="pp-qs">${M.map((m,i)=>`<span class="pp-q ${m===1?'ok':'no'}"><i>${i+1}</i>${m===1?'✓':'✗'}</span>`).join('')}</div>`:''}
+      <p class="pp-note">${bad.length?`راجع ${bad.length===1?'السؤال':'الأسئلة'} ${bad.join(' و')} مع معلمك.`:'🌟 كل إجاباتك صحيحة!'}${(P.keyBoxes||[]).length?' الإطار الأخضر المتقطع = الإجابة الصحيحة.':''}</p>`;
+  }catch(e){ v.querySelector('.pp-box').innerHTML='<p class="pp-wait">تعذّر فتح الورقة — حاول لاحقًا.</p><button type="button" class="pp-x">إغلاق</button>'; }
+}
 function srxHTML(r){
   if(!r) return '';
   srxStyle();
@@ -204,7 +218,7 @@ function srxHTML(r){
         ${pend.length?`<div class="srx-list warn"><b>⏳ ما زال مفتوحًا — حلّه الآن (${pend.length})</b><ul>${pend.map(x=>`<li>${E(x.title)}${pendTxt(x)?` <small>· ${E(pendTxt(x))}</small>`:''}</li>`).join('')}</ul></div>`:''}
       </div>
       <div class="srx-col"><div class="srx-card" ${sty('ex')}><h3><i>📝</i>الاختبارات الفترية</h3>
-        ${tests.length?tests.map(t=>`<div class="srx-row"><div><b>${E(t.title)}</b>${t.score==null?'':`<div class="srx-mini"><i style="width:${pct(t.score,t.max)}%"></i></div>`}</div><em>${t.score==null?'<span class="srx-na">لم يُرصد</span>':`${N(t.score)} / ${N(t.max)}`}</em></div>`).join('')
+        ${tests.length?tests.map(t=>`<div class="srx-row"><div><b>${E(t.title)}</b>${t.score==null?'':`<div class="srx-mini"><i style="width:${pct(t.score,t.max)}%"></i></div>`}${(()=>{ const pp=myPaperOf(t); return pp?`<button type="button" class="pp-btn" onclick="myPaperOpen('${E(pp.test)}')">📄 ورقتي</button>`:''; })()}</div><em>${t.score==null?'<span class="srx-na">لم يُرصد</span>':`${N(t.score)} / ${N(t.max)}`}</em></div>`).join('')
           +`<div class="srx-row sum"><b>الدرجة من ${e.max||20}</b><em>${e.measured?N(e.score):'—'} / ${e.max||20}</em></div>`
           :'<p class="srx-empty">لا توجد اختبارات مسجّلة لهذه الفترة.</p>'}
       </div>
@@ -381,7 +395,7 @@ async function myRepLoadPeriod(){
     const res=await storeFetch(api+'/student-report/mine',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
     const j=await res.json().catch(()=>({}));
     if(!res.ok||!j.ok){ pbox.innerHTML=`<p class="muted" style="margin:.4rem 0">${j.error==='auth_cancel'?'يلزم رمزك لعرض تقرير الفترة.':'تعذّر فتح تقرير الفترة — حاول لاحقًا.'}</p>`; return; }
-    MYREP.reports=j.reports||[]; MYREP.idx=0; MYREP.loaded=true; myRepRender();
+    MYREP.reports=j.reports||[]; MYREP.papers=Array.isArray(j.papers)?j.papers:[]; MYREP.idx=0; MYREP.loaded=true; myRepRender();
   }catch(_){ pbox.innerHTML='<p class="muted" style="margin:.4rem 0">تعذّر الاتصال — تحقق من الإنترنت.</p>'; }
 }
 async function myRepToggle(tab){

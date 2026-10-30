@@ -206,3 +206,16 @@
 .imp-box b{display:block;margin-bottom:.2rem}.imp-box p{margin:.1rem 0 .5rem;font-size:.88rem;line-height:1.7}.imp-box p b{display:inline;color:var(--tick,#1B9C6B)}
 .imp-box .imp-list{display:flex;flex-wrap:wrap;gap:.3rem}.imp-box .imp-list span{font-size:.76rem;font-weight:700;border-radius:99px;padding:2px 9px;background:color-mix(in srgb,var(--tick,#1B9C6B) 12%,transparent)}
 .hw-gr.imp{background:rgba(27,156,107,.14);color:#13734F}
+/* 📄 ورقتي المصححة */
+.pp-btn{font:inherit;font-size:.74rem;font-weight:700;border:1px solid #c9d6e6;background:#eef3f8;color:#2e4e70;border-radius:999px;padding:2px 10px;margin-top:4px;cursor:pointer}
+.pp-veil{position:fixed;inset:0;z-index:4000;background:rgba(10,16,28,.72);display:flex;align-items:center;justify-content:center;padding:12px}
+.pp-box{background:#fff;color:#16233a;border-radius:16px;max-width:620px;width:100%;max-height:94vh;overflow:auto;padding:10px}
+.pp-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}.pp-head b{flex:1}.pp-head span{font-weight:800;color:#C8102E}
+.pp-x{border:0;background:#eef3f8;border-radius:10px;width:36px;height:36px;font-size:1rem;cursor:pointer;font-family:inherit}
+.pp-img{position:relative;border:1px solid #e3e9f1;border-radius:10px;overflow:hidden}.pp-img img{width:100%;display:block}
+.pp-key{position:absolute;border:2px dashed #16A34A;border-radius:3px}
+.pp-qs{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-top:8px}
+.pp-q{border-radius:9px;font-weight:800;font-size:.8rem;text-align:center;padding:4px 0;line-height:1.2}.pp-q i{display:block;font-style:normal;font-size:.62rem;opacity:.7}
+.pp-q.ok{background:#e4f4ec;color:#167852}.pp-q.no{background:#fcebee;color:#b03348}
+.pp-note{font-size:.8rem;color:#34445d;line-height:1.7;margin:8px 2px 0}
+.pp-wait{text-align:center;padding:30px 10px;color:#5b6b82}

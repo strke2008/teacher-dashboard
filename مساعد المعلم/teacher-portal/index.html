@@ -6400,6 +6400,7 @@ async function omrSave(){
   if(prev !== undefined && !(await askConfirm('لهذا الطالب درجة مرصودة في هذا الاختبار. استبدالها بالقراءة الجديدة؟', { title:'استبدال الدرجة؟', yes:'استبدل', no:'إلغاء' }))) return;
   // 📷 الأسئلة التي أخطأ فيها تُحفظ مع الدرجة: منها تُبنى المهمة العلاجية للاختبار
   await setExamScore(OMRUI.sid, OMRUI.testId, String(val), false, omrWrongOf(r.answers, OMRUI.model));
+  omrUploadPaper(OMRUI.sid, OMRUI.frozen, r.H, 1, r.answers.map(a => ({ ...a })), val);
   const who = list(OMRUI.cls).find(s=>s.id===OMRUI.sid);
   toast(`✓ ${who?who.name:''}: ${val} من ${test.max}`);
   OMRUI.sid = omrNextStudent(); OMRUI.savedN = (OMRUI.savedN||0) + 1; OMRUI.manual = '';
@@ -6684,6 +6685,64 @@ function omrMatchBody(s, used){
 function omrMatchOpen(id){ OMRUI.openId = OMRUI.openId === id ? null : id; omrMatchRender(); const el = $('mc-' + id); if(el) el.scrollIntoView({ block:'start', behavior:'smooth' }); }
 function omrMatchFilter(){ const q = omrNorm($('omr-q').value); document.querySelectorAll('#omr-slist .omr-sbtn').forEach(b => { b.style.display = !q || b.dataset.n.includes(q) ? '' : 'none'; }); }
 function omrSheetSet(id, i, v){ const s = OMRUI.sheets.find(x => x.id === id); if(!s) return; s.answers[i].final = v; OMRDB.put(s); if(s.sid && !s.answers.some(a => a.final === null) && omrManualOk(s.manual, s.model)) omrSheetSave(s); else omrMatchRender(); }
+/* 📄 ورقة الطالب المصححة للطالب وولي أمره: الصفحة مقوّمة (A4 مستقيمة) وعليها إطار أخضر/أحمر حول ما اختاره،
+   وختم أحمر بالدرجة المرصودة بجانب عنوان الاختبار. الإجابة الصحيحة لا تُرسم: تُحفظ مواقعها فقط وتظهر إن سمح المعلم */
+const OMR_AR = n => String(n).replace(/\d/g, d => '٠١٢٣٤٥٦٧٨٩'[d]).replace('.', '٫');
+function omrStampDraw(x, kp, val, max){
+  const w = 32 * kp, h = 12.5 * kp, cx = 26 * kp, cy = 49.3 * kp;
+  const oc = document.createElement('canvas'); oc.width = Math.ceil(w + 8); oc.height = Math.ceil(h + 8);
+  const o = oc.getContext('2d'), red = '#C8102E', F = `"Readex Pro",Tajawal,system-ui,sans-serif`;
+  o.translate(4, 4); o.strokeStyle = red; o.fillStyle = red; o.lineJoin = 'round';
+  const rr = (X, Y, W, H, R) => { o.beginPath(); if(o.roundRect) o.roundRect(X, Y, W, H, R); else o.rect(X, Y, W, H); };
+  o.lineWidth = .85 * kp; rr(0, 0, w, h, 1.6 * kp); o.stroke();
+  o.lineWidth = .28 * kp; rr(1.3 * kp, 1.3 * kp, w - 2.6 * kp, h - 2.6 * kp, 1 * kp); o.stroke();
+  const div = w * .62; o.lineWidth = .35 * kp; o.beginPath(); o.moveTo(div, 2.4 * kp); o.lineTo(div, h - 2.4 * kp); o.stroke();
+  o.textAlign = 'center'; o.textBaseline = 'middle';
+  o.font = `700 ${3.1 * kp}px ${F}`; o.fillText('الدرجة', (div + w) / 2, h * .38);
+  const d = new Date(); o.font = `700 ${1.7 * kp}px ${F}`; o.fillText(OMR_AR(`${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`), (div + w) / 2, h * .72);
+  o.font = `700 ${6 * kp}px ${F}`; o.direction = 'rtl'; o.fillText(`${OMR_AR(+(+val).toFixed(2))} / ${OMR_AR(max)}`, div / 2, h * .54);
+  // حبر الختم: نقاط فارغة صغيرة وحواف غير منتظمة
+  o.globalCompositeOperation = 'destination-out';
+  for(let i = 0; i < 120; i++){ o.globalAlpha = .15 + Math.random() * .4; o.beginPath(); o.arc(Math.random() * w, Math.random() * h, (.08 + Math.random() * .22) * kp, 0, 7); o.fill(); }   // خفيفة: لا تُشوّه الأرقام
+  x.save(); x.translate(cx, cy); x.rotate(-5 * Math.PI / 180); x.globalAlpha = .9; x.globalCompositeOperation = 'multiply';
+  x.drawImage(oc, -oc.width / 2, -oc.height / 2); x.restore();
+}
+async function omrPaperImage(src, H, fs, answers, val, max){
+  const im = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
+  const sc = document.createElement('canvas'); sc.width = im.naturalWidth; sc.height = im.naturalHeight;
+  const sx = sc.getContext('2d', { willReadFrequently:true }); sx.drawImage(im, 0, 0); const S = sx.getImageData(0, 0, sc.width, sc.height).data, sw = sc.width, sh = sc.height;
+  const W = 1000, kp = W / 210, Hh = Math.round(297 * kp), out = document.createElement('canvas'); out.width = W; out.height = Hh;
+  const x = out.getContext('2d'), D = x.createImageData(W, Hh), d = D.data;
+  for(let v = 0; v < Hh; v++) for(let u = 0, o = v * W * 4; u < W; u++, o += 4){
+    const p = OMR.apply(H, u / kp, v / kp), X = p[0] * fs, Y = p[1] * fs;
+    if(X < 0 || Y < 0 || X >= sw - 1 || Y >= sh - 1){ d[o] = d[o + 1] = d[o + 2] = 255; d[o + 3] = 255; continue; }
+    const x0 = X | 0, y0 = Y | 0, ax = X - x0, ay = Y - y0, i = (y0 * sw + x0) * 4, j = i + sw * 4;
+    for(let c = 0; c < 3; c++){ const a = S[i + c] + (S[i + 4 + c] - S[i + c]) * ax, b = S[j + c] + (S[j + 4 + c] - S[j + c]) * ax; d[o + c] = a + (b - a) * ay; }
+    d[o + 3] = 255;
+  }
+  x.putImageData(D, 0, 0);
+  const marks = [], keyBoxes = [];
+  answers.forEach(a => {
+    const f = a.final, boxes = a.boxes || [];
+    marks.push(f === null || f === undefined || f < 0 ? (f === -1 && a.key >= 0 ? 0 : -1) : f === a.key ? 1 : 0);
+    if(f !== null && f !== undefined && f >= 0 && boxes[f]){ const b = boxes[f], [bx, by, bw, bh] = b.r, m = 1.1;
+      x.lineWidth = .5 * kp; x.strokeStyle = f === a.key ? '#16A34A' : '#DC2626';
+      x.strokeRect((bx + b.dx - m) * kp, (by + b.dy - m) * kp, (bw + 2 * m) * kp, (bh + 2 * m) * kp); }
+    if(f !== a.key && boxes[a.key]){ const b = boxes[a.key], [bx, by, bw, bh] = b.r;
+      keyBoxes.push([(bx + b.dx - 1.1) / 210, (by + b.dy - 1.1) / 297, (bw + 2.2) / 210, (bh + 2.2) / 297]); }
+  });
+  omrStampDraw(x, kp, val, max);
+  return { img: out.toDataURL('image/jpeg', .7), marks, keyBoxes };
+}
+/* يُرفع بعد الرصد بلا انتظار: فشل الرفع لا يوقف التصحيح (الدرجة محفوظة أصلًا) */
+async function omrUploadPaper(sid, src, H, fs, answers, val){
+  try{
+    const test = omrTest(); if(!test || !src || !H) return;
+    const P = await omrPaperImage(src, H, fs || 1, answers, val, test.max);
+    await fetch(omrApi('/omr/paper'), { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ t: token, sid: String(sid), test: String(OMRUI.testId), title: test.title || 'اختبار', score: val, max: test.max, sem: Number(gradeSemester) || 1, ...P }) });
+  }catch(e){}
+}
 /* 💾 حفظ كل ورقة مربوطة (من رمز الاسم أو يدويًا) وأسئلتها محسومة — الباقي يبقى للمراجعة */
 /* 💾 رصد تلقائي (إعداد في اللوحة): ورقة أسماء عُرف صاحبها وكل أسئلتها محسومة والجزء اليدوي لا يلزم —
    بلا نوافذ ولا استبدال: إن كان للطالب درجة مرصودة تبقى الورقة للمراجعة */
@@ -6695,6 +6754,7 @@ async function omrAutoSave(s){
     const sc = omrSheetScore(s), val = Math.abs(sc.total - test.max) > 1e-9 ? +(sc.full / sc.total * test.max).toFixed(2) : sc.full;
     await setExamScore(s.sid, OMRUI.testId, String(val), false, omrWrongOf(s.answers, s.model));
     s.saved = true; OMRDB.put(s); omrBatchCounter();
+    omrUploadPaper(s.sid, s.img, s.H, s.fs, s.answers, val);
     const who = list('').find(x => String(x.id) === String(s.sid)); toast(`💾 رُصدت: ${who ? who.name : ''} ${val} من ${test.max}`);
   }catch(e){}
 }
@@ -6719,6 +6779,7 @@ async function omrSheetSave(s){
   if(prev !== undefined && !(await askConfirm('لهذا الطالب درجة مرصودة في هذا الاختبار. استبدالها بهذه الورقة؟', { title:'استبدال الدرجة؟', yes:'استبدل', no:'إلغاء' }))){ s.sid = null; OMRDB.put(s); omrMatchRender(); return; }
   await setExamScore(s.sid, OMRUI.testId, String(val), false, omrWrongOf(s.answers, s.model));
   s.saved = true; OMRDB.put(s);
+  omrUploadPaper(s.sid, s.img, s.H, s.fs, s.answers, val);                          // 📄 ورقته المصححة بالختم
   const who = list('').find(x => String(x.id) === String(s.sid));
   toast(`✓ ${who ? who.name : ''}: ${val} من ${test.max}`);
   OMRUI.openId = (OMRUI.sheets.find(x => !x.saved) || {}).id || null;
