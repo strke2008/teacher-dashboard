@@ -5321,6 +5321,37 @@ function examHwCollect(withState){
   const weave = t => { const out = [], max = Math.max(0, ...per.map(p => p[t].length)); for(let i = 0; i < max; i++) per.forEach(p => { const x = p[t][i]; if(!x) return; const k = qKey(x, t); if(seen.has(k)){ dup++; return; } seen.add(k); out.push(x); }); return out; };
   return { mc:weave('mc'), tf:weave('tf'), dup, title:acts.map(h => h.title || 'نشاط').join(' + '), acts };
 }
+/* 💾 أسئلة الأنشطة المحددة كملف JSON بصيغة تصدير الأنشطة نفسها: يُستورد مباشرة في نشاط جديد بـ«📥 استيراد JSON»
+   (نشاط مراجعة). الاختيار والصح/خطأ: المحدد في البنك فقط. الفراغ والتوصيل والترتيب والكلمات: كلها. والمكرر يدخل مرة */
+function examHwExportJson(){
+  const acts = examHwActs(); if(!acts.length){ toast('اختر نشاطًا أو أكثر أولًا','bad'); return; }
+  const pick = new Map(examHwBankAll().map(x => [x.key, x.selected !== false]));
+  const seen = new Set(), qs = []; let dup = 0;
+  const N = v => rdNormAr(String(v ?? ''));
+  const keyOf = q => q.t === 'q' ? 'mc|' + N(q.q) + '|' + q.o.map(N).sort().join('|')
+    : q.t === 'tf' ? 'tf|' + N(q.q) : q.t === 'f' ? 'f|' + N(q.q) : q.t === 'a' ? 'a|' + N(q.w)
+    : q.t === 's' ? 's|' + N(q.s) : q.t === 'm' ? 'm|' + q.p.map(p => N(p[0]) + '=' + N(p[1])).sort().join('|') : '';
+  acts.forEach(h => (h.qs || []).forEach((q, i) => {
+    if(!q || !['q','tf','f','a','s','m'].includes(q.t)) return;
+    if(q.t === 'q' || q.t === 'tf'){ const k = String(h.id) + '|' + i; if(pick.has(k) && !pick.get(k)) return; }
+    let x;
+    if(q.t === 'q'){ const o = (q.o || []).map(v => String(v || '')).filter(Boolean).slice(0, 4); if(!q.q || o.length < 2) return; const a = Number(q.a) || 0; x = { t:'q', q:String(q.q), o, a: a >= 0 && a < o.length ? a : 0 }; }
+    else if(q.t === 'tf'){ if(!q.q) return; x = { t:'tf', q:String(q.q), a:q.a === true }; }
+    else if(q.t === 'f'){ if(!q.q || q.a == null) return; x = { t:'f', q:String(q.q), a:String(q.a) }; }
+    else if(q.t === 'a'){ if(!q.w) return; x = { t:'a', w:String(q.w), h:String(q.h || '') }; }
+    else if(q.t === 's'){ if(!q.s) return; x = { t:'s', s:String(q.s) }; }
+    else { const p = (q.p || []).filter(v => Array.isArray(v) && v[0] && v[1]).map(v => [String(v[0]), String(v[1])]); if(p.length < 2) return; x = { t:'m', p }; }
+    const k = keyOf(x); if(seen.has(k)){ dup++; return; } seen.add(k); qs.push(x);
+  }));
+  if(!qs.length){ toast('لا توجد أسئلة محددة للحفظ','bad'); return; }
+  const title = 'مراجعة: ' + acts.map(h => h.title || 'نشاط').join(' + ');
+  const payload = { app:'activity-book', version:3, exportedAt:new Date().toISOString(), title, kind:'normal', points:0, max:qs.length, questions:qs, game:null, meta:{ review:true, from:acts.map(h => h.title || 'نشاط') } };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type:'application/json;charset=utf-8' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = (title.replace(/[\\/:*?"<>|]+/g, '_').trim().slice(0, 80) || 'مراجعة') + '.json';
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  toast(`💾 حُفظ ${qs.length} سؤال من ${acts.length} ${acts.length === 1 ? 'نشاط' : 'أنشطة'}${dup ? ` · 🔁 ${dup} مكرر لم يُضف` : ''} — للنشر: نشاط جديد ← 📥 استيراد JSON`, 'good');
+}
 function syncExamHwBank(){
   const C = examHwCollect(true);
   EXAM_HW_BANK={id:examHwIds().join(','),title:C.title,mc:C.mc,tf:C.tf,dup:C.dup,multi:C.acts.length>1};
