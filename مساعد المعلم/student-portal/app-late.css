@@ -219,3 +219,10 @@
 .pp-q.ok{background:#e4f4ec;color:#167852}.pp-q.no{background:#fcebee;color:#b03348}
 .pp-note{font-size:.8rem;color:#34445d;line-height:1.7;margin:8px 2px 0}
 .pp-wait{text-align:center;padding:30px 10px;color:#5b6b82}
+
+/* 🧭 مسار التعلم: اسم النشاط الطويل كان يمدّ عمود الشبكة (عرضها الأدنى = سطر الاسم كاملًا) فيدفع «ابدأ»/«الخطوة» خارج الشاشة.
+   العمود لا يتجاوز عرض البطاقة، والاسم يلتف على سطرين ثم «…» */
+.jw-items{grid-template-columns:minmax(0,1fr)}
+.jw-item{min-width:0;max-width:100%}
+.jw-item-title{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;line-height:1.4}
+.jw-item-state{flex:none}
