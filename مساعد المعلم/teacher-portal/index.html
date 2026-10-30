@@ -6143,7 +6143,8 @@ function omrRowCrop(box, src, H, fs, a, qi){
   const top = Math.min(...bs.map(b => b[1])), bot = Math.max(...bs.map(b => b[1] + b[3]));
   const l = Math.min(...bs.map(b => b[0])), r = Math.max(...bs.map(b => b[0] + b[2]));
   // الاختيار: خياراته على عرض الورقة. صح/خطأ والوصل: مكبَّرة على المربعات وعناوينها (نص السؤال مكتوب فوق القصاصة)
-  const rx0 = mc ? 7 : Math.max(5, l - 11), rx1 = mc ? 203 : Math.min(205, r + 16);
+  // نص الخيار يقع يسار مربعه (عربي): نترك له مكانًا يسار أبعد مربع، ونقص الباقي فيكبر المعروض
+  const rx0 = mc ? Math.max(5, l - 40) : Math.max(5, l - 11), rx1 = mc ? Math.min(205, r + 9) : Math.min(205, r + 16);
   const qy0 = top - (mc ? 2.6 : 1.8), qy1 = bot + (mc ? 5 : 1.8), ry0 = qy0 - (mc ? 1.5 : 4.5), ry1 = qy1 + (mc ? 1.5 : 4.5);   // نص الخيار قد يلتف لسطرين تحت مربعه
   const P = (x, y) => OMR.apply(H, x, y).map(v => v * fs);
   // الاختيار العريض (4 خيارات في سطر): نصفان فوق بعض (أ ب ثم ج د) ليكبر النص
@@ -6174,14 +6175,18 @@ function omrRowCrop(box, src, H, fs, a, qi){
       x.beginPath(); x.rect(0, 0, W, q.h); Q.slice().reverse().forEach((p, j) => j ? x.lineTo(p[0], p[1]) : x.moveTo(p[0], p[1])); x.closePath();
       x.fillStyle = 'rgba(255,255,255,.62)'; x.fill('evenodd');
       x.lineWidth = 2.5 * dpr; x.strokeStyle = '#C88A2E'; poly(Q); x.stroke();
-      x.lineWidth = 2 * dpr; x.strokeStyle = '#E0A21F';
-      bs.forEach(b => { poly([T(b[0] - .8, b[1] - .8), T(b[0] + b[2] + .8, b[1] - .8), T(b[0] + b[2] + .8, b[1] + b[3] + .8), T(b[0] - .8, b[1] + b[3] + .8)]); x.stroke(); });
-      if(pi === 0){                                                               // رقم السؤال على السطر نفسه
-        const fz = Math.max(11 * dpr, Math.min(20 * dpr, (Q[2][1] - Q[1][1]) * 0.55));
-        x.font = `800 ${fz}px system-ui,sans-serif`; const lab = String(qi + 1), tw = x.measureText(lab).width + fz * 0.9, th = fz * 1.35;
-        const bx = Math.min(W - tw - 3 * dpr, Q[1][0] - tw / 2), by = Math.max(2 * dpr, (Q[1][1] + Q[2][1]) / 2 - th / 2);
-        x.fillStyle = '#C88A2E'; x.beginPath(); if(x.roundRect) x.roundRect(bx, by, tw, th, th / 2); else x.rect(bx, by, tw, th); x.fill();
-        x.fillStyle = '#fff'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(lab, bx + tw / 2, by + th / 2 + 1);
+      // المربعات: إطار رفيع متقطع بعيد عنها قليلًا — لا يغطي علامة الطالب
+      x.lineWidth = 1.4 * dpr; x.strokeStyle = 'rgba(224,162,31,.9)'; x.setLineDash([4 * dpr, 3 * dpr]);
+      bs.forEach(b => { poly([T(b[0] - 1.6, b[1] - 1.6), T(b[0] + b[2] + 1.6, b[1] - 1.6), T(b[0] + b[2] + 1.6, b[1] + b[3] + 1.6), T(b[0] - 1.6, b[1] + b[3] + 1.6)]); x.stroke(); });
+      x.setLineDash([]);
+      if(pi === 0 && !mc){                                                        // رقم السؤال فوق إطار سطره (في الجزء الباهت) — لا على الإجابة
+        const room = Q[1][1] - 3 * dpr, fz = Math.min(14 * dpr, room / 1.4);
+        if(fz >= 8 * dpr){
+          x.font = `800 ${fz}px system-ui,sans-serif`; const lab = 'س' + (qi + 1), tw = x.measureText(lab).width + fz * 0.9, th = fz * 1.3;
+          const bx = Math.min(W - tw - 3 * dpr, Q[1][0] - tw - 4 * dpr), by = Q[1][1] - th - 1.5 * dpr;
+          x.fillStyle = '#C88A2E'; x.beginPath(); if(x.roundRect) x.roundRect(bx, by, tw, th, th / 2); else x.rect(bx, by, tw, th); x.fill();
+          x.fillStyle = '#fff'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(lab, bx + tw / 2, by + th / 2 + 1);
+        }
       }
       x.restore(); oy += q.h + gap;
     });
