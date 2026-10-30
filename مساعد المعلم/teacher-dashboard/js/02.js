@@ -5001,6 +5001,9 @@ function renderExamHwBank(){
   });
   const selCount=all.filter(x=>x.selected!==false).length;
   if(c) c.textContent=`${selCount} محدد من ${all.length}`;
+  const dupN=EXAM_HW_BANK.dup||0;
+  if(c) c.title=dupN?`${dupN} ${dupN===1?'سؤال مكرر':'أسئلة مكررة'} بين الأنشطة لم ${dupN===1?'يُضف':'تُضف'}`:'';
+  if(c&&dupN) c.textContent+=` · 🔁 ${dupN} مكرر حُذف`;
   if(!filtered.length){ list.innerHTML='<div class="exam-bank-empty">لا توجد أسئلة مطابقة للبحث.</div>'; return; }
   list.innerHTML=filtered.map(x=>{
     const idx=all.indexOf(x);
@@ -5311,12 +5314,16 @@ function examHwCollect(withState){
   // خ15: بعد قصّ الخيارات إلى 4 قد يبقى فهرس الإجابة خارج النطاق (سؤال نافس بخمسة خيارات إجابته الخامس)
   // فيُعاد إلى 0 كما يفعل مسار JSON في examNormalizeSource — وإلا عُرضت إجابة غير موجودة
   per.forEach(p=>p.mc.forEach(x=>{ if(!(x.a>=0&&x.a<x.o.length)) x.a=0; }));
-  const weave = t => { const out = [], max = Math.max(0, ...per.map(p => p[t].length)); for(let i = 0; i < max; i++) per.forEach(p => { if(p[t][i]) out.push(p[t][i]); }); return out; };
-  return { mc:weave('mc'), tf:weave('tf'), title:acts.map(h => h.title || 'نشاط').join(' + '), acts };
+  // 🔁 السؤال نفسه في أكثر من نشاط (أو مرتين في النشاط نفسه) يدخل مرة واحدة: النص بعد تطبيع الحروف،
+  // ومع الخيارات في الاختيار من متعدد («أي مما يلي صحيح؟» بخيارات مختلفة سؤالان مختلفان)
+  const seen = new Set(); let dup = 0;
+  const qKey = (x, t) => t + '|' + rdNormAr(x.q) + (t === 'mc' ? '|' + x.o.map(rdNormAr).sort().join('|') : '');
+  const weave = t => { const out = [], max = Math.max(0, ...per.map(p => p[t].length)); for(let i = 0; i < max; i++) per.forEach(p => { const x = p[t][i]; if(!x) return; const k = qKey(x, t); if(seen.has(k)){ dup++; return; } seen.add(k); out.push(x); }); return out; };
+  return { mc:weave('mc'), tf:weave('tf'), dup, title:acts.map(h => h.title || 'نشاط').join(' + '), acts };
 }
 function syncExamHwBank(){
   const C = examHwCollect(true);
-  EXAM_HW_BANK={id:examHwIds().join(','),title:C.title,mc:C.mc,tf:C.tf,multi:C.acts.length>1};
+  EXAM_HW_BANK={id:examHwIds().join(','),title:C.title,mc:C.mc,tf:C.tf,dup:C.dup,multi:C.acts.length>1};
   renderExamHwBank();
 }
 
