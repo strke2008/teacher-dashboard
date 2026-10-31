@@ -5342,7 +5342,8 @@ function examHwExportJson(){
     : q.t === 's' ? 's|' + N(q.s) : q.t === 'm' ? 'm|' + q.p.map(p => N(p[0]) + '=' + N(p[1])).sort().join('|') : '';
   acts.forEach(h => (h.qs || []).forEach((q, i) => {
     if(!q || !['q','tf','f','a','s','m'].includes(q.t)) return;
-    if(q.t === 'q' || q.t === 'tf'){ const k = String(h.id) + '|' + i; if(pick.has(k) && !pick.get(k)) return; }
+    if(q.t === 'q' || q.t === 'tf'){ const k = String(h.id) + '|' + i; if(pick.has(k) && !pick.get(k)) return;
+      const e = EXAM_HW_EDITS.get(k); if(e) q = { ...q, q:e.q, ...(e.o ? { o:e.o } : {}), a:q.t === 'tf' ? e.a === true : e.a }; }   // ✏️ بتعديل المعلم
     let x;
     if(q.t === 'q'){ const o = (q.o || []).map(v => String(v || '')).filter(Boolean).slice(0, 4); if(!q.q || o.length < 2) return; const a = Number(q.a) || 0; x = { t:'q', q:String(q.q), o, a: a >= 0 && a < o.length ? a : 0 }; }
     else if(q.t === 'tf'){ if(!q.q) return; x = { t:'tf', q:String(q.q), a:q.a === true }; }
@@ -5376,8 +5377,9 @@ function examHwSimItems(){
   examHwActs().forEach(h => (h.qs || []).forEach((q, i) => {
     if(!q) return; const key = String(h.id) + '|' + i, src = h.title || 'نشاط';
     if(q.t === 'q' || q.t === 'tf'){ const b = bank.get(key); if(!b) return;
-      const ans = q.t === 'q' ? String((q.o || [])[Number(q.a) || 0] || '') : '';
-      out.push({ key, kind: q.t === 'q' ? 'mc' : 'tf', src, q: String(q.q || ''), ans, tf: q.a === true, on: b.selected !== false, tq: exSimTokens(q.q), ta: exSimTokens(String(q.q || '') + ' ' + ans) }); }
+      // النص من بنك الاختبار (بعد تعديل المعلم إن وُجد)، لا من النشاط
+      const ans = q.t === 'q' ? String((b.o || [])[Number(b.a) || 0] || '') : '';
+      out.push({ key, kind: q.t === 'q' ? 'mc' : 'tf', src, q: String(b.q || ''), ans, tf: b.a === true, on: b.selected !== false, ...(b.edited ? { edited:true } : {}), tq: exSimTokens(b.q), ta: exSimTokens(String(b.q || '') + ' ' + ans) }); }
     else if(q.t === 'm') (q.p || []).forEach((p, k) => { if(!Array.isArray(p) || !p[0] || !p[1]) return; const kk = key + '|' + k;
       out.push({ key: kk, kind: 'mp', src, q: String(p[0]), ans: String(p[1]), on: !EXAM_HW_MPOFF.has(kk), tq: exSimTokens(p[0] + ' ' + p[1]), ta: exSimTokens(p[0] + ' ' + p[1]) }); });
   }));
@@ -5396,11 +5398,11 @@ function examHwSimGroups(){
 }
 function examHwSimOpen(){
   const G = examHwSimGroups(); window._exSimG = G;
-  if(!G.length){ toast('لا توجد أسئلة متشابهة بين الأنشطة المحددة 👍', 'good'); return; }
+  if(!G.length){ window._exSimPend = null; toast('لا توجد أسئلة متشابهة بين الأنشطة المحددة 👍', 'good'); return; }
   const KL = { mc:'اختيار', tf:'صح/خطأ', mp:'وصل' };
   const row = (x, gi, i) => `<label class="exsim-row ${x.on ? '' : 'off'}"><input type="checkbox" ${x.on ? 'checked' : ''} data-g="${gi}" data-i="${i}" onchange="this.closest('.exsim-row').classList.toggle('off',!this.checked)">
-      <span class="exsim-t"><span class="exsim-tags"><b class="exsim-k ${x.kind}">${KL[x.kind]}</b><small>📚 ${esc(x.src)}</small></span>
-      ${x.kind === 'mp' ? `${escExamText(x.q)} <b class="exsim-ar">⟵</b> ${escExamText(x.ans)}` : escExamText(x.q)}
+      <span class="exsim-t"><span class="exsim-tags"><b class="exsim-k ${x.kind}">${KL[x.kind]}</b><small>📚 ${esc(x.src)}</small>${x.edited ? '<small class="exq-tag2">✏️ معدّل</small>' : ''}</span>
+      ${x.kind === 'mp' ? `${escExamText(x.q)} <b class="exsim-ar">⟵</b> ${escExamText(x.ans)}` : escExamText(x.q)}${x.kind !== 'mp' ? `<button type="button" class="exq-ed" onclick="event.preventDefault();event.stopPropagation();examSimEdit(${gi},${i})">✏️ تعديل</button>` : ''}
       ${x.kind === 'mc' ? `<span class="exsim-ans">✓ ${escExamText(x.ans)}</span>` : x.kind === 'tf' ? `<span class="exsim-ans ${x.tf ? '' : 'no'}">${x.tf ? '✓ صح' : '✗ خطأ'}</span>` : ''}</span></label>`;
   const n = G.reduce((t, g) => t + g.length, 0);
   openModal(`<h2>🔁 الأسئلة المتشابهة</h2>
@@ -5408,6 +5410,15 @@ function examHwSimOpen(){
     <div class="row" style="gap:.4rem;flex-wrap:wrap;margin-bottom:.6rem"><button type="button" class="btn ghost sm" onclick="examHwSimQuick('first')">أبقِ الأول من كل مجموعة</button><button type="button" class="btn ghost sm" onclick="examHwSimQuick('all')">أبقِ الكل</button></div>
     <div class="exsim-list">${G.map((g, gi) => `<div class="exsim-g"><div class="exsim-gh">مجموعة ${gi + 1} <small>· تشابه ${Math.round(Math.max(...g.map(x => x.sc)) * 100)}٪</small></div>${g.map((x, i) => row(x, gi, i)).join('')}</div>`).join('')}</div>
     <div class="row" style="gap:.5rem;margin-top:.8rem"><button type="button" class="btn primary" onclick="examHwSimApply()">✓ تطبيق</button><button type="button" class="btn ghost" onclick="closeModal()">إلغاء</button></div>`);
+  const P = window._exSimPend; window._exSimPend = null;                 // اختيارات لم تُطبَّق قبل فتح «تعديل»
+  if(P) document.querySelectorAll('.exsim-list input[data-g]').forEach(c => { const x = (G[+c.dataset.g] || [])[+c.dataset.i]; if(x && x.key in P){ c.checked = P[x.key]; c.closest('.exsim-row').classList.toggle('off', !c.checked); } });
+}
+function examSimEdit(gi, i){
+  const G = window._exSimG || [], x = (G[gi] || [])[i]; if(!x) return;
+  const P = {}; document.querySelectorAll('.exsim-list input[data-g]').forEach(c => { const y = (G[+c.dataset.g] || [])[+c.dataset.i]; if(y) P[y.key] = c.checked; });
+  window._exSimPend = P;
+  const all = examHwBankAll(), idx = all.findIndex(b => b.key === x.key); if(idx < 0) return;
+  examQEdit('hw', idx, 'sim');
 }
 /* 📏 الأسئلة الطويلة: تُقاس كما تُطبع فعلًا (كل النماذج، بالحجم الحقيقي) — سؤال في ٣ أسطر فأكثر، أو خيار يلتف لسطرين،
    أو عبارة صح/خطأ في سطرين. تُعرض مع السبب، والمعلم يقرر: يبقيه، أو يستبعده، أو يختصره هنا */
@@ -5451,19 +5462,28 @@ function examLongOpen(bank){
   const R = examLongScan(bank); window._exLong = { bank, list:R.list };
   if(window._exSample){ toast('اختر الأسئلة أولًا', 'bad'); return; }
   const tip = [R.notes.has('cols') ? 'الورقة لم تتسع بعمود واحد فقُسّمت فقرات إلى عمودين' : '', R.notes.has('fit') ? 'وصُغّرت المسافات والخط لتتسع' : ''].filter(Boolean).join('، ');
-  if(!R.list.length){ toast('لا توجد أسئلة طويلة تلتف في الورقة 👍' + (tip ? ' — ' + tip : ''), 'good'); return; }
+  if(!R.list.length){ window._exLongPend = null; toast('لا توجد أسئلة طويلة تلتف في الورقة 👍' + (tip ? ' — ' + tip : ''), 'good'); return; }
   const row = (it, i) => { const x = it.x, mc = x.kind !== 'tf';
     return `<div class="exsim-row exlong-row" data-i="${i}">
       <span class="exsim-t"><span class="exsim-tags"><b class="exsim-k ${mc ? '' : 'tf'}">${mc ? 'اختيار' : 'صح/خطأ'}</b>${x.src ? `<small>📚 ${esc(x.src)}</small>` : ''}<small>· ${String(x.q || '').length} حرفًا</small></span>
         <span class="exlong-q">${escExamText(x.q)}</span>${mc ? `<span class="exlong-o">${(x.o || []).map((o, j) => `<span class="${j === x.a ? 'ok' : ''}">${escExamText(o)}</span>`).join('')}</span>` : ''}
         <span class="exlong-why">${it.why.map(w => `<i>${esc(w)}</i>`).join('')}</span>
         <span class="exlong-ed" hidden><textarea class="inp" rows="2" data-f="q">${esc(x.q)}</textarea>${mc ? (x.o || []).map((o, j) => `<input class="inp" data-f="o${j}" value="${esc(o)}" aria-label="الخيار ${j + 1}">`).join('') : ''}</span></span>
-      <span class="exlong-act"><select class="inp" aria-label="الإجراء" onchange="examLongAct(this)"><option value="keep">أبقِه</option><option value="off">استبعده</option><option value="edit">اختصره ✏️</option></select></span></div>`; };
+      <span class="exlong-act"><select class="inp" aria-label="الإجراء" onchange="examLongAct(this)"><option value="keep">أبقِه</option><option value="off">استبعده</option></select><button type="button" class="exq-ed" onclick="examLongEdit(${i})">✏️ تعديل</button></span></div>`; };
   openModal(`<h2>📏 الأسئلة الطويلة</h2>
-    <p class="muted" style="margin:.2rem 0 .7rem;font-size:.86rem">${R.list.length} ${R.list.length === 1 ? 'سؤال يلتف' : 'أسئلة تلتف'} في الورقة كما تُطبع${examModelCount() > 1 ? ' (كل النماذج)' : ''}${tip ? ` — ${tip}` : ''}. لكلٍّ منها: أبقِه، أو استبعده، أو اختصر نصه هنا (يتغير في الاختبار فقط، لا في النشاط).</p>
+    <p class="muted" style="margin:.2rem 0 .7rem;font-size:.86rem">${R.list.length} ${R.list.length === 1 ? 'سؤال يلتف' : 'أسئلة تلتف'} في الورقة كما تُطبع${examModelCount() > 1 ? ' (كل النماذج)' : ''}${tip ? ` — ${tip}` : ''}. لكلٍّ منها: أبقِه، أو استبعده، أو «✏️ تعديل» لاختصاره (يتغير في الاختبار فقط، لا في النشاط).</p>
     <div class="row" style="gap:.4rem;flex-wrap:wrap;margin-bottom:.6rem"><button type="button" class="btn ghost sm" onclick="examLongAll('off')">استبعد الكل</button><button type="button" class="btn ghost sm" onclick="examLongAll('keep')">أبقِ الكل</button></div>
     <div class="exsim-list">${R.list.map(row).join('')}</div>
     <div class="row" style="gap:.5rem;margin-top:.8rem"><button type="button" class="btn primary" onclick="examLongApply()">✓ تطبيق</button><button type="button" class="btn ghost" onclick="closeModal()">إلغاء</button></div>`);
+  const P = window._exLongPend; window._exLongPend = null;
+  if(P) document.querySelectorAll('.exlong-row').forEach(r => { const it = R.list[+r.dataset.i], v = it && P.get(it.x); if(v){ const s2 = r.querySelector('select'); s2.value = v; examLongAct(s2); } });
+}
+function examLongEdit(i){
+  const L = window._exLong, it = L && L.list[i]; if(!it) return;
+  const P = new Map(); document.querySelectorAll('.exlong-row').forEach(r => { const y = L.list[+r.dataset.i]; if(y) P.set(y.x, r.querySelector('select').value); });
+  window._exLongPend = P;
+  const idx = examBankItems(L.bank).indexOf(it.x); if(idx < 0) return;
+  examQEdit(L.bank, idx, 'long');
 }
 function examLongAct(s){ const r = s.closest('.exlong-row'); r.classList.toggle('off', s.value === 'off'); r.querySelector('.exlong-ed').hidden = s.value !== 'edit'; if(s.value === 'edit') r.querySelector('.exlong-ed textarea').focus(); }
 function examLongAll(v){ document.querySelectorAll('.exlong-row select').forEach(s => { s.value = v; examLongAct(s); }); }
@@ -5486,9 +5506,9 @@ function examQApplyEdit(x, e){
   if(x.o && !(x.a >= 0 && x.a < x.o.length)) x.a = 0;
   x.edited = true;
 }
-function examQEdit(bank, idx){
+function examQEdit(bank, idx, back){
   const x = examBankItems(bank)[idx]; if(!x) return; const mc = x.kind !== 'tf';
-  window._exQE = { bank, idx };
+  window._exQE = { bank, idx, back };
   openModal(`<h2>✏️ تعديل السؤال</h2>
     <p class="muted" style="margin:.2rem 0 .7rem;font-size:.84rem">يتغير في هذا الاختبار فقط — النشاط${bank === 'json' ? '/الملف' : ''} الأصلي يبقى كما هو.${x.edited ? ' <b>هذا السؤال معدّل من قبل.</b>' : ''}</p>
     <div class="field"><label>نص ${mc ? 'السؤال' : 'العبارة'}</label><textarea class="inp" id="exq-q" rows="3" style="font-family:inherit">${esc(x.q)}</textarea></div>
@@ -5499,10 +5519,12 @@ function examQEdit(bank, idx){
       <button type="button" class="btn primary" onclick="examQSave()">💾 حفظ</button>
       <button type="button" class="btn ghost" onclick="examQOff()">${x.selected === false ? '↩️ أعِده للاختبار' : '🚫 استبعده من الاختبار'}</button>
       ${x.edited && x._orig ? '<button type="button" class="btn ghost" onclick="examQRevert()">↺ إرجاع الأصل</button>' : ''}
-      <button type="button" class="btn ghost" onclick="closeModal()">إلغاء</button></div>`);
+      <button type="button" class="btn ghost" onclick="examQBack()">${back ? '↩️ رجوع' : 'إلغاء'}</button></div>`);
   setTimeout(() => document.getElementById('exq-q')?.focus(), 50);
 }
-function examQDone(msg){ const E = window._exQE; closeModal(); examBankRerender(E.bank); toast(msg, 'good'); }
+/* بعد الحفظ أو الإلغاء: يعود المعلم إلى النافذة التي فتح منها التعديل (المتشابهة/الطويلة) بما اختاره فيها */
+function examQBack(){ const E = window._exQE || {}; closeModal(); if(E.back === 'sim') examHwSimOpen(); else if(E.back === 'long') examLongOpen(E.bank); }
+function examQDone(msg){ const E = window._exQE; closeModal(); examBankRerender(E.bank); toast(msg, 'good'); if(E.back) examQBack(); }
 function examQSave(){
   const E = window._exQE, x = E && examBankItems(E.bank)[E.idx]; if(!x) return;
   const q = (document.getElementById('exq-q')?.value || '').trim(); if(!q){ toast('اكتب نص السؤال', 'bad'); return; }
@@ -5514,7 +5536,7 @@ function examQSave(){
     a = raw.slice(0, a).filter(Boolean).length; o = raw.filter(Boolean);          // الخيار الفارغ يُحذف
   } else a = a === 1;
   const same = q === x.q && a === x.a && (!o || (o.length === x.o.length && o.every((v, j) => v === x.o[j])));
-  if(same){ closeModal(); return; }
+  if(same){ examQBack(); return; }
   const e = { q, ...(o ? { o } : {}), a };
   examQApplyEdit(x, e); if(E.bank === 'hw' && x.key) EXAM_HW_EDITS.set(x.key, e);
   examQDone('✏️ عُدّل السؤال — المعاينة تحدّثت');

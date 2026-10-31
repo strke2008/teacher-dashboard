@@ -3017,3 +3017,7 @@ body.pf-open #simp-bottomnav,body.pf-open .askf-btn{display:none!important}
 .exq-opts{display:grid;gap:.4rem}
 .exq-opt{display:grid;grid-template-columns:auto auto 1fr;gap:.45rem;align-items:center}
 .exq-opt .inp{min-height:36px;padding:.3rem .55rem}
+.exsim-row .exq-ed,.exlong-act .exq-ed{font:inherit;font-size:.72rem;font-weight:800;padding:.15rem .55rem;border-radius:999px;border:1px solid var(--ui-border,#D5E0EC);background:#fff;color:#1F4E9B;cursor:pointer;margin-inline-start:.4rem;white-space:nowrap}
+.exsim-row .exq-ed:hover,.exlong-act .exq-ed:hover{background:#EEF3F8}
+.exlong-act{display:flex;flex-direction:column;gap:.35rem;align-items:stretch}.exlong-act .exq-ed{margin:0}
+.exq-tag2{background:#FFF4E5;color:#9A4D00!important;border-radius:99px;padding:0 .45rem;font-weight:800}
