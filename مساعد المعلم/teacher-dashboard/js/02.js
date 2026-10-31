@@ -5987,6 +5987,8 @@ function omrManageRender(){
         <select class="inp omrm-sel" onchange="omrManageSet('frames',Number(this.value))"><option value="3" ${c.frames!==1?'selected':''}>أدق — 3 لقطات</option><option value="1" ${c.frames===1?'selected':''}>أسرع — لقطة واحدة</option></select></label>
       ${tg('beep',c.beep!==false,'🔔 صوت عند إضافة ورقة','نغمة عالية = أُضيفت، منخفضة = مكررة — مفيد والجوال مثبّت')}
       ${tg('glareWait',c.glareWait!==false,'✨ الانتظار عند لمعة الضوء','ينتظر ثانيتين لتحرّك الجوال، والأسئلة تحت اللمعة تُعرض للتأكيد دائمًا')}
+      <label class="omrm-set"><span><b>☑️☑️ إذا ظلّل الطالب خيارين</b><small>«للمراجعة» يعرض السؤال لتختار بنفسك · «خطأ مباشرة» يحسبه خطأ ويُعلَّم الخياران بالأحمر على ورقته</small></span>
+        <select class="inp omrm-sel" onchange="omrManageSet('double',this.value)"><option value="review" ${c.double!=='wrong'?'selected':''}>تُعرض لي للمراجعة</option><option value="wrong" ${c.double==='wrong'?'selected':''}>تُحسب خطأ مباشرة</option></select></label>
       ${tg('autoSave',!!c.autoSave,'💾 رصد أوراق الأسماء تلقائيًا','ورقة عُرف صاحبها وكل أسئلتها واضحة تُرصد فورًا بلا مراجعة (لا تستبدل درجة مرصودة)')}
     </div>
     <div class="omrm-sec"><h4>📄 أوراق الاختبار للطلاب وأولياء الأمور</h4>

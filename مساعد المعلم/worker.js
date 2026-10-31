@@ -7471,7 +7471,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       if (url.pathname === '/omr/settings' && request.method === 'POST') {
         const x = b.settings || {}, cfg = {
           beep: x.beep !== false, frames: [1, 3].includes(Number(x.frames)) ? Number(x.frames) : 3,
-          autoSave: !!x.autoSave, glareWait: x.glareWait !== false, showHidden: false };
+          autoSave: !!x.autoSave, glareWait: x.glareWait !== false, double: x.double === 'wrong' ? 'wrong' : 'review', showHidden: false };
         await env.HW.put('omr:settings', JSON.stringify(cfg));
         return json({ ok: true, settings: cfg });
       }

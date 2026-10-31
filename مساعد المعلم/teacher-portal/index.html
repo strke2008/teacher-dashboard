@@ -6348,7 +6348,7 @@ function omrProcess(src, w, h, single){
     if(OMRUI.batch){ omrBatchAdd(r, c, img, sig, single); return; }      // 🗂️ الدفعة: أضف واستمر
     omrStopLoop();
     OMRUI.frozen = c.toDataURL('image/jpeg', 0.7);
-    r.answers.forEach(a => { a.final = a.status === 'ok' ? a.pick : null; });
+    r.answers.forEach(a => { a.final = omrFinalOf(a); });
     { const who = omrStudentOf(r.scode); if(who){ OMRUI.sid = who.id; omrRefreshStudents(); OMRUI.autoWho = true; } else OMRUI.autoWho = false; }   // 🧾 ورقة باسمه
     OMRUI.result = r; omrShowResult();
   } finally { OMRUI.busy = false; }
@@ -6372,7 +6372,7 @@ function omrShowResult(){
   $('omr-result').innerHTML = `<div class="omr-res">
     <div class="omr-score"><b>${pending?'؟':sc.raw}</b><span>/ ${sc.total}</span>${scaled!==null&&!pending?`<small>تُرصد ${scaled} من ${test.max}</small>`:''}</div>
     <div class="omr-qs">${r.answers.map((a,i)=>{ const st = a.final===null ? 'rev' : a.final===a.key ? 'ok' : 'no';
-      const lab = a.t==='tf' ? (a.final===0?'صح':a.final===1?'خطأ':a.final===-1?'فارغ':'?') : (a.final===-1?'فارغ':a.final===null?'?':a.t==='mt'?String(a.final+1):L[a.final]);
+      const lab = a.final===-2 ? 'مزدوجة' : a.t==='tf' ? (a.final===0?'صح':a.final===1?'خطأ':a.final===-1?'فارغ':'?') : (a.final===-1?'فارغ':a.final===null?'?':a.t==='mt'?String(a.final+1):L[a.final]);
       return `<button type="button" class="omr-q ${st}" onclick="omrFix(${i})"><i>${i+1}</i>${lab}</button>`; }).join('')}</div>
     <div id="omr-fix"></div>
     ${partial?`<p class="omr-note">قُرئ الجزء الآلي (${tt.auto} من ${tt.total}) — اكتب درجة الجزء اليدوي لتُرصد الدرجة كاملة.</p>${omrManualHTML('omr-manual', OMRUI.manual ?? '', OMRUI.model, "OMRUI.manual=this.value;const b=document.getElementById('omr-save');if(b)b.disabled=!omrManualOk(this.value)||!!document.querySelector('.omr-q.rev')")}`:''}
@@ -6455,6 +6455,8 @@ function omrRowCrop(box, src, H, fs, a, qi){
   };
   im.src = src;
 }
+/* الحكم الأولي لكل سؤال: الواضح كما قُرئ، وتظليل خيارين حسب إعداد اللوحة (للمراجعة، أو −2 = «مزدوجة» تُحسب خطأ) */
+function omrFinalOf(a){ return a.status === 'ok' ? a.pick : (a.status === 'multi' && a.pick >= 0 && OMRUI.cfg && OMRUI.cfg.double === 'wrong') ? -2 : null; }
 function omrSet(i, v){ OMRUI.result.answers[i].final = v; omrShowResult(); if(OMRUI.result.answers.some(a=>a.final===null)) { const j = OMRUI.result.answers.findIndex(a=>a.final===null); omrFix(j); } }
 function omrWrongOf(answers, model){
   if(!OMRUI.tpl || !OMRUI.tpl.id || !Array.isArray(answers)) return null;
@@ -6553,7 +6555,7 @@ function omrBatchAdd(r, c, img, sig, single){
   const k = Math.min(1, 1100 / Math.max(c.width, c.height)), sm = document.createElement('canvas');
   sm.width = Math.round(c.width * k); sm.height = Math.round(c.height * k); sm.getContext('2d').drawImage(c, 0, 0, sm.width, sm.height);
   const sh = { id: Date.now() + '-' + Math.random().toString(36).slice(2, 7), key: omrBatchKey(), at: Date.now(), model: OMRUI.model,
-    answers: r.answers.map(a => ({ i: a.i, t: a.t, key: a.key, status: a.status, pick: a.pick, ...(a.alt >= 0 ? { alt: a.alt } : {}), final: a.status === 'ok' ? a.pick : null, boxes: a.boxes })),
+    answers: r.answers.map(a => ({ i: a.i, t: a.t, key: a.key, status: a.status, pick: a.pick, ...(a.alt >= 0 ? { alt: a.alt } : {}), final: omrFinalOf(a), boxes: a.boxes })),
     H: r.H, fs: k, img: sm.toDataURL('image/jpeg', 0.6), name: strip.url, vec: strip.vec, pv: omrPageVec(r), sid: null, saved: false };
   const who = omrStudentOf(r.scode); if(who){ sh.sid = who.id; sh.autoSid = true; }      // 🧾 ورقة باسمه: رُبطت وحدها
   else if(M.scode) sh.noCode = true;                                                  // اختبار بأوراق أسماء لكن الرمز لم يُقرأ
@@ -6629,7 +6631,7 @@ function omrBatchCard(sh, actions, dup){
     <canvas class="omr-bimg" id="omr-bimg" onclick="omrBatchCardFull()" aria-label="صورة الورقة وعليها ما قُرئ"></canvas>
     <div class="omr-blegend"><span><i style="background:#16A34A"></i>صحيحة</span><span><i style="background:#DC2626"></i>خاطئة</span><span><i style="background:#F59E0B"></i>تحتاج تأكيدك</span><span>اضغط الصورة لتكبيرها</span></div>
     <div class="omr-qs">${A.map((a, i) => { const st = a.final === null ? 'rev' : a.final === a.key ? 'ok' : 'no';
-      const lab = a.final === null ? '?' : a.final === -1 ? 'فارغ' : a.t === 'tf' ? (a.final === 0 ? 'صح' : 'خطأ') : a.t === 'mt' ? String(a.final + 1) : L[a.final];
+      const lab = a.final === null ? '?' : a.final === -2 ? 'مزدوجة' : a.final === -1 ? 'فارغ' : a.t === 'tf' ? (a.final === 0 ? 'صح' : 'خطأ') : a.t === 'mt' ? String(a.final + 1) : L[a.final];
       return `<span class="omr-q ${st}"><i>${i + 1}</i>${lab}</span>`; }).join('')}</div>
     ${actions || ''}
     ${dup ? '' : `<button class="btn ghost" type="button" onclick="omrBatchUndo('${sh.id}')">🗑 الصورة غير صحيحة — احذفها وأعد التصوير</button>`}</div>`;
@@ -6646,7 +6648,7 @@ function omrBatchCardDraw(sh, id = 'omr-bimg'){
     const x = cv.getContext('2d'); x.drawImage(im, -ox, -oy);
     const P = (X, Y) => OMR.apply(sh.H, X, Y).map((v, j) => v * sh.fs - (j ? oy : ox));
     sh.answers.forEach(a => { if(!a.boxes) return;
-      const show = a.final === null ? (a.pick >= 0 ? [a.pick].concat(a.alt >= 0 ? [a.alt] : []) : a.boxes.map((_, k) => k)) : a.final >= 0 ? [a.final] : [];
+      const show = a.final === null || a.final === -2 ? (a.pick >= 0 ? [a.pick].concat(a.alt >= 0 ? [a.alt] : []) : a.boxes.map((_, k) => k)) : a.final >= 0 ? [a.final] : [];
       const col = a.final === null ? '#F59E0B' : a.final === a.key ? '#16A34A' : '#DC2626';
       x.setLineDash(a.final === null && a.pick < 0 ? [5, 4] : []);                 // فارغ: إطار متقطع خفيف
       show.forEach(k => { const b = a.boxes[k]; if(!b) return; const [bx, by, bw, bh] = b.r, m = 1.1;
@@ -6795,9 +6797,10 @@ async function omrPaperImage(src, H, fs, answers, val, max){
   const marks = [], keyBoxes = [];
   answers.forEach(a => {
     const f = a.final, boxes = a.boxes || [];
-    marks.push(f === null || f === undefined || f < 0 ? (f === -1 && a.key >= 0 ? 0 : -1) : f === a.key ? 1 : 0);
-    if(f !== null && f !== undefined && f >= 0 && boxes[f]){ const b = boxes[f], [bx, by, bw, bh] = b.r, m = 1.1;
-      x.lineWidth = .5 * kp; x.strokeStyle = f === a.key ? '#16A34A' : '#DC2626';
+    marks.push(f === null || f === undefined || f < 0 ? ((f === -1 || f === -2) && a.key >= 0 ? 0 : -1) : f === a.key ? 1 : 0);
+    // المزدوجة (−2): إطاران أحمران على الخيارين
+    for(const k of f === -2 ? [a.pick, a.alt] : (f !== null && f !== undefined && f >= 0 ? [f] : [])){ const b = boxes[k]; if(!b) continue; const [bx, by, bw, bh] = b.r, m = 1.1;
+      x.lineWidth = .5 * kp; x.strokeStyle = k === a.key && f !== -2 ? '#16A34A' : '#DC2626';
       x.strokeRect((bx + b.dx - m) * kp, (by + b.dy - m) * kp, (bw + 2 * m) * kp, (bh + 2 * m) * kp); }
     if(f !== a.key && boxes[a.key]){ const b = boxes[a.key], [bx, by, bw, bh] = b.r;
       keyBoxes.push([(bx + b.dx - 1.1) / 210, (by + b.dy - 1.1) / 297, (bw + 2.2) / 210, (bh + 2.2) / 297]); }
