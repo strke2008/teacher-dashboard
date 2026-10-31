@@ -4922,6 +4922,7 @@ function examInit(){
   fill('ex-dept', rcGet('dept') || 'الإدارة العامة للتعليم بالمنطقة الشرقية');
   fill('ex-school', rcGet('school') || '');
   fill('ex-office', rcGet('office') || '');
+  if(!window._exsInit){ window._exsInit = true; try{ examStepsInit(); }catch(e){} }
   fill('ex-teacher', rcGet('teacher') || '');
   loadExamHeaderSaved();
   bindExamHeaderAutosave();
@@ -6981,7 +6982,44 @@ function examFiducials(){
 function examBuild(force){
   const r = examBuild0(force);
   try{ examFiducials(); }catch(e){}
+  try{ examStepSums(); examPrevZoom(); }catch(e){}
   return r;
+}
+/* 🗂️ خطوات الصفحة: ملخص سطر لكل خطوة مطوية، وحالة الفتح محفوظة على الجهاز */
+const K_EXS_OPEN = 'hwapp_exs_open_v1';
+function examStepClick(d){      // يُحفظ ما يفتحه المعلم ويطويه بيده فقط (لا الفتح الافتراضي)
+  setTimeout(() => { try{ const o = JSON.parse(localStorage.getItem(K_EXS_OPEN) || '{}'); o[d.dataset.k] = d.open; localStorage.setItem(K_EXS_OPEN, JSON.stringify(o)); }catch(e){} examPrevZoom(); }, 0);
+}
+function examStepsInit(){
+  let o = {}; try{ o = JSON.parse(localStorage.getItem(K_EXS_OPEN) || '{}'); }catch(e){}
+  const v = id => (document.getElementById(id)?.value || '').trim();
+  // الترويسة تُطوى إن كانت محفوظة من قبل (اسم المدرسة معبأ) — لا يُعاد ملؤها كل مرة
+  const def = { tpl:true, q:true, head: !v('ex-school'), look:false };
+  document.querySelectorAll('#p-exam details.exs').forEach(d => { const k = d.dataset.k; d.open = k in o ? !!o[k] : def[k]; });
+}
+function examStepSums(){
+  const $s = (k, t) => { const e = document.getElementById('exs-sum-' + k); if(e){ e.textContent = t; e.title = t; } };
+  const v = id => (document.getElementById(id)?.value || '').trim();
+  const opt = id => { const e = document.getElementById(id); return e && e.selectedOptions[0] ? e.selectedOptions[0].textContent.trim() : ''; };
+  const D = n => String(n).replace(/\d/g, d => '٠١٢٣٤٥٦٧٨٩'[d]);
+  const TPL = examTpl(), N = examNeed(), mc = examModelCount();
+  const parts = [opt('ex-tpl').split('—')[0].trim()];
+  if(N.nmc) parts.push(D(N.nmc) + ' اختيار'); if(N.ntf) parts.push(D(N.ntf) + ' صح/خطأ');
+  if(TPL === 't5' && Number(v('ex-nmt'))) parts.push(D(v('ex-nmt')) + ' وصل');
+  parts.push(mc > 1 ? D(mc) + ' نماذج' : 'نموذج واحد');
+  $s('tpl', parts.join(' · '));
+  const src = v('ex-src') || 'hw';
+  const cnt = src === 'hw' ? document.getElementById('ex-hw-bank-count')?.textContent : document.getElementById('ex-bank-count')?.textContent;
+  $s('q', [opt('ex-src'), src === 'hw' ? (examHwIds().length ? D(examHwIds().length) + ' ' + (examHwIds().length === 1 ? 'نشاط' : 'أنشطة') : 'لم تختر نشاطًا') : '', cnt || ''].filter(Boolean).join(' · '));
+  $s('head', [v('ex-title'), v('ex-subject'), v('ex-grade'), v('ex-school')].filter(Boolean).join(' · ') || 'لم تُعبأ');
+  $s('look', [opt('ex-font').split('—')[0].trim(), 'خط ' + opt('ex-size').split('—')[0].trim(), document.getElementById('ex-hindi')?.checked ? 'أرقام عربية' : ''].filter(Boolean).join(' · '));
+}
+/* المعاينة تُصغَّر لتملأ عرض عمودها (الطباعة والقياس بالحجم الحقيقي) */
+function examPrevZoom(){
+  const w = document.getElementById('exw-prev'); if(!w || !w.clientWidth) return;
+  const z = Math.max(.3, Math.min(1, (w.clientWidth - 16) / (210 * EX_MM)));
+  w.style.setProperty('--exz', z.toFixed(3));
+  if(!w._ro && window.ResizeObserver){ w._ro = new ResizeObserver(() => { const z2 = Math.max(.3, Math.min(1, (w.clientWidth - 16) / (210 * EX_MM))); w.style.setProperty('--exz', z2.toFixed(3)); }); w._ro.observe(w); }
 }
 function examBuild0(force){
   const box = document.getElementById('exam-paper');

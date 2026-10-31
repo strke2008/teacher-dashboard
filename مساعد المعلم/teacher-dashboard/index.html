@@ -23,7 +23,7 @@
 <link rel="stylesheet" href="app.css?v=16178ead">
 <script src="js/00-fetch-dedupe-js.js?v=e77498d1" defer></script>
 <script src="js/01-right-sidebar-navigation-js.js?v=41ea29b3" defer></script>
-<script src="js/02.js?v=89295d4b" defer></script>
+<script src="js/02.js?v=74dbd2ea" defer></script>
 <script src="js/03-projects-students-logic-v13.js?v=d4950f64" defer></script>
 <script src="js/04.js?v=5a7c663e" defer></script>
 <script src="js/05.js?v=a7c074c3" defer></script>
@@ -488,7 +488,7 @@
 .exam-shop-status.open{background:#E4F4EC;color:#167852}.exam-shop-status.closed{background:#FFF1F2;color:#9F2538}
 @media screen and (max-width:600px){.exam-shop-kpis{grid-template-columns:1fr 1fr}.exam-shop-student{grid-template-columns:1fr 105px}.exam-shop-student small{grid-column:1}.exam-shop-student .exam-shop-used{display:none}}
 </style>
-<link rel="stylesheet" id="late-css" href="app-late.css?v=899cde8d">
+<link rel="stylesheet" id="late-css" href="app-late.css?v=d160f2ef">
 <link rel="stylesheet" href="theme-picker.css?v=8ddeba87">
 <link rel="stylesheet" href="simplified-nav.css?v=154681ae">
 <link rel="stylesheet" href="tab-polish.css?v=b9d66f7c">
@@ -960,12 +960,73 @@
 <div id="wk-table"></div>
 </section>
 <section class="panel" id="p-exam">
-<div class="sheet no-print">
-<h2 style="margin:0 0 .3rem">🖨️ الاختبارات الورقية</h2>
-<p class="muted" style="margin:0 0 .9rem;font-size:.84rem;line-height:1.8">
-      كليشة رسمية جاهزة للطباعة على A4: شعار الوزارة في الوسط، وبيانات المدرسة يمينًا، والمادة والتاريخ يسارًا.
-      اختر بنك أسئلة نشاط أو ملف JSON أو مولد الأسئلة بالذكاء، وحدّد الفقرات — والباقي يُبنى تلقائيًا.
-    </p>
+<div class="sheet no-print exw-top">
+<div class="exw-h">
+<div><h2 style="margin:0">🖨️ الاختبارات الورقية</h2>
+<p class="muted" style="margin:.15rem 0 0;font-size:.8rem">اختر القالب والأسئلة، وعدّل الترويسة — والمعاينة بجانبك تتحدث مباشرة.</p></div>
+<span class="spacer"></span>
+<div class="exw-tools">
+<button class="btn ghost sm" onclick="openSavedPaperExams()" type="button">📂 الاختبارات المحفوظة</button>
+<button class="btn tick sm" onclick="saveCurrentPaperExam()" type="button">💾 حفظ الاختبار</button>
+<button class="btn ghost sm exw-goprev" onclick="document.getElementById('exw-prev').scrollIntoView({behavior:'smooth'})" type="button">👁 المعاينة</button>
+</div>
+</div>
+<span class="muted" id="exam-save-status" style="font-size:.76rem"></span>
+<div aria-label="خيارات الطباعة" class="exam-print-actions" role="group">
+<button class="btn tick" onclick="printExam()" type="button">🖨️ طباعة A4</button>
+<button class="btn tick" id="ex-print-all-models" onclick="printAllExamModels()" style="display:none" type="button">🖨️ طباعة جميع النماذج</button>
+<button class="btn tick" id="ex-print-named" onclick="printNamedExams()" style="display:none" type="button">🖨️ طباعة أوراق الأسماء</button>
+<button class="btn ghost" id="ex-omr-send" onclick="omrSendTemplate()" type="button" title="يصحح بوابة المعلم أوراق هذا الاختبار بكاميرا الجوال">📷 تجهيز للتصحيح الآلي</button>
+<button class="btn ghost" id="ex-omr-manage" onclick="omrManage()" type="button" title="الاختبارات المجهّزة للجوال وإعدادات التصوير">⚙️ إعدادات التصحيح الآلي</button>
+</div>
+<div class="muted" id="ex-status" style="font-size:.8rem;margin-top:.5rem"></div>
+</div>
+<div class="exw">
+<div class="exw-side no-print">
+<details class="exs" data-k="tpl" open="">
+<summary onclick="examStepClick(this.parentNode)"><span class="exs-n">١</span><span class="exs-t"><b>القالب والفقرات</b><small class="exs-sum" id="exs-sum-tpl"></small></span></summary>
+<div class="exs-b">
+<div class="field" style="margin:0 0 .7rem"><label>قالب الاختبار</label>
+<select class="inp" id="ex-tpl" onchange="examTplChanged()">
+<option selected value="t5">قالب ١ — 📷 تصحيح آلي بالجوال: ورقة واحدة (اختيار + صح/خطأ + وصل)</option>
+<option value="t1">قالب ٢ — ورقة واحدة: ٥ اختيار من متعدد + ٥ صح/خطأ</option>
+<option value="t2">قالب ٣ — ٢٠ سؤالًا (ورقتان): ٥ اختيار + ٥ صح/خطأ | ٥ وصل + ٥ أكمل الفراغ</option>
+<option value="t3">قالب ٤ — مرن (ورقتان): ٥ اختيار + ٥ صح/خطأ | ٥ وصل + «أجب عن كل مما يلي»</option>
+<option value="t4">قالب ٥ — مصمَّم: تختار لكل صفحة نوع الأسئلة وعددها ودرجتها</option>
+</select></div>
+<input id="ex-flex" type="hidden" value=""/>
+<div class="sheet" id="ex-flex-ui" style="display:none;margin:.2rem 0 1rem;padding:.85rem"></div>
+<div class="grid2 exw-counts">
+<div class="field"><label>فقرات الاختيار من متعدد</label>
+<input class="inp" id="ex-nmc" max="20" min="0" oninput="examBuild()" type="number" value="5"/></div>
+<div class="field"><label>فقرات صح / خطأ</label>
+<input class="inp" id="ex-ntf" max="20" min="0" oninput="examBuild()" type="number" value="5"/></div>
+<div class="field" id="ex-nmt-f" style="display:none"><label>أزواج الوصل <span class="muted" style="font-weight:400">(٠ أو ٢–٦ · يضع الطالب ✓ في مربع الرقم)</span></label>
+<input class="inp" id="ex-nmt" max="6" min="0" oninput="examBuild()" type="number" value="4"/></div>
+<div class="field"><label>درجة الفقرة</label>
+<input class="inp" id="ex-mark" inputmode="decimal" max="10" min="0.25" oninput="examBuild()" step="0.25" title="ربع درجة أو نصف أو أكثر: 0.25 · 0.5 · 0.75 · 1 …" type="number" value="1"/></div>
+<div class="field"><label>عدد النماذج</label>
+<select class="inp" id="ex-model-count" onchange="examModelsChanged()">
+<option selected="" value="1">نموذج واحد</option>
+<option value="2">نموذجان</option>
+<option value="3">3 نماذج</option>
+<option value="4">4 نماذج</option>
+<option value="5">5 نماذج</option>
+<option value="6">6 نماذج</option>
+</select></div>
+</div>
+<div class="row exw-opts">
+<label class="row" style="gap:.4rem;font-size:.84rem;cursor:pointer" title="تُطبع لكل طالب ورقته باسمه ورمز صغير يعرفه به الجوال — لا ربط بالأسماء بعد التصوير">
+<input id="ex-named" onchange="examNamedChanged()" type="checkbox"/> 🧾 ورقة باسم كل طالب</label>
+<select class="inp" id="ex-named-cls" style="display:none;width:auto;min-height:36px;padding:4px 8px" aria-label="فصل أوراق الأسماء"></select>
+<label class="row" style="gap:.4rem;font-size:.84rem;cursor:pointer">
+<input id="ex-shuffle" onchange="examBuild()" type="checkbox"/> اخلط ترتيب الفقرات</label>
+</div>
+</div>
+</details>
+<details class="exs" data-k="q" open="">
+<summary onclick="examStepClick(this.parentNode)"><span class="exs-n">٢</span><span class="exs-t"><b>الأسئلة</b><small class="exs-sum" id="exs-sum-q"></small></span></summary>
+<div class="exs-b">
 <div class="grid2">
 <div class="field"><label>مصدر الأسئلة</label>
 <select class="inp" id="ex-src" onchange="examSourceChanged()">
@@ -1061,51 +1122,6 @@
 </div>
 <div class="exam-bank-list" id="ex-bank-list"></div>
 </div>
-<div class="grid2">
-<div class="field"><label>عنوان الاختبار</label>
-<input class="inp" id="ex-title" oninput="examBuild()" value="اختبار قصير"/></div>
-<div class="field"><label>المادة</label>
-<input class="inp" id="ex-subject" oninput="examBuild()"/>
-<label class="ex-toggle"><input checked="" id="ex-show-subject" onchange="examBuild()" type="checkbox"/> إظهار المادة في الكليشة</label></div>
-<div class="field"><label>الصف</label>
-<input class="inp" id="ex-grade" oninput="examBuild()" placeholder="أول متوسط"/>
-<label class="ex-toggle"><input checked="" id="ex-show-grade" onchange="examBuild()" type="checkbox"/> إظهار الصف في الكليشة</label></div>
-<div class="field"><label>الزمن</label>
-<input class="inp" id="ex-time" oninput="examBuild()" value="20 دقيقة"/>
-<label class="ex-toggle"><input checked="" id="ex-show-time" onchange="examBuild()" type="checkbox"/> إظهار الزمن في الكليشة</label></div>
-<div class="field"><label>التاريخ</label>
-<input class="inp" id="ex-date" oninput="examBuild()" placeholder="..... / ..... / 14..... هـ"/>
-<label class="ex-toggle"><input checked="" id="ex-show-date" onchange="examBuild()" type="checkbox"/> إظهار التاريخ في الكليشة</label></div>
-<div class="field"><label>مكتب التعليم</label>
-<input class="inp" id="ex-office" oninput="examBuild()"/>
-<label class="ex-toggle"><input checked="" id="ex-show-office" onchange="examBuild()" type="checkbox"/> إظهار مكتب التعليم</label></div>
-<div class="field"><label>الإدارة التعليمية</label>
-<input class="inp" id="ex-dept" oninput="examBuild()"/>
-<label class="ex-toggle"><input checked="" id="ex-show-dept" onchange="examBuild()" type="checkbox"/> إظهار الإدارة التعليمية</label></div>
-<div class="field"><label>المدرسة</label>
-<input class="inp" id="ex-school" oninput="examBuild()"/>
-<label class="ex-toggle"><input checked="" id="ex-show-school" onchange="examBuild()" type="checkbox"/> إظهار المدرسة</label></div>
-</div>
-<div class="row" style="gap:.5rem;flex-wrap:wrap;margin:.35rem 0 .7rem">
-<button class="btn tick sm" onclick="saveCurrentPaperExam()" type="button">💾 حفظ الاختبار</button>
-<button class="btn ghost sm" onclick="openSavedPaperExams()" type="button">📂 الاختبارات المحفوظة</button>
-<span class="muted" id="exam-save-status" style="font-size:.76rem"></span>
-</div>
-<div class="row exam-header-savebar" style="gap:.5rem;flex-wrap:wrap;margin:.35rem 0 .7rem">
-<span class="muted" style="font-size:.76rem">💾 بيانات الترويسة تُحفظ تلقائيًا على هذا الجهاز</span>
-<button class="btn ghost sm" onclick="saveExamHeaderNow()" type="button">💾 حفظ الآن</button>
-<button class="btn ghost sm" onclick="clearExamHeaderSaved()" type="button">🧹 مسح البيانات المحفوظة</button>
-</div>
-<div class="field" style="margin:0 0 .7rem"><label>قالب الاختبار</label>
-<select class="inp" id="ex-tpl" onchange="examTplChanged()">
-<option selected value="t5">قالب ١ — 📷 تصحيح آلي بالجوال: ورقة واحدة (اختيار + صح/خطأ + وصل)</option>
-<option value="t1">قالب ٢ — ورقة واحدة: ٥ اختيار من متعدد + ٥ صح/خطأ</option>
-<option value="t2">قالب ٣ — ٢٠ سؤالًا (ورقتان): ٥ اختيار + ٥ صح/خطأ | ٥ وصل + ٥ أكمل الفراغ</option>
-<option value="t3">قالب ٤ — مرن (ورقتان): ٥ اختيار + ٥ صح/خطأ | ٥ وصل + «أجب عن كل مما يلي»</option>
-<option value="t4">قالب ٥ — مصمَّم: تختار لكل صفحة نوع الأسئلة وعددها ودرجتها</option>
-</select></div>
-<input id="ex-flex" type="hidden" value=""/>
-<div class="sheet" id="ex-flex-ui" style="display:none;margin:.2rem 0 1rem;padding:.85rem"></div>
 <div class="sheet" id="ex-extra" style="display:none;margin:.2rem 0 1rem;padding:.85rem">
 <div class="exm-bar" id="ex-extra-models" style="display:none"></div>
 <input id="ex-extra-pins" type="hidden" value="{}"/>
@@ -1136,73 +1152,85 @@
 <button class="btn ghost sm" onclick="examPullExtras()" type="button">📥 سحب الوصل وأكمل الفراغ من النشاط/الملف المحدد</button>
 </div>
 </div>
-<div class="grid2">
-<div class="field"><label>فقرات الاختيار من متعدد</label>
-<input class="inp" id="ex-nmc" max="20" min="0" oninput="examBuild()" type="number" value="5"/></div>
-<div class="field"><label>فقرات صح / خطأ</label>
-<input class="inp" id="ex-ntf" max="20" min="0" oninput="examBuild()" type="number" value="5"/></div>
-<div class="field" id="ex-nmt-f" style="display:none"><label>أزواج الوصل <span class="muted" style="font-weight:400">(٠ أو ٢–٦ · يضع الطالب ✓ في مربع الرقم)</span></label>
-<input class="inp" id="ex-nmt" max="6" min="0" oninput="examBuild()" type="number" value="4"/></div>
-<div class="field"><label>درجة الفقرة</label>
-<input class="inp" id="ex-mark" inputmode="decimal" max="10" min="0.25" oninput="examBuild()" step="0.25" title="ربع درجة أو نصف أو أكثر: 0.25 · 0.5 · 0.75 · 1 …" type="number" value="1"/></div>
+</div>
+</details>
+<details class="exs" data-k="head" open="">
+<summary onclick="examStepClick(this.parentNode)"><span class="exs-n">٣</span><span class="exs-t"><b>الترويسة</b><small class="exs-sum" id="exs-sum-head"></small></span></summary>
+<div class="exs-b">
+<div class="grid2 exh-grid">
+<div class="field"><label>عنوان الاختبار</label>
+<input class="inp" id="ex-title" oninput="examBuild()" value="اختبار قصير"/></div>
+<div class="field"><label>المادة</label>
+<input class="inp" id="ex-subject" oninput="examBuild()"/>
+<label class="ex-toggle" title="إظهاره في الكليشة"><input checked="" id="ex-show-subject" onchange="examBuild()" type="checkbox"/> إظهار</label></div>
+<div class="field"><label>الصف</label>
+<input class="inp" id="ex-grade" oninput="examBuild()" placeholder="أول متوسط"/>
+<label class="ex-toggle" title="إظهاره في الكليشة"><input checked="" id="ex-show-grade" onchange="examBuild()" type="checkbox"/> إظهار</label></div>
+<div class="field"><label>الزمن</label>
+<input class="inp" id="ex-time" oninput="examBuild()" value="20 دقيقة"/>
+<label class="ex-toggle" title="إظهاره في الكليشة"><input checked="" id="ex-show-time" onchange="examBuild()" type="checkbox"/> إظهار</label></div>
+<div class="field"><label>التاريخ</label>
+<input class="inp" id="ex-date" oninput="examBuild()" placeholder="..... / ..... / 14..... هـ"/>
+<label class="ex-toggle" title="إظهاره في الكليشة"><input checked="" id="ex-show-date" onchange="examBuild()" type="checkbox"/> إظهار</label></div>
+<div class="field"><label>مكتب التعليم</label>
+<input class="inp" id="ex-office" oninput="examBuild()"/>
+<label class="ex-toggle" title="إظهاره في الكليشة"><input checked="" id="ex-show-office" onchange="examBuild()" type="checkbox"/> إظهار</label></div>
+<div class="field"><label>الإدارة التعليمية</label>
+<input class="inp" id="ex-dept" oninput="examBuild()"/>
+<label class="ex-toggle" title="إظهاره في الكليشة"><input checked="" id="ex-show-dept" onchange="examBuild()" type="checkbox"/> إظهار</label></div>
+<div class="field"><label>المدرسة</label>
+<input class="inp" id="ex-school" oninput="examBuild()"/>
+<label class="ex-toggle" title="إظهاره في الكليشة"><input checked="" id="ex-show-school" onchange="examBuild()" type="checkbox"/> إظهار</label></div>
 <div class="field"><label>معلم المادة</label>
 <input class="inp" id="ex-teacher" oninput="examBuild()"/></div>
+</div>
+<div class="row exam-header-savebar" style="gap:.5rem;flex-wrap:wrap;margin:.35rem 0 .7rem">
+<span class="muted" style="font-size:.76rem">💾 بيانات الترويسة تُحفظ تلقائيًا على هذا الجهاز</span>
+<button class="btn ghost sm" onclick="saveExamHeaderNow()" type="button">💾 حفظ الآن</button>
+<button class="btn ghost sm" onclick="clearExamHeaderSaved()" type="button">🧹 مسح البيانات المحفوظة</button>
+</div>
+</div>
+</details>
+<details class="exs" data-k="look">
+<summary onclick="examStepClick(this.parentNode)"><span class="exs-n">٤</span><span class="exs-t"><b>الشكل</b><small class="exs-sum" id="exs-sum-look"></small></span></summary>
+<div class="exs-b">
+<div class="grid2">
 <div class="field"><label>خط الكليشة</label>
 <select class="inp" id="ex-font" onchange="examBuild()">
 <option value="trad">تقليدي — Traditional Arabic (الأنسب للاختبارات الرسمية)</option>
 <option value="naskh">نسخ — Noto Naskh</option>
 <option value="modern">حديث — Tajawal</option>
 </select></div>
-<div class="field"><label>حجم شعار الوزارة (مم)</label>
-<input class="inp" id="ex-logo-size" max="42" min="20" oninput="examBuild()" step="1" type="number" value="32"/></div>
 <div class="field"><label>مقاس الخط</label>
 <select class="inp" id="ex-size" onchange="examBuild()">
 <option value="s">صغير — فقرات أكثر في الصفحة</option>
 <option selected="" value="m">متوسط</option>
 <option value="l">كبير</option>
 </select></div>
+<div class="field"><label>حجم شعار الوزارة (مم)</label>
+<input class="inp" id="ex-logo-size" max="42" min="20" oninput="examBuild()" step="1" type="number" value="32"/></div>
 </div>
-<div class="row exam-model-controls" style="gap:.55rem;flex-wrap:wrap;margin-top:.4rem">
-<div class="field" style="margin:0;min-width:150px">
-<label>عدد النماذج</label>
-<select class="inp" id="ex-model-count" onchange="examModelsChanged()">
-<option selected="" value="1">نموذج واحد</option>
-<option value="2">نموذجان</option>
-<option value="3">3 نماذج</option>
-<option value="4">4 نماذج</option>
-<option value="5">5 نماذج</option>
-<option value="6">6 نماذج</option>
-</select>
-</div>
-<div class="field" style="margin:0;min-width:150px">
-<label>النموذج الحالي</label>
-<select class="inp" disabled="" id="ex-model" onchange="examBuild()">
-<option value="0">نموذج (أ)</option>
-</select>
-</div>
-</div>
-<div class="row" style="gap:.5rem;flex-wrap:wrap;margin-top:.4rem">
-<label class="row" style="gap:.4rem;font-size:.84rem;cursor:pointer">
-<input id="ex-key" onchange="examBuild()" type="checkbox"/> نموذج الإجابة (نسخة المعلم)</label>
-<label class="row" style="gap:.4rem;font-size:.84rem;cursor:pointer" title="تُطبع لكل طالب ورقته باسمه ورمز صغير يعرفه به الجوال — لا ربط بالأسماء بعد التصوير">
-<input id="ex-named" onchange="examNamedChanged()" type="checkbox"/> 🧾 ورقة باسم كل طالب</label>
-<select class="inp" id="ex-named-cls" style="display:none;width:auto;min-height:36px;padding:4px 8px" aria-label="فصل أوراق الأسماء"></select>
-<label class="row" style="gap:.4rem;font-size:.84rem;cursor:pointer">
-<input id="ex-shuffle" onchange="examBuild()" type="checkbox"/> اخلط ترتيب الفقرات</label>
+<div class="row exw-opts">
 <label class="row" style="gap:.4rem;font-size:.84rem;cursor:pointer">
 <input checked="" id="ex-hindi" onchange="examBuild()" type="checkbox"/> أرقام عربية (١٢٣)</label>
-<button class="btn ghost sm" onclick="examBuild(true)" type="button">🔄 تحديث المعاينة</button>
-<div aria-label="خيارات الطباعة" class="exam-print-actions" role="group">
-<button class="btn tick" onclick="printExam()" type="button">🖨️ طباعة A4</button>
-<button class="btn tick" id="ex-print-all-models" onclick="printAllExamModels()" style="display:none" type="button">🖨️ طباعة جميع النماذج</button>
-<button class="btn tick" id="ex-print-named" onclick="printNamedExams()" style="display:none" type="button">🖨️ طباعة أوراق الأسماء</button>
-<button class="btn ghost" id="ex-omr-send" onclick="omrSendTemplate()" type="button" title="يصحح بوابة المعلم أوراق هذا الاختبار بكاميرا الجوال">📷 تجهيز للتصحيح الآلي</button>
-<button class="btn ghost" id="ex-omr-manage" onclick="omrManage()" type="button" title="الاختبارات المجهّزة للجوال وإعدادات التصوير">⚙️ إعدادات التصحيح الآلي</button>
 </div>
 </div>
-<div class="muted" id="ex-status" style="font-size:.8rem;margin-top:.5rem"></div>
+</details>
+</div>
+<div class="exw-prev" id="exw-prev">
+<div class="exw-pbar no-print">
+<b>👁 المعاينة</b>
+<label class="exw-mcur"><select class="inp" disabled="" id="ex-model" onchange="examBuild()">
+<option value="0">نموذج (أ)</option>
+</select></label>
+<label class="row" style="gap:.4rem;font-size:.84rem;cursor:pointer">
+<input id="ex-key" onchange="examBuild()" type="checkbox"/> نموذج الإجابة (نسخة المعلم)</label>
+<span class="spacer"></span>
+<button class="btn ghost sm" onclick="examBuild(true)" type="button" title="تحديث المعاينة">🔄</button>
 </div>
 <div id="exam-preview"><div id="exam-paper"></div></div>
+</div>
+</div>
 </section>
 <section class="panel" id="p-reports-main">
 <div class="sheet-head">

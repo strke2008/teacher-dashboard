@@ -2943,3 +2943,49 @@ body.pf-open #simp-bottomnav,body.pf-open .askf-btn{display:none!important}
 .exsim-ans{display:inline-block;margin-inline-start:.4rem;font-size:.78rem;font-weight:800;color:#0E5B4E}
 .exsim-ans.no{color:#B3261E}
 .exsim-ar{color:#9A4D00}
+
+/* 🖨️ صفحة الاختبارات الورقية: خطوات مطوية يمينًا ومعاينة ثابتة يسارًا */
+.exw-top{margin-bottom:.8rem}
+.exw-h{display:flex;align-items:flex-start;gap:.6rem;flex-wrap:wrap;margin-bottom:.6rem}
+.exw-tools{display:flex;gap:.4rem;flex-wrap:wrap}
+.exw-top .exam-print-actions{margin-inline-start:0;padding-top:.6rem;border-top:1px dashed var(--ui-border,#D5E0EC)}
+.exw-goprev{display:none}
+.exw{display:grid;grid-template-columns:minmax(0,1fr);gap:.9rem;align-items:start}
+.exw-side{display:flex;flex-direction:column;gap:.6rem;min-width:0}
+.exs{background:var(--ui-bg,#fff);border:1px solid var(--ui-border,#D5E0EC);border-radius:14px;overflow:hidden}
+.exs>summary{list-style:none;display:flex!important;width:100%;max-width:none;box-sizing:border-box;margin:0;align-items:center;gap:.6rem;padding:.75rem .9rem;cursor:pointer;user-select:none}
+.exs>summary::-webkit-details-marker{display:none}
+.exs>summary::after{content:'▾';margin-inline-start:auto;color:var(--ink-soft);transition:transform .2s}
+.exs:not([open])>summary::after{transform:rotate(90deg)}
+.exs[open]>summary{border-bottom:1px solid var(--ui-border,#D5E0EC);background:color-mix(in srgb,var(--ui-border,#D5E0EC) 22%,transparent)}
+.exs-n{flex:none;width:1.7rem;height:1.7rem;border-radius:50%;display:grid;place-items:center;background:#1f6f5c;color:#fff;font-weight:800;font-size:.9rem}
+.exs-t{display:flex;flex-direction:column;min-width:0}
+.exs-t b{font-size:.98rem}
+.exs-sum{color:var(--ink-soft);font-size:.74rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.exs-b{padding:.85rem .9rem}
+.exs-b>.sheet{margin-inline:0!important}
+.exw-opts{gap:.5rem 1rem;flex-wrap:wrap;margin-top:.3rem;align-items:center}
+.exh-grid .field{display:grid;grid-template-columns:1fr auto;align-items:end;column-gap:.4rem}
+.exh-grid .field>label:first-child{grid-column:1}
+.exh-grid .field>.inp{grid-column:1/-1;grid-row:2}
+.exh-grid .field>.ex-toggle{grid-column:2;grid-row:1;margin:0 0 .25rem;font-size:.72rem;white-space:nowrap}
+.exw-prev{min-width:0;background:color-mix(in srgb,var(--ui-border,#D5E0EC) 30%,transparent);border-radius:14px;padding:.5rem}
+.exw-pbar{display:flex;align-items:center;gap:.5rem .8rem;flex-wrap:wrap;padding:.2rem .3rem .5rem;font-size:.84rem}
+.exw-pbar .inp{width:auto;min-height:34px;padding:3px 8px}
+.exw-mcur:has(select:disabled){display:none}
+@media screen{ #exw-prev #exam-paper .exam-page{zoom:var(--exz,1)} }
+@media screen and (min-width:1180px){
+  .exw{grid-template-columns:minmax(0,1fr) minmax(0,1.05fr)}
+  .exw-prev{position:sticky;top:.8rem;max-height:calc(100vh - 1.6rem);overflow:auto}
+}
+@media screen and (max-width:1179px){ .exw-goprev{display:inline-flex} }
+@media print{
+  body.printing-exam .exw{display:block!important}
+  body.printing-exam .exw-prev{position:static!important;max-height:none!important;overflow:visible!important;padding:0!important;margin:0!important;background:#fff!important;border-radius:0!important}
+}
+@media screen and (max-width:700px){
+  .exw-top .exam-print-actions .btn{flex:1 1 calc(50% - .5rem);min-width:0;white-space:normal;line-height:1.3}
+  .exw-h p{display:none}
+  .exw-tools{width:100%}.exw-tools .btn{flex:1}
+  .exs-b{padding:.7rem .65rem}
+}
