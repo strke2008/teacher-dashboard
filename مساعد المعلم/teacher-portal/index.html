@@ -5784,7 +5784,7 @@ const OMR = (() => {
     return { fill: Math.max(dark / (N * N), colorFill), ink: sum / (N * N), paper, color: +colorFill.toFixed(3) };
   }
   const T = { blank: 0.07, mark: 0.14, rival: 0.45, second: 0.105, align: 6, alignSure: 3.5, tilt: 0.6, warp: 3,
-    eraseTop: 0.28, eraseMax: 0.22, eraseRatio: 0.4, faintMin: 0.09, faintRel: 0.2 };
+    eraseTop: 0.28, eraseMax: 0.22, eraseRatio: 0.4, faintMin: 0.09, faintRel: 0.2, ctrl: 8 };
   /* استقامة الالتقاط: نسبة الضلع الأقصر إلى مقابله (أعلى/أسفل ويمين/يسار) — 1 = الجوال موازٍ للورقة */
   function tiltOf(q) { if (!Array.isArray(q) || q.length !== 4) return 1; const d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
     const t = d(q[0], q[1]), b = d(q[3], q[2]), l = d(q[0], q[3]), r = d(q[1], q[2]); return Math.min(Math.min(t, b) / (Math.max(t, b) || 1), Math.min(l, r) / (Math.max(l, r) || 1)); }
@@ -5925,12 +5925,39 @@ const OMR = (() => {
     // تصحيح أكبر يعني أن منتصف الصفحة ابتعد عنها، فقد تُقرأ مربعات صف مجاور بثقة — نرفض بدل أن نصحح إجابة خاطئة
     if ((found.marks || found.flat) && !opts.noGate) { const warp = Math.max(0, ...[...secShift.values()].map(([x, y]) => Math.max(Math.abs(x), Math.abs(y))));
       if (warp > T.warp) return { ok: false, error: 'warp', warp, code }; }
+    // 🗺️ خريطة تصحيح ناعمة للورقة المنحنية/المطوية: إزاحة كل سؤال تُقدَّر من مربعاته الواضحة (نافذة ±2.5 مم)،
+    // ثم سطح من الدرجة الثانية يمر بها (بلا الشاذ) — فيتبع انحناء الورقة بين الأسئلة بدل إزاحة واحدة لكل قسم
+    const secOf = q => secs.find(a => q.boxes.some(b => b[1] >= a[1] && b[1] <= a[1] + a[3]));
+    const qCen = q => [q.boxes.reduce((t, b) => t + b[0] + b[2] / 2, 0) / q.boxes.length, q.boxes.reduce((t, b) => t + b[1] + b[3] / 2, 0) / q.boxes.length];
+    const field = (() => { if (opts.noField) return null;
+      const C = [];
+      M.questions.forEach(q => { const sec = secOf(q), b0 = sec ? secShift.get(sec) : [P.dx, P.dy];
+        const r = searchSet(G, P.H, { boxes: q.boxes.map(rr => outlinePts(rr, 0.6)), strict: true }, 2.5, 2.5, 0.5, 0.8, b0);
+        if (r.s >= T.ctrl) { const [x, y] = qCen(q); C.push({ x, y, dx: r.dx, dy: r.dy, w: Math.min(r.s, 60) }); } });
+      if (C.length < 6) return null;
+      // ورقة مستوية (أو منظور فقط): إزاحات الأسئلة متقاربة — يبقى المسار القديم كما هو بلا خريطة
+      const spread = k => { const v = C.map(p => p[k]).sort((a, b) => a - b); return v[Math.floor(v.length * 0.9)] - v[Math.floor(v.length * 0.1)]; };
+      if (Math.max(spread('dx'), spread('dy')) < 0.8) return null;
+      const feat = (x, y) => { const u = (x - 105) / 105, v = (y - 148) / 148; return C.length >= 12 ? [1, u, v, u * v, u * u, v * v] : [1, u, v]; };
+      const fit = (pts, k) => { const n = feat(0, 0).length, A = Array.from({ length: n }, () => Array(n + 1).fill(0));
+        for (const p of pts) { const f = feat(p.x, p.y); for (let i = 0; i < n; i++) { for (let j = 0; j < n; j++) A[i][j] += p.w * f[i] * f[j]; A[i][n] += p.w * f[i] * p[k]; } }
+        for (let i = 0; i < n; i++) A[i][i] += 1e-6;
+        for (let c = 0; c < n; c++) { let m = c; for (let r = c + 1; r < n; r++) if (Math.abs(A[r][c]) > Math.abs(A[m][c])) m = r; [A[c], A[m]] = [A[m], A[c]];
+          for (let r = 0; r < n; r++) if (r !== c) { const f = A[r][c] / A[c][c]; for (let j = c; j <= n; j++) A[r][j] -= f * A[c][j]; } }
+        return A.map((row, i) => row[n] / row[i]); };
+      const ev = (cf, x, y) => feat(x, y).reduce((t, f, i) => t + f * cf[i], 0);
+      let cx = fit(C, 'dx'), cy = fit(C, 'dy');
+      const good = C.filter(p => Math.hypot(ev(cx, p.x, p.y) - p.dx, ev(cy, p.x, p.y) - p.dy) <= 1);   // الشاذ (صف مجاور) يُستبعد ثم يُعاد الحساب
+      if (good.length >= 6) { cx = fit(good, 'dx'); cy = fit(good, 'dy'); }
+      return (x, y) => [ev(cx, x, y), ev(cy, x, y)]; })();
     const answers = M.questions.map((q, qi) => {
-      const sec = secs.find(a => q.boxes.some(b => b[1] >= a[1] && b[1] <= a[1] + a[3]));
-      const base = sec ? secShift.get(sec) : [P.dx, P.dy];
+      const sec = secOf(q);
+      const base = field ? field(...qCen(q)) : sec ? secShift.get(sec) : [P.dx, P.dy];
       // السؤال والمربع: المعيار الصارم (أضعف أضلاع المربع) في نوافذ صغيرة
       // المربع ±1 مم: دوران متبقٍّ يُزيح عمودَي الخيارات قليلًا؛ المعيار الصارم يمنع الالتقاط على الحروف
-      const qs = searchSet(G, P.H, { boxes: q.boxes.map(r => outlinePts(r, 0.6)), strict: true }, 1, 1, 0.25, 0.8, base);
+      // من الخريطة ومن إزاحة القسم: يُعتمد الأوضح تطابقًا مع إطارات المربعات (الورقة المستوية لا تخسر شيئًا)
+      const qset = { boxes: q.boxes.map(r => outlinePts(r, 0.6)), strict: true }, secB = sec ? secShift.get(sec) : [P.dx, P.dy];
+      const qs = [base].concat(field ? [secB] : []).map(b0 => searchSet(G, P.H, qset, 1, 1, 0.25, 0.8, b0)).reduce((a, b) => b.s > a.s ? b : a);
       const fills = q.boxes.map(r => { const b = searchSet(G, P.H, { boxes: [outlinePts(r, 0.5)], strict: true }, 1, 1, 0.25, 0.7, [qs.dx, qs.dy]); return { ...boxFill(G, P.H, r, b.dx, b.dy), dx: b.dx, dy: b.dy, align: b.s }; });
       const d = decide(fills);
       const align = Math.min(...fills.map(f => f.align));
@@ -6510,7 +6537,10 @@ function omrProcess(src, w, h, single){
       if(acc.length && (acc[0].m !== OMRUI.model || r.answers.some((a, i) => a.status === 'ok' && acc.some(p => p.r.answers[i] && p.r.answers[i].status === 'ok' && p.r.answers[i].pick !== a.pick)))) acc.length = 0;
       acc.push({ r, m: OMRUI.model });
       const force = OMRUI.forceShot; OMRUI.forceShot = false;
-      const need = OMRUI.cfg && OMRUI.cfg.frames === 1 ? 1 : 3;                        // من إعدادات اللوحة: أدق (3) أو أسرع (1)
+      // ⚡ لقطة واضحة تمامًا (كل سؤال علامة قوية وبقية مربعاته نظيفة، ولا لمعة) تكفي وحدها — الدمج لا يضيف لها شيئًا.
+      // ما فيه شك يُجمع من 3 لقطات كالسابق (أو لقطة واحدة إن اختار المعلم «أسرع» في اللوحة)
+      const clear = q => q.answers.length && q.answers.every(a => { if(a.status !== 'ok' || !Array.isArray(a.fills)) return false; const f = a.fills.slice().sort((x, y) => y - x); return f[0] >= 0.2 && (f[1] || 0) <= 0.06; });
+      const need = OMRUI.cfg && OMRUI.cfg.frames === 1 ? 1 : (acc.length === 1 && clear(r) && !(OMRUI.glareMm && OMRUI.glareMm.length)) ? 1 : 3;   // من إعدادات اللوحة: أدق (3) أو أسرع (1)
       if(acc.length < need && !force){ if(st) st.textContent = `جارٍ القراءة… ${acc.length} من ${need}`; return; }
       r = omrFuse(acc.map(p => p.r)); OMRUI.acc = [];
       // قرأنا رغم اللمعة: كل سؤال تقع مربعاته تحتها يُعرض للتأكيد بدل أن يُصحَّح (اللمعة قد تمسح علامة الطالب)
