@@ -5610,19 +5610,35 @@ const OMR = (() => {
     if (darkOnly) return { fill: dark / (N * N), ink: sum / (N * N), paper, color: 0 };
     return { fill: Math.max(dark / (N * N), colorFill), ink: sum / (N * N), paper, color: +colorFill.toFixed(3) };
   }
-  const T = { blank: 0.07, mark: 0.14, rival: 0.45, second: 0.105, align: 6, alignSure: 3.5, tilt: 0.6, warp: 3 };
+  const T = { blank: 0.07, mark: 0.14, rival: 0.45, second: 0.105, align: 6, alignSure: 3.5, tilt: 0.6, warp: 3,
+    eraseTop: 0.28, eraseMax: 0.22, eraseRatio: 0.4, faintMin: 0.09, faintRel: 0.2 };
   /* استقامة الالتقاط: نسبة الضلع الأقصر إلى مقابله (أعلى/أسفل ويمين/يسار) — 1 = الجوال موازٍ للورقة */
   function tiltOf(q) { if (!Array.isArray(q) || q.length !== 4) return 1; const d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
     const t = d(q[0], q[1]), b = d(q[3], q[2]), l = d(q[0], q[3]), r = d(q[1], q[2]); return Math.min(Math.min(t, b) / (Math.max(t, b) || 1), Math.min(l, r) / (Math.max(l, r) || 1)); }
-  function decide(fills) {
+  function decide(fills, ctx) {
     const idx = fills.map((f, i) => [f.fill + f.ink * 0.5, i]).sort((a, b) => b[0] - a[0]);
     const [top, second] = [idx[0], idx[1] || [0, -1]];
     if (top[0] < T.blank) return { status: 'blank', pick: -1 };
+    // 🧽 أثر مسح: علامة واضحة وبجانبها أثر رمادي خفيف (أقل من 40% منها ودون 0.22) — الطالب غيّر إجابته بالممحاة.
+    // تظليلان حقيقيان يتقاربان (≥ 0.35 كلاهما في القياس) فيبقيان للمراجعة، وكذلك الشطب بالقلم (أغمق من العلامة نفسها)
+    if (top[0] >= T.eraseTop && second[0] < T.eraseMax && second[0] <= top[0] * T.eraseRatio) return { status: 'ok', pick: top[1], erased: second[1] };
     // مربعان: أي ثانٍ بلغ حد العلامة، أو قريب من الأول — للمراجعة مهما كانت النسبة
     // مربعان معلّمان: الثاني قد يضعف كثيرًا في صورة خافتة/مغبّشة (علامة ✓ رفيعة) — أي أثر واضح فيه يكفي للمراجعة
     if (second[0] >= T.mark || second[0] >= T.second || (second[0] >= T.blank && second[0] >= top[0] * T.rival)) return { status: 'multi', pick: top[1], alt: second[1] };
-    if (top[0] < T.mark) return { status: 'faint', pick: top[1] };
+    // ✏️ تظليل خفيف (قلم رصاص): يُقبل إن كان هذا أسلوب الطالب في ورقته كلها (ctx.m = وسيط علاماته الواضحة)
+    // وبقية مربعات السؤال نظيفة — أثر عابر على ورقة علاماتها قوية يبقى للمراجعة
+    if (top[0] < T.mark) return ctx && ctx.m && top[0] >= T.faintMin && second[0] <= top[0] * 0.3 && top[0] >= ctx.m * T.faintRel
+      ? { status: 'ok', pick: top[1], light: true } : { status: 'faint', pick: top[1] };
     return { status: 'ok', pick: top[1] };
+  }
+  /* مستوى تظليل الطالب في الورقة: وسيط أقوى مربع في الأسئلة المحسومة (3 فأكثر)، ثم يُعاد الحكم على الخفيف به */
+  function refineSheet(answers) {
+    // كل علامة نظيفة تُحسب (الخفيفة أيضًا): طالب يظلل بالرصاص في كل الورقة مستواه منخفض فتُقبل علاماته
+    const clean = a => { if (!Array.isArray(a.fills) || a.status === 'unaligned') return 0; const f = a.fills.slice().sort((x, y) => y - x); return f[0] >= T.faintMin && (f[1] || 0) <= f[0] * 0.3 ? f[0] : 0; };
+    const tops = answers.map(clean).filter(Boolean).sort((x, y) => x - y);
+    if (tops.length < 3) return answers;
+    const m = tops[Math.floor(tops.length / 2)];
+    return answers.map(a => a.status === 'faint' && Array.isArray(a.fills) ? { ...a, ...decide(a.fills.map(v => ({ fill: v, ink: 0 })), { m }) } : a);
   }
   /* رمز النموذج: مربعات مطبوعة صغيرة، واحد منها مظلل بالكامل. ثقة عالية فقط: وإلا null (اختيار يدوي) */
   function readCode(G, P, M) {
@@ -5750,6 +5766,7 @@ const OMR = (() => {
       const dd = align < (opts.alignT ?? (found.marks || found.flat ? T.alignSure : T.align)) ? { status: 'unaligned', pick: -1 } : d;   // لا نرى إطار المربع حيث نتوقعه: لا قراءة واثقة
       return { i: qi, t: q.t, key: q.key, ...dd, align: +align.toFixed(1), fills: fills.map(f => +(f.fill + f.ink * 0.5).toFixed(3)), boxes: q.boxes.map((r, k) => ({ r, dx: fills[k].dx, dy: fills[k].dy })) };
     });
+    answers.splice(0, answers.length, ...refineSheet(answers));
     // أكثر من سؤال لا يُرى إطاره = هندسة الصورة خاطئة في جزء من الورقة (ظل/انحناء): لا نثق بالبقية
     const unaligned = answers.filter(a => a.status === 'unaligned').length;
     // بعلامات الزوايا الهندسة مضبوطة من الطباعة نفسها: مربع خطوطه باهتة في الصورة (فيديو ناعم/بعيد) لا يعني صورة خاطئة —
@@ -5760,7 +5777,7 @@ const OMR = (() => {
     const review = answers.filter(a => a.status !== 'ok').length;
     return { ok: true, code, scode: readSCode(G, P, M, !!(found.marks || found.flat)), answers, correct, review, H: P.H, quad: found.quad, pageScore: +P.score.toFixed(1), ms: Date.now() - t0, dbg: { via: found.marks ? 'marks' : found.frame ? 'frame' : found.scan ? 'scan' : 'paper', dx: P.dx, dy: P.dy, rot: P.rot, secs: [...secShift.values()] } };
   }
-  return { read, code, prepare, prepareFrame, findFrame, findMarks, gray, findPaper, homography, apply, T, tiltOf, _t: { readCode, readSCode, alignPage, searchSet, outlinePts, boxScore, edgeScore, decide } };
+  return { read, code, prepare, prepareFrame, findFrame, findMarks, gray, findPaper, homography, apply, T, tiltOf, _t: { readCode, readSCode, alignPage, searchSet, outlinePts, boxScore, edgeScore, decide, refineSheet } };
 })();
 
 /* ═══════════ 📷 المصحّح الآلي — واجهة بوابة المعلم ═══════════
@@ -6270,9 +6287,9 @@ function omrFuse(rs){
     if(ok.length < Math.ceil(rs.length / 2)) return a;
     const avg = a.fills.map((_, k) => +(ok.reduce((t, x) => t + x.fills[k], 0) / ok.length).toFixed(3));
     const d = OMR._t.decide(avg.map(v => ({ fill: v, ink: 0 })));
-    return { ...a, ...d, alt: d.alt, fills: avg };
+    return { ...a, ...d, alt: d.alt, erased: d.erased, light: d.light, fills: avg };
   });
-  return { ...last, answers, fused: rs.length };
+  return { ...last, answers: OMR._t.refineSheet(answers), fused: rs.length };
 }
 function omrProcess(src, w, h, single){
   OMRUI.busy = true;
