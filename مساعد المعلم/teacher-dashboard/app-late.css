@@ -3002,3 +3002,11 @@ body.pf-open #simp-bottomnav,body.pf-open .askf-btn{display:none!important}
 #exam-paper.ex-sample .exam-page{position:relative}
 #exam-paper.ex-sample .ex-qt,#exam-paper.ex-sample .ex-opt,#exam-paper.ex-sample .ex-tf>span:not(.ex-num),#exam-paper.ex-sample .ex-amt-c1,#exam-paper.ex-sample .ex-amt-c2,#exam-paper.ex-sample .ex-mrow,#exam-paper.ex-sample .ex-fq,#exam-paper.ex-sample .ex-oq{color:#9aa7a5!important}
 #exam-paper.ex-sample .exam-page::after{content:'مثال لشكل القالب';position:absolute;top:42%;left:50%;transform:translate(-50%,-50%) rotate(-24deg);font:900 34pt/1 Tajawal,Tahoma,sans-serif;color:rgba(180,71,8,.13);border:4px solid rgba(180,71,8,.13);border-radius:18px;padding:6mm 10mm;white-space:nowrap;pointer-events:none;z-index:4}
+/* 📏 الأسئلة الطويلة */
+.exlong-row{cursor:default}
+.exlong-q{display:block;font-weight:700}
+.exlong-o{display:flex;flex-wrap:wrap;gap:.25rem .9rem;font-size:.82rem;color:#4b5e5b;margin-top:.2rem}.exlong-o .ok{color:#16794f;font-weight:800}
+.exlong-why{display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.3rem}.exlong-why i{font-style:normal;font-size:.72rem;background:#FFF4E5;color:#9A4D00;border-radius:99px;padding:.05rem .5rem}
+.exlong-ed{display:grid;gap:.3rem;margin-top:.45rem}.exlong-ed[hidden]{display:none}.exlong-ed .inp{min-height:34px;padding:.3rem .5rem;font-size:.86rem}
+.exlong-act{flex:0 0 auto}.exlong-act .inp{width:auto;min-height:34px;padding:2px 6px;font-size:.82rem}
+.exlong-row.off .exlong-q,.exlong-row.off .exlong-o{opacity:.45;text-decoration:line-through}
