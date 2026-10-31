@@ -7773,7 +7773,9 @@ async function printNamedExams(){
   toast(`تم تجهيز ${L.length} ورقة بأسماء الطلاب${count > 1 ? ' — النماذج متناوبة' : ''}`,'good');
   const restore = () => { box.innerHTML = originalHtml; examBuild(true); window.removeEventListener('afterprint', restore); };
   window.addEventListener('afterprint', restore);
-  unifiedA4Print({ bodyClass:'printing-exam', title:(document.getElementById('ex-title')?.value || 'اختبار') + ' - أوراق الأسماء', selector:'#exam-paper', orientation:'portrait', margin:'0' });
+  // 📁 اسم الملف المحفوظ (عنوان الصفحة) يحمل الفصل: «اختبار قصير - أوراق الأسماء - فصل 1-2» — و«/» لا تصلح في أسماء الملفات
+  const clsName = cls ? 'فصل ' + String(cls).replace(/[\\/:*?"<>|]+/g, '-').trim() : 'كل الفصول';
+  unifiedA4Print({ bodyClass:'printing-exam', title:(document.getElementById('ex-title')?.value || 'اختبار') + ' - أوراق الأسماء - ' + clsName, selector:'#exam-paper', orientation:'portrait', margin:'0' });
 }
 function printAllExamModels(){
   const box = document.getElementById('exam-paper');
