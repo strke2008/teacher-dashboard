@@ -5294,6 +5294,7 @@ function examHwFilter(){
 }
 function examHwSet(ids){
   const el = document.getElementById('ex-hw'); if(el) el.value = ids.join(',');
+  try{ examAutoExtras(); }catch(e){}
   examHwRenderPick(); syncExamHwBank(); examBuild();
 }
 function examHwToggle(id, on){
@@ -6436,8 +6437,7 @@ function examTplSyncUI(){
   const exMatch = document.getElementById('ex-match-txt')?.closest('.field'); if(exMatch) exMatch.style.display = t === 't4' && !uses('match') ? 'none' : '';
   // القالب ٤: عدد أسئلة «أجب» ودرجاتها من تصميم الصفحات، لا من حقول القالب ٣
   const openGrid = document.querySelector('#ex-extra-open > .grid2'); if(openGrid) openGrid.style.display = t === 't4' ? 'none' : '';
-  const pull = document.querySelector('#ex-extra > .row:last-child'); if(pull) pull.style.display = '';
-  const note = document.querySelector('#ex-extra > .muted'); if(note) note.style.display = t === 't4' ? 'none' : '';
+  examPullBtnSync();
   const mk = document.getElementById('ex-mark'); if(mk){ mk.disabled = t === 't4'; mk.title = t === 't4' ? 'في القالب المصمَّم لكل قسم درجته' : ''; }
   ['ex-nmc','ex-ntf'].forEach(id => {                 // القالبان ٢ و٣: ٥ + ٥ ثابتة · القالب ٤: مجموع أقسامه
     const el = document.getElementById(id); if(!el) return;
@@ -6729,10 +6729,26 @@ function examExtrasFromActivity(){
   return examExtrasFromRaw(acts.length ? { questions:acts.flatMap(h => (h.qs || []).filter(Boolean)) } : null);
 }
 function examApplyExtras(ex, quiet){
-  const set = (id, arr) => { const el = document.getElementById(id); if(el && arr.length) el.value = arr.join('\n'); };
+  const set = (id, arr) => { const el = document.getElementById(id); if(el && arr.length){ el.value = arr.join('\n'); el.dataset.auto = el.value; } };
   set('ex-match-txt', ex.match); set('ex-fill-txt', ex.fill); set('ex-open-txt', ex.open || []);
   if(!quiet) toast(`تم سحب ${ex.match.length} زوج وصل و${ex.fill.length} سؤال أكمل الفراغ` + ((ex.open||[]).length ? ` و${ex.open.length} سؤال «أجب»` : ''), ex.match.length || ex.fill.length || (ex.open||[]).length ? 'good' : 'bad');
   examBuild(true);
+}
+/* الوصل والفراغ و«أجب» تُسحب تلقائيًا من النشاط المحدد. ما كتبه المعلم بيده لا يُستبدل:
+   الحقل يُحدَّث فقط إن كان فارغًا أو ما زال كما سُحب آخر مرة (dataset.auto) */
+function examAutoExtras(){
+  if((document.getElementById('ex-src')?.value || 'hw') !== 'hw') return;
+  const ex = examExtrasFromActivity();
+  [['ex-match-txt', ex.match], ['ex-fill-txt', ex.fill], ['ex-open-txt', ex.open || []]].forEach(([id, arr]) => {
+    const el = document.getElementById(id); if(!el) return;
+    if(el.value.trim() && el.value !== el.dataset.auto) return;          // نص المعلم
+    el.value = arr.join('\n'); el.dataset.auto = el.value;
+  });
+}
+/* زر الإرجاع يظهر فقط إن عُدّل نص مسحوب يدويًا */
+function examPullBtnSync(){
+  const b = document.getElementById('ex-pull-btn'); if(!b) return;
+  b.style.display = ['ex-match-txt','ex-fill-txt','ex-open-txt'].some(id => { const el = document.getElementById(id); return el && el.dataset.auto !== undefined && el.value !== el.dataset.auto; }) ? '' : 'none';
 }
 function examPullExtras(){
   const src = document.getElementById('ex-src')?.value || 'hw';
