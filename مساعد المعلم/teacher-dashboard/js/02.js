@@ -4912,7 +4912,7 @@ function examInit(){
   if(sel){
     const list = examHwList(), ok = new Set(list.map(h => String(h.id)));
     let ids = examHwIds().filter(id => ok.has(id));
-    if(!ids.length && list.length) ids = [String(list[0].id)];      // كالسابق: أول نشاط محدد افتراضيًا
+    // لا تحديد افتراضي: المعلم يختار النشاط بنفسه (كان أول نشاط يُحدَّد تلقائيًا كلما فُتحت الصفحة)
     sel.value = ids.join(',');
   }
   examHwRenderPick();
@@ -4941,7 +4941,7 @@ function examSourceChanged(){
   if(ai) ai.style.display = src==='ai' ? '' : 'none';
 
   if(hwBank){
-    hwBank.style.display = src==='hw' ? '' : 'none';
+    hwBank.style.display = src==='hw' && examHwIds().length ? '' : 'none';
     if(src==='hw') renderExamHwBank();
   }
   if(jsonBank){
@@ -4985,7 +4985,7 @@ function renderExamHwBank(){
   const list=document.getElementById('ex-hw-bank-list');
   if(!wrap||!list) return;
   examModelsBarInto('ex-hw-bank-list','hw');
-  wrap.style.display = (document.getElementById('ex-src')?.value||'hw')==='hw' ? '' : 'none';
+  wrap.style.display = (document.getElementById('ex-src')?.value||'hw')==='hw' && examHwIds().length ? '' : 'none';   // لا بنك قبل اختيار نشاط
   const all=examHwBankAll();
   const c=document.getElementById('ex-hw-bank-count');
   if(!all.length){
@@ -7038,7 +7038,7 @@ function examStepSums(){
   parts.push(mc > 1 ? D(mc) + ' نماذج' : 'نموذج واحد');
   $s('tpl', parts.join(' · '));
   const src = v('ex-src') || 'hw';
-  const cnt = src === 'hw' ? document.getElementById('ex-hw-bank-count')?.textContent : document.getElementById('ex-bank-count')?.textContent;
+  const cnt = src === 'hw' ? (examHwIds().length ? document.getElementById('ex-hw-bank-count')?.textContent : '') : document.getElementById('ex-bank-count')?.textContent;
   $s('q', [opt('ex-src'), src === 'hw' ? (examHwIds().length ? D(examHwIds().length) + ' ' + (examHwIds().length === 1 ? 'نشاط' : 'أنشطة') : 'لم تختر نشاطًا') : '', cnt || ''].filter(Boolean).join(' · '));
   $s('head', [v('ex-title'), v('ex-subject'), v('ex-grade'), v('ex-school')].filter(Boolean).join(' · ') || 'لم تُعبأ');
   $s('look', [opt('ex-font').split('—')[0].trim(), 'خط ' + opt('ex-size').split('—')[0].trim(), document.getElementById('ex-hindi')?.checked ? 'أرقام عربية' : ''].filter(Boolean).join(' · '));
