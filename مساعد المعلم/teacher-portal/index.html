@@ -5610,7 +5610,10 @@ const OMR = (() => {
     if (darkOnly) return { fill: dark / (N * N), ink: sum / (N * N), paper, color: 0 };
     return { fill: Math.max(dark / (N * N), colorFill), ink: sum / (N * N), paper, color: +colorFill.toFixed(3) };
   }
-  const T = { blank: 0.07, mark: 0.14, rival: 0.45, second: 0.105, align: 6, alignSure: 3.5 };
+  const T = { blank: 0.07, mark: 0.14, rival: 0.45, second: 0.105, align: 6, alignSure: 3.5, tilt: 0.6, warp: 3 };
+  /* استقامة الالتقاط: نسبة الضلع الأقصر إلى مقابله (أعلى/أسفل ويمين/يسار) — 1 = الجوال موازٍ للورقة */
+  function tiltOf(q) { if (!Array.isArray(q) || q.length !== 4) return 1; const d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+    const t = d(q[0], q[1]), b = d(q[3], q[2]), l = d(q[0], q[3]), r = d(q[1], q[2]); return Math.min(Math.min(t, b) / (Math.max(t, b) || 1), Math.min(l, r) / (Math.max(l, r) || 1)); }
   function decide(fills) {
     const idx = fills.map((f, i) => [f.fill + f.ink * 0.5, i]).sort((a, b) => b[0] - a[0]);
     const [top, second] = [idx[0], idx[1] || [0, -1]];
@@ -5705,6 +5708,9 @@ const OMR = (() => {
     const pr = opts.prep || prepare(img, { ...opts, marks: M.marks, model: M });
     if (pr.error) return { ok: false, error: pr.error };
     const G = pr.G, found = pr.found;
+    // 📐 ميل شديد جدًا (الضلع البعيد أقل من 60% من القريب): المربعات البعيدة تصغر حتى لا تُقرأ بثقة. الميل المعتاد
+    // (حتى 30°) لا يضر: هندسة العلامات الأربع تقوّمه بدقة
+    if (!found.scan && !opts.noTilt) { const tl = tiltOf(found.quad); if (tl < T.tilt) return { ok: false, error: 'tilt', tilt: +tl.toFixed(3), quad: found.quad }; }
     const P = alignPage(G, found.quad, M, !!found.scan, null, found.rect, !!found.marks);
     const retryFrame = (why) => {
       if (found.marks) {                                               // العلامات لم تكفِ (نادر): الطريقة القديمة بحافة الورقة أو إطارها
@@ -5726,6 +5732,10 @@ const OMR = (() => {
       const r = searchSet(G, P.H, { lines: outlinePts(a, 1.5), boxes: inside.flatMap(q => q.boxes.map(r => outlinePts(r, 0.8))) }, 1.5, 2.5, 0.25, 0.9, [P.dx, P.dy]);   // مجموع النوافذ < نصف صف صح/خطأ (9.6 مم): لا انزلاق لصف مجاور
       secShift.set(a, [r.dx, r.dy]);
     }
+    // 📐 الورقة غير مستوية أو الصورة مشوهة: مع علامات الزوايا تطابق الأقسام هندستها (تصحيح ≈ 0–2 مم حتى بميل 30°).
+    // تصحيح أكبر يعني أن منتصف الصفحة ابتعد عنها، فقد تُقرأ مربعات صف مجاور بثقة — نرفض بدل أن نصحح إجابة خاطئة
+    if ((found.marks || found.flat) && !opts.noGate) { const warp = Math.max(0, ...[...secShift.values()].map(([x, y]) => Math.max(Math.abs(x), Math.abs(y))));
+      if (warp > T.warp) return { ok: false, error: 'warp', warp, code }; }
     const answers = M.questions.map((q, qi) => {
       const sec = secs.find(a => q.boxes.some(b => b[1] >= a[1] && b[1] <= a[1] + a[3]));
       const base = sec ? secShift.get(sec) : [P.dx, P.dy];
@@ -5750,7 +5760,7 @@ const OMR = (() => {
     const review = answers.filter(a => a.status !== 'ok').length;
     return { ok: true, code, scode: readSCode(G, P, M, !!(found.marks || found.flat)), answers, correct, review, H: P.H, quad: found.quad, pageScore: +P.score.toFixed(1), ms: Date.now() - t0, dbg: { via: found.marks ? 'marks' : found.frame ? 'frame' : found.scan ? 'scan' : 'paper', dx: P.dx, dy: P.dy, rot: P.rot, secs: [...secShift.values()] } };
   }
-  return { read, code, prepare, prepareFrame, findFrame, findMarks, gray, findPaper, homography, apply, T, _t: { readCode, readSCode, alignPage, searchSet, outlinePts, boxScore, edgeScore, decide } };
+  return { read, code, prepare, prepareFrame, findFrame, findMarks, gray, findPaper, homography, apply, T, tiltOf, _t: { readCode, readSCode, alignPage, searchSet, outlinePts, boxScore, edgeScore, decide } };
 })();
 
 /* ═══════════ 📷 المصحّح الآلي — واجهة بوابة المعلم ═══════════
@@ -5760,7 +5770,9 @@ const OMR = (() => {
 const OMRUI = { tpl:null, model:0, auto:false, testId:'', cls:'', stream:null, timer:0, busy:false, last:null, stable:0, result:null, sid:'', frozen:null };
 const OMR_MSG = { no_paper:'ضع الورقة كاملة داخل الإطار', cut:'ابتعد قليلًا — الورقة مقصوصة من الإطار',
   weak_align:'الورقة غير واضحة — أعد المسح أو قرّب الجوال', uneven:'مربعات الإجابة غير واضحة — قرّب الجوال أو زد الإضاءة أو افرد الورقة',
-  no_code:'لم يُقرأ رمز النموذج بجانب العنوان — قرّب الجوال، أو اختر النموذج يدويًا' };
+  no_code:'لم يُقرأ رمز النموذج بجانب العنوان — قرّب الجوال، أو اختر النموذج يدويًا',
+  tilt:'📐 الجوال مائل كثيرًا — اجعله فوق الورقة مباشرة',
+  warp:'📄 الورقة غير مستوية — افردها على سطح مستوٍ وصوّر من فوقها مباشرة' };
 const omrApi = p => API.replace(/\/+$/,'') + p;
 /* مجموع النموذج المختار نفسه: النماذج قد تحمل أسئلة مختلفة العدد */
 function omrTotals(mi = OMRUI.model){
@@ -6172,6 +6184,10 @@ function omrTick(){
   if(OMRUI.waitSwap && move > 0.15 && OMRUI.qprev) OMRUI.waitSwap = false;       // الورقة تحرّكت كثيرًا = ورقة أخرى
   OMRUI.qprev = q; OMRUI.still = move < 0.012 ? OMRUI.still + 1 : 0;
   if(!OMRUI.still){ OMRUI.acc = []; OMRUI.shHist = []; }                         // تحرّك: القراءات المجمّعة والوضوح يبدآن من جديد
+  // 📐 الجوال مائل بقوة: لا التقاط (الورقة المقوّمة تُقرأ لاحقًا كأنها مستقيمة فلا يُكشف الميل بعدها)
+  const tiltQ = OMR.tiltOf(pr.found.quad);
+  if(tiltQ < OMR.T.tilt){ OMRUI.acc = []; OMRUI.shHist = []; OMRUI.stable = 0; OMRUI.scanGeo = null;
+    omrDrawQuad(q, false, [vw, vh]); if(st) st.textContent = OMR_MSG.tilt; return; }
   omrDrawQuad(q, !OMRUI.waitSwap, [vw, vh], OMRUI.waitSwap);
   OMRUI.scanGeo = { rect: pr.found.rect || [0, 0, 210, 297], quad: pr.found.quad.map(([a, b]) => [a / sc, b / sc]), marks: !!pr.found.marks };   // للقص من اللقطة الكاملة
   if(OMRUI.forceShot && !OMRUI.waitSwap){ if(st) st.textContent = 'جارٍ القراءة…'; omrProcess(v, vw, vh, false); return; }   // زر الالتقاط: بلا انتظار والوضوح: على النسخة الصغيرة، داخل الورقة فقط (بإحداثيات الصفحة بالمم)
