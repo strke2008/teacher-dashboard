@@ -616,6 +616,8 @@ async function presReady(env) {
   return p;
 }
 /* 📄 أوراق الاختبار المصححة: omrp:<sid>:<test> (الصورة والدرجة)، وفهرس omrp:idx لكل اختبار: من رُفعت أوراقهم والنشر */
+/* أسئلة النموذج كلها بترتيب الورقة: الصفحة الأولى ثم التالية (اختيارات الطالب ch بهذا الترتيب) */
+const omrQs = M => !M ? [] : M.questions.concat(...(Array.isArray(M.more) ? M.more.map(p => p.questions || []) : []));
 async function omrPapersIdx(env) { try { const v = JSON.parse(await env.HW.get('omrp:idx') || '{}'); return v && typeof v === 'object' ? v : {}; } catch { return {}; } }
 /* 🩹 فهرس الأوراق من الأوراق المخزّنة نفسها: رفع عدة أوراق معًا كان يقرأ الفهرس ويكتبه بالتوازي فيمحو آخرُها ما سبقه —
    الورقة محفوظة (omrp:<sid>:<test>) لكنها خارج الفهرس فلا تظهر 📄 إلا لطالب واحد. للمعلم فقط (عملية list واحدة) ويُكتب الفهرس المصحَّح */
@@ -3878,7 +3880,7 @@ async function remFromExams(env, st) {
     if (w.om && w.om.t && Array.isArray(w.om.w) && w.om.w.length) {
       let tpl = null; try { tpl = JSON.parse(await env.HW.get(`omr:t:${String(w.om.t).replace(/[^A-Za-z0-9_-]/g, '')}`)); } catch {}
       const M = tpl && Array.isArray(tpl.models) ? (tpl.models[parseInt(w.om.m, 10) || 0] || tpl.models[0]) : null;
-      const qs = M ? M.questions.map(q => !q.q ? null : q.t === 'tf' ? { t: 'tf', q: q.q, a: q.key === 0 } : Array.isArray(q.o) ? { t: 'q', q: q.q, o: q.o, a: q.key } : null) : [];
+      const qs = M ? omrQs(M).map(q => !q.q ? null : q.t === 'tf' ? { t: 'tf', q: q.q, a: q.key === 0 } : Array.isArray(q.o) ? { t: 'q', q: q.q, o: q.o, a: q.key } : null) : [];
       const wi = w.om.w.map(Number).filter(i => qs[i]);
       if (wi.length) { const r = await remQuestionsFor(env, `ox:${w.om.t}:${parseInt(w.om.m, 10) || 0}`, qs, wi.slice(0, REM.maxQ)); q1 = r.q1; q2 = r.q2; fallback = r.fallback; fromExam = r.q1.length; }
     }
@@ -7375,16 +7377,22 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         const id = String(x.id || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40);
         const num = v => Number.isFinite(Number(v)) ? Number(v) : NaN;
         const rect = r => Array.isArray(r) && r.length === 4 && r.every(v => Number.isFinite(Number(v))) && num(r[2]) > 0 && num(r[3]) > 0;
+        const cleanQs = qs => (Array.isArray(qs) ? qs : []).slice(0, 60).filter(q => q && (q.t === 'mc' || q.t === 'tf' || q.t === 'mt') && Array.isArray(q.boxes) && q.boxes.length >= 2 && q.boxes.length <= 6 && q.boxes.every(rect) && Number.isInteger(q.key) && q.key >= 0 && q.key < q.boxes.length)
+            .map(q => ({ t: q.t, key: q.key, boxes: q.boxes.map(r => r.map(Number)),
+              ...(q.q ? { q: String(q.q).slice(0, 600) } : {}), ...(Array.isArray(q.o) && q.o.length === q.boxes.length ? { o: q.o.map(x => String(x || '').slice(0, 200)) } : {}) }));
         const models = (Array.isArray(x.models) ? x.models : []).slice(0, 6).map(m => ({
           letter: String(m.letter || '').slice(0, 2),
           anchors: (Array.isArray(m.anchors) ? m.anchors : []).filter(rect).slice(0, 20).map(r => r.map(Number)),
-          questions: (Array.isArray(m.questions) ? m.questions : []).slice(0, 60).filter(q => q && (q.t === 'mc' || q.t === 'tf' || q.t === 'mt') && Array.isArray(q.boxes) && q.boxes.length >= 2 && q.boxes.length <= 6 && q.boxes.every(rect) && Number.isInteger(q.key) && q.key >= 0 && q.key < q.boxes.length)
-            .map(q => ({ t: q.t, key: q.key, boxes: q.boxes.map(r => r.map(Number)),
-              ...(q.q ? { q: String(q.q).slice(0, 600) } : {}), ...(Array.isArray(q.o) && q.o.length === q.boxes.length ? { o: q.o.map(x => String(x || '').slice(0, 200)) } : {}) })),
+          questions: cleanQs(m.questions),
           mcode: m.mcode && Array.isArray(m.mcode.cells) && m.mcode.cells.length >= 2 && m.mcode.cells.length <= 6 && m.mcode.cells.every(rect) && Number.isInteger(m.mcode.on)
             ? { cells: m.mcode.cells.map(r => r.map(Number)), on: m.mcode.on } : null,
           ...(Array.isArray(m.marks) && m.marks.length === 4 && m.marks.every(rect) ? { marks: m.marks.map(r => r.map(Number)) } : {}),
           ...(m.scode && Array.isArray(m.scode.cells) && m.scode.cells.length === 20 && m.scode.cells.every(rect) ? { scode: { cells: m.scode.cells.map(r => r.map(Number)) } } : {}),
+          // 📄📄 الصفحات التالية بمربعات (القالب المصمَّم): خريطتها ووسمها المربع الذي يميزها
+          ...(Array.isArray(m.more) && m.more.length ? { more: m.more.slice(0, 5).map(pg => ({ page: Math.max(2, Math.min(9, Number(pg.page) || 2)),
+            anchors: (Array.isArray(pg.anchors) ? pg.anchors : []).filter(rect).slice(0, 20).map(r => r.map(Number)), questions: cleanQs(pg.questions),
+            marks: Array.isArray(pg.marks) && pg.marks.length === 4 && pg.marks.every(rect) ? pg.marks.map(r => r.map(Number)) : null, tag: rect(pg.tag) ? pg.tag.map(Number) : null }))
+            .filter(pg => pg.tag && pg.marks && pg.questions.length) } : {}),
           skipped: Math.max(0, Math.round(num(m.skipped) || 0)),
           total: Math.max(0, num(m.total) || 0)
         })).filter(m => m.questions.length);
@@ -7487,7 +7495,8 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       if (url.pathname === '/omr/regrade' && request.method === 'POST') {
         const id = String(b.tpl || '').replace(/[^A-Za-z0-9_-]/g, ''), mi = Number(b.model) || 0, keys = b.keys && typeof b.keys === 'object' ? b.keys : {};
         const raw = await env.HW.get(`omr:t:${id}`); if (!raw) return json({ ok: false, error: 'notfound' }, 404);
-        const tpl = JSON.parse(raw), M = tpl.models && tpl.models[mi]; if (!M) return json({ ok: false, error: 'model' }, 400);
+        const tpl = JSON.parse(raw), M0 = tpl.models && tpl.models[mi]; if (!M0) return json({ ok: false, error: 'model' }, 400);
+        const M = { questions: omrQs(M0) };   // الصفحات كلها
         let nk = 0;
         for (const [qi, k] of Object.entries(keys)) { const q = M.questions[Number(qi)], v = Number(k); if (q && Number.isInteger(v) && v >= 0 && v < q.boxes.length && q.key !== v) { q.key = v; nk++; } }
         if (!nk) return json({ ok: true, changed: [] });
@@ -7525,7 +7534,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         for (const sid of e.sids || []) {
           let r = null; try { r = JSON.parse(await env.HW.get(`omrp:${sid}:${t}`) || 'null'); } catch {}
           if (!r || !r.tpl || !Array.isArray(r.ch)) continue;
-          const tpl = await tplOf(r.tpl), M = tpl && tpl.models && tpl.models[r.model || 0]; if (!M) continue;
+          const tpl = await tplOf(r.tpl), M0 = tpl && tpl.models && tpl.models[r.model || 0]; if (!M0) continue; const M = { questions: omrQs(M0) };
           const wi = items.filter(x => x.tpl === r.tpl && x.m === (r.model || 0) && M.questions[x.i] && r.ch[x.i] !== M.questions[x.i].key).map(x => x.i);
           if (!wi.length) continue;
           const qs = M.questions.map(q => !q.q ? null : q.t === 'tf' ? { t: 'tf', q: q.q, a: q.key === 0 } : Array.isArray(q.o) ? { t: 'q', q: q.q, o: q.o, a: q.key } : null);

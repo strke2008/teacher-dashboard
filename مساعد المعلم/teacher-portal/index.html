@@ -3644,7 +3644,7 @@ function exkRender(){
   const body = $('exa-b'); if(!body) return;
   const old = EXK.papers.filter(p => !p.tpl).length;
   if(!EXK.sel){ body.innerHTML = `<p class="exa-note">أوراق هذا الاختبار صُوّرت قبل تحديث «إعادة التصحيح» فلا تحمل اختيارات الطلاب — الأوراق الجديدة تدعمه.${old ? ` (${old} ورقة)` : ''}</p>`; return; }
-  const [tid, mi] = EXK.sel.split(':'), T = EXK.tpls[tid], M = T.models[+mi], P = EXK.papers.filter(p => p.tpl === tid && (p.model || 0) === +mi);
+  const [tid, mi] = EXK.sel.split(':'), T = EXK.tpls[tid], M = { questions: omrQs(T.models[+mi]) }, P = EXK.papers.filter(p => p.tpl === tid && (p.model || 0) === +mi);
   const tabs = EXK.groups.length > 1 ? `<div class="exa-tabs">${EXK.groups.map(g => { const [a, b] = g.split(':'); return `<button type="button" class="${g === EXK.sel ? 'on' : ''}" onclick="EXK.sel='${g}';EXK.draft={};EXK.open=-1;exkRender()">نموذج (${esc(EXK.tpls[a].models[+b].letter || +b + 1)})</button>`; }).join('')}</div>` : '';
   const grid = M.questions.map((q, i) => { const d = EXK.draft[i], ch = d !== undefined && d !== q.key;
     return `<button type="button" class="exk-q${ch ? ' ch' : ''}${EXK.open === i ? ' op' : ''}" onclick="EXK.open=EXK.open===${i}?-1:${i};exkRender()"><small>س${i + 1}</small><b>${ch ? `${exkLab(q, q.key)} ← ${exkLab(q, d)}` : exkLab(q, q.key)}</b></button>`; }).join('');
@@ -3662,7 +3662,7 @@ function exkRender(){
     ${old ? `<p class="exa-note">${old} ${old === 1 ? 'ورقة صُوّرت' : 'أوراق صُوّرت'} قبل التحديث لا تُعاد تلقائيًا.</p>` : ''}`;
 }
 async function exkApply(){
-  const [tid, mi] = EXK.sel.split(':'), T = EXK.tpls[tid], M = T.models[+mi];
+  const [tid, mi] = EXK.sel.split(':'), T = EXK.tpls[tid], M = { questions: omrQs(T.models[+mi]) };
   const keys = {}; Object.entries(EXK.draft).forEach(([i, v]) => { if(M.questions[i] && v !== M.questions[i].key) keys[i] = v; });
   if(!Object.keys(keys).length) return;
   const body = $('exa-b'); body.innerHTML = '<p class="exa-note">جارٍ إعادة التصحيح…</p>';
@@ -3671,7 +3671,7 @@ async function exkApply(){
     const newKeys = j.keys || M.questions.map(q => q.key), oldKeys = M.questions.map(q => q.key);
     M.questions.forEach((q, i) => { q.key = newKeys[i]; });
     // نسخة الجوال من القالب ودفعة الأوراق غير المحفوظة: المفتاح الجديد
-    if(OMRUI.tpl && OMRUI.tpl.id === tid && OMRUI.tpl.models[+mi]) OMRUI.tpl.models[+mi].questions.forEach((q, i) => { q.key = newKeys[i]; });
+    if(OMRUI.tpl && OMRUI.tpl.id === tid && OMRUI.tpl.models[+mi]) omrQs(OMRUI.tpl.models[+mi]).forEach((q, i) => { q.key = newKeys[i]; });
     (OMRUI.sheets || []).filter(sh => !sh.saved && sh.model === +mi && sh.key && sh.key.startsWith(tid + '|')).forEach(sh => { sh.answers.forEach((a, i) => { if(newKeys[i] !== undefined) a.key = newKeys[i]; }); OMRDB.put(sh); });
     // الدرجات في الدفتر المحلي (الخادم حدّثها بطابع أحدث)
     const b = examBook();
@@ -3706,7 +3706,7 @@ async function exAnaOpen(){
 }
 function exaData(){
   const Q = new Map(), P = EXK.papers.filter(p => p.tpl && EXK.tpls[p.tpl] && Array.isArray(p.ch));
-  P.forEach(p => { const M = EXK.tpls[p.tpl].models[p.model || 0]; if(!M) return;
+  P.forEach(p => { const M0 = EXK.tpls[p.tpl].models[p.model || 0]; if(!M0) return; const M = { questions: omrQs(M0) };
     M.questions.forEach((q, i) => { const k = q.q ? 'q:' + String(q.q).replace(/\s+/g, ' ').trim() : `i:${p.tpl}:${p.model || 0}:${i}`;
       let e = Q.get(k); if(!e){ e = { k, q, no: i + 1, n: 0, ok: 0, opt: new Map(), blank: 0, at: [] }; Q.set(k, e); }
       if(!e.at.some(x => x.tpl === p.tpl && x.m === (p.model || 0))) e.at.push({ tpl: p.tpl, m: p.model || 0, i });
@@ -3724,7 +3724,7 @@ function exaRender(){
   const avg = P.length ? +(P.reduce((t, p) => t + (Number(p.score) || 0), 0) / P.length).toFixed(1) : 0, mx = P[0] ? P[0].max : 0;
   const hard = L.filter(e => e.n >= Math.min(3, P.length)).sort((a, b) => a.pct - b.pct).slice(0, 3).filter(e => e.pct < 80);
   const mis = hard.map(e => { const w = e.opts.find(o => !o.key); return w && w.n >= 2 && w.n >= (e.n - e.ok) * 0.3 ? { e, w } : null; }).filter(Boolean)[0];
-  const who = new Set(); hard.forEach(e => P.forEach(p => { const a = e.at.find(x => x.tpl === p.tpl && x.m === (p.model || 0)); if(a && p.ch[a.i] !== EXK.tpls[p.tpl].models[p.model || 0].questions[a.i].key) who.add(p.sid); }));
+  const who = new Set(); hard.forEach(e => P.forEach(p => { const a = e.at.find(x => x.tpl === p.tpl && x.m === (p.model || 0)); if(a && p.ch[a.i] !== omrQs(EXK.tpls[p.tpl].models[p.model || 0])[a.i].key) who.add(p.sid); }));
   const col = v => v < 50 ? 'r' : v < 75 ? 'a' : 'g';
   const list = (EXA.sort === 'hard' ? L.slice().sort((a, b) => a.pct - b.pct) : L.slice().sort((a, b) => a.no - b.no));
   body.innerHTML = `<p class="exa-note" style="margin-top:0">${P.length} ${P.length === 1 ? 'ورقة' : 'أوراق'} · المتوسط ${avg} من ${mx}${old ? ` · ${old} ${old === 1 ? 'ورقة قديمة' : 'أوراق قديمة'} خارج التحليل` : ''}</p>
@@ -5804,6 +5804,14 @@ const OMR = (() => {
       ? { status: 'ok', pick: top[1], light: true } : { status: 'faint', pick: top[1] };
     return { status: 'ok', pick: top[1] };
   }
+  /* أي صفحة هذه؟ مربع الوسم ممتلئ في موضع صفحة تالية = هي (الأولى بلا وسم). من العلامات الأربع وحدها (لا محاذاة محتوى) */
+  function pageOf(pr, M) {
+    const f = pr && pr.found; if (!f || !(f.marks || f.flat) || !Array.isArray(M.more)) return null;
+    const R = f.rect || [0, 0, PAPER.w, PAPER.h], H0 = homography([[R[0], R[1]], [R[0] + R[2], R[1]], [R[0] + R[2], R[1] + R[3]], [R[0], R[1] + R[3]]], f.quad);
+    let best = null;
+    for (const pg of M.more) { if (!pg.tag) continue; const v = boxFill(pr.G, H0, pg.tag, 0, 0, true).fill; if (v >= 0.5 && (!best || v > best.v)) best = { pg, v }; }
+    return best ? best.pg : null;
+  }
   /* مستوى تظليل الطالب في الورقة: وسيط أقوى مربع في الأسئلة المحسومة (3 فأكثر)، ثم يُعاد الحكم على الخفيف به */
   function refineSheet(answers) {
     // كل علامة نظيفة تُحسب (الخفيفة أيضًا): طالب يظلل بالرصاص في كل الورقة مستواه منخفض فتُقبل علاماته
@@ -5900,6 +5908,8 @@ const OMR = (() => {
     // 📐 ميل شديد جدًا (الضلع البعيد أقل من 60% من القريب): المربعات البعيدة تصغر حتى لا تُقرأ بثقة. الميل المعتاد
     // (حتى 30°) لا يضر: هندسة العلامات الأربع تقوّمه بدقة
     if (!found.scan && !opts.noTilt) { const tl = tiltOf(found.quad); if (tl < T.tilt) return { ok: false, error: 'tilt', tilt: +tl.toFixed(3), quad: found.quad }; }
+    // 📄📄 اختبار من عدة صفحات: وسم الصفحة (مربع أسود بجانب رقمها) يُقرأ من هندسة العلامات نفسها — الصفحة الثانية تُقرأ بخريطتها
+    if (Array.isArray(M.more) && M.more.length && !opts.page) { const pg = pageOf(pr, M); if (pg) { const r2 = read(null, { ...pg, mcode: null }, { ...opts, prep: pr, page: pg.page, t0 }); return r2.ok ? { ...r2, page: pg.page } : { ...r2, page: pg.page }; } }
     const P = alignPage(G, found.quad, M, !!found.scan, null, found.rect, !!found.marks);
     const retryFrame = (why) => {
       if (found.marks) {                                               // العلامات لم تكفِ (نادر): الطريقة القديمة بحافة الورقة أو إطارها
@@ -5977,7 +5987,7 @@ const OMR = (() => {
     const review = answers.filter(a => a.status !== 'ok').length;
     return { ok: true, code, scode: readSCode(G, P, M, !!(found.marks || found.flat)), answers, correct, review, H: P.H, quad: found.quad, pageScore: +P.score.toFixed(1), ms: Date.now() - t0, dbg: { via: found.marks ? 'marks' : found.frame ? 'frame' : found.scan ? 'scan' : 'paper', dx: P.dx, dy: P.dy, rot: P.rot, secs: [...secShift.values()] } };
   }
-  return { read, code, prepare, prepareFrame, findFrame, findMarks, gray, findPaper, homography, apply, T, tiltOf, _t: { readCode, readSCode, alignPage, searchSet, outlinePts, boxScore, edgeScore, decide, refineSheet } };
+  return { read, code, prepare, prepareFrame, findFrame, findMarks, gray, findPaper, homography, apply, T, tiltOf, pageOf, _t: { readCode, readSCode, alignPage, searchSet, outlinePts, boxScore, edgeScore, decide, refineSheet } };
 })();
 
 /* ═══════════ 📷 المصحّح الآلي — واجهة بوابة المعلم ═══════════
@@ -5989,11 +5999,14 @@ const OMR_MSG = { no_paper:'ضع الورقة كاملة داخل الإطار',
   weak_align:'الورقة غير واضحة — أعد المسح أو قرّب الجوال', uneven:'مربعات الإجابة غير واضحة — قرّب الجوال أو زد الإضاءة أو افرد الورقة',
   no_code:'لم يُقرأ رمز النموذج بجانب العنوان — قرّب الجوال، أو اختر النموذج يدويًا',
   tilt:'📐 الجوال مائل كثيرًا — اجعله فوق الورقة مباشرة',
-  warp:'📄 الورقة غير مستوية — افردها على سطح مستوٍ وصوّر من فوقها مباشرة' };
+  warp:'📄 الورقة غير مستوية — افردها على سطح مستوٍ وصوّر من فوقها مباشرة',
+  page_alone:'📄📄 هذه صفحة تالية — صوّر الصفحة الأولى للطالب قبلها' };
 const omrApi = p => API.replace(/\/+$/,'') + p;
 /* مجموع النموذج المختار نفسه: النماذج قد تحمل أسئلة مختلفة العدد */
+/* أسئلة النموذج كلها بترتيب الورقة: الصفحة الأولى ثم التالية */
+const omrQs = M => !M ? [] : M.questions.concat(...(M.more || []).map(p => p.questions || []));
 function omrTotals(mi = OMRUI.model){
-  const T = OMRUI.tpl, M = T.models[mi], mark = Number(T.mark)||1, auto = M.questions.length*mark;
+  const T = OMRUI.tpl, M = T.models[mi], mark = Number(T.mark)||1, auto = omrQs(M).length*mark;
   return { auto, total: Number(M.total) || (mi === 0 ? Number(T.total) : 0) || auto };
 }
 /* ✍️ الجزء اليدوي (مقالي/فراغات/أسئلة خارج الصفحة الأولى): المعلم يكتب درجته فتُرصد الدرجة كاملة —
@@ -6064,10 +6077,13 @@ async function omrScan(){
   OMRUI.queue = []; OMRUI.qi = 0; OMRUI.skipped = []; OMRUI.savedN = 0;
   let bp = '1'; try{ bp = localStorage.getItem('omr_batch') ?? '1'; }catch(e){}
   OMRUI.batch = bp === '1';
+  const multi = !!(OMRUI.tpl && OMRUI.tpl.models.some(m => m.more && m.more.length));
+  if(multi) OMRUI.batch = true;          // 📄📄 اختبار من عدة صفحات: تُضم الصفحات في الدفعة (كل صفحة تتبع صفحتها الأولى)
   await omrBatchLoad();
   $('omr-body').innerHTML = `
     <label class="omr-batch-tg"><span><b>📚 تصوير الفصل ثم ربط الأسماء</b><small>صوّر الأوراق كلها متتالية، ثم اربط كل ورقة بصاحبها من اسمه المكتوب</small></span>
-      <input type="checkbox" class="omr-switch" id="omr-batch" ${OMRUI.batch?'checked':''} onchange="omrBatchToggle(this.checked)"></label>
+      <input type="checkbox" class="omr-switch" id="omr-batch" ${OMRUI.batch?'checked':''} ${multi?'disabled':''} onchange="omrBatchToggle(this.checked)"></label>
+    ${multi ? `<p class="omr-note omr-hintline">📄📄 هذا الاختبار من ${1 + Math.max(...OMRUI.tpl.models.map(m => (m.more || []).length))} صفحات تُصحَّح كلها: صوّر لكل طالب الصفحة الأولى ثم الثانية، وتُضم وحدها إلى ورقته.</p>` : ''}
     <button class="btn primary wide omr-match-btn" id="omr-match-btn" type="button" onclick="omrMatch()" style="display:none"></button>
     <div class="omr-stu-row" ${OMRUI.batch?'style="display:none"':''}>${omrStudentsSelect()}</div>
     <div class="omr-pick" id="omr-pick">
@@ -6511,6 +6527,9 @@ function omrProcess(src, w, h, single){
     if(OMRUI.auto){
       const cr = OMR.code(img, T.models[0], { noScan: !single, prep: flatPrep });
       if(!cr.ok) r = { ok:false, error:cr.error };
+      else if((cr.code === null || cr.code === undefined) && OMR.pageOf(cr.prep, T.models[0])){
+        // 📄📄 صفحة تالية (لا رمز نموذج فيها): نموذجها نموذج الصفحة الأولى التي تنتظرها في الدفعة
+        const w = omrPageTarget(); if(!w) r = { ok:false, error:'page_alone' }; else { OMRUI.model = w.model; r = OMR.read(img, T.models[w.model], { prep: cr.prep }); } }
       else if(cr.code === null || cr.code === undefined || !T.models[cr.code]) r = { ok:false, error:'no_code' };   // لا تصحيح بمفتاح غير مؤكد
       else { OMRUI.model = cr.code; r = OMR.read(img, T.models[cr.code], { prep: cr.prep }); }
     } else r = OMR.read(img, T.models[OMRUI.model], { noScan: !single, ...(flatPrep ? { prep: flatPrep } : {}) });
@@ -6761,12 +6780,30 @@ function omrIsDup(sh){
     return omrStripDiff(o.vec, sh.vec) <= OMR_NAME_SAME;
   });
 }
+/* 📄📄 الصفحة التالية تُضم لآخر ورقة في الدفعة تنتظرها (التصوير بالترتيب: ١ ثم ٢ لكل طالب) */
+function omrPageTarget(page){ const S = (OMRUI.sheets || []).filter(s => !s.saved && s.answers.some(a => a.status === 'nopage' && (!page || a.pg === page))); return S.length ? S[S.length - 1] : null; }
+function omrPagePlaceholders(M, from){ let i = from; return (M.more || []).flatMap(pg => pg.questions.map(q => ({ i: i++, t: q.t, key: q.key, status: 'nopage', pick: -1, final: null, pg: pg.page, boxes: null }))); }
+function omrBatchAddPage(r, c, sig){
+  const sh = omrPageTarget(r.page), st = $('omr-status');
+  if(!sh){ omrBeep(false); if(st) st.textContent = OMR_MSG.page_alone; if(OMRUI.stream){ OMRUI.waitSwap = true; OMRUI.savedSig = sig; } return; }
+  const k = Math.min(1, 1100 / Math.max(c.width, c.height)), sm = document.createElement('canvas');
+  sm.width = Math.round(c.width * k); sm.height = Math.round(c.height * k); sm.getContext('2d').drawImage(c, 0, 0, sm.width, sm.height);
+  sh.pages = sh.pages || {}; sh.pages[r.page] = { H: r.H, fs: k, img: sm.toDataURL('image/jpeg', 0.6) };
+  let j = 0; sh.answers = sh.answers.map(a => { if(a.status !== 'nopage' || a.pg !== r.page) return a; const b = r.answers[j++]; if(!b) return a;
+    const x = { i: a.i, t: b.t, key: b.key, status: b.status, pick: b.pick, ...(b.alt >= 0 ? { alt: b.alt } : {}), boxes: b.boxes, pg: r.page, ...(Array.isArray(b.fills) ? { fills: b.fills } : {}) }; x.final = omrFinalOf(x); return x; });
+  OMRDB.put(sh); omrBeep(true); omrBatchCounter();
+  const who = sh.sid ? list('').find(x => String(x.id) === String(sh.sid)) : null;
+  if(st) st.textContent = `✓ الصفحة ${r.page} ضُمّت إلى ${who ? who.name : 'الورقة ' + (OMRUI.sheets.indexOf(sh) + 1)} — ضع الورقة التالية`;
+  if(sh.autoSave && !sh.answers.some(a => a.final === null)) omrAutoSave(sh);
+  if(OMRUI.stream){ OMRUI.waitSwap = true; OMRUI.savedSig = sig; if(OMRUI.scanMode) omrScanPause(sh, false); }
+}
 function omrBatchAdd(r, c, img, sig, single){
+  if(r.page > 1) return omrBatchAddPage(r, c, sig);
   const M = OMRUI.tpl.models[OMRUI.model], strip = omrNameStrip(r, img, M);
   const k = Math.min(1, 1100 / Math.max(c.width, c.height)), sm = document.createElement('canvas');
   sm.width = Math.round(c.width * k); sm.height = Math.round(c.height * k); sm.getContext('2d').drawImage(c, 0, 0, sm.width, sm.height);
   const sh = { id: Date.now() + '-' + Math.random().toString(36).slice(2, 7), key: omrBatchKey(), at: Date.now(), model: OMRUI.model,
-    answers: r.answers.map(a => ({ i: a.i, t: a.t, key: a.key, status: a.status, pick: a.pick, ...(a.alt >= 0 ? { alt: a.alt } : {}), final: omrFinalOf(a), boxes: a.boxes, ...(Array.isArray(a.fills) ? { fills: a.fills } : {}) })),
+    answers: r.answers.map(a => ({ i: a.i, t: a.t, key: a.key, status: a.status, pick: a.pick, ...(a.alt >= 0 ? { alt: a.alt } : {}), final: omrFinalOf(a), boxes: a.boxes, ...(Array.isArray(a.fills) ? { fills: a.fills } : {}) })).concat(omrPagePlaceholders(M, r.answers.length)),
     H: r.H, fs: k, img: sm.toDataURL('image/jpeg', 0.6), name: strip.url, vec: strip.vec, pv: omrPageVec(r), sid: null, saved: false };
   const who = omrStudentOf(r.scode); if(who){ sh.sid = who.id; sh.autoSid = true; }      // 🧾 ورقة باسمه: رُبطت وحدها
   else if(M.scode) sh.noCode = true;                                                  // اختبار بأوراق أسماء لكن الرمز لم يُقرأ
@@ -6858,7 +6895,7 @@ function omrBatchCardDraw(sh, id = 'omr-bimg'){
     cv.width = Math.round(ok ? x1 - x0 : im.naturalWidth); cv.height = Math.round(ok ? y1 - y0 : im.naturalHeight);
     const x = cv.getContext('2d'); x.drawImage(im, -ox, -oy);
     const P = (X, Y) => OMR.apply(sh.H, X, Y).map((v, j) => v * sh.fs - (j ? oy : ox));
-    sh.answers.forEach(a => { if(!a.boxes) return;
+    sh.answers.forEach(a => { if(!a.boxes || a.pg > 1) return;                     // أسئلة الصفحات التالية ليست على صورة الصفحة الأولى
       const show = a.final === null || a.final === -2 ? (a.pick >= 0 ? [a.pick].concat(a.alt >= 0 ? [a.alt] : []) : a.boxes.map((_, k) => k)) : a.final >= 0 ? [a.final] : [];
       const col = a.final === null ? '#F59E0B' : a.final === a.key ? '#16A34A' : '#DC2626';
       x.setLineDash(a.final === null && a.pick < 0 ? [5, 4] : []);                 // فارغ: إطار متقطع خفيف
@@ -6928,7 +6965,7 @@ function omrMatchRender(){
     <div class="omr-mhead"><b>🔗 ربط الأوراق</b><span>${done} من ${S.length} محفوظة</span></div>
     ${(() => { const rd = S.filter(x => !x.saved && x.sid && !x.answers.some(a => a.final === null) && omrManualOk(x.manual, x.model)).length;
       return rd ? `<button class="btn primary wide omr-saveall" type="button" onclick="omrSaveReady()">💾 حفظ الأوراق المربوطة المكتملة (${rd})</button>` : ''; })()}
-    ${(() => { const n = S.filter(x => !x.saved).reduce((t, x) => t + x.answers.filter(a => a.final === null).length, 0);
+    ${(() => { const n = S.filter(x => !x.saved).reduce((t, x) => t + x.answers.filter(a => a.final === null && a.status !== 'nopage').length, 0);
       return n ? `<button class="btn wide omr-revbtn" type="button" onclick="omrRevOpen()">🔍 مراجعة المعلّق (${n}) — سؤالًا سؤالًا في شاشة واحدة</button>` : ''; })()}
     <div class="omr-row"><button class="btn ghost" type="button" onclick="omrBackToCapture()">➕ تصوير المزيد</button>
       <button class="btn ghost" type="button" onclick="omrBatchClear()">${done===S.length && S.length ? '✓ إنهاء وحذف الصور' : '🗑️ حذف الدفعة'}</button></div>
@@ -6940,7 +6977,7 @@ function omrMatchRender(){
       return `<div class="omr-mc${s.saved ? ' saved' : ''}${open ? ' open' : ''}" id="mc-${s.id}">
         <button type="button" class="omr-mtop" onclick="omrMatchOpen('${s.id}')">
           <img class="omr-name" src="${s.name}" alt="شريط الاسم">
-          <span class="omr-mline"><b>${sc.pending ? '؟' : sc.raw}</b> / ${sc.auto}${sc.needMan ? (sc.manOk ? ` + ✍️ ${Number(s.manual)} = <b>${sc.full}</b> / ${sc.total}` : ` · <i class="omr-pend">✍️ الجزء اليدوي</i>`) : ''}${ml}${sc.pending ? ` · <i class="omr-pend">⚠️ ${sc.pending} للتأكيد</i>` : ''}${s.saved ? ` · <i class="omr-ok">✓ ${esc(who ? who.name : '')}</i>` : who ? ` · ${s.autoSid ? '🧾 ' : ''}${esc(who.name)}` : s.noCode ? ' · <i class="omr-pend">🧾 رمز الاسم لم يُقرأ — اختر الطالب</i>' : ''}</span>
+          <span class="omr-mline"><b>${sc.pending ? '؟' : sc.raw}</b> / ${sc.auto}${sc.needMan ? (sc.manOk ? ` + ✍️ ${Number(s.manual)} = <b>${sc.full}</b> / ${sc.total}` : ` · <i class="omr-pend">✍️ الجزء اليدوي</i>`) : ''}${ml}${s.answers.some(a => a.status === 'nopage') ? ` · <i class="omr-pend">📄 صفحة ناقصة</i>` : ''}${sc.pending - s.answers.filter(a => a.status === 'nopage').length > 0 ? ` · <i class="omr-pend">⚠️ ${sc.pending - s.answers.filter(a => a.status === 'nopage').length} للتأكيد</i>` : ''}${s.saved ? ` · <i class="omr-ok">✓ ${esc(who ? who.name : '')}</i>` : who ? ` · ${s.autoSid ? '🧾 ' : ''}${esc(who.name)}` : s.noCode ? ' · <i class="omr-pend">🧾 رمز الاسم لم يُقرأ — اختر الطالب</i>' : ''}</span>
         </button>
         ${open && !s.saved ? omrMatchBody(s, used) : ''}
       </div>`; }).join('')}</div>`;
@@ -6950,10 +6987,13 @@ function omrMatchRender(){
 function omrMatchBody(s, used){
   const L = ['أ','ب','ج','د','هـ','و'], M = OMRUI.tpl.models[s.model];
   const why = { multi:'مربعان معلّمان', faint:'علامة باهتة', blank:'لم يُعلَّم شيء', unaligned:'لم يتضح المربع', glare:'لمعة ضوء فوقه' };
-  const pend = s.answers.map((a, i) => ({ a, i })).filter(x => x.a.final === null);
+  const pend = s.answers.map((a, i) => ({ a, i })).filter(x => x.a.final === null && x.a.status !== 'nopage');
+  const missP = [...new Set(s.answers.filter(a => a.status === 'nopage').map(a => a.pg))];
   const b = examBook();
   const studs = list(OMRUI.cls).filter(x => !used.has(String(x.id)) || String(x.id) === String(s.sid));
   return `<div class="omr-mbody">
+    ${missP.map(pg => `<div class="omr-fixbox omr-misspg"><b>📄 الصفحة ${pg} لم تُصوَّر</b><small class="omr-qtxt">صوّرها الآن («➕ تصوير المزيد») فتُضم لهذه الورقة، أو احسبها بلا إجابة إن لم يحلّها الطالب.</small>
+      <div class="omr-opts"><button type="button" class="btn ghost" onclick="omrPageBlank('${s.id}',${pg})">احسب الصفحة ${pg} بلا إجابة</button></div></div>`).join('')}
     ${pend.map(({ a, i }) => { const n = M.questions[i].boxes.length, opts = a.t === 'tf' ? [[0,'صح'],[1,'خطأ']] : Array.from({ length:n }, (_, k) => [k, a.t === 'mt' ? String(k+1) : L[k]]);
       const qt = M.questions[i].q ? esc(String(M.questions[i].q).slice(0, 90)) : '';
       return `<div class="omr-fixbox"><b>السؤال ${i+1} — ${why[a.status] || ''}</b>${qt ? `<small class="omr-qtxt">${qt}</small>` : ''}<div class="omr-crop" id="crop-${s.id}-${i}"></div>
@@ -6972,7 +7012,7 @@ function omrMatchBody(s, used){
    الورقة التي اكتملت وهي مربوطة بطالب تُرصد فورًا كما في «ربط الأوراق» */
 const OMRQ = { items:[], pos:0, hist:[] };
 const OMR_WHY = { multi:'☑️☑️ تظليل خيارين', faint:'✏️ تظليل باهت', blank:'⬜ لم يُعلَّم شيء', unaligned:'🔲 لم يتضح المربع', glare:'✨ لمعة ضوء فوقه' };
-function omrRevItems(){ const out = []; OMRUI.sheets.filter(s => !s.saved).sort((a, b) => a.at - b.at).forEach(s => s.answers.forEach((a, i) => { if(a.final === null) out.push({ id:s.id, i }); })); return out; }
+function omrRevItems(){ const out = []; OMRUI.sheets.filter(s => !s.saved).sort((a, b) => a.at - b.at).forEach(s => s.answers.forEach((a, i) => { if(a.final === null && a.status !== 'nopage') out.push({ id:s.id, i }); })); return out; }
 function omrRevOpen(){ OMRQ.items = omrRevItems(); OMRQ.pos = 0; OMRQ.hist = []; OMRQ.total = OMRQ.items.length; if(!OMRQ.items.length){ omrMatchRender(); return; } omrRevRender(); }
 function omrRevRender(){
   const it = OMRQ.items[0], body = $('omr-body'); if(!body) return;
@@ -6999,7 +7039,7 @@ function omrRevRender(){
     </div>
     ${next ? `<p class="omr-note" style="margin:10px 2px 4px">التالي:</p>${next}` : ''}
     <div class="omr-row"><button class="btn ghost" type="button" onclick="omrRevBack()" ${OMRQ.hist.length ? '' : 'disabled'}>↩︎ السابق</button><button class="btn ghost" type="button" onclick="omrMatchRender()">✓ إنهاء المراجعة</button></div>`;
-  [it, ...OMRQ.items.slice(1, 3)].forEach(x => { const ss = OMRUI.sheets.find(y => y.id === x.id), bx = $(`rq-${x.id}-${x.i}`); if(ss && bx && ss.answers[x.i].boxes) omrRowCrop(bx, ss.img, ss.H, ss.fs, ss.answers[x.i], x.i); });
+  [it, ...OMRQ.items.slice(1, 3)].forEach(x => { const ss = OMRUI.sheets.find(y => y.id === x.id), bx = $(`rq-${x.id}-${x.i}`); if(ss && bx && ss.answers[x.i].boxes){ const pi = omrPageImg(ss, ss.answers[x.i]); omrRowCrop(bx, pi.img, pi.H, pi.fs, ss.answers[x.i], x.i); } });
 }
 async function omrRevSet(v){
   const it = OMRQ.items[0]; if(!it) return; const s = OMRUI.sheets.find(x => x.id === it.id); if(!s) return;
@@ -7052,7 +7092,7 @@ async function omrPaperImage(src, H, fs, answers, val, max){
   }
   x.putImageData(D, 0, 0);
   const base = out.toDataURL('image/jpeg', .6);
-  const qb = answers.map(a => (a.boxes || []).map(b => [b.r[0] + b.dx, b.r[1] + b.dy, b.r[2], b.r[3]].map(v => +v.toFixed(2))));
+  const qb = answers.map(a => a.pg > 1 ? [] : (a.boxes || []).map(b => [b.r[0] + b.dx, b.r[1] + b.dy, b.r[2], b.r[3]].map(v => +v.toFixed(2))));
   const D2 = omrPaperDraw(x, kp, answers, val, max);
   return { img: out.toDataURL('image/jpeg', .7), marks: D2.marks, keyBoxes: D2.keyBoxes, base, qb };
 }
@@ -7060,7 +7100,7 @@ async function omrPaperImage(src, H, fs, answers, val, max){
 function omrPaperDraw(x, kp, answers, val, max){
   const marks = [], keyBoxes = [];
   answers.forEach(a => {
-    const f = a.final, boxes = a.boxes || [];
+    const f = a.final, boxes = a.pg > 1 ? [] : (a.boxes || []);                     // صورة الورقة = الصفحة الأولى: أسئلة التالية بلا إطارات
     marks.push(f === null || f === undefined || f < 0 ? ((f === -1 || f === -2) && a.key >= 0 ? 0 : -1) : f === a.key ? 1 : 0);
     // المزدوجة (−2): إطاران أحمران على الخيارين
     for(const k of f === -2 ? [a.pick, a.alt] : (f !== null && f !== undefined && f >= 0 ? [f] : [])){ const b = boxes[k]; if(!b) continue; const [bx, by, bw, bh] = b.r, m = 1.1;
@@ -7131,10 +7171,15 @@ async function omrSheetSave(s){
   OMRUI.openId = (OMRUI.sheets.find(x => !x.saved) || {}).id || null;
   omrMatchRender();
 }
+/* صورة الصفحة التي فيها السؤال: الأولى، أو صفحة تالية ضُمّت للورقة */
+function omrPageImg(s, a){ const p = a && a.pg > 1 && s.pages && s.pages[a.pg]; return p ? p : { img: s.img, H: s.H, fs: s.fs }; }
 function omrSheetCrop(s, i){
   const box = $(`crop-${s.id}-${i}`), a = s.answers[i]; if(!box || !a.boxes) return;
-  omrRowCrop(box, s.img, s.H, s.fs, a, i);
+  const p = omrPageImg(s, a); omrRowCrop(box, p.img, p.H, p.fs, a, i);
 }
+/* صفحة لم تُصوَّر: يحسبها المعلم بلا إجابة (لم يحلّها الطالب) أو يصوّرها لتُضم */
+function omrPageBlank(id, pg){ const s = OMRUI.sheets.find(x => x.id === id); if(!s) return; s.answers.forEach(a => { if(a.status === 'nopage' && a.pg === pg){ a.final = -1; a.status = 'blank'; } }); OMRDB.put(s);
+  if(s.sid && !s.answers.some(a => a.final === null) && omrManualOk(s.manual, s.model)) omrSheetSave(s); else omrMatchRender(); }
 function omrSheetView(id){
   const s = OMRUI.sheets.find(x => x.id === id); if(!s) return;
   const o = document.createElement('div'); o.className = 'omr-full'; o.onclick = () => o.remove();

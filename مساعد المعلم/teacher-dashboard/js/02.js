@@ -5931,8 +5931,8 @@ function currentPaperExamPayload(){
 /* ═══ 📷 التصحيح الآلي: «خريطة الإجابة» من الورقة المرسومة نفسها ═══
    الورقة لا تتغير. نقيس موقع كل مربع بالمليمتر من الصفحة الأولى كما رسمها examBuild،
    ونقرأ مفتاح الإجابة من نسخة «نموذج الإجابة» لكل نموذج، ثم نرسلها للخادم لتقرأها بوابة المعلم. */
-function omrMeasure(){
-  const page=document.querySelector('#exam-paper .exam-page'); if(!page) return null;
+function omrMeasure(pageEl){
+  const page=pageEl||document.querySelector('#exam-paper .exam-page'); if(!page) return null;
   const pr=page.getBoundingClientRect(), k=210/pr.width;          // مم لكل بكسل (يصمد لأي تكبير في المعاينة)
   const R=el=>{ const r=el.getBoundingClientRect(); return [ +((r.left-pr.left)*k).toFixed(2), +((r.top-pr.top)*k).toFixed(2), +(r.width*k).toFixed(2), +(r.height*k).toFixed(2) ]; };
   const anchors=[...page.querySelectorAll('.ex-sec, .ex-title, .ex-student')].map(R).filter(r=>r[2]>8&&r[3]>5);
@@ -5950,12 +5950,13 @@ function omrMeasure(){
     if(boxes.length>=2 && key>=0) questions.push({ t:mc?'mc':mt?'mt':'tf', boxes, key, ...(qt?{q:qt}:{}), ...((mc||mt)&&opts.length===boxes.length&&opts.every(Boolean)?{o:opts}:{}) });
   });
   const allQ=document.querySelectorAll('#exam-paper .ex-q, #exam-paper .ex-tf, #exam-paper .ex-amtq').length;
+  const ptag=page.querySelector(':scope > .ex-ptag');                    // وسم الصفحة (٢ فما بعد): يعرف به الجوال أي صفحة صوّرها
   const cells=[...page.querySelectorAll('.ex-mcode i')];
   const mcode=cells.length>1 ? { cells:cells.map(R), on:cells.findIndex(c=>c.classList.contains('on')) } : null;   // رمز النموذج
   const sc=[...page.querySelectorAll('.ex-scode i')];
   const scode=sc.length===20 ? { cells:sc.map(R) } : null;              // رمز الطالب في أوراق الأسماء
   const fid=[...page.querySelectorAll(':scope > .ex-fid')].map(R);   // علامات الزوايا: أعلى اليسار، أعلى اليمين، أسفل اليمين، أسفل اليسار (المفرّغة)
-  return { anchors, questions, mcode, ...(fid.length===4?{marks:fid}:{}), ...(scode?{scode}:{}), skipped: allQ-questions.length, pageH:+(pr.height*k).toFixed(1) };
+  return { anchors, questions, mcode, ...(fid.length===4?{marks:fid}:{}), ...(scode?{scode}:{}), ...(ptag?{tag:R(ptag)}:{}), skipped: allQ-questions.length, pageH:+(pr.height*k).toFixed(1) };
 }
 /* ⚙️ إدارة التصحيح الآلي: كل الاختبارات المجهّزة للجوال (حذف/إخفاء/إعادة تسمية) وإعدادات التصوير في البوابة.
    الإعدادات تُحفظ في الخادم وتقرؤها بوابة المعلم عند فتح التصحيح الآلي. */
@@ -6147,6 +6148,10 @@ async function omrSendTemplate(){
       if(modelSel) modelSel.value=String(m);
       examBuild(true);
       const M=omrMeasure(); if(!M) throw new Error('measure');
+      // 📄📄 الصفحات التالية التي فيها مربعات (القالب المصمَّم): لكل منها خريطتها ووسمها، وتُقرأ وتُضم لورقة الطالب
+      const pgs=[...document.querySelectorAll('#exam-paper .exam-page')].slice(1).filter(pg=>pg.querySelector(':scope > .ex-ptag'));
+      const more=pgs.map(pg=>{ const X=omrMeasure(pg); return X && X.tag && X.marks && X.questions.length ? { page:Number(pg.querySelector(':scope > .ex-ptag').dataset.pg)||2, anchors:X.anchors, questions:X.questions, marks:X.marks, tag:X.tag } : null; }).filter(Boolean);
+      if(more.length){ M.more=more; M.skipped=Math.max(0, M.skipped-more.reduce((t,x)=>t+x.questions.length,0)); }
       const st=document.getElementById('ex-status')?.textContent||'', mt=/المجموع\s+([\d.]+)/.exec(st);
       models.push({ letter: count>1 ? examModelLetter(m) : '', ...M, total: mt ? Number(mt[1]) : 0 });   // مجموع كل نموذج (قد تختلف الأسئلة بين النماذج)
     }
@@ -6157,13 +6162,13 @@ async function omrSendTemplate(){
     examBuild(true);
   }
   const mark=examMarkVal();
-  const n=models[0].questions.length;
-  if(!n){ toast('لا توجد أسئلة اختيار أو صح/خطأ في الصفحة الأولى','bad'); return; }
+  const n=models[0].questions.length+(models[0].more||[]).reduce((t,x)=>t+x.questions.length,0);
+  if(!models[0].questions.length){ toast('لا توجد أسئلة اختيار أو صح/خطأ في الصفحة الأولى','bad'); return; }
   const title=String(document.getElementById('ex-title')?.value||'اختبار قصير').trim();
   const total=(()=>{ const s=document.getElementById('ex-status')?.textContent||''; const m=/المجموع\s+([\d.]+)/.exec(s); return m?Number(m[1]):n*mark; })();
   // 🔖 النسخة = بصمة مفتاح الإجابة ومواقع المربعات. تعديل الاختبار بعد طباعته يصنع نسخة جديدة بجانب القديمة
   // (كانت تُستبدل بصمت فتُصحَّح الأوراق المطبوعة قبل التعديل بمفتاح الإجابة الجديد)
-  const sig=JSON.stringify([title, mark, models.map(x=>x.questions.map(q=>[q.t,q.key,q.boxes.map(r=>r.map(v=>Math.round(v)))]))]);
+  const sig=JSON.stringify([title, mark, models.map(x=>x.questions.concat(...(x.more||[]).map(p=>p.questions)).map(q=>[q.t,q.key,q.boxes.map(r=>r.map(v=>Math.round(v)))]))]);
   let h=5381; for(let i=0;i<sig.length;i++) h=((h<<5)+h+sig.charCodeAt(i))|0;
   let th=5381; for(let i=0;i<title.length;i++) th=((th<<5)+th+title.charCodeAt(i))|0;   // اختبار غير محفوظ: أساسه عنوانه
   const ver=(h>>>0).toString(36).slice(0,6), base=String(window.__LOADED_PAPER_EXAM_ID||('x'+(th>>>0).toString(36))).replace(/[^A-Za-z0-9_-]/g,'').slice(0,30)||'x';
@@ -6175,7 +6180,7 @@ async function omrSendTemplate(){
     const j=await r.json().catch(()=>({}));
     if(!r.ok||!j.ok) throw new Error(j.error||('HTTP '+r.status));
     const skipped=models[0].skipped;
-    toast(`${prevVers.length?`🔖 نسخة جديدة${vn} — تغيّر الاختبار، والأوراق المطبوعة قبله تُصحَّح بنسختها السابقة · `:''}📷 جاهز للتصحيح الآلي: ${n} سؤالًا${count>1?` · ${count} نماذج`:''}${skipped?` · ${skipped} خارج الصفحة الأولى تُصحَّح يدويًا`:''}${tpl.total>tpl.autoTotal?` · الجزء الآلي ${tpl.autoTotal} من ${tpl.total}`:''}`,'good');
+    toast(`${prevVers.length?`🔖 نسخة جديدة${vn} — تغيّر الاختبار، والأوراق المطبوعة قبله تُصحَّح بنسختها السابقة · `:''}📷 جاهز للتصحيح الآلي: ${n} سؤالًا${count>1?` · ${count} نماذج`:''}${models[0].more?` · ${models[0].more.length+1===2?'صفحتان':models[0].more.length+1+' صفحات'} تُصوَّر كلٌّ منها`:''}${skipped?` · ${skipped} ${models[0].more?'بلا مربعات':'خارج الصفحة الأولى'} تُصحَّح يدويًا`:''}${tpl.total>tpl.autoTotal?` · الجزء الآلي ${tpl.autoTotal} من ${tpl.total}`:''}`,'good');
   }catch(e){ toast('تعذّر الإرسال: '+(e.message||''),'bad'); }
 }
 
@@ -6921,9 +6926,16 @@ function examStatusDecorate(){
 /* ⬛ علامات الزوايا: أربعة مربعات سوداء في زوايا كل صفحة فيها مربعات إجابة، واحد منها مفرّغ (أسفل اليسار) لمعرفة الاتجاه.
    الجوال يقيس منها الورقة، فتُقرأ ولو طُبعت مصغّرة («ملاءمة الصفحة») أو قُصّت حافتها. لا تغيّر مكان أي شيء في الورقة. */
 function examFiducials(){
-  document.querySelectorAll('#exam-paper .exam-page').forEach(pg => {
-    if(pg.querySelector(':scope > .ex-fid') || !pg.querySelector('.ex-box')) return;
-    pg.insertAdjacentHTML('beforeend', ['tl','tr','br','bl'].map(c => `<i class="ex-fid ${c}" aria-hidden="true"></i>`).join(''));
+  // الصفحات التالية تحمل أيضًا وسمًا مربعًا أسود بجانب رقم الصفحة (موضعه يختلف لكل صفحة): الجوال يعرف به أنها الثانية
+  // أو الثالثة… فيقرؤها بخريطتها ويضمها إلى ورقة الطالب نفسه. الصفحة الأولى بلا وسم
+  const pages = [...document.querySelectorAll('#exam-paper .exam-page')];
+  let k = 0;
+  pages.forEach(pg => {
+    if(!pg.querySelector('.ex-box')) return;
+    const idx = k++;
+    if(pg.querySelector(':scope > .ex-fid')) return;
+    pg.insertAdjacentHTML('beforeend', ['tl','tr','br','bl'].map(c => `<i class="ex-fid ${c}" aria-hidden="true"></i>`).join('')
+      + (idx ? `<i class="ex-ptag" data-pg="${idx + 1}" style="left:${36 + (idx - 1) * 12}mm" aria-hidden="true"></i>` : ''));
   });
 }
 function examBuild(force){
