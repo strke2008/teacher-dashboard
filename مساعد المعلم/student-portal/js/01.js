@@ -2677,6 +2677,18 @@ function openJourneyStyleReport(nm){
 function isApplyRow(h){ const k=String(h&&h.kind||''); return k==='files' || k==='lab'; }
 /* 🧭 نشاط نافس: علامة nf من الخادم، أو عنوان يبدأ بـ«نافس» (قبل تحديث الخادم) */
 function isNafsRow(h){ return !!h && !h.remedial && String(h.kind||'normal')==='normal' && (Number(h.nf)===1 || /^\s*نافس(\s|$|[—:-])/.test(String(h.t||h.title||''))); }
+/* 🏷️ اسم النشاط مع نوعه: يعرف الطالب من الاسم أي نشاط هذا (فهم قرائي، ألعاب، مختبر…).
+   لا يتكرر النوع إن كتبه المعلم في العنوان (مثل «فهم قرائي تركيب المادة») */
+const ACT_KINDS = { normal:['📝','نشاط','#2E6BB8'], reading:['📖','فهم قرائي','#1B9C6B'], games:['🎮','ألعاب','#A66F0A'], game:['🎮','ألعاب','#A66F0A'],
+  files:['📎','مشروع','#2E6BB8'], lab:['🔬','مختبر افتراضي','#2E6BB8'], diag:['🔍','اختبار تشخيصي','#2E6BB8'], style:['🧠','أنماط التعلّم','#7B4FA8'],
+  nafs:['🧭','نافس','#0E7490'], remedial:['🩹','علاجي','#B4232F'] };
+function actKindKey(h){ if(!h) return 'normal'; if(h.remedial) return 'remedial'; if(isNafsRow(h)) return 'nafs'; const k = String(h.kind || 'normal'); if(k === 'normal' && typeof isGameRow === 'function' && isGameRow(h) && !Number(h.n)) return 'games'; return ACT_KINDS[k] ? k : 'normal'; }
+function actTitleHTML(h, fallback){
+  const t = String((h && (h.t || h.title)) || fallback || 'نشاط'), K = ACT_KINDS[actKindKey(h)];
+  const norm = v => String(v).replace(/[\u064B-\u0652\u0640]/g, '').replace(/[أإآ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه');
+  const has = norm(t).includes(norm(K[1]).replace(/ (.*)$/, '')) || (K[1] === 'ألعاب' && /لعب|العاب|لعبه/.test(norm(t)));
+  return (has ? `${K[0]} ` : `<span class="act-kind" style="--k:${K[2]}">${K[0]} ${K[1]}</span> `) + esc(t);
+}
 function openLabRow(id){ location.href='lab/?hw='+encodeURIComponent(id); }
 function openJourneyLearning(nm, rows, filterKinds){
   const ws=$('journey-workspace'), content=$('journey-workspace-content');
@@ -2744,7 +2756,7 @@ function openJourneyLearning(nm, rows, filterKinds){
 
     ${next ? `<div class="jw-next">
       <div class="jw-next-label">🎯 مهمتك الآن</div>
-      <div class="jw-next-title">${esc(next.t||'نشاط تعليمي')}</div>
+      <div class="jw-next-title">${actTitleHTML(next, 'نشاط تعليمي')}</div>
       <div class="jw-next-reason">${kindOf(next)==='remedial'?'🩹 هذا نشاط علاجي مخصص لمراجعة المهارات التي تحتاج إلى تعزيز.':kindOf(next)==='lab'?'🔬 تجربة في المختبر الافتراضي: نفّذها بنفسك، ولاحظ، ثم فسّر ما حدث.':kindOf(next)==='files'?'🧪 هذه مهمة تطبيقية تحتاج إلى تنفيذها وتسليمها.':kindOf(next)==='reading'?'📖 هذه مهمة فهم قرائي: اقرأ، افهم، ثم أجب وطبّق.':kindOf(next)==='nafs'?'🧭 تدريب على أسئلة نافس الوطنية: اقرأ السؤال وتأمّل الشكل جيدًا قبل الإجابة.':kindOf(next)==='game'?'🎮 هذا تحدٍ تعليمي، أنجزه لتحصل على تجربة تعلم تفاعلية.':'✏️ هذا نشاط تدريب وممارسة، ابدأ به لإكمال خطوتك الحالية.'}</div>
       <div class="jw-next-meta">${hasTeacherRetry(next)?'🔓 لديك صلاحية إعادة التسليم':projectResubmit(next)?'🔁 لديك فرصة لإعادة التسليم':`متاح الآن · لديك ${pending.length} ${pending.length===1?'مهمة متاحة':'مهام متاحة'}`}</div>
       <button type="button" class="btn tick jw-next-btn" id="journey-next-btn">${hasTeacherRetry(next)?'🔓 إعادة التسليم':projectResubmit(next)?'🔁 إعادة التسليم':kindOf(next)==='remedial'?'🎯 ابدأ التطوير':'🚀 ابدأ النشاط الآن'}</button>
@@ -2777,7 +2789,7 @@ function openJourneyLearning(nm, rows, filterKinds){
             const dueText=h.due ? (late ? ' · أُغلق '+esc(h.due) : ' · يُغلق '+esc(h.due)) : '';
             return `<button type="button" class="jw-item ${h.done?'done':''} ${late?'late':''} ${isNext?'current':''} ${soon?'soon':''} ${(!isNext&&!h.done&&!disabled)?'later':''} ${disabled?'disabled':''}" data-jw-id="${esc(h.id)}" ${disabled?'disabled':''}>
               <span class="jw-item-icon">${icon}</span>
-              <span class="jw-item-body"><span class="jw-item-title">${esc(h.t||'نشاط')}</span><span class="jw-item-meta">${metaText}${dueText}</span></span>
+              <span class="jw-item-body"><span class="jw-item-title">${actTitleHTML(h, 'نشاط')}</span><span class="jw-item-meta">${metaText}${dueText}</span></span>
               <span class="jw-item-state">${state}</span>
             </button>`;
           }).join('')}</div>
@@ -4943,7 +4955,7 @@ async function gateLoad(nm, opts){
           data-project-resubmit="${canProjectResubmit?'1':''}"
           ${late && !canTeacherRetry && !canRetry ? 'disabled' : ''}>
           ${tag}
-          <b>${kicon ? kicon + ' ' : ''}${esc(h.t)}${gateIsNew(h) ? ' <span class="hw-new">🆕 جديد</span>' : ''}</b>
+          <b>${actTitleHTML(h)}${gateIsNew(h) ? ' <span class="hw-new">🆕 جديد</span>' : ''}</b>
           ${gateGradeTag(h)}
           <span class="hw-meta">${gatePubLabel(h)}
             ${h.kind==='files' ? '📎 تسليم صور أو PDF أو فيديو' : `${h.n} مهمة${h.kind === 'style' ? ' · اختبار أنماط تعلّم'

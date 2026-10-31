@@ -226,3 +226,5 @@
 .jw-item{min-width:0;max-width:100%}
 .jw-item-title{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;line-height:1.4}
 .jw-item-state{flex:none}
+/* 🏷️ نوع النشاط قبل اسمه */
+.act-kind{display:inline-block;font-size:.72em;font-weight:800;padding:.08em .5em;border-radius:999px;vertical-align:.12em;margin-inline-end:.15em;white-space:nowrap;color:var(--k,#2E6BB8);background:color-mix(in srgb,var(--k,#2E6BB8) 13%,transparent)}
