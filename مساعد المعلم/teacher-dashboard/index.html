@@ -23,7 +23,7 @@
 <link rel="stylesheet" href="app.css?v=16178ead">
 <script src="js/00-fetch-dedupe-js.js?v=e77498d1" defer></script>
 <script src="js/01-right-sidebar-navigation-js.js?v=41ea29b3" defer></script>
-<script src="js/02.js?v=8e3aabc8" defer></script>
+<script src="js/02.js?v=0859de14" defer></script>
 <script src="js/03-projects-students-logic-v13.js?v=d4950f64" defer></script>
 <script src="js/04.js?v=5a7c663e" defer></script>
 <script src="js/05.js?v=a7c074c3" defer></script>
@@ -488,7 +488,7 @@
 .exam-shop-status.open{background:#E4F4EC;color:#167852}.exam-shop-status.closed{background:#FFF1F2;color:#9F2538}
 @media screen and (max-width:600px){.exam-shop-kpis{grid-template-columns:1fr 1fr}.exam-shop-student{grid-template-columns:1fr 105px}.exam-shop-student small{grid-column:1}.exam-shop-student .exam-shop-used{display:none}}
 </style>
-<link rel="stylesheet" id="late-css" href="app-late.css?v=fd05c6bf">
+<link rel="stylesheet" id="late-css" href="app-late.css?v=df4bf8ad">
 <link rel="stylesheet" href="theme-picker.css?v=8ddeba87">
 <link rel="stylesheet" href="simplified-nav.css?v=154681ae">
 <link rel="stylesheet" href="tab-polish.css?v=b9d66f7c">
@@ -1072,24 +1072,28 @@
 <div class="sheet-head" style="margin-bottom:.65rem">
 <div>
 <h3 style="font-size:.95rem;margin:0">📚 بنك أسئلة النشاط</h3>
-<div class="muted" style="font-size:.74rem;margin-top:.15rem">حدد أسئلة النشاط المحفوظة التي تريد إدخالها في الاختبار واستبعد البقية.</div>
+<div class="muted" style="font-size:.74rem;margin-top:.15rem">✓ = يدخل الاختبار</div>
 </div>
 <span class="spacer"></span>
 <span class="pill pts" id="ex-hw-bank-count">0 محدد من 0</span>
 </div>
-<div class="row" style="gap:.45rem;flex-wrap:wrap;margin-bottom:.55rem">
-<input class="inp" id="ex-hw-bank-search" oninput="renderExamHwBank()" placeholder="🔍 ابحث في أسئلة النشاط" style="flex:1;min-width:190px"/>
-<select class="inp" id="ex-hw-bank-filter" onchange="renderExamHwBank()" style="width:auto;min-width:150px">
+<div class="exb-tools">
+<input class="inp exb-search" id="ex-hw-bank-search" oninput="renderExamHwBank()" placeholder="🔍 ابحث في الأسئلة"/>
+<div class="exb-sels">
+<select class="inp" id="ex-hw-bank-filter" onchange="renderExamHwBank()" aria-label="النوع">
 <option value="all">كل الأنواع</option>
 <option value="mc">اختيار من متعدد</option>
 <option value="tf">صح / خطأ</option>
 </select>
-<select class="inp" id="ex-hw-bank-view" onchange="renderExamHwBank()" style="width:auto;min-width:150px" aria-label="عرض" title="كل البنك، أو الطويل والمتشابه فقط، أو ما في نموذج بعينه"><option value="all">كل البنك</option></select>
-<button class="btn ghost sm" onclick="examHwBankSelectAll(true)" type="button">تحديد الظاهر</button>
-<button class="btn ghost sm" onclick="examHwBankSelectAll(false)" type="button">إلغاء الظاهر</button>
-<button class="btn ghost sm" onclick="examLongOpen('hw')" title="أسئلة أو خيارات طويلة تلتف في الورقة فتخرّب التصميم — تختار ما تفعله بها" type="button">📏 الطويلة</button>
+<select class="inp" id="ex-hw-bank-view" onchange="renderExamHwBank()" aria-label="عرض" title="كل البنك، أو الطويل والمتشابه فقط، أو ما في نموذج بعينه"><option value="all">كل البنك</option></select>
+</div>
+<div class="exb-btns">
+<button class="btn ghost sm" onclick="examHwBankSelectAll(true)" title="يحدد كل الأسئلة الظاهرة (حسب البحث والنوع)" type="button">☑ تحديد الكل</button>
+<button class="btn ghost sm" onclick="examHwBankSelectAll(false)" title="يلغي تحديد الأسئلة الظاهرة" type="button">☐ إلغاء الكل</button>
 <button class="btn ghost sm" id="ex-hw-sim-btn" onclick="examHwSimOpen()" title="أسئلة تسأل عن الفكرة نفسها بصيغة أخرى أو بنوع آخر — تختار ما يبقى" type="button">🔁 المتشابهة</button>
-<button class="btn ghost sm" onclick="examHwExportJson()" title="المحدد من الاختيار والصح/خطأ + الفراغ والتوصيل من الأنشطة، بلا تكرار — يُستورد في نشاط جديد بـ«📥 استيراد JSON» كنشاط مراجعة" type="button">💾 حفظ المحدد JSON (نشاط مراجعة)</button>
+<button class="btn ghost sm" onclick="examLongOpen('hw')" title="أسئلة أو خيارات طويلة تلتف في الورقة فتخرّب التصميم — تختار ما تفعله بها" type="button">📏 الطويلة</button>
+<button class="btn ghost sm" onclick="examHwExportJson()" title="المحدد من الاختيار والصح/خطأ + الفراغ والتوصيل من الأنشطة، بلا تكرار — يُستورد في نشاط جديد بـ«📥 استيراد JSON» كنشاط مراجعة" type="button">💾 JSON</button>
+</div>
 </div>
 <div class="exam-bank-list" id="ex-hw-bank-list"></div>
 </div>
@@ -1102,17 +1106,21 @@
 <span class="spacer"></span>
 <span class="pill pts" id="ex-bank-count">0 محدد</span>
 </div>
-<div class="row" style="gap:.45rem;flex-wrap:wrap;margin-bottom:.55rem">
-<input class="inp" id="ex-bank-search" oninput="renderExamJsonBank()" placeholder="🔍 ابحث في الأسئلة" style="flex:1;min-width:190px"/>
-<select class="inp" id="ex-bank-filter" onchange="renderExamJsonBank()" style="width:auto;min-width:150px">
+<div class="exb-tools">
+<input class="inp exb-search" id="ex-bank-search" oninput="renderExamJsonBank()" placeholder="🔍 ابحث في الأسئلة"/>
+<div class="exb-sels">
+<select class="inp" id="ex-bank-filter" onchange="renderExamJsonBank()" aria-label="النوع">
 <option value="all">كل الأنواع</option>
 <option value="mc">اختيار من متعدد</option>
 <option value="tf">صح / خطأ</option>
 </select>
-<select class="inp" id="ex-bank-view" onchange="renderExamJsonBank()" style="width:auto;min-width:150px" aria-label="عرض" title="كل البنك، أو الطويل والمتشابه فقط، أو ما في نموذج بعينه"><option value="all">كل البنك</option></select>
-<button class="btn ghost sm" onclick="examBankSelectAll(true)" type="button">تحديد الظاهر</button>
-<button class="btn ghost sm" onclick="examBankSelectAll(false)" type="button">إلغاء الظاهر</button>
+<select class="inp" id="ex-bank-view" onchange="renderExamJsonBank()" aria-label="عرض" title="كل البنك، أو الطويل والمتشابه فقط، أو ما في نموذج بعينه"><option value="all">كل البنك</option></select>
+</div>
+<div class="exb-btns">
+<button class="btn ghost sm" onclick="examBankSelectAll(true)" title="يحدد كل الأسئلة الظاهرة (حسب البحث والنوع)" type="button">☑ تحديد الكل</button>
+<button class="btn ghost sm" onclick="examBankSelectAll(false)" title="يلغي تحديد الأسئلة الظاهرة" type="button">☐ إلغاء الكل</button>
 <button class="btn ghost sm" onclick="examLongOpen('json')" title="أسئلة أو خيارات طويلة تلتف في الورقة فتخرّب التصميم — تختار ما تفعله بها" type="button">📏 الطويلة</button>
+</div>
 </div>
 <div class="row" style="justify-content:space-between;gap:.5rem;flex-wrap:wrap;margin-bottom:.55rem">
 <label class="row" style="gap:.4rem;font-size:.82rem;cursor:pointer">

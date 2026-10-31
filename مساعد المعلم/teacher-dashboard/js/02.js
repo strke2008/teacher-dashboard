@@ -5046,6 +5046,7 @@ function examBankModels(bank){
   const seed = `${String((document.getElementById('ex-title')?.value || '').trim() || 'اختبار')}|${String(label || 'source')}|${n}`;
   return { n, M: examSpreadAll(mc, tf, N.nmc, N.ntf, n, seed).M };
 }
+function examBankViewSet(bank, v){ const el = document.getElementById(bank === 'hw' ? 'ex-hw-bank-view' : 'ex-bank-view'); if(el) el.value = v; if(bank === 'hw') renderExamHwBank(); else renderExamJsonBank(); }
 function examBankShowModel(bank, m){
   const v = document.getElementById(bank === 'hw' ? 'ex-hw-bank-view' : 'ex-bank-view'); if(!v) return;
   const val = 'm' + m; v.value = [...v.options].some(o => o.value === val) ? (v.value === val ? 'all' : val) : 'all';   // ضغطة ثانية: عودة لكل البنك
@@ -5069,11 +5070,12 @@ function examBankDecorate(bank, all, filtered){
   let list = filtered;
   if(inModel){ const set = new Set(inModel); list = filtered.filter(x => set.has(x)); }
   else if(view === 'flag') list = filtered.filter(x => longs.has(x) || sim.has(x));
-  const tags = x => `${longs.has(x) ? `<span class="qtype exq-long" title="${esc(longs.get(x))}">📏 طويل: ${esc(longs.get(x))}</span>` : ''}${sim.has(x) ? `<span class="qtype exq-sim" title="يشبه السؤال ${sim.get(x).join('، ')}">🔁 يشبه ${sim.get(x).map(k => '#' + k).join(' ')}</span>` : ''}${inModel && shared.has(x) ? '<span class="qtype exq-shared" title="البنك لا يكفي كل النماذج فتكرر في نموذج آخر">↔ مشترك</span>' : ''}`;
+  const tags = x => `${longs.has(x) ? `<span class="qtype exq-long" title="${esc(longs.get(x))}">📏 طويل</span>` : ''}${sim.has(x) ? `<span class="qtype exq-sim" title="يشبه السؤال ${sim.get(x).join('، ')}">🔁 يشبه ${sim.get(x).map(k => '#' + k).join(' ')}</span>` : ''}${inModel && shared.has(x) ? '<span class="qtype exq-shared" title="البنك لا يكفي كل النماذج فتكرر في نموذج آخر">↔ مشترك</span>' : ''}`;
   const nl = scope.filter(x => longs.has(x)).length, ns = scope.filter(x => sim.has(x)).length;
   const summary = inModel
     ? `<div class="exq-sum">📄 <b>نموذج ${examModelLetter(mi)}</b>: ${MD.M[mi].mc.length} اختيار + ${MD.M[mi].tf.length} صح/خطأ · ${ns ? `<b class="w">🔁 ${ns} متشابهة فيه</b>` : '🔁 لا تشابه فيه'} · ${nl ? `<b class="w">📏 ${nl} طويلة</b>` : '📏 لا طويل'}${MD.M[mi].mc.concat(MD.M[mi].tf).some(x => shared.has(x)) ? ' · ↔ فيه أسئلة مشتركة مع نموذج آخر' : ''}</div>`
-    : (nl || ns) ? `<div class="exq-sum">${ns ? `<b class="w">🔁 ${ns} ${ns === 1 ? 'سؤال متشابه' : 'أسئلة متشابهة'}</b>` : ''}${ns && nl ? ' · ' : ''}${nl ? `<b class="w">📏 ${nl} ${nl === 1 ? 'سؤال طويل' : 'أسئلة طويلة'}</b>` : ''} بين المحدد — اختر «⚠️ الطويل والمتشابه فقط» من «عرض» لتراها وحدها${nM > 1 ? '، أو نموذجًا لترى ما فيه' : ''}</div>` : '';
+    : (nl || ns) && view !== 'flag' ? `<div class="exq-sum">${ns ? `<b class="w">🔁 ${ns} متشابهة</b>` : ''}${ns && nl ? ' · ' : ''}${nl ? `<b class="w">📏 ${nl} طويلة</b>` : ''} <button type="button" class="exq-sum-go" onclick="examBankViewSet('${bank}','flag')">اعرضها وحدها ←</button></div>`
+    : view === 'flag' ? `<div class="exq-sum">⚠️ الطويل والمتشابه فقط <button type="button" class="exq-sum-go" onclick="examBankViewSet('${bank}','all')">كل البنك ←</button></div>` : '';
   return { list, tags, summary };
 }
 function renderExamHwBank(){
@@ -5109,8 +5111,8 @@ function renderExamHwBank(){
     const type=x.kind==='tf'?'صح / خطأ':'اختيار متعدد';
     return `<label class="exam-bank-item">
       <input type="checkbox" ${x.selected!==false?'checked':''} onchange="toggleExamHwQuestion(${idx},this.checked)">
-      <span class="qtxt"><span class="qnum">${idx+1}.</span> ${escExamText(x.q)}<span class="qmeta"><span class="qtype">${type}</span>${x.edited?'<span class="qtype exq-tag">✏️ معدّل</span>':''}<button type="button" class="exq-ed" onclick="event.preventDefault();event.stopPropagation();examQEdit('hw',${idx})">✏️ تعديل</button>${DEC.tags(x)}${EXAM_HW_BANK.multi&&x.src?`<span class="qtype">📚 ${esc(x.src)}</span>`:''}</span></span>
-      ${x.kind==='mc'?`<span class="qtype">${x.o.length} خيارات</span>`:''}${examModelSel('hw',idx,x)}
+      <span class="qtxt"><span class="qnum">${idx+1}.</span> ${escExamText(x.q)}<span class="qmeta"><span class="qtype">${x.kind==='tf'?'صح/خطأ':'اختيار'}</span>${x.edited?'<span class="qtype exq-tag">✏️ معدّل</span>':''}${DEC.tags(x)}${EXAM_HW_BANK.multi&&x.src?`<span class="qtype qsrc" title="${esc(x.src)}">📚 ${esc(x.src)}</span>`:''}</span></span>
+      <span class="qside">${examModelSel('hw',idx,x)}<button type="button" class="exq-edi" title="تعديل السؤال" aria-label="تعديل السؤال" onclick="event.preventDefault();event.stopPropagation();examQEdit('hw',${idx})">✏️</button></span>
     </label>`;
   }).join('');
 }
@@ -5182,8 +5184,8 @@ function renderExamJsonBank(){
     const type=x.kind==='tf'?'صح / خطأ':'اختيار متعدد';
     return `<label class="exam-bank-item">
       <input type="checkbox" ${x.selected!==false?'checked':''} onchange="toggleExamJsonQuestion(${idx},this.checked)">
-      <span class="qtxt"><span class="qnum">${idx+1}.</span> ${escExamText(x.q)}<span class="qmeta"><span class="qtype">${type}</span>${x.edited?'<span class="qtype exq-tag">✏️ معدّل</span>':''}<button type="button" class="exq-ed" onclick="event.preventDefault();event.stopPropagation();examQEdit('json',${idx})">✏️ تعديل</button>${DEC.tags(x)}${EXAM_JSON_BANK.multi&&x.src?`<span class="qtype">📄 ${esc(x.src)}</span>`:''}</span></span>
-      ${x.kind==='mc'?`<span class="qtype">${x.o.length} خيارات</span>`:''}${examModelSel('json',idx,x)}
+      <span class="qtxt"><span class="qnum">${idx+1}.</span> ${escExamText(x.q)}<span class="qmeta"><span class="qtype">${x.kind==='tf'?'صح/خطأ':'اختيار'}</span>${x.edited?'<span class="qtype exq-tag">✏️ معدّل</span>':''}${DEC.tags(x)}${EXAM_JSON_BANK.multi&&x.src?`<span class="qtype qsrc" title="${esc(x.src)}">📄 ${esc(x.src)}</span>`:''}</span></span>
+      <span class="qside">${examModelSel('json',idx,x)}<button type="button" class="exq-edi" title="تعديل السؤال" aria-label="تعديل السؤال" onclick="event.preventDefault();event.stopPropagation();examQEdit('json',${idx})">✏️</button></span>
     </label>`;
   }).join('');
 }
@@ -6222,15 +6224,14 @@ function examModelsBar(bank){
   const lack = (h, need) => h < need ? ` <b style="color:#b42318">(${h}/${need})</b>` : '';
   const XC = examXCounts(n);
   const auto = all.filter(x => !examModelValid(x, n)).length + XC.auto;
-  return `<div class="exm-bar"><b>🗂️ توزيع النماذج</b>
-    ${per.map((p, m) => `<span class="exm-chip exm-chip-go" role="button" tabindex="0" title="اعرض ما في هذا النموذج" onclick="examBankShowModel('${bank}',${m})">نموذج ${examModelLetter(m)}: ${p.mc} اختيار${lack(p.mc, nmc)} · ${p.tf} صح/خطأ${lack(p.tf, ntf)}${p.sim ? ` · <b style="color:#b54708">🔁 ${p.sim} تشابه</b>` : ''}${examXTypes().map(t => ` · ${XC.out[m][t] || 0} ${EX_XT[t].label}`).join('')}</span>`).join('')}
-    <span class="exm-chip auto">تلقائي: ${auto}</span>
-    <span class="spacer"></span>
-    <button type="button" class="btn ghost sm" onclick="examModelsAuto('${bank}')">⚖️ وزّع تلقائيًا</button>
-    <button type="button" class="btn ghost sm" onclick="examModelsClear('${bank}')">مسح التوزيع</button>
-    ${shared ? `<div style="flex-basis:100%;font-size:.78rem;color:#b54708">⚠️ أسئلة البنك لا تكفي ${n} نماذج كاملة (كل نموذج ${nmc} اختيار + ${ntf} صح/خطأ)، فتكمَّلت النماذج بـ${shared} ${shared === 1 ? 'سؤال مشترك' : 'أسئلة مشتركة'} بين نموذجين. لتجنّب ذلك: أضف أسئلة أو قلّل العدد أو النماذج.</div>` : ''}
-    ${simN ? `<div style="flex-basis:100%;font-size:.78rem;color:#b54708">🔁 في نموذج واحد أسئلة متشابهة (تثبيت يدوي غالبًا) — اضغط «⚖️ وزّع تلقائيًا» ليفرّقها.</div>` : ''}
-    <div class="muted" style="flex-basis:100%;font-size:.74rem">لكل سؤال اختر نموذجه، أو اتركه «تلقائي» فيُوزَّع على النماذج بلا تكرار. المثبّت يدخل نموذجه أولًا ثم يُكمل الباقي تلقائيًا.</div></div>`;
+  return `<div class="exm-bar"><b title="لكل سؤال اختر نموذجه من القائمة بجانبه، أو اتركه «تلقائي» فيُوزَّع على النماذج بلا تكرار. المثبّت يدخل نموذجه أولًا ثم يُكمل الباقي تلقائيًا. اضغط نموذجًا لترى ما فيه.">🗂️ النماذج <span class="exm-i">ⓘ</span></b>
+    ${per.map((p, m) => `<span class="exm-chip exm-chip-go" role="button" tabindex="0" title="اعرض ما في هذا النموذج" onclick="examBankShowModel('${bank}',${m})">${examModelLetter(m)}: ${p.mc} اختيار${lack(p.mc, nmc)} · ${p.tf} صح/خطأ${lack(p.tf, ntf)}${p.sim ? ` · <b style="color:#b54708">🔁 ${p.sim} تشابه</b>` : ''}${examXTypes().map(t => ` · ${XC.out[m][t] || 0} ${EX_XT[t].label}`).join('')}</span>`).join('')}
+    <span class="exm-chip auto" title="أسئلة بلا نموذج مثبّت — تُوزَّع تلقائيًا">تلقائي: ${auto}</span>
+    <span class="exm-acts"><button type="button" class="btn ghost sm" onclick="examModelsAuto('${bank}')" title="يثبّت كل سؤال في نموذج بالتساوي وبلا أسئلة متشابهة في نموذج واحد">⚖️ وزّع</button>
+    <button type="button" class="btn ghost sm" onclick="examModelsClear('${bank}')" title="يعيد كل الأسئلة إلى «تلقائي»">مسح</button></span>
+    ${shared ? `<div class="exm-warn" title="أسئلة البنك لا تكفي ${n} نماذج كاملة (كل نموذج ${nmc} اختيار + ${ntf} صح/خطأ)، فكُمّلت النماذج بأسئلة مشتركة بين نموذجين. لتجنّب ذلك: أضف أسئلة أو قلّل العدد أو النماذج.">⚠️ البنك لا يكفي: ${shared} ${shared === 1 ? 'سؤال مشترك' : 'أسئلة مشتركة'} بين النماذج <span class="exm-i">ⓘ</span></div>` : ''}
+    ${simN ? `<div class="exm-warn" title="تثبيت يدوي غالبًا — «⚖️ وزّع» يفرّقها">🔁 في نموذج واحد أسئلة متشابهة — اضغط «⚖️ وزّع» <span class="exm-i">ⓘ</span></div>` : ''}
+</div>`;
 }
 
 /* ══════════════ 💾 حفظ الاختبارات الورقية ══════════════ */

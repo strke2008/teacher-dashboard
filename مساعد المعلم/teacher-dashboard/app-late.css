@@ -3035,3 +3035,28 @@ body.pf-open #simp-bottomnav,body.pf-open .askf-btn{display:none!important}
 .exq-sug-t{display:grid;gap:.2rem;font-size:.86rem;min-width:0}
 .exq-sug-o{display:flex;flex-wrap:wrap;gap:.15rem .8rem;font-size:.78rem;color:#4b5e5b}.exq-sug-o .ok{color:#16794f;font-weight:800}
 .exq-warn{color:#B4232F}
+/* 📚 بنك الأسئلة مرتّبًا للعمود الضيق: بحث، ثم قائمتان، ثم أزرار صغيرة؛ وكل سؤال: نصه ووسومه، وجانبه النموذج و✏️ */
+.exb-tools{display:grid;gap:.4rem;margin-bottom:.55rem}
+.exb-tools .inp{min-height:38px;padding:.35rem .6rem;font-size:.85rem}
+.exb-sels{display:grid;grid-template-columns:1fr 1fr;gap:.4rem}
+.exb-sels .inp{width:100%!important;min-width:0!important}
+.exb-btns{display:flex;flex-wrap:wrap;gap:.3rem}
+.exb-btns .btn{padding:.25rem .6rem;font-size:.76rem;min-height:30px}
+.exam-bank-list{gap:.3rem}
+.exam-bank-item{grid-template-columns:22px 1fr auto;gap:.45rem;padding:.45rem .55rem;align-items:start}
+.exam-bank-item .qtxt{font-size:.84rem;line-height:1.55}
+.exam-bank-item .qmeta{gap:.25rem;margin-top:.25rem}
+.exam-bank-item .qtype{font-size:.64rem;padding:.08rem .4rem}
+.exam-bank-item .qsrc{max-width:11rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.exam-bank-item .qside{grid-column:3;display:flex;flex-direction:column;align-items:flex-end;gap:.3rem}
+.exam-bank-item .qside .exm-sel{grid-column:auto;min-width:78px;font-size:.72rem!important;padding:.12rem .3rem!important}
+.exam-bank-item .exq-edi{font:inherit;font-size:.8rem;line-height:1;width:30px;height:28px;border-radius:8px;border:1px solid var(--ui-border,#D5E0EC);background:#fff;cursor:pointer}
+.exam-bank-item .exq-edi:hover{background:#EEF3F8}
+.exm-bar{gap:.3rem .4rem;padding:.45rem .55rem;font-size:.78rem}
+.exm-bar .exm-chip{font-size:.72rem;padding:.12rem .5rem}
+.exm-i{font-size:.75rem;color:var(--ink-soft);cursor:help}
+.exm-acts{display:flex;gap:.3rem;margin-inline-start:auto}.exm-acts .btn{padding:.2rem .55rem;font-size:.74rem;min-height:28px}
+.exq-sum{font-size:.76rem;padding:.4rem .6rem;line-height:1.7}
+@media screen and (max-width:700px){.exam-bank-item{grid-template-columns:22px 1fr auto}}
+.exm-warn{flex-basis:100%;font-size:.74rem;color:#b54708;font-weight:700}
+.exq-sum-go{font:inherit;font-size:.72rem;font-weight:800;border:0;background:none;color:#1F4E9B;cursor:pointer;padding:0 .3rem;text-decoration:underline}
