@@ -848,6 +848,17 @@ body:has(#bh-mbar:not([hidden])) #behavior{padding-bottom:70px}
 .omr-card{background:var(--surface);color:var(--ink);border:1px solid var(--rule);border-radius:var(--r);padding:14px;display:grid;gap:10px;box-shadow:var(--shadow)}
 .omr-card label{display:grid;gap:4px;font-size:.82rem;font-weight:700}
 .omr-note{font-size:.76rem;line-height:1.7;color:var(--ink-soft);margin:0}
+/* ✋ تحديد الزوايا يدويًا */
+.omr-man-wrap{position:relative;touch-action:none;user-select:none;-webkit-user-select:none;border-radius:12px;overflow:hidden;background:#000}
+.omr-man-wrap canvas{display:block;width:100%;height:auto}
+.omr-man-svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.omr-man-svg polygon{fill:rgba(34,197,94,.14);stroke:#22C55E;stroke-width:4;vector-effect:non-scaling-stroke;stroke-linejoin:round}
+.omr-man-h{position:absolute;width:38px;height:38px;margin:-19px 0 0 -19px;border-radius:50%;border:3px solid #fff;background:rgba(34,197,94,.35);box-shadow:0 0 0 2px #22C55E,0 2px 8px rgba(0,0,0,.4);touch-action:none;cursor:grab;transition:transform .12s}
+.omr-man-h::after{content:'';position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px 0 0 -2px;border-radius:50%;background:#fff}
+.omr-man-h.on{transform:scale(1.35);background:rgba(34,197,94,.15)}
+.omr-man-h.snap{animation:omrSnap .4s}
+@keyframes omrSnap{0%{box-shadow:0 0 0 2px #22C55E,0 0 0 0 rgba(34,197,94,.7)}100%{box-shadow:0 0 0 2px #22C55E,0 0 0 16px rgba(34,197,94,0)}}
+.omr-man-btn{display:grid;gap:2px;margin-top:8px}.omr-man-btn small{font-weight:500;font-size:.72rem;opacity:.8}
 .omr-stu-row{margin-bottom:8px}.omr-stu{width:100%;min-height:46px;font-weight:700}
 .omr-cam{position:relative;border-radius:var(--r-lg);overflow:hidden;background:#000;aspect-ratio:3/4;max-height:60vh;margin:0 auto;box-shadow:var(--shadow-lift);border:1px solid var(--rule)}
 .omr-cam video{width:100%;height:100%;object-fit:contain;display:block}
@@ -6203,12 +6214,71 @@ function omrPageFailed(msg){
   if(OMRUI.batch && q && q.length && !OMRUI.photoMode){ OMRUI.skipped.push(OMRUI.qi + 1); OMRUI.qi++; omrQueueNext(); return; }
   if(OMRUI.photoMode){
     st.textContent = '📸 ' + msg;
-    $('omr-result').innerHTML = `<div class="omr-res omr-dark">${omrShootBtn('📸 أعد التصوير', 'الورقة كاملة، من الأعلى، مع هامش صغير')}</div>`;
+    $('omr-result').innerHTML = `<div class="omr-res omr-dark">${omrShootBtn('📸 أعد التصوير', 'الورقة كاملة، من الأعلى، مع هامش صغير')}${OMRUI.lastSingle ? omrManualBtn() : ''}</div>`;
     return;
   }
   st.textContent = `ورقة ${OMRUI.qi+1} من ${q.length}: ${msg}`;
   $('omr-result').innerHTML = `<div class="omr-res"><p class="omr-note" style="color:#5A6B84">تجاوزها وأعد مسحها لاحقًا — تظهر في القائمة عند الانتهاء.</p>
-    <div class="omr-row"><button class="btn primary" type="button" onclick="omrSkip()">⏭ التالية</button><button class="btn ghost" type="button" onclick="omrQueueNext()">↻ إعادة المحاولة</button></div></div>`;
+    <div class="omr-row"><button class="btn primary" type="button" onclick="omrSkip()">⏭ التالية</button><button class="btn ghost" type="button" onclick="omrQueueNext()">↻ إعادة المحاولة</button></div>${OMRUI.lastSingle ? omrManualBtn() : ''}</div>`;
+}
+/* ✋ تحديد الزوايا يدويًا (كما في ماسح المستندات): إن لم تُكتشف الورقة يضع المعلم أربع دوائر على المربعات السوداء الأربعة.
+   كل دائرة تلتصق بأقرب مربع قريب منها، والاتجاه يُعرف من المربع المفرّغ — فلا يهم بأي ترتيب تُوضع */
+function omrManualBtn(){ return `<button class="btn ghost wide omr-man-btn" type="button" onclick="omrManualOpen()">✋ حدّد الزوايا بيدك<small>ضع ٤ دوائر على المربعات السوداء في أركان الورقة</small></button>`; }
+function omrManualOpen(again){
+  const img = OMRUI.lastSingle; if(!img) return;
+  const M = OMRUI.tpl.models[OMRUI.auto ? 0 : OMRUI.model], G = OMR.gray(img);
+  try{ OMR.findMarks(G, M.marks, M); }catch(e){}
+  const C = (OMR.findMarks.cands || []).slice(), W = img.width, H = img.height;
+  // البداية: أقرب مرشح لكل ركن من الصورة، وإلا نقطة داخل الركن
+  const corners = [[0, 0], [W, 0], [W, H], [0, H]];
+  const pts = (again && OMRUI.manPts) || corners.map(([cx, cy]) => { let b = null, bd = 1e9; C.forEach(([x, y]) => { const d = Math.hypot(x - cx, y - cy); if(d < bd){ bd = d; b = [x, y]; } });
+    return b && bd < Math.max(W, H) * 0.35 ? b : [cx ? W * 0.9 : W * 0.1, cy ? H * 0.9 : H * 0.1]; });
+  OMRUI.manPts = pts.map(p => p.slice()); OMRUI.manG = G; OMRUI.manC = C;
+  const st = $('omr-status'); if(st && !again) st.textContent = '✋ اسحب كل دائرة إلى مربع أسود في ركن الورقة';
+  $('omr-result').innerHTML = `<div class="omr-res omr-man">
+    <div class="omr-man-wrap" id="omr-man-wrap"><canvas id="omr-man-cv" width="${W}" height="${H}"></canvas><svg class="omr-man-svg" id="omr-man-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"></svg>
+      ${OMRUI.manPts.map((_, i) => `<span class="omr-man-h" data-i="${i}"></span>`).join('')}</div>
+    <p class="omr-note">ضع كل دائرة فوق مربع أسود (الأربعة في أركان الورقة) — تلتصق بالمربع إذا قرّبتها منه.</p>
+    <div class="omr-row"><button class="btn primary" type="button" onclick="omrManualRead()">✓ اقرأ الورقة</button>
+      ${OMRUI.queue && OMRUI.queue.length > 1 && !OMRUI.photoMode ? '<button class="btn ghost" type="button" onclick="omrSkip()">⏭ تخطَّ</button>' : omrShootBtn('📸 صورة أخرى', '')}</div></div>`;
+  $('omr-man-cv').getContext('2d').putImageData(img, 0, 0);
+  const wrap = $('omr-man-wrap'), hs = [...wrap.querySelectorAll('.omr-man-h')];
+  const draw = () => { hs.forEach((h, i) => { const [x, y] = OMRUI.manPts[i]; h.style.left = (x / W * 100) + '%'; h.style.top = (y / H * 100) + '%'; });
+    const P = omrManualOrder(OMRUI.manPts); $('omr-man-svg').innerHTML = `<polygon points="${P.map(p => p.join(',')).join(' ')}" />`; };
+  let drag = -1;
+  const at = e => { const r = wrap.getBoundingClientRect(); return [Math.max(0, Math.min(W, (e.clientX - r.left) / r.width * W)), Math.max(0, Math.min(H, (e.clientY - r.top) / r.height * H))]; };
+  hs.forEach((h, i) => h.addEventListener('pointerdown', e => { drag = i; h.setPointerCapture(e.pointerId); h.classList.add('on'); e.preventDefault(); }));
+  wrap.addEventListener('pointermove', e => { if(drag < 0) return; OMRUI.manPts[drag] = at(e); draw(); });
+  const up = () => { if(drag < 0) return; const h = hs[drag]; h.classList.remove('on');
+    // التصاق: أقرب مربع أسود مرشَّح ضمن مسافة قصيرة
+    const [x, y] = OMRUI.manPts[drag]; let b = null, bd = Math.max(W, H) * 0.05; (OMRUI.manC || []).forEach(([cx, cy]) => { const d = Math.hypot(cx - x, cy - y); if(d < bd){ bd = d; b = [cx, cy]; } });
+    if(b){ OMRUI.manPts[drag] = b; h.classList.add('snap'); setTimeout(() => h.classList.remove('snap'), 400); } drag = -1; draw(); };
+  wrap.addEventListener('pointerup', up); wrap.addEventListener('pointercancel', up);
+  draw();
+  try{ wrap.scrollIntoView({ block:'center', behavior:'smooth' }); }catch(e){}
+}
+/* ترتيب الورقة: أعلى اليسار، أعلى اليمين، أسفل اليمين، أسفل اليسار (المفرّغ) — باتجاه عقارب الساعة في الصورة */
+function omrManualOrder(pts){
+  const cx = pts.reduce((t, p) => t + p[0], 0) / 4, cy = pts.reduce((t, p) => t + p[1], 0) / 4;
+  let P = pts.slice().sort((a, b) => Math.atan2(a[1] - cy, a[0] - cx) - Math.atan2(b[1] - cy, b[0] - cx));   // من أعلى اليسار باتجاه عقارب الساعة (y للأسفل)
+  const G = OMRUI.manG, M = OMRUI.tpl.models[OMRUI.auto ? 0 : OMRUI.model];
+  let hollow = -1;
+  if(G && M && M.marks){
+    const side = Math.hypot(P[1][0] - P[0][0], P[1][1] - P[0][1]) / Math.max(1, (M.marks[1][0] - M.marks[0][0])) * M.marks[0][2];   // ضلع المربع بالبكسل
+    const smp = (x, y) => { const X = Math.round(x), Y = Math.round(y); return X >= 0 && Y >= 0 && X < G.w && Y < G.h ? G.g[Y * G.w + X] : 255; };
+    const hol = P.map(([x, y]) => { const c = smp(x, y), ink = [0, 1, 2, 3].map(k => smp(x + Math.cos(k * 1.571 + .785) * side * .38, y + Math.sin(k * 1.571 + .785) * side * .38)).sort((a, b) => a - b)[1]; return c - ink; });
+    const hi = hol.map((v, i) => [v, i]).filter(([v]) => v > 45);
+    if(hi.length === 1) hollow = hi[0][1];
+  }
+  if(hollow < 0){ const k = P.map((p, i) => [p[0] + p[1], i]).sort((a, b) => a[0] - b[0])[0][1]; P = P.slice(k).concat(P.slice(0, k)); return P; }   // بلا مفرّغ واضح: الورقة قائمة
+  const k = (hollow + 1) % 4; return P.slice(k).concat(P.slice(0, k));
+}
+function omrManualRead(){
+  const img = OMRUI.lastSingle; if(!img || !OMRUI.manPts) return;
+  const M = OMRUI.tpl.models[OMRUI.auto ? 0 : OMRUI.model], mc = M.marks.map(r => [r[0] + r[2] / 2, r[1] + r[3] / 2]);
+  const quad = omrManualOrder(OMRUI.manPts), rect = [mc[0][0], mc[0][1], mc[1][0] - mc[0][0], mc[3][1] - mc[0][1]];
+  const st = $('omr-status'); if(st) st.textContent = 'جارٍ القراءة…';
+  omrProcess(null, img.width, img.height, true, { img, prep: { G: OMRUI.manG || OMR.gray(img), found: { quad, rect, marks: true, manual: true } } });
 }
 function omrSkip(){ OMRUI.skipped.push(OMRUI.qi + 1); OMRUI.qi++; omrQueueNext(); }
 function omrQueueDone(){
@@ -6358,6 +6428,11 @@ function omrPaint(){
     x.beginPath(); q.forEach(([px, py], k) => { const X = ox + px * s, Y = oy + py * s; k ? x.lineTo(X, Y) : x.moveTo(X, Y); }); x.closePath(); x.fill(); x.stroke();
   }
   const same = OMRUI.curDims && OMRUI.curDims[0] === vw && OMRUI.curDims[1] === vh;
+  // ⏳ «ثبّت الجوال»: حلقة تمتلئ مع جمع اللقطات (كما في ماسح المستندات) — في وسط الورقة المكتشفة
+  if(same && q && OMRUI.curOk && OMRUI.curProg > 0){ const cx = ox + q.reduce((t, p) => t + p[0], 0) / 4 * s, cy = oy + q.reduce((t, p) => t + p[1], 0) / 4 * s, R = 30 * dpr;
+    x.beginPath(); x.arc(cx, cy, R, 0, 7); x.fillStyle = 'rgba(15,23,42,.55)'; x.fill(); x.lineWidth = 6 * dpr; x.strokeStyle = 'rgba(255,255,255,.3)'; x.stroke();
+    x.beginPath(); x.arc(cx, cy, R, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, OMRUI.curProg)); x.strokeStyle = '#22C55E'; x.lineCap = 'round'; x.stroke(); x.lineCap = 'butt';
+    x.font = `800 ${11 * dpr}px system-ui,sans-serif`; x.fillStyle = '#fff'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('ثبّت', cx, cy); }
   // نقاط الزوايا: خضراء = المربع الأسود ظاهر، حمراء = غائب أو مظلَّل
   if(same && OMRUI.curDots) OMRUI.curDots.forEach(([px, py, ok]) => { const X = ox + px * s, Y = oy + py * s, R = 9 * dpr;
     x.beginPath(); x.arc(X, Y, R, 0, 7); x.fillStyle = ok ? '#22C55E' : 'rgba(239,68,68,.25)'; x.fill(); x.lineWidth = 3 * dpr; x.strokeStyle = ok ? '#fff' : '#EF4444'; x.stroke(); });
@@ -6520,12 +6595,15 @@ function omrFuse(rs){
   });
   return { ...last, answers: OMR._t.refineSheet(answers), fused: rs.length };
 }
-function omrProcess(src, w, h, single){
+function omrProcess(src, w, h, single, preset){
   OMRUI.busy = true;
   try{
     let img; const c = $('omr-canvas'), T = OMRUI.tpl;
     let flatPrep = null;
-    if(!single && OMRUI.stream && OMRUI.scanGeo){
+    if(preset){                                                                    // ✋ زوايا حدّدها المعلم بيده
+      img = preset.img; c.width = img.width; c.height = img.height; c.getContext('2d').putImageData(img, 0, 0); flatPrep = preset.prep;
+    }
+    else if(!single && OMRUI.stream && OMRUI.scanGeo){
       img = omrFlatten(src, w, h, OMRUI.scanGeo, c);                                // 📄 الورقة مقوّمة من اللقطة الكاملة
       // موضع الصفحة في الصورة المقوّمة معروف (صنعناها): لا نعيد اكتشافه. كانت إعادة البحث تفشل في صورة ناعمة
       // فتُعامَل كمسح ضوئي حوافه حواف الورقة — والهامش 4 مم يُزيح كل المربعات فتُرفض الورقة
@@ -6535,6 +6613,7 @@ function omrProcess(src, w, h, single){
     }
     else { const k = Math.min(1, 1600/Math.max(w,h)), cw = Math.round(w*k), ch = Math.round(h*k);
       c.width = cw; c.height = ch; const x = c.getContext('2d', { willReadFrequently:true }); x.drawImage(src, 0, 0, cw, ch); img = x.getImageData(0,0,cw,ch); }
+    if(single && !preset) OMRUI.lastSingle = img;                                 // لتحديد الزوايا يدويًا إن تعذّر الاكتشاف
     let r;
     // 🔢 النموذج آليًا: الرمز أولًا (محاذاة على العنوان وحده)، ثم القراءة بخريطة النموذج المكتشف
     if(OMRUI.auto){
@@ -6546,10 +6625,11 @@ function omrProcess(src, w, h, single){
       else if(cr.code === null || cr.code === undefined || !T.models[cr.code]) r = { ok:false, error:'no_code' };   // لا تصحيح بمفتاح غير مؤكد
       else { OMRUI.model = cr.code; r = OMR.read(img, T.models[cr.code], { prep: cr.prep }); }
     } else r = OMR.read(img, T.models[OMRUI.model], { noScan: !single, ...(flatPrep ? { prep: flatPrep } : {}) });
+    if(preset && !r.ok){ const st0 = $('omr-status'); if(st0) st0.textContent = '✋ ' + (OMR_MSG[r.error] || 'لم تُقرأ') + ' — تأكد أن كل دائرة على مربع أسود'; omrManualOpen(true); return; }
     OMRUI.lastPrep = flatPrep;                                                     // للتشخيص
     const st = $('omr-status');
     if(!r.ok){
-      OMRUI.stable = 0;
+      OMRUI.stable = 0; OMRUI.curProg = 0;
       if(single && OMRUI.queue && OMRUI.queue.length){ omrPageFailed(OMR_MSG[r.error] || 'لم تُقرأ'); return; }
       if(st) st.textContent = (single ? '📸 ' : '') + (OMR_MSG[r.error] || 'أعد المحاولة');
       return; }
@@ -6573,7 +6653,8 @@ function omrProcess(src, w, h, single){
       // ما فيه شك يُجمع من 3 لقطات كالسابق (أو لقطة واحدة إن اختار المعلم «أسرع» في اللوحة)
       const clear = q => q.answers.length && q.answers.every(a => { if(a.status !== 'ok' || !Array.isArray(a.fills)) return false; const f = a.fills.slice().sort((x, y) => y - x); return f[0] >= 0.2 && (f[1] || 0) <= 0.06; });
       const need = OMRUI.cfg && OMRUI.cfg.frames === 1 ? 1 : (acc.length === 1 && clear(r) && !(OMRUI.glareMm && OMRUI.glareMm.length)) ? 1 : 3;   // من إعدادات اللوحة: أدق (3) أو أسرع (1)
-      if(acc.length < need && !force){ if(st) st.textContent = `جارٍ القراءة… ${acc.length} من ${need}`; return; }
+      if(acc.length < need && !force){ OMRUI.curProg = acc.length / need; if(st) st.textContent = `جارٍ القراءة… ${acc.length} من ${need}`; return; }
+      OMRUI.curProg = 0;
       r = omrFuse(acc.map(p => p.r)); OMRUI.acc = [];
       // قرأنا رغم اللمعة: كل سؤال تقع مربعاته تحتها يُعرض للتأكيد بدل أن يُصحَّح (اللمعة قد تمسح علامة الطالب)
       if(OMRUI.glareMm && OMRUI.glareMm.length) r.answers = r.answers.map(a => (a.boxes || []).some(b => OMRUI.glareMm.some(([gx, gy]) => Math.abs(gx - (b.r[0] + b.r[2] / 2)) < 7 && Math.abs(gy - (b.r[1] + b.r[3] / 2)) < 7)) ? { ...a, status: 'glare' } : a);
@@ -7102,11 +7183,33 @@ async function omrPaperImage(src, H, fs, answers, val, max){
     for(let c = 0; c < 3; c++){ const a = S[i + c] + (S[i + 4 + c] - S[i + c]) * ax, b = S[j + c] + (S[j + 4 + c] - S[j + c]) * ax; d[o + c] = a + (b - a) * ay; }
     d[o + 3] = 255;
   }
+  omrWhiten(D);                                                                   // 📄 كالماسح: خلفية بيضاء بلا ظل
   x.putImageData(D, 0, 0);
   const base = out.toDataURL('image/jpeg', .6);
   const qb = answers.map(a => a.pg > 1 ? [] : (a.boxes || []).map(b => [b.r[0] + b.dx, b.r[1] + b.dy, b.r[2], b.r[3]].map(v => +v.toFixed(2))));
   const D2 = omrPaperDraw(x, kp, answers, val, max);
   return { img: out.toDataURL('image/jpeg', .7), marks: D2.marks, keyBoxes: D2.keyBoxes, base, qb };
+}
+/* 📄 تنظيف الصفحة كماسح المستندات: إضاءة الورق تُقدَّر لكل منطقة (أفتح ما فيها — الورق لا الحبر)، ثم تُقسم الصورة عليها
+   فيختفي الظل وتدرّج الإضاءة والصفرة وتبقى الكتابة والتظليل والألوان بقوتها. للعرض والحفظ فقط — القراءة تتم قبل هذا */
+function omrWhiten(D){
+  const W = D.width, H = D.height, d = D.data, C = 24, gw = Math.ceil(W / C), gh = Math.ceil(H / C);
+  // لكل لون (أحمر، أخضر، أزرق) خلفيته: فتزول الصفرة وظل المصباح الملوّن مع الظل نفسه (توازن الأبيض)
+  const G = [0, 1, 2].map(() => new Float32Array(gw * gh));
+  for(let gy = 0; gy < gh; gy++) for(let gx = 0; gx < gw; gx++){
+    const v = [], idx = []; for(let y = gy * C; y < Math.min(H, gy * C + C); y += 3) for(let x = gx * C; x < Math.min(W, gx * C + C); x += 3){ const o = (y * W + x) * 4; v.push(d[o] * .3 + d[o + 1] * .59 + d[o + 2] * .11); idx.push(o); }
+    const ord = v.map((_, k) => k).sort((a, b) => v[a] - v[b]), top = ord.slice(Math.floor(ord.length * .8));   // أفتح ٢٠٪: الورق لا الحبر
+    for(let c = 0; c < 3; c++){ let t = 0; top.forEach(k => t += d[idx[k] + c]); G[c][gy * gw + gx] = top.length ? t / top.length : 255; }
+  }
+  // الخلية التي يغلب عليها الحبر أغمق من جيرانها: يُؤخذ أفتح ما حولها، ثم تنعيم
+  const smooth = g => { const g2 = new Float32Array(g.length);
+    for(let y = 0; y < gh; y++) for(let x = 0; x < gw; x++){ let m = 0; for(let j = -1; j <= 1; j++) for(let i = -1; i <= 1; i++){ const X = x + i, Y = y + j; if(X >= 0 && Y >= 0 && X < gw && Y < gh) m = Math.max(m, g[Y * gw + X]); } g2[y * gw + x] = m; }
+    for(let y = 0; y < gh; y++) for(let x = 0; x < gw; x++){ let t = 0, n = 0; for(let j = -1; j <= 1; j++) for(let i = -1; i <= 1; i++){ const X = x + i, Y = y + j; if(X >= 0 && Y >= 0 && X < gw && Y < gh){ t += g2[Y * gw + X]; n++; } } g[y * gw + x] = t / n; } };
+  G.forEach(smooth);
+  for(let y = 0; y < H; y++){ const fy = Math.min(gh - 1.001, Math.max(0, y / C - .5)), y0 = fy | 0, ay = fy - y0;
+    for(let x = 0; x < W; x++){ const fx = Math.min(gw - 1.001, Math.max(0, x / C - .5)), x0 = fx | 0, ax = fx - x0, o = (y * W + x) * 4, a = y0 * gw + x0, b = a + gw;
+      for(let c = 0; c < 3; c++){ const g = G[c], b0 = g[a] + (g[a + 1] - g[a]) * ax, b1 = g[b] + (g[b + 1] - g[b]) * ax, bg = Math.max(60, b0 + (b1 - b0) * ay);
+        let v = d[o + c] * 250 / bg; v = v >= 238 ? 255 : v; d[o + c] = v > 255 ? 255 : v; } } }
 }
 /* إطارات الإجابات والختم فوق صفحة مقوّمة (عند الرفع، وعند إعادة التصحيح من الصفحة بلا ختم) */
 function omrPaperDraw(x, kp, answers, val, max){
