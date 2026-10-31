@@ -2989,3 +2989,12 @@ body.pf-open #simp-bottomnav,body.pf-open .askf-btn{display:none!important}
   .exw-tools{width:100%}.exw-tools .btn{flex:1}
   .exs-b{padding:.7rem .65rem}
 }
+/* تصميم الاختبار داخل عمود الخطوات الضيق: سطر للنوع، وسطر للعدد والدرجة، وسطر للمجموع والأدوات */
+.exw-side{container-type:inline-size}
+@container (max-width:800px){
+  .exf-row{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+  .exf-row .exf-no{grid-column:1/2}
+  .exf-row>select{grid-column:2/-1}
+  .exf-row .exf-sub{grid-column:1/2;align-self:center}
+  .exf-row .exf-tools{grid-column:2/-1;justify-self:end}
+}

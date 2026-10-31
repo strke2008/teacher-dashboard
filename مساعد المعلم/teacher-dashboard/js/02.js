@@ -6269,7 +6269,7 @@ function applySavedPaperExam(exam){
     if(sel){ sel.innerHTML=Array.from({length:cnt},(_,i)=>`<option value="${i}">نموذج (${examModelLetter(i)})</option>`).join('');
       sel.value=String(Math.max(0,Math.min(cnt-1,Number(cfg['ex-model'])||0))); sel.disabled=cnt===1; try{ syncExamPrintAllButton(); }catch(e){} } }
   ['ex-nmc','ex-ntf'].forEach(id=>{ const el=document.getElementById(id); if(el) delete el.dataset.keep; });   // القيم المحمّلة هي الأصل
-  if(!Object.prototype.hasOwnProperty.call(cfg,'ex-tpl')){ const tp=document.getElementById('ex-tpl'); if(tp) tp.value='t1'; }   // اختبار محفوظ قبل القوالب
+  examTplMigrate(Object.prototype.hasOwnProperty.call(cfg,'ex-tpl') ? cfg['ex-tpl'] : 't1');   // اختبار محفوظ قبل القوالب أو على قالب أُلغي
   examTplSyncUI();
   const src=document.getElementById('ex-src');
   if(src) src.value=(exam.source==='hw'||exam.source==='json'||exam.source==='ai')?exam.source:'json';
@@ -6345,7 +6345,28 @@ const EX_ORD = ['الأول','الثاني','الثالث','الرابع','ال�
 const EX_LET = ['أ','ب','ج','د','هـ','و','ز','ح'];
 const EX_N = 5;                                   // وصل = 5، أكمل الفراغ = 5
 const EX_OPEN_MAX = 8;
-function examTpl(){ const v = document.getElementById('ex-tpl')?.value; return v==='t2' || v==='t3' || v==='t4' || v==='t5' ? v : 't1'; }
+function examTpl(){ const v = document.getElementById('ex-tpl')?.value; return v === 't4' ? 't4' : 't5'; }
+/* بقي قالبان: «ورقة واحدة» (t5) و«مصمَّم» (t4). الاختبار المحفوظ على قالب أُلغي يُفتح على بديله بنفس الأسئلة:
+   t1 (٥ + ٥ بلا وصل) ← ورقة واحدة بلا وصل · t2/t3 (ورقتان) ← مصمَّم بنفس الصفحتين والأقسام والدرجات */
+function examTplMigrate(old){
+  const tp = document.getElementById('ex-tpl'); if(!tp) return;
+  const val = id => document.getElementById(id)?.value || '', set = (id, v) => { const e = document.getElementById(id); if(e) e.value = v; };
+  if(old === 't4' || old === 't5'){ tp.value = old; return; }
+  if(old === 't2' || old === 't3'){
+    const m = Math.max(0.25, Number(examAr2En(val('ex-mark'))) || 1), p1 = [{ t:'mc', n:5, m }, { t:'tf', n:5, m }], p2 = [{ t:'match', n:5, m }];
+    if(old === 't2') p2.push({ t:'fill', n:5, m });
+    else {
+      // درجات «أجب» قد تختلف بين الأسئلة (٢، ٢، ١): كل مجموعة متتالية بدرجة واحدة قسمٌ بدرجته
+      const n = Math.max(1, Math.min(EX_OPEN_MAX, Number(val('ex-open-n')) || 3));
+      let ms = examParseMarks(val('ex-open-marks')).slice(0, n); if(ms.length < n) ms = examSplitMarks(Number(examAr2En(val('ex-open-total'))) || 5, n);
+      const l = Number(val('ex-open-lines')) || 0;
+      ms.forEach(x => { const last = p2[p2.length - 1]; if(last.t === 'open' && last.m === x) last.n++; else p2.push({ t:'open', n:1, m:Math.max(0.25, x), ...(l ? { l } : {}) }); });
+    }
+    tp.value = 't4'; set('ex-flex', JSON.stringify([p1, p2]));
+    return;
+  }
+  tp.value = 't5'; set('ex-nmt', '0');                 // t1 أو اختبار قديم بلا قالب
+}
 function examAr2En(s){ return String(s ?? '').replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/٫/g,'.').replace(/،/g,','); }
 function examLines(txt){ return String(txt || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean); }
 
@@ -6406,7 +6427,7 @@ function examTplSyncUI(){
   const openGrid = document.querySelector('#ex-extra-open > .grid2'); if(openGrid) openGrid.style.display = t === 't4' ? 'none' : '';
   const pull = document.querySelector('#ex-extra > .row:last-child'); if(pull) pull.style.display = '';
   const note = document.querySelector('#ex-extra > .muted'); if(note) note.style.display = t === 't4' ? 'none' : '';
-  const mk = document.getElementById('ex-mark'); if(mk){ mk.disabled = t === 't4'; mk.title = t === 't4' ? 'في القالب ٥ (المصمَّم) لكل قسم درجته' : ''; }
+  const mk = document.getElementById('ex-mark'); if(mk){ mk.disabled = t === 't4'; mk.title = t === 't4' ? 'في القالب المصمَّم لكل قسم درجته' : ''; }
   ['ex-nmc','ex-ntf'].forEach(id => {                 // القالبان ٢ و٣: ٥ + ٥ ثابتة · القالب ٤: مجموع أقسامه
     const el = document.getElementById(id); if(!el) return;
     if(t === 't1' || t === 't5'){ if(el.dataset.keep !== undefined){ el.value = el.dataset.keep; delete el.dataset.keep; } el.disabled = false; }
@@ -6441,6 +6462,12 @@ const EX_FLEX_TYPES = {
   open:  { label:'أجب عن كل مما يلي', max:8 },
 };
 const EX_FLEX_DEFAULT = [[{t:'mc',n:5,m:1},{t:'tf',n:5,m:1}],[{t:'match',n:5,m:1},{t:'open',n:3,m:2}]];
+/* تصاميم جاهزة بضغطة (كانت قوالب مستقلة): ورقتان ٢٠ سؤالًا، وورقتان مرنتان، وورقة بسيطة */
+const EX_FLEX_PRESETS = [
+  { label:'📄📄 ٢٠ سؤالًا', hint:'ورقتان: ٥ اختيار + ٥ صح/خطأ | ٥ وصل + ٥ أكمل الفراغ', L:[[{t:'mc',n:5,m:1},{t:'tf',n:5,m:1}],[{t:'match',n:5,m:1},{t:'fill',n:5,m:1}]] },
+  { label:'📄📄 مع «أجب»', hint:'ورقتان: ٥ اختيار + ٥ صح/خطأ | ٥ وصل + ٣ أسئلة «أجب عن كل مما يلي»', L:EX_FLEX_DEFAULT },
+  { label:'📄 ورقة واحدة', hint:'ورقة: ٥ اختيار + ٥ صح/خطأ', L:[[{t:'mc',n:5,m:1},{t:'tf',n:5,m:1}]] },
+];
 function examFlexClean(L){
   if(!Array.isArray(L)) return null;
   const pages = L.slice(0, 6).map(pg => (Array.isArray(pg) ? pg : []).slice(0, 6).map(x => {
@@ -6486,6 +6513,7 @@ function examFlexAct(act, pi, si){
     else if(L[pi + d]){ L[pi].splice(si, 1); if(d < 0) L[pi + d].push(sec); else L[pi + d].unshift(sec); if(!L[pi].length) L.splice(pi, 1); }
   }
   else if(act === 'reset') L.splice(0, L.length, ...JSON.parse(JSON.stringify(EX_FLEX_DEFAULT)));
+  else if(act === 'preset'){ const P = EX_FLEX_PRESETS[pi]; if(!P) return; L.splice(0, L.length, ...JSON.parse(JSON.stringify(P.L))); toast('📐 ' + P.hint + ' — عدّل ما تريد', 'good'); }
   examFlexSave(L);
 }
 function examFlexRenderUI(){
@@ -6518,7 +6546,8 @@ function examFlexRenderUI(){
     ${pages}
     <div class="row" style="gap:.45rem;flex-wrap:wrap;margin-top:.55rem">
       <button type="button" class="btn sm" onclick="examFlexAct('addPage')">＋ صفحة جديدة</button>
-      <button type="button" class="btn ghost sm" onclick="examFlexAct('reset')">↺ التصميم الافتراضي</button>
+      <span class="muted" style="font-size:.76rem;margin-inline-start:.4rem">جاهز:</span>
+      ${EX_FLEX_PRESETS.map((x, i) => `<button type="button" class="btn ghost sm" onclick="examFlexAct('preset',${i})" title="${esc(x.hint)}">${x.label}</button>`).join('')}
     </div>`;
 }
 /* محتوى الأقسام: يُسحب من كل مصدر بالترتيب، ويُحسب المجموع قبل رسم الترويسة */
@@ -6686,7 +6715,7 @@ function examApplyExtras(ex, quiet){
 function examPullExtras(){
   const src = document.getElementById('ex-src')?.value || 'hw';
   const ex = src === 'hw' ? examExtrasFromActivity() : examJsonExtras();
-  if(!ex.match.length && !ex.fill.length && !ex.open.length){ toast(src === 'ai' ? 'لم يُولَّد وصل أو فراغ بعد — اختر القالب ٣ أو ٤ ثم ولّد من جديد' : 'لا توجد أسئلة وصل أو أكمل الفراغ في هذا المصدر', 'bad'); return; }
+  if(!ex.match.length && !ex.fill.length && !ex.open.length){ toast(src === 'ai' ? 'لم يُولَّد وصل أو فراغ بعد — اختر القالب «المصمَّم» بأقسام وصل أو فراغ ثم ولّد من جديد' : 'لا توجد أسئلة وصل أو أكمل الفراغ في هذا المصدر', 'bad'); return; }
   examApplyExtras(ex);
 }
 
