@@ -3010,3 +3010,10 @@ body.pf-open #simp-bottomnav,body.pf-open .askf-btn{display:none!important}
 .exlong-ed{display:grid;gap:.3rem;margin-top:.45rem}.exlong-ed[hidden]{display:none}.exlong-ed .inp{min-height:34px;padding:.3rem .5rem;font-size:.86rem}
 .exlong-act{flex:0 0 auto}.exlong-act .inp{width:auto;min-height:34px;padding:2px 6px;font-size:.82rem}
 .exlong-row.off .exlong-q,.exlong-row.off .exlong-o{opacity:.45;text-decoration:line-through}
+/* ✏️ تعديل سؤال في بنك الاختبار */
+.exam-bank-item .exq-ed{font:inherit;font-size:.68rem;font-weight:800;padding:.1rem .5rem;border-radius:999px;border:1px solid var(--ui-border,#D5E0EC);background:#fff;color:#1F4E9B;cursor:pointer}
+.exam-bank-item .exq-ed:hover{background:#EEF3F8}
+.exam-bank-item .exq-tag{background:#FFF4E5;color:#9A4D00}
+.exq-opts{display:grid;gap:.4rem}
+.exq-opt{display:grid;grid-template-columns:auto auto 1fr;gap:.45rem;align-items:center}
+.exq-opt .inp{min-height:36px;padding:.3rem .55rem}

@@ -5012,7 +5012,7 @@ function renderExamHwBank(){
     const type=x.kind==='tf'?'صح / خطأ':'اختيار متعدد';
     return `<label class="exam-bank-item">
       <input type="checkbox" ${x.selected!==false?'checked':''} onchange="toggleExamHwQuestion(${idx},this.checked)">
-      <span class="qtxt"><span class="qnum">${idx+1}.</span> ${escExamText(x.q)}<span class="qmeta"><span class="qtype">${type}</span>${EXAM_HW_BANK.multi&&x.src?`<span class="qtype">📚 ${esc(x.src)}</span>`:''}</span></span>
+      <span class="qtxt"><span class="qnum">${idx+1}.</span> ${escExamText(x.q)}<span class="qmeta"><span class="qtype">${type}</span>${x.edited?'<span class="qtype exq-tag">✏️ معدّل</span>':''}<button type="button" class="exq-ed" onclick="event.preventDefault();event.stopPropagation();examQEdit('hw',${idx})">✏️ تعديل</button>${EXAM_HW_BANK.multi&&x.src?`<span class="qtype">📚 ${esc(x.src)}</span>`:''}</span></span>
       ${x.kind==='mc'?`<span class="qtype">${x.o.length} خيارات</span>`:''}${examModelSel('hw',idx,x)}
     </label>`;
   }).join('');
@@ -5084,7 +5084,7 @@ function renderExamJsonBank(){
     const type=x.kind==='tf'?'صح / خطأ':'اختيار متعدد';
     return `<label class="exam-bank-item">
       <input type="checkbox" ${x.selected!==false?'checked':''} onchange="toggleExamJsonQuestion(${idx},this.checked)">
-      <span class="qtxt"><span class="qnum">${idx+1}.</span> ${escExamText(x.q)}<span class="qmeta"><span class="qtype">${type}</span>${EXAM_JSON_BANK.multi&&x.src?`<span class="qtype">📄 ${esc(x.src)}</span>`:''}</span></span>
+      <span class="qtxt"><span class="qnum">${idx+1}.</span> ${escExamText(x.q)}<span class="qmeta"><span class="qtype">${type}</span>${x.edited?'<span class="qtype exq-tag">✏️ معدّل</span>':''}<button type="button" class="exq-ed" onclick="event.preventDefault();event.stopPropagation();examQEdit('json',${idx})">✏️ تعديل</button>${EXAM_JSON_BANK.multi&&x.src?`<span class="qtype">📄 ${esc(x.src)}</span>`:''}</span></span>
       ${x.kind==='mc'?`<span class="qtype">${x.o.length} خيارات</span>`:''}${examModelSel('json',idx,x)}
     </label>`;
   }).join('');
@@ -5322,7 +5322,7 @@ function examHwCollect(withState){
   // خ15: بعد قصّ الخيارات إلى 4 قد يبقى فهرس الإجابة خارج النطاق (سؤال نافس بخمسة خيارات إجابته الخامس)
   // فيُعاد إلى 0 كما يفعل مسار JSON في examNormalizeSource — وإلا عُرضت إجابة غير موجودة
   per.forEach(p=>p.mc.forEach(x=>{ if(!(x.a>=0&&x.a<x.o.length)) x.a=0; }));
-  if(withState) per.forEach(p=>[...p.mc,...p.tf].forEach(x=>{ const e=EXAM_HW_EDITS.get(x.key); if(e){ x.q=e.q; if(e.o&&x.o) x.o=e.o.slice(0,x.o.length); x.edited=true; } }));
+  if(withState) per.forEach(p=>[...p.mc,...p.tf].forEach(x=>{ const e=EXAM_HW_EDITS.get(x.key); if(e) examQApplyEdit(x, e); }));
   // 🔁 السؤال نفسه في أكثر من نشاط (أو مرتين في النشاط نفسه) يدخل مرة واحدة: النص بعد تطبيع الحروف،
   // ومع الخيارات في الاختيار من متعدد («أي مما يلي صحيح؟» بخيارات مختلفة سؤالان مختلفان)
   const seen = new Set(); let dup = 0;
@@ -5473,9 +5473,61 @@ function examLongApply(){
     if(v === 'off'){ x.selected = false; off++; return; }
     if(v === 'edit'){ const q = r.querySelector('[data-f=q]').value.trim(); if(!q) return;
       const o = x.kind !== 'tf' ? (x.o || []).map((ov, j) => (r.querySelector(`[data-f=o${j}]`)?.value || '').trim() || ov) : null;
-      if(q !== x.q || (o && o.some((v2, j) => v2 !== x.o[j]))){ x.q = q; if(o) x.o = o; x.edited = true; ed++; if(L.bank === 'hw' && x.key) EXAM_HW_EDITS.set(x.key, { q, o }); } } });
+      if(q !== x.q || (o && o.some((v2, j) => v2 !== x.o[j]))){ ed++; examQApplyEdit(x, { q, o, a:x.a }); if(L.bank === 'hw' && x.key) EXAM_HW_EDITS.set(x.key, { q, o, a:x.a }); } } });
   closeModal(); examBankRerender(L.bank);
   toast(off || ed ? `📏 ${[off ? `استُبعد ${off}` : '', ed ? `اختُصر ${ed}` : ''].filter(Boolean).join(' و')} — المعاينة تحدّثت` : 'لم يتغير شيء', 'good');
+}
+/* ✏️ تعديل سؤال في بنك الاختبار (صياغة، اختصار، تصحيح الإجابة): يتغير في الاختبار فقط لا في النشاط.
+   الأصل يُحفظ في _orig ليُعاد بضغطة، وتعديلات بنك النشاط تبقى بعد إعادة جمعه (EXAM_HW_EDITS بمفتاح السؤال) */
+function examQApplyEdit(x, e){
+  if(!x._orig) x._orig = { q:x.q, ...(x.o ? { o:x.o.slice() } : {}), a:x.a };
+  try{ EX_SIM_TOK.delete(x); }catch(e){}                          // كلمات «المتشابهة» تُحسب من النص الجديد
+  x.q = e.q; if(e.o && x.o) x.o = e.o.slice(); if(e.a !== undefined) x.a = e.a;
+  if(x.o && !(x.a >= 0 && x.a < x.o.length)) x.a = 0;
+  x.edited = true;
+}
+function examQEdit(bank, idx){
+  const x = examBankItems(bank)[idx]; if(!x) return; const mc = x.kind !== 'tf';
+  window._exQE = { bank, idx };
+  openModal(`<h2>✏️ تعديل السؤال</h2>
+    <p class="muted" style="margin:.2rem 0 .7rem;font-size:.84rem">يتغير في هذا الاختبار فقط — النشاط${bank === 'json' ? '/الملف' : ''} الأصلي يبقى كما هو.${x.edited ? ' <b>هذا السؤال معدّل من قبل.</b>' : ''}</p>
+    <div class="field"><label>نص ${mc ? 'السؤال' : 'العبارة'}</label><textarea class="inp" id="exq-q" rows="3" style="font-family:inherit">${esc(x.q)}</textarea></div>
+    ${mc ? `<div class="field"><label>الخيارات <span class="muted" style="font-weight:400">(● بجانب الإجابة الصحيحة · امسح نص خيار لحذفه)</span></label>
+      <div class="exq-opts">${x.o.map((o, j) => `<label class="exq-opt"><input type="radio" name="exq-a" value="${j}" ${j === x.a ? 'checked' : ''} aria-label="الإجابة الصحيحة"><b>${['أ','ب','ج','د'][j]}</b><input class="inp" id="exq-o${j}" value="${esc(o)}"></label>`).join('')}</div></div>`
+    : `<div class="field"><label>الإجابة الصحيحة</label><div class="row" style="gap:1rem"><label><input type="radio" name="exq-a" value="1" ${x.a ? 'checked' : ''}> صح</label><label><input type="radio" name="exq-a" value="0" ${x.a ? '' : 'checked'}> خطأ</label></div></div>`}
+    <div class="row" style="gap:.5rem;flex-wrap:wrap;margin-top:.8rem">
+      <button type="button" class="btn primary" onclick="examQSave()">💾 حفظ</button>
+      <button type="button" class="btn ghost" onclick="examQOff()">${x.selected === false ? '↩️ أعِده للاختبار' : '🚫 استبعده من الاختبار'}</button>
+      ${x.edited && x._orig ? '<button type="button" class="btn ghost" onclick="examQRevert()">↺ إرجاع الأصل</button>' : ''}
+      <button type="button" class="btn ghost" onclick="closeModal()">إلغاء</button></div>`);
+  setTimeout(() => document.getElementById('exq-q')?.focus(), 50);
+}
+function examQDone(msg){ const E = window._exQE; closeModal(); examBankRerender(E.bank); toast(msg, 'good'); }
+function examQSave(){
+  const E = window._exQE, x = E && examBankItems(E.bank)[E.idx]; if(!x) return;
+  const q = (document.getElementById('exq-q')?.value || '').trim(); if(!q){ toast('اكتب نص السؤال', 'bad'); return; }
+  const pick = document.querySelector('input[name=exq-a]:checked'); let a = pick ? Number(pick.value) : x.a, o = null;
+  if(x.kind !== 'tf'){
+    const raw = x.o.map((_, j) => (document.getElementById('exq-o' + j)?.value || '').trim());
+    if(!raw[a]){ toast('الإجابة الصحيحة لا يصح أن تكون فارغة', 'bad'); return; }
+    if(raw.filter(Boolean).length < 2){ toast('السؤال يحتاج خيارين على الأقل', 'bad'); return; }
+    a = raw.slice(0, a).filter(Boolean).length; o = raw.filter(Boolean);          // الخيار الفارغ يُحذف
+  } else a = a === 1;
+  const same = q === x.q && a === x.a && (!o || (o.length === x.o.length && o.every((v, j) => v === x.o[j])));
+  if(same){ closeModal(); return; }
+  const e = { q, ...(o ? { o } : {}), a };
+  examQApplyEdit(x, e); if(E.bank === 'hw' && x.key) EXAM_HW_EDITS.set(x.key, e);
+  examQDone('✏️ عُدّل السؤال — المعاينة تحدّثت');
+}
+function examQOff(){
+  const E = window._exQE, x = E && examBankItems(E.bank)[E.idx]; if(!x) return;
+  x.selected = x.selected === false; examQDone(x.selected ? '↩️ أُعيد السؤال للاختبار' : '🚫 استُبعد السؤال من الاختبار');
+}
+function examQRevert(){
+  const E = window._exQE, x = E && examBankItems(E.bank)[E.idx]; if(!x || !x._orig) return;
+  x.q = x._orig.q; if(x._orig.o) x.o = x._orig.o.slice(); x.a = x._orig.a; delete x.edited; delete x._orig; try{ EX_SIM_TOK.delete(x); }catch(e){}
+  if(E.bank === 'hw' && x.key) EXAM_HW_EDITS.delete(x.key);
+  examQDone('↺ أُعيد السؤال كما في الأصل');
 }
 function examHwSimQuick(mode){
   document.querySelectorAll('.exsim-list input[data-g]').forEach(c => { c.checked = mode === 'all' || c.dataset.i === '0'; c.closest('.exsim-row').classList.toggle('off', !c.checked); });
