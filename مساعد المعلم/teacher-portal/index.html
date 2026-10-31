@@ -5600,8 +5600,9 @@ const OMR = (() => {
   /* ⬛ علامات الزوايا المطبوعة (أربعة مربعات سوداء، أسفل اليسار مفرّغ): مراكزها تعطي الورقة بدقة
      ولو طُبعت مصغّرة («ملاءمة الصفحة») أو قُصّت حافتها أو التصقت بسطح فاتح.
      marks: مستطيلاتها بالمم بالترتيب: أعلى اليسار، أعلى اليمين، أسفل اليمين، أسفل اليسار. */
-  function findMarks(G, marks, M, lim) {
-    const S = downscale(G, lim || 1200), { w, h } = S, B = boxBlur(S, Math.max(6, Math.round(Math.max(w, h) / 60)));
+  function findMarks(G, marks, M, lim, blurFor) {
+    // blurFor: قصّة من صورة أكبر تأخذ نصف قطر التنعيم نفسه الذي للصورة كاملة (وإلا اختلف حكم «داكن نسبةً لما حوله»)
+    const S = downscale(G, lim || 1200), { w, h } = S, B = boxBlur(S, Math.max(6, Math.round((blurFor || Math.max(w, h)) / 60)));
     const dark = new Uint8Array(w * h);
     for (let i = 0; i < w * h; i++) if (B.g[i] > 35 && S.g[i] < B.g[i] * 0.62) dark[i] = 1;
     const lab = new Int32Array(w * h), q = new Int32Array(w * h), C = [], maxS = 0.09 * Math.max(w, h);
@@ -6459,17 +6460,42 @@ function omrTick(){
     // 🔭 ورقة بعيدة: في نسخة ٦٤٠ يصير المربع الأسود ٢–٣ بكسل فلا يُعرف، فتُلتقط حواف البلاط بدل الورقة.
     // ثلاث دقّات (٦٤٠ ← ١١٠٠ ← ١٦٠٠): تبدأ بالتي نجحت آخر مرة، وإن لم تُوجد العلامات تُجرَّب دقّة أخرى في الفحص نفسه —
     // فتُكتشف الورقة البعيدة خلال لحظة بلا تحريك الجوال، والقريبة تبقى على الصغيرة السريعة
-    const TIERS = [640, 1100, 1600];
-    const tryTier = t => { if(!t){ tryMk(c, k); return; }
+    // ⚡ لا تعليق للمعاينة: الدقة العالية تُقرأ حول الورقة فقط بعد العثور عليها (تتبّع)، والبحث الواسع موزّع على الفحوص
+    const TIERS = [640, 1100, 1600], tick = OMRUI.mkTick = (OMRUI.mkTick || 0) + 1;
+    const tryTier = (t, roi) => { if(!t){ tryMk(c, k); return; }
       const kk = Math.min(1, TIERS[t] / Math.max(vw, vh)), cv = t === 1 ? (OMRUI.mid || (OMRUI.mid = document.createElement('canvas'))) : (OMRUI.big || (OMRUI.big = document.createElement('canvas')));
+      if(roi){                                                                    // قصّ ما حول الورقة فقط بالدقة العالية
+        const bx = Math.max(0, roi[0]), by = Math.max(0, roi[1]), bw = Math.min(vw, roi[2]) - bx, bh = Math.min(vh, roi[3]) - by; if(bw < 40 || bh < 40) return;
+        cv.width = Math.round(bw * kk); cv.height = Math.round(bh * kk); cv.getContext('2d', { willReadFrequently:true }).drawImage(v, bx, by, bw, bh, 0, 0, cv.width, cv.height);
+        const G = OMR.gray(cv.getContext('2d', { willReadFrequently:true }).getImageData(0, 0, cv.width, cv.height)); OMR.findMarks.cands = []; const f = OMR.findMarks(G, MK, MM, Math.max(cv.width, cv.height), Math.round(Math.max(vw, vh) * kk));
+        const ox = bx * kk, oy = by * kk; OMRUI.mkC = { c: (OMR.findMarks.cands || []).map(([a, b]) => [a + ox, b + oy]), s: kk };
+        if(f){ pr = { G: null, found: { ...f, quad: f.quad.map(([a, b]) => [a + ox, b + oy]) } }; sc = kk; }
+        return; }
       cv.width = Math.round(vw * kk); cv.height = Math.round(vh * kk); cv.getContext('2d', { willReadFrequently:true }).drawImage(v, 0, 0, cv.width, cv.height); tryMk(cv, kk); };
-    const t0 = OMRUI.mkTier || 0; tryTier(t0);
-    if(!pr){ const others = [0, 1, 2].filter(t => t !== t0), t1 = others[(OMRUI.mkTick = (OMRUI.mkTick || 0) + 1) % 2]; tryTier(t1); if(pr) OMRUI.mkTier = t1; }
+    const t0 = OMRUI.mkTier || 0;
+    if(t0 && OMRUI.mkROI) tryTier(t0, OMRUI.mkROI);                               // متابعة الورقة في مكانها
+    if(!pr){
+      // بحث موزّع: الصغيرة دائمًا، و١١٠٠ كل فحصين، و١٦٠٠ كل أربعة — يجد الورقة البعيدة خلال ثانية تقريبًا بلا ثقل على المعاينة
+      tryTier(0); if(pr) OMRUI.mkTier = 0;
+      else { const t1 = tick % 4 === 0 ? 2 : tick % 2 === 0 ? 1 : -1; if(t1 > 0 && t1 !== t0){ tryTier(t1); if(pr) OMRUI.mkTier = t1; } }
+      if(!pr) OMRUI.mkROI = null;
+    }
     // وُجدت في دقّة عالية والورقة اقتربت؟ كل عاشر فحص يُجرَّب الأصغر الأسرع
-    else if(t0 && (OMRUI.mkTick = (OMRUI.mkTick || 0) + 1) % 10 === 0){ const keep = pr, ksc = sc; pr = null; tryTier(0); if(pr) OMRUI.mkTier = 0; else { pr = keep; sc = ksc; } }
+    else if(t0 && tick % 10 === 0){ const keep = pr, ksc = sc; pr = null; tryTier(0); if(pr){ OMRUI.mkTier = 0; OMRUI.mkROI = null; } else { pr = keep; sc = ksc; } }
+    if(pr && (OMRUI.mkTier || 0) > 0){                                            // منطقة المتابعة: حول الورقة مع هامش ربعها
+      const Q = pr.found.quad.map(([a, b]) => [a / sc, b / sc]), xs = Q.map(p => p[0]), ys = Q.map(p => p[1]);
+      const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys), mx = (x1 - x0) * .25 + 40, my = (y1 - y0) * .25 + 40;
+      OMRUI.mkROI = [x0 - mx, y0 - my, x1 + mx, y1 + my];
+    }
   }
-  if(!pr) pr = OMR.prepare(x.getImageData(0, 0, c.width, c.height), { noScan:true });
-  if(pr.error){
+  // ⚡ البحث عن حواف الورقة/الإطار احتياطٌ حين لا تُرى العلامات، وهو أثقل جزء في الفحص (٥٠–١٢٠ مللي ثانية) — كان يُجرى في كل فحص
+  // فتتقطّع المعاينة. مع اختبار بعلامات: كل فحصين، ونسخة ١٦٠٠ كل أربعة. يُعاد استعمال نتيجة سابقة فقط إن كانت «لم توجد» (للإرشاد)،
+  // لا إطارًا وُجد — فلا تُلتقط ورقة بزوايا قديمة
+  const ft = OMRUI.fbTick = (OMRUI.fbTick || 0) + 1, fb = OMRUI.fbPr;
+  if(!pr && MK && ft % 2 === 1 && fb && fb.pr.error){ pr = fb.pr; sc = fb.sc; }
+  else if(!pr){
+    pr = OMR.prepare(x.getImageData(0, 0, c.width, c.height), { noScan:true });
+    if(pr.error && (!MK || ft % 4 === 0)){
     // سطح فاتح: الإطار المطبوع رفيع ويختفي عند التصغير — نبحث عنه في نسخة أكبر
     const k2 = Math.min(1, 1600 / Math.max(vw, vh)), c2 = OMRUI.mid || (OMRUI.mid = document.createElement('canvas'));
     c2.width = Math.round(vw * k2); c2.height = Math.round(vh * k2);
@@ -6477,6 +6503,9 @@ function omrTick(){
     const f = OMR.prepareFrame(OMR.gray(x2.getImageData(0, 0, c2.width, c2.height)));
     if(f && !f.error){ pr = f; sc = k2; } else if(f && f.error === 'cut'){ pr = f; sc = k2; }
   }
+    OMRUI.fbPr = { pr, sc };
+  }
+
   const st = $('omr-status');
   const land = vw > vh, dg = $('omr-diag'); if(dg) dg.textContent = `${vw}×${vh} · ${land ? 'عرضي' : 'طولي'} · ص${(OMRUI.camTry ?? -1) + 1}`;
   // 🎯 توجيه حي: نقطة على كل زاوية (خضراء = المربع الأسود ظاهر)، وتنبيه للزاوية الغائبة
