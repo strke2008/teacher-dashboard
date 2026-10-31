@@ -3631,7 +3631,7 @@ async function exkLoad(){
   return t;
 }
 const exkLab = (q, k) => k < 0 ? '—' : q.t === 'tf' ? (k === 0 ? 'صح' : 'خطأ') : q.t === 'mt' ? String(k + 1) : ['أ','ب','ج','د','هـ','و'][k];
-function exkScore(p, M, keys){ const right = p.ch.filter((c, i) => M.questions[i] && c === (keys[i] ?? M.questions[i].key)).length, cur = right * (p.mark || 1) + (p.man || 0);
+function exkScore(p, M, keys){ const cur = p.ch.reduce((t, c, i) => t + (M.questions[i] && c === (keys[i] ?? M.questions[i].key) ? (Number(M.questions[i].m) || p.mark || 1) : 0), 0) + (p.man || 0);
   return p.tot && Math.abs(p.tot - p.max) > 1e-9 ? +(cur / p.tot * p.max).toFixed(2) : +cur.toFixed(2); }
 async function exKeyOpen(){
   const t = exCurTest(), body = exPanel('🔑 مفتاح الإجابة', esc(t ? t.title : ''));
@@ -5642,10 +5642,15 @@ const OMR = (() => {
     }
     // التحقق الأخير: إطارات الأقسام والعنوان من القالب تقع حيث تقول العلامات (لا نثق بأربع بقع تشبه العلامات)
     const k = 1 / S.f, rect = [mc[0][0], mc[0][1], mmW, mmH], src = [[rect[0], rect[1]], [rect[0] + mmW, rect[1]], [rect[0] + mmW, rect[1] + mmH], [rect[0], rect[1] + mmH]];
-    const set = M && M.anchors && M.anchors.length ? { lines: [].concat(...M.anchors.map(r => outlinePts(r, 2))), boxes: (M.questions || []).flatMap(q => q.boxes.map(r => outlinePts(r, 1))) } : null;
+    // 📄📄 الاختبار متعدد الصفحات: الصورة قد تكون أي صفحة منه، فتُقبل إن طابقت إطاراتُ أيٍّ منها (كانت الصفحة الأولى وحدها تُختبر
+    // فتُرفض الثانية إن اختلف تخطيطها، وتُقرأ كأنها الأولى)
+    const pageSet = P => P && P.anchors && P.anchors.length ? { lines: [].concat(...P.anchors.map(r => outlinePts(r, 2))), boxes: (P.questions || []).flatMap(q => q.boxes.map(r => outlinePts(r, 1))) } : null;
+    const sets = (M ? [M].concat(Array.isArray(M.more) ? M.more : []) : []).map(pageSet).filter(Boolean);
     for (const c of ok.sort((a, b) => b.area - a.area).slice(0, 4)) {
       const quad = c.O.map(p => [(p.x + 0.5) * k, (p.y + 0.5) * k]);
-      if (set) { const sc = searchSet(G, homography(src, quad), set, 1.5, 1.5, 0.5, 0.9); findMarks.last = sc.s; if (sc.s < 14) continue; }
+      if (sets.length) { const Hq = homography(src, quad); let best = -Infinity;
+        for (const st of sets) { best = Math.max(best, searchSet(G, Hq, st, 1.5, 1.5, 0.5, 0.9).s); if (best >= 14) break; }
+        findMarks.last = best; if (best < 14) continue; }
       return { quad, rect, marks: true, area: c.area / (w * h) };
     }
     return null;
@@ -6005,8 +6010,16 @@ const omrApi = p => API.replace(/\/+$/,'') + p;
 /* مجموع النموذج المختار نفسه: النماذج قد تحمل أسئلة مختلفة العدد */
 /* أسئلة النموذج كلها بترتيب الورقة: الصفحة الأولى ثم التالية */
 const omrQs = M => !M ? [] : M.questions.concat(...(M.more || []).map(p => p.questions || []));
+/* درجة كل سؤال: القالب المصمَّم يحمل درجة لكل قسم، وغيره درجة موحدة */
+const omrQm = (q, T = OMRUI.tpl) => Number(q && q.m) || Number(T && T.mark) || 1;
+/* نقاط الإجابات الصحيحة ومجموعها الأقصى بحسب أسئلة نموذج الورقة */
+function omrPts(answers, mi = OMRUI.model){
+  const qs = omrQs(OMRUI.tpl.models[mi] || OMRUI.tpl.models[0]); let ok = 0, max = 0;
+  answers.forEach((a, i) => { const w = omrQm(qs[i]); max += w; if(a.final !== null && a.final !== undefined && a.final === a.key) ok += w; });
+  return { ok: +ok.toFixed(2), max: +max.toFixed(2) };
+}
 function omrTotals(mi = OMRUI.model){
-  const T = OMRUI.tpl, M = T.models[mi], mark = Number(T.mark)||1, auto = omrQs(M).length*mark;
+  const T = OMRUI.tpl, M = T.models[mi], auto = +omrQs(M).reduce((t, q) => t + omrQm(q, T), 0).toFixed(2);
   return { auto, total: Number(M.total) || (mi === 0 ? Number(T.total) : 0) || auto };
 }
 /* ✍️ الجزء اليدوي (مقالي/فراغات/أسئلة خارج الصفحة الأولى): المعلم يكتب درجته فتُرصد الدرجة كاملة —
@@ -6019,9 +6032,9 @@ function omrManualHTML(id, val, mi, on){
     <input class="inp" type="number" inputmode="decimal" min="0" max="${mx}" step="0.25" id="${id}" value="${val ?? ''}" placeholder="0 – ${mx}" oninput="${on}"></label>`;
 }
 function omrScoreOf(res){
-  const mark = Number(OMRUI.tpl.mark)||1, tt = omrTotals();
+  const tt = omrTotals();
   const n = res.answers.filter(a => a.final === a.key).length;
-  return { n, raw: +(n*mark).toFixed(2), total: tt.auto };
+  return { n, raw: omrPts(res.answers, res.model ?? OMRUI.model).ok, total: tt.auto };
 }
 function omrTest(){ return examBook().tests.find(t => String(t.id)===String(OMRUI.testId)) || null; }
 function omrNextStudent(){
@@ -6858,12 +6871,12 @@ function omrBatchForce(){
 /* بطاقة مصغّرة تحت الكاميرا: الكاميرا تبقى ظاهرة كاملة أثناء تبديل الأوراق */
 function omrWhoLine(sh){ const w = sh.sid ? list('').find(x => String(x.id) === String(sh.sid)) : null; return w ? `<span class="omr-who">🧾 ${esc(w.name)}</span>` : ''; }
 function omrBatchMini(sh, dup, id = 'omr-bimg'){
-  const A = sh.answers, mark = Number(OMRUI.tpl.mark) || 1;
-  const pend = A.filter(a => a.final === null).length, ok = A.filter(a => a.final !== null && a.final === a.key).length;
+  const A = sh.answers, P = omrPts(A, sh.model ?? OMRUI.model);
+  const pend = A.filter(a => a.final === null).length;
   return `<div class="omr-mini ${dup ? 'dup' : ''}" id="mini-${sh.id}"><canvas class="omr-mthumb" id="${id}" onclick="omrBatchCardFull('${id}')" aria-label="صورة الورقة — اضغط للتكبير"></canvas>
     <div class="omr-minfo">${dup ? `<b>⚠️ تبدو نفس ورقة مصوّرة — لم تُضف</b><small>إن كانت ورقة طالب آخر أضفها:</small>
         <button class="btn primary" type="button" onclick="omrBatchForce()">➕ ورقة أخرى — أضفها</button>`
-      : `<b>✓ الورقة ${OMRUI.sheets.indexOf(sh) + 1}: ${+(ok * mark).toFixed(2)} من ${+(A.length * mark).toFixed(2)}${pend ? ' مبدئيًا' : ''}</b>${omrWhoLine(sh)}
+      : `<b>✓ الورقة ${OMRUI.sheets.indexOf(sh) + 1}: ${P.ok} من ${P.max}${pend ? ' مبدئيًا' : ''}</b>${omrWhoLine(sh)}
         <small>${pend ? `⚠️ ${pend} غير ${pend === 1 ? 'واضح' : 'واضحة'} — تُحسم عند الربط` : 'كل الإجابات واضحة'} · اضغط الصورة لتكبيرها</small>
         <button class="btn ghost" type="button" onclick="omrBatchUndo('${sh.id}')">🗑 غير صحيحة؟ احذفها</button>`}</div></div>`;
 }
@@ -6871,10 +6884,9 @@ function omrBatchMini(sh, dup, id = 'omr-bimg'){
    ليتأكد المعلم أن التصوير صحيح قبل الورقة التالية (كان يظهر «أُضيفت» فقط) */
 function omrBatchCard(sh, actions, dup){
   const L = ['أ','ب','ج','د','هـ','و'], A = sh.answers;
-  const pend = A.filter(a => a.final === null).length, ok = A.filter(a => a.final !== null && a.final === a.key).length;
-  const mark = Number(OMRUI.tpl.mark) || 1;
+  const pend = A.filter(a => a.final === null).length, P = omrPts(A, sh.model ?? OMRUI.model);
   return `<div class="omr-res omr-bcard">
-    <div class="omr-bhead"><b>${dup ? '⚠️ تبدو نفس ورقة مصوّرة من قبل — لم تُضف' : `الورقة ${OMRUI.sheets.indexOf(sh) + 1}: ${+(ok * mark).toFixed(2)} من ${+(A.length * mark).toFixed(2)}${pend ? ' مبدئيًا' : ''}`}</b>
+    <div class="omr-bhead"><b>${dup ? '⚠️ تبدو نفس ورقة مصوّرة من قبل — لم تُضف' : `الورقة ${OMRUI.sheets.indexOf(sh) + 1}: ${P.ok} من ${P.max}${pend ? ' مبدئيًا' : ''}`}</b>
       ${dup ? '' : omrWhoLine(sh)}<small>${dup ? 'إن كانت ورقة طالب آخر (نفس الإجابات ونفس طريقة التظليل) اضغط «➕ أضفها» تحت' : pend ? `⚠️ ${pend} ${pend === 1 ? 'سؤال غير واضح' : 'أسئلة غير واضحة'} — تحسمها عند ربط الأسماء` : '✓ كل الإجابات واضحة'}</small></div>
     <canvas class="omr-bimg" id="omr-bimg" onclick="omrBatchCardFull()" aria-label="صورة الورقة وعليها ما قُرئ"></canvas>
     <div class="omr-blegend"><span><i style="background:#16A34A"></i>صحيحة</span><span><i style="background:#DC2626"></i>خاطئة</span><span><i style="background:#F59E0B"></i>تحتاج تأكيدك</span><span>اضغط الصورة لتكبيرها</span></div>
@@ -6951,10 +6963,10 @@ async function omrMatch(){
   omrMatchRender();
 }
 function omrSheetScore(s){
-  const mark = Number(OMRUI.tpl.mark)||1, tt = omrTotals(s.model), n = s.answers.filter(a => a.final === a.key).length;
+  const tt = omrTotals(s.model), raw = omrPts(s.answers, s.model).ok;
   const needMan = omrManualMax(s.model) > 0, manOk = omrManualOk(s.manual, s.model);
-  return { raw: +(n*mark).toFixed(2), auto: tt.auto, total: tt.total, pending: s.answers.filter(a => a.final === null).length,
-    needMan, manOk, full: +(n*mark + (needMan && manOk ? Number(s.manual) : 0)).toFixed(2) };
+  return { raw, auto: tt.auto, total: tt.total, pending: s.answers.filter(a => a.final === null).length,
+    needMan, manOk, full: +(raw + (needMan && manOk ? Number(s.manual) : 0)).toFixed(2) };
 }
 function omrSheetManual(id, v){ const s = OMRUI.sheets.find(x => x.id === id); if(!s) return; s.manual = v; OMRDB.put(s); }
 function omrMatchRender(){

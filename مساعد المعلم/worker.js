@@ -7378,7 +7378,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         const num = v => Number.isFinite(Number(v)) ? Number(v) : NaN;
         const rect = r => Array.isArray(r) && r.length === 4 && r.every(v => Number.isFinite(Number(v))) && num(r[2]) > 0 && num(r[3]) > 0;
         const cleanQs = qs => (Array.isArray(qs) ? qs : []).slice(0, 60).filter(q => q && (q.t === 'mc' || q.t === 'tf' || q.t === 'mt') && Array.isArray(q.boxes) && q.boxes.length >= 2 && q.boxes.length <= 6 && q.boxes.every(rect) && Number.isInteger(q.key) && q.key >= 0 && q.key < q.boxes.length)
-            .map(q => ({ t: q.t, key: q.key, boxes: q.boxes.map(r => r.map(Number)),
+            .map(q => ({ t: q.t, key: q.key, boxes: q.boxes.map(r => r.map(Number)), ...(Number(q.m) > 0 ? { m: Math.min(20, Math.round(Number(q.m) * 4) / 4) } : {}),
               ...(q.q ? { q: String(q.q).slice(0, 600) } : {}), ...(Array.isArray(q.o) && q.o.length === q.boxes.length ? { o: q.o.map(x => String(x || '').slice(0, 200)) } : {}) }));
         const models = (Array.isArray(x.models) ? x.models : []).slice(0, 6).map(m => ({
           letter: String(m.letter || '').slice(0, 2),
@@ -7507,7 +7507,8 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         for (const [test, e] of Object.entries(idx)) for (const sid of e.sids || []) {
           const key = `omrp:${sid}:${test}`; let r = null; try { r = JSON.parse(await env.HW.get(key) || 'null'); } catch {}
           if (!r || r.tpl !== id || (r.model || 0) !== mi || !Array.isArray(r.ch)) continue;
-          const right = r.ch.filter((c, i) => M.questions[i] && c === M.questions[i].key).length, cur = right * (r.mark || 1) + (r.man || 0);
+          // لكل سؤال درجته (القالب المصمَّم)، وإلا درجة الاختبار الموحدة
+          const cur = r.ch.reduce((t, c, i) => t + (M.questions[i] && c === M.questions[i].key ? (Number(M.questions[i].m) || r.mark || 1) : 0), 0) + (r.man || 0);
           const val = r.tot && Math.abs(r.tot - r.max) > 1e-9 ? +(cur / r.tot * r.max).toFixed(2) : +cur.toFixed(2);
           r.marks = r.ch.map((c, i) => { const q = M.questions[i]; return !q ? -1 : c === q.key ? 1 : (c === -1 || c === -2) ? 0 : c >= 0 ? 0 : -1; });
           r.keyBoxes = r.ch.map((c, i) => { const q = M.questions[i], bx = r.qb && r.qb[i] && r.qb[i][q ? q.key : -1]; return q && c !== q.key && bx ? [(bx[0] - 1.1) / 210, (bx[1] - 1.1) / 297, (bx[2] + 2.2) / 210, (bx[3] + 2.2) / 297] : null; }).filter(Boolean);

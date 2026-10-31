@@ -5937,7 +5937,7 @@ const EXAM_CONFIG_IDS = [
   'ex-nmc','ex-ntf','ex-nmt','ex-mark','ex-font','ex-size','ex-logo-size','ex-model-count','ex-model',
   'ex-tpl','ex-match-txt','ex-fill-txt','ex-open-txt','ex-open-n','ex-open-total','ex-open-marks','ex-open-lines','ex-fill-extra','ex-flex','ex-extra-pins'
 ];
-const EXAM_CHECK_IDS = ['ex-show-subject','ex-show-grade','ex-show-time','ex-show-date','ex-show-office','ex-show-dept','ex-show-school','ex-key','ex-shuffle','ex-hindi','ex-use-selected','ex-fill-bank'];
+const EXAM_CHECK_IDS = ['ex-omr-marks','ex-show-subject','ex-show-grade','ex-show-time','ex-show-date','ex-show-office','ex-show-dept','ex-show-school','ex-key','ex-shuffle','ex-hindi','ex-use-selected','ex-fill-bank'];
 
 function readSavedPaperExams(){
   try{
@@ -5987,8 +5987,9 @@ function omrMeasure(pageEl){
     const tx=e=>String(e&&e.textContent||'').replace(/\s+/g,' ').trim().slice(0,600);
     const qt=mc?tx(q.querySelector('.ex-qt span:last-child')):mt?tx(q.querySelector('.ex-amt-t')):tx([...q.children].find(c=>c.tagName==='SPAN'&&!c.classList.contains('ex-num')&&!c.classList.contains('ex-tf-c')));
     // الوصل: خيارات السؤال = عبارات العمود الأول بترتيبها (رقم المربع)
-    const opts=mc?cells.map(c=>tx(c.querySelector('span:last-child'))):mt?[...page.querySelectorAll('.ex-amt-c1t')].map(tx):[];
-    if(boxes.length>=2 && key>=0) questions.push({ t:mc?'mc':mt?'mt':'tf', boxes, key, ...(qt?{q:qt}:{}), ...((mc||mt)&&opts.length===boxes.length&&opts.every(Boolean)?{o:opts}:{}) });
+    const opts=mc?cells.map(c=>tx(c.querySelector('span:last-child'))):mt?[...(q.closest('.ex-sec')||page).querySelectorAll('.ex-amt-c1t')].map(tx):[];
+    const qm=Number(q.dataset.m);                                     // درجة السؤال في المصمَّم (لكل قسم درجته)
+    if(boxes.length>=2 && key>=0) questions.push({ t:mc?'mc':mt?'mt':'tf', boxes, key, ...(qm>0?{m:qm}:{}), ...(qt?{q:qt}:{}), ...((mc||mt)&&opts.length===boxes.length&&opts.every(Boolean)?{o:opts}:{}) });
   });
   const allQ=document.querySelectorAll('#exam-paper .ex-q, #exam-paper .ex-tf, #exam-paper .ex-amtq').length;
   const ptag=page.querySelector(':scope > .ex-ptag');                    // وسم الصفحة (٢ فما بعد): يعرف به الجوال أي صفحة صوّرها
@@ -6177,12 +6178,16 @@ function omrManageRename(id){
 async function omrSendTemplate(){
   const box=document.getElementById('exam-paper');
   if(!box || !box.querySelector('.ex-sec')){ toast('أنشئ الاختبار أولًا','bad'); return; }
+  if(!examOmrOn()){ toast('فعّل «📷 للتصحيح الآلي بالجوال» في القالب المصمَّم واطبع الورقة بعلاماتها أولًا','bad'); return; }
   const api=getApi(), tok=getTok();
   if(!api||!tok){ toast('اضبط عنوان الخادم وكلمة السر أولًا','bad'); return; }
   const keyEl=document.getElementById('ex-key'), modelSel=document.getElementById('ex-model');
   const keep={ key:!!(keyEl&&keyEl.checked), model:modelSel?modelSel.value:'0' };
   const count=Math.max(1, Number(document.getElementById('ex-model-count')?.value)||1);
   const models=[];
+  // 📏 القياس بالحجم الحقيقي: المعاينة مصغّرة لتتسع لعمودها، والتصغير قد يغيّر التفاف السطور فتختلف المواقع عن الورقة المطبوعة
+  const pv=document.getElementById('exw-prev'), pvz=pv?pv.style.getPropertyValue('--exz'):'';
+  if(pv) pv.style.setProperty('--exz','1'); window._exzLock=true;
   try{
     if(keyEl) keyEl.checked=true;
     for(let m=0;m<count;m++){
@@ -6200,22 +6205,24 @@ async function omrSendTemplate(){
   finally{
     if(keyEl) keyEl.checked=keep.key;
     if(modelSel) modelSel.value=keep.model;
+    window._exzLock=false; if(pv){ if(pvz) pv.style.setProperty('--exz',pvz); else pv.style.removeProperty('--exz'); }
     examBuild(true);
   }
   const mark=examMarkVal();
   const n=models[0].questions.length+(models[0].more||[]).reduce((t,x)=>t+x.questions.length,0);
+  const autoPts=+models[0].questions.concat(...(models[0].more||[]).map(p=>p.questions)).reduce((t,q)=>t+(q.m||mark),0).toFixed(2);   // لكل سؤال درجته
   if(!models[0].questions.length){ toast('لا توجد أسئلة اختيار أو صح/خطأ في الصفحة الأولى','bad'); return; }
   const title=String(document.getElementById('ex-title')?.value||'اختبار قصير').trim();
-  const total=(()=>{ const s=document.getElementById('ex-status')?.textContent||''; const m=/المجموع\s+([\d.]+)/.exec(s); return m?Number(m[1]):n*mark; })();
+  const total=(()=>{ const s=document.getElementById('ex-status')?.textContent||''; const m=/المجموع\s+([\d.]+)/.exec(s); return m?Number(m[1]):autoPts; })();
   // 🔖 النسخة = بصمة مفتاح الإجابة ومواقع المربعات. تعديل الاختبار بعد طباعته يصنع نسخة جديدة بجانب القديمة
   // (كانت تُستبدل بصمت فتُصحَّح الأوراق المطبوعة قبل التعديل بمفتاح الإجابة الجديد)
-  const sig=JSON.stringify([title, mark, models.map(x=>x.questions.concat(...(x.more||[]).map(p=>p.questions)).map(q=>[q.t,q.key,q.boxes.map(r=>r.map(v=>Math.round(v)))]))]);
+  const sig=JSON.stringify([title, mark, models.map(x=>x.questions.concat(...(x.more||[]).map(p=>p.questions)).map(q=>[q.t,q.key,q.boxes.map(r=>r.map(v=>Math.round(v))),...(q.m?[q.m]:[])]))]);
   let h=5381; for(let i=0;i<sig.length;i++) h=((h<<5)+h+sig.charCodeAt(i))|0;
   let th=5381; for(let i=0;i<title.length;i++) th=((th<<5)+th+title.charCodeAt(i))|0;   // اختبار غير محفوظ: أساسه عنوانه
   const ver=(h>>>0).toString(36).slice(0,6), base=String(window.__LOADED_PAPER_EXAM_ID||('x'+(th>>>0).toString(36))).replace(/[^A-Za-z0-9_-]/g,'').slice(0,30)||'x';
   let prevVers=[]; try{ const L=await (await fetch(api.replace(/\/+$/,'')+'/omr/list?t='+encodeURIComponent(tok))).json(); prevVers=(L.templates||[]).filter(e=>String(e.id).startsWith(base+'-v')&&e.id!==base+'-v'+ver); }catch(e){}
   const vn=prevVers.length?` (نسخة ${prevVers.length+1})`:'';
-  const tpl={ id: base+'-v'+ver, title: title+vn, mark, total, autoTotal:n*mark, models, at:Date.now() };
+  const tpl={ id: base+'-v'+ver, title: title+vn, mark, total, autoTotal:autoPts, models, at:Date.now() };
   try{
     const r=await fetch(api.replace(/\/+$/,'')+'/omr/template',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:tok,template:tpl})});
     const j=await r.json().catch(()=>({}));
@@ -6269,6 +6276,7 @@ function applySavedPaperExam(exam){
     if(sel){ sel.innerHTML=Array.from({length:cnt},(_,i)=>`<option value="${i}">نموذج (${examModelLetter(i)})</option>`).join('');
       sel.value=String(Math.max(0,Math.min(cnt-1,Number(cfg['ex-model'])||0))); sel.disabled=cnt===1; try{ syncExamPrintAllButton(); }catch(e){} } }
   ['ex-nmc','ex-ntf'].forEach(id=>{ const el=document.getElementById(id); if(el) delete el.dataset.keep; });   // القيم المحمّلة هي الأصل
+  if(!Object.prototype.hasOwnProperty.call(checks,'ex-omr-marks')){ const om=document.getElementById('ex-omr-marks'); if(om) om.checked=true; }   // محفوظ قبل الخيار: كما كان (بعلامات)
   examTplMigrate(Object.prototype.hasOwnProperty.call(cfg,'ex-tpl') ? cfg['ex-tpl'] : 't1');   // اختبار محفوظ قبل القوالب أو على قالب أُلغي
   examTplSyncUI();
   const src=document.getElementById('ex-src');
@@ -6348,6 +6356,8 @@ const EX_OPEN_MAX = 8;
 function examTpl(){ const v = document.getElementById('ex-tpl')?.value; return v === 't4' ? 't4' : 't5'; }
 /* بقي قالبان: «ورقة واحدة» (t5) و«مصمَّم» (t4). الاختبار المحفوظ على قالب أُلغي يُفتح على بديله بنفس الأسئلة:
    t1 (٥ + ٥ بلا وصل) ← ورقة واحدة بلا وصل · t2/t3 (ورقتان) ← مصمَّم بنفس الصفحتين والأقسام والدرجات */
+/* 📷 الورقة تُصحَّح بالجوال؟ «ورقة واحدة» دائمًا، و«المصمَّم» حسب خياره */
+function examOmrOn(){ return examTpl() !== 't4' || document.getElementById('ex-omr-marks')?.checked !== false; }
 function examTplMigrate(old){
   const tp = document.getElementById('ex-tpl'); if(!tp) return;
   const val = id => document.getElementById(id)?.value || '', set = (id, v) => { const e = document.getElementById(id); if(e) e.value = v; };
@@ -6418,7 +6428,7 @@ function examTplSyncUI(){
   const t = examTpl();
   const show = (id, on) => { const el = document.getElementById(id); if(el) el.style.display = on ? '' : 'none'; };
   const L = t === 't4' ? examFlexLayout() : null, uses = k => !!(L && L.some(pg => pg.some(x => x.t === k)));
-  show('ex-flex-ui', t === 't4');
+  show('ex-flex-ui', t === 't4'); show('ex-omr-marks-f', t === 't4');
   show('ex-extra', t === 't2' || t === 't3' || t === 't5' || (t === 't4' && (uses('match') || uses('fill') || uses('open'))));
   show('ex-extra-fill', t === 't2' || uses('fill')); show('ex-extra-open', t === 't3' || uses('open'));
   show('ex-nmt-f', t === 't5');   // 📷 القالب ٥: عدد أزواج الوصل (مربعات أرقام تُقرأ بالكاميرا)
@@ -6564,6 +6574,7 @@ function examFlexData(o){
   const fPool = examModelLines(fills, Tf, o, 'أكمل الفراغ', notes, 'fill');
   const oPool = examModelLines(opens, To, o, 'أجب', notes, 'open');
   let mi = 0, fi = 0, oi = 0;
+  const firstMatchKey = (() => { for(let pi = 0; pi < L.length; pi++) for(let si = 0; si < L[pi].length; si++) if(L[pi][si].t === 'match') return `${pi}-${si}`; return ''; })();
   const pages = L.map((pg, pi) => pg.map((x, si) => {
     const ord = EX_ORD[no++] || String(no), sec = { t:x.t, ord, m:x.m, key:`${pi}-${si}` };
     if(x.t === 'mc' || x.t === 'tf'){
@@ -6582,6 +6593,16 @@ function examFlexData(o){
       if(B.length > 1 && A.every((_, i) => B[i] && B[i].ans === i)) B = B.slice(1).concat(B[0]);
       sec.X = { A, B, letterOf: A.map((_, i) => EX_LET[B.findIndex(b => b.ans === i)] || ''), marksMatch: +(x.n * x.m).toFixed(2) };
       sec.marks = sec.X.marksMatch;
+      // 📷 للتصحيح الآلي: الوصل بمربعات أرقام يضلّلها الطالب (حتى ٦ أزواج — ما يتسع له السطر ويقرؤه الجوال)
+      if(o.omr){
+        const real = got.filter(p => p && p.a && p.b);
+        if(x.n > 6) notes.push(`الوصل (السؤال ${ord}): ${x.n} أزواج — التصحيح الآلي يقرأ حتى ٦، فيُطبع وصلًا تقليديًا يُصحَّح يدويًا`);
+        else if(real.length >= 2){
+          if(M.extra.length && sec.key === firstMatchKey) notes.push('الوصل: الخيارات المشتِّتة (سطر يبدأ بـ |) لا تظهر في وصل التضليل — كل سطر عبارة يقابلها خيار');
+          sec.AM = examAutoMatchFrom(real, o, x.m, notes, o.seed + '|amt' + sec.key + '|' + (o.modelIndex || 0));
+          sec.marks = sec.AM.marks;
+        }
+      }
     }else if(x.t === 'fill'){
       let F = fPool.slice(fi, fi + x.n); fi += x.n;
       if(F.length < x.n) notes.push(`أكمل الفراغ (السؤال ${ord}): ${F.length} من ${x.n} — تُترك الباقية فارغة`);
@@ -6620,7 +6641,7 @@ function examFlexSecHtml(sec, o){
   if(sec.t === 'mc'){
     if(!sec.items.length) return '';
     return `<div class="ex-sec">${examSecHead('h-mc', `السؤال ${sec.ord}: اختر الإجابة الصحيحة فيما يلي:`, sec.marks, D)}${sec.items.map((q, i) => `
-      <div class="ex-q" data-mid="mc${sec.start + i}">
+      <div class="ex-q" data-mid="mc${sec.start + i}" data-m="${sec.m}">
         <div class="ex-qt"><span class="ex-num">${D(i+1)}</span><span>${escExamText(q.q)}</span></div>
         <div class="ex-opts">${q.o.map((op, j) => `<div class="ex-opt${key && j === q.a ? ' key' : ''}"><span class="ex-box"></span><span class="ex-ltr">${L4[j] || ''}</span><span>${escExamText(op)}</span></div>`).join('')}</div>
       </div>`).join('')}</div>`;
@@ -6628,11 +6649,11 @@ function examFlexSecHtml(sec, o){
   if(sec.t === 'tf'){
     if(!sec.items.length) return '';
     return `<div class="ex-sec">${examSecHead('h-tf', `السؤال ${sec.ord}: ضع علامة (✓) أمام العبارة الصحيحة و(✗) أمام الخاطئة:`, sec.marks, D)}${sec.items.map((q, i) => `
-      <div class="ex-tf" data-mid="tf${sec.start + i}"><span class="ex-num">${D(i+1)}</span><span>${escExamText(q.q)}</span>
+      <div class="ex-tf" data-mid="tf${sec.start + i}" data-m="${sec.m}"><span class="ex-num">${D(i+1)}</span><span>${escExamText(q.q)}</span>
         <span class="ex-tf-c${key && q.a ? ' key' : ''}"><span class="ex-box"></span> صح</span>
         <span class="ex-tf-c${key && !q.a ? ' key' : ''}"><span class="ex-box"></span> خطأ</span></div>`).join('')}</div>`;
   }
-  if(sec.t === 'match') return examMatchSec(sec.X, { D, key, no:sec.ord });
+  if(sec.t === 'match') return sec.AM ? examAutoMatchSec(sec.AM, { D, key, no:sec.ord }) : examMatchSec(sec.X, { D, key, no:sec.ord });
   if(sec.t === 'fill') return examFillSec(sec.X, { D, key, no:sec.ord });
   return examOpenSec(sec.X, { D, key, no:sec.ord, shrink: sec.X.linesSet ? 0 : (o.shrink || 0) });   // الأسطر المحددة يدويًا لا تُضغط
 }
@@ -6920,6 +6941,10 @@ function examAutoMatch(o){
   const A = examModelLines(M.pairs, n, o, 'الوصل', notes, 'match').filter(p => p && p.a && p.b);
   if(A.length < n) notes.push(`الوصل: ${A.length} من ${n} أزواج فقط`);
   if(A.length < 2) return { A:[], B:[], notes, marks:0, empty:true };
+  return examAutoMatchFrom(A, o, o.mark, notes, o.seed + '|amt|' + (o.modelIndex || 0));
+}
+/* أزواج الوصل ← شكل التضليل: الجمل في العمود الأول، والكلمات مخلوطة مرقّمة في الثاني (يستعمله «ورقة واحدة» و«المصمَّم») */
+function examAutoMatchFrom(A, o, mark, notes, seed){
   // الجملة (الطرف الأطول) في العمود الأول بلا ترقيم، والكلمة (الأقصر) مرقّمة في العمود الثاني — أيًّا كان ترتيب المعلم للزوج
   const len = k => A.reduce((t, p) => t + String(p[k]).length, 0);
   const flip = len('b') > len('a');
@@ -6927,11 +6952,11 @@ function examAutoMatch(o){
   // نص مكرر في أي عمود لإجابتين مختلفتين: الطالب لا يفرّق بينهما ويُخطَّأ وهو مصيب
   const dups = L => L.filter((t, i) => L.findIndex(u => rdNormAr(u) === rdNormAr(t)) !== i).filter((t, i, arr) => arr.findIndex(u => rdNormAr(u) === rdNormAr(t)) === i);
   [[dups(S), 'الأول'], [dups(W), 'الثاني']].forEach(([d, c]) => { if(d.length) notes.push(`⚠️ الوصل: «${d.join('»، «')}» مكررة في العمود ${c} — الطالب لا يفرّق بينها، غيّر إحداها`); });
-  let B = o.shuffle(W.map((t, i) => ({ t, ans:i })), o.seed + '|amt|' + (o.modelIndex || 0));
+  let B = o.shuffle(W.map((t, i) => ({ t, ans:i })), seed);
   // الأعمدة متقابلة في السطر نفسه: لا تقع إجابة أي عبارة في سطرها (تُكشف بالنظر). تبديل كل موضع ثابت مع جاره يزيله
   for(let i = 0; i < B.length; i++) if(B[i].ans === i){ const j = (i + 1) % B.length; [B[i], B[j]] = [B[j], B[i]]; }
   for(let i = 0; i < B.length; i++) if(B[i].ans === i){ const j = (i + B.length - 1) % B.length; [B[i], B[j]] = [B[j], B[i]]; }
-  return { A, S, B, notes, marks: A.length * o.mark };
+  return { A, S, B, notes, marks: +(A.length * mark).toFixed(2), m: mark };
 }
 /* الوصل بشكل الوصل التقليدي: عبارات العمود الأول يمين (بلا رقم ولا حرف: هي ما يُجاب عنه) ← مربعات التضليل في الوسط
    وتحت كل مربع رقمه ← العمود الثاني يسار مرقّمًا (الخيارات). كل تركيز الطالب: أي رقم يناسب هذه الجملة */
@@ -6939,7 +6964,7 @@ function examAutoMatchSec(AM, o){
   const head = `<div class="ex-amt-h" data-mid="mta"><span>العمود الأول</span><span>رقم الإجابة من العمود الثاني</span><span>العمود الثاني</span></div>`;
   // الأسطر = الجمل بترتيب المعلم، والعمود الثاني = ما يناسبها مخلوطًا ومرقّمًا؛ مفتاح السطر i = موضع ما يناسبه
   const rows = AM.A.map((p, i) => { const ans = AM.B.findIndex(b => b.ans === i);
-    return `<div class="ex-amtq" data-mid="mtq${i}">
+    return `<div class="ex-amtq" data-mid="mtq${i}"${AM.m !== undefined ? ` data-m="${AM.m}"` : ''}>
     <span class="ex-amt-c1"><span class="ex-amt-t">${escExamText(AM.S[i])}</span></span>
     <span class="ex-amt-o">${AM.B.map((_, j) => `<span class="ex-amto${o.key && j === ans ? ' key' : ''}"><span class="ex-box"></span><i>${o.D(j+1)}</i></span>`).join('')}</span>
     <span class="ex-amt-c2">${AM.B[i] ? `<b class="ex-num">${o.D(i+1)}</b><span class="ex-amt-c1t">${escExamText(AM.B[i].t)}</span>` : ''}</span></div>`; }).join('');
@@ -6998,6 +7023,7 @@ function examStatusDecorate(){
 function examFiducials(){
   // الصفحات التالية تحمل أيضًا وسمًا مربعًا أسود بجانب رقم الصفحة (موضعه يختلف لكل صفحة): الجوال يعرف به أنها الثانية
   // أو الثالثة… فيقرؤها بخريطتها ويضمها إلى ورقة الطالب نفسه. الصفحة الأولى بلا وسم
+  if(!examOmrOn()) return;                                     // المصمَّم بلا تصحيح آلي: ورقة عادية بلا علامات
   const pages = [...document.querySelectorAll('#exam-paper .exam-page')];
   let k = 0;
   pages.forEach(pg => {
@@ -7045,10 +7071,10 @@ function examStepSums(){
 }
 /* المعاينة تُصغَّر لتملأ عرض عمودها (الطباعة والقياس بالحجم الحقيقي) */
 function examPrevZoom(){
-  const w = document.getElementById('exw-prev'); if(!w || !w.clientWidth) return;
+  const w = document.getElementById('exw-prev'); if(!w || !w.clientWidth || window._exzLock) return;   // أثناء قياس التصحيح الآلي: الحجم الحقيقي
   const z = Math.max(.3, Math.min(1, (w.clientWidth - 16) / (210 * EX_MM)));
   w.style.setProperty('--exz', z.toFixed(3));
-  if(!w._ro && window.ResizeObserver){ w._ro = new ResizeObserver(() => { const z2 = Math.max(.3, Math.min(1, (w.clientWidth - 16) / (210 * EX_MM))); w.style.setProperty('--exz', z2.toFixed(3)); }); w._ro.observe(w); }
+  if(!w._ro && window.ResizeObserver){ w._ro = new ResizeObserver(() => { if(window._exzLock) return; const z2 = Math.max(.3, Math.min(1, (w.clientWidth - 16) / (210 * EX_MM))); w.style.setProperty('--exz', z2.toFixed(3)); }); w._ro.observe(w); }
 }
 function examBuild0(force){
   const box = document.getElementById('exam-paper');
@@ -7126,7 +7152,7 @@ function examBuild0(force){
     ? ` · ⚠️ النموذج (${examModelLetter(modelIndex)}): ${mc.length < nmc ? `${mc.length} من ${nmc} اختيار` : ''}${mc.length < nmc && tf.length < ntf ? ' و' : ''}${tf.length < ntf ? `${tf.length} من ${ntf} صح/خطأ` : ''} — البنك لا يكفي، أضف أسئلة أو قلّل التثبيت` : '';
   const mark = examMarkVal();
   const X = TPL === 't1' || TPL === 't4' || TPL === 't5' ? null : examExtras(TPL, { mark, modelIndex, modelCount, seed:modelSeed, shuffle:seededShuffle, mix, val });
-  const FX = TPL === 't4' ? examFlexData({ mc, tf, val, modelIndex, modelCount, seed:modelSeed, shuffle:seededShuffle, mix }) : null;
+  const FX = TPL === 't4' ? examFlexData({ mc, tf, val, modelIndex, modelCount, seed:modelSeed, shuffle:seededShuffle, mix, omr:examOmrOn() }) : null;
   const AM = TPL === 't5' ? examAutoMatch({ mark, modelIndex, modelCount, seed:modelSeed, shuffle:seededShuffle, val }) : null;
   const total = FX ? FX.total : (mc.length + tf.length) * mark + (X ? X.marks : 0) + (AM ? AM.marks : 0);
   const dots = '.'.repeat(26);
