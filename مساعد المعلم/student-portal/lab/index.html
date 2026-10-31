@@ -95,6 +95,9 @@ h1,h2,h3{font-family:var(--display);line-height:1.3;margin:0}
 .guide .gt .who{font-size:.8rem;opacity:.7}
 .guide .gact{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
 .guide .btn.amber{padding:8px 16px}
+.guide .gvoice{margin-inline-start:8px;border:0;background:rgba(255,255,255,.14);color:inherit;border-radius:999px;padding:1px 9px;font:inherit;font-size:.78rem;cursor:pointer;vertical-align:middle}
+.guide .gvoice.off{opacity:.55}
+.guide .gvoice.talk{background:rgba(255,200,80,.32)}
 .gnote{margin:8px 2px 0;padding:8px 12px;border-radius:10px;background:var(--amber-soft);border-inline-start:4px solid var(--amber);font-weight:500;display:none}
 .gnote.show{display:block;animation:pop .25s ease}
 .gnote.bad{background:var(--bad-soft);border-color:var(--bad)}
@@ -5186,6 +5189,63 @@ function guideGo(){
   (mq.addEventListener?mq.addEventListener('change',()=>{detach();scan()}):mq.addListener(()=>{detach();scan()}));
   scan();
 })();
+
+/* 🔊 صوت المرشد: يقرأ كل خطوة جديدة وكل تنبيه بصوت ElevenLabs من الخادم (المفتاح في الخادم فقط).
+   زر 🔊/🔇 في المرشد يُحفظ. بلا مفتاح في الخادم أو بلا شبكة: صمت تام، والمختبر يعمل كما هو. */
+const LABVOICE=(()=>{
+  const LS='lab:voice';let on=true;try{on=localStorage.getItem(LS)!=='0'}catch(e){}
+  const au=new Audio();au.preload='auto';let dead=false,unlocked=false,cur='',lastG='',lastAt=0,pend=null,tok=0;
+  const urls=new Map();
+  const clean=t=>String(t||'').replace(/[‎‏‪-‮⁦-⁩]/g,'').replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}]/gu,'').replace(/\s+/g,' ').trim();
+  function btns(){document.querySelectorAll('.guide .gvoice').forEach(b=>{b.textContent=on?'🔊':'🔇';b.classList.toggle('off',!on);b.classList.toggle('talk',on&&!au.paused&&!!cur);
+    b.setAttribute('aria-label',on?'إيقاف صوت المرشد':'تشغيل صوت المرشد');b.title=b.getAttribute('aria-label')})}
+  function stop(){tok++;pend=null;cur='';try{au.pause()}catch(e){}btns()}
+  async function url(t){
+    if(urls.has(t))return urls.get(t);
+    const p=fetch(PORTAL.api+'/tts?t='+encodeURIComponent(t)).then(r=>{
+      if(r.status===404||r.status===429){dead=true;return null}
+      return r.ok?r.blob().then(b=>URL.createObjectURL(b)):null}).catch(()=>null);
+    urls.set(t,p);const u=await p;if(!u)urls.delete(t);return u;
+  }
+  async function play(t,force){
+    t=clean(t);if(!on||dead||!t||!/[؀-ۿ]/.test(t))return;
+    if(!force&&!au.paused&&cur){pend=t;return}   // تنبيه يُقال الآن: الخطوة بعده
+    const my=++tok;pend=null;cur=t;btns();
+    const u=await url(t);if(my!==tok)return;
+    if(!u){cur='';btns();return}
+    try{au.src=u;await au.play()}catch(e){cur='';btns()}
+  }
+  au.addEventListener('ended',()=>{cur='';btns();if(pend){const t=pend;pend=null;play(t,true)}});
+  au.addEventListener('play',btns);au.addEventListener('pause',btns);
+  // iOS: لا صوت قبل لمسة — أول لمسة تفتح الصوت وتقرأ الخطوة الحالية
+  const unlock=()=>{if(unlocked)return;unlocked=true;
+    try{const n=800,B=new ArrayBuffer(44+n*2),v=new DataView(B),w=(o,x)=>{for(let i=0;i<x.length;i++)v.setUint8(o+i,x.charCodeAt(i))};
+      w(0,'RIFF');v.setUint32(4,36+n*2,true);w(8,'WAVEfmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);
+      v.setUint32(24,16000,true);v.setUint32(28,32000,true);v.setUint16(32,2,true);v.setUint16(34,16,true);w(36,'data');v.setUint32(40,n*2,true);
+      const sil=URL.createObjectURL(new Blob([B],{type:'audio/wav'}));au.src=sil;
+      au.play().then(()=>{if(au.src===sil)au.pause();const g=document.querySelector('#app #gtext');if(g&&!cur)play(g.textContent)}).catch(()=>{})}catch(e){}
+  };
+  addEventListener('pointerdown',unlock,{capture:true,passive:true});addEventListener('keydown',unlock,{capture:true});
+  // أزرار 🔊 في كل مرشد + مراقبة نص الخطوة
+  let deb=0;
+  function scan(){
+    document.querySelectorAll('#app .guide .gt .who').forEach(w=>{if(w.querySelector('.gvoice'))return;
+      const b=document.createElement('button');b.type='button';b.className='gvoice';
+      b.onclick=e=>{e.stopPropagation();on=!on;try{localStorage.setItem(LS,on?'1':'0')}catch(_){}
+        if(on){lastG='';const g=document.querySelector('#app #gtext');if(g)play(g.textContent,true)}else stop();btns()};
+      w.appendChild(b)});
+    btns();
+    const g=document.querySelector('#app #gtext');
+    if(!g){if(lastG){lastG='';stop()}return}
+    const t=clean(g.textContent);if(t===lastG)return;lastG=t;
+    clearTimeout(deb);deb=setTimeout(()=>{if(clean(g.textContent)===t&&g.isConnected)play(t)},450);
+  }
+  new MutationObserver(()=>{clearTimeout(scan._t);scan._t=setTimeout(scan,60)}).observe(app,{subtree:true,childList:true,characterData:true});
+  document.addEventListener('visibilitychange',()=>{if(document.hidden)stop()});
+  setTimeout(scan,0);
+  return {play,stop,note:t=>{const n=Date.now();if(n-lastAt<300)return;lastAt=n;play(t,true)},get on(){return on}};
+})();
+{const _note=note;note=function(msg,bad){_note(msg,bad);if($('#gnote'))LABVOICE.note(msg)}}
 
 if(PORTAL.hw) portalBoot(); else go('home');
 </script>

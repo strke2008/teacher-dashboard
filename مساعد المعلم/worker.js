@@ -137,7 +137,7 @@ async function kvmetaPut(env, hw, k, v, ...a) {
      ما كُتب في D1 بعد التحديث لا يُطمس). قبل اكتمال النقل: مفتاح بلا سطر يُقرأ من KV كما كان.
    - الحذف شاهد (v = NULL) حتى لا تُعيد نسخة KV متأخرة قيمة محذوفة. big = 1 ⇒ القيمة في KV (أكبر من حد صف D1).
    - قراءات الطلب الواحد المتزامنة تُجمع في استعلام واحد (IN) فلا تبطؤ الصفحات التي تقرأ مئات المفاتيح. */
-const KV_ONLY = ['nimg:'];
+const KV_ONLY = ['nimg:', 'tts:'];
 const KVS_BIG = 600000;
 const d1Key = k => { k = String(k); return !KV_ONLY.some(p => k.startsWith(p)) && !KVMETA_KEYS.has(k); };
 const _kvsReady = new WeakMap();
@@ -5690,6 +5690,52 @@ async function handlePushExtras(url, request, env, ctx, b) {
   return null;
 }
 
+/* ═══ 🔊 صوت مرشد المختبر (ElevenLabs) ═══
+   المفتاح سرّ في الخادم فقط (ELEVENLABS_API_KEY) ولا يصل للطالب.
+   كل جملة تُولَّد مرة واحدة ثم تُحفظ (KV + ذاكرة Cloudflare) وتُقدَّم لكل الطلاب بعدها بلا تكلفة.
+   سقف يومي للأحرف الجديدة (TTS_DAILY_CHARS، الافتراضي 20000) حتى لا يُستنزف الرصيد. */
+const TTS_DEF_VOICE = 'etJo0VNXVmjmd5XDR7lJ';
+function ttsClean(t) {
+  return String(t || '').replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, '')
+    .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}]/gu, '')
+    .replace(/\s+/g, ' ').trim();
+}
+async function ttsHandle(request, env, ctx, url) {
+  const H = { ...CORS, 'Cache-Control': 'public, max-age=31536000, immutable' };
+  const text = ttsClean(url.searchParams.get('t')).slice(0, 400);
+  if (!env.ELEVENLABS_API_KEY) return json({ error: 'tts_off' }, 404);
+  if (!text || !/[\u0600-\u06FF]/.test(text)) return json({ error: 'bad_text' }, 400);
+  const voice = String(env.ELEVENLABS_VOICE_ID || TTS_DEF_VOICE).replace(/[^A-Za-z0-9]/g, '');
+  const model = String(env.ELEVENLABS_MODEL || 'eleven_multilingual_v2').replace(/[^a-z0-9_]/g, '');
+  const dig = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(voice + '|' + model + '|' + text));
+  const h = [...new Uint8Array(dig)].map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 40);
+  const cacheKey = new Request('https://tts.cache/' + h);
+  const cache = (typeof caches !== 'undefined' && caches.default) || null;
+  if (cache) { const hit = await cache.match(cacheKey); if (hit) return new Response(hit.body, { headers: { ...H, 'Content-Type': 'audio/mpeg' } }); }
+  const kvKey = 'tts:' + h;
+  let buf = await env.HW.get(kvKey, 'arrayBuffer').catch(() => null);
+  if (!buf) {
+    const day = 'tts:day:' + new Date().toISOString().slice(0, 10);
+    const used = parseInt(await env.HW.get(day).catch(() => '0') || '0', 10) || 0;
+    const cap = parseInt(env.TTS_DAILY_CHARS || '20000', 10) || 20000;
+    if (used + text.length > cap) return json({ error: 'tts_budget' }, 429);
+    const r = await fetch('https://api.elevenlabs.io/v1/text-to-speech/' + voice + '?output_format=mp3_44100_64', {
+      method: 'POST',
+      headers: { 'xi-api-key': env.ELEVENLABS_API_KEY, 'Content-Type': 'application/json', Accept: 'audio/mpeg' },
+      body: JSON.stringify({ text, model_id: model, language_code: 'ar', voice_settings: { stability: 0.55, similarity_boost: 0.75, style: 0, use_speaker_boost: true, speed: 0.95 } })
+    }).catch(() => null);
+    if (!r || !r.ok) return json({ error: 'tts_fail', status: r ? r.status : 0 }, 502);
+    buf = await r.arrayBuffer();
+    ctx.waitUntil(Promise.all([
+      env.HW.put(kvKey, buf).catch(() => {}),
+      env.HW.put(day, String(used + text.length), { expirationTtl: 172800 }).catch(() => {})
+    ]));
+  }
+  const res = new Response(buf, { headers: { ...H, 'Content-Type': 'audio/mpeg' } });
+  if (cache) ctx.waitUntil(cache.put(cacheKey, res.clone()).catch(() => {}));
+  return res;
+}
+
 export default {
   /* ⏰ Cron (كل دقيقة): تنبيه بداية الحصة لبوابة المعلم. يلزم إضافة Cron Trigger «* * * * *» في Cloudflare */
   async scheduled(event, env, ctx) {
@@ -5715,6 +5761,8 @@ export default {
 
     if (!env.HW) return json({ error: 'KV binding HW is missing' }, 500);
 
+    if (url.pathname === '/tts' && request.method === 'GET') return ttsHandle(request, env, ctx, url);
+
     /* 🔎 بصمة النسخة: تكشف فورًا إن كان الخادم المنشور قديمًا.
        النسخة القديمة لا تعرف هذا المسار، فغيابه هو الجواب. */
     if (url.pathname === '/version') {
@@ -5726,6 +5774,7 @@ export default {
         storeLocks: !!env.DB, kvD1: !!env.DB,
         sessions: !!(env.SESSION_SECRET || env.TEACHER_TOKEN),
         multiGame: true,
+        tts: !!env.ELEVENLABS_API_KEY,
         maxGamesPerActivity: MAX_GAMES,
         gameTypes: Object.keys(GAME_LIMITS)
       });
