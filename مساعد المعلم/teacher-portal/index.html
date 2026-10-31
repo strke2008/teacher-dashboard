@@ -3611,6 +3611,7 @@ async function exPaperOpen(sid){
       if(!(await askConfirm(`حذف ورقة ${x.name} ودرجته في هذا الاختبار نهائيًا؟ تختفي الورقة من بوابته وتقرير ولي أمره، وتُمسح الدرجة ليُعاد تصحيحه.`,{title:'حذف الورقة والدرجة',yes:'احذف نهائيًا',no:'إلغاء'}))) return;
       try{ const r=await (await fetch(`${API}/omr/papers/delete`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:token,test:EXPAP.test,sid:String(sid)})})).json(); if(!r.ok) throw 0;
         EXPAP.sids.delete(String(sid)); v.remove();
+        try{ for(const sh of await OMRDB.all()) if(String(sh.sid) === String(sid) && String(sh.key || '').split('|')[1] === String(EXPAP.test)){ await OMRDB.del(sh.id); if(OMRUI.sheets) OMRUI.sheets = OMRUI.sheets.filter(x => x.id !== sh.id); } }catch(e){}   // ونسختها في دفعة الجوال
         if(exHas(sid,EXPAP.test)) await setExamScore(String(sid),EXPAP.test,'',true);              // الدرجة تُمسح معها
         toast('🗑️ حُذفت الورقة والدرجة'); renderExamGrades(); }catch(e){ toast('تعذّر الحذف — تحقق من الاتصال'); } };
   }catch(e){ v.innerHTML='<span>تعذّر فتح الورقة</span><div class="exp-acts"><button type="button" class="btn" data-x>إغلاق</button></div>'; }
@@ -6669,7 +6670,15 @@ const OMRDB = {
   async all(){ return (await this.tx('readonly', st => st.getAll())) || []; }
 };
 function omrBatchKey(){ return `${OMRUI.tpl && OMRUI.tpl.id}|${OMRUI.testId}|${OMRUI.cls}`; }
-async function omrBatchLoad(){ OMRUI.sheets = (await OMRDB.all()).filter(s => s.key === omrBatchKey()).sort((a, b) => a.at - b.at); }
+async function omrBatchLoad(){
+  // 🧹 الأوراق المرصودة تبقى في الجوال فقط لكشف إعادة تصوير الورقة نفسها: تُحذف إن حُذفت درجتها (من البوابة أو اللوحة)
+  // أو مرّ عليها 12 ساعة (صورتها المصححة محفوظة في الخادم) — كانت تبقى فيُطلب حذفها يدويًا كل مرة
+  const all = await OMRDB.all(), old = Date.now() - 12 * 3600e3, keep = [];
+  for(const s of all){ const tid = String(s.key || '').split('|')[1] || '';
+    if(s.saved && (Number(s.at) < old || (s.sid && tid && !exHas(s.sid, tid)))){ await OMRDB.del(s.id); continue; }
+    if(s.key === omrBatchKey()) keep.push(s); }
+  OMRUI.sheets = keep.sort((a, b) => a.at - b.at);
+}
 /* شريط الاسم: من خانة «اسم الطالب» في خريطة الإجابة، مقوّمًا عبر التحويل نفسه المستخدم في القراءة */
 function omrStudentBox(M){
   const qTop = Math.min(...M.questions.flatMap(q => q.boxes.map(b => b[1])));
@@ -6863,7 +6872,7 @@ function omrBatchAfterSingle(dup, sh){
 }
 function omrBatchCounter(){
   const b = $('omr-match-btn'), n = OMRUI.sheets.length, left = OMRUI.sheets.filter(s => !s.saved).length;
-  if(b){ b.style.display = n ? '' : 'none'; b.textContent = `🔗 ربط الأوراق بالطلاب (${left} ${left===n?'':'من '+n})`.replace(' )',')'); }
+  if(b){ b.style.display = n ? '' : 'none'; b.textContent = left ? `🔗 ربط الأوراق بالطلاب (${left}${left === n ? '' : ' من ' + n})` : `✓ الأوراق المرصودة (${n})`; }
   const am = $('omr-act-match'); if(am){ am.style.display = OMRUI.batch && n ? '' : 'none'; am.textContent = `✅ انتهيت — راجع واربط الأوراق (${n})`; }
 }
 /* ——— شاشة الربط ——— */
