@@ -5600,8 +5600,8 @@ const OMR = (() => {
   /* ⬛ علامات الزوايا المطبوعة (أربعة مربعات سوداء، أسفل اليسار مفرّغ): مراكزها تعطي الورقة بدقة
      ولو طُبعت مصغّرة («ملاءمة الصفحة») أو قُصّت حافتها أو التصقت بسطح فاتح.
      marks: مستطيلاتها بالمم بالترتيب: أعلى اليسار، أعلى اليمين، أسفل اليمين، أسفل اليسار. */
-  function findMarks(G, marks, M) {
-    const S = downscale(G, 1200), { w, h } = S, B = boxBlur(S, Math.max(6, Math.round(Math.max(w, h) / 60)));
+  function findMarks(G, marks, M, lim) {
+    const S = downscale(G, lim || 1200), { w, h } = S, B = boxBlur(S, Math.max(6, Math.round(Math.max(w, h) / 60)));
     const dark = new Uint8Array(w * h);
     for (let i = 0; i < w * h; i++) if (B.g[i] > 35 && S.g[i] < B.g[i] * 0.62) dark[i] = 1;
     const lab = new Int32Array(w * h), q = new Int32Array(w * h), C = [], maxS = 0.09 * Math.max(w, h);
@@ -6455,13 +6455,18 @@ function omrTick(){
   const MM = OMRUI.tpl && OMRUI.tpl.models[OMRUI.auto ? 0 : OMRUI.model], MK = MM && MM.marks;
   let pr = null, sc = k;
   if(MK){
-    const tryMk = (cv, kk) => { const G = OMR.gray(cv.getContext('2d', { willReadFrequently:true }).getImageData(0, 0, cv.width, cv.height)); OMR.findMarks.cands = []; const f = OMR.findMarks(G, MK, MM); OMRUI.mkC = { c: OMR.findMarks.cands || [], s: kk }; if(f){ pr = { G, found: f }; sc = kk; } };
-    const tryMid = () => { const k2 = Math.min(1, 1100 / Math.max(vw, vh)), c2 = OMRUI.mid || (OMRUI.mid = document.createElement('canvas'));
-      c2.width = Math.round(vw * k2); c2.height = Math.round(vh * k2); c2.getContext('2d', { willReadFrequently:true }).drawImage(v, 0, 0, c2.width, c2.height);
-      tryMk(c2, k2); OMRUI.mkMid = !!pr; };
-    // ورقة بعيدة: إن وُجدت العلامات في النسخة الأكبر نبقى عليها (التناوب بين طريقتين يحرّك الإطار فلا «تثبت» الورقة أبدًا)
-    if(OMRUI.mkMid) tryMid();
-    if(!pr){ tryMk(c, k); if(!pr && !OMRUI.mkMid && (OMRUI.mkTick = (OMRUI.mkTick || 0) + 1) % 2 === 0) tryMid(); }
+    const tryMk = (cv, kk) => { const G = OMR.gray(cv.getContext('2d', { willReadFrequently:true }).getImageData(0, 0, cv.width, cv.height)); OMR.findMarks.cands = []; const f = OMR.findMarks(G, MK, MM, Math.max(cv.width, cv.height)); OMRUI.mkC = { c: OMR.findMarks.cands || [], s: kk }; if(f){ pr = { G, found: f }; sc = kk; } };
+    // 🔭 ورقة بعيدة: في نسخة ٦٤٠ يصير المربع الأسود ٢–٣ بكسل فلا يُعرف، فتُلتقط حواف البلاط بدل الورقة.
+    // ثلاث دقّات (٦٤٠ ← ١١٠٠ ← ١٦٠٠): تبدأ بالتي نجحت آخر مرة، وإن لم تُوجد العلامات تُجرَّب دقّة أخرى في الفحص نفسه —
+    // فتُكتشف الورقة البعيدة خلال لحظة بلا تحريك الجوال، والقريبة تبقى على الصغيرة السريعة
+    const TIERS = [640, 1100, 1600];
+    const tryTier = t => { if(!t){ tryMk(c, k); return; }
+      const kk = Math.min(1, TIERS[t] / Math.max(vw, vh)), cv = t === 1 ? (OMRUI.mid || (OMRUI.mid = document.createElement('canvas'))) : (OMRUI.big || (OMRUI.big = document.createElement('canvas')));
+      cv.width = Math.round(vw * kk); cv.height = Math.round(vh * kk); cv.getContext('2d', { willReadFrequently:true }).drawImage(v, 0, 0, cv.width, cv.height); tryMk(cv, kk); };
+    const t0 = OMRUI.mkTier || 0; tryTier(t0);
+    if(!pr){ const others = [0, 1, 2].filter(t => t !== t0), t1 = others[(OMRUI.mkTick = (OMRUI.mkTick || 0) + 1) % 2]; tryTier(t1); if(pr) OMRUI.mkTier = t1; }
+    // وُجدت في دقّة عالية والورقة اقتربت؟ كل عاشر فحص يُجرَّب الأصغر الأسرع
+    else if(t0 && (OMRUI.mkTick = (OMRUI.mkTick || 0) + 1) % 10 === 0){ const keep = pr, ksc = sc; pr = null; tryTier(0); if(pr) OMRUI.mkTier = 0; else { pr = keep; sc = ksc; } }
   }
   if(!pr) pr = OMR.prepare(x.getImageData(0, 0, c.width, c.height), { noScan:true });
   if(pr.error){
