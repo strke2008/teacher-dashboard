@@ -927,6 +927,36 @@ body:has(#bh-mbar:not([hidden])) #behavior{padding-bottom:70px}
 .omr-blegend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:.72rem;font-weight:600;color:var(--ink-soft)}.omr-blegend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-inline-end:4px;vertical-align:middle}
 .omr-bcard .omr-qs{pointer-events:none}
 .omr-q.ok{background:var(--green-soft);color:var(--green-ink)}.omr-q.no{background:var(--red-soft);color:var(--red-ink)}.omr-q.rev{background:var(--amber-soft);color:var(--amber-ink);outline:2px solid var(--amber)}
+.exa-panel{position:fixed;inset:0;z-index:180;background:var(--paper);display:none;flex-direction:column}
+.exa-panel.on{display:flex}
+.exa-h{background:var(--header);color:#fff;padding:calc(12px + var(--safe-t)) 16px 12px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.exa-h b{font-size:1.02rem;display:block}.exa-h small{color:#AFC0D8;font-size:.74rem}
+.exa-x{background:rgba(255,255,255,.12);color:#fff;border:0;border-radius:10px;padding:7px 12px;font:inherit;font-size:.8rem}
+.exa-b{flex:1;overflow:auto;padding:14px 14px calc(20px + var(--safe-b));display:grid;gap:10px;align-content:start}
+.exa-card{background:var(--surface);border:1px solid var(--rule);border-radius:16px;padding:12px;display:grid;gap:8px;box-shadow:var(--shadow)}
+.exa-card small{color:var(--ink-soft);font-size:.78rem;line-height:1.6}
+.exa-note{color:var(--ink-soft);font-size:.8rem;line-height:1.7;margin:0}
+.exa-tabs{display:flex;gap:6px}.exa-tabs button{flex:1;border:1.5px solid var(--rule);background:var(--surface);border-radius:12px;padding:8px;font:inherit;font-weight:800;color:var(--ink-soft)}.exa-tabs button.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-ink)}
+.exk-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.exk-q{border:1px solid var(--rule);border-radius:11px;background:#fff;padding:6px 2px;font:inherit;display:grid;gap:1px;color:var(--ink)}.exk-q small{font-size:.68rem;color:var(--ink-soft)}.exk-q b{font-size:.92rem;color:var(--accent-ink)}
+.exk-q.op{outline:2px solid var(--accent)}.exk-q.ch{border:2px solid var(--amber);background:var(--amber-soft)}.exk-q.ch b{font-size:.78rem;color:var(--amber-ink)}
+.exk-opts{display:flex;gap:6px;flex-wrap:wrap}.exk-opts button{flex:1;min-width:64px;min-height:48px;border:1.5px solid var(--rule-strong);border-radius:12px;background:#fff;font:inherit;font-weight:900;font-size:1.05rem;color:var(--ink);display:grid;gap:2px;padding:6px}
+.exk-opts button small{font-size:.66rem;font-weight:600;color:var(--ink-soft)}.exk-opts button.on{border-color:var(--green);background:var(--green-soft);color:var(--green-ink)}
+.exa-qt{font-size:.82rem;font-weight:700;line-height:1.55}
+.exk-pre{border-color:var(--amber)}
+.exk-d{display:flex;justify-content:space-between;font-size:.84rem;padding:5px 0;border-top:1px dashed var(--rule)}.exk-d i{font-style:normal;font-weight:800}.exk-d .up{color:var(--green-ink)}.exk-d .dn{color:var(--red-ink)}
+.exa-top3{background:linear-gradient(135deg,#FFF4E5,#FDE9EC);border:1px solid #F2C7A0;border-radius:16px;padding:12px;display:grid;gap:6px}
+.exa-top3 small{color:#7a5200;font-size:.8rem;line-height:1.6}.exa-mis{font-weight:700}
+.exa-rem{background:var(--amber);color:#fff;border:0;font-weight:800;margin-top:4px}
+.exa-row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.exa-sort{border:1px solid var(--rule);background:var(--accent-soft);color:var(--accent-ink);border-radius:99px;padding:4px 10px;font:inherit;font-size:.74rem;font-weight:800}
+.exa-q{padding:9px 0;border-top:1px solid var(--rule)}
+.exa-p{font-weight:900}.exa-p.r{color:var(--red-ink)}.exa-p.a{color:var(--amber-ink)}.exa-p.g{color:var(--green-ink)}
+.exa-bar{height:9px;border-radius:9px;background:var(--surface-3);overflow:hidden;margin:6px 0}.exa-bar i{display:block;height:100%;border-radius:9px}.exa-bar i.r{background:var(--red)}.exa-bar i.a{background:var(--amber)}.exa-bar i.g{background:var(--green)}
+.exa-opts{display:flex;gap:5px;flex-wrap:wrap}.exa-opts span{font-size:.72rem;font-weight:800;border-radius:8px;padding:3px 8px;background:var(--surface-2);border:1px solid var(--rule)}
+.exa-opts span.k{background:var(--green-soft);border-color:#9fd6bd;color:var(--green-ink)}.exa-opts span.w{background:var(--red-soft);border-color:#efb3bd;color:var(--red-ink)}
+.ex-omr-tools{display:flex;gap:8px;margin:0 0 10px}.ex-omr-tools:empty{display:none}
+.ex-omr-tools button{flex:1;border:1.5px solid var(--rule);background:var(--surface);border-radius:14px;padding:10px 6px;font:inherit;font-weight:800;font-size:.86rem;color:var(--ink);box-shadow:var(--shadow)}
 .omr-fixbox{border:1px solid #E6ECF4;border-radius:12px;padding:10px;display:grid;gap:8px}
 .omr-revbtn{background:var(--amber-soft);color:var(--amber-ink);border:1.5px solid var(--amber);font-weight:800;margin:0 0 10px}
 .omr-rprog{height:8px;border-radius:9px;background:var(--surface-3);overflow:hidden;margin:-4px 0 10px}.omr-rprog i{display:block;height:100%;background:var(--amber);border-radius:9px;transition:width .25s}
@@ -1293,6 +1323,7 @@ header .brand{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     <div class="msg" id="exam-term-note"></div>
   </div>
   <div class="ex-info" id="exam-kpis"></div>
+  <div class="ex-omr-tools" id="ex-omr-tools"></div>
   <div class="ex-tools"><button type="button" id="ex-voice-btn">🎤 بالصوت</button><button type="button" id="omr-open" onclick="omrOpen()">📷 بالكاميرا</button><button type="button" id="ex-miss-btn">⚠️ لم يُرصد فقط</button><button type="button" id="ex-search-btn" aria-label="بحث">🔍</button></div>
   <div class="sheet" id="ex-voice" hidden>
 <div id="exam-vr-wrap" style="margin-top:10px;display:none">
@@ -3584,6 +3615,136 @@ async function exPaperOpen(sid){
         toast('🗑️ حُذفت الورقة والدرجة'); renderExamGrades(); }catch(e){ toast('تعذّر الحذف — تحقق من الاتصال'); } };
   }catch(e){ v.innerHTML='<span>تعذّر فتح الورقة</span><div class="exp-acts"><button type="button" class="btn" data-x>إغلاق</button></div>'; }
 }
+
+/* ═══ 🔑 مفتاح الإجابة وإعادة التصحيح · 📊 تحليل الأسئلة — للأوراق المصححة آليًا في الاختبار الظاهر ═══ */
+const EXK = { test:'', papers:[], tpls:{}, sel:'', draft:{}, open:-1 };
+function exPanel(title, sub){ let v = $('exa-panel'); if(!v){ v = document.createElement('div'); v.id = 'exa-panel'; v.className = 'exa-panel'; document.body.appendChild(v); }
+  v.innerHTML = `<div class="exa-h"><div><b>${title}</b><small>${sub || ''}</small></div><button type="button" class="exa-x" onclick="exPanelClose()">إغلاق</button></div><div class="exa-b" id="exa-b"><p class="exa-note">جارٍ التحميل…</p></div>`;
+  v.classList.add('on'); document.body.style.overflow = 'hidden'; return $('exa-b'); }
+function exPanelClose(){ const v = $('exa-panel'); if(v) v.classList.remove('on'); document.body.style.overflow = ''; }
+async function exkLoad(){
+  const t = exCurTest(); if(!t) throw 0; EXK.test = String(t.id);
+  const j = await (await fetch(`${API}/omr/papers/full?t=${encodeURIComponent(token)}&test=${encodeURIComponent(EXK.test)}`)).json(); if(!j.ok) throw 0;
+  EXK.papers = j.papers || []; EXK.tpls = {};
+  for(const id of [...new Set(EXK.papers.filter(p => p.tpl).map(p => p.tpl))]){ const g = await (await fetch(omrApi('/omr/get?t=' + encodeURIComponent(token) + '&id=' + encodeURIComponent(id)))).json(); if(g.ok) EXK.tpls[id] = g.template; }
+  return t;
+}
+const exkLab = (q, k) => k < 0 ? '—' : q.t === 'tf' ? (k === 0 ? 'صح' : 'خطأ') : q.t === 'mt' ? String(k + 1) : ['أ','ب','ج','د','هـ','و'][k];
+function exkScore(p, M, keys){ const right = p.ch.filter((c, i) => M.questions[i] && c === (keys[i] ?? M.questions[i].key)).length, cur = right * (p.mark || 1) + (p.man || 0);
+  return p.tot && Math.abs(p.tot - p.max) > 1e-9 ? +(cur / p.tot * p.max).toFixed(2) : +cur.toFixed(2); }
+async function exKeyOpen(){
+  const t = exCurTest(), body = exPanel('🔑 مفتاح الإجابة', esc(t ? t.title : ''));
+  try{ await exkLoad(); }catch(e){ body.innerHTML = '<p class="exa-note">تعذّر التحميل — تحقق من الاتصال</p>'; return; }
+  const groups = []; EXK.papers.filter(p => p.tpl && EXK.tpls[p.tpl]).forEach(p => { const k = p.tpl + ':' + (p.model || 0); if(!groups.includes(k)) groups.push(k); });
+  EXK.groups = groups; EXK.sel = groups.includes(EXK.sel) ? EXK.sel : groups[0] || ''; EXK.draft = {}; EXK.open = -1;
+  exkRender();
+}
+function exkRender(){
+  const body = $('exa-b'); if(!body) return;
+  const old = EXK.papers.filter(p => !p.tpl).length;
+  if(!EXK.sel){ body.innerHTML = `<p class="exa-note">أوراق هذا الاختبار صُوّرت قبل تحديث «إعادة التصحيح» فلا تحمل اختيارات الطلاب — الأوراق الجديدة تدعمه.${old ? ` (${old} ورقة)` : ''}</p>`; return; }
+  const [tid, mi] = EXK.sel.split(':'), T = EXK.tpls[tid], M = T.models[+mi], P = EXK.papers.filter(p => p.tpl === tid && (p.model || 0) === +mi);
+  const tabs = EXK.groups.length > 1 ? `<div class="exa-tabs">${EXK.groups.map(g => { const [a, b] = g.split(':'); return `<button type="button" class="${g === EXK.sel ? 'on' : ''}" onclick="EXK.sel='${g}';EXK.draft={};EXK.open=-1;exkRender()">نموذج (${esc(EXK.tpls[a].models[+b].letter || +b + 1)})</button>`; }).join('')}</div>` : '';
+  const grid = M.questions.map((q, i) => { const d = EXK.draft[i], ch = d !== undefined && d !== q.key;
+    return `<button type="button" class="exk-q${ch ? ' ch' : ''}${EXK.open === i ? ' op' : ''}" onclick="EXK.open=EXK.open===${i}?-1:${i};exkRender()"><small>س${i + 1}</small><b>${ch ? `${exkLab(q, q.key)} ← ${exkLab(q, d)}` : exkLab(q, q.key)}</b></button>`; }).join('');
+  const oq = EXK.open >= 0 ? M.questions[EXK.open] : null;
+  const pick = oq ? `<div class="exa-card exk-pick"><b>س${EXK.open + 1}: الإجابة الصحيحة</b>${oq.q ? `<small class="exa-qt">${esc(String(oq.q).slice(0, 160))}</small>` : ''}
+    <div class="exk-opts">${oq.boxes.map((_, k) => `<button type="button" class="${(EXK.draft[EXK.open] ?? oq.key) === k ? 'on' : ''}" onclick="EXK.draft[${EXK.open}]=${k};exkRender()">${exkLab(oq, k)}${Array.isArray(oq.o) && oq.o[k] ? `<small>${esc(String(oq.o[k]).slice(0, 40))}</small>` : ''}</button>`).join('')}</div></div>` : '';
+  const keys = {}; Object.entries(EXK.draft).forEach(([i, v]) => { if(M.questions[i] && v !== M.questions[i].key) keys[i] = v; });
+  const diffs = Object.keys(keys).length ? P.map(p => ({ p, a: p.score, b: exkScore(p, M, keys) })).filter(x => Math.abs(x.a - x.b) > 1e-9) : [];
+  const nk = Object.keys(keys).length;
+  body.innerHTML = `${tabs}<div class="exa-card"><b>اضغط السؤال لتغيير إجابته الصحيحة</b><div class="exk-grid">${grid}</div></div>${pick}
+    ${nk ? `<div class="exa-card exk-pre"><b>♻️ إعادة حساب ${P.length} ${P.length === 1 ? 'ورقة' : 'أوراق'}</b><small>${Object.entries(keys).map(([i, v]) => `س${+i + 1}: الصحيح الآن «${exkLab(M.questions[i], v)}» بدل «${exkLab(M.questions[i], M.questions[i].key)}»`).join(' · ')} — ${diffs.length ? `تتغير ${diffs.length} ${diffs.length === 1 ? 'درجة' : 'درجات'}:` : 'لا تتغير أي درجة'}</small>
+      ${diffs.slice(0, 40).map(x => `<div class="exk-d"><span>${esc(x.p.name || '—')}</span><span><b>${x.a}</b> ← <i class="${x.b > x.a ? 'up' : 'dn'}">${x.b}</i></span></div>`).join('')}
+      <button type="button" class="btn primary wide" onclick="exkApply()">✓ أعد الحساب وحدّث الرصد</button>
+      <p class="exa-note">يُعدَّل مفتاح التصحيح في الجوال وتُحدَّث الدرجات والختم على الأوراق. إن كان الخطأ في بنك الأسئلة فعدّله في لوحة التحكم أيضًا حتى لا يعود عند إعادة التجهيز.</p></div>` : ''}
+    ${old ? `<p class="exa-note">${old} ${old === 1 ? 'ورقة صُوّرت' : 'أوراق صُوّرت'} قبل التحديث لا تُعاد تلقائيًا.</p>` : ''}`;
+}
+async function exkApply(){
+  const [tid, mi] = EXK.sel.split(':'), T = EXK.tpls[tid], M = T.models[+mi];
+  const keys = {}; Object.entries(EXK.draft).forEach(([i, v]) => { if(M.questions[i] && v !== M.questions[i].key) keys[i] = v; });
+  if(!Object.keys(keys).length) return;
+  const body = $('exa-b'); body.innerHTML = '<p class="exa-note">جارٍ إعادة التصحيح…</p>';
+  try{
+    const j = await (await fetch(omrApi('/omr/regrade'), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ t: token, tpl: tid, model: +mi, keys }) })).json(); if(!j.ok) throw 0;
+    const newKeys = j.keys || M.questions.map(q => q.key), oldKeys = M.questions.map(q => q.key);
+    M.questions.forEach((q, i) => { q.key = newKeys[i]; });
+    // نسخة الجوال من القالب ودفعة الأوراق غير المحفوظة: المفتاح الجديد
+    if(OMRUI.tpl && OMRUI.tpl.id === tid && OMRUI.tpl.models[+mi]) OMRUI.tpl.models[+mi].questions.forEach((q, i) => { q.key = newKeys[i]; });
+    (OMRUI.sheets || []).filter(sh => !sh.saved && sh.model === +mi && sh.key && sh.key.startsWith(tid + '|')).forEach(sh => { sh.answers.forEach((a, i) => { if(newKeys[i] !== undefined) a.key = newKeys[i]; }); OMRDB.put(sh); });
+    // الدرجات في الدفتر المحلي (الخادم حدّثها بطابع أحدث)
+    const b = examBook();
+    for(const c of j.changed || []){ const by = b.scores[String(c.sid)] = b.scores[String(c.sid)] || {}, cell = by[String(c.test)]; if(cell && typeof cell === 'object' && !cell.del) by[String(c.test)] = { ...cell, score: c.now, at: Date.now() }; }
+    // صور الأوراق: كل ورقة تغيّر صواب سؤال فيها تُعاد رسمها من الصفحة بلا ختم
+    const flip = EXK.papers.filter(p => p.tpl === tid && (p.model || 0) === +mi && Object.keys(keys).some(i => (p.ch[i] === newKeys[i]) !== (p.ch[i] === oldKeys[i])));
+    let n = 0; body.innerHTML = `<p class="exa-note">جارٍ تحديث صور الأوراق… <b id="exk-n">0</b> / ${flip.length}</p>`;
+    for(const p of flip){ await exkRestamp(p, M); n++; const e = $('exk-n'); if(e) e.textContent = n; }
+    EXPAP.at = 0; renderExamGrades();
+    body.innerHTML = `<div class="exa-card"><b>✓ أُعيد التصحيح</b><small>تغيرت ${(j.changed || []).length} ${(j.changed || []).length === 1 ? 'درجة' : 'درجات'} · حُدّثت ${n} ${n === 1 ? 'صورة ورقة' : 'صور أوراق'}</small></div>`;
+    toast('✓ أُعيد التصحيح بالمفتاح الجديد'); await exkLoad(); EXK.draft = {}; setTimeout(exkRender, 1400);
+  }catch(e){ body.innerHTML = '<p class="exa-note">تعذّرت إعادة التصحيح — تحقق من الاتصال وأعد المحاولة</p>'; }
+}
+async function exkRestamp(p, M){
+  try{
+    const j = await (await fetch(`${API}/omr/papers/img?t=${encodeURIComponent(token)}&test=${encodeURIComponent(EXK.test)}&sid=${encodeURIComponent(p.sid)}&part=base`)).json(); if(!j.ok) return;
+    const im = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = j.base; });
+    const W = 1000, kp = W / 210, Hh = Math.round(297 * kp), c = document.createElement('canvas'); c.width = W; c.height = Hh; const x = c.getContext('2d'); x.drawImage(im, 0, 0, W, Hh);
+    const val = exkScore({ ...p, ch: j.ch }, M, {});
+    const answers = (j.ch || []).map((f, i) => ({ final: f, key: M.questions[i] ? M.questions[i].key : -1, pick: j.pa && j.pa[i] ? j.pa[i][0] : -1, alt: j.pa && j.pa[i] ? j.pa[i][1] : -1,
+      boxes: ((j.qb || [])[i] || []).map(r => ({ r, dx: 0, dy: 0 })) }));
+    omrPaperDraw(x, kp, answers, val, p.max);
+    await fetch(omrApi('/omr/paper/img'), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ t: token, sid: String(p.sid), test: EXK.test, img: c.toDataURL('image/jpeg', .7) }) });
+  }catch(e){}
+}
+/* 📊 تحليل الأسئلة: من اختيارات الطلاب المحفوظة في أوراقهم. السؤال نفسه في نماذج مختلفة يُجمع بنصه */
+const EXA = { sort:'hard' };
+async function exAnaOpen(){
+  const t = exCurTest(), body = exPanel('📊 تحليل الأسئلة', esc(t ? t.title : ''));
+  try{ await exkLoad(); }catch(e){ body.innerHTML = '<p class="exa-note">تعذّر التحميل — تحقق من الاتصال</p>'; return; }
+  exaRender();
+}
+function exaData(){
+  const Q = new Map(), P = EXK.papers.filter(p => p.tpl && EXK.tpls[p.tpl] && Array.isArray(p.ch));
+  P.forEach(p => { const M = EXK.tpls[p.tpl].models[p.model || 0]; if(!M) return;
+    M.questions.forEach((q, i) => { const k = q.q ? 'q:' + String(q.q).replace(/\s+/g, ' ').trim() : `i:${p.tpl}:${p.model || 0}:${i}`;
+      let e = Q.get(k); if(!e){ e = { k, q, no: i + 1, n: 0, ok: 0, opt: new Map(), blank: 0, at: [] }; Q.set(k, e); }
+      if(!e.at.some(x => x.tpl === p.tpl && x.m === (p.model || 0))) e.at.push({ tpl: p.tpl, m: p.model || 0, i });
+      const c = p.ch[i]; e.n++; if(c === q.key) e.ok++;
+      if(c < 0){ e.blank++; return; }
+      const lab = Array.isArray(q.o) && q.o[c] ? String(q.o[c]) : exkLab(q, c), isKey = c === q.key;
+      const o = e.opt.get(lab) || { lab, short: exkLab(q, c), n: 0, key: isKey }; o.n++; o.key = o.key || isKey; e.opt.set(lab, o); }); });
+  const L = [...Q.values()].filter(e => e.n).map(e => ({ ...e, pct: Math.round(e.ok / e.n * 100), opts: [...e.opt.values()].sort((a, b) => b.n - a.n) }));
+  return { L, P, old: EXK.papers.length - P.length };
+}
+function exaRender(){
+  const body = $('exa-b'); if(!body) return;
+  const { L, P, old } = exaData();
+  if(!L.length){ body.innerHTML = `<p class="exa-note">لا توجد أوراق تحمل اختيارات الطلاب بعد${old ? ` — ${old} ${old === 1 ? 'ورقة صُوّرت' : 'أوراق صُوّرت'} قبل التحديث` : ''}. الأوراق المصوّرة من الآن تظهر هنا.</p>`; return; }
+  const avg = P.length ? +(P.reduce((t, p) => t + (Number(p.score) || 0), 0) / P.length).toFixed(1) : 0, mx = P[0] ? P[0].max : 0;
+  const hard = L.filter(e => e.n >= Math.min(3, P.length)).sort((a, b) => a.pct - b.pct).slice(0, 3).filter(e => e.pct < 80);
+  const mis = hard.map(e => { const w = e.opts.find(o => !o.key); return w && w.n >= 2 && w.n >= (e.n - e.ok) * 0.3 ? { e, w } : null; }).filter(Boolean)[0];
+  const who = new Set(); hard.forEach(e => P.forEach(p => { const a = e.at.find(x => x.tpl === p.tpl && x.m === (p.model || 0)); if(a && p.ch[a.i] !== EXK.tpls[p.tpl].models[p.model || 0].questions[a.i].key) who.add(p.sid); }));
+  const col = v => v < 50 ? 'r' : v < 75 ? 'a' : 'g';
+  const list = (EXA.sort === 'hard' ? L.slice().sort((a, b) => a.pct - b.pct) : L.slice().sort((a, b) => a.no - b.no));
+  body.innerHTML = `<p class="exa-note" style="margin-top:0">${P.length} ${P.length === 1 ? 'ورقة' : 'أوراق'} · المتوسط ${avg} من ${mx}${old ? ` · ${old} ${old === 1 ? 'ورقة قديمة' : 'أوراق قديمة'} خارج التحليل` : ''}</p>
+    ${hard.length ? `<div class="exa-top3"><b>🔻 أصعب ${hard.length === 1 ? 'سؤال' : hard.length + ' أسئلة'}</b>
+      <small>${hard.map(e => `س${e.no} ${e.pct}٪`).join(' · ')}</small>
+      ${mis ? `<small class="exa-mis">💡 في س${mis.e.no} اختار ${mis.w.n} ${mis.w.n <= 10 ? 'طلاب' : 'طالبًا'} «${esc(mis.w.lab.slice(0, 60))}» — أكثر إجابة خاطئة شيوعًا</small>` : ''}
+      ${who.size ? `<button type="button" class="btn wide exa-rem" onclick="exaRemedial()">🩹 مهمة علاجية منها لـ${who.size} ${who.size <= 10 ? 'طلاب' : 'طالبًا'} أخطؤوا فيها</button>` : ''}</div>` : '<div class="exa-card"><b>👍 لا أسئلة صعبة</b><small>كل الأسئلة أجاب عنها 80٪ فأكثر</small></div>'}
+    <div class="exa-card"><div class="exa-row"><b>كل الأسئلة</b><button type="button" class="exa-sort" onclick="EXA.sort=EXA.sort==='hard'?'no':'hard';exaRender()">${EXA.sort === 'hard' ? 'الأصعب أولًا ▾' : 'بالترتيب ▾'}</button></div>
+      ${list.map(e => `<div class="exa-q"><div class="exa-row"><span class="exa-qt">س${e.no}: ${esc(String(e.q.q || '').slice(0, 90)) || '—'}</span><b class="exa-p ${col(e.pct)}">${e.pct}٪</b></div>
+        <div class="exa-bar"><i class="${col(e.pct)}" style="width:${e.pct}%"></i></div>
+        <div class="exa-opts">${e.opts.map((o, j) => `<span class="${o.key ? 'k' : j === e.opts.findIndex(x => !x.key) && o.n >= 2 ? 'w' : ''}" title="${esc(o.lab)}">${esc(o.short)}: ${o.n}${o.key ? ' ✓' : ''}</span>`).join('')}${e.blank ? `<span>فارغ: ${e.blank}</span>` : ''}</div></div>`).join('')}</div>`;
+  EXA.hard = hard;
+}
+async function exaRemedial(){
+  const hard = EXA.hard || []; if(!hard.length) return;
+  if(!(await askConfirm(`تُرسل لكل طالب أخطأ في ${hard.length === 1 ? 'هذا السؤال' : 'هذه الأسئلة'} مهمة علاجية في بوابته من الأسئلة نفسها وبدائلها — مهمة واحدة لكل طالب في هذا الاختبار.`, { title:'إرسال مهمة علاجية؟', yes:'أرسل', no:'إلغاء' }))) return;
+  try{ const items = hard.flatMap(e => e.at.map(a => ({ tpl: a.tpl, m: a.m, i: a.i })));
+    const j = await (await fetch(omrApi('/omr/remedial'), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ t: token, test: EXK.test, items }) })).json(); if(!j.ok) throw 0;
+    toast(j.made ? `🩹 أُرسلت ${j.made} ${j.made === 1 ? 'مهمة علاجية' : 'مهام علاجية'}${j.skipped ? ` · ${j.skipped} لديهم مهمة لهذا الاختبار` : ''}` : (j.skipped ? 'لديهم مهام علاجية لهذا الاختبار من قبل' : 'لا طلاب يحتاجونها'));
+  }catch(e){ toast('تعذّر الإرسال — تحقق من الاتصال'); }
+}
 document.addEventListener('click',e=>{ const b=e.target.closest&&e.target.closest('[data-ex-paper]'); if(b){ e.preventDefault(); e.stopPropagation(); exPaperOpen(b.dataset.exPaper); } },true);
 function renderExamGrades(){
   const cls=$('cls')?.value||'',q=String($('exam-search')?.value||'').trim(),b=examBook(),max=examMaxTotal(),t=exCurTest(),locked=academicClosed();
@@ -3595,6 +3756,8 @@ function renderExamGrades(){
   if($('ex-miss-btn')){$('ex-miss-btn').classList.toggle('on',examFilter.mode==='missing');$('ex-miss-btn').textContent=examFilter.mode==='missing'?'↩︎ الكل':'⚠️ لم يُرصد فقط';}
   const all=list(cls), vals=t?all.map(s=>exVal(s.id,t)):[], done=vals.filter(v=>v!=='').length, nums=vals.filter(v=>v!==''&&v!=='غ').map(Number), abs=vals.filter(v=>v==='غ').length;
   if($('exam-kpis'))$('exam-kpis').innerHTML=t?`<span>رُصد<b>${done} / ${all.length}</b></span><span>المتوسط<b>${nums.length?fmt(Math.round(nums.reduce((a,c)=>a+c,0)/nums.length*10)/10):'—'}<small> / ${fmt(t.max)}</small></b></span><span>الغائبون<b>${abs}</b></span>`:'';
+  // 📷 اختبار له أوراق مصححة آليًا: مفتاح الإجابة (إعادة التصحيح) وتحليل الأسئلة
+  if($('ex-omr-tools')){ const has=t&&EXPAP.test===String(t.id)&&EXPAP.sids.size; $('ex-omr-tools').innerHTML=has?`<button type="button" onclick="exKeyOpen()">🔑 مفتاح الإجابة</button><button type="button" onclick="exAnaOpen()">📊 تحليل الأسئلة</button>`:''; }
   if($('exam-count'))$('exam-count').textContent=`${rows.length} طالب`;
   const tr=academicPeriod();
   if($('exam-term-note'))$('exam-term-note').textContent=`${gradeSemester===1?'الفصل الدراسي الأول':'الفصل الدراسي الثاني'} · ${gradePeriod===1?'الفترة الأولى':'الفترة الثانية'}${tr.start&&tr.end?`: ${tr.start} إلى ${tr.end}`:''} · ${locked?'🔒 الفصل مغلق':'🔓 الفصل مفتوح'} · ${b.tests.length?`${b.tests.length} اختبار · مجموع خام ${fmt(max)} → نهائي من 20`:'لم تُضف اختبارات بعد'}`;
@@ -6482,7 +6645,7 @@ async function omrSave(){
   if(prev !== undefined && !(await askConfirm('لهذا الطالب درجة مرصودة في هذا الاختبار. استبدالها بالقراءة الجديدة؟', { title:'استبدال الدرجة؟', yes:'استبدل', no:'إلغاء' }))) return;
   // 📷 الأسئلة التي أخطأ فيها تُحفظ مع الدرجة: منها تُبنى المهمة العلاجية للاختبار
   await setExamScore(OMRUI.sid, OMRUI.testId, String(val), false, omrWrongOf(r.answers, OMRUI.model));
-  omrUploadPaper(OMRUI.sid, OMRUI.frozen, r.H, 1, r.answers.map(a => ({ ...a })), val);
+  omrUploadPaper(OMRUI.sid, OMRUI.frozen, r.H, 1, r.answers.map(a => ({ ...a })), val, { model: OMRUI.model, man });
   const who = list(OMRUI.cls).find(s=>s.id===OMRUI.sid);
   toast(`✓ ${who?who.name:''}: ${val} من ${test.max}`);
   OMRUI.sid = omrNextStudent(); OMRUI.savedN = (OMRUI.savedN||0) + 1; OMRUI.manual = '';
@@ -6849,6 +7012,13 @@ async function omrPaperImage(src, H, fs, answers, val, max){
     d[o + 3] = 255;
   }
   x.putImageData(D, 0, 0);
+  const base = out.toDataURL('image/jpeg', .6);
+  const qb = answers.map(a => (a.boxes || []).map(b => [b.r[0] + b.dx, b.r[1] + b.dy, b.r[2], b.r[3]].map(v => +v.toFixed(2))));
+  const D2 = omrPaperDraw(x, kp, answers, val, max);
+  return { img: out.toDataURL('image/jpeg', .7), marks: D2.marks, keyBoxes: D2.keyBoxes, base, qb };
+}
+/* إطارات الإجابات والختم فوق صفحة مقوّمة (عند الرفع، وعند إعادة التصحيح من الصفحة بلا ختم) */
+function omrPaperDraw(x, kp, answers, val, max){
   const marks = [], keyBoxes = [];
   answers.forEach(a => {
     const f = a.final, boxes = a.boxes || [];
@@ -6861,18 +7031,22 @@ async function omrPaperImage(src, H, fs, answers, val, max){
       keyBoxes.push([(bx + b.dx - 1.1) / 210, (by + b.dy - 1.1) / 297, (bw + 2.2) / 210, (bh + 2.2) / 297]); }
   });
   omrStampDraw(x, kp, val, max);
-  return { img: out.toDataURL('image/jpeg', .7), marks, keyBoxes };
+  return { marks, keyBoxes };
 }
 /* يُرفع بعد الرصد بلا انتظار: فشل الرفع لا يوقف التصحيح (الدرجة محفوظة أصلًا) */
 /* الرفع بالتتابع: عدة أوراق معًا كانت تُرفع بالتوازي فيمحو آخرها فهرس ما سبقه في الخادم (📄 لطالب واحد فقط) */
 let OMR_UPQ = Promise.resolve();
 function omrUploadPaper(...a){ OMR_UPQ = OMR_UPQ.then(() => omrUploadPaper1(...a)).catch(() => {}); return OMR_UPQ; }
-async function omrUploadPaper1(sid, src, H, fs, answers, val){
+async function omrUploadPaper1(sid, src, H, fs, answers, val, meta){
   try{
     const test = omrTest(); if(!test || !src || !H) return;
     const P = await omrPaperImage(src, H, fs || 1, answers, val, test.max);
+    // 🔑 لإعادة التصحيح إن عُدّل مفتاح الإجابة: اختيار الطالب في كل سؤال، ومواقع المربعات، والصفحة بلا ختم ولا إطارات
+    const mi = Number(meta && meta.model) || 0, tt = omrTotals(mi);
+    const re = { tpl: String(OMRUI.tpl.id || ''), model: mi, ch: answers.map(a => a.final === null || a.final === undefined ? -1 : a.final), pa: answers.map(a => a.final === -2 ? [a.pick, a.alt] : 0), man: Number(meta && meta.man) || 0,
+      mark: Number(OMRUI.tpl.mark) || 1, tot: tt.total };
     await fetch(omrApi('/omr/paper'), { method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ t: token, sid: String(sid), test: String(OMRUI.testId), title: test.title || 'اختبار', score: val, max: test.max, sem: Number(gradeSemester) || 1, ...P }) });
+      body: JSON.stringify({ t: token, sid: String(sid), test: String(OMRUI.testId), title: test.title || 'اختبار', score: val, max: test.max, sem: Number(gradeSemester) || 1, ...P, ...re }) });
     EXPAP.at = 0;                                                                   // تظهر أيقونة 📄 بجانب اسمه في الرصد
   }catch(e){}
 }
@@ -6887,7 +7061,7 @@ async function omrAutoSave(s){
     const sc = omrSheetScore(s), val = Math.abs(sc.total - test.max) > 1e-9 ? +(sc.full / sc.total * test.max).toFixed(2) : sc.full;
     await setExamScore(s.sid, OMRUI.testId, String(val), false, omrWrongOf(s.answers, s.model));
     s.saved = true; OMRDB.put(s); omrBatchCounter();
-    omrUploadPaper(s.sid, s.img, s.H, s.fs, s.answers, val);
+    omrUploadPaper(s.sid, s.img, s.H, s.fs, s.answers, val, { model: s.model, man: 0 });
     const who = list('').find(x => String(x.id) === String(s.sid)); toast(`💾 رُصدت: ${who ? who.name : ''} ${val} من ${test.max}`);
   }catch(e){}
 }
@@ -6912,7 +7086,7 @@ async function omrSheetSave(s){
   if(prev !== undefined && !(await askConfirm('لهذا الطالب درجة مرصودة في هذا الاختبار. استبدالها بهذه الورقة؟', { title:'استبدال الدرجة؟', yes:'استبدل', no:'إلغاء' }))){ s.sid = null; OMRDB.put(s); omrMatchRender(); return; }
   await setExamScore(s.sid, OMRUI.testId, String(val), false, omrWrongOf(s.answers, s.model));
   s.saved = true; OMRDB.put(s);
-  omrUploadPaper(s.sid, s.img, s.H, s.fs, s.answers, val);                          // 📄 ورقته المصححة بالختم
+  omrUploadPaper(s.sid, s.img, s.H, s.fs, s.answers, val, { model: s.model, man: omrManualMax(s.model) ? Number(s.manual) || 0 : 0 });   // 📄 ورقته المصححة بالختم
   const who = list('').find(x => String(x.id) === String(s.sid));
   toast(`✓ ${who ? who.name : ''}: ${val} من ${test.max}`);
   OMRUI.openId = (OMRUI.sheets.find(x => !x.saved) || {}).id || null;

@@ -7365,7 +7365,8 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
     // ── 📷 التصحيح الآلي: خرائط الإجابة (مواقع المربعات + المفتاح) — للمعلم فقط ──
     if (url.pathname.startsWith('/omr/')) {
       let b = {};
-      if (request.method === 'POST') { const raw = await request.text(); if (raw.length > 400000) return json({ ok: false, error: 'too_large' }, 413); try { b = JSON.parse(raw); } catch { return json({ ok: false, error: 'bad json' }, 400); } }
+      if (request.method === 'POST') { const raw = await request.text(); if (raw.length > (url.pathname === '/omr/paper' ? 900000 : 400000)) return json({ ok: false, error: 'too_large' }, 413); try { b = JSON.parse(raw); } catch { return json({ ok: false, error: 'bad json' }, 400); } }
+      // حد الحجم 400 ألف، والورقة 900 ألف: صورتها بالختم + الصفحة بلا ختم (لإعادة التصحيح)
       const tok = request.method === 'POST' ? b.t : url.searchParams.get('t');
       if (!env.TEACHER_TOKEN || tok !== env.TEACHER_TOKEN) return json({ ok: false, error: 'unauthorized' }, 401);
       const readIdx = async () => { try { const a = JSON.parse(await env.HW.get('omr:index') || '[]'); return Array.isArray(a) ? a : []; } catch { return []; } };
@@ -7408,6 +7409,16 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         const marks = (Array.isArray(b.marks) ? b.marks : []).slice(0, 80).map(v => (v === 1 ? 1 : v === 0 ? 0 : -1));
         const keyBoxes = (Array.isArray(b.keyBoxes) ? b.keyBoxes : []).slice(0, 80).filter(r => Array.isArray(r) && r.length === 4 && r.every(v => Number.isFinite(Number(v)))).map(r => r.map(v => +Number(v).toFixed(4)));
         const rec = { sid, test, title: String(b.title || 'اختبار').slice(0, 80), score: Number(b.score) || 0, max: Math.max(1, Number(b.max) || 10), marks, keyBoxes, img, sem, at: Date.now() };
+        // 🔑 بيانات إعادة التصحيح (من النسخ الجديدة فقط): القالب والنموذج واختيار الطالب ومواقع المربعات والصفحة بلا ختم
+        const base = String(b.base || '');
+        if (b.tpl && Array.isArray(b.ch) && b.ch.length === marks.length) {
+          Object.assign(rec, { tpl: String(b.tpl).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40), model: Math.max(0, Math.min(5, Number(b.model) || 0)),
+            ch: b.ch.slice(0, 80).map(v => Number.isInteger(v) && v >= -2 && v < 6 ? v : -1),
+            pa: (Array.isArray(b.pa) ? b.pa : []).slice(0, 80).map(v => Array.isArray(v) && v.length === 2 ? v.map(n => Number(n) | 0) : 0),
+            man: Math.max(0, Number(b.man) || 0), mark: Math.max(0.25, Number(b.mark) || 1), tot: Math.max(0, Number(b.tot) || 0),
+            qb: (Array.isArray(b.qb) ? b.qb : []).slice(0, 80).map(q => (Array.isArray(q) ? q : []).slice(0, 6).map(r => (Array.isArray(r) ? r : []).slice(0, 4).map(v => +Number(v || 0).toFixed(2)))) });
+          if (/^data:image\/jpeg;base64,/.test(base) && base.length <= 380000) rec.base = base;
+        }
         const idx = await omrPapersIdx(env);
         // نهاية الفصل الدراسي: أول ورقة من فصل جديد تحذف أوراق الفصل السابق
         const old = Object.entries(idx).filter(([, v]) => (v.sem || 1) < sem);
@@ -7462,9 +7473,83 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         out.sort((a, c) => String(a.cls).localeCompare(String(c.cls), 'ar') || String(a.name).localeCompare(String(c.name), 'ar'));
         return json({ ok: true, title: e.title, pub: !!e.pub, pubCls: Array.isArray(e.pubCls) ? e.pubCls : [], key: !!e.key, papers: out });
       }
+      // 🔑 بيانات الأوراق بلا صور: لتحليل الأسئلة ولمعاينة إعادة التصحيح قبل تطبيقها
+      if (url.pathname === '/omr/papers/full') {
+        const t = String(url.searchParams.get('test') || ''), idx = await omrPapersRepair(env, await omrPapersIdx(env)), e = idx[t]; if (!e) return json({ ok: true, papers: [] });
+        const roster = await loadRoster(env).catch(() => []), nameOf = id => { const r = roster.find(x => String(x.id) === String(id)); return r ? r.name : ''; };
+        const out = [];
+        for (const sid of e.sids || []) { let r = null; try { r = JSON.parse(await env.HW.get(`omrp:${sid}:${t}`) || 'null'); } catch {}
+          if (r) out.push({ sid, name: nameOf(sid), score: r.score, max: r.max, marks: r.marks || [], ...(r.tpl ? { tpl: r.tpl, model: r.model || 0, ch: r.ch, man: r.man || 0, mark: r.mark || 1, tot: r.tot || 0, re: !!r.base } : {}) }); }
+        return json({ ok: true, title: e.title, papers: out });
+      }
+      /* 🔑 تصحيح مفتاح الإجابة: يُعدَّل القالب، وتُعاد درجات كل ورقة محفوظة من القالب والنموذج نفسيهما (اختيارات الطالب محفوظة)،
+         وتُحدَّث الدرجة في دفتر الاختبارات (بطابع زمني أحدث فتغلب). صورة الورقة تُعاد رسمها في الجوال ثم تُرفع (/omr/paper/img) */
+      if (url.pathname === '/omr/regrade' && request.method === 'POST') {
+        const id = String(b.tpl || '').replace(/[^A-Za-z0-9_-]/g, ''), mi = Number(b.model) || 0, keys = b.keys && typeof b.keys === 'object' ? b.keys : {};
+        const raw = await env.HW.get(`omr:t:${id}`); if (!raw) return json({ ok: false, error: 'notfound' }, 404);
+        const tpl = JSON.parse(raw), M = tpl.models && tpl.models[mi]; if (!M) return json({ ok: false, error: 'model' }, 400);
+        let nk = 0;
+        for (const [qi, k] of Object.entries(keys)) { const q = M.questions[Number(qi)], v = Number(k); if (q && Number.isInteger(v) && v >= 0 && v < q.boxes.length && q.key !== v) { q.key = v; nk++; } }
+        if (!nk) return json({ ok: true, changed: [] });
+        await env.HW.put(`omr:t:${id}`, JSON.stringify(tpl));
+        const idx = await omrPapersRepair(env, await omrPapersIdx(env)), changed = [];
+        let c0 = {}; try { c0 = JSON.parse(await env.HW.get('teacher:classroom') || '{}') || {}; } catch { c0 = {}; }
+        let bookDirty = false; const books = c0.examBooks && typeof c0.examBooks === 'object' ? c0.examBooks : {};
+        for (const [test, e] of Object.entries(idx)) for (const sid of e.sids || []) {
+          const key = `omrp:${sid}:${test}`; let r = null; try { r = JSON.parse(await env.HW.get(key) || 'null'); } catch {}
+          if (!r || r.tpl !== id || (r.model || 0) !== mi || !Array.isArray(r.ch)) continue;
+          const right = r.ch.filter((c, i) => M.questions[i] && c === M.questions[i].key).length, cur = right * (r.mark || 1) + (r.man || 0);
+          const val = r.tot && Math.abs(r.tot - r.max) > 1e-9 ? +(cur / r.tot * r.max).toFixed(2) : +cur.toFixed(2);
+          r.marks = r.ch.map((c, i) => { const q = M.questions[i]; return !q ? -1 : c === q.key ? 1 : (c === -1 || c === -2) ? 0 : c >= 0 ? 0 : -1; });
+          r.keyBoxes = r.ch.map((c, i) => { const q = M.questions[i], bx = r.qb && r.qb[i] && r.qb[i][q ? q.key : -1]; return q && c !== q.key && bx ? [(bx[0] - 1.1) / 210, (bx[1] - 1.1) / 297, (bx[2] + 2.2) / 210, (bx[3] + 2.2) / 297] : null; }).filter(Boolean);
+          const old = r.score; r.score = val; r.restamp = true; await env.HW.put(key, JSON.stringify(r));
+          for (const sm of Object.keys(books)) for (const pr of Object.keys(books[sm] || {})) { const bk = books[sm][pr];
+            if (!bk || !Array.isArray(bk.tests) || !bk.tests.some(x => String(x.id) === test)) continue;
+            const cell = bk.scores && bk.scores[sid] && bk.scores[sid][test]; if (!cell || (typeof cell === 'object' && cell.del)) continue;
+            const w = r.ch.map((c, i) => M.questions[i] && c !== M.questions[i].key ? i : -1).filter(i => i >= 0);
+            bk.scores[sid][test] = { ...(typeof cell === 'object' ? cell : {}), score: val, at: Date.now(), ...(cell && cell.om ? { om: { ...cell.om, w } } : {}) }; bookDirty = true; }
+          if (old !== val) changed.push({ sid, test, old, now: val });
+        }
+        if (bookDirty) { c0.savedAt = Date.now(); await env.HW.put('teacher:classroom', JSON.stringify(c0)); }
+        return json({ ok: true, changed, keys: M.questions.map(q => q.key) });
+      }
+      /* 🩹 من «تحليل الأسئلة»: مهمة علاجية لكل طالب أخطأ في أصعب الأسئلة (من اختياراته المحفوظة في ورقته)،
+         بنص الأسئلة نفسها وبدائلها — بآلية علاج الاختبار نفسها، ومهمة واحدة لكل طالب لهذا الاختبار */
+      if (url.pathname === '/omr/remedial' && request.method === 'POST') {
+        const t = String(b.test || ''), items = (Array.isArray(b.items) ? b.items : []).slice(0, 10).map(x => ({ tpl: String(x.tpl || '').replace(/[^A-Za-z0-9_-]/g, ''), m: Number(x.m) || 0, i: Number(x.i) })).filter(x => x.tpl && Number.isInteger(x.i));
+        if (!items.length) return json({ ok: false, error: 'no_items' }, 400);
+        const idx = await omrPapersRepair(env, await omrPapersIdx(env)), e = idx[t]; if (!e) return json({ ok: true, made: 0, skipped: 0 });
+        const roster = await loadRoster(env).catch(() => []), tpls = new Map();
+        const tplOf = async id => { if (!tpls.has(id)) { let x = null; try { x = JSON.parse(await env.HW.get(`omr:t:${id}`) || 'null'); } catch {} tpls.set(id, x); } return tpls.get(id); };
+        let made = 0, skipped = 0;
+        for (const sid of e.sids || []) {
+          let r = null; try { r = JSON.parse(await env.HW.get(`omrp:${sid}:${t}`) || 'null'); } catch {}
+          if (!r || !r.tpl || !Array.isArray(r.ch)) continue;
+          const tpl = await tplOf(r.tpl), M = tpl && tpl.models && tpl.models[r.model || 0]; if (!M) continue;
+          const wi = items.filter(x => x.tpl === r.tpl && x.m === (r.model || 0) && M.questions[x.i] && r.ch[x.i] !== M.questions[x.i].key).map(x => x.i);
+          if (!wi.length) continue;
+          const qs = M.questions.map(q => !q.q ? null : q.t === 'tf' ? { t: 'tf', q: q.q, a: q.key === 0 } : Array.isArray(q.o) ? { t: 'q', q: q.q, o: q.o, a: q.key } : null);
+          const ok = wi.filter(i => qs[i]); if (!ok.length) continue;
+          const st0 = roster.find(x => String(x.id) === String(sid)); if (!st0) continue;
+          const rq = await remQuestionsFor(env, `ox:${r.tpl}:${r.model || 0}`, qs, ok.slice(0, REM.maxQ));
+          const title = String(r.title || e.title || 'الاختبار');
+          const mk = await remCreate(env, { st: { id: String(sid), name: st0.name, cls: st0.cls || '' }, cls: st0.cls || '', src: `oxh:${t}`, srcTitle: title, kind: 'exam', force: true,
+            reason: `${title}: أخطأ في ${ok.length} من أصعب أسئلة الاختبار`, q1: rq.q1, q2: rq.q2, fallback: rq.fallback, title: `🩹 مراجعة أصعب أسئلة ${title}`, api: '' });
+          if (mk) made++; else skipped++;
+        }
+        return json({ ok: true, made, skipped });
+      }
+      // صورة الورقة بعد إعادة رسمها بالدرجة الجديدة (الختم والإطارات)
+      if (url.pathname === '/omr/paper/img' && request.method === 'POST') {
+        const sid = String(b.sid || '').slice(0, 60), t = String(b.test || '').replace(/[^\w\-:.]/g, '').slice(0, 60), img = String(b.img || '');
+        if (!/^data:image\/jpeg;base64,/.test(img) || img.length > 380000) return json({ ok: false, error: 'bad img' }, 400);
+        const key = `omrp:${sid}:${t}`; let r = null; try { r = JSON.parse(await env.HW.get(key) || 'null'); } catch {} if (!r) return json({ ok: false, error: 'notfound' }, 404);
+        r.img = img; delete r.restamp; await env.HW.put(key, JSON.stringify(r)); return json({ ok: true });
+      }
       if (url.pathname === '/omr/papers/img') {
         const t = String(url.searchParams.get('test') || ''), sid = String(url.searchParams.get('sid') || '');
         let r = null; try { r = JSON.parse(await env.HW.get(`omrp:${sid}:${t}`) || 'null'); } catch {}
+        if (r && url.searchParams.get('part') === 'base') return r.base ? json({ ok: true, base: r.base, qb: r.qb || [], ch: r.ch || [], pa: r.pa || [], tpl: r.tpl, model: r.model || 0, score: r.score, max: r.max }) : json({ ok: false, error: 'nobase' }, 404);
         return r ? json({ ok: true, img: r.img, keyBoxes: r.keyBoxes || [], marks: r.marks || [] }) : json({ ok: false, error: 'notfound' }, 404);
       }
       // ⚙️ إعدادات التصحيح الآلي (من لوحة التحكم) — تقرؤها بوابة المعلم مع القائمة
