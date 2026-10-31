@@ -5009,6 +5009,73 @@ function examModelsBarInto(listId, bank){
   if(!bar){ bar=document.createElement('div'); bar.id=listId+'-models'; list.parentNode.insertBefore(bar,list); }
   bar.innerHTML=examModelsBar(bank);
 }
+/* 🏷️ وسوم بنك الأسئلة: «📏 طويل» (يُقاس كما يُطبع بعمود واحد) و«🔁 متشابه» (مع رقم شبيهه)، وعرض نموذج بعينه
+   بالتوزيع نفسه الذي يُطبع به — فيرى المعلم ما في النموذج (أ) وما يتشابه أو يطول فيه */
+const EX_LONG_CACHE = new WeakMap();
+function examLongIntrinsic(items){
+  const out = new Map(), tpl = examTpl(), font = document.getElementById('ex-font')?.value || 'trad', size = document.getElementById('ex-size')?.value || 'm';
+  const sig = x => [tpl, font, size, x.q, ...(x.o || [])].join('\u0001');
+  const need = items.filter(x => { const c = EX_LONG_CACHE.get(x); if(c && c.sig === sig(x)){ if(c.why) out.set(x, c.why); return false; } return true; });
+  if(!need.length) return out;
+  let box = document.getElementById('exam-measure-q');
+  if(!box){ box = document.createElement('div'); box.id = 'exam-measure-q'; document.body.appendChild(box); }
+  box.style.cssText = 'position:absolute;left:-10000px;top:0;width:210mm;visibility:hidden;pointer-events:none;zoom:1';
+  const L4 = ['أ','ب','ج','د'];
+  box.innerHTML = `<div class="exam-page" data-font="${esc(font)}" data-size="${esc(size)}"${tpl === 't5' ? ' data-auto="1"' : ''} style="height:auto;box-shadow:none"><div class="ex-sec">${need.map((x, i) => x.kind === 'tf'
+    ? `<div class="ex-tf" data-k="${i}"><span class="ex-num">1</span><span class="exm-t">${escExamText(x.q)}</span><span class="ex-tf-c"><span class="ex-box"></span> صح</span><span class="ex-tf-c"><span class="ex-box"></span> خطأ</span></div>`
+    : `<div class="ex-q" data-k="${i}"><div class="ex-qt"><span class="ex-num">1</span><span class="exm-t">${escExamText(x.q)}</span></div><div class="ex-opts${tpl === 't5' && Math.max(...(x.o || []).map(o => String(o || '').length)) <= 16 ? ' four' : ''}">${(x.o || []).map((o, j) => `<div class="ex-opt"><span class="ex-box"></span><span class="ex-ltr">${L4[j] || ''}</span><span class="exm-o">${escExamText(o)}</span></div>`).join('')}</div></div>`).join('')}</div></div>`;
+  const lines = el => { if(!el || !el.textContent.trim()) return 0; const r = document.createRange(); r.selectNodeContents(el);
+    const tops = [...r.getClientRects()].filter(b => b.width > 1).map(b => b.top).sort((a, b) => a - b), fs = parseFloat(getComputedStyle(el).fontSize) || 12;
+    let n = 0, last = -1e9; tops.forEach(t => { if(t - last > fs * 0.6){ n++; last = t; } }); return n; };
+  box.querySelectorAll('[data-k]').forEach(el => { const x = need[+el.dataset.k], why = [];
+    const n = lines(el.querySelector('.exm-t'));
+    if(x.kind === 'tf'){ if(n >= 2) why.push(n === 2 ? 'العبارة في سطرين' : `العبارة في ${n} أسطر`); }
+    else { if(n >= 3) why.push(`السؤال في ${n} أسطر`); const w = [...el.querySelectorAll('.exm-o')].filter(o => lines(o) >= 2).length; if(w) why.push(w === 1 ? 'خيار في سطرين' : `${w} خيارات في سطرين`); }
+    const v = why.join(' · '); EX_LONG_CACHE.set(x, { sig:sig(x), why:v }); if(v) out.set(x, v); });
+  box.innerHTML = '';
+  return out;
+}
+/* محتوى كل نموذج كما يبنيه examBuild (البذرة والمصدر نفسهما) */
+function examBankModels(bank){
+  const n = examModelCount(); if(n < 2) return null;
+  const src = document.getElementById('ex-src')?.value || 'hw', N = examNeed();
+  let mc, tf, label;
+  if(bank === 'hw'){ const p = examHwSelected(); mc = p.mc; tf = p.tf; label = EXAM_HW_BANK.title || ''; }
+  else { const useSel = document.getElementById('ex-use-selected')?.checked; const p = useSel ? examJsonSelected() : { mc:EXAM_SRC.mc || [], tf:EXAM_SRC.tf || [] }; mc = p.mc; tf = p.tf; label = EXAM_SRC.label || ''; }
+  if(bank === 'hw' && src !== 'hw') return null;
+  const seed = `${String((document.getElementById('ex-title')?.value || '').trim() || 'اختبار')}|${String(label || 'source')}|${n}`;
+  return { n, M: examSpreadAll(mc, tf, N.nmc, N.ntf, n, seed).M };
+}
+function examBankShowModel(bank, m){
+  const v = document.getElementById(bank === 'hw' ? 'ex-hw-bank-view' : 'ex-bank-view'); if(!v) return;
+  const val = 'm' + m; v.value = [...v.options].some(o => o.value === val) ? (v.value === val ? 'all' : val) : 'all';   // ضغطة ثانية: عودة لكل البنك
+  if(bank === 'hw') renderExamHwBank(); else renderExamJsonBank();
+}
+function examBankDecorate(bank, all, filtered){
+  const viewEl = document.getElementById(bank === 'hw' ? 'ex-hw-bank-view' : 'ex-bank-view');
+  const MD = examBankModels(bank), nM = MD ? MD.n : 1;
+  if(viewEl){ const cur = viewEl.value || 'all';
+    viewEl.innerHTML = '<option value="all">كل البنك</option><option value="flag">⚠️ الطويل والمتشابه فقط</option>' + (MD ? MD.M.map((_, m) => `<option value="m${m}">نموذج ${examModelLetter(m)}</option>`).join('') : '');
+    viewEl.value = [...viewEl.options].some(o => o.value === cur) ? cur : 'all'; }
+  const view = viewEl ? viewEl.value : 'all', mi = /^m(\d)$/.test(view) ? +view.slice(1) : -1;
+  const inModel = mi >= 0 && MD ? [...MD.M[mi].mc, ...MD.M[mi].tf] : null;
+  const scope = inModel || all.filter(x => x.selected !== false);
+  const longs = examLongIntrinsic(scope);
+  // التشابه: داخل النموذج المعروض، أو بين الأسئلة المحددة في البنك كله
+  const sim = new Map(), num = x => all.indexOf(x) + 1;
+  for(let i = 0; i < scope.length; i++) for(let j = i + 1; j < scope.length; j++) if(scope[i] !== scope[j] && exSimClash(scope[i], scope[j])){
+    (sim.get(scope[i]) || sim.set(scope[i], []).get(scope[i])).push(num(scope[j])); (sim.get(scope[j]) || sim.set(scope[j], []).get(scope[j])).push(num(scope[i])); }
+  const shared = new Set(); if(MD){ const seen = new Map(); MD.M.forEach(m => [...m.mc, ...m.tf].forEach(x => seen.set(x, (seen.get(x) || 0) + 1))); seen.forEach((c, x) => { if(c > 1) shared.add(x); }); }
+  let list = filtered;
+  if(inModel){ const set = new Set(inModel); list = filtered.filter(x => set.has(x)); }
+  else if(view === 'flag') list = filtered.filter(x => longs.has(x) || sim.has(x));
+  const tags = x => `${longs.has(x) ? `<span class="qtype exq-long" title="${esc(longs.get(x))}">📏 طويل: ${esc(longs.get(x))}</span>` : ''}${sim.has(x) ? `<span class="qtype exq-sim" title="يشبه السؤال ${sim.get(x).join('، ')}">🔁 يشبه ${sim.get(x).map(k => '#' + k).join(' ')}</span>` : ''}${inModel && shared.has(x) ? '<span class="qtype exq-shared" title="البنك لا يكفي كل النماذج فتكرر في نموذج آخر">↔ مشترك</span>' : ''}`;
+  const nl = scope.filter(x => longs.has(x)).length, ns = scope.filter(x => sim.has(x)).length;
+  const summary = inModel
+    ? `<div class="exq-sum">📄 <b>نموذج ${examModelLetter(mi)}</b>: ${MD.M[mi].mc.length} اختيار + ${MD.M[mi].tf.length} صح/خطأ · ${ns ? `<b class="w">🔁 ${ns} متشابهة فيه</b>` : '🔁 لا تشابه فيه'} · ${nl ? `<b class="w">📏 ${nl} طويلة</b>` : '📏 لا طويل'}${MD.M[mi].mc.concat(MD.M[mi].tf).some(x => shared.has(x)) ? ' · ↔ فيه أسئلة مشتركة مع نموذج آخر' : ''}</div>`
+    : (nl || ns) ? `<div class="exq-sum">${ns ? `<b class="w">🔁 ${ns} ${ns === 1 ? 'سؤال متشابه' : 'أسئلة متشابهة'}</b>` : ''}${ns && nl ? ' · ' : ''}${nl ? `<b class="w">📏 ${nl} ${nl === 1 ? 'سؤال طويل' : 'أسئلة طويلة'}</b>` : ''} بين المحدد — اختر «⚠️ الطويل والمتشابه فقط» من «عرض» لتراها وحدها${nM > 1 ? '، أو نموذجًا لترى ما فيه' : ''}</div>` : '';
+  return { list, tags, summary };
+}
 function renderExamHwBank(){
   const wrap=document.getElementById('ex-hw-bank');
   const list=document.getElementById('ex-hw-bank-list');
@@ -5035,13 +5102,14 @@ function renderExamHwBank(){
   if(c) c.title=dupN?`${dupN} ${dupN===1?'سؤال مكرر':'أسئلة مكررة'} بين الأنشطة لم ${dupN===1?'يُضف':'تُضف'}`:'';
   if(c&&dupN) c.textContent+=` · 🔁 ${dupN} مكرر حُذف`;
   const sb=document.getElementById('ex-hw-sim-btn'); if(sb){ let g=0, all=0; try{ const G=examHwSimGroups(); all=G.length; g=G.filter(x=>x.filter(y=>y.on).length>1).length; }catch(e){} sb.textContent=g?`🔁 المتشابهة (${g})`:all?'🔁 المتشابهة ✓':'🔁 المتشابهة'; sb.classList.toggle('warn',g>0); sb.title=g?`${g} ${g===1?'مجموعة':'مجموعات'} فيها أكثر من سؤال بنفس الفكرة`:(all?'راجعت المتشابهة — كل مجموعة بقي منها سؤال واحد أو اخترت إبقاءها':'لا أسئلة متشابهة'); }
-  if(!filtered.length){ list.innerHTML='<div class="exam-bank-empty">لا توجد أسئلة مطابقة للبحث.</div>'; return; }
-  list.innerHTML=filtered.map(x=>{
+  const DEC=examBankDecorate('hw',all,filtered);
+  if(!DEC.list.length){ list.innerHTML=DEC.summary+'<div class="exam-bank-empty">لا توجد أسئلة مطابقة.</div>'; return; }
+  list.innerHTML=DEC.summary+DEC.list.map(x=>{
     const idx=all.indexOf(x);
     const type=x.kind==='tf'?'صح / خطأ':'اختيار متعدد';
     return `<label class="exam-bank-item">
       <input type="checkbox" ${x.selected!==false?'checked':''} onchange="toggleExamHwQuestion(${idx},this.checked)">
-      <span class="qtxt"><span class="qnum">${idx+1}.</span> ${escExamText(x.q)}<span class="qmeta"><span class="qtype">${type}</span>${x.edited?'<span class="qtype exq-tag">✏️ معدّل</span>':''}<button type="button" class="exq-ed" onclick="event.preventDefault();event.stopPropagation();examQEdit('hw',${idx})">✏️ تعديل</button>${EXAM_HW_BANK.multi&&x.src?`<span class="qtype">📚 ${esc(x.src)}</span>`:''}</span></span>
+      <span class="qtxt"><span class="qnum">${idx+1}.</span> ${escExamText(x.q)}<span class="qmeta"><span class="qtype">${type}</span>${x.edited?'<span class="qtype exq-tag">✏️ معدّل</span>':''}<button type="button" class="exq-ed" onclick="event.preventDefault();event.stopPropagation();examQEdit('hw',${idx})">✏️ تعديل</button>${DEC.tags(x)}${EXAM_HW_BANK.multi&&x.src?`<span class="qtype">📚 ${esc(x.src)}</span>`:''}</span></span>
       ${x.kind==='mc'?`<span class="qtype">${x.o.length} خيارات</span>`:''}${examModelSel('hw',idx,x)}
     </label>`;
   }).join('');
@@ -5107,13 +5175,14 @@ function renderExamJsonBank(){
   });
   const selCount=all.filter(x=>x.selected!==false).length;
   const c=document.getElementById('ex-bank-count'); if(c) c.textContent=`${selCount} محدد من ${all.length}`;
-  if(!filtered.length){ list.innerHTML='<div class="exam-bank-empty">لا توجد أسئلة مطابقة للبحث.</div>'; return; }
-  list.innerHTML=filtered.map(x=>{
+  const DEC=examBankDecorate('json',all,filtered);
+  if(!DEC.list.length){ list.innerHTML=DEC.summary+'<div class="exam-bank-empty">لا توجد أسئلة مطابقة.</div>'; return; }
+  list.innerHTML=DEC.summary+DEC.list.map(x=>{
     const idx=all.indexOf(x);
     const type=x.kind==='tf'?'صح / خطأ':'اختيار متعدد';
     return `<label class="exam-bank-item">
       <input type="checkbox" ${x.selected!==false?'checked':''} onchange="toggleExamJsonQuestion(${idx},this.checked)">
-      <span class="qtxt"><span class="qnum">${idx+1}.</span> ${escExamText(x.q)}<span class="qmeta"><span class="qtype">${type}</span>${x.edited?'<span class="qtype exq-tag">✏️ معدّل</span>':''}<button type="button" class="exq-ed" onclick="event.preventDefault();event.stopPropagation();examQEdit('json',${idx})">✏️ تعديل</button>${EXAM_JSON_BANK.multi&&x.src?`<span class="qtype">📄 ${esc(x.src)}</span>`:''}</span></span>
+      <span class="qtxt"><span class="qnum">${idx+1}.</span> ${escExamText(x.q)}<span class="qmeta"><span class="qtype">${type}</span>${x.edited?'<span class="qtype exq-tag">✏️ معدّل</span>':''}<button type="button" class="exq-ed" onclick="event.preventDefault();event.stopPropagation();examQEdit('json',${idx})">✏️ تعديل</button>${DEC.tags(x)}${EXAM_JSON_BANK.multi&&x.src?`<span class="qtype">📄 ${esc(x.src)}</span>`:''}</span></span>
       ${x.kind==='mc'?`<span class="qtype">${x.o.length} خيارات</span>`:''}${examModelSel('json',idx,x)}
     </label>`;
   }).join('');
@@ -6095,7 +6164,7 @@ function examModelsBar(bank){
   const XC = examXCounts(n);
   const auto = all.filter(x => !examModelValid(x, n)).length + XC.auto;
   return `<div class="exm-bar"><b>🗂️ توزيع النماذج</b>
-    ${per.map((p, m) => `<span class="exm-chip">نموذج ${examModelLetter(m)}: ${p.mc} اختيار${lack(p.mc, nmc)} · ${p.tf} صح/خطأ${lack(p.tf, ntf)}${p.sim ? ` · <b style="color:#b54708">🔁 ${p.sim} تشابه</b>` : ''}${examXTypes().map(t => ` · ${XC.out[m][t] || 0} ${EX_XT[t].label}`).join('')}</span>`).join('')}
+    ${per.map((p, m) => `<span class="exm-chip exm-chip-go" role="button" tabindex="0" title="اعرض ما في هذا النموذج" onclick="examBankShowModel('${bank}',${m})">نموذج ${examModelLetter(m)}: ${p.mc} اختيار${lack(p.mc, nmc)} · ${p.tf} صح/خطأ${lack(p.tf, ntf)}${p.sim ? ` · <b style="color:#b54708">🔁 ${p.sim} تشابه</b>` : ''}${examXTypes().map(t => ` · ${XC.out[m][t] || 0} ${EX_XT[t].label}`).join('')}</span>`).join('')}
     <span class="exm-chip auto">تلقائي: ${auto}</span>
     <span class="spacer"></span>
     <button type="button" class="btn ghost sm" onclick="examModelsAuto('${bank}')">⚖️ وزّع تلقائيًا</button>

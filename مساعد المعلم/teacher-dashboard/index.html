@@ -23,7 +23,7 @@
 <link rel="stylesheet" href="app.css?v=16178ead">
 <script src="js/00-fetch-dedupe-js.js?v=e77498d1" defer></script>
 <script src="js/01-right-sidebar-navigation-js.js?v=41ea29b3" defer></script>
-<script src="js/02.js?v=82950a5b" defer></script>
+<script src="js/02.js?v=1ea925e9" defer></script>
 <script src="js/03-projects-students-logic-v13.js?v=d4950f64" defer></script>
 <script src="js/04.js?v=5a7c663e" defer></script>
 <script src="js/05.js?v=a7c074c3" defer></script>
@@ -488,7 +488,7 @@
 .exam-shop-status.open{background:#E4F4EC;color:#167852}.exam-shop-status.closed{background:#FFF1F2;color:#9F2538}
 @media screen and (max-width:600px){.exam-shop-kpis{grid-template-columns:1fr 1fr}.exam-shop-student{grid-template-columns:1fr 105px}.exam-shop-student small{grid-column:1}.exam-shop-student .exam-shop-used{display:none}}
 </style>
-<link rel="stylesheet" id="late-css" href="app-late.css?v=6ffa8a44">
+<link rel="stylesheet" id="late-css" href="app-late.css?v=e0e358a3">
 <link rel="stylesheet" href="theme-picker.css?v=8ddeba87">
 <link rel="stylesheet" href="simplified-nav.css?v=154681ae">
 <link rel="stylesheet" href="tab-polish.css?v=b9d66f7c">
@@ -1084,6 +1084,7 @@
 <option value="mc">اختيار من متعدد</option>
 <option value="tf">صح / خطأ</option>
 </select>
+<select class="inp" id="ex-hw-bank-view" onchange="renderExamHwBank()" style="width:auto;min-width:150px" aria-label="عرض" title="كل البنك، أو الطويل والمتشابه فقط، أو ما في نموذج بعينه"><option value="all">كل البنك</option></select>
 <button class="btn ghost sm" onclick="examHwBankSelectAll(true)" type="button">تحديد الظاهر</button>
 <button class="btn ghost sm" onclick="examHwBankSelectAll(false)" type="button">إلغاء الظاهر</button>
 <button class="btn ghost sm" onclick="examLongOpen('hw')" title="أسئلة أو خيارات طويلة تلتف في الورقة فتخرّب التصميم — تختار ما تفعله بها" type="button">📏 الطويلة</button>
@@ -1108,6 +1109,7 @@
 <option value="mc">اختيار من متعدد</option>
 <option value="tf">صح / خطأ</option>
 </select>
+<select class="inp" id="ex-bank-view" onchange="renderExamJsonBank()" style="width:auto;min-width:150px" aria-label="عرض" title="كل البنك، أو الطويل والمتشابه فقط، أو ما في نموذج بعينه"><option value="all">كل البنك</option></select>
 <button class="btn ghost sm" onclick="examBankSelectAll(true)" type="button">تحديد الظاهر</button>
 <button class="btn ghost sm" onclick="examBankSelectAll(false)" type="button">إلغاء الظاهر</button>
 <button class="btn ghost sm" onclick="examLongOpen('json')" title="أسئلة أو خيارات طويلة تلتف في الورقة فتخرّب التصميم — تختار ما تفعله بها" type="button">📏 الطويلة</button>

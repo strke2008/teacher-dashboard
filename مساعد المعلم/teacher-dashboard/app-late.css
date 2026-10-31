@@ -3021,3 +3021,10 @@ body.pf-open #simp-bottomnav,body.pf-open .askf-btn{display:none!important}
 .exsim-row .exq-ed:hover,.exlong-act .exq-ed:hover{background:#EEF3F8}
 .exlong-act{display:flex;flex-direction:column;gap:.35rem;align-items:stretch}.exlong-act .exq-ed{margin:0}
 .exq-tag2{background:#FFF4E5;color:#9A4D00!important;border-radius:99px;padding:0 .45rem;font-weight:800}
+/* 🏷️ وسوم البنك: طويل / متشابه / مشترك، وملخص النموذج المعروض */
+.exam-bank-item .exq-long{background:#FFF4E5;color:#9A4D00}
+.exam-bank-item .exq-sim{background:#F3E8FF;color:#6B21A8}
+.exam-bank-item .exq-shared{background:#E0F2FE;color:#075985}
+.exq-sum{grid-column:1/-1;font-size:.8rem;padding:.5rem .7rem;margin-bottom:.45rem;border-radius:10px;background:#F6F9F8;border:1px dashed var(--ui-border,#D5E0EC);line-height:1.8}
+.exq-sum .w{color:#9A4D00}
+.exm-chip-go{cursor:pointer}.exm-chip-go:hover{background:#EEF3F8;border-color:#9DB4CC}
