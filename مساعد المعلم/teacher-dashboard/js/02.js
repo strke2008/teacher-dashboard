@@ -5012,6 +5012,25 @@ function examModelsBarInto(listId, bank){
 /* 🏷️ وسوم بنك الأسئلة: «📏 طويل» (يُقاس كما يُطبع بعمود واحد) و«🔁 متشابه» (مع رقم شبيهه)، وعرض نموذج بعينه
    بالتوزيع نفسه الذي يُطبع به — فيرى المعلم ما في النموذج (أ) وما يتشابه أو يطول فيه */
 const EX_LONG_CACHE = new WeakMap();
+/* 📐 أربعة خيارات في سطر واحد؟ يُقاس كل سؤال كما يُطبع (الخط والمقاس نفسهما): يُعتمد السطر الواحد إن لم يلتف أي خيار،
+   وإلا خياران في السطر. كان الحكم بعدد الحروف: ٢٢ يلتف أحيانًا، و١٦ يرسل أسئلة كثيرة إلى سطرين فلا تتسع الورقة */
+const EX_FOUR_CACHE = new WeakMap();
+function examFourFits(qs, font, size, fit){
+  const out = new Set(), sig = q => [font, size, fit || 0, ...(q.o || [])].join('\u0001');
+  const need = qs.filter(q => { const c = EX_FOUR_CACHE.get(q); if(c && c.sig === sig(q)){ if(c.ok) out.add(q); return false; } return true; });
+  if(!need.length) return out;
+  let box = document.getElementById('exam-measure-q');
+  if(!box){ box = document.createElement('div'); box.id = 'exam-measure-q'; document.body.appendChild(box); }
+  box.style.cssText = 'position:absolute;left:-10000px;top:0;width:210mm;visibility:hidden;pointer-events:none;zoom:1';
+  box.innerHTML = `<div class="exam-page" data-font="${esc(font)}" data-size="${esc(size)}" data-auto="1"${fit ? ` data-fit="${fit}"` : ''} style="height:auto;box-shadow:none"><div class="ex-sec">${need.map((q, i) =>
+    `<div class="ex-q" data-k="${i}"><div class="ex-qt"><span class="ex-num">1</span><span>.</span></div><div class="ex-opts four">${(q.o || []).map(o => `<div class="ex-opt"><span class="ex-box"></span><span class="ex-ltr">أ</span><span class="exm-o">${escExamText(o)}</span></div>`).join('')}</div></div>`).join('')}</div></div>`;
+  box.querySelectorAll('[data-k]').forEach(el => { const q = need[+el.dataset.k];
+    const ok = [...el.querySelectorAll('.exm-o')].every(o => { const r = document.createRange(); r.selectNodeContents(o); const fs = parseFloat(getComputedStyle(o).fontSize) || 12;
+      const tops = [...r.getClientRects()].filter(b => b.width > 1).map(b => b.top); return !tops.length || Math.max(...tops) - Math.min(...tops) < fs * 0.6; });
+    EX_FOUR_CACHE.set(q, { sig:sig(q), ok }); if(ok) out.add(q); });
+  box.innerHTML = '';
+  return out;
+}
 function examLongIntrinsic(items){
   const out = new Map(), tpl = examTpl(), font = document.getElementById('ex-font')?.value || 'trad', size = document.getElementById('ex-size')?.value || 'm';
   const sig = x => [tpl, font, size, x.q, ...(x.o || [])].join('\u0001');
@@ -5020,10 +5039,10 @@ function examLongIntrinsic(items){
   let box = document.getElementById('exam-measure-q');
   if(!box){ box = document.createElement('div'); box.id = 'exam-measure-q'; document.body.appendChild(box); }
   box.style.cssText = 'position:absolute;left:-10000px;top:0;width:210mm;visibility:hidden;pointer-events:none;zoom:1';
-  const L4 = ['أ','ب','ج','د'];
+  const L4 = ['أ','ب','ج','د'], F4 = tpl === 't5' ? examFourFits(need.filter(x => x.kind !== 'tf'), font, size) : null;
   box.innerHTML = `<div class="exam-page" data-font="${esc(font)}" data-size="${esc(size)}"${tpl === 't5' ? ' data-auto="1"' : ''} style="height:auto;box-shadow:none"><div class="ex-sec">${need.map((x, i) => x.kind === 'tf'
     ? `<div class="ex-tf" data-k="${i}"><span class="ex-num">1</span><span class="exm-t">${escExamText(x.q)}</span><span class="ex-tf-c"><span class="ex-box"></span> صح</span><span class="ex-tf-c"><span class="ex-box"></span> خطأ</span></div>`
-    : `<div class="ex-q" data-k="${i}"><div class="ex-qt"><span class="ex-num">1</span><span class="exm-t">${escExamText(x.q)}</span></div><div class="ex-opts${tpl === 't5' && Math.max(...(x.o || []).map(o => String(o || '').length)) <= 16 ? ' four' : ''}">${(x.o || []).map((o, j) => `<div class="ex-opt"><span class="ex-box"></span><span class="ex-ltr">${L4[j] || ''}</span><span class="exm-o">${escExamText(o)}</span></div>`).join('')}</div></div>`).join('')}</div></div>`;
+    : `<div class="ex-q" data-k="${i}"><div class="ex-qt"><span class="ex-num">1</span><span class="exm-t">${escExamText(x.q)}</span></div><div class="ex-opts${F4 && F4.has(x) ? ' four' : ''}">${(x.o || []).map((o, j) => `<div class="ex-opt"><span class="ex-box"></span><span class="ex-ltr">${L4[j] || ''}</span><span class="exm-o">${escExamText(o)}</span></div>`).join('')}</div></div>`).join('')}</div></div>`;
   const lines = el => { if(!el || !el.textContent.trim()) return 0; const r = document.createRange(); r.selectNodeContents(el);
     const tops = [...r.getClientRects()].filter(b => b.width > 1).map(b => b.top).sort((a, b) => a - b), fs = parseFloat(getComputedStyle(el).fontSize) || 12;
     let n = 0, last = -1e9; tops.forEach(t => { if(t - last > fs * 0.6){ n++; last = t; } }); return n; };
@@ -7294,21 +7313,26 @@ function examAutoRender(c){
   const { AM, units, headHtml, contHead, pageAttrs, box, D, key, mc, tf } = c;
   // عمودان للفقرات القصيرة (الاختيار بخيارات قصيرة، والصح/الخطأ) — يُلجأ إليهما فقط إن لم تتسع الورقة بعمود واحد
   const shortMc = mc.every(q => String(q.q || '').length <= 70 && (q.o || []).every(o => String(o || '').length <= 22));
-  const grp = (sec, cols) => { const us = units.filter(u => u.sec === sec); return us.length ? `<div class="ex-sec${cols ? ' ex-cols' : ''}">${us.map(u => u.html).join('')}</div>` : ''; };
+  const font = (/data-font="([^"]*)"/.exec(pageAttrs) || [])[1] || 'trad', size = (/data-size="([^"]*)"/.exec(pageAttrs) || [])[1] || 'm';
+  const F4 = {}, fourAt = f => F4[f] || (F4[f] = examFourFits(mc, font, size, f));
+  const fx = (h, f) => h.replace(/%%F4:(\d+)%%/g, (_, i) => fourAt(f).has(mc[+i]) ? ' four' : '');
+  const grp = (sec, cols, f) => { const us = units.filter(u => u.sec === sec); return us.length ? `<div class="ex-sec${cols ? ' ex-cols' : ''}">${us.map(u => fx(u.html, f)).join('')}</div>` : ''; };
   const base = (mc.length ? 1 : 0) + (tf.length ? 1 : 0);
   const mt = AM && AM.A.length >= 2 ? examAutoMatchSec(AM, { D, key, no:EX_ORD[base] }) : '';
   const LIMIT = EX_PAGE_H - 3 * EX_MM;
   // درجات الضغط بالترتيب: عمود واحد ← صح/خطأ بعمودين ← والاختيار بعمودين ← ثم تقليل المسافات والخط (data-fit 1–3)
-  const steps = [[0,0,0],[0,1,0],[0,1,1],[1,1,1],[2,1,1],[3,1,1],[4,1,1]].filter(x => !x[2] || shortMc);
+  // اختيار طويل لا يُقسم عمودين، لكن تصغير المسافات والخط يبقى متاحًا (كان يُتخطى كله فتنتقل الفقرات لصفحة ثانية بلا محاولة)
+  const steps = [[0,0,0],[0,1,0],[0,1,1],[1,1,1],[2,1,1],[3,1,1],[4,1,1]].map(x => shortMc ? x : [x[0], x[1], 0]).filter((x, i, a) => a.findIndex(y => y.join() === x.join()) === i);
   let parts = [], attrs = pageAttrs, fit = 0, ok = false;
   for(const [f, tfc, mcc] of steps){
-    parts = [grp('mc', mcc), grp('tf', tfc), mt].filter(Boolean); fit = f;
+    parts = [grp('mc', mcc, f), grp('tf', tfc, f), mt].filter(Boolean); fit = f;
     attrs = pageAttrs + ' data-auto="1"' + (f ? ` data-fit="${f}"` : '');
     if(examMeasurePage(attrs, headHtml + parts.join('')) <= LIMIT){ ok = true; break; }
   }
   let pages = [parts.join('')], overflow = false;
   if(!ok){                       // لا تتسع حتى بأقصى ضغط: أقسام على صفحات (ما بعد الأولى يدوي) بدل قصّ المحتوى
     fit = 4; overflow = true; attrs = pageAttrs + ' data-auto="1" data-fit="4"'; pages = [[]];
+    parts = [grp('mc', shortMc ? 1 : 0, 4), grp('tf', 1, 4), mt].filter(Boolean);
     parts.forEach(g => { const cur = pages[pages.length - 1]; cur.push(g);
       if(cur.length > 1 && examMeasurePage(attrs, (pages.length === 1 ? headHtml : contHead('')) + cur.join('')) > LIMIT){ cur.pop(); pages.push([g]); } });
     pages = pages.map(p => p.join(''));
@@ -7534,6 +7558,7 @@ function examBuild0(force){
 
   /* الفقرات كوحدات مستقلة قابلة للتوزيع على الصفحات */
   const units = [];
+  // خيارات السؤال في سطر واحد إن اتسعت فعلًا بلا التفاف — يُقرَّر في examAutoRender لكل درجة ضغط (الخط الأصغر يتسع لأكثر)
   if(mc.length){
     units.push({ sec:'mc', kind:'head', id:'h-mc',
       html:`<div class="ex-sec-head" data-mid="h-mc"><span>السؤال الأول: اختر الإجابة الصحيحة فيما يلي:</span><span class="ex-badge">${D(mc.length*mark)} درجة</span></div>` });
@@ -7541,7 +7566,7 @@ function examBuild0(force){
       units.push({ sec:'mc', kind:'item', id:'mc'+i, html:`
         <div class="ex-q" data-mid="mc${i}">
           <div class="ex-qt"><span class="ex-num">${D(i+1)}</span><span>${escExamText(q.q)}</span></div>
-          <div class="ex-opts${TPL === 't5' ? (Math.max(...q.o.map(x => String(x || '').length)) > 16 ? '' : ' four') : ''}">
+          <div class="ex-opts${TPL === 't5' ? `%%F4:${i}%%` : ''}">
             ${q.o.map((o, j) => `<div class="ex-opt${key && j===q.a ? ' key' : ''}">
               <span class="ex-box"></span><span class="ex-ltr">${L[j]||''}</span><span>${escExamText(o)}</span></div>`).join('')}
           </div>
