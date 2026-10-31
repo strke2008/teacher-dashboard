@@ -5059,7 +5059,7 @@ function renderExamJsonBank(){
   if(desc) desc.textContent = source==='ai'
     ? 'اختر الأسئلة المولدة بالذكاء التي تريد إدخالها في الاختبار، ثم صدّر البنك عند الحاجة.'
     : 'حدد الأسئلة التي تريد إدخالها في الاختبار، ثم صدّر البنك عند الحاجة.';
-  wrap.style.display='';
+  wrap.style.display = source==='json' || source==='ai' ? '' : 'none';   // مصدر «بنك نشاط»: لا يظهر بنك الملف (كان يظهر عند تغيير عدد النماذج)
   if(!(EXAM_JSON_BANK.mc.length||EXAM_JSON_BANK.tf.length)){
     const c=document.getElementById('ex-bank-count'); if(c) c.textContent='0 محدد من 0';
     const isAI=(document.getElementById('ex-src')?.value||'json')==='ai';
@@ -6178,6 +6178,7 @@ function omrManageRename(id){
 async function omrSendTemplate(){
   const box=document.getElementById('exam-paper');
   if(!box || !box.querySelector('.ex-sec')){ toast('أنشئ الاختبار أولًا','bad'); return; }
+  if(window._exSample){ toast('اختر الأسئلة أولًا — المعاينة الآن شكل القالب فقط','bad'); return; }
   if(!examOmrOn()){ toast('فعّل «📷 للتصحيح الآلي بالجوال» في القالب المصمَّم واطبع الورقة بعلاماتها أولًا','bad'); return; }
   const api=getApi(), tok=getTok();
   if(!api||!tok){ toast('اضبط عنوان الخادم وكلمة السر أولًا','bad'); return; }
@@ -7037,6 +7038,10 @@ function examFiducials(){
 function examBuild(force){
   const r = examBuild0(force);
   try{ examFiducials(); }catch(e){}
+  try{ const box = document.getElementById('exam-paper'), st = document.getElementById('ex-status'), on = !!window._exSample;
+    if(box) box.classList.toggle('ex-sample', on);
+    if(on && st && box && box.querySelector('.ex-sec')) st.innerHTML = '<b style="color:#b54708">👁 هذا شكل القالب فقط بأسئلة توضيحية</b> — اختر الأسئلة من «٢ الأسئلة» لتظهر هنا';
+  }catch(e){}
   try{ examStepSums(); examPrevZoom(); }catch(e){}
   return r;
 }
@@ -7122,6 +7127,15 @@ function examBuild0(force){
   }else{
     ({ mc, tf } = examSpreadPick(mc, tf, nmc, ntf, 0, 1, ''));
   }
+  // 👁 لم تُختر أسئلة بعد: يُعرض شكل القالب بأسئلة توضيحية (عليها «مثال») — لا يُطبع ولا يُجهَّز للتصحيح
+  const sample = window._exSample = !mc.length && !tf.length;
+  if(sample){
+    mc = Array.from({length:nmc}, (_, i) => ({ q:`نص سؤال الاختيار من متعدد ${i + 1}`, o:['الخيار الأول','الخيار الثاني','الخيار الثالث','الخيار الرابع'], a:0 }));
+    tf = Array.from({length:ntf}, (_, i) => ({ q:`نص عبارة الصح أو الخطأ ${i + 1}`, a:true }));
+  }
+  const EX_SAMPLE_TXT = { 'ex-match-txt':'العبارة الأولى | الكلمة ١\nالعبارة الثانية | الكلمة ٢\nالعبارة الثالثة | الكلمة ٣\nالعبارة الرابعة | الكلمة ٤\nالعبارة الخامسة | الكلمة ٥\nالعبارة السادسة | الكلمة ٦\nالعبارة السابعة | الكلمة ٧\nالعبارة الثامنة | الكلمة ٨',
+    'ex-fill-txt':Array.from({length:15}, (_, i) => `جملة الفراغ ${i + 1} ______ | إجابة`).join('\n'), 'ex-open-txt':Array.from({length:8}, (_, i) => `نص السؤال ${i + 1}`).join('\n') };
+  const val0 = val, valS = id => sample && EX_SAMPLE_TXT[id] && !val0(id) ? EX_SAMPLE_TXT[id] : val0(id);
 
   // طبقة أخيرة بعد تحديد الأسئلة فعليًا، لأن اختيار البنك كان يعيد الكائنات الأصلية.
   // بذلك تبقى الأرقام عربية في نص السؤال والخيارات حتى بعد التحديد والطباعة.
@@ -7152,8 +7166,8 @@ function examBuild0(force){
     ? ` · ⚠️ النموذج (${examModelLetter(modelIndex)}): ${mc.length < nmc ? `${mc.length} من ${nmc} اختيار` : ''}${mc.length < nmc && tf.length < ntf ? ' و' : ''}${tf.length < ntf ? `${tf.length} من ${ntf} صح/خطأ` : ''} — البنك لا يكفي، أضف أسئلة أو قلّل التثبيت` : '';
   const mark = examMarkVal();
   const X = TPL === 't1' || TPL === 't4' || TPL === 't5' ? null : examExtras(TPL, { mark, modelIndex, modelCount, seed:modelSeed, shuffle:seededShuffle, mix, val });
-  const FX = TPL === 't4' ? examFlexData({ mc, tf, val, modelIndex, modelCount, seed:modelSeed, shuffle:seededShuffle, mix, omr:examOmrOn() }) : null;
-  const AM = TPL === 't5' ? examAutoMatch({ mark, modelIndex, modelCount, seed:modelSeed, shuffle:seededShuffle, val }) : null;
+  const FX = TPL === 't4' ? examFlexData({ mc, tf, val:valS, modelIndex, modelCount, seed:modelSeed, shuffle:seededShuffle, mix, omr:examOmrOn() }) : null;
+  const AM = TPL === 't5' ? examAutoMatch({ mark, modelIndex, modelCount, seed:modelSeed, shuffle:seededShuffle, val:valS }) : null;
   const total = FX ? FX.total : (mc.length + tf.length) * mark + (X ? X.marks : 0) + (AM ? AM.marks : 0);
   const dots = '.'.repeat(26);
 
@@ -7361,6 +7375,7 @@ function examModelsChanged(){
 
 function printExam(){
   const box = document.getElementById('exam-paper');
+  if(window._exSample){ toast('اختر الأسئلة أولًا — المعاينة الآن شكل القالب فقط','bad'); return; }
   if(!box || !box.querySelector('.ex-sec')){ toast('لا توجد فقرات للطباعة','bad'); return; }
   unifiedA4Print({
     bodyClass: 'printing-exam',
@@ -7387,6 +7402,7 @@ function examNamedChanged(){
 }
 async function printNamedExams(){
   const box = document.getElementById('exam-paper');
+  if(window._exSample){ toast('اختر الأسئلة أولًا — المعاينة الآن شكل القالب فقط','bad'); return; }
   if(!box || !box.querySelector('.ex-sec')){ toast('لا توجد فقرات للطباعة','bad'); return; }
   // القالب في الخادم يجب أن يعرف مكان رمز الاسم: نجهّزه تلقائيًا قبل الطباعة (كان يُنسى فلا تُربط الأوراق بأسمائها)
   if(getApi() && getTok()){ try{ await omrSendTemplate(); }catch(e){} }
@@ -7417,6 +7433,7 @@ async function printNamedExams(){
 }
 function printAllExamModels(){
   const box = document.getElementById('exam-paper');
+  if(window._exSample){ toast('اختر الأسئلة أولًا — المعاينة الآن شكل القالب فقط','bad'); return; }
   const count = Math.max(1, Math.min(6, Number(document.getElementById('ex-model-count')?.value) || 1));
   const sel = document.getElementById('ex-model');
   if(!box || !box.querySelector('.ex-sec')){ toast('لا توجد فقرات للطباعة','bad'); return; }
