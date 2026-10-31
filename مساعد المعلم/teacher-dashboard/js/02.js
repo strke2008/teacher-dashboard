@@ -5799,21 +5799,51 @@ function examSpreadPick(mc, tf, nmc, ntf, idx, models, seed){
       const keep = new Set(out); return L.filter(x => keep.has(x)); };      // ترتيب البنك كما هو
     const m = pick(mc, nmc); return { mc:m, tf:pick(tf, ntf) };
   }
+  return examSpreadAll(mc, tf, nmc, ntf, models, seed).M[idx] || { mc:[], tf:[] };
+}
+/* كل النماذج دفعة واحدة. cap = سعة كل نموذج (افتراضيًا حاجته)؛ fill = إن لم يكفِ البنك يُكمَّل النموذج الناقص
+   بأسئلة من نماذج أخرى (الأقل استعمالًا وغير الشبيهة بما فيه) بدل أن يبقى ناقصًا — وتُعدّ في shared ليُنبَّه المعلم */
+function examSpreadAll(mc, tf, nmc, ntf, models, seed, opt){
+  opt = opt || {}; mc = Array.isArray(mc) ? mc : []; tf = Array.isArray(tf) ? tf : [];
+  const cap = { mc: opt.capMc || nmc, tf: opt.capTf || ntf }, usePins = opt.pins !== false;
   const M = Array.from({ length:models }, () => ({ mc:[], tf:[] }));
-  const pinned = (L, t) => L.filter(x => examModelValid(x, models)).forEach(x => { if(M[x.model][t].length < (t === 'mc' ? nmc : ntf)) M[x.model][t].push(x); });
+  const pinOk = x => usePins && examModelValid(x, models);
+  const pinned = (L, t) => L.filter(pinOk).forEach(x => { if(M[x.model][t].length < cap[t]) M[x.model][t].push(x); });
   pinned(mc, 'mc'); pinned(tf, 'tf');
-  // جولة أولى: كل سؤال في أول نموذج فيه مكان وليس فيه شبيهه، ويُؤجَّل ما لا مكان له بلا شبيه؛
+  // جولة أولى: كل سؤال في أول نموذج فيه مكان وليس فيه شبيهه (أو أقلها امتلاءً مع balance للتوزيع الظاهر)، ويُؤجَّل ما لا مكان له بلا شبيه؛
   // جولة ثانية: المؤجَّل يملأ ما بقي فقط (البنك لا يكفي) في النموذج الأقل تشابهًا — فالزائد يُترك بدل أن يجاور شبيهه
-  const clashes = (m, x) => [...M[m].mc, ...M[m].tf].filter(y => exSimClash(x, y)).length;
+  const clashes = (m, x) => [...M[m].mc, ...M[m].tf].filter(y => y !== x && exSimClash(x, y)).length;
   const later = { mc:[], tf:[] };
-  const pass1 = (L, t, n) => examDistributedModelSlice(L.filter(x => !examModelValid(x, models)), L.length, 0, 1, seed + '|' + t).forEach(x => {
-    const open = M.map((_, m) => m).filter(m => M[m][t].length < n); if(!open.length) return;
-    const m = open.find(m => !clashes(m, x)); if(m === undefined) later[t].push(x); else M[m][t].push(x); });
-  const pass2 = (t, n) => later[t].forEach(x => {
-    const open = M.map((_, m) => m).filter(m => M[m][t].length < n); if(!open.length) return;
-    M[open.reduce((b, m) => clashes(m, x) < clashes(b, x) ? m : b, open[0])][t].push(x); });
-  pass1(mc, 'mc', nmc); pass1(tf, 'tf', ntf); pass2('mc', nmc); pass2('tf', ntf);
-  return M[idx] || { mc:[], tf:[] };
+  const open = t => M.map((_, m) => m).filter(m => M[m][t].length < cap[t]);
+  const pass1 = (L, t) => examDistributedModelSlice(L.filter(x => !pinOk(x)), L.length, 0, 1, seed + '|' + t).forEach(x => {
+    const o = open(t); if(!o.length) return;
+    const ok = o.filter(m => !clashes(m, x)); if(!ok.length){ later[t].push(x); return; }
+    M[opt.balance ? ok.reduce((b, m) => M[m][t].length < M[b][t].length ? m : b, ok[0]) : ok[0]][t].push(x); });
+  const pass2 = t => later[t].forEach(x => {
+    const o = open(t); if(!o.length) return;
+    M[o.reduce((b, m) => clashes(m, x) < clashes(b, x) ? m : b, o[0])][t].push(x); });
+  pass1(mc, 'mc'); pass1(tf, 'tf'); pass2('mc'); pass2('tf');
+  const shared = { mc:0, tf:0 };
+  if(opt.fill !== false){
+    const used = new Map(); M.forEach(m => [...m.mc, ...m.tf].forEach(x => used.set(x, (used.get(x) || 0) + 1)));
+    const order = { mc: examDistributedModelSlice(mc, mc.length, 0, 1, seed + '|fill|mc'), tf: examDistributedModelSlice(tf, tf.length, 0, 1, seed + '|fill|tf') };
+    ['mc', 'tf'].forEach(t => M.forEach((_, m) => {
+      const need = t === 'mc' ? nmc : ntf;
+      while(M[m][t].length < need){
+        const c = order[t].filter(x => !M[m][t].includes(x)); if(!c.length) break;
+        const sc = x => (clashes(m, x) ? 1000 : 0) + (used.get(x) || 0);
+        const x = c.reduce((b, y) => sc(y) < sc(b) ? y : b, c[0]);
+        M[m][t].push(x); used.set(x, (used.get(x) || 0) + 1); shared[t]++;
+      }
+    }));
+  }
+  return { M, shared };
+}
+/* حاجة كل نموذج من الاختيار والصح/خطأ حسب القالب (نفس حساب examBuild) */
+function examNeed(){
+  const TPL = examTpl(), num = (id, d) => { const n = Number(document.getElementById(id)?.value); return Number.isFinite(n) ? n : d; };
+  return { nmc: TPL === 't1' || TPL === 't5' ? Math.max(0, num('ex-nmc', 5)) : TPL === 't4' ? examFlexCount('mc') : 5,
+           ntf: TPL === 't1' || TPL === 't5' ? Math.max(0, num('ex-ntf', 5)) : TPL === 't4' ? examFlexCount('tf') : 5 };
 }
 function examModelCount(){ return Math.max(1, Math.min(6, Number(document.getElementById('ex-model-count')?.value) || 1)); }
 function examModelSel(bank, idx, x){
@@ -5838,13 +5868,15 @@ function examXAuto(n){
 }
 function examModelsAuto(bank){
   const n = examModelCount(); if(n < 2){ toast('اختر أكثر من نموذج أولًا','bad'); return; }
-  const all = examBankItems(bank).filter(x => x.selected !== false);
-  ['mc','tf'].forEach(k => {
-    const list = examDistributedModelSlice(all.filter(x => (x.kind === 'tf' ? 'tf' : 'mc') === k), all.length, 0, 1, 'auto|' + k + '|' + Date.now());
-    list.forEach((x, i) => { x.model = i % n; });
-  });
+  const all = examBankItems(bank).filter(x => x.selected !== false), { nmc, ntf } = examNeed();
+  const mc = all.filter(x => x.kind !== 'tf'), tf = all.filter(x => x.kind === 'tf');
+  // كل نموذج يأخذ حاجته على الأقل، والزائد يُقسَّم بالتساوي — ولا يجتمع سؤالان متشابهان في نموذج
+  const { M } = examSpreadAll(mc, tf, nmc, ntf, n, 'auto|' + Date.now(), { pins:false, fill:false, balance:true, capMc: Math.max(nmc, Math.ceil(mc.length / n)), capTf: Math.max(ntf, Math.ceil(tf.length / n)) });
+  all.forEach(x => { delete x.model; });
+  M.forEach((m, i) => [...m.mc, ...m.tf].forEach(x => { x.model = i; }));
   examXAuto(n);
-  examBankRerender(bank); toast('⚖️ وُزّعت كل الأنواع على النماذج بالتساوي — عدّل ما تريد','good');
+  examBankRerender(bank); const short = Math.max(0, nmc * n - mc.length) + Math.max(0, ntf * n - tf.length);
+  toast(short ? `⚖️ وُزّعت بلا أسئلة متشابهة في نموذج واحد — البنك ينقصه ${short} ${short === 1 ? 'سؤال' : 'أسئلة'} فتُكمَّل النماذج بأسئلة مشتركة بينها` : '⚖️ وُزّعت كل الأنواع على النماذج بالتساوي وبلا أسئلة متشابهة في نموذج واحد — عدّل ما تريد', short ? 'warn' : 'good');
 }
 function examModelsClear(bank){ examBankItems(bank).forEach(x => { delete x.model; }); examXSavePins({}); examBankRerender(bank); }
 function examXCounts(n){
@@ -5877,15 +5909,23 @@ function examXPanel(){
 function examModelsBar(bank){
   const n = examModelCount(); if(n < 2) return '';
   const all = examBankItems(bank).filter(x => x.selected !== false);
-  const per = Array.from({length:n}, (_, m) => ({ mc: all.filter(x => x.model === m && x.kind !== 'tf').length, tf: all.filter(x => x.model === m && x.kind === 'tf').length }));
+  const { nmc, ntf } = examNeed(), mcAll = all.filter(x => x.kind !== 'tf'), tfAll = all.filter(x => x.kind === 'tf');
+  // ما سيدخل كل نموذج فعلًا (المثبّت + التلقائي + المُكمَّل)، لا عدد المثبّت فقط
+  const R = examSpreadAll(mcAll, tfAll, nmc, ntf, n, 'bar');
+  const sim = m => { const L = [...R.M[m].mc, ...R.M[m].tf]; let c = 0; for(let i = 0; i < L.length; i++) for(let j = i + 1; j < L.length; j++) if(L[i] !== L[j] && exSimClash(L[i], L[j])) c++; return c; };
+  const per = R.M.map((p, m) => ({ mc:p.mc.length, tf:p.tf.length, sim: sim(m) }));
+  const shared = R.shared.mc + R.shared.tf, simN = per.reduce((t, p) => t + p.sim, 0);
+  const lack = (h, need) => h < need ? ` <b style="color:#b42318">(${h}/${need})</b>` : '';
   const XC = examXCounts(n);
   const auto = all.filter(x => !examModelValid(x, n)).length + XC.auto;
   return `<div class="exm-bar"><b>🗂️ توزيع النماذج</b>
-    ${per.map((p, m) => `<span class="exm-chip">نموذج ${examModelLetter(m)}: ${p.mc} اختيار · ${p.tf} صح/خطأ${examXTypes().map(t => ` · ${XC.out[m][t] || 0} ${EX_XT[t].label}`).join('')}</span>`).join('')}
+    ${per.map((p, m) => `<span class="exm-chip">نموذج ${examModelLetter(m)}: ${p.mc} اختيار${lack(p.mc, nmc)} · ${p.tf} صح/خطأ${lack(p.tf, ntf)}${p.sim ? ` · <b style="color:#b54708">🔁 ${p.sim} تشابه</b>` : ''}${examXTypes().map(t => ` · ${XC.out[m][t] || 0} ${EX_XT[t].label}`).join('')}</span>`).join('')}
     <span class="exm-chip auto">تلقائي: ${auto}</span>
     <span class="spacer"></span>
     <button type="button" class="btn ghost sm" onclick="examModelsAuto('${bank}')">⚖️ وزّع تلقائيًا</button>
     <button type="button" class="btn ghost sm" onclick="examModelsClear('${bank}')">مسح التوزيع</button>
+    ${shared ? `<div style="flex-basis:100%;font-size:.78rem;color:#b54708">⚠️ أسئلة البنك لا تكفي ${n} نماذج كاملة (كل نموذج ${nmc} اختيار + ${ntf} صح/خطأ)، فتكمَّلت النماذج بـ${shared} ${shared === 1 ? 'سؤال مشترك' : 'أسئلة مشتركة'} بين نموذجين. لتجنّب ذلك: أضف أسئلة أو قلّل العدد أو النماذج.</div>` : ''}
+    ${simN ? `<div style="flex-basis:100%;font-size:.78rem;color:#b54708">🔁 في نموذج واحد أسئلة متشابهة (تثبيت يدوي غالبًا) — اضغط «⚖️ وزّع تلقائيًا» ليفرّقها.</div>` : ''}
     <div class="muted" style="flex-basis:100%;font-size:.74rem">لكل سؤال اختر نموذجه، أو اتركه «تلقائي» فيُوزَّع على النماذج بلا تكرار. المثبّت يدخل نموذجه أولًا ثم يُكمل الباقي تلقائيًا.</div></div>`;
 }
 
