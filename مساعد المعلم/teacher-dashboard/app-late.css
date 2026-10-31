@@ -3060,3 +3060,7 @@ body.pf-open #simp-bottomnav,body.pf-open .askf-btn{display:none!important}
 @media screen and (max-width:700px){.exam-bank-item{grid-template-columns:22px 1fr auto}}
 .exm-warn{flex-basis:100%;font-size:.74rem;color:#b54708;font-weight:700}
 .exq-sum-go{font:inherit;font-size:.72rem;font-weight:800;border:0;background:none;color:#1F4E9B;cursor:pointer;padding:0 .3rem;text-decoration:underline}
+/* 🏷️ نوع النشاط قبل اسمه (كما في بوابة الطالب) */
+.act-kind{display:inline-block;font-size:.72em;font-weight:800;padding:.08em .5em;border-radius:999px;vertical-align:.12em;margin-inline-end:.15em;white-space:nowrap;color:var(--k,#2E6BB8);background:color-mix(in srgb,var(--k,#2E6BB8) 13%,transparent)}
+.hw-title-row{display:flex;align-items:center;gap:.45rem}.hw-title-row .inp{flex:1;min-width:0}
+.hw-title-row .act-kind{font-size:.85rem;padding:.35rem .7rem;vertical-align:middle;flex:0 0 auto}

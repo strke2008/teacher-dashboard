@@ -8966,7 +8966,7 @@ function renderHw() {
       <div class="sheet-head" style="margin-bottom:.55rem">
         <label class="row" style="gap:.55rem;min-width:0;cursor:pointer" title="تحديد هذا النشاط للإجراء الجماعي">
           <input type="checkbox" ${HW_REPUBLISH_SELECTED.has(h.id)?'checked':''} onchange="toggleHwSelection('${h.id}',this.checked)" aria-label="تحديد ${esc(h.title)}">
-          <h2 style="margin:0">${esc(h.title)}</h2>
+          <h2 style="margin:0">${hwTitleHTML(h)}</h2>
         </label>
         <span class="spacer"></span>
         ${h.due ? `<span class="pill ${late ? 'due' : 'quiet'}">${late ? 'انتهى' : 'يُغلق'} ${esc(h.due)}</span>` : ''}
@@ -9039,8 +9039,8 @@ function openHwForm(id) {
     <select id="h-kind" style="display:none" onchange="hwKindChanged()" data-new="${h?'':'1'}">
       ${HW_KINDS.map(k=>`<option value="${k.v}" ${hwFormKind(h)===k.v?'selected':''}>${k.t}</option>`).join('')}
     </select>
-    <div class="field"><label>العنوان</label>
-      <input class="inp" id="h-title" value="${h ? esc(h.title) : ''}" placeholder="مثال: مراجعة درس الثدييات"></div>
+    <div class="field"><label>العنوان <span class="muted" style="font-weight:400">(يظهر للطالب بنوعه كما هنا)</span></label>
+      <div class="hw-title-row">${hwKindChip(hwFormKind(h), true)}<input class="inp" id="h-title" value="${h ? esc(h.title) : ''}" placeholder="مثال: مراجعة درس الثدييات"></div></div>
     <div class="grid2">
       <div class="field"><label>الفصل</label>
         ${hwClsPickerHTML(h,'h-cls')}</div>
@@ -9177,6 +9177,21 @@ const HW_KINDS=[
   {v:'nafs',   ic:'🧭', t:'نافس',        d:'أسئلة وطنية بالأشكال'}
 ];
 /* 🧭 نشاط نافس يُحفظ «عاديًا» (kind normal) مع قائمة أقسامه h.nafs — فتعمل معه المهارات والعلاج والتصحيح كما هي */
+/* 🏷️ نوع النشاط قبل اسمه — بالأيقونة والاسم واللون نفسها في بوابة الطالب */
+const HW_KIND_COLORS = { normal:'#2E6BB8', reading:'#1B9C6B', games:'#A66F0A', diag:'#2E6BB8', style:'#7B4FA8', files:'#2E6BB8', lab:'#2E6BB8', nafs:'#0E7490', remedial:'#B4232F' };
+const HW_KIND_NAME = { normal:'نشاط', reading:'فهم قرائي', games:'ألعاب', diag:'اختبار تشخيصي', style:'أنماط التعلّم', files:'مشروع', lab:'مختبر افتراضي', nafs:'نافس', remedial:'علاجي' };
+function hwKindChip(k, inForm){
+  k = HW_KIND_NAME[k] ? k : 'normal'; const ic = (HW_KINDS.find(x => x.v === k) || {}).ic || (k === 'remedial' ? '🩹' : '📝');
+  return `<span class="act-kind"${inForm ? ' id="h-title-kind"' : ''} style="--k:${HW_KIND_COLORS[k]}">${ic} ${HW_KIND_NAME[k]}</span>`;
+}
+/* العنوان في قائمة الأنشطة كما يراه الطالب: النوع قبله، إلا إن كتبه المعلم في العنوان (فالأيقونة فقط) */
+function hwTitleHTML(h){
+  const k = h && h.remedial ? 'remedial' : hwFormKind(h), t = String((h && h.title) || '');
+  const norm = v => String(v).replace(/[\u064B-\u0652\u0640]/g, '').replace(/[أإآ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه');
+  const has = norm(t).includes(norm(HW_KIND_NAME[k] || 'نشاط').replace(/ (.*)$/, '')) || (k === 'games' && /لعب|العاب|لعبه/.test(norm(t)));
+  const ic = (HW_KINDS.find(x => x.v === k) || {}).ic || (k === 'remedial' ? '🩹' : '📝');
+  return (has ? ic + ' ' : hwKindChip(k) + ' ') + esc(t);
+}
 const hwIsNafs=h=>!!(h && (h.kind||'normal')==='normal' && Array.isArray(h.nafs) && h.nafs.length);
 const hwFormKind=h=>!h ? 'normal' : hwIsNafs(h) ? 'nafs' : (h.kind==='game' ? 'games' : (h.kind||'normal'));
 /* 🔬 المختبر الافتراضي — المواد المتاحة لموضوع «المخاليط» (يطابق صفحة المختبر والـ Worker) */
@@ -9224,6 +9239,7 @@ function hwPickKind(v){
 
 function hwKindChanged(){
   const k = (document.getElementById('h-kind')||{}).value || 'normal';
+  { const c = document.getElementById('h-title-kind'); if(c) c.outerHTML = hwKindChip(k, true); }
   const box = document.getElementById('h-scores');
   const note = document.getElementById('h-kind-note');
   if(box) box.style.display = (k === 'normal' || k === 'reading' || k === 'lab' || k === 'nafs') ? '' : 'none';
