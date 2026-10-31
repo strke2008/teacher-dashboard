@@ -4906,6 +4906,33 @@ function bindExamHeaderAutosave(){
   });
 }
 
+/* ⚙️ اختيارات المعلم المعتادة (القالب، الأعداد، الدرجة، النماذج، الخط…) تُحفظ تلقائيًا عند تغييرها
+   وتُستعاد عند فتح الصفحة — مرة واحدة لكل تحميل، فلا تطغى على اختبار محفوظ فتحه المعلم ثم عاد للتبويب */
+const K_EXAM_PREFS = 'hwapp_exam_prefs_v1';
+const EXAM_PREF_IDS = ['ex-tpl','ex-nmc','ex-ntf','ex-nmt','ex-mark','ex-model-count','ex-teacher','ex-font','ex-size'];
+const EXAM_PREF_CHECKS = ['ex-omr-marks','ex-shuffle','ex-hindi','ex-fill-bank'];
+function saveExamPrefs(){
+  const v = {}, c = {};
+  EXAM_PREF_IDS.forEach(id => { const el = document.getElementById(id); if(el) v[id] = el.dataset.keep !== undefined ? el.dataset.keep : el.value; });   // المعطّل في «المصمَّم» يحفظ قيمة المعلم لا مجموع التصميم
+  EXAM_PREF_CHECKS.forEach(id => { const el = document.getElementById(id); if(el) c[id] = !!el.checked; });
+  try{ localStorage.setItem(K_EXAM_PREFS, JSON.stringify({ v, c, at:Date.now() })); }catch(e){}
+}
+function loadExamPrefs(){
+  let P = null; try{ P = JSON.parse(localStorage.getItem(K_EXAM_PREFS) || 'null'); }catch(e){}
+  if(!P || typeof P !== 'object') return;
+  Object.entries(P.v || {}).forEach(([id, val]) => { const el = document.getElementById(id); if(!el || !EXAM_PREF_IDS.includes(id)) return;
+    if(el.tagName === 'SELECT' && ![...el.options].some(o => o.value === String(val))) return;      // قالب أُلغي مثلًا
+    el.value = String(val ?? ''); delete el.dataset.keep; });
+  Object.entries(P.c || {}).forEach(([id, on]) => { const el = document.getElementById(id); if(el && EXAM_PREF_CHECKS.includes(id)) el.checked = !!on; });
+  try{ examModelsChanged(); }catch(e){}
+}
+function bindExamPrefsAutosave(){
+  [...EXAM_PREF_IDS, ...EXAM_PREF_CHECKS].forEach(id => {
+    const el = document.getElementById(id); if(!el || el.__exPrefBound) return; el.__exPrefBound = true;
+    el.addEventListener(el.type === 'checkbox' || el.tagName === 'SELECT' ? 'change' : 'input', () => setTimeout(saveExamPrefs, 0));   // بعد معالجات القالب
+  });
+}
+
 function examInit(){
   ensureLogo();
   const sel = document.getElementById('ex-hw');
@@ -4926,6 +4953,8 @@ function examInit(){
   fill('ex-teacher', rcGet('teacher') || '');
   loadExamHeaderSaved();
   bindExamHeaderAutosave();
+  if(!window._exPrefsInit){ window._exPrefsInit = true; try{ loadExamPrefs(); }catch(e){} }
+  bindExamPrefsAutosave();
   syncExamPrintAllButton();
   examBuild();
 }
