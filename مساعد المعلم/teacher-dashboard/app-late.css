@@ -3028,3 +3028,10 @@ body.pf-open #simp-bottomnav,body.pf-open .askf-btn{display:none!important}
 .exq-sum{grid-column:1/-1;font-size:.8rem;padding:.5rem .7rem;margin-bottom:.45rem;border-radius:10px;background:#F6F9F8;border:1px dashed var(--ui-border,#D5E0EC);line-height:1.8}
 .exq-sum .w{color:#9A4D00}
 .exm-chip-go{cursor:pointer}.exm-chip-go:hover{background:#EEF3F8;border-color:#9DB4CC}
+/* ✨ اقتراحات الذكاء في نافذة تعديل السؤال */
+.exq-ai{margin-top:.7rem;padding:.6rem .7rem;border:1px dashed var(--ui-border,#D5E0EC);border-radius:12px;background:#FAFCFB}
+.exq-sugs{display:grid;gap:.45rem;margin-top:.55rem;max-height:40vh;overflow:auto}
+.exq-sug{display:flex;gap:.6rem;align-items:flex-start;justify-content:space-between;padding:.5rem .6rem;border:1px solid #E3ECEA;border-radius:10px;background:#fff}
+.exq-sug-t{display:grid;gap:.2rem;font-size:.86rem;min-width:0}
+.exq-sug-o{display:flex;flex-wrap:wrap;gap:.15rem .8rem;font-size:.78rem;color:#4b5e5b}.exq-sug-o .ok{color:#16794f;font-weight:800}
+.exq-warn{color:#B4232F}

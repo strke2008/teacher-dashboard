@@ -5619,9 +5619,68 @@ function examQEdit(bank, idx, back){
       ${x.edited && x._orig ? '<button type="button" class="btn ghost" onclick="examQRevert()">↺ إرجاع الأصل</button>' : ''}
       <button type="button" class="btn ghost" onclick="examQBack()">${back ? '↩️ رجوع' : 'إلغاء'}</button></div>`);
   setTimeout(() => document.getElementById('exq-q')?.focus(), 50);
+  // ✨ اقتراحات الذكاء: تُدرج قبل أزرار الحفظ (طويل ← صياغة أقصر، متشابه ← بديل)
+  const longWhy = (EX_LONG_CACHE.get(x) || {}).why || '', sims = examQSimilars(bank, x);
+  document.querySelector('#exq-q')?.closest('.field')?.parentElement?.querySelector(':scope > .row:last-child')?.insertAdjacentHTML('beforebegin',
+    `<div class="exq-ai"><div class="row" style="gap:.4rem;flex-wrap:wrap;align-items:center">
+      <button type="button" class="ai-btn" onclick="examQSuggest('short')"><span class="ai-mark">✦</span> ${longWhy ? 'اقترح صياغة أقصر' : 'اقترح صياغة أوضح'}</button>
+      ${sims.length ? `<button type="button" class="ai-btn" onclick="examQSuggest('alt')"><span class="ai-mark">✦</span> اقترح بديلًا غير متشابه</button>` : ''}
+      <span class="muted" style="font-size:.74rem">${[longWhy ? '📏 ' + esc(longWhy) : '', sims.length ? `🔁 يشبه ${sims.length} ${sims.length === 1 ? 'سؤالًا' : 'أسئلة'} في الاختبار` : ''].filter(Boolean).join(' · ')}</span></div>
+      <div id="exq-sug"></div></div>`);
 }
 /* بعد الحفظ أو الإلغاء: يعود المعلم إلى النافذة التي فتح منها التعديل (المتشابهة/الطويلة) بما اختاره فيها */
 function examQBack(){ const E = window._exQE || {}; closeModal(); if(E.back === 'sim') examHwSimOpen(); else if(E.back === 'long') examLongOpen(E.bank); }
+/* أسئلة الاختبار المحددة الشبيهة بهذا السؤال */
+function examQSimilars(bank, x){ return examBankItems(bank).filter(y => y !== x && y.selected !== false && exSimClash(x, y)); }
+/* ✨ يطلب من الذكاء ٣ اقتراحات: «short» صياغة أقصر/أوضح بالمعنى والإجابة نفسيهما، و«alt» سؤال بديل من الدرس نفسه
+   يقيس فكرة أخرى غير ما في الشبيه وبقية أسئلة الاختبار. الاقتراح يملأ الحقول فقط — الحفظ بيد المعلم */
+async function examQSuggest(kind){
+  const E = window._exQE, x = E && examBankItems(E.bank)[E.idx], box = document.getElementById('exq-sug'); if(!x || !box) return;
+  const mc = x.kind !== 'tf', nO = mc ? x.o.length : 0;
+  const cur = { q:(document.getElementById('exq-q')?.value || x.q).trim(), ...(mc ? { o:x.o.map((_, j) => (document.getElementById('exq-o' + j)?.value || '').trim()), a:Number(document.querySelector('input[name=exq-a]:checked')?.value ?? x.a) } : { a:document.querySelector('input[name=exq-a]:checked')?.value === '1' }) };
+  const subj = (document.getElementById('ex-subject')?.value || 'العلوم').trim(), grade = (document.getElementById('ex-grade')?.value || '').trim();
+  const shape = mc ? `{"suggestions":[{"q":"نص السؤال","o":[${Array.from({length:nO}, (_, j) => `"خيار ${j + 1}"`).join(',')}],"a":رقم_الخيار_الصحيح_من_0}]}` : `{"suggestions":[{"q":"نص العبارة","a":true}]}`;
+  const others = examBankItems(E.bank).filter(y => y !== x && y.selected !== false).map(y => '- ' + y.q).slice(0, 60).join('\n');
+  const prompt = kind === 'short'
+    ? `أنت معلم ${subj}${grade ? ' للصف ' + grade : ''} تراجع سؤال اختبار ورقي. اكتب ٣ صياغات أقصر وأوضح للسؤال نفسه بالعربية الفصحى السليمة.
+الشروط: المعنى نفسه والإجابة الصحيحة نفسها${mc ? ` (الخيار رقم ${cur.a} من 0 يبقى هو الصحيح وفي موضعه)، و${nO} خيارات بالترتيب نفسه، كل خيار قصير (٢٥ حرفًا أو أقل إن أمكن)، والخيارات الخاطئة تبقى خاطئة ومعقولة` : ` (العبارة تبقى ${cur.a ? 'صحيحة' : 'خاطئة'})`}، ونص ${mc ? 'السؤال' : 'العبارة'} سطر واحد (٧٠ حرفًا أو أقل إن أمكن)، بلا حذف لمعلومة يتوقف عليها الحل.
+السؤال الحالي: ${JSON.stringify(cur)}
+أخرج JSON فقط بهذا الشكل: ${shape}`
+    : `أنت معلم ${subj}${grade ? ' للصف ' + grade : ''}. هذا سؤال في اختبار ورقي يشبه أسئلة أخرى فيه:
+السؤال: ${JSON.stringify(cur)}
+الشبيه به: ${examQSimilars(E.bank, x).map(y => y.q).join(' | ')}
+اكتب ٣ أسئلة بديلة من الدرس نفسه ${mc ? `(اختيار من متعدد بـ${nO} خيارات، خيار واحد صحيح)` : '(صح أو خطأ)'} يقيس كل منها فكرة أو مهارة أخرى لا يسألها الشبيه ولا أي سؤال من أسئلة الاختبار التالية، بالعربية الفصحى، قصيرة (سطر واحد)، ومناسبة للصف.
+أسئلة الاختبار:
+${others}
+أخرج JSON فقط بهذا الشكل: ${shape}`;
+  box.innerHTML = '<div class="muted" style="font-size:.82rem;padding:.4rem 0">⏳ جارٍ التفكير…</div>';
+  try{
+    const prov = readingAIPickProvider(), model = readingAIModels()[prov];
+    const raw = await readingAICall(prov, model, prompt, new AbortController().signal);
+    let d; try{ d = readingAIParseObject(raw); }catch(e){ d = JSON.parse(aiRepairJson(String(raw).replace(/^[^{]*/, '').replace(/[^}]*$/, ''))); }
+    const L = (Array.isArray(d && d.suggestions) ? d.suggestions : Array.isArray(d) ? d : []).map(s => mc
+      ? { q:String(s.q || '').trim(), o:(Array.isArray(s.o) ? s.o : []).map(v => String(v ?? '').trim()), a:Number(s.a) }
+      : { q:String(s.q || '').trim(), a:s.a === true || s.a === 'true' || s.a === 'صح' })
+      .filter(s => s.q && (!mc || (s.o.length === nO && s.o.every(Boolean) && Number.isInteger(s.a) && s.a >= 0 && s.a < nO)))
+      .filter(s => kind !== 'short' || !mc || s.a === cur.a).slice(0, 3);
+    if(!L.length){ box.innerHTML = '<div class="muted" style="font-size:.82rem;padding:.4rem 0">لم تصل اقتراحات صالحة — جرّب مرة أخرى.</div>'; return; }
+    window._exQSug = L;
+    const LT = ['أ','ب','ج','د'];
+    box.innerHTML = `<div class="exq-sugs">${L.map((s, i) => `<div class="exq-sug"><div class="exq-sug-t"><b>${esc(s.q)}</b>
+        ${mc ? `<span class="exq-sug-o">${s.o.map((o, j) => `<span class="${j === s.a ? 'ok' : ''}">${LT[j]}) ${esc(o)}</span>`).join('')}</span>` : `<span class="exq-sug-o"><span class="ok">${s.a ? '✓ صح' : '✗ خطأ'}</span></span>`}
+        ${kind === 'alt' && examQSimilars(E.bank, { ...x, ...s, kind:x.kind }).length ? '<small class="exq-warn">⚠️ ما زال يشبه سؤالًا في الاختبار</small>' : ''}</div>
+        <button type="button" class="btn ghost sm" onclick="examQUseSug(${i})">استخدمه</button></div>`).join('')}</div>
+      <div class="muted" style="font-size:.74rem;margin-top:.3rem">«استخدمه» يملأ الحقول أعلاه — راجعها ثم اضغط «💾 حفظ». ${kind === 'alt' ? 'البديل قد يغيّر الإجابة الصحيحة.' : ''}</div>`;
+  }catch(e){ box.innerHTML = `<div class="exq-warn" style="font-size:.82rem;padding:.4rem 0">⚠️ ${esc(e && e.message || 'تعذّر الاتصال بالذكاء')}</div>`; }
+}
+function examQUseSug(i){
+  const s = (window._exQSug || [])[i]; if(!s) return;
+  const q = document.getElementById('exq-q'); if(q) q.value = s.q;
+  if(Array.isArray(s.o)) s.o.forEach((o, j) => { const el = document.getElementById('exq-o' + j); if(el) el.value = o; });
+  const v = Array.isArray(s.o) ? String(s.a) : (s.a ? '1' : '0');
+  const r = document.querySelector(`input[name=exq-a][value="${v}"]`); if(r) r.checked = true;
+  q?.focus(); toast('✦ وُضع الاقتراح في الحقول — راجعه ثم اضغط «💾 حفظ»', 'good');
+}
 function examQDone(msg){ const E = window._exQE; closeModal(); examBankRerender(E.bank); toast(msg, 'good'); if(E.back) examQBack(); }
 function examQSave(){
   const E = window._exQE, x = E && examBankItems(E.bank)[E.idx]; if(!x) return;
