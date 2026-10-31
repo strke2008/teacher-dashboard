@@ -95,6 +95,23 @@ h1,h2,h3{font-family:var(--display);line-height:1.3;margin:0}
 .guide .gt .who{font-size:.8rem;opacity:.7}
 .guide .gact{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
 .guide .btn.amber{padding:8px 16px}
+.guide .ghelp{margin-inline-start:8px;border:1px solid rgba(255,255,255,.35);background:transparent;color:inherit;border-radius:999px;padding:4px 12px;font:inherit;font-size:.85rem;cursor:pointer}
+.guide .ghint{margin-top:8px;background:#F5A524;color:#1D2A36;border-radius:10px;padding:8px 12px;font-weight:600;font-size:1rem;line-height:1.6;animation:pop .25s ease}
+.hint-layer{position:fixed;inset:0;pointer-events:none;z-index:60;display:none}
+.hint-layer.on{display:block}
+.hint-ring{position:fixed;border:3px solid #F5A524;box-shadow:0 0 0 5px rgba(245,165,36,.25),0 0 22px rgba(245,165,36,.55);animation:hintPulse 1.2s ease-in-out infinite}
+.hint-layer.box .hint-ring{border-radius:14px}
+@keyframes hintPulse{50%{box-shadow:0 0 0 9px rgba(245,165,36,.12),0 0 30px rgba(245,165,36,.7)}}
+.hint-path{position:fixed;left:0;top:0;width:100vw;height:100vh;overflow:visible}
+.hint-path path{fill:none;stroke:#F5A524;stroke-width:4;stroke-dasharray:10 8;stroke-linecap:round;opacity:.9}
+.hint-ghost{position:fixed;transform:translate(-50%,-60%) rotate(-5deg);opacity:0;filter:drop-shadow(0 8px 10px rgba(0,0,0,.25))}
+.hint-ghost>*{width:100%;pointer-events:none}
+.hint-hand{position:fixed;left:0;top:0;filter:drop-shadow(0 6px 6px rgba(0,0,0,.3));transition:transform .06s linear}
+.hint-tap{position:absolute;left:12px;top:0;width:12px;height:12px;border-radius:50%;border:3px solid #F5A524;opacity:0;transform:translate(0,0) scale(.4)}
+.hint-tap.on{animation:hintTap .7s ease-out}
+@keyframes hintTap{0%{opacity:.9;transform:scale(.4)}100%{opacity:0;transform:scale(3)}}
+@media (max-width:760px){.hint-hand svg{width:46px;height:46px}.guide .ghelp{padding:3px 10px;font-size:.8rem}}
+@media (prefers-reduced-motion:reduce){.hint-ring{animation:none}}
 .guide .gvoice{margin-inline-start:8px;border:0;background:rgba(255,255,255,.14);color:inherit;border-radius:999px;padding:1px 9px;font:inherit;font-size:.78rem;cursor:pointer;vertical-align:middle}
 .guide .gvoice.off{opacity:.55}
 .guide .gvoice.talk{background:rgba(255,200,80,.32)}
@@ -1875,7 +1892,8 @@ const FRSIM=(()=>{
     const dt=1/60;PT=PT.filter(p=>(p.life-=dt)>0);PT.forEach(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=60*dt;c.globalAlpha=Math.max(0,p.life/p.max);c.fillStyle=p.cl;c.beginPath();c.arc(p.x,p.y,p.r,0,7);c.fill()});c.globalAlpha=1;
   }
   function loop(now){const dt=Math.min(.05,Math.max(0,(now-last)/1000));last=now;step(dt);draw();raf=requestAnimationFrame(loop)}
-  return {mount,stop,place,release,hitTest,toCanvas,lanes:()=>L,setOpt:o=>Object.assign(opt,o),readColors};
+  return {mount,stop,place,release,hitTest,toCanvas,lanes:()=>L,setOpt:o=>Object.assign(opt,o),readColors,
+    markPt:(i,h)=>{if(!cv||!cv.isConnected)return null;const r=cv.getBoundingClientRect(),Hc=cv.height/Math.min(2,window.devicePixelRatio||1);return {x:r.left+(XB+uOf(h)*S)*r.width/W,y:r.top+(yb(i)-h*S)*r.height/Hc}}};
 })();
 
 const FR_OBS={
@@ -2692,7 +2710,8 @@ const WMSIM=(()=>{
   function animate(ms,step,end,lin){tw={t0:performance.now(),ms,step,end,lin}}
   function stop(){cancelAnimationFrame(raf);raf=0;tw=null;ptr=null}
   function puff(x,y,n,cl,o){for(let i=0;i<n;i++){const m=.35+Math.random()*.4;parts.push({x:x+(Math.random()-.5)*8,y,vx:(o&&o.vx||0)+(Math.random()-.5)*40,vy:(o&&o.vy!=null?o.vy:-25)-Math.random()*25,g:(o&&o.g)||30,r:2+Math.random()*3,life:m,max:m,col:cl||'rgba(150,130,100,.8)'})}}
-  return {mount,animate,stop,puff,busy:()=>!!tw||!!(ptr&&ptr.cap),tweening:()=>!!tw,frame(){},col:()=>col,size:()=>({W,H})};
+  return {mount,animate,stop,puff,busy:()=>!!tw||!!(ptr&&ptr.cap),tweening:()=>!!tw,frame(){},col:()=>col,size:()=>({W,H}),
+    cur:()=>cv&&cv.isConnected&&raf?{cv,draw,h:H_,W,H}:null};
 })();
 const fx1=v=>(Math.round(v*10)/10).toFixed(1);
 const WMD={
@@ -5189,6 +5208,161 @@ function guideGo(){
   (mq.addEventListener?mq.addEventListener('change',()=>{detach();scan()}):mq.addListener(()=>{detach();scan()}));
   scan();
 })();
+
+/* 💡 «ما عرفت وش أسوي؟» — مساعد يتدرّج حين يتوقف الطالب:
+   (1) بعد ~12 ث بلا تقدّم، أو بعد خطأ: يضيء الشيء المطلوب ويشير إليه إصبع، وسطر تلميح تحت المرشد.
+   (2) بعد توقف أطول، أو خطأين في الخطوة نفسها، أو بزر «ما عرفت»: يد مرسومة تؤدي الحركة نفسها (سحب/ضغط/تحريك) ويُقرأ التلميح بالصوت.
+   أي لمسة من الطالب تُخفي المساعدة فورًا؛ ولا يُكشف جواب مكتوب أبدًا. */
+const HINT_CV={   // مواضع الأدوات داخل مشاهد الرسم (بإحداثيات المشهد)
+  cc(){if(cA.done||ccS.lock||cA.held)return null;const T=k=>cA.tools.find(t=>t.kind===k),bk=cA.bk,mo=bk?{x:bk.x+14,y:CCG-bk.h-26}:null;
+    if(cA.k==='soda'||cA.k==='salt'){const s=T('pour');
+      if(s&&s.load>0)return {x:s.x,y:s.y,tx:mo.x+18,ty:mo.y,act:'drag',text:`امسك الملعقة واسحبها فوق فوهة الكأس، وأبقها هناك فتميل ${cA.k==='soda'?'وتنسكب الصودا في الخل':'وينسكب الملح في الماء'}.`};
+      const r=T('rod');if(r)return {x:r.x,y:r.y,tx:bk.x,ty:CCG-34,act:'stir',text:'امسك القضيب الزجاجي وأدخله في الماء، ثم حرّكه يمينًا ويسارًا حتى يذوب الملح كله.'};return null}
+    if(cA.k==='iodine'){const d=T('dropper');return d&&{x:d.x,y:d.y-10,tx:165,ty:CCG-100,act:'drag',text:'امسك القطّارة وارفعها فوق شريحة البطاطس، وأبقها ثابتة حتى تسقط خمس قطرات.'}}
+    if(cA.k==='precip'){const b=T('pourBk');return b&&{x:b.x,y:b.y,tx:mo.x+28,ty:mo.y-12,act:'drag',text:'امسك الكأس الصغيرة وقرّبها من فوهة الكأس الكبيرة، وأبقها هناك فتميل ويُصبّ المحلول.'}}
+    if(cA.k==='mg'){const g=$('#ccGog');if(!cA.goggles&&g)return {el:g,act:'tap',text:'البس النظارة الواقية أولًا: اضغط زرها تحت الرسم.'};
+      const r=T('rib'),tg=T('tongs');if(!r||!tg)return null;
+      if(r.grip!=='tongs')return {x:tg.x,y:tg.y,tx:r.x+6,ty:r.y-2,act:'drag',text:'امسك الماسك واسحبه حتى يلمس طرف الشريط الأيسر، ثم اتركه ليمسك الشريط.'};
+      return {x:r.x+r.len*.3,y:r.y,tx:285-r.len*.75,ty:CCG-74,act:'drag',text:'حرّك الشريط بالماسك حتى يدخل طرفه في اللهب، وأبقه هناك ولا تنظر مباشرة إلى الضوء.'}}
+    return null},
+  ccB(){if(cB.done||cB.held)return null;const d=cB.dish,b=cB.bal;
+    if(d){if(d.load>0)return {x:d.x,y:d.y-4,tx:CCB.x-8,ty:CCB.pan-122,act:'drag',text:'ارفع الطبق وقرّبه من فوهة الكأس فيميل ويُسكب، ثم أعده إلى الكفة.'};
+      if(!d.onPan)return {x:d.x,y:d.y-4,tx:CCB.x+52,ty:CCB.pan-8,act:'drag',text:'أعد الطبق إلى كفّة الميزان ثم ارفع يدك وانتظر النقطة الخضراء.'};return null}
+    if(b&&b.load>0)return {x:b.x,y:b.y-14,tx:b.x,ty:b.y-64,act:'drag',text:'ارفع البالون بإصبعك لأعلى لتسقط الصودا في الخل، ثم ارفع يدك.'};return null},
+  ch(){if(APP.run.chalDone)return null;if(!chS.rg){const e=$('#chRg');return e&&{el:e,act:'tap',text:'اختر الكاشف أولًا من الأزرار تحت الرسم (الخل أو اليود أو التسخين).'}}
+    const i=[0,1,2,3].find(i=>!chS.st[i+chS.rg]);if(i==null)return null;
+    return {x:chX(i),y:CH_WY-6,act:'tap',text:`اضغط على عمود المسحوق ${CC.powders[i].lbl} لتختبره بـ${CC.tests[chS.rg]}، وراقب ما يحدث.`}},
+  pcA(){const E=pcE,r=APP.run;if(E.held||E.lp.held||!r.pc||r.step!=='meas')return null;const i=pcCurA();if(i<0)return null;const w=r.pc.s[i],o=E.items[i],lb=PC.samples[i].lbl;if(!o)return null;
+    const at={x:o.x,y:o.y-o.h/2};
+    if(!w.weighed)return {...at,tx:PCS.bal,ty:PCS.PAN-22,act:'drag',text:`اسحب العينة ${lb} وضعها على كفّة الميزان، ثم ارفع يدك وانتظر النقطة الخضراء.`};
+    if(w.splash||!w.sub)return {...at,tx:PCS.CX,ty:E.surf-16,act:'drag',text:'اسحب العينة إلى فوهة المخبار وأنزلها ببطء حتى تقترب من الماء، ثم اتركها.'};
+    if(!w.vOk)return {x:PCS.LX,y:E.lp.y,tx:PCS.LX,ty:E.surf,act:'drag',text:'اسحب المكبّر حتى يصير عند سطح الماء، واقرأ الرقم عند أسفل التقعّر، ثم اكتب الحجم في الجدول.'};
+    if(w.dOk&&w.idOk&&!w.out)return {...at,tx:36,ty:PCG-30,act:'drag',text:'اسحب العينة لأعلى خارج المخبار وضعها على المنشفة.'};return null},
+  pcB(){const B=pcB,r=APP.run;if(B.held||B.done||!B.ch||!r.pc||r.step!=='chg')return null;const j=pcCurB();if(j<0||r.pc.c[j].done)return null;
+    if(B.ch.k==='melt'){const d=B.dryer;return {x:d.x-4,y:d.y+12,tx:PCB.bx+100,ty:PCB.PAN-44,act:'drag',text:'امسك مجفف الشعر وقرّبه من الكأس، وأبقه حتى يذوب الجليد كله، ثم اتركه.'}}
+    if(B.ch.k==='foil')return {x:PCB.bx,y:PCB.PAN-18,act:'stir',text:'اضغط بإصبعك على ورقة الألومنيوم وحرّكه يمينًا ويسارًا لتكبسها كرة، ثم ارفع إصبعك.'};
+    const ds=B.dish,rd=B.rod;if(ds.n>0)return {x:ds.x,y:ds.y-12,tx:PCB.bx+8,ty:PCB.PAN-92,act:'drag',text:'اسحب طبق السكر فوق الكأس ليميل وينسكب السكر فيها.'};
+    return {x:rd.x+6,y:rd.y-50,tx:PCB.bx,ty:PCB.PAN-34,act:'stir',text:'امسك القضيب الزجاجي وأدخله في الكأس، وحرّكه يمينًا ويسارًا حتى يذوب السكر كله.'}},
+  wk(){const v=wkView;if(v.mode==='wall')return {x:500,y:150,act:'hold',text:'اضغط مطولًا على الجدار كأنك تدفعه، وراقب: هل يتحرك؟'};
+    if(!(v.active&&v.drag&&!v.done)&&!(!v.active&&WKH.grab))return null;const h=wkHand();
+    return {x:h.x,y:h.y,tx:h.x+170,ty:h.y,act:'drag',text:'امسك اليد التي تشدّ الصندوق واسحبها إلى اليمين ببطء.'}},
+  lv(){const v=lvView;if(!(v.active&&v.drag&&!v.ok)&&!(!v.active&&LVH.grab))return null;const g=lvRing();
+    return {x:g.x,y:g.y,tx:g.x,ty:g.y+60,act:'drag',text:'امسك الحلقة واسحبها لأسفل حتى يرتفع الثقل.'}},
+  rp(){const v=rpView;if(!(v.active&&v.drag)&&!(!v.active&&RPH.grab))return null;const b=rpBox(),g=b.g,dx=g.vert?0:Math.cos(g.ang)*130,dy=g.vert?-120:-Math.sin(g.ang)*130;
+    return {x:b.x,y:b.y-23,tx:b.x+dx,ty:b.y-23+dy,act:'drag',text:'امسك الصندوق واسحبه لأعلى على طول المستوى.'}},
+  n3(){const v=n3sc;if(!(v.active&&!v.auto&&!v.done)&&!(!v.active&&N3H.grab))return null;const g=n3ScGeo(v.Fs);
+    return {x:g.b,y:N3_Y,tx:g.b+110,ty:N3_Y,act:'drag',text:'امسك الميزان النابضي واسحبه إلى اليمين.'}}
+};
+const LABHINT=(()=>{
+  const T1=12000,T2=13000;let key='',t0=0,act=0,lvl=0,bad=0,on=0,cur=null,raf=0,demoT=0,lastSaid='';
+  const HAND='<svg viewBox="0 0 64 64" width="56" height="56" aria-hidden="true"><defs><linearGradient id="hhg" x1="0" x2="1"><stop offset="0" stop-color="#F6D2B4"/><stop offset="1" stop-color="#DFA57E"/></linearGradient></defs><path d="M24 6c3 0 5 2 5 5v17l2-1c0-3 2-5 5-5s5 2 5 5v1c1-2 3-3 5-3 3 0 5 2 5 5v2c1-1 2-1 3-1 3 0 4 2 4 5v10c0 9-7 16-16 16h-6c-6 0-10-3-13-8L12 38c-2-3-1-6 2-7 2-1 4 0 6 2l-1-26c0-1 3-1 5-1z" fill="url(#hhg)" stroke="#8A5A3C" stroke-width="2" stroke-linejoin="round"/><path d="M29 28v6M41 27v7M51 31v5" stroke="#B57A55" stroke-width="1.6" stroke-linecap="round"/></svg>';
+  const L=document.createElement('div');L.className='hint-layer';L.setAttribute('aria-hidden','true');
+  L.innerHTML=`<div class="hint-ring"></div><svg class="hint-path"><path/></svg><div class="hint-ghost"></div><div class="hint-hand">${HAND}<i class="hint-tap"></i></div>`;
+  document.body.appendChild(L);const ring=L.querySelector('.hint-ring'),path=L.querySelector('.hint-path'),pth=path.querySelector('path'),ghost=L.querySelector('.hint-ghost'),hand=L.querySelector('.hint-hand'),tap=L.querySelector('.hint-tap');
+  const vis=e=>e&&e.isConnected&&e.offsetParent!==null&&e.getClientRects().length;
+  const norm=t=>String(t||'').replace(/[ً-ْـ]/g,'').replace(/[أإآ]/g,'ا').replace(/\s+/g,' ').trim();
+  const lbl=b=>norm(b.textContent).replace(/^[^؀-ۿA-Za-z0-9]+/,'');
+  function canvasHint(){
+    const c=typeof WMSIM!=='undefined'&&WMSIM.cur();if(!c||!vis(c.cv))return null;
+    const h=c.h,d=c.draw,id=c.cv.id,f=h===ccHA?HINT_CV.cc:h===ccHB?HINT_CV.ccB:h===chH?HINT_CV.ch:h===pcHA&&id==='pcA'?HINT_CV.pcA:h===pcHB?HINT_CV.pcB:
+      d===wkDraw?HINT_CV.wk:d===lvDraw?HINT_CV.lv:d===rpDraw?HINT_CV.rp:d===n3ScDraw?HINT_CV.n3:null;
+    if(!f)return null;let o=null;try{o=f()}catch(e){o=null}if(!o)return null;
+    if(o.el)return {...o,el:o.el};
+    const r=c.cv.getBoundingClientRect(),P=(x,y)=>({x:r.left+x*r.width/c.W,y:r.top+y*r.height/c.H});
+    return {...o,cv:c.cv,pt:()=>{const r2=c.cv.getBoundingClientRect();return {x:r2.left+o.x*r2.width/c.W,y:r2.top+o.y*r2.height/c.H}},
+      to:o.tx!=null?()=>{const r2=c.cv.getBoundingClientRect();return {x:r2.left+o.tx*r2.width/c.W,y:r2.top+o.ty*r2.height/c.H}}:null,el:c.cv,box:false}
+  }
+  function resolve(){
+    const g=$('#app #gtext');if(!g)return null;const gt=norm(g.textContent);
+    // أزرار المرشد نفسه أولًا (التوقع، المتابعة)
+    const ga=$$('#app #gact button').filter(b=>vis(b)&&!b.disabled);
+    if(ga.length===1)return {el:ga[0],act:'tap',text:`اضغط زر «${lbl(ga[0])}».`};
+    if(ga.length>1)return {el:$('#app #gact'),act:'tap',box:true,text:'اختر إجابة واحدة من الأزرار تحت كلام المرشد. لا يوجد خطأ في التوقع، المهم أن تفكّر.'};
+    // الاحتكاك: ضع القالب عند علامة الارتفاع نفسها على كل منحدر، ثم «أطلق»
+    {const r=APP.run;if(r&&r.topic==='friction'&&r.step==='run'&&r.fr&&$('#frblock')&&FRSIM.lanes().length>1){const FL=FRSIM.lanes(),RL=r.fr.lanes;
+      if(!FL.some(l=>l.phase==='ramp'||l.phase==='flat')){const used=RL.find(l=>l.h!=null),h=used?used.h:FR.heights[Math.floor(FR.heights.length/2)];
+        const rd=RL.findIndex((l,i)=>FL[i].phase==='ready'),go=rd>=0&&$('#fgo'+rd);
+        if(go&&vis(go)&&!go.disabled)return {el:go,act:'tap',text:'القالب في مكانه. اضغط «أطلق» في الجدول وراقب أين يتوقف.'};
+        const i=RL.findIndex(l=>l.h==null||(!l.ran&&!l.rec));
+        if(i>=0&&FL[i].phase==='idle')return {el:$('#frblock'),to:()=>FRSIM.markPt(i,h),act:'drag',
+          text:bidi(`اسحب القالب الخشبي وأفلته على علامة ${cm(h)} سم في المنحدر ${i+1}${used?'؛ نفس الارتفاع في كل المنحدرات لتكون المقارنة عادلة':''}.`)}}}}
+    const ch=canvasHint();if(ch)return ch;
+    // عنصر مذكور باسمه في المرشد (أدوات ومواد الرفوف)
+    const items=$$('#app [data-tool],#app [data-mat]').filter(e=>vis(e)&&!e.disabled&&!e.classList.contains('worn'));
+    const named=items.filter(e=>{const n=norm((e.querySelector('.nm')||e).textContent);return n&&gt.includes(n)});
+    const zone=$$('#app [data-zone]').find(vis);
+    if(named.length){const e=named[0],n=(e.querySelector('.nm')||e).textContent.trim(),safe=e.dataset.tool&&(TOOLS[e.dataset.tool]||{}).safety;
+      if(safe||!zone)return {el:e,act:'tap',text:`اضغط على «${n}»${safe?' لترتديها':''}.`};
+      return {el:e,toEl:zone,act:'drag',text:`اسحب «${n}» وأفلته داخل البيكر، أو اضغط عليه مرة واحدة.`}}
+    // خانة تنتظر الكتابة
+    const inp=$$('#app .frin,#app input[type=number],#app input[type=text]').find(x=>vis(x)&&!x.disabled&&!x.readOnly&&!String(x.value).trim());
+    if(inp){const row=inp.closest('tr,.frrow,.row')||inp.parentElement,btn=row&&$$('button',row).find(b=>vis(b)&&!b.disabled);
+      return {el:inp,act:'tap',text:`اكتب إجابتك في الخانة المضيئة${btn?` ثم اضغط «${lbl(btn)}»`:''}. ارجع للرسم أو الجدول إذا احتجت.`}}
+    // اختيار ملاحظات
+    const ob=$('#app #obsPanel .obs');if(vis(ob))return {el:ob,box:true,act:'tap',text:'اختر كل ملاحظة شاهدتها فعلًا في التجربة، ثم اضغط زر التحقق.'};
+    // شريط تحكم: زر متاح مذكور في المرشد، أو أول زر متاح
+    const bars=$$('#app .frbar').filter(b=>vis(b));
+    for(const b of bars.slice().reverse()){const bs=$$('button',b).filter(x=>vis(x)&&!x.disabled);if(!bs.length)continue;
+      const m=bs.find(x=>{const t=lbl(x);return t.length>1&&gt.includes(t)});if(m)return {el:m,act:'tap',text:`اضغط «${lbl(m)}».`};
+      return {el:b,box:true,act:'tap',text:'استخدم الأزرار المضيئة تحت الرسم كما يقول المرشد.'}}
+    const t=guideTarget();if(t)return {el:t.el,box:true,act:'tap',text:'المكان المضيء هو مكان خطوتك الآن. اقرأ كلام المرشد ونفّذه هنا.'};
+    return null;
+  }
+  function tipBox(){const g=$('#app .guide .gt');if(!g)return null;let d=g.querySelector('.ghint');
+    if(!d){d=document.createElement('div');d.className='ghint';d.setAttribute('role','note');g.appendChild(d)}return d}
+  function hide(){on=0;cur=null;L.className='hint-layer';cancelAnimationFrame(raf);raf=0;const d=$('#app .ghint');if(d)d.remove()}
+  function show(level,user){
+    const h=resolve();if(!h){if(user)note('اقرأ كلام المرشد ونفّذه، وإذا انتظرت تفاعلًا فراقب الرسم.');return}
+    lvl=Math.max(lvl,level);on=lvl;cur=h;demoT=performance.now();
+    const d=tipBox();if(d)d.innerHTML='💡 <span></span>',d.querySelector('span').textContent=bidi(h.text);
+    const el=h.el;if(el&&(user||lvl>=2)){const r=el.getBoundingClientRect(),A=h.pt?h.pt():null,B=h.to?h.to():null,dk=document.body.classList.contains('has-gdock')?innerHeight*.45:0;
+      const lo=Math.min(A?A.y-40:r.top,B?B.y-40:1e9),hi=Math.max(A?A.y+50:Math.min(r.bottom,r.top+innerHeight*.5),B?B.y+50:-1e9);
+      if(lo<70||hi>innerHeight-80-dk)scrollBy({top:(lo+hi)/2-(innerHeight-dk)/2,behavior:'smooth'})}
+    ghost.innerHTML='';if(lvl>=2&&h.act==='drag'&&(h.toEl||h.to)&&!h.pt&&el){const c=el.cloneNode(true);c.removeAttribute('id');ghost.appendChild(c);ghost.style.width=Math.min(130,el.offsetWidth)+'px'}
+    L.className='hint-layer on l'+lvl+' a-'+h.act+(h.box?' box':'');
+    if(lvl>=2&&typeof LABVOICE!=='undefined'&&h.text!==lastSaid){lastSaid=h.text;LABVOICE.play(h.text,true)}
+    if(!raf)raf=requestAnimationFrame(frame);
+  }
+  const ease=k=>k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2;
+  function frame(now){raf=0;if(!on||!cur)return;const h=cur;
+    if(h.el&&!h.el.isConnected){hide();return}
+    let A=null,B=null,R=null;
+    if(h.pt){A=h.pt();B=h.to&&h.to();R={left:A.x-30,top:A.y-30,width:60,height:60}}
+    else if(h.el){const r=h.el.getBoundingClientRect();R=r;A={x:r.left+r.width/2,y:r.top+r.height/2};if(h.to)B=h.to();else if(h.toEl){const z=h.toEl.getBoundingClientRect();B={x:z.left+z.width*.5,y:z.top+z.height*.45}}}
+    if(!A){hide();return}
+    const pad=h.box?6:8;Object.assign(ring.style,{left:R.left-pad+'px',top:R.top-pad+'px',width:R.width+pad*2+'px',height:R.height+pad*2+'px',borderRadius:h.pt?'50%':'16px'});
+    let hx=A.x,hy=A.y,press=0;const t=(now-demoT)/1000;
+    if(lvl>=2&&B&&h.act==='drag'){const cyc=2.6,k=(t%cyc)/cyc;
+      const mx=(A.x+B.x)/2,my=Math.min(A.y,B.y)-Math.min(140,Math.abs(B.x-A.x)*.35+30);
+      pth.setAttribute('d',`M${A.x},${A.y} Q${mx},${my} ${B.x},${B.y}`);
+      const u=k<.15?0:k>.8?1:ease((k-.15)/.65),q=1-u;hx=q*q*A.x+2*q*u*mx+u*u*B.x;hy=q*q*A.y+2*q*u*my+u*u*B.y;press=k>.08&&k<.86?1:0;
+      ghost.style.opacity=ghost.firstChild&&press?'.85':'0';ghost.style.left=hx+'px';ghost.style.top=hy+'px'}
+    else if(lvl>=2&&h.act==='stir'){const cx=B?B.x:A.x,cy=B?B.y:A.y,k=Math.min(1,t/0.8);hx=A.x+(cx-A.x)*ease(k);hy=A.y+(cy-A.y)*ease(k);if(k>=1)hx+=Math.sin(t*7)*34;press=1;pth.setAttribute('d','')}
+    else if(lvl>=2&&h.act==='hold'){press=(t%2.2)<1.6?1:0;pth.setAttribute('d','')}
+    else{press=(t%1.4)<.25?1:0;pth.setAttribute('d','');hy+=Math.sin(t*4)*4}
+    if(lvl<2)pth.setAttribute('d','');
+    hand.style.transform=`translate(${hx-17}px,${hy-6}px) scale(${press?.92:1})`;tap.className='hint-tap'+(press?' on':'');
+    raf=requestAnimationFrame(frame)}
+  function tick(){
+    const g=$('#app #gtext');if(!g){if(on)hide();key='';return}
+    const k=norm(g.textContent)+'|'+$$('#app #gact button').length;
+    if(k!==key){key=k;t0=act=Date.now();lvl=0;bad=0;lastSaid='';if(on)hide();return}
+    if(typeof WMSIM!=='undefined'&&WMSIM.cur()&&WMSIM.busy()){act=Date.now();return}
+    if(on>=2)return;
+    const idle=Date.now()-act,wait=/انتظر|راقب/.test(g.textContent)?1.8:1;
+    if(lvl===0&&idle>T1*wait)show(1);else if(lvl>=1&&idle>(on?T1+T2:T2)*wait)show(2);
+  }
+  setInterval(tick,700);
+  // أي لمسة من الطالب: تُخفي المساعدة (ويبدأ العدّ من جديد)
+  addEventListener('pointerdown',e=>{if(e.target.closest&&e.target.closest('.ghelp'))return;act=Date.now();if(on)hide()},{capture:true,passive:true});
+  addEventListener('keydown',()=>{act=Date.now();if(on)hide()},{capture:true});
+  addEventListener('scroll',()=>{if(on&&!raf)raf=requestAnimationFrame(frame)},{passive:true,capture:true});
+  // زر «ما عرفت» في كل مرشد
+  new MutationObserver(()=>{const go=$('#app .guide .ggo');if(go&&!go.parentNode.querySelector('.ghelp')){const b=document.createElement('button');b.type='button';b.className='ghelp';b.textContent='🤔 ما عرفت وش أسوي';
+    b.onclick=e=>{e.stopPropagation();show(2,true)};go.after(b)}}).observe(app,{childList:true,subtree:true});
+  return {bad(){bad++;act=Date.now();setTimeout(()=>{if(!on)show(bad>=2?2:1)},1600)},show,hide,get level(){return lvl}};
+})();
+{const _n2=note;note=function(msg,bad){_n2(msg,bad);if(bad&&$('#gnote'))LABHINT.bad()}}
 
 /* 🔊 صوت المرشد: يقرأ كل خطوة جديدة وكل تنبيه بصوت ElevenLabs من الخادم (المفتاح في الخادم فقط).
    زر 🔊/🔇 في المرشد يُحفظ. بلا مفتاح في الخادم أو بلا شبكة: صمت تام، والمختبر يعمل كما هو. */
