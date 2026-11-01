@@ -6094,8 +6094,9 @@ async function omrOpen(){
 }
 function omrStudentsSelect(){
   const b = examBook();
-  return `<select class="inp omr-stu" id="omr-stu">${list(OMRUI.cls).map(s=>{ const done = exHas(s.id, OMRUI.testId);
-    return `<option value="${esc(s.id)}" ${s.id===OMRUI.sid?'selected':''}>${done?'✓ ':''}${esc(s.name)}</option>`; }).join('')}</select>`;
+  const L = list(OMRUI.cls), ext = OMRUI.sid && !L.some(s => s.id === OMRUI.sid) ? list('').filter(s => s.id === OMRUI.sid) : [];   // ورقة باسم طالب من فصل آخر
+  return `<select class="inp omr-stu" id="omr-stu">${ext.concat(L).map(s=>{ const done = exHas(s.id, OMRUI.testId);
+    return `<option value="${esc(s.id)}" ${s.id===OMRUI.sid?'selected':''}>${done?'✓ ':''}${esc(s.name)}${ext.includes(s)?' · '+esc(s.cls||''):''}</option>`; }).join('')}</select>`;
 }
 async function omrScan(){
   omrStopLoop(); omrKillStreams(); OMRUI.camGen = (OMRUI.camGen || 0) + 1;   // شاشة الخيارات لا تستخدم الكاميرا
@@ -6714,7 +6715,7 @@ function omrShowResult(){
   const sc = omrScoreOf(r), test = omrTest();
   const tt = omrTotals(), partial = tt.total > tt.auto + 1e-9;
   const scaled = test && !partial && Math.abs(tt.total - test.max) > 1e-9 ? +(sc.raw / tt.total * test.max).toFixed(2) : null;
-  const who = list(OMRUI.cls).find(s => s.id === OMRUI.sid);
+  const who = list('').find(s => s.id === OMRUI.sid);
   const ml = T.models.length > 1 ? `نموذج (${T.models[OMRUI.model].letter||OMRUI.model+1})${OMRUI.auto?' — عُرف تلقائيًا':''} · ` : '';
   const qn = !OMRUI.photoMode && OMRUI.queue && OMRUI.queue.length ? `ورقة ${OMRUI.qi+1} من ${OMRUI.queue.length} · ` : '';
   $('omr-status').textContent = qn + ml + (pending ? `⚠️ ${pending} ${pending===1?'سؤال يحتاج':'أسئلة تحتاج'} تأكيدك — اضغطه واختر ما كتبه الطالب` : '✓ قُرئت الورقة');
@@ -6824,7 +6825,7 @@ async function omrSave(){
   // 📷 الأسئلة التي أخطأ فيها تُحفظ مع الدرجة: منها تُبنى المهمة العلاجية للاختبار
   await setExamScore(OMRUI.sid, OMRUI.testId, String(val), false, omrWrongOf(r.answers, OMRUI.model));
   omrUploadPaper(OMRUI.sid, OMRUI.frozen, r.H, 1, r.answers.map(a => ({ ...a })), val, { model: OMRUI.model, man });
-  const who = list(OMRUI.cls).find(s=>s.id===OMRUI.sid);
+  const who = list('').find(s=>s.id===OMRUI.sid);
   toast(`✓ ${who?who.name:''}: ${val} من ${test.max}`);
   OMRUI.sid = omrNextStudent(); OMRUI.savedN = (OMRUI.savedN||0) + 1; OMRUI.manual = '';
   if(OMRUI.stream){ OMRUI.waitSwap = true; OMRUI.savedSig = OMRUI.liveSig || null; }   // لا يُعاد التقاط الورقة نفسها لطالب آخر
@@ -7118,7 +7119,9 @@ function omrMatchBody(s, used){
   const pend = s.answers.map((a, i) => ({ a, i })).filter(x => x.a.final === null && x.a.status !== 'nopage');
   const missP = [...new Set(s.answers.filter(a => a.status === 'nopage').map(a => a.pg))];
   const b = examBook();
-  const studs = list(OMRUI.cls).filter(x => !used.has(String(x.id)) || String(x.id) === String(s.sid));
+  // الفصل المختار أولًا؛ وطلاب الفصول الأخرى مخفيون ويظهرون بالبحث (ورقة طالب من فصل آخر في الدفعة)، والمربوط من فصل آخر ظاهر دائمًا
+  const free = x => !used.has(String(x.id)) || String(x.id) === String(s.sid);
+  const studs = list(OMRUI.cls).filter(free).concat(OMRUI.cls ? list('').filter(x => x.cls !== OMRUI.cls && free(x)).map(x => ({ ...x, other: true })) : []);
   return `<div class="omr-mbody">
     ${missP.map(pg => `<div class="omr-fixbox omr-misspg"><b>📄 الصفحة ${pg} لم تُصوَّر</b><small class="omr-qtxt">صوّرها الآن («➕ تصوير المزيد») فتُضم لهذه الورقة، أو احسبها بلا إجابة إن لم يحلّها الطالب.</small>
       <div class="omr-opts"><button type="button" class="btn ghost" onclick="omrPageBlank('${s.id}',${pg})">احسب الصفحة ${pg} بلا إجابة</button></div></div>`).join('')}
@@ -7131,7 +7134,9 @@ function omrMatchBody(s, used){
     ${omrManualMax(s.model) && s.sid ? `<button type="button" class="btn primary" onclick="omrMatchPick('${s.id}','${esc(String(s.sid))}')">💾 حفظ الدرجة كاملة</button>` : ''}
     <input class="inp omr-q" id="omr-q" placeholder="ابحث باسم الطالب…" oninput="omrMatchFilter('${s.id}')" autocomplete="off">
     <div class="omr-slist" id="omr-slist">${studs.map(x => { const has = exHas(x.id, OMRUI.testId);
-      return `<button type="button" class="omr-sbtn${String(x.id) === String(s.sid) ? ' on' : ''}" data-n="${esc(omrNorm(x.name))}" onclick="omrMatchPick('${s.id}','${esc(x.id)}')">${esc(x.name)}${has ? ' <small>· مرصود</small>' : ''}</button>`; }).join('')}</div>
+      const on = String(x.id) === String(s.sid);
+      return `<button type="button" class="omr-sbtn${on ? ' on' : ''}${x.other ? ' oth' : ''}" data-n="${esc(omrNorm(x.name))}"${x.other && !on ? ' style="display:none"' : ''} onclick="omrMatchPick('${s.id}','${esc(x.id)}')">${esc(x.name)}${x.other ? ` <small>· ${esc(x.cls || '')}</small>` : ''}${has ? ' <small>· مرصود</small>' : ''}</button>`; }).join('')}</div>
+    ${OMRUI.cls ? '<small class="omr-note" style="display:block;margin-top:4px">طالب من فصل آخر؟ اكتب اسمه في البحث.</small>' : ''}
     <div class="omr-row"><button class="btn ghost" type="button" onclick="omrSheetView('${s.id}')">🖼️ الورقة كاملة</button>
       <button class="btn ghost" type="button" onclick="omrSheetDelete('${s.id}')">🗑️ حذف الورقة</button></div>
   </div>`;
@@ -7181,7 +7186,7 @@ function omrRevBack(){
   s.answers[it.i].final = null; OMRDB.put(s); OMRQ.items.unshift(it); omrRevRender();
 }
 function omrMatchOpen(id){ OMRUI.openId = OMRUI.openId === id ? null : id; omrMatchRender(); const el = $('mc-' + id); if(el) el.scrollIntoView({ block:'start', behavior:'smooth' }); }
-function omrMatchFilter(){ const q = omrNorm($('omr-q').value); document.querySelectorAll('#omr-slist .omr-sbtn').forEach(b => { b.style.display = !q || b.dataset.n.includes(q) ? '' : 'none'; }); }
+function omrMatchFilter(){ const q = omrNorm($('omr-q').value); document.querySelectorAll('#omr-slist .omr-sbtn').forEach(b => { b.style.display = (q ? b.dataset.n.includes(q) && (!b.classList.contains('oth') || q.length >= 2) : !b.classList.contains('oth') || b.classList.contains('on')) ? '' : 'none'; }); }
 function omrSheetSet(id, i, v){ const s = OMRUI.sheets.find(x => x.id === id); if(!s) return; s.answers[i].final = v; OMRDB.put(s); if(s.sid && !s.answers.some(a => a.final === null) && omrManualOk(s.manual, s.model)) omrSheetSave(s); else omrMatchRender(); }
 /* 📄 ورقة الطالب المصححة للطالب وولي أمره: الصفحة مقوّمة (A4 مستقيمة) وعليها إطار أخضر/أحمر حول ما اختاره،
    وختم أحمر بالدرجة المرصودة بجانب عنوان الاختبار. الإجابة الصحيحة لا تُرسم: تُحفظ مواقعها فقط وتظهر إن سمح المعلم */
