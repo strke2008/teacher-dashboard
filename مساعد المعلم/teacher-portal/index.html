@@ -6899,6 +6899,7 @@ function omrStripDiff(a, b){ if(!a || !b || a.length !== b.length) return 999; l
 const OMR_PV_SAME = 2, OMR_NAME_SAME = 3;     // الاسم: للأوراق القديمة في الدفعة (قبل البصمة) فقط
 function omrIsDup(sh){
   return OMRUI.sheets.find(o => {
+    if(o.sid && sh.sid) return String(o.sid) === String(sh.sid);        // 🧾 ورقتا أسماء: رمز الطالب يحسم — طالبان مختلفان ليسا تكرارًا ولو تشابهت الإجابات (أو كانتا فارغتين)
     if(o.model !== sh.model) return false;
     const diff = o.answers.reduce((n, a, i) => n + (a.status === 'ok' && sh.answers[i].status === 'ok' && a.pick !== sh.answers[i].pick ? 1 : 0), 0);
     if(diff >= 1) return false;
