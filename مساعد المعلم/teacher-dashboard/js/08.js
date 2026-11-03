@@ -127,7 +127,7 @@ async function pushRefreshStatus(){
   try{
     PUSH_UI.sub=await pushCurrentSubscription();
     const j=await pushApi('/push/status',{t:getTok(),endpoint:PUSH_UI.sub?PUSH_UI.sub.endpoint:''});
-    PUSH_UI.configured=!!j.configured; PUSH_UI.devices=j.devices||[];
+    PUSH_UI.configured=!!j.configured; PUSH_UI.devices=j.devices||[]; if(j.prefs) PUSH_UI.prefs=j.prefs;
   }catch(e){ PUSH_UI.configured=null; }
   pushRenderCard();
 }
@@ -146,7 +146,7 @@ function pushRenderCard(message){
   else if(env.permission==='denied') hint='إذن الإشعارات مرفوض على هذا الجهاز. فعّله من إعدادات الجهاز ثم ارجع هنا.';
   const canEnable = PUSH_UI.configured!==false && env.supported && !(env.ios && !env.standalone) && env.permission!=='denied';
   box.innerHTML=`
-    <p class="push-lead">يصلك إشعار على أجهزتك عند تسليم أي طالب — حتى لو كان التطبيق مغلقًا.</p>
+    <p class="push-lead">يصلك إشعار على أجهزتك عند تسليم الطلاب ورسائلهم — حتى لو كان التطبيق مغلقًا. اختر الأنواع من الأسفل.</p>
     ${message?`<div class="push-msg">${esc(message)}</div>`:''}
     ${hint?`<div class="push-hint">${esc(hint)}</div>`:''}
     <div class="row" style="gap:.5rem;flex-wrap:wrap;margin:.7rem 0">
@@ -163,7 +163,40 @@ function pushRenderCard(message){
         <small>${d.lastOkAt?'آخر وصول '+fmtDate(d.lastOkAt)+' '+fmtTime(d.lastOkAt):d.lastError?'⚠️ تعذّر آخر إرسال':'لم يُرسل له بعد'}</small>
         ${d.current?'':`<button class="btn ghost sm" type="button" onclick="pushRemoveDevice('${esc(d.id)}')">حذف</button>`}
       </div>`).join('')}
-    </div>`:''}`;
+    </div>`:''}
+    ${PUSH_UI.prefs?pushPrefsHTML(PUSH_UI.prefs):''}`;
+}
+/* 🎛️ ما الذي يصلك: لكل نوع مفتاح، وساعات هدوء اختيارية. يُحفظ في الخادم فيسري على كل أجهزتك.
+   المكتوم لا يُرسل إشعارًا فقط — التسليمات والرسائل تبقى في اللوحة كالعادة */
+const PUSH_CAT_UI=[
+  ['act','📝','حل الأنشطة والواجبات','الأنشطة العادية والفهم القرائي والتشخيصي'],
+  ['files','📎','تسليم المشاريع والملفات','ملفات بانتظار مراجعتك'],
+  ['games','🎮','الألعاب التعليمية','نتيجة الطالب في اللعبة'],
+  ['lab','🔬','المختبر الافتراضي','إجراء تجربة'],
+  ['resub','🔁','إعادة التسليم','طالب أعاد حل نشاط سلّمه قبل'],
+  ['review','🔎','إنهاء مهمة المراجعة','بعد تصحيح أخطائه'],
+  ['ask','💬','رسائل وأسئلة الطلاب','سؤال جديد أو رد على رسالتك'],
+  ['wall','🧱','منشورات الجدار','منشور ينتظر اعتمادك']];
+function pushPrefsHTML(P){
+  const hrs=v=>Array.from({length:24},(_,h)=>`<option value="${h}" ${h===v?'selected':''}>${h===0?'12 ص':h<12?h+' ص':h===12?'12 م':(h-12)+' م'}</option>`).join('');
+  const off=PUSH_CAT_UI.filter(([k])=>P.on[k]===false).length;
+  return `<div class="push-prefs">
+    <b>🎛️ ما الذي يصلك؟ <small>${off?`${off} ${off===1?'نوع موقوف':'أنواع موقوفة'}`:'كل الأنواع مفعّلة'}</small></b>
+    ${PUSH_CAT_UI.map(([k,ic,t,sub])=>`<label class="push-pref"><span class="pp-ic">${ic}</span><span class="pp-t">${t}<small>${sub}</small></span>
+      <input type="checkbox" class="pp-sw" ${P.on[k]!==false?'checked':''} onchange="pushPrefSet('${k}',this.checked)"></label>`).join('')}
+    <label class="push-pref"><span class="pp-ic">🌙</span><span class="pp-t">ساعات الهدوء<small>لا تصل إشعارات في هذا الوقت (توقيت المدرسة)</small></span>
+      <input type="checkbox" class="pp-sw" ${P.quiet.on?'checked':''} onchange="pushPrefSet('quiet',this.checked)"></label>
+    ${P.quiet.on?`<div class="push-quiet">من <select class="inp" onchange="pushPrefSet('from',+this.value)">${hrs(P.quiet.from)}</select> إلى <select class="inp" onchange="pushPrefSet('to',+this.value)">${hrs(P.quiet.to)}</select></div>`:''}
+    <small class="push-prefs-note">يسري على كل أجهزتك. المكتوم يبقى ظاهرًا في اللوحة، لكن بدون إشعار.</small>
+  </div>`;
+}
+async function pushPrefSet(k,v){
+  const P=JSON.parse(JSON.stringify(PUSH_UI.prefs||{on:{},quiet:{on:false,from:22,to:6}}));
+  if(k==='quiet') P.quiet.on=!!v; else if(k==='from'||k==='to') P.quiet[k]=v; else P.on[k]=!!v;
+  const old=PUSH_UI.prefs; PUSH_UI.prefs=P; pushRenderCard();
+  try{ const j=await pushApi('/push/prefs',{t:getTok(),prefs:P}); PUSH_UI.prefs=j.prefs; toast('✓ حُفظ','good'); }
+  catch(e){ PUSH_UI.prefs=old; toast('تعذّر الحفظ — تحقق من الاتصال','bad'); }
+  pushRenderCard();
 }
 
 /* فتح التسليم الذي أرسل الإشعار: «آخر التسليمات» ثم إبراز الصف */

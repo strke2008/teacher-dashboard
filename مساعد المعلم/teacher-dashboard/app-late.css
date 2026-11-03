@@ -3077,3 +3077,19 @@ body.pf-open #simp-bottomnav,body.pf-open .askf-btn{display:none!important}
 .sfpp-qs{display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.6rem}
 .sfpp-qs span{display:inline-flex;gap:.25rem;align-items:center;border-radius:8px;padding:.15rem .45rem;font-size:.8rem;font-weight:700}
 .sfpp-qs .ok{background:#e6f6ee;color:#1e8a5c}.sfpp-qs .no{background:#fdeceb;color:#c3473e}
+
+/* 🎛️ تفضيلات الإشعارات */
+.push-prefs{border-top:1px solid var(--ui-border,#DCE5F0);margin-top:.8rem;padding-top:.7rem;display:grid;gap:.15rem}
+.push-prefs>b{font-size:.9rem;margin-bottom:.3rem;display:flex;gap:.5rem;align-items:baseline;flex-wrap:wrap}
+.push-prefs>b small{font-weight:600;color:var(--ink-soft,#5a6b84);font-size:.78rem}
+.push-pref{display:flex;align-items:center;gap:.6rem;padding:.45rem .2rem;border-radius:10px;cursor:pointer}
+.push-pref:hover{background:var(--surface-2,rgba(0,0,0,.03))}
+.push-pref .pp-ic{width:1.6rem;text-align:center;font-size:1.1rem}
+.push-pref .pp-t{flex:1;display:grid;font-weight:700;font-size:.88rem}
+.push-pref .pp-t small{font-weight:500;color:var(--ink-soft,#5a6b84);font-size:.76rem}
+.pp-sw{appearance:none;-webkit-appearance:none;width:42px;height:24px;border-radius:999px;background:#c9d3df;position:relative;cursor:pointer;flex:0 0 auto;transition:background .15s;margin:0}
+.pp-sw::after{content:'';position:absolute;top:3px;inset-inline-start:3px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:inset-inline-start .15s}
+.pp-sw:checked{background:#1B9C6B}.pp-sw:checked::after{inset-inline-start:21px}
+.push-quiet{display:flex;align-items:center;gap:.5rem;padding:.2rem 2.4rem .5rem;font-size:.86rem;font-weight:700}
+.push-quiet select{width:auto;min-width:6rem;padding:.3rem .5rem}
+.push-prefs-note{color:var(--ink-soft,#5a6b84);font-size:.76rem;margin-top:.3rem}

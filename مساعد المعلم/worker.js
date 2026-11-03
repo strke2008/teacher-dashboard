@@ -4268,8 +4268,39 @@ async function pushClaimEvent(env, eventId) {
   return true;
 }
 
+/* 🎛️ تفضيلات إشعارات المعلم: أي الأنواع تصل، وساعات الهدوء (بتوقيت المدرسة). مفتاح واحد لكل الأجهزة.
+   الإشعار التجريبي يصل دائمًا. الإشعار المكتوم لا يُرسل أصلًا (ولا يُخزَّن ليصل لاحقًا) — يبقى ظاهرًا في اللوحة كالعادة. */
+const PUSH_CATS = ['act', 'files', 'games', 'lab', 'resub', 'review', 'ask', 'wall'];
+const PUSH_PREFS_DEF = { on: Object.fromEntries(PUSH_CATS.map(k => [k, true])), quiet: { on: false, from: 22, to: 6 } };
+let _pushPrefs = { at: 0, v: null };
+function pushPrefsClean(x) {
+  const on = {}; for (const k of PUSH_CATS) on[k] = !(x && x.on && x.on[k] === false);
+  const q = (x && x.quiet) || {}, h = v => Math.max(0, Math.min(23, Math.round(Number(v)) || 0));
+  return { on, quiet: { on: !!q.on, from: q.from == null ? 22 : h(q.from), to: q.to == null ? 6 : h(q.to) } };
+}
+async function pushPrefs(env) {
+  if (_pushPrefs.v && Date.now() - _pushPrefs.at < 30000) return _pushPrefs.v;
+  let v = PUSH_PREFS_DEF; try { v = pushPrefsClean(JSON.parse(await env.HW.get('push:prefs') || 'null')); } catch {}
+  _pushPrefs = { at: Date.now(), v }; return v;
+}
+function pushCatOf(message) {
+  const d = (message && message.data) || {}, t = d.type;
+  if (t === 'submission') { if (d.resub) return 'resub'; const k = String(d.kind || ''); return k === 'files' ? 'files' : k === 'games' || k === 'game' ? 'games' : k === 'lab' ? 'lab' : 'act'; }
+  return t === 'ask' ? 'ask' : t === 'wall' ? 'wall' : t === 'review-done' ? 'review' : '';
+}
+function pushInQuiet(env, q, at) {
+  if (!q || !q.on || q.from === q.to) return false;
+  let hr = 0; try { hr = Number(new Intl.DateTimeFormat('en-GB', { hour: '2-digit', hour12: false, timeZone: String(env.PUSH_TIMEZONE || 'Asia/Riyadh') }).format(new Date(at || Date.now()))) % 24; } catch { return false; }
+  return q.from < q.to ? hr >= q.from && hr < q.to : hr >= q.from || hr < q.to;
+}
+async function pushAllowed(env, message) {
+  const cat = pushCatOf(message); if (!cat) return true;                 // التجريبي وغير المصنّف: يصل دائمًا
+  const P = await pushPrefs(env); return P.on[cat] !== false && !pushInQuiet(env, P.quiet);
+}
+
 /* الإرسال لكل أجهزة المعلم + تنظيف الاشتراكات المنتهية (404/410) */
 async function pushDeliver(env, message, topic, preloaded) {
+  if (!(await pushAllowed(env, message).catch(() => true))) return [];
   const subs = preloaded || await pushListSubs(env);
   const payload = JSON.stringify(message);
   const results = [];
@@ -4529,7 +4560,7 @@ function notifyTeacherOfSubmission(env, ctx, info) {
       title: `${name} ${verb} «${title}»`,
       body: [line1, line2].filter(Boolean).join('\n'),
       tag: `sub-${eventId.slice(0, 16)}`,
-      data: { type: 'submission', hw: hwId, sid, at: record.at, kind,
+      data: { type: 'submission', hw: hwId, sid, at: record.at, kind, ...(resubmitted ? { resub: 1 } : {}),
               // ⚡ صف التسليم نفسه: تعرضه اللوحة فور وصول الإشعار، بدل جلبه من الخادم (قد يعيد نسخة قديمة لدقيقة)
               ...(Number(record.total) > 0 || Array.isArray(record.files) ? { row: { sid, name, at: record.at,
                 correct: Number(record.correct) || 0, total: Math.max(1, Number(record.total) || 1), d: String(record.d || '').slice(0, 200),
@@ -5839,8 +5870,12 @@ export default {
         if (gone.length) await pushIndexUpdate(env, [], gone);
         return json({ ok: true });
       }
+      if (url.pathname === '/push/prefs') {                       // حفظ (مع prefs) أو قراءة (بدونها)
+        if (b.prefs && typeof b.prefs === 'object') { const v = pushPrefsClean(b.prefs); await env.HW.put('push:prefs', JSON.stringify(v)); _pushPrefs = { at: Date.now(), v }; return json({ ok: true, prefs: v }); }
+        return json({ ok: true, prefs: await pushPrefs(env) });
+      }
       if (url.pathname === '/push/status') {
-        return json({ ok: true, configured: pushConfigured(env),
+        return json({ ok: true, configured: pushConfigured(env), prefs: await pushPrefs(env),
           devices: (await pushListSubs(env)).map(x => pushDeviceView(x, String(b.endpoint || ''))) });
       }
       if (url.pathname === '/push/test') {
