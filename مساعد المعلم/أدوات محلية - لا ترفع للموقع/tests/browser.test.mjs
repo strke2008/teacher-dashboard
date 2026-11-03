@@ -11,7 +11,7 @@ export default async function run() {
   const WP = 18802, SP = 18801, wsrv = await serveWorker(W, env, WP), ssrv = await serveStatic(SP), base = 'http://localhost:' + SP;
   const b = await chromium.launch();
   const newCtx = async (opts = {}) => { const ctx = await b.newContext({ viewport: { width: 1200, height: 850 }, ...opts }); const reqs = [];
-    await ctx.route(/workers\.dev/, async r => { const u = new URL(r.request().url()); reqs.push({ u: u.pathname + u.search, h: r.request().headers()['x-teacher-token'] || '' });
+    await ctx.route(/workers\.dev/, async r => { const u = new URL(r.request().url()); if (ctx.offline) return r.abort('internetdisconnected'); reqs.push({ u: u.pathname + u.search, h: r.request().headers()['x-teacher-token'] || '' });
       try { r.fulfill({ response: await r.fetch({ url: 'http://localhost:' + WP + u.pathname + u.search }) }); } catch { r.abort(); } });
     ctx.reqs = reqs; return ctx; };
   const watch = p => { const e = []; p.on('pageerror', x => e.push(x.message)); p.on('dialog', d => d.accept()); return e; };
@@ -35,6 +35,22 @@ export default async function run() {
         const tabs = await q.$$eval('#students .subtabs button', bs => bs.map(b => b.textContent.trim())); ok(tabs.includes('المستويات ↗') && tabs.includes('المهام ↗'), 'الأزرار: ' + tabs.join('،'));
         await q.click('#students .subtabs [data-dash=levels]'); await q.waitForURL(/teacher-dashboard\/(\?|$)/, { timeout: 8000 }); await q.waitForTimeout(3500);
         ok(await q.evaluate(() => typeof CT_TAB !== 'undefined' && CT_TAB === 'levels' && !!document.querySelector('#p-classtools.on')), 'لم تُفتح المستويات في اللوحة'); eq(e3, [], 'أخطاء'); });
+      await ctx.close(); }
+    // ── 📶 الرصد بلا شبكة لا يضيع ──
+    { await env.HW.put('teacher:classroom', JSON.stringify({ participation: { '2020-01-01': { s2: { status: 'شارك', at: 1 } } } }));
+      const ctx = await newCtx({ viewport: { width: 390, height: 800 } }); let p = await ctx.newPage(); watch(p);
+      await p.goto(base + '/teacher-dashboard/portal/'); await p.evaluate(t => localStorage.setItem('hwapp_tok_v1', t), TOKEN); await p.reload(); await p.waitForTimeout(4000);
+      const d = await p.evaluate(() => today()), srv = async () => JSON.parse(await env.HW.get('teacher:classroom') || '{}');
+      await S.t('رصد بلا شبكة ثم إغلاق التطبيق وفتحه: يصل للخادم ولا يضيع', async () => {
+        ctx.offline = true; await p.evaluate(() => quickSet('participation', 's1', 'شارك')); await p.waitForTimeout(2500);
+        ok(/لم يُرسل/.test(await p.$eval('#save-text', e => e.textContent)), 'لا تنبيه «لم يُرسل»');
+        await p.close(); ctx.offline = false; p = await ctx.newPage(); watch(p); await p.goto(base + '/teacher-dashboard/portal/'); await p.waitForTimeout(6000);
+        ok(await p.evaluate(d => !!((data.participation || {})[d] || {}).s1, d), 'ضاع من الجهاز'); const sv = await srv();
+        ok(((sv.participation || {})[d] || {}).s1, 'لم يصل للخادم'); ok(((sv.participation || {})['2020-01-01'] || {}).s2, 'ضاع رصد قديم من الخادم'); });
+      await S.t('رصد بلا شبكة ثم عودتها والتطبيق مفتوح: يُرسل وحده', async () => {
+        ctx.offline = true; await p.evaluate(() => quickSet('participation', 's2', 'شارك')); await p.waitForTimeout(2500);
+        ctx.offline = false; await p.evaluate(() => dispatchEvent(new Event('online'))); await p.waitForTimeout(4000);
+        ok((((await srv()).participation || {})[d] || {}).s2, 'لم يُرسل بعد عودة الشبكة'); eq(await p.$eval('#save-text', e => e.textContent), 'محفوظ'); });
       await ctx.close(); }
     // ── بوابة الطالب ──
     { const ctx = await newCtx({ viewport: { width: 390, height: 800 } }), p = await ctx.newPage(), errs = watch(p);

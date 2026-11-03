@@ -1876,8 +1876,14 @@ function setCurrentClass(c, opts){
 /* ── الحفظ ── */
 let saveChain=Promise.resolve(), saveSeq=0;
 function markSaveState(state,text){const e=$('save-state'),t=$('save-text');if(!e||!t)return;e.classList.remove('busy','off');if(state)e.classList.add(state);t.textContent=text}
+/* 📶 الرصد لا يضيع: كل حفظ يضع علامة «لم يُرسل» على الجهاز، ولا تُزال إلا بعد أن يؤكد الخادم الاستلام.
+   عند الفتح التالي يُرسل ما لم يصل أولًا (الخادم يدمج كل رصد بوقته، فالأحدث يفوز) قبل جلب نسخة الخادم،
+   ويُعاد الإرسال وحده عند عودة الشبكة والعودة للتطبيق وكل 45 ث ما دام هناك شيء لم يُرسل */
+const TP_UNSYNCED='tp_unsynced_v1';
+function tpUnsynced(){ try{ return !!localStorage.getItem(TP_UNSYNCED); }catch(e){ return false; } }
 function save(){ try{ remSyncSoon(); remBadge(); }catch(e){}
   localStorage.setItem('teacher_classroom_v1',JSON.stringify(data));
+  try{ localStorage.setItem(TP_UNSYNCED, String(Date.now())); }catch(e){}
   const mySeq=++saveSeq;
   markSaveState('busy','حفظ…');
   const snapshot=JSON.parse(JSON.stringify(data));
@@ -1886,6 +1892,7 @@ function save(){ try{ remSyncSoon(); remBadge(); }catch(e){}
     try{
       const r=await fetch(API+'/classroom',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:token,data:snapshot,clientAt:Date.now()})});
       if(!r.ok) throw new Error('save failed');
+      if(mySeq===saveSeq){ try{ localStorage.removeItem(TP_UNSYNCED); }catch(e){} }   // آخر نسخة وصلت: لا شيء معلّق
       markSaveState('','محفوظ');
       // 🔒 الخادم رفض تعديل دفتر فترة مغلقة (أُغلقت من جهاز آخر): حدّث الحالة الأكاديمية ونبّه المعلم
       const j=await r.json().catch(()=>({}));
@@ -1893,10 +1900,14 @@ function save(){ try{ remSyncSoon(); remBadge(); }catch(e){}
         try{ const r2=await fetch(`${API}/classroom?t=${encodeURIComponent(token)}`), j2=await r2.json();
           if(j2.ok&&j2.data){ if(j2.data.examBooks) data.examBooks=j2.data.examBooks; if(j2.data.academic) data.academic=j2.data.academic; localStorage.setItem('teacher_classroom_v1',JSON.stringify(data)); }
           await loadAcademic(); await loadGrades(); renderExamGrades(); }catch(e){} }
-    }catch(e){ markSaveState('off','محليًا'); }
+    }catch(e){ markSaveState('off','⏳ لم يُرسل بعد — سيُرسل وحده'); }
   });
   return saveChain;
 }
+function tpRetrySync(){ if(!window.__portalBooted || !token || !tpUnsynced() || (typeof navigator!=='undefined' && navigator.onLine===false)) return; save(); }
+addEventListener('online', () => setTimeout(tpRetrySync, 800));
+document.addEventListener('visibilitychange', () => { if(!document.hidden) setTimeout(tpRetrySync, 1200); });
+setInterval(tpRetrySync, 45000);
 
 /* ── الرصد ── */
 function rec(m,d,id){return (data[m]?.[d]||{})[id]?.status||''}
@@ -4459,7 +4470,7 @@ function showGate(errText){
 function hideGate(){$('gate').classList.remove('show')}
 
 /* ⏱️ طلب بمهلة: شبكة الجوال قد تعلق عند فتح التطبيق — بلا مهلة تبقى البوابة فارغة للأبد */
-function fetchT(url, ms){ const c = new AbortController(), t = setTimeout(() => c.abort(), ms || 15000); return fetch(url, { signal: c.signal }).finally(() => clearTimeout(t)); }
+function fetchT(url, ms, init){ const c = new AbortController(), t = setTimeout(() => c.abort(), ms || 15000); return fetch(url, { ...(init || {}), signal: c.signal }).finally(() => clearTimeout(t)); }
 async function loadAll(){
  // كشف الطلاب
  const r=await fetchT(`${API}/state?t=${encodeURIComponent(token)}`);
@@ -4468,13 +4479,18 @@ async function loadAll(){
  if(!j.ok) throw (/unauth|token|auth/i.test(String(j.error||''))?{auth:true}:new Error(String(j.error||'fail')));   // خطأ خادم عابر لا يُخرج المعلم
  const sd=j.data||j.state||{};
  students=Array.isArray(sd.students)?sd.students.map((x,i)=>({id:String(x.id||('s'+i)),name:String(x.name||'').trim(),cls:String(x.cls||x.className||'').trim()})).filter(x=>x.name):[];
- // بيانات الرصد
+ // بيانات الرصد — 📶 ما لم يُرسل من هذا الجهاز يُرسل أولًا، فيدمجه الخادم قبل أن نأخذ نسخته
+ let keepLocal=false;
+ if(tpUnsynced() && data && typeof data==='object'){
+   try{ const rp=await fetchT(`${API}/classroom`,15000,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:token,data,clientAt:Date.now()})});
+     if(rp.ok){ try{ localStorage.removeItem(TP_UNSYNCED); }catch(e){} } else keepLocal=true; }catch(e){ keepLocal=true; }
+ }
  try{
    const r2=await fetchT(`${API}/classroom?t=${encodeURIComponent(token)}`);const j2=await r2.json();
    if(j2.ok&&j2.data){
      const remote=j2.data;
      const meaningful=Object.keys(remote.participation||{}).length||Object.keys(remote.homework||{}).length||Object.keys(remote.learning||{}).length||(remote.behavior||[]).length||(remote.certificates||[]).length||(remote.behaviorTemplates||[]).length||(remote.examGrades&&Object.keys(remote.examGrades).length)||(remote.examBooks&&typeof remote.examBooks==='object'&&Object.keys(remote.examBooks).length)||(remote.terms&&Object.keys(remote.terms).length)||(remote.academic&&typeof remote.academic==='object');
-     if(meaningful || !localStorage.getItem('teacher_classroom_v1')) data=remote;
+     if((meaningful || !localStorage.getItem('teacher_classroom_v1')) && !keepLocal) data=remote;   // لم يصل ما على الجهاز: لا نستبدله
    }
  }catch(e){markSaveState('off','محليًا')}
 }
@@ -4513,6 +4529,7 @@ async function start(){
  }
  bootLoading(false);
  boot();
+ if(tpUnsynced()){ markSaveState('off','⏳ لم يُرسل بعد — سيُرسل وحده'); setTimeout(tpRetrySync, 3000); }
 }
 /* ⏳ شاشة «جارٍ الفتح» بدل البياض أثناء جلب الكشف من الخادم (حتى 15 ث لكل طلب) */
 function bootLoading(on){
