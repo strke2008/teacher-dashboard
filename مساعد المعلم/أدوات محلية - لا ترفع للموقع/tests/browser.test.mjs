@@ -164,6 +164,15 @@ export default async function run() {
         ok(ctx.reqs.some(x => x.u.startsWith('/messages')), 'لم يُرسل'); const r = await call('/messages?sid=s2&name=' + encodeURIComponent('طالب الاختبار الثاني'));
         ok(JSON.stringify(r.j).includes('مشاركتك'), 'لم تصل للطالب: ' + JSON.stringify(r.j).slice(0, 200)); eq(errs, [], 'أخطاء'); });
       await ctx.close(); }
+    // ── كل الصفحات تفتح بلا أخطاء (يحمي من حذف دالة ما زالت مستخدمة) ──
+    { const ctx = await newCtx(); const p = await ctx.newPage(), errs = watch(p);
+      await S.t('كل صفحات اللوحة وأدوات الفصل وملف الطالب تفتح بلا أخطاء برمجية', async () => {
+        await p.goto(base + '/teacher-dashboard/'); await p.evaluate(t => localStorage.setItem('hwapp_tok_v1', t), TOKEN); await p.reload(); await dashReady(p);
+        for (const t of 'dashboard data hw madrasati plans students walls classtools exam exam-shop grades live messages nafs projects reports analysis compan comprehensive diag styles weekly'.split(' ')) { await p.evaluate(t => goTab(t), t); await p.waitForTimeout(400); }
+        for (const t of 'records classfile exams messages reminders schedule'.split(' ')) { await p.evaluate(t => ctGo(t), t); await p.waitForTimeout(700); }
+        await p.evaluate(() => openStudentProfile('s1')); await p.waitForTimeout(700); await p.evaluate(() => studentReport('s2')); await p.waitForTimeout(700);
+        eq(errs, [], 'أخطاء'); });
+      await ctx.close(); }
     // ── ✨ التصميم العصري وثيمات «مظهر التطبيق» ──
     { const ctx = await newCtx({ viewport: { width: 390, height: 844 } }); const p = await ctx.newPage(), errs = watch(p);
       const navBg = async th => { await p.goto(base + '/teacher-dashboard/'); await p.evaluate(([t, th]) => { localStorage.setItem('hwapp_tok_v1', t); if (th) localStorage.setItem('oasis_theme_v1', JSON.stringify(th)); else localStorage.removeItem('oasis_theme_v1'); }, [TOKEN, th]);

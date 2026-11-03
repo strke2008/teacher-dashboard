@@ -88,7 +88,6 @@ function readingAICustomRules(rules){
 }
 
 
-
 /* ═══════════════════════════════════════════════════════════════════
    📖 عُدّة الفهم القرائي المشتركة — نسخة مطابقة في بوابة الطالب ولوحة المعلم.
    أي تعديل هنا يُنسخ للملفين حتى تبقى الفقرات وورقة الطباعة واحدة.
@@ -816,11 +815,6 @@ function gameAdapter(type) {
   return GAME_SOURCE_ADAPTERS[key] || null;
 }
 
-function gameSourceQuestionCount(type, requestedCount) {
-  const adapter = gameAdapter(type);
-  const count = Math.max(2, Number(requestedCount) || 2);
-  return adapter ? Math.min(adapter.max, count) : count;
-}
 
 function buildGameFromQuestionBank(type, questions, requestedCount) {
   const adapter = gameAdapter(type);
@@ -846,17 +840,6 @@ function normalizeGameType(type) {
   return GAME_SOURCE_ADAPTERS[key] ? key : 'memory';
 }
 
-function quizQuestionsFromBank(questions) {
-  return (Array.isArray(questions) ? questions : [])
-    .filter(q => q && q.t === 'q' && Array.isArray(q.o) && q.o.length === 4 &&
-      Number.isInteger(q.a) && q.a >= 0 && q.a < q.o.length)
-    .map(q => ({
-      type: 'quiz',
-      q: q.q,
-      opts: q.o.slice(),
-      answer: q.o[q.a]
-    }));
-}
 
 function normalAIPdfTextHealthy(text){
   if(!text) return {ok:false,reason:'فارغ'};
@@ -1615,8 +1598,7 @@ function openReadingAIGenerator(){
   const {typePrefs,meta,rules}=readingAIGetMeta();
   const selected=Array.isArray(typePrefs.types)?typePrefs.types:[];
   const stages=[...document.querySelectorAll('#h-reading-wrap .rd-stage:checked')].map(e=>e.value);
-  const qgType=(k,def)=>Math.max(0,Number(typePrefs.counts?.[k])||def);
-  const d=document.createElement('div');
+    const d=document.createElement('div');
   d.className='reading-ai-backdrop'; d.id='reading-ai-modal';
   d.innerHTML=`<div class="reading-ai-card">
     <div class="reading-ai-head"><div style="font-size:1.7rem">🤖</div><h3>إنشاء نص وأسئلة الفهم القرائي بالذكاء الاصطناعي</h3></div>

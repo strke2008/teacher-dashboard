@@ -681,39 +681,6 @@ function nafsPlanRem(p, skill) {
     if (done) { acc.c += done.skillsP[skill].c; acc.t += done.skillsP[skill].t; } });
   return acc.t ? acc : null;
 }
-const nafsBand = r => r == null ? '' : r >= 80 ? 'tick' : r >= 60 ? 'ghost' : r >= 40 ? 'warn' : 'bad';
-/* ① في نموذج الخطة */
-function planNafsBox() {
-  const host = document.getElementById('pf-skills-box'); if (!host) return;
-  let box = document.getElementById('pf-nafs');
-  if (!box) { box = document.createElement('div'); box.id = 'pf-nafs'; box.style.marginTop = '.6rem'; host.insertAdjacentElement('afterend', box); }
-  const grp = !!document.getElementById('pf-group')?.checked;
-  const ids = (grp ? (window._pfMembers || []) : [window._pfSid || '']).map(String).filter(Boolean);
-  const plan = planEditId && (PLAN_DATA && PLAN_DATA.plans || []).find(x => x.id === planEditId);
-  const splitAt = plan && plan.startDate ? Date.parse(plan.startDate + 'T00:00:00') : 0;
-  const by = {};
-  ids.forEach(id => { const r = nafsStudentOutcomes(id, splitAt);
-    Object.entries(r).forEach(([o, v]) => { const x = by[o] || (by[o] = { b: { c: 0, t: 0 }, a: { c: 0, t: 0 }, miss: 0 });
-      x.b.c += v.b.c; x.b.t += v.b.t; x.a.c += v.a.c; x.a.t += v.a.t; const pb = nafsPct(v.b); if (pb != null && pb < 60) x.miss++; }); });
-  const chosen = new Set(window._pfSkills || []);
-  const rows = Object.entries(by).filter(([, v]) => v.b.t || v.a.t).map(([o, v]) => ({ o: NAFS_OUT[o], ...v, rb: nafsPct(v.b), ra: nafsPct(v.a) })).filter(x => x.o)
-    .sort((x, y) => (x.rb ?? 101) - (y.rb ?? 101));
-  if (!rows.length) { box.innerHTML = ids.length ? `<div class="dx-box muted nf-plan-none">🧭 <b>نواتج تعلم نافس:</b> لا إجابات على أسئلة نافس ${grp ? 'لهؤلاء الطلاب' : 'لهذا الطالب'} بعد — أنشئ نشاطًا من نوع «🧭 نافس» ليظهر إتقانه لكل ناتج هنا.</div>` : ''; return; }
-  const remR = k => plan ? nafsPlanRem(plan, k) : null;
-  const cell = (v, r) => v.t ? `<b>${r}%</b> <small class="muted">(${v.c}/${v.t})</small>` : '<span class="muted">—</span>';
-  box.innerHTML = `<div class="dx-box nf-plan">
-    <div class="row" style="justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap">
-      <b>🧭 إتقان نواتج تعلم نافس ${grp ? `<span class="muted" style="font-weight:400;font-size:.78rem">(مجموع ${ids.length} طلاب)</span>` : ''}</b>
-      <span class="chip ghost">${rows.filter(x => x.rb != null && x.rb < 60).length} ناتج دون 60%</span></div>
-    <div class="muted" style="font-size:.78rem;margin-top:.3rem;line-height:1.7">من إجاباته في أنشطة نافس. حدّد الناتج ليصبح <b>مهارة مستهدفة</b> في الخطة: تُبنى مهمته العلاجية من أخطائه فيه بأسئلة بديلة من بنك نافس بأشكالها، ويُقاس حتى ${SKILL_TARGET_UI}%.</div>
-    <div class="sk-wrap"><table class="sk-t"><thead><tr><th></th><th>ناتج التعلم</th><th>${plan ? 'قبل الخطة' : 'الإتقان'}</th><th>المستوى</th>${plan ? '<th>بعد الخطة</th>' : ''}</tr></thead><tbody>
-    ${rows.map(x => { const k = NAFS_SK + x.o.short, on = chosen.has(k), b = x.rb != null ? skBand(x.rb) : null, rm = remR(k);
-      return `<tr class="${on ? 'on' : ''}"><td><input type="checkbox" class="pf-skill" value="${planEsc(k)}" ${on ? 'checked' : ''} onchange="planSkillToggle(this)" aria-label="${planEsc(x.o.short)}"></td>
-        <td class="sk-n" title="${planEsc(x.o.text)}">${planEsc(x.o.short)}<small class="muted nf-sec">${planEsc((NAFS_SECTIONS.find(s => s.id === x.o.sec) || {}).title || '')}</small></td>
-        <td>${cell(x.b, x.rb)}</td><td>${b ? `<span class="chip ${b.c}">${b.n}</span>` : '—'}${grp && x.miss ? ` <small class="muted">${x.miss} من ${ids.length}</small>` : ''}</td>
-        ${plan ? `<td class="sk-af">${x.a.t ? `<span class="sk-after ${x.ra >= 80 ? 'ok' : x.ra >= 60 ? '' : 'bad'}" title="أنشطة نافس بعد البدء (${x.a.c} من ${x.a.t})">✏️ ${x.ra}%</span>` : ''} ${rm ? `<span class="sk-after ${nafsPct(rm) >= 80 ? 'ok' : nafsPct(rm) >= 60 ? '' : 'bad'}" title="الأسئلة البديلة في المهمة العلاجية (${rm.c} من ${rm.t})">🩹 ${nafsPct(rm)}%</span>` : ''}${!x.a.t && !rm ? '<span class="muted">—</span>' : ''}</td>` : ''}</tr>`; }).join('')}
-    </tbody></table></div></div>`;
-}
 /* ② في بطاقة الخطة وطباعتها: النواتج المستهدفة قبل/بعد */
 function planNafsHTML(p) {
   const ks = (Array.isArray(p.skills) ? p.skills : []).filter(nafsIsSkill).map(k => ({ k, o: nafsOutOfSkill(k) })).filter(x => x.o);

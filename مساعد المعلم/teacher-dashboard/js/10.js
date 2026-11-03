@@ -158,10 +158,7 @@ async function madOpen(key){
   MAD.cache[key]=a;
   const rows=a.students.map(s=>({...s,m:madMatch(s.name,a.className)}));
   const not=rows.filter(r=>!r.solved), yes=rows.filter(r=>r.solved), unmatched=rows.filter(r=>r.m.status!=='ok').length;
-  const line=r=>`<div class="mad-st"><span>${esc(r.name||'—')}</span>${r.m.status==='ok'
-      ? `<small>${esc(r.m.student.cls||'')}${r.m.partial?' · مطابقة جزئية':''}</small>`
-      : `<small class="mad-warn">${r.m.status==='ambiguous'?'اسم مكرر في كشفك':'غير موجود في كشفك'}</small>`}</div>`;
-  const nameChip=r=>{ const ok=r.m.status==='ok';
+    const nameChip=r=>{ const ok=r.m.status==='ok';
     const tip=ok?`${r.m.student.name||''}${r.m.student.cls?' — '+r.m.student.cls:''}${r.m.partial?' (مطابقة جزئية)':''}`:(r.m.status==='ambiguous'?'اسم مكرر في كشفك':'غير مربوط بكشفك');
     return `<div class="madm-name" title="${esc(tip)}">${ok?'':'<i class="madm-dot warn" aria-label="غير مربوط بكشفك"></i>'}<span>${esc(r.name||'—')}</span></div>`; };
   const ended=a.dueAt && a.dueAt<Date.now();

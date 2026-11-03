@@ -24,7 +24,6 @@ function render(){ try { if (typeof qrPaint === 'function') qrPaint(); } catch (
 function renderDaily(){ render(); } function renderHome(){} function renderRecords(){}
 let ctxOv = null;
 function ctxRefresh(){ render(); }
-function ctxOpenPop(){ try { ctGo('schedule'); } catch (e) {} }
 function tpToDash(q){ if (/notifications/.test(q || '')) openSubmissionFromPush({ open: 'notifications' }); }
 function openTeacherPanel(p){ if (p === 'reminders') ctGo('reminders'); }
 

@@ -410,46 +410,6 @@ function openGamesImportReview(pending,duplicates,missingClass){
 }
 
 
-function cancelGamesImport() {
-  pendingGamesImport = null;
-  closeModal();
-  toast('تم إلغاء الاستيراد');
-}
-
-function confirmGamesImport() {
-  if (!pendingGamesImport) return;
-
-  const importData = pendingGamesImport;
-  pendingGamesImport = null;
-  closeModal();
-
-  if (!importData.students.length) {
-    toast('لا يوجد طلاب جدد للإضافة');
-    return;
-  }
-
-  const existingKeys = new Set(
-    STUDENTS.map(student => `${normAr(student.name)}|${normAr(student.cls || '')}`)
-  );
-
-  const studentsToAdd = importData.students.filter(student => {
-    const key = `${normAr(student.name)}|${normAr(student.cls || '')}`;
-    if (existingKeys.has(key)) return false;
-    existingKeys.add(key);
-    return true;
-  });
-
-  if (!studentsToAdd.length) {
-    toast('كل الطلاب موجودون مسبقاً', '');
-    return;
-  }
-
-  STUDENTS.push(...studentsToAdd);
-  save(K.st, STUDENTS);
-  renderAll();
-  toast(`تمت إضافة ${studentsToAdd.length} طالب بعد موافقتك`, 'good');
-}
-
 function toast(msg, kind) {
   const t = document.getElementById('toast');
   t.textContent = msg;
@@ -577,19 +537,6 @@ document.querySelectorAll('.tab,.mobile-nav button[data-tab]').forEach(t => t.on
 function compToday(){
   const d=new Date();
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-}
-function compClamp(v,min,max){ return Math.max(min,Math.min(max,v)); }
-function compRate(obj,sid,goodStatus){
-  let total=0,good=0;
-  Object.keys(obj||{}).forEach(d=>{
-    const r=obj?.[d]?.[sid];
-    if(!r) return;
-    const status=typeof r==='string'?r:r.status;
-    if(status==null || status==='') return;
-    total++;
-    if(String(status)===goodStatus) good++;
-  });
-  return {total,good,rate:total?good/total:0};
 }
 /* ═══════════════════════════════════════════════════════════════
    الدرجات لم تعد تُحسب هنا. تصل جاهزة من الـ Worker عبر /grades،
@@ -2420,29 +2367,6 @@ function ctSch(D){
   return { count:Math.max(4,Math.min(8,Number(s.count)||7)), grid:(s.grid&&typeof s.grid==='object')?s.grid:{} };
 }
 function ctSchedule(box){ tpx3Mount(box,'tpx3ScheduleMount'); }
-/* الجدول القديم (قائمة خانات) — لم يعد يُعرض؛ يبقى للمرجع */
-function ctScheduleOld(box){
-  const s=ctSch(CT_DATA||{}), cls=ctClasses();
-  const used={}; for(const dy of Object.keys(s.grid)) for(const p of Object.keys(s.grid[dy]||{})){ const c=s.grid[dy][p]; if(c) used[c]=(used[c]||0)+1; }
-  box.innerHTML=`<div class="row" style="justify-content:flex-end;margin-bottom:.3rem"><button class="btn ghost sm" onclick="ctSchPrint()">🖨️ طباعة الجدول</button></div><div class="muted" style="font-size:.8rem;margin-bottom:.5rem">حدد الفصل في كل حصة. يُحفظ فورًا، ومنه تنبيه بداية الحصة والتحضير التلقائي. أوقات الحصص وطولها تُضبط من البوابة.</div>
-    <div class="ct-table"><table class="ct-sch"><thead><tr><th>اليوم</th>${Array.from({length:s.count},(_,i)=>`<th>الحصة ${i+1}</th>`).join('')}</tr></thead><tbody>
-    ${CT_DAYS.map((dn,dy)=>`<tr><th>${dn}</th>${Array.from({length:s.count},(_,i)=>{ const v=(s.grid[String(dy)]||{})[String(i+1)]||'';
-      return `<td><select class="inp ${v?'on':''}" onchange="ctSchSet(${dy},${i+1},this.value)"><option value="">—</option>${cls.map(c=>`<option ${c===v?'selected':''}>${esc(c)}</option>`).join('')}${v&&!cls.includes(v)?`<option selected>${esc(v)}</option>`:''}</select></td>`; }).join('')}</tr>`).join('')}
-    </tbody></table></div>
-    <div class="row" style="gap:.35rem;flex-wrap:wrap;margin-top:.5rem">${Object.keys(used).sort((a,b)=>a.localeCompare(b,'ar')).map(c=>`<span class="chip ghost">${esc(c)}: ${used[c]} حصة أسبوعيًا</span>`).join('')||'<span class="muted" style="font-size:.8rem">الجدول فارغ.</span>'}</div>`;
-}
-async function ctSchSet(dy,p,cls){
-  try{
-    await ctSave(D=>{
-      // يُكمل الإعدادات الافتراضية نفسها التي تستخدمها البوابة إن لم يكن هناك جدول بعد
-      if(!D.schedule||typeof D.schedule!=='object') D.schedule={dur:45,gap:0,count:7,breakAfter:3,breakLen:30,prayAfter:6,prayLen:20,presets:{summer:'07:00',winter:'07:15'},active:'summer',auto:false,fix:{},grid:{},sessions:{}};
-      const g=D.schedule.grid=D.schedule.grid||{}; g[String(dy)]=g[String(dy)]||{};
-      if(cls) g[String(dy)][String(p)]=cls; else delete g[String(dy)][String(p)];
-    });
-    toast('حُفظ الجدول','good');
-  }catch(e){ toast('تعذّر الحفظ','bad'); }
-  renderClassTools();
-}
 
 /* ═══════════ 🧰 أدوات الفصل — الإضافات المتقدمة ═══════════ */
 async function ctEnsureGrades(force){
@@ -4477,10 +4401,6 @@ function setCaMode(m){
 const CA_LEVELS = ['ممتاز','جيد جدًا','جيد','يحتاج متابعة','يحتاج دعم'];
 const CA_COLOR  = { 'ممتاز':'#0E5B4E','جيد جدًا':'#2E7D64','جيد':'#7A8B45','يحتاج متابعة':'#B4740E','يحتاج دعم':'#B3261E' };
 
-function caBar(pct, color){
-  return `<div style="background:#EEF2F1;border-radius:6px;height:9px;overflow:hidden">
-    <div style="width:${Math.max(0,Math.min(100,pct))}%;height:100%;background:${color}"></div></div>`;
-}
 
 async function renderCompAnalysis(force=false){
   try{ vspSyncSelects(); }catch(e){}
@@ -4692,8 +4612,6 @@ function labelTableCells(root){
     });
   });
 }
-/* تُنادى بعد كل رسم تقرير — نقطة واحدة تكفي لكل الكشوف */
-function labelAllReports(){ setTimeout(()=>labelTableCells(document), 0); }
 
 /* 🖨️ محرك موحّد للكشوف الثلاثة فقط: نفس المسار في الجوال والكمبيوتر.
    يعزل اللوحة المطلوبة، يلغي تصغير الجوال، ويحدد A4 والاتجاه وقت الطباعة. */
@@ -6058,20 +5976,6 @@ function examJsonText(value){
     .replace(/\uE000٩\uE001/g,'⁹');
 }
 
-function normalizeExamAIText(obj){
-  if (Array.isArray(obj)) return obj.map(normalizeExamAIText);
-  if (obj && typeof obj === 'object'){
-    Object.keys(obj).forEach(function(k){
-      // لا نلمس المفاتيح أو القيم التقنية، فقط محتوى النصوص.
-      if (typeof obj[k] === 'string') {
-        obj[k] = toArabicIndicDigits(obj[k]);
-      } else if (obj[k] && typeof obj[k] === 'object') {
-        normalizeExamAIText(obj[k]);
-      }
-    });
-  }
-  return obj;
-}
 
 function examAIApplyFromNormal(){
   const st = AI_STAGE;
@@ -7968,23 +7872,6 @@ function printComprehensive(){
   });
 }
 
-function openHwMore(id){
-  const h = HW.find(x=>x.id===id); if(!h) return;
-  const hasSubs=Object.keys(h.subs||{}).length>0;
-  openModal(`
-    <div class="activity-report-head">
-      <div class="activity-report-heading">
-        <span class="activity-report-kicker">📊 تقرير النشاط</span>
-        <h2>${esc(h.title)}</h2>
-    <div class="quick-actions">
-      <button class="btn ghost" onclick="closeModal();pullResults('${id}')">🔄 تحديث النتائج</button>
-      ${hasSubs ? `<button class="btn ghost" onclick="closeModal();remedialHw('${id}')">🩹 نشاط علاجي من الأخطاء</button>` : ''}
-      <button class="btn ghost" onclick="closeModal();dupHw('${id}')">نسخ النشاط لفصل آخر</button>
-      <button class="btn ghost" onclick="closeModal();openHwForm('${id}')">تعديل النشاط</button>
-      <button class="btn pen" onclick="closeModal();delHw('${id}')">حذف النشاط</button>
-    </div>
-    <div class="modal-foot"><button class="btn" onclick="closeModal()">إغلاق</button></div>`);
-}
 
 /* ═══════════════ الطلاب ═══════════════ */
 function classes() {
@@ -8023,11 +7910,6 @@ function filtered() {
   });
 }
 
-// يحدّث عرض الطلاب أياً كانت الواجهة المستخدمة
-function refreshStudents(){
-  if(typeof renderStudentsCenter === 'function') renderStudentsCenter();
-  if(typeof renderStudents === 'function') renderStudents();
-}
 
 function clearSearch(){
   const box = document.getElementById('students-center-search') || document.getElementById('st-search');
@@ -8325,32 +8207,6 @@ function patchStudentCenterNow(student, action='add'){
   }
 }
 
-function refreshVisibleStudentView(){
-  const panel = document.querySelector('.panel.on');
-  if(!panel) return;
-
-  try{
-    switch(panel.id){
-      case 'p-students':
-        renderStudentsCenter();
-        break;
-      case 'p-dashboard':
-        renderDashboard();
-        break;
-      case 'p-grades':
-        renderGrades();
-        break;
-      case 'p-analysis':
-        renderAnalysis();
-        break;
-      case 'p-hw':
-        renderHw();
-        break;
-    }
-  }catch(e){
-    console.error('refreshVisibleStudentView:', e);
-  }
-}
 
 function openStudentForm(id) {
   const s = id ? byId(id) : null;
@@ -8565,19 +8421,6 @@ const looksLikeName = v => {
   return letters >= 4 && t.split(/\s+/).length >= 2; // كلمتان فأكثر
 };
 
-// يختار عمود الأسماء من جدول
-function pickNameColumn(rows){
-  if(!rows.length) return [];
-  const width = Math.max(...rows.map(r=>r.length));
-  let best = -1, bestScore = 0;
-  for(let c=0;c<width;c++){
-    let score = 0;
-    rows.forEach(r=>{ if(looksLikeName(r[c])) score++; });
-    if(score > bestScore){ bestScore = score; best = c; }
-  }
-  if(best < 0) return [];
-  return rows.map(r=>String(r[best]||'').trim()).filter(looksLikeName);
-}
 
 async function importStudentsFile(ev){
   const f = ev.target.files && ev.target.files[0];
@@ -8634,9 +8477,6 @@ async function importStudentsFile(ev){
   }
 }
 
-async function readExcelNames(file){
-  return (await readExcelStudentRecords(file)).map(x=>x.name);
-}
 
 async function readExcelStudentRecords(file, opts){   // opts.phones: يقرأ أيضًا عمود جوال ولي الأمر (لقائمة التصويت)
   await loadLib('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
@@ -9700,14 +9540,6 @@ async function doDelHw(id) {
   }
 }
 
-/* رصد التسليم — يمنح النقاط تلقائياً */
-/* 📄 تقرير نشاط واحد (زر «التقرير» على البطاقة) */
-function actTitle(q, i){
-  const k=q.t||'q';
-  const t = (k==='a') ? ('رتّب: '+(q.w||'')) : (k==='s') ? ('رتّب جملة: '+String(q.s||'').slice(0,30))
-          : (k==='m') ? ('وصّل: '+((q.p||[])[0]||[''])[0]) : (q.q||'');
-  return (i+1) + '. ' + t;
-}
 
 /* 🔎 مهمة التصحيح من تقرير النشاط: من نتيجته أقل من 50% أو أنهى بسرعة مريبة.
    الطالب يعيد حل أخطائه فقط بمهلة قراءة يفرضها الخادم، وتظهر نتيجته هنا وتصلك إشعارًا. */
@@ -9979,20 +9811,6 @@ function copyLate(id){
     .then(()=>toast(`نُسخ ${late.length} اسم`,'good')).catch(()=>toast('تعذّر النسخ','bad'));
 }
 
-function copyReport(id){
-  const h = HW.find(x=>x.id===id); if(!h) return;
-  const qs = h.qs||[];
-  const lines = ['تقرير: '+h.title, ''];
-  Object.entries(h.subs||{}).forEach(([sid,v])=>{
-    const st = byId(sid); if(!st) return;
-    const d = String(v.d||''); const bad=[];
-    if(d.length===qs.length) for(let i=0;i<d.length;i++) if(d[i]==='0') bad.push(i+1);
-    lines.push(`${st.name}: ${v.correct||0}/${v.total||qs.length}` + (bad.length?` — أخطأ في ${bad.join('، ')}`:' — كامل'));
-  });
-  const txt = lines.join('\n');
-  navigator.clipboard.writeText(txt).then(()=>toast('نُسخ التقرير','good'))
-    .catch(()=>toast('تعذّر النسخ','bad'));
-}
 
 /* ═══════════════ إعدادات الاتصال ═══════════════ */
 /* عدّل العنوانين هنا فقط عند تغيير الروابط */
@@ -10004,7 +9822,6 @@ function saveSite(){ localStorage.setItem(K_SITE, document.getElementById('site-
 /* 🔗 بوابة المعلم: عنوانها لم يكن مخزَّنًا في أي مكان. لا نكتبه في الكود
    لئلا ينكسر يوم تنشرها على نطاق آخر — يُحفظ هنا ويُحرَّر من الإعدادات. */
 const K_PORTAL = 'hwapp_portal_url_v1';
-function savePortal(){ localStorage.setItem(K_PORTAL, document.getElementById('portal-url').value.trim()); syncPortalBtn(); }
 /* 📱 بوابة المعلم صارت جزءًا من موقع اللوحة (./portal/): تطبيق واحد ودخول واحد (كلمة السر نفسها محفوظة للاثنين).
    رابط مخصص قديم في الإعدادات يبقى يعمل إن كتبه المعلم */
 try{ if(/teachergate\.pages\.dev/i.test(localStorage.getItem('hwapp_portal_url_v1')||'')) localStorage.removeItem('hwapp_portal_url_v1'); }catch(e){}   // الرابط القديم المنفصل ⇒ المدمجة
@@ -10680,26 +10497,6 @@ function renderDiagPanel(){
     </div>`;
 }
 
-/* نسخ أسماء مجموعة */
-function copyDiagReport(){
-  const cls = (document.getElementById('dg-class')||{}).value || '__all__';
-  const hid = (document.getElementById('dg-hw')||{}).value || '';
-  const D = diagBuild(hid, cls);
-  if(!D || !D.done){ toast('لا بيانات','bad'); return; }
-  const L = [`التقرير التشخيصي — ${D.h.title}`, `الفصل: ${hwClsLabel(D.h)}`,
-             `أجاب ${D.done} من ${D.pool.length} · متوسط ${D.avg}%`, '', 'مجموعات المستوى:'];
-  DIAG_BANDS.forEach(b=>{
-    const c = D.counts[b.name]||0;
-    if(c) L.push(`- ${b.name}: ${c} طالب — ${b.act}`);
-  });
-  const weak = D.gaps.filter(g=>g.pct<50);
-  if(weak.length){
-    L.push('', 'فجوات حادّة (ابدأ بها):');
-    weak.forEach(g=>L.push(`- ${g.title} — ${g.pct}% (${g.missed} أخفقوا)`));
-  }
-  navigator.clipboard.writeText(L.join('\n')).then(()=>toast('نُسخ التقرير','good'))
-    .catch(()=>toast('تعذّر النسخ','bad'));
-}
 
 /* 🧠 لوحة تقرير أنماط التعلّم */
 function styFill(){
@@ -10927,12 +10724,6 @@ function styFilterList(){
   });
 }
 
-function copyStylesReport(){
-  const hid = (document.getElementById('sty-hw')||{}).value || '';
-  const h = styleHW().find(x=>x.id===hid);
-  if(!h){ toast('لا اختبار مختار','bad'); return; }
-  copyStyles(h.id);
-}
 
 /* 🧠 حساب نمط الطالب من إجاباته */
 function normalizeLearningStyle(value){
@@ -11060,24 +10851,6 @@ function openStylesReport(id){
     </div>`);
 }
 
-function copyStyles(id){
-  const h = HW.find(x=>x.id===id); if(!h) return;
-  const pool = hwPool(h);
-  const L = [`أنماط التعلّم — ${h.title}`, `الفصل: ${hwClsLabel(h)}`, ''];
-  const counts = Object.fromEntries(STYLE_ORDER.map(k=>[k,0]));
-  pool.forEach(s=>{
-    const t = styleTally(h, s.id);
-    if(!t) return;
-    counts[t.top] = (counts[t.top]||0)+1;
-    L.push(`${s.name}: ${t.top} (${t.topPct}%)`);
-  });
-  const n = Object.values(counts).reduce((a,b)=>a+b,0);
-  L.push('', 'التوزيع:');
-  Object.entries(counts).sort((a,b)=>b[1]-a[1])
-    .forEach(([k,c])=>L.push(`- ${k}: ${c} طالب (${Math.round(c/n*100)}%)`));
-  navigator.clipboard.writeText(L.join('\n'))
-    .then(()=>toast('نُسخ التقرير','good')).catch(()=>toast('تعذّر النسخ','bad'));
-}
 
 /* 🧠 ملف أنماط التعلّم: كل خيار يمثّل نمطاً بترتيب ثابت */
 const STYLE_ORDER = ['بصري','سمعي','حركي','قرائي/كتابي'];
@@ -12224,11 +11997,6 @@ async function republishSelectedHw(){
   await republishHwBatch(items);
 }
 
-async function republishAllHw(){
-  const items=HW.filter(h=>h.published && activityReady(h));
-  if(!items.length){ toast('لا توجد أنشطة منشورة قابلة للتحديث','bad'); return; }
-  await republishHwBatch(items);
-}
 
 function deleteSelectedHw(){
   const items=HW.filter(h=>HW_REPUBLISH_SELECTED.has(h.id));
@@ -12787,11 +12555,6 @@ function updateReqBadge(){
 }
 
 
-
-
-
-
-
 function previewThanksMessage(btn){
   const message = btn?.getAttribute('data-message') || '';
 
@@ -13033,17 +12796,6 @@ function renderReqs(){
       <div id="thanks-message-preview" class="thanks-message-preview hide" aria-hidden="true"></div>
     </div>`;
 }
-
-
-
-
-
-
-
-
-
-
-
 
 
 /* 💌 سجل رسائل الشكر — يبقى في ملف الطالب فلا يضيع حقه */
@@ -13644,41 +13396,6 @@ function liveRowKey(hw, row){
   return liveSubmissionId(hw, row);
 }
 
-function liveRowTime(row){
-  const at = row?.at;
-  if(at !== undefined && at !== null && at !== ''){
-    const numeric = Number(at);
-    if(Number.isFinite(numeric)){
-      return numeric < 1e12 ? numeric * 1000 : numeric;
-    }
-
-    const parsed = Date.parse(String(at));
-    if(Number.isFinite(parsed)) return parsed;
-  }
-
-  const d = row?.d;
-  const parsed = Date.parse(String(d || ''));
-  if(Number.isFinite(parsed)) return parsed;
-
-  return Date.now();
-}
-
-function liveBuildLocalSubmission(hw, row){
-  const total = Math.max(1, Number(row?.total) || 1);
-  const correct = Math.max(0, Number(row?.correct) || 0);
-  const pts = Math.round((hw.pts || 0) * correct / total);
-
-  return {
-    online:true,
-    correct,
-    total,
-    pts,
-    d:row?.d || '',
-    dev:row?.dev || '',
-    secs:Number(row?.secs) || 0, away:row?.away&&typeof row.away==='object'?row.away:null,
-    at:liveRowTime(row)
-  };
-}
 
 /* مراجعة الخادم أحدث من المحلية؟ (وقت مراجعة أحدث، أو الوقت نفسه بحالة مختلفة) */
 function liveReviewNewer(prev, row){
@@ -13774,83 +13491,6 @@ function liveSaveKnown(){
   }catch(_){}
 }
 
-
-function submissionIdentity(hw, row){
-  const explicit =
-    row?.submissionId ??
-    row?.submission_id ??
-    row?.attemptId ??
-    row?.attempt_id ??
-    row?.resultId ??
-    row?.result_id;
-
-  if(explicit !== undefined && explicit !== null && String(explicit).trim()){
-    return `${hw.id}|submission:${String(explicit).trim()}`;
-  }
-
-  const name = String(row?.name || '').trim();
-  const time = normalizeSubmissionTime(row?.at ?? row?.d);
-
-  return `${hw.id}|student:${name}|time:${time}`;
-}
-
-function normalizeSubmissionTime(value){
-  if(value === undefined || value === null || value === '') return '';
-
-  const numeric = Number(value);
-  if(Number.isFinite(numeric)){
-    const ms = numeric < 1e12 ? numeric * 1000 : numeric;
-    return String(Math.floor(ms / 60000));
-  }
-
-  const parsed = Date.parse(String(value));
-  if(Number.isFinite(parsed)){
-    return String(Math.floor(parsed / 60000));
-  }
-
-  return String(value).trim().replace(/\s+/g, ' ');
-}
-
-function submissionTimestamp(row, fallback){
-  const value = row?.at;
-
-  if(value !== undefined && value !== null && value !== ''){
-    const numeric = Number(value);
-    if(Number.isFinite(numeric)){
-      const ms = numeric < 1e12 ? numeric * 1000 : numeric;
-      return ms;
-    }
-
-    const parsed = Date.parse(String(value));
-    if(Number.isFinite(parsed)) return parsed;
-  }
-
-  const parsedDate = Date.parse(String(row?.d || ''));
-  if(Number.isFinite(parsedDate)) return parsedDate;
-
-  return Number(fallback) || 0;
-}
-
-function submissionFingerprint(hw, row){
-  const explicit =
-    row?.submissionId ??
-    row?.submission_id ??
-    row?.attemptId ??
-    row?.attempt_id ??
-    row?.resultId ??
-    row?.result_id;
-
-  if(explicit !== undefined && explicit !== null && String(explicit).trim()){
-    return `${hw.id}|id:${String(explicit).trim()}`;
-  }
-
-  const name = String(row?.name || '').trim();
-  const time = normalizeSubmissionTime(row?.at ?? row?.d);
-  const correct = Number(row?.correct ?? 0);
-  const total = Number(row?.total ?? 0);
-
-  return `${hw.id}|${name}|${time}|${correct}/${total}`;
-}
 
 // 🔔 يقرأ عدّاد التغيير — قراءة واحدة بدل مئات
 let _lastRev = null;
@@ -14218,16 +13858,6 @@ function pinOf(name){
   if(sid && PINS[sid]) return PINS[sid];
   if(PINS[name]) return PINS[name];
   const k = ix.byPinKey.get(nn);
-  return k ? PINS[k] : '';
-}
-function pinOfLegacy(name){
-  // الرموز الجديدة تُخزّن بمعرّف الطالب، مع دعم الرموز القديمة المخزنة بالاسم.
-  const st = STUDENTS.find(s => normAr(s.name) === normAr(name));
-  const sid = st ? String(st.id || '').trim() : '';
-  if(sid && PINS[sid]) return PINS[sid];
-  if(PINS[name]) return PINS[name];
-  const nn = normAr(name);
-  const k = Object.keys(PINS).find(x=>normAr(x)===nn);
   return k ? PINS[k] : '';
 }
 
@@ -14771,22 +14401,6 @@ function printStudentReport(sid){
   setTimeout(()=>printThen(done2),120);
 }
 
-function copyStudentReport(sid){
-  const st = byId(sid); if(!st) return;
-  const hws = gradedHW().filter(h => hwFor(h, st.cls)).slice().sort((a,b)=>(a.at||0)-(b.at||0));
-  const L = [`تقرير الطالب: ${st.name}`, `الفصل: ${st.cls||'—'}`, ''];
-  let got=0, max=0;
-  hws.forEach(h=>{
-    const hMax = h.max||20; max += hMax;
-    const v = (h.subs||{})[st.id];
-    if(!v){ L.push(`${h.title}: لم يسلّم`); return; }
-    const g = Math.round(hMax*(v.correct||0)/Math.max(1,v.total||1)); got += g;
-    L.push(`${h.title}: ${g}/${hMax} (${v.correct}/${v.total} مهمة)${v.at?' — '+fmtDate(v.at):''}`);
-  });
-  L.push('', `المجموع: ${got} من ${max} (${max?Math.round(got/max*100):0}%)`);
-  navigator.clipboard.writeText(L.join('\n'))
-    .then(()=>toast('نُسخ تقرير الطالب','good')).catch(()=>toast('تعذّر النسخ','bad'));
-}
 
 /* ↕️ حالة الفرز في كشف الدرجات */
 let GSORT = { key:'grade', dir:'desc' };   // grade | name | pct | coins | done | h:<id>
@@ -14893,39 +14507,6 @@ function gData(){
 
 let GSELECTED = new Set();
 
-function gVisibleIds(){
-  return [...document.querySelectorAll('.g-student-check')].map(x=>x.value);
-}
-function gSelectAllVisible(){
-  gVisibleIds().forEach(id=>GSELECTED.add(id));
-  updateGradeSelection();
-}
-function gToggleAllVisible(checked){
-  gVisibleIds().forEach(id=>checked ? GSELECTED.add(id) : GSELECTED.delete(id));
-  updateGradeSelection();
-}
-function gClearSelection(){
-  GSELECTED.clear();
-  updateGradeSelection();
-}
-function updateGradeSelection(){
-  document.querySelectorAll('.g-student-check').forEach(x=>x.checked=GSELECTED.has(x.value));
-  const n=GSELECTED.size;
-  const el=document.getElementById('g-selected-count');
-  if(el) el.textContent=`${n} محدد`;
-  const all=document.getElementById('g-check-all');
-  const ids=gVisibleIds();
-  if(all) all.checked=ids.length>0 && ids.every(id=>GSELECTED.has(id));
-}
-function openSelectedStudentReports(){
-  const ids=[...GSELECTED];
-  if(!ids.length){toast('حدد طالبًا واحدًا على الأقل','bad');return;}
-  if(ids.length===1){openStudentReport(ids[0]);return;}
-  const names=ids.map(id=>byId(id)?.name).filter(Boolean);
-  navigator.clipboard.writeText(names.join('\n'))
-    .then(()=>toast(`نُسخت أسماء ${names.length} طلاب`,'good'))
-    .catch(()=>toast('تعذّر النسخ','bad'));
-}
 
 function renderGrades(){
   gFillClasses();
@@ -16301,8 +15882,6 @@ async function doWipeServer(all){
 }
 
 
-
-
 /* ══════════════════════════════════════════════
    ميزات الواجهة الإضافية — محلية فقط
    ══════════════════════════════════════════════ */
@@ -16346,13 +15925,6 @@ function dismissAlert(key){
   toast('تمت إزالة التنبيه من القائمة', 'good');
 }
 
-function restoreDismissedAlerts(){
-  DISMISSED_ALERTS = {};
-  uiSave(K_ALERTS_UI.dismissed, DISMISSED_ALERTS);
-  pushState();            // ☁️ لتعود على كل أجهزتك
-  renderDashboard();
-  toast('تمت استعادة التنبيهات المحذوفة', 'good');
-}
 
 const K_UI = {
   goals:'hwapp_ui_goals_v1',
@@ -16623,8 +16195,6 @@ function dashboardAlerts(){
 }
 
 
-
-
 function openMissingStudents(activityId, cls){
   const h=HW.find(x=>x.id===activityId);
   if(!h){
@@ -16834,13 +16404,6 @@ async function grantExtraAttemptAllClasses(hwId){
   openMissingSummary(hwId);
 }
 
-function toggleMissingNames(button){
-  const row=button.closest('.missing-class-row');
-  const names=row?.querySelector('.missing-class-names');
-  if(!names) return;
-  const opened=names.classList.toggle('on');
-  button.textContent=opened ? 'إخفاء الطلاب' : 'عرض الطلاب';
-}
 
 function renderDashboardAlerts(alerts){
   const box=document.getElementById('dash-alerts');
@@ -17876,85 +17439,6 @@ async function sendFastReviewRequest(studentId, hwId, reason){
   }catch(e){ console.error(e); toast(`تعذّر إرسال طلب المراجعة: ${e.message || 'خطأ غير معروف'}`,'bad'); const b=document.getElementById('rt-btn-'+studentId); if(b) b.disabled=false; }
 }
 
-function openNotifications(){
-  const alerts=dashboardAlerts();
-  const levelLabel=kind=>kind==='danger'?'عاجل':kind==='warn'?'متابعة':'جيد';
-
-  const content=alerts.length ? alerts.map(a=>{
-    const students=Array.isArray(a.students) ? a.students : [];
-    return `
-      <article class="alert ${a.kind}">
-        <span class="a-icon" aria-hidden="true">${a.icon}</span>
-        <div class="a-body">
-          <div class="alert-title-row">
-            <div class="alert-title-wrap">
-              <b>${esc(a.title)}</b>
-              <span class="a-level">${levelLabel(a.kind)}</span>
-            </div>
-            <button class="alert-dismiss" type="button" onclick="dismissAlert('${esc(a.key)}');closeModal()" title="إزالة التنبيه بعد تنفيذ الإجراء">✓ تم التنفيذ</button>
-          </div>
-          <span class="alert-text">${esc(a.text)}</span>
-          ${students.length ? `
-            <div class="alert-students">
-              ${students.map(s=>`
-                <div class="alert-student">
-                  <div class="alert-student-info">
-                    <span class="alert-student-avatar">${esc(initials(s.name))}</span>
-                    <div>
-                      <b>${esc(s.name)}</b>
-                      ${s.cls ? `<small>${esc(s.cls)}</small>` : ''}
-                      ${s.secs ? `<small>${Number(s.secs)} ثانية</small>` : ''}
-                    </div>
-                  </div>
-                  ${s.id ? `<div style="display:flex;gap:.35rem;flex-wrap:wrap;justify-content:flex-end">
-                    <button class="alert-student-open" type="button" onclick="closeModal();openStudentProfile('${esc(s.id)}')">فتح الملف</button>
-                    ${a.key.indexOf('fast|')===0 ? `<button class="alert-student-open" type="button" style="border-color:#BFDACE;background:#F5FAF8;color:#0E5B4E" onclick="sendFastReviewRequest('${esc(s.id)}','${esc(a.activityId)}')">📨 إرسال مراجعة</button>` : ''}
-                  </div>` : ''}
-                </div>
-              `).join('')}
-            </div>` : ''}
-        </div>
-      </article>`;
-  }).join('') : '<div class="alert-empty"><span>🎉</span><span>لا توجد تنبيهات حالية.</span></div>';
-
-  openModal(`
-    <div class="alert-modal-head">
-      <h2>🔔 مركز التنبيهات</h2>
-      <span class="alert-count">${alerts.length}</span>
-    </div>
-    <div class="alert-list">${content}</div>
-    <div class="modal-foot">
-      <button class="btn ghost" onclick="restoreDismissedAlerts()">استعادة التنبيهات المحذوفة</button>
-      <button class="btn" onclick="closeModal()">تم</button>
-    </div>`);
-}
-
-function openStudentSearch(){
-  openModal(`<h2>🔎 البحث عن طالب</h2>
-    <div class="student-search-controls">
-          <div class="search-big">
-      <input class="inp" id="feature-student-search" placeholder="اكتب اسم الطالب…" oninput="renderFeatureStudentSearch()" autofocus>
-    </div>
-          <div class="student-class-picker">
-            <button type="button" class="inp student-class-trigger" id="feature-student-class-trigger" onclick="toggleStudentClassPicker()" aria-expanded="false">
-              📚 اختر الفصل: الكل <span class="student-class-chevron">⌄</span>
-            </button>
-            <div class="student-class-menu" id="feature-student-class-menu" hidden></div>
-          </div>
-        </div>
-    <div class="student-search-filters" role="group" aria-label="تصفية الطلاب">
-      <button type="button" class="search-filter on" data-filter="all" onclick="setStudentSearchFilter('all')">الكل</button>
-      <button type="button" class="search-filter" data-filter="needs" onclick="setStudentSearchFilter('needs')">يحتاج متابعة</button>
-      <button type="button" class="search-filter" data-filter="low" onclick="setStudentSearchFilter('low')">إنجاز أقل من 70%</button>
-    </div>
-    <div id="feature-student-results" class="feature-list"></div>
-    <div class="student-search-hint">اضغط «ملف الطالب» لعرض سجل الأنشطة والإجراءات المتاحة.</div>
-    <div class="modal-foot"><button class="btn ghost" onclick="closeModal()">إغلاق</button></div>`);
-  window._studentSearchFilter='all';
-  window._studentSearchClass='';
-  populateStudentSearchClasses();
-  renderFeatureStudentSearch();
-}
 
 function getStudentClassValue(s){
   const direct = String(s?.cls || s?.className || s?.class || '').trim();
@@ -17988,14 +17472,6 @@ function populateStudentSearchClasses(){
   trigger.innerHTML=`📚 ${current ? esc(current) : 'اختر الفصل: الكل'} <span class="student-class-chevron">⌄</span>`;
 }
 
-function toggleStudentClassPicker(){
-  const menu=document.getElementById('feature-student-class-menu');
-  const trigger=document.getElementById('feature-student-class-trigger');
-  if(!menu||!trigger) return;
-  const opening=menu.hidden;
-  menu.hidden=!opening;
-  trigger.setAttribute('aria-expanded',String(opening));
-}
 
 function selectStudentSearchClass(cls){
   window._studentSearchClass=String(cls||'').trim();
@@ -18007,12 +17483,6 @@ function selectStudentSearchClass(cls){
   renderFeatureStudentSearch();
 }
 
-
-function setStudentSearchFilter(filter){
-  window._studentSearchFilter=filter||'all';
-  document.querySelectorAll('.search-filter').forEach(b=>b.classList.toggle('on',b.dataset.filter===window._studentSearchFilter));
-  renderFeatureStudentSearch();
-}
 
 function renderFeatureStudentSearch(){
   const selectedClass = String(window._studentSearchClass || '').trim();
@@ -18093,7 +17563,6 @@ function createDefaultGoal(){
   openGoals();
 }
 
-function openGoalsFromDashboard(){ openGoals(); }
 
 function toggleUiTheme(){
   UI_THEME=UI_THEME==='dark'?'light':'dark';
@@ -18189,8 +17658,6 @@ renderAll = function(){
 injectUiTheme();
 
 
-
-
 let __reportsHubActive=false;
 function openDedicatedReport(view){
   __reportsHubActive=true;
@@ -18273,7 +17740,6 @@ function switchReportView(view){
 
 
 let STUDENT_CENTER_SELECTED = null;
-
 
 
 /* ⚡ ذاكرة لرسمة واحدة: الفرز يستدعي الحساب مرتين لكل مقارنة، فـ174 طالبًا
@@ -19216,144 +18682,6 @@ async function pullExtraAttemptStatus(){
   }catch(e){ console.error('pullExtraAttemptStatus:',e); }
 }
 
-function renderStudentCenterDetailOld(){   // ⛔ اللوحة المختصرة القديمة — حلّ محلها ملف الطالب الكامل (stcFile)
-  const box=document.getElementById('student-center-detail');
-  const s=byId(STUDENT_CENTER_SELECTED);
-  if(!box||!s) return;
-  const d=studentCenterData(s);
-  const badges=studentBadges(s).filter(b=>b.unlocked);
-
-  // 🔍 مؤشرات القياس: تشخيصي + أنماط التعلّم
-  const indicators = (()=>{
-    const items = [];
-    diagHW().filter(h=>hwFor(h, s.cls)).forEach(h=>{
-      const v = (h.subs||{})[s.id]; if(!v) return;
-      const p = Math.round((v.correct||0)/Math.max(1,v.total||1)*100);
-      const lv = p>=80 ? ['متقدّم','#1B9C6B'] : p>=60 ? ['متوسط','#2E6BB8']
-               : p>=40 ? ['يحتاج دعمًا','#C88A2E'] : ['أساسي','#B4232F'];
-      items.push(`<div class="row" style="gap:.5rem;padding:.4rem .2rem;border-bottom:1px solid var(--rule)">
-        <span style="flex:1;font-size:.86rem">🔍 ${esc(h.title)}</span>
-        <span class="muted" style="font-size:.78rem">${v.correct}/${v.total}</span>
-        <b style="color:${lv[1]};font-size:.86rem">${lv[0]} · ${p}%</b></div>`);
-    });
-    styleHW().filter(h=>hwFor(h, s.cls)).forEach(h=>{
-      const t = styleTally(h, s.id); if(!t) return;
-      const col = STYLE_COLOR[t.top]||'#5A6B84';
-      items.push(`<div style="padding:.4rem .2rem">
-        <div class="row" style="gap:.5rem">
-          <span style="flex:1;font-size:.86rem">${STYLE_ICON[t.top]||'🧠'} نمط التعلّم</span>
-          <b style="color:${col};font-size:.86rem">${esc(t.top)} ${t.topPct}%</b></div>
-        ${STYLE_TIP[t.top] ? `<div style="font-size:.77rem;color:${col};margin-top:.2rem">
-          💡 ${esc(STYLE_TIP[t.top])}</div>` : ''}</div>`);
-    });
-    return items.join('');
-  })();
-  // الأحدث أولاً — مع كثرة الأنشطة يهمّك الجديد
-  const acts=d.acts.slice().sort((a,b)=>(b.at||0)-(a.at||0)).map(h=>{
-    const v=h.subs&&h.subs[s.id];
-    const got=activityGrade(h,v);
-    const p=Number.isFinite(got)?pct(got,h.max||20):0;
-    // أيقونة لكل نوع — نفس أيقونات بوابة الطالب (📖 فهم قرائي، ✏️ النشاط العادي)
-    const kind = h.kind==='diag' ? '🔍 ' : h.kind==='style' ? '🧠 ' : h.kind==='files' ? '📎 ' : (h.kind==='games' || h.kind==='game') ? '🎮 ' : h.kind==='reading' ? '📖 ' : '✏️ ';
-    // 🧠 أنماط التعلّم: بلا صواب وخطأ — اعرض نمطه
-    let state, label, barCol, showBar = true, barW = p;
-    if(h.kind === 'style'){
-      const tl = v ? styleTally(h, s.id) : null;
-      state = !v ? 'missing' : 'good';
-      label = !v ? 'لم يسلّم' : (tl ? `${STYLE_ICON[tl.top]||''} ${tl.top}` : 'سلّم');
-      barCol = tl ? (STYLE_COLOR[tl.top]||'#5A6B84') : '#C9D3DE';
-      barW = tl ? tl.topPct : 0;
-      showBar = !!v;
-    } else if(h.kind === 'diag'){
-      state = !v ? 'missing' : p>=60?'good':p>=40?'warn':'bad';
-      label = !v ? 'لم يسلّم' : `${v.correct}/${v.total}`;
-      barCol = !v ? '#C9D3DE' : p>=60?'#1B9C6B' : p>=40?'#C88A2E' : '#B4232F';
-    } else if(h.kind==='games' || h.kind==='game'){
-      state = !v ? 'missing' : 'good';
-      label = !v ? 'لم يلعب' : (v.gameScore!=null ? `تم اللعب · ${v.gameScore}/50` : 'تم اللعب');
-      barCol = !v ? '#C9D3DE' : '#1B9C6B';
-      barW = v ? 100 : 0;
-      showBar = !!v;
-    } else if(h.kind==='files'){
-      const ps=String(v?.reviewStatus||'pending').toLowerCase();
-      state = !v ? 'missing' : ps==='accepted' ? 'good' : ps==='rejected' ? 'bad' : 'warn';
-      label = !v ? 'لم يسلّم' : h.projectGraded ? (ps==='accepted' ? `${h.max||20}/${h.max||20}` : ps==='rejected' ? `0/${h.max||20}` : 'قيد المراجعة') : 'تم التسليم';
-      barCol = !v ? '#C9D3DE' : ps==='accepted' ? '#1B9C6B' : ps==='rejected' ? '#B4232F' : '#C88A2E';
-      showBar = !!v && h.projectGraded && ps!=='pending';
-    } else {
-      state = !v?'missing':v.late?'late':p>=80?'good':p>=50?'warn':'bad';
-      label = !v?'لم يسلّم':v.late?'متأخر':`${got}/${h.max||20}`;
-      barCol = !v ? '#C9D3DE' : p>=80?'#1B9C6B' : p>=50?'#C88A2E' : '#B4232F';
-    }
-    return `<div class="student-activity ${state}">
-      <div class="sa-main"><b>${kind}${esc(h.title)}</b><small>${v&&v.at?fmtDate(v.at):'لا يوجد تسليم'}</small></div>
-      ${showBar&&v?`<div class="sa-bar" title="${barW}%"><i style="width:${Math.max(barW,2)}%;background:${barCol}"></i></div>`:'<span></span>'}
-      <span class="sa-status">${label}</span>
-      ${hasExtraAttempt(h,s.id)
-        ? `<span class="sa-retry sent" title="تم إرسال صلاحية إعادة التسليم لهذا الطالب">✓ تم السماح</span>`
-        : `<button type="button" class="sa-retry" title="السماح بإعادة التسليم"
-              onclick="openGrantExtraAttempt('${esc(s.id)}','${esc(h.id)}')">🔒 إعادة</button>`} 
-    </div>`;
-  }).join('');
-
-  const attention=[];
-  if(d.missing) attention.push(`لديه ${d.missing} نشاط غير مسلّم`);
-  if(d.late) attention.push(`${d.late} تسليم متأخر`);
-  if(d.pct<60 && d.done>=2) attention.push('متوسط الأداء يحتاج متابعة');
-  if(!attention.length) attention.push('لا توجد حالة عاجلة');
-
-  box.innerHTML=`
-    <div class="student-profile-hero">
-      <div class="student-hero-avatar">${esc(initials(s.name))}</div>
-      <div class="student-hero-main">
-        <h2>${esc(s.name)}</h2>
-        <span>${esc(s.cls||'بدون فصل')}</span>
-      </div>
-      <div class="student-hero-actions">
-        <button class="btn ghost sm" onclick="openStudentForm('${esc(s.id)}')">تعديل</button>
-        <button class="btn sm" onclick="ctOpenProfile('${esc(s.id)}')">📂 ملف الطالب</button>
-        <button class="btn tick sm" onclick="openAddStudentPoints('${esc(s.id)}')">＋ إضافة نقاط</button>
-        <button class="btn danger sm" onclick="delStudent('${esc(s.id)}')">حذف الطالب</button>
-      </div>
-    </div>
-
-    <div class="student-kpis">
-      <div><span>الأداء</span><b>${d.pct}%</b></div>
-      <div><span>التسليم</span><b>${d.done}/${d.acts.length}</b></div>
-      <div><span>النقاط</span><b>${s.points||0}</b></div>
-      <div><span>الحالة</span><b>${d.status}</b></div>
-    </div>
-
-
-    ${attention[0] !== 'لا توجد حالة عاجلة' ? `
-    <section class="student-section" style="margin-bottom:.7rem">
-      <div class="student-section-title"><h3>⚠️ يحتاج تدخّلك</h3></div>
-      <div class="attention-box">
-        ${attention.map(x=>`<div>• ${esc(x)}</div>`).join('')}
-      </div>
-    </section>` : ''}
-
-    ${indicators ? `
-    <section class="student-block">
-      <div class="student-section-title"><h3>🔍 المؤشرات التشخيصية</h3></div>
-      ${indicators}
-    </section>` : ''}
-
-    <section class="student-block">
-      <div class="student-section-title"><h3>🏅 الإنجازات</h3><span>${badges.length}</span></div>
-      <div class="student-badges">
-        ${badges.map(b=>`<div title="${esc(b.desc)}"><span>${b.ic}</span><b>${esc(b.name)}</b></div>`).join('') || '<span class="muted">لم يحقق إنجازات بعد.</span>'}
-      </div>
-    </section>
-
-    <section class="student-block">
-      <div class="student-section-title">
-        <h3>📋 الأنشطة</h3>
-        <span>${d.done}/${d.acts.length} مسلّم${d.acts.length>6?' · مرتّبة بالأحدث':''}</span>
-      </div>
-      <div class="student-activity-list">${acts||'<div class="feature-empty">لا توجد أنشطة.</div>'}</div>
-    </section>`;
-}
 
 /* Run the students-center UI after the application's existing render cycle. */
 const _renderAllBeforeStudentsCenter = renderAll;
