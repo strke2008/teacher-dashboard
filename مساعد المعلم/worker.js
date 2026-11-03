@@ -137,7 +137,7 @@ async function kvmetaPut(env, hw, k, v, ...a) {
      ما كُتب في D1 بعد التحديث لا يُطمس). قبل اكتمال النقل: مفتاح بلا سطر يُقرأ من KV كما كان.
    - الحذف شاهد (v = NULL) حتى لا تُعيد نسخة KV متأخرة قيمة محذوفة. big = 1 ⇒ القيمة في KV (أكبر من حد صف D1).
    - قراءات الطلب الواحد المتزامنة تُجمع في استعلام واحد (IN) فلا تبطؤ الصفحات التي تقرأ مئات المفاتيح. */
-const KV_ONLY = ['nimg:', 'tts:'];
+const KV_ONLY = ['nimg:', 'tts:', 'tsess:', 'tsfail:'];   // جلسات المعلم تُقرأ قبل طبقة D1 أيضًا: مكان واحد (KV)
 const KVS_BIG = 600000;
 const d1Key = k => { k = String(k); return !KV_ONLY.some(p => k.startsWith(p)) && !KVMETA_KEYS.has(k); };
 const _kvsReady = new WeakMap();
@@ -5787,13 +5787,96 @@ async function viewKey(env, day) {
   const sig = new Uint8Array(await crypto.subtle.sign('HMAC', k, new TextEncoder().encode('vk|' + day)));
   return [...sig.slice(0, 16)].map(b => b.toString(16).padStart(2, '0')).join('');
 }
-async function teacherAuthFromHeaders(request, url, env) {
-  const ht = request.headers.get('X-Teacher-Token');
+/* 🔑 جلسة لكل جهاز للمعلم: «ts1.<id>.<توقيع>» بدل كلمة السر المحفوظة على الأجهزة. التوقيع مشتق من كلمة السر،
+   فتغييرها يُخرج كل الأجهزة؛ وكل جهاز يُلغى وحده من القائمة. لا علاقة لها بجلسات الطلاب (مفتاح مختلف تمامًا).
+   تُحوَّل هنا — في مكان واحد — إلى صلاحية المعلم نفسها، فكل المسارات تعمل كما هي. كلمة السر نفسها تبقى مقبولة (الإضافة والأجهزة القديمة). */
+const TS_KEY = 'tsess:list', TS_MAX = 30;
+const TS_BRIDGE = p => p === '/parent-phones' || p.startsWith('/madrasati/');   // إضافة مدرستي ترسل الجلسة في جسم الطلب
+let _tsCache = { at: 0, list: null };
+async function tsList(env, fresh) {
+  if (!fresh && _tsCache.list && Date.now() - _tsCache.at < 20000) return _tsCache.list;
+  let L = []; try { L = JSON.parse(await env.HW.get(TS_KEY) || '[]'); } catch {} if (!Array.isArray(L)) L = [];
+  _tsCache = { at: Date.now(), list: L }; return L;
+}
+async function tsSave(env, L) { await env.HW.put(TS_KEY, JSON.stringify(L)); _tsCache = { at: Date.now(), list: L }; }
+async function tsSig(env, id) {
+  const k = await crypto.subtle.importKey('raw', new TextEncoder().encode('tsess|' + String(env.TEACHER_TOKEN)), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = new Uint8Array(await crypto.subtle.sign('HMAC', k, new TextEncoder().encode(String(id))));
+  return [...sig.slice(0, 18)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+async function tsCheck(env, tok) {
+  tok = String(tok || ''); if (!tok.startsWith('ts1.') || !env.TEACHER_TOKEN) return null;
+  const [, id, sig] = tok.split('.'); if (!id || !sig || sig !== await tsSig(env, id)) return null;
+  const s = (await tsList(env)).find(x => x.id === id);
+  return s && !(s.exp && s.exp < Date.now()) ? s : null;
+}
+function tsTouch(env, ctx, s) {
+  if (!s || Date.now() - (s.lastAt || 0) < 6 * 3600e3) return;
+  s.lastAt = Date.now();
+  const w = (async () => { const L = await tsList(env, true); const x = L.find(y => y.id === s.id); if (x) { x.lastAt = s.lastAt; await tsSave(env, L); } })().catch(() => {});
+  if (ctx && ctx.waitUntil) ctx.waitUntil(w);
+}
+/* يعيد الطلب (قد يُعاد بناؤه إن كانت الجلسة في جسمه) والجلسة الحالية إن وُجدت */
+async function teacherAuthFromHeaders(request, url, env, ctx) {
+  const real = String(env.TEACHER_TOKEN || ''); let sess = null;
+  let ht = request.headers.get('X-Teacher-Token') || '';
+  if (ht.startsWith('ts1.')) { sess = await tsCheck(env, ht); ht = sess ? real : ''; }
   if (ht && !url.searchParams.has('t')) url.searchParams.set('t', ht);
+  const qt = url.searchParams.get('t') || '';
+  if (qt.startsWith('ts1.')) { const s = await tsCheck(env, qt); if (s) sess = sess || s; url.searchParams.set('t', s ? real : '-'); }
   const vk = url.searchParams.get('vk');
-  if (vk && !url.searchParams.has('t') && env.TEACHER_TOKEN && request.method === 'GET' && VK_PATHS.has(url.pathname)) {
-    if (vk === await viewKey(env, vkDay(0)) || vk === await viewKey(env, vkDay(1))) url.searchParams.set('t', String(env.TEACHER_TOKEN));
+  if (vk && !url.searchParams.has('t') && real && request.method === 'GET' && VK_PATHS.has(url.pathname)) {
+    if (vk === await viewKey(env, vkDay(0)) || vk === await viewKey(env, vkDay(1))) url.searchParams.set('t', real);
   }
+  // الجلسة في جسم الطلب: يُقرأ فقط لطلبات المعلم (ترويسة الجلسة) أو مسارات الإضافة — طلبات الطلاب لا تُمس
+  const hdrSess = (request.headers.get('X-Teacher-Token') || '').startsWith('ts1.');
+  if (request.method === 'POST' && real && (hdrSess || TS_BRIDGE(url.pathname))) {
+    const ct = (request.headers.get('content-type') || '').toLowerCase();
+    if (ct.includes('multipart/form-data')) {
+      const fd = await request.formData(), t = fd.get('t');
+      if (typeof t === 'string' && t.startsWith('ts1.')) { const s = await tsCheck(env, t); if (s) sess = sess || s; fd.set('t', s ? real : '-'); }
+      const h = new Headers(request.headers); h.delete('content-type'); h.delete('content-length');
+      request = new Request(url.href, { method: 'POST', headers: h, body: fd });
+    } else {
+      const txt = await request.text(); let b = null; try { b = JSON.parse(txt); } catch {}
+      let out = txt;
+      if (b && typeof b === 'object' && typeof b.t === 'string' && b.t.startsWith('ts1.')) { const s = await tsCheck(env, b.t); if (s) sess = sess || s; b.t = s ? real : '-'; out = JSON.stringify(b); }
+      const h = new Headers(request.headers); h.delete('content-length');
+      request = new Request(url.href, { method: 'POST', headers: h, body: out });
+    }
+  }
+  if (sess) tsTouch(env, ctx, sess);
+  return { request, sess };
+}
+/* مسارات الجلسات */
+async function tsRoutes(request, url, env, ctx, sess) {
+  const P = url.pathname; if (!P.startsWith('/auth/') || request.method !== 'POST') return null;
+  let b = {}; try { b = await request.clone().json(); } catch {}
+  const real = String(env.TEACHER_TOKEN || '');
+  if (P === '/auth/login') {
+    if (!real) return json({ ok: false, error: 'setup' }, 503);
+    const ip = request.headers.get('cf-connecting-ip') || 'x', fk = 'tsfail:' + (await sha256Hex(ip)).slice(0, 16);
+    const fails = Number(await env.HW.get(fk).catch(() => 0)) || 0;
+    if (fails >= 10) return json({ ok: false, error: 'too_many' }, 429);
+    if (String(b.password || '') !== real) { await env.HW.put(fk, String(fails + 1), { expirationTtl: 900 }).catch(() => {}); return json({ ok: false, error: 'unauthorized' }, 401); }
+    const id = [...crypto.getRandomValues(new Uint8Array(9))].map(x => x.toString(16).padStart(2, '0')).join('');
+    const now = Date.now(), temp = !!b.temp;
+    const L = await tsList(env, true);
+    L.push({ id, label: String(b.label || 'جهاز').replace(/[<>]/g, '').slice(0, 40), createdAt: now, lastAt: now, exp: now + (temp ? 864e5 : 365 * 864e5), temp });
+    while (L.length > TS_MAX) L.shift();
+    await tsSave(env, L);
+    return json({ ok: true, token: `ts1.${id}.${await tsSig(env, id)}`, id, exp: now + (temp ? 864e5 : 365 * 864e5) });
+  }
+  if (P === '/auth/check') { const t = request.headers.get('X-Teacher-Token') || b.t || ''; return json({ ok: true, valid: String(t).startsWith('ts1.') ? !!(await tsCheck(env, t)) : String(t) === real }); }
+  if (!real || b.t !== real) return json({ ok: false, error: 'unauthorized' }, 401);       // بعد التحويل: جلسة صالحة أو كلمة السر
+  const L = (await tsList(env, true)).filter(x => !(x.exp && x.exp < Date.now()));
+  if (P === '/auth/sessions') return json({ ok: true, current: sess ? sess.id : '', sessions: L.map(x => ({ id: x.id, label: x.label, createdAt: x.createdAt, lastAt: x.lastAt, exp: x.exp, temp: !!x.temp })) });
+  if (P === '/auth/revoke') {
+    const id = String(b.id || ''), keep = id === 'others' ? L.filter(x => sess && x.id === sess.id) : L.filter(x => x.id !== id);
+    await tsSave(env, keep); return json({ ok: true, n: L.length - keep.length });
+  }
+  if (P === '/auth/logout') { if (sess) await tsSave(env, L.filter(x => x.id !== sess.id)); return json({ ok: true }); }
+  return null;
 }
 
 export default {
@@ -5813,7 +5896,8 @@ export default {
 
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
-    try { await teacherAuthFromHeaders(request, url, env); } catch {}
+    let tSess = null;
+    try { const a = await teacherAuthFromHeaders(request, url, env, ctx); request = a.request; tSess = a.sess; } catch {}
     // 🗄️ نقل KV ← D1 في الخلفية: دفعة كل 10 ث على الأكثر لكل نسخة خادم حتى يكتمل
     if (env.DB && env.HW && !_kvsDone.done && Date.now() - _kvsMigAt > 10000 && ctx && typeof ctx.waitUntil === 'function') { _kvsMigAt = Date.now(); ctx.waitUntil(kvsMigrateStep(env).catch(() => {})); }
     env = subTrackEnv(env);
@@ -5823,6 +5907,7 @@ export default {
     if (!env.HW) return json({ error: 'KV binding HW is missing' }, 500);
 
     if (url.pathname === '/tts' && request.method === 'GET') return ttsHandle(request, env, ctx, url);
+    { const r = await tsRoutes(request, url, env, ctx, tSess).catch(() => null); if (r) return r; }
     // 🔐 مفتاح عرض الملفات (للمعلم فقط، بالترويسة)
     if (url.pathname === '/auth/viewkey' && request.method === 'GET') {
       if (!env.TEACHER_TOKEN || url.searchParams.get('t') !== env.TEACHER_TOKEN) return json({ ok: false, error: 'unauthorized' }, 401);
@@ -5848,7 +5933,7 @@ export default {
         multiGame: true,
         tts: !!env.ELEVENLABS_API_KEY,
         force: Number(await env.HW.get('app:force').catch(() => 0)) || 0,
-        hdrAuth: true,
+        hdrAuth: true, tsess: true,
         maxGamesPerActivity: MAX_GAMES,
         gameTypes: Object.keys(GAME_LIMITS)
       });

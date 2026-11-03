@@ -372,3 +372,37 @@ async function appForceAll(btn){
 function smartStartGet(){ try{ return localStorage.getItem('hwapp_start_portal_v1')!=='0'; }catch(e){ return true; } }
 function smartStartSet(on){ try{ localStorage.setItem('hwapp_start_portal_v1', on?'1':'0'); }catch(e){} toast(on?'✓ على الجوال يفتح التطبيق على بوابة المعلم':'✓ يفتح التطبيق على لوحة التحكم دائمًا','good'); }
 (function(){ const e=document.getElementById('smart-start'); if(e) e.checked=smartStartGet(); })();
+
+/* 🔐 الأجهزة المسجّل دخولها: قائمة الجلسات، وإلغاء جهاز، وإخراج الكل عدا هذا، والخروج من هذا الجهاز */
+async function devCall(path, extra){
+  const r=await fetch(getApi().replace(/\/+$/,'')+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:getTok(),...(extra||{})})});
+  const j=await r.json().catch(()=>({})); if(!r.ok||j.ok===false) throw new Error(j.error||('http_'+r.status)); return j;
+}
+async function devLoad(){
+  const box=document.getElementById('dev-list'); if(!box) return;
+  if(!/^ts1\./.test(getTok())){ box.innerHTML='<p class="muted" style="font-size:.86rem">هذا الجهاز ما زال يستخدم كلمة السر مباشرة. ارفع worker.js الجديد ثم أعد فتح اللوحة، فيتحول لدخول خاص به تلقائيًا.</p><button class="btn ghost" type="button" onclick="devLoad()">🔄 إعادة المحاولة</button>'; if(window.hwAuthUpgrade) hwAuthUpgrade(); return; }
+  box.innerHTML='<p class="muted">جارٍ التحميل…</p>';
+  let j; try{ j=await devCall('/auth/sessions'); }catch(e){ box.innerHTML='<p class="muted">تعذّر التحميل.</p><button class="btn ghost" type="button" onclick="devLoad()">🔄 إعادة المحاولة</button>'; return; }
+  const L=(j.sessions||[]).slice().sort((a,b)=>(b.id===j.current)-(a.id===j.current)||(b.lastAt||0)-(a.lastAt||0));
+  const ago=t=>{ if(!t) return '—'; const m=Math.round((Date.now()-t)/60000); return m<60?'قبل قليل':m<1440?`قبل ${Math.round(m/60)} ساعة`:`قبل ${Math.round(m/1440)} يوم`; };
+  box.innerHTML=`<div class="push-devices" style="border:0;padding:0">${L.map(d=>`<div class="push-device">
+      <span>${/iPhone|Android/.test(d.label)?'📱':/iPad/.test(d.label)?'📲':'💻'} ${esc(d.label)}${d.id===j.current?' <em>· هذا الجهاز</em>':''}${d.temp?' <em style="color:#B7791F">· مؤقت</em>':''}</span>
+      <small>دخل ${fmtDate(d.createdAt)} · آخر استخدام ${ago(d.lastAt)}</small>
+      ${d.id===j.current?'':`<button class="btn ghost sm" type="button" onclick="devRevoke('${esc(d.id)}')">إلغاء دخوله</button>`}
+    </div>`).join('')||'<p class="muted">لا توجد أجهزة.</p>'}</div>
+    <div class="row" style="gap:.5rem;flex-wrap:wrap;margin-top:.7rem">
+      ${L.length>1?'<button class="btn ghost" type="button" onclick="devRevoke(\'others\')">إخراج كل الأجهزة الأخرى</button>':''}
+      <button class="btn ghost" type="button" onclick="devLogout()">🚪 خروج من هذا الجهاز</button>
+      <button class="btn ghost" type="button" onclick="devLoad()">🔄 تحديث</button></div>`;
+}
+async function devRevoke(id){
+  if(typeof askConfirm==='function' && !(await askConfirm(id==='others'?'كل أجهزتك الأخرى ستحتاج كلمة السر من جديد. متابعة؟':'هذا الجهاز سيحتاج كلمة السر من جديد. متابعة؟'))) return;
+  try{ const j=await devCall('/auth/revoke',{id}); toast(`✓ أُلغي دخول ${j.n} ${j.n===1?'جهاز':'أجهزة'}`,'good'); }catch(e){ toast('تعذّر الإلغاء','bad'); }
+  devLoad();
+}
+async function devLogout(){
+  if(typeof askConfirm==='function' && !(await askConfirm('ستخرج من هذا الجهاز وتحتاج كلمة السر للدخول مرة أخرى. متابعة؟'))) return;
+  try{ await devCall('/auth/logout'); }catch(e){}
+  try{ localStorage.removeItem(K_TOK); localStorage.removeItem('hw_vk_v1'); }catch(e){}
+  location.reload();
+}

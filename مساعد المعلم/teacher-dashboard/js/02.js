@@ -14001,6 +14001,7 @@ async function ensureToken(){
       <p style="color:var(--ink-soft);font-size:.88rem;margin:.2rem 0 .9rem">
         اكتب كلمة سر الخادم مرة واحدة في هذا المتصفح، فتُحمَّل بياناتك.</p>
       <input class="inp" id="tok-in" type="password" placeholder="TEACHER_TOKEN" style="direction:ltr;text-align:center">
+      <label style="display:flex;align-items:center;gap:.5rem;margin:.7rem 0 0;font-size:.86rem;cursor:pointer"><input type="checkbox" id="tok-temp"> جهاز مشترك (مثل كمبيوتر المدرسة) — يخرج تلقائيًا بعد يوم</label>
       <div class="modal-foot">
         <button class="btn tick" style="width:100%" id="tok-go">دخول</button>
       </div>`);
@@ -14008,7 +14009,9 @@ async function ensureToken(){
       const v = document.getElementById('tok-in').value.trim();
       if(!v) return;
       localStorage.setItem(K_TOK, v);
+      try{ if(document.getElementById('tok-temp')?.checked) localStorage.setItem('hw_login_temp','1'); else localStorage.removeItem('hw_login_temp'); }catch(e){}
       const ok = await pullState();
+      if(getTok()===v && window.hwAuthUpgrade) window.hwAuthUpgrade();   // 🔑 كلمة السر ⇒ جلسة لهذا الجهاز
       if(ok === false && !getTok()) return;
       closeModal(); res(true);
       syncStore(true); pullAll(true); ctCertTplPush();

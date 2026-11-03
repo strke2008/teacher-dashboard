@@ -2,31 +2,52 @@
 <html lang="ar" dir="rtl">
 <head>
 <script>
-/* 🔐 كلمة سر المعلم لا تُكتب في الروابط: أي طلب للخادم فيه ‎?t=‎ (كلمة السر نفسها) تُنقل كلمته إلى ترويسة مخفية.
-   يعمل فقط إن أكّد الخادم دعمه (hdrAuth في /version) — فترتيب الرفع لا يكسر شيئًا. وروابط الملفات المفتوحة مباشرة
-   (صورة/فيديو/تنزيل) تحمل «مفتاح عرض» مؤقتًا بدل كلمة السر: hwFileAuth(). */
+/* 🔐 دخول المعلم: (1) كلمة السر لا تُكتب في الروابط — تُرسل في ترويسة مخفية. (2) جلسة لكل جهاز: أول فتح بعد التحديث
+   يستبدل كلمة السر المحفوظة على هذا الجهاز بجلسة خاصة به (بلا إعادة دخول)، تُلغى وحدها من «الأجهزة» في الإعدادات.
+   لا شيء يتغير قبل أن يؤكد الخادم دعمه (/version)، فترتيب الرفع لا يكسر شيئًا. صفحات الطلاب لا تحمل هذا الملف. */
 (function(){
-  var KT='hwapp_tok_v1',KOK='hw_hdr_auth_v1',KVK='hw_vk_v1',DEF='https://homework.ahmadalmarzooq2009.workers.dev';
+  var KT='hwapp_tok_v1',KOK='hw_hdr_auth_v1',KVK='hw_vk_v1',KTMP='hw_login_temp',DEF='https://homework.ahmadalmarzooq2009.workers.dev';
   var ls=function(k){try{return localStorage.getItem(k)||''}catch(e){return ''}}, put=function(k,v){try{if(v==null)localStorage.removeItem(k);else localStorage.setItem(k,v)}catch(e){}};
-  var on=ls(KOK)==='1', F=window.fetch.bind(window);
+  var on=ls(KOK)==='1', F=window.fetch.bind(window), checking=false;
   var tok=function(){return ls(KT).trim()}, api=function(){return (ls('hwapp_api_v1_test')||DEF).trim().replace(/\/+$/,'')};
+  var isSess=function(k){return k.indexOf('ts1.')===0};
+  var apiOrigin=function(){try{return new URL(api()).origin}catch(e){return ''}};
   var day=function(o){return new Date(Date.now()+3*3600e3-(o||0)*864e5).toISOString().slice(0,10)};
+  window.hwDeviceLabel=function(){var u=navigator.userAgent||'',d=/iPhone/.test(u)?'iPhone':/iPad|Macintosh.*Mobile/.test(u)||(/Macintosh/.test(u)&&navigator.maxTouchPoints>1)?'iPad':/Android/.test(u)?'Android':/Macintosh/.test(u)?'Mac':/Windows/.test(u)?'Windows':'جهاز';
+    return d+' · '+(location.pathname.indexOf('/portal/')>=0?'البوابة':'اللوحة')};
+  function revoked(){ if(checking) return; checking=true; var k=tok(); if(!isSess(k)){checking=false;return}
+    F(api()+'/auth/check',{method:'POST',headers:{'Content-Type':'application/json','X-Teacher-Token':k},body:'{}'}).then(function(r){return r.json()}).then(function(j){
+      if(j&&j.ok&&j.valid===false&&tok()===k){ put(KT,null); put(KVK,null); alert('🔒 أُلغي دخول هذا الجهاز من قائمة الأجهزة. ادخل بكلمة السر من جديد.'); location.reload(); } else checking=false;
+    }).catch(function(){checking=false}); }
   window.fetch=function(input,init){
-    try{ if(on&&(typeof input==='string'||input instanceof URL)){ var u=new URL(String(input),location.href), k=tok();
-      if(k&&u.origin!==location.origin&&u.searchParams.get('t')===k){ u.searchParams.delete('t'); init=Object.assign({},init||{});
-        var h=new Headers(init.headers||{}); h.set('X-Teacher-Token',k); init.headers=h; input=u.href; } } }catch(e){}
-    return F(input,init);
+    var isApi=false;
+    try{ if(typeof input==='string'||input instanceof URL){ var u=new URL(String(input),location.href), k=tok();
+      if(k&&u.origin===apiOrigin()){ isApi=true; var qt=u.searchParams.get('t'), mine=qt&&(qt===k||qt===window.__hwPrevPw), hdr=isSess(k)||(on&&mine);
+        if((on||isSess(k))&&mine) u.searchParams.delete('t');
+        if(hdr){ init=Object.assign({},init||{}); var h=new Headers(init.headers||{}); h.set('X-Teacher-Token',k); init.headers=h; input=u.href; } } } }catch(e){}
+    var p=F(input,init);
+    if(isApi&&isSess(tok())) p.then(function(r){ if(r.status===401) revoked(); }).catch(function(){});
+    return p;
   };
+  // الرفع بـ XMLHttpRequest (الإعلانات والجدار): الترويسة نفسها
+  try{ var XO=XMLHttpRequest.prototype.open, XS=XMLHttpRequest.prototype.send;
+    XMLHttpRequest.prototype.open=function(m,u){ try{this.__hwApi=new URL(String(u),location.href).origin===apiOrigin()}catch(e){this.__hwApi=false} return XO.apply(this,arguments) };
+    XMLHttpRequest.prototype.send=function(){ try{ var k=tok(); if(this.__hwApi&&k&&isSess(k)) this.setRequestHeader('X-Teacher-Token',k) }catch(e){} return XS.apply(this,arguments) };
+  }catch(e){}
   function vkLoad(){ var k=tok(); if(!k||!on) return; var c={}; try{c=JSON.parse(ls(KVK)||'{}')}catch(e){}
     if(c.vk&&c.tk===k.length+':'+k.slice(-2)&&c.day===day(0)) return;
     F(api()+'/auth/viewkey',{cache:'no-store',headers:{'X-Teacher-Token':k}}).then(function(r){return r.json()}).then(function(j){
       if(j&&j.ok&&j.vk) put(KVK,JSON.stringify({vk:j.vk,day:j.day,tk:k.length+':'+k.slice(-2)})); }).catch(function(){}); }
-  /* معامل الهوية لروابط الملفات: مفتاح العرض إن كان صالحًا (اليوم أو أمس)، وإلا كلمة السر كالسابق */
   window.hwFileAuth=function(){ var k=tok(), c={}; try{c=JSON.parse(ls(KVK)||'{}')}catch(e){}
     if(on&&c.vk&&c.tk===k.length+':'+k.slice(-2)&&(c.day===day(0)||c.day===day(1))) return 'vk='+encodeURIComponent(c.vk);
     vkLoad(); return 't='+encodeURIComponent(k); };
+  /* كلمة السر المحفوظة ⇒ جلسة لهذا الجهاز (مرة واحدة، بلا إعادة دخول) */
+  function upgrade(){ var k=tok(); if(!k||isSess(k)) return;
+    F(api()+'/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:k,label:hwDeviceLabel(),temp:ls(KTMP)==='1'})})
+      .then(function(r){return r.json()}).then(function(j){ if(j&&j.ok&&j.token&&tok()===k){ window.__hwPrevPw=k; put(KT,j.token); put(KTMP,null); put(KVK,null); vkLoad(); } }).catch(function(){}); }
+  window.hwAuthUpgrade=upgrade;
   F(api()+'/version',{cache:'no-store'}).then(function(r){return r.json()}).then(function(j){
-    on=!!(j&&j.hdrAuth); put(KOK,on?'1':null); if(on) vkLoad(); }).catch(function(){});
+    on=!!(j&&j.hdrAuth); put(KOK,on?'1':null); if(j&&j.tsess) upgrade(); if(on) vkLoad(); }).catch(function(){});
   if(on) vkLoad();
 })();
 </script>
@@ -1180,6 +1201,7 @@ setTimeout(function(){if(window.__portalBooted)return;var g=document.getElementB
     <h1>بوابة المعلم</h1>
     <p>كراسة النشاط · أدخل كلمة سر المعلم للمتابعة</p>
     <input class="inp" id="gate-input" type="password" inputmode="text" autocomplete="current-password" placeholder="كلمة السر">
+    <label style="display:flex;align-items:center;gap:.5rem;margin:.6rem 2px 0;font-size:.84rem;cursor:pointer;text-align:start"><input type="checkbox" id="gate-temp"> جهاز مشترك — يخرج تلقائيًا بعد يوم</label>
     <button class="btn primary wide" id="gate-btn" style="margin-top:10px">دخول</button>
     <div class="gate-err" id="gate-err"></div>
   </div>
@@ -4506,8 +4528,10 @@ $('gate-btn').onclick=async()=>{
  const v=$('gate-input').value.trim();
  if(!v){showGate('اكتب كلمة السر.');return}
  token=v;localStorage.setItem('hwapp_tok_v1',token);
+ try{ if($('gate-temp')?.checked) localStorage.setItem('hw_login_temp','1'); else localStorage.removeItem('hw_login_temp'); }catch(e){}
  $('gate-btn').textContent='جارٍ التحقق…';$('gate-btn').disabled=true;
  await start();
+ if(window.__portalBooted && localStorage.getItem('hwapp_tok_v1')===v && window.hwAuthUpgrade) window.hwAuthUpgrade();   // 🔑 جلسة لهذا الجهاز
  $('gate-btn').textContent='دخول';$('gate-btn').disabled=false;
 };
 $('gate-input').addEventListener('keydown',e=>{if(e.key==='Enter')$('gate-btn').click()});
