@@ -178,7 +178,7 @@ const PUSH_CAT_UI=[
   ['ask','💬','رسائل وأسئلة الطلاب','سؤال جديد أو رد على رسالتك'],
   ['wall','🧱','منشورات الجدار','منشور ينتظر اعتمادك'],
   ['lesson','⏰','بداية الحصة','من جدولك — بضغطة يفتح رصد الفصل'],
-  ['task','📌','تذكيراتي','مهامك من بوابة المعلم في موعدها']];
+  ['task','📌','تذكيراتي','مهامك من «اليوم ← مهام اليوم» في موعدها']];
 function pushPrefsHTML(P){
   const hrs=v=>Array.from({length:24},(_,h)=>`<option value="${h}" ${h===v?'selected':''}>${h===0?'12 ص':h<12?h+' ص':h===12?'12 م':(h-12)+' م'}</option>`).join('');
   const off=PUSH_CAT_UI.filter(([k])=>P.on[k]===false).length;
@@ -371,11 +371,7 @@ async function appForceAll(btn){
   if(btn) btn.disabled=false;
 }
 
-/* 📱 الفتح الذكي: تطبيق الشاشة الرئيسية على الجوال يبدأ في بوابة المعلم (الحصة والرصد)، والكمبيوتر في اللوحة.
-   الرجوع من البوابة للوحة لا يعيدك إليها في الجلسة نفسها. الإعداد في «بوابة المعلم» بالإعدادات */
-function smartStartGet(){ try{ return localStorage.getItem('hwapp_start_portal_v1')!=='0'; }catch(e){ return true; } }
-function smartStartSet(on){ try{ localStorage.setItem('hwapp_start_portal_v1', on?'1':'0'); }catch(e){} toast(on?'✓ على الجوال يفتح التطبيق على بوابة المعلم':'✓ يفتح التطبيق على لوحة التحكم دائمًا','good'); }
-(function(){ const e=document.getElementById('smart-start'); if(e) e.checked=smartStartGet(); })();
+try{ localStorage.removeItem('hwapp_start_portal_v1'); }catch(e){}   // الفتح الذكي على البوابة أُلغي مع البوابة
 
 /* 🔐 الأجهزة المسجّل دخولها: قائمة الجلسات، وإلغاء جهاز، وإخراج الكل عدا هذا، والخروج من هذا الجهاز */
 async function devCall(path, extra){

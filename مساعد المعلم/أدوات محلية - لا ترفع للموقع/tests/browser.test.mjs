@@ -14,6 +14,13 @@ export default async function run() {
     await ctx.route(/workers\.dev/, async r => { const u = new URL(r.request().url()); if (ctx.offline) return r.abort('internetdisconnected').catch(() => {}); reqs.push({ u: u.pathname + u.search, h: r.request().headers()['x-teacher-token'] || '' });
       try { await r.fulfill({ response: await r.fetch({ url: 'http://localhost:' + WP + u.pathname + u.search }) }); } catch { try { await r.abort(); } catch {} } });   // الصفحة أُغلقت أثناء الطلب: لا يُسقط التشغيل
     ctx.reqs = reqs; return ctx; };
+  /* اللوحة جاهزة وبيانات الفصل محمّلة: إن لم تحمّلها «اليوم» بعد، تُطلب من أدوات الفصل (ولو فشلت يظهر السبب) */
+  const dashReady = async p => {
+    await p.waitForFunction(() => typeof ctGo === 'function' && typeof qrPaint === 'function', null, { timeout: 15000 });
+    try { await p.waitForFunction(() => typeof CT_DATA !== 'undefined' && CT_DATA, null, { timeout: 6000 }); return; } catch {}
+    await p.evaluate(() => ctGo('records'));
+    try { await p.waitForFunction(() => typeof CT_DATA !== 'undefined' && CT_DATA, null, { timeout: 20000 }); }
+    catch { throw new Error('بيانات الفصل لم تُحمّل: ' + await p.evaluate(() => [String(localStorage.getItem('hwapp_tok_v1') || '').slice(0, 4), (document.querySelector('#ct-body') || {}).innerText].join(' | ').slice(0, 200))); } };
   const watch = p => { const e = []; p.on('pageerror', x => e.push(x.message)); p.on('dialog', d => d.accept()); return e; };
   try {
     // ── لوحة التحكم ──
@@ -25,38 +32,18 @@ export default async function run() {
       await S.t('لا كلمة سر ولا جلسة داخل أي رابط', async () => {
         ctx.reqs.length = 0; await p.reload(); await p.waitForTimeout(5000);
         const leak = ctx.reqs.filter(x => /[?&]t=(test-secret-123|ts1\.)/.test(x.u)); eq(leak.map(x => x.u), [], 'روابط مكشوفة'); ok(ctx.reqs.length > 5, 'طلبات قليلة'); });
-      // ── بوابة المعلم ──
-      await S.t('بوابة المعلم تفتح بنفس الدخول بلا أخطاء', async () => {
-        const q = await ctx.newPage(), e2 = watch(q); await q.goto(base + '/teacher-dashboard/portal/'); await q.waitForTimeout(5000);
-        ok(await q.evaluate(() => !!window.__portalBooted && !document.getElementById('gate').classList.contains('show')), 'لم تفتح'); eq(e2, [], 'أخطاء'); });
-      await S.t('بوابة المعلم: «المستويات ↗» تفتح أدوات الفصل في اللوحة (لا تكرار)', async () => {
-        const q = await ctx.newPage(), e3 = watch(q); await q.goto(base + '/teacher-dashboard/portal/'); await q.waitForTimeout(3500);
-        await q.evaluate(() => openTeacherPanel('students')); await q.waitForTimeout(300);
-        const tabs = await q.$$eval('#students .subtabs button', bs => bs.map(b => b.textContent.trim())); ok(tabs.includes('المستويات ↗') && tabs.includes('المهام ↗'), 'الأزرار: ' + tabs.join('،'));
-        await q.click('#students .subtabs [data-dash=levels]'); await q.waitForURL(/teacher-dashboard\/(\?|$)/, { timeout: 8000 }); await q.waitForTimeout(3500);
-        ok(await q.evaluate(() => typeof CT_TAB !== 'undefined' && CT_TAB === 'levels' && !!document.querySelector('#p-classtools.on')), 'لم تُفتح المستويات في اللوحة'); eq(e3, [], 'أخطاء'); });
-      await ctx.close(); }
-    // ── 📶 الرصد بلا شبكة لا يضيع ──
-    { await env.HW.put('teacher:classroom', JSON.stringify({ participation: { '2020-01-01': { s2: { status: 'شارك', at: 1 } } } }));
-      const ctx = await newCtx({ viewport: { width: 390, height: 800 } }); let p = await ctx.newPage(); watch(p);
-      await p.goto(base + '/teacher-dashboard/portal/'); await p.evaluate(t => localStorage.setItem('hwapp_tok_v1', t), TOKEN); await p.reload(); await p.waitForTimeout(4000);
-      const d = await p.evaluate(() => today()), srv = async () => JSON.parse(await env.HW.get('teacher:classroom') || '{}');
-      await S.t('رصد بلا شبكة ثم إغلاق التطبيق وفتحه: يصل للخادم ولا يضيع', async () => {
-        ctx.offline = true; await p.evaluate(() => quickSet('participation', 's1', 'شارك')); await p.waitForTimeout(2500);
-        ok(/لم يُرسل/.test(await p.$eval('#save-text', e => e.textContent)), 'لا تنبيه «لم يُرسل»');
-        await p.close(); ctx.offline = false; p = await ctx.newPage(); watch(p); await p.goto(base + '/teacher-dashboard/portal/'); await p.waitForTimeout(6000);
-        ok(await p.evaluate(d => !!((data.participation || {})[d] || {}).s1, d), 'ضاع من الجهاز'); const sv = await srv();
-        ok(((sv.participation || {})[d] || {}).s1, 'لم يصل للخادم'); ok(((sv.participation || {})['2020-01-01'] || {}).s2, 'ضاع رصد قديم من الخادم'); });
-      await S.t('رصد بلا شبكة ثم عودتها والتطبيق مفتوح: يُرسل وحده', async () => {
-        ctx.offline = true; await p.evaluate(() => quickSet('participation', 's2', 'شارك')); await p.waitForTimeout(2500);
-        ctx.offline = false; await p.evaluate(() => dispatchEvent(new Event('online'))); await p.waitForTimeout(4000);
-        ok((((await srv()).participation || {})[d] || {}).s2, 'لم يُرسل بعد عودة الشبكة'); eq(await p.$eval('#save-text', e => e.textContent), 'محفوظ'); });
+      // ── بوابة المعلم أُلغيت: روابطها القديمة تُحوَّل للوحة ──
+      await S.t('رابط البوابة القديم يفتح لوحة التحكم', async () => {
+        const q = await ctx.newPage(), e2 = watch(q); await q.goto(base + '/teacher-dashboard/portal/'); await q.waitForURL(/teacher-dashboard\/(#.*)?$/, { timeout: 8000 });
+        await q.waitForFunction(() => typeof ctGo === 'function', null, { timeout: 15000 }); eq(e2, [], 'أخطاء'); await q.close(); });
+      await S.t('زر «✋ الرصد» (مكان «بوابة المعلم») يفتح الرصد السريع', async () => {
+        await p.click('#portal-link-btn'); await p.waitForSelector('#qr-root', { timeout: 15000 }); eq(await p.evaluate(() => CT_TAB), 'records'); });
       await ctx.close(); }
     // ── ✋ الرصد السريع داخل لوحة التحكم ──
     { await env.HW.put('teacher:classroom', JSON.stringify({ participation: { '2020-01-01': { s2: { status: 'شارك', at: 1 } } } }));
       const ctx = await newCtx({ viewport: { width: 390, height: 844 } }); let p = await ctx.newPage(), errs = watch(p);
       const srv = async () => JSON.parse(await env.HW.get('teacher:classroom') || '{}');
-      const open = async () => { await p.waitForFunction(() => typeof CT_DATA !== 'undefined' && CT_DATA && typeof qrPaint === 'function', null, { timeout: 15000 });
+      const open = async () => { await dashReady(p);
         await p.evaluate(() => { window._ctRcCls = 'أول 1'; window._ctRcClsUser = 1; window._ctRcView = 'day'; ctGo('records'); }); await p.waitForSelector('#qr-root .qr-row', { timeout: 8000 }); };
       await p.goto(base + '/teacher-dashboard/'); await p.evaluate(t => localStorage.setItem('hwapp_tok_v1', t), TOKEN); await p.reload(); await open();
       const d = await p.evaluate(() => ctToday());
@@ -93,7 +80,7 @@ export default async function run() {
       await env.HW.put('omr:t:tp1', JSON.stringify({ id: 'tp1', title: 'ورقي 1', models: [{ letter: 'أ', questions: [] }] }));
       const ctx = await newCtx({ viewport: { width: 390, height: 844 } }); let p = await ctx.newPage(), errs = watch(p);
       const book = async () => (JSON.parse(await env.HW.get('teacher:classroom') || '{}').examBooks || {})['1']['1'];
-      const open = async () => { await p.waitForFunction(() => typeof CT_DATA !== 'undefined' && CT_DATA && typeof ctExams === 'function', null, { timeout: 15000 });
+      const open = async () => { await dashReady(p);
         await p.evaluate(() => { window._ctExCls = 'أول 1'; window._ctExMode = 'rec'; ctGo('exams'); }); await p.waitForSelector('#exam-list .ex-row', { timeout: 15000 }); };
       await p.goto(base + '/teacher-dashboard/'); await p.evaluate(t => localStorage.setItem('hwapp_tok_v1', t), TOKEN); await p.reload(); await open();
       await S.t('الاختبارات: لوحة الأرقام ترصد وتصل للخادم ولا تمس غيرها', async () => {
@@ -126,7 +113,7 @@ export default async function run() {
       const ctx = await newCtx({ viewport: { width: 390, height: 844 } }); const p = await ctx.newPage(), errs = watch(p);
       const cr = async () => JSON.parse(await env.HW.get('teacher:classroom') || '{}'), kv = async k => JSON.parse(await env.HW.get(k) || 'null');
       await p.goto(base + '/teacher-dashboard/'); await p.evaluate(t => localStorage.setItem('hwapp_tok_v1', t), TOKEN); await p.reload();
-      await p.waitForFunction(() => typeof CT_DATA !== 'undefined' && CT_DATA && typeof ctGo === 'function', null, { timeout: 15000 });
+      await dashReady(p);
       await p.evaluate(() => ctGo('schedule')); await p.waitForSelector('#sch-grid .sc-wr', { timeout: 15000 });
       await S.t('الجدول: شاشة البوابة داخل اللوحة بلا تكرار لوحة الأوقات القديمة', async () => {
         eq(await p.$$eval('.st-panel', x => x.length), 0, 'لوحة الأوقات القديمة ما زالت'); ok(await p.$('#sc-day .sc-r'), 'لا حصص اليوم'); eq(errs, [], 'أخطاء'); });
@@ -144,7 +131,7 @@ export default async function run() {
         await p.evaluate(() => rmgSave()); await p.waitForTimeout(3500); const A = await kv('tasks:alarms');
         ok(A && A.items && A.items.some(x => x.title === 'تذكير الاختبار'), 'لم تصل: ' + JSON.stringify(A)); await p.evaluate(() => closeModal()); });
       await S.t('الضغط على تنبيه الحصة يفتح رصد فصلها في اللوحة', async () => {
-        const d = await p.evaluate(() => ctToday()); await p.goto(base + `/teacher-dashboard/?open=lesson&d=${d}&p=2`);
+        const d = await p.evaluate(() => ctToday()); await p.goto(base + `/teacher-dashboard/portal/?lesson=${d}.2`);   // رابط تنبيه قديم (البوابة) ⇒ اللوحة
         await p.waitForSelector('#qr-root .qr-row', { timeout: 20000 }); eq(await p.evaluate(() => [CT_TAB, qrCls()]), ['records', 'أول 1']); eq(errs, [], 'أخطاء'); });
       await ctx.close(); }
     // ── المرحلة 4: سلوك لعدة طلاب · فترة السماح · رسائل الحصة ──
@@ -153,7 +140,7 @@ export default async function run() {
       const ctx = await newCtx({ viewport: { width: 390, height: 844 } }); const p = await ctx.newPage(), errs = watch(p);
       const cr = async () => JSON.parse(await env.HW.get('teacher:classroom') || '{}');
       await p.goto(base + '/teacher-dashboard/'); await p.evaluate(t => localStorage.setItem('hwapp_tok_v1', t), TOKEN); await p.reload();
-      await p.waitForFunction(() => typeof ctGo === 'function' && typeof qrPaint === 'function', null, { timeout: 15000 }); await p.waitForTimeout(1500);
+      await dashReady(p);
       await p.evaluate(() => { window._ctRcCls = 'أول 1'; window._ctRcClsUser = 1; window._ctRcView = 'day'; ctGo('records'); }); await p.waitForSelector('#qr-root .qr-row', { timeout: 20000 });
       await S.t('فترة السماح: يظهر من لم ينجز حديثًا فقط، و«سامحه» تصل للخادم', async () => {
         await p.click('.qr-mode button:nth-child(2)'); const names = await p.$$eval('.qr-gr b', x => x.map(e => e.textContent));

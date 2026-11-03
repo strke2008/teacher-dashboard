@@ -539,8 +539,8 @@ function goTab(name){
       <h3 style="margin:0 0 .8rem">المزيد</h3>
       ${items.map(([k,l])=>k==='—'?`<div class="more-grp">${l}</div>`:`<button class="btn ghost" data-more="${k}" style="width:100%;min-height:46px;margin-bottom:.4rem;justify-content:flex-start"
         onclick="goTab('${k}')">${l}${(k==='projects'||k==='walls')?(n=>`<span class="proj-badge-in${n?'':' hide'}">${n>99?'99+':n||''}</span>`)(NAV_BADGES[k]||0):''}</button>`).join('')}
-      ${portal?`<button class="btn ghost" style="width:100%;min-height:48px;margin-bottom:.5rem;justify-content:flex-start"
-        onclick="closeModal();openPortal()">🧭 بوابة المعلم ↗</button>`:''}
+      <button class="btn ghost" style="width:100%;min-height:48px;margin-bottom:.5rem;justify-content:flex-start"
+        onclick="closeModal();openPortal()">✋ الرصد السريع</button>
       <button class="btn" style="width:100%;min-height:44px" onclick="closeModal()">إغلاق</button>
     </div>`);
   };
@@ -6424,7 +6424,7 @@ function omrManageRender(){
   const tg=(k,on,lab,sub)=>`<label class="omrm-set"><span><b>${lab}</b><small>${sub}</small></span><input type="checkbox" class="omrm-sw" ${on?'checked':''} onchange="omrManageSet('${k}',this.checked)"></label>`;
   const vis=L.filter(t=>!t.hidden).length;
   box.innerHTML=`<h3>⚙️ إعدادات التصحيح الآلي</h3>
-    <div class="omrm-sec"><h4>📷 التصوير في بوابة المعلم</h4>
+    <div class="omrm-sec"><h4>📷 التصوير («دفتر الاختبارات ← 📱 رصد ← بالكاميرا»)</h4>
       <label class="omrm-set"><span><b>🎯 دقة القراءة</b><small>«أدق» يجمع 3 لقطات لكل ورقة فتقلّ الأسئلة غير الواضحة (نحو ثانية ونصف للورقة)</small></span>
         <select class="inp omrm-sel" onchange="omrManageSet('frames',Number(this.value))"><option value="3" ${c.frames!==1?'selected':''}>أدق — 3 لقطات</option><option value="1" ${c.frames===1?'selected':''}>أسرع — لقطة واحدة</option></select></label>
       ${tg('beep',c.beep!==false,'🔔 صوت عند إضافة ورقة','نغمة عالية = أُضيفت، منخفضة = مكررة — مفيد والجوال مثبّت')}
@@ -10012,14 +10012,8 @@ function syncPortalBtn(){
   const b=document.getElementById('portal-link-btn');
   if(b) b.style.display = '';
 }
-function openPortal(){
-  const u=getPortal();
-  const app = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
-  if(!u){ if(app) location.href='./portal/'; else window.open('./portal/','_blank'); return; }   // داخل تطبيق الشاشة الرئيسية: الصفحة نفسها (لا يخرج لسفاري)
-  // تبويب جديد: اللوحة تحمل حالة غير محفوظة (تقرير مرسوم، ترشيح، مسودة)
-  // ولا رمز في الرابط: الرمز يُدخَل في البوابة نفسها ولا يُسجَّل في التاريخ
-  window.open(/^https?:\/\//i.test(u) ? u : 'https://'+u, '_blank', 'noopener');
-}
+/* 🧭 كان يفتح بوابة المعلم — البوابة صارت داخل اللوحة: يفتح «✋ الرصد» (السجلات والحضور ← اليوم) على الحصة الحالية */
+function openPortal(){ try{ closeModal(); }catch(e){} window._ctRcView='day'; window._ctRcD=ctToday(); window._ctRcClsUser=0; window._qrScroll=1; ctGo('records'); }
 function getSite(){ return (localStorage.getItem(K_SITE) || SITE_URL).trim(); }
 
 const K_API = 'hwapp_api_v1_test', K_TOK = 'hwapp_tok_v1', K_SEEN = 'hwapp_seen_v1';

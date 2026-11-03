@@ -15,7 +15,7 @@
   var apiOrigin=function(){try{return new URL(api()).origin}catch(e){return ''}};
   var day=function(o){return new Date(Date.now()+3*3600e3-(o||0)*864e5).toISOString().slice(0,10)};
   window.hwDeviceLabel=function(){var u=navigator.userAgent||'',d=/iPhone/.test(u)?'iPhone':/iPad|Macintosh.*Mobile/.test(u)||(/Macintosh/.test(u)&&navigator.maxTouchPoints>1)?'iPad':/Android/.test(u)?'Android':/Macintosh/.test(u)?'Mac':/Windows/.test(u)?'Windows':'جهاز';
-    return d+' · '+(location.pathname.indexOf('/portal/')>=0?'البوابة':'اللوحة')};
+    return d};
   function revoked(){ if(checking) return; checking=true; var k=tok(); if(!isSess(k)){checking=false;return}
     F(api()+'/auth/check',{method:'POST',headers:{'Content-Type':'application/json','X-Teacher-Token':k},body:'{}'}).then(function(r){return r.json()}).then(function(j){
       if(j&&j.ok&&j.valid===false&&tok()===k){ put(KT,null); put(KVK,null); alert('🔒 أُلغي دخول هذا الجهاز من قائمة الأجهزة. ادخل بكلمة السر من جديد.'); location.reload(); } else checking=false;
@@ -73,13 +73,13 @@
 <link rel="stylesheet" href="app.css?v=16178ead">
 <script src="js/00-fetch-dedupe-js.js?v=e77498d1" defer></script>
 <script src="js/01-right-sidebar-navigation-js.js?v=41ea29b3" defer></script>
-<script src="js/02.js?v=bc6da789" defer></script>
+<script src="js/02.js?v=45a57339" defer></script>
 <script src="js/03-projects-students-logic-v13.js?v=d4950f64" defer></script>
 <script src="js/04.js?v=5a7c663e" defer></script>
 <script src="js/05.js?v=a7c074c3" defer></script>
 <script src="js/06.js?v=4e76f64a" defer></script>
 <script src="js/07.js?v=ee4fadce" defer></script>
-<script src="js/08.js?v=8e7b4cc6" defer></script>
+<script src="js/08.js?v=d02d5298" defer></script>
 <script src="js/09.js?v=ef17fc2a" defer></script>
 <script src="js/10.js?v=bbaf2a38" defer></script>
 <script src="js/11.js?v=8ccd78e3" defer></script>
@@ -551,15 +551,6 @@
 <link rel="stylesheet" href="tab-polish.css?v=b9d66f7c">
 <link rel="stylesheet" href="audit-fixes.css?v=a05870b6">
 <link rel="stylesheet" href="wall.css?v=af13d2ec">
-<script>
-/* 📱 الفتح الذكي: تطبيق الشاشة الرئيسية على جوال ⇒ بوابة المعلم مباشرة (قبل تحميل اللوحة الثقيلة) */
-(function(){try{
-  var app=(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true;
-  var phone=window.matchMedia&&matchMedia('(max-width: 820px)').matches&&matchMedia('(pointer: coarse)').matches;
-  if(!app||!phone||location.search.indexOf('open=')>=0||localStorage.getItem('hwapp_start_portal_v1')==='0'||sessionStorage.getItem('dash_stay'))return;
-  sessionStorage.setItem('dash_stay','1');location.replace('./portal/'+location.hash);
-}catch(e){}})();
-</script>
 </head>
 <body>
 <header class="masthead">
@@ -568,7 +559,7 @@
 <div class="brand brand-refresh" role="button" tabindex="0" title="اضغط لتحديث الصفحة" aria-label="تحديث الصفحة"><span class="mark"></span><span class="brand-txt">مساعد المعلم</span></div>
 <div class="meta" id="meta-line">—</div>
 <button class="btn ghost sm no-print vsp-btn" id="vsp-btn" onclick="vspOpen()" style="display:none" title="الفترة المعروضة في اللوحة — اضغط لعرض فترة مغلقة" type="button">📅</button>
-<button class="btn ghost sm no-print" id="portal-link-btn" onclick="openPortal()" style="margin-inline-start:.4rem" type="button" title="بوابة المعلم" aria-label="بوابة المعلم">🧭<span class="portal-w"> بوابة المعلم</span></button>
+<button class="btn ghost sm no-print" id="portal-link-btn" onclick="openPortal()" style="margin-inline-start:.4rem" type="button" title="الرصد السريع للحصة" aria-label="الرصد السريع">✋<span class="portal-w"> الرصد</span></button>
 </div>
 <div class="vsp-banner hide no-print" id="vsp-banner"></div>
 </header>
@@ -693,7 +684,7 @@
 </div>
 <div class="sheet" id="msgq-sheet" style="display:none">
 <div class="sheet-head" style="margin:0 0 .5rem">
-<div><h3 style="margin:0">📥 الطابور من بوابة المعلم</h3>
+<div><h3 style="margin:0">📥 رسائل «لاحقًا»</h3>
 <span class="sub">رسائل جهّزتها بصوتك على الجوال — راجعها وأرسلها من هنا</span></div>
 <span class="spacer"></span>
 <button class="btn" id="msgq-refresh">تحديث</button>
@@ -1733,16 +1724,6 @@
 <div class="field" style="margin:0">
 <input class="inp" id="site-url" oninput="saveSite()" placeholder="https://homwork.pages.dev/"/>
 </div>
-</div>
-<div class="sheet">
-<div class="sheet-head"><h2>📱 بوابة المعلم</h2></div>
-<p style="margin:0 0 .9rem;color:var(--ink-soft);font-size:.88rem;line-height:1.8">
-        بوابة المعلم (الحصة والرصد والتصحيح الآلي) جزء من هذا التطبيق: زر «🧭 بوابة المعلم» في الأعلى، وللرجوع «لوحة التحكم» من «الوصول السريع» فيها.
-      </p>
-<label style="display:flex;align-items:center;gap:.7rem;cursor:pointer;font-weight:700;font-size:.9rem">
-<input type="checkbox" class="pp-sw" id="smart-start" checked onchange="smartStartSet(this.checked)">
-<span>على الجوال: افتح التطبيق على بوابة المعلم مباشرة<small style="display:block;font-weight:500;color:var(--ink-soft);font-size:.78rem">من الكمبيوتر يفتح على اللوحة دائمًا</small></span>
-</label>
 </div>
 <div class="sheet">
 <div class="sheet-head"><h2>الخادم — استقبال النتائج تلقائياً</h2></div>
