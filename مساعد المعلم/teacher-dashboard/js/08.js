@@ -206,6 +206,8 @@ async function openSubmissionFromPush(data){
   if(!data) return;
   // ⏰ تنبيه حصة/تذكير (بوابة المعلم داخل اللوحة): يفتح البوابة نفسها
   if(data.type==='lesson' || data.type==='task'){ location.href = data.url || './portal/'; return; }
+  // 🧰 من بوابة المعلم: الشهادات/المستويات/المهام في «أدوات الفصل»
+  if(data.open==='ct' && /^(certs|levels|duties)$/.test(data.tab||'')){ const t0=Date.now(); const go=()=>{ if(typeof ctGo==='function'){ try{ ctGo(data.tab); }catch(e){} } else if(Date.now()-t0<8000) setTimeout(go,300); }; setTimeout(go,600); return; }
   // 📂 «الملف الكامل» من بوابة المعلم
   if(data.open==='student' && data.sid){ const t0=Date.now(); const go=()=>{ if(typeof byId==='function' && byId(data.sid)) openStudentProfile(data.sid); else if(Date.now()-t0<8000) setTimeout(go,300); }; go(); return; }
   if(data.type==='wall' || data.open==='wall'){ goTab('walls'); if(data.id) setTimeout(()=>{ try{ wallOpen(String(data.id)); }catch(_){} },500); return; }
@@ -247,7 +249,7 @@ function pushHandleLaunchParams(){
   const q=new URLSearchParams(location.search);
   const open=q.get('open');
   if(!open) return;
-  const data= open==='submission' ? {type:'submission',hw:q.get('hw'),sid:q.get('sid'),at:Number(q.get('at'))||0} : open==='wall' ? {type:'wall',id:q.get('id')} : open==='student' ? {open,sid:q.get('sid')} : {open};
+  const data= open==='submission' ? {type:'submission',hw:q.get('hw'),sid:q.get('sid'),at:Number(q.get('at'))||0} : open==='wall' ? {type:'wall',id:q.get('id')} : open==='student' ? {open,sid:q.get('sid')} : open==='ct' ? {open,tab:q.get('tab')} : {open};
   try{ history.replaceState(null,'',location.pathname+location.hash); }catch(_){}
   setTimeout(()=>openSubmissionFromPush(data),900);   // بعد اكتمال أول رسم ومزامنة
 }

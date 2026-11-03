@@ -1345,7 +1345,7 @@ setTimeout(function(){if(window.__portalBooted)return;var g=document.getElementB
 <!-- ══ المستويات ══ -->
 <section class="panel" id="levels">
   <div class="rd-head"><h1>المستويات</h1></div>
-  <div class="subtabs" role="tablist"><button type="button" data-sub="students">القائمة</button><button type="button" data-sub="levels" class="on" aria-selected="true">المستويات</button><button type="button" data-sub="attendance">الغياب</button><button type="button" data-sub="duties">المهام</button></div>
+  <div class="subtabs" role="tablist"><button type="button" data-sub="students">القائمة</button><button type="button" data-dash="levels" title="في لوحة التحكم">المستويات ↗</button><button type="button" data-sub="attendance">الغياب</button><button type="button" data-dash="duties" title="في لوحة التحكم">المهام ↗</button></div>
   <div class="sheet">
     <div class="muted" id="level-term" style="margin-bottom:4px"></div>
     <div class="level-grid" id="level-kpis"></div>
@@ -1426,7 +1426,7 @@ setTimeout(function(){if(window.__portalBooted)return;var g=document.getElementB
 
 <section class="panel" id="duties">
   <div class="rd-head"><h1>المهام</h1></div>
-  <div class="subtabs" role="tablist"><button type="button" data-sub="students">القائمة</button><button type="button" data-sub="levels">المستويات</button><button type="button" data-sub="attendance">الغياب</button><button type="button" data-sub="duties" class="on" aria-selected="true">المهام</button></div>
+  <div class="subtabs" role="tablist"><button type="button" data-sub="students">القائمة</button><button type="button" data-dash="levels" title="في لوحة التحكم">المستويات ↗</button><button type="button" data-sub="attendance">الغياب</button><button type="button" data-dash="duties" title="في لوحة التحكم">المهام ↗</button></div>
   <div class="sheet tinted">
     <div class="section-head"><h3>إسناد مهمة</h3><span class="count" id="duty-cls"></span></div>
     <div><label>المهمة</label><select class="inp" id="duty-title"></select></div>
@@ -1451,7 +1451,7 @@ setTimeout(function(){if(window.__portalBooted)return;var g=document.getElementB
 <!-- ══ الغياب ══ -->
 <section class="panel" id="attendance">
   <div class="rd-head"><h1>الغياب</h1></div>
-  <div class="subtabs" role="tablist"><button type="button" data-sub="students">القائمة</button><button type="button" data-sub="levels">المستويات</button><button type="button" data-sub="attendance" class="on" aria-selected="true">الغياب</button><button type="button" data-sub="duties">المهام</button></div>
+  <div class="subtabs" role="tablist"><button type="button" data-sub="students">القائمة</button><button type="button" data-dash="levels" title="في لوحة التحكم">المستويات ↗</button><button type="button" data-sub="attendance" class="on" aria-selected="true">الغياب</button><button type="button" data-dash="duties" title="في لوحة التحكم">المهام ↗</button></div>
   <div class="kpis" id="att-kpis"></div>
   <div id="att-detail"></div>
   <div class="sheet">
@@ -1468,7 +1468,7 @@ setTimeout(function(){if(window.__portalBooted)return;var g=document.getElementB
   <div class="rd-head"><h1>الطلاب</h1>
     <button type="button" class="rd-ic" id="st-search-btn" title="بحث داخل الفصل" aria-label="بحث داخل الفصل">🔍</button>
     <button type="button" class="rd-ic" id="st-voice-btn" title="افتح ملف طالب بالصوت" aria-label="افتح ملف طالب بالصوت">🎤</button></div>
-  <div class="subtabs" role="tablist"><button type="button" data-sub="students" class="on" aria-selected="true">القائمة</button><button type="button" data-sub="levels">المستويات</button><button type="button" data-sub="attendance">الغياب</button><button type="button" data-sub="duties">المهام</button></div>
+  <div class="subtabs" role="tablist"><button type="button" data-sub="students" class="on" aria-selected="true">القائمة</button><button type="button" data-dash="levels" title="في لوحة التحكم">المستويات ↗</button><button type="button" data-sub="attendance">الغياب</button><button type="button" data-dash="duties" title="في لوحة التحكم">المهام ↗</button></div>
   <div class="vb" id="st-voice" hidden><div class="vb-bar" id="sv-bar" hidden><span class="vb-dot"></span><div class="vb-live" id="sv-live">أستمع…</div><button type="button" class="vb-stop" id="sv-stop">⏹️ إيقاف</button></div><div id="sv-status" class="muted" style="font-size:.78rem;margin-top:4px"></div></div>
   <div id="st-search" hidden><div class="search"><span class="search-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span><input class="inp" id="students-search" autocomplete="off" placeholder="بحث داخل الفصل"></div></div>
   <div class="st-fl" id="st-fl"></div>
@@ -1626,7 +1626,7 @@ setTimeout(function(){if(window.__portalBooted)return;var g=document.getElementB
     <button type="button" class="rd-ic" id="ms-multi-btn" title="رسالة لعدة طلاب" aria-label="تحديد عدة طلاب">☑️</button>
     <button type="button" class="rd-ic" id="ms-search-btn" title="بحث داخل الفصل" aria-label="بحث داخل الفصل">🔍</button>
     <button type="button" class="rd-ic" id="ms-voice-btn" title="رسائل بالصوت" aria-label="رسائل بالصوت">🎤</button></div>
-  <div class="subtabs" role="tablist"><button type="button" data-sub="messages" class="on" aria-selected="true">الرسائل</button><button type="button" data-sub="cert">الشهادات</button></div>
+  <div class="subtabs" role="tablist"><button type="button" data-sub="messages" class="on" aria-selected="true">الرسائل</button><button type="button" data-dash="certs" title="في لوحة التحكم">الشهادات ↗</button></div>
   <div class="vb" id="ms-voice" hidden>
     <div id="mv-wrap" style="margin-top:10px;display:none">
       <button class="btn" id="mv-btn" type="button"
@@ -1651,7 +1651,7 @@ setTimeout(function(){if(window.__portalBooted)return;var g=document.getElementB
 <!-- ══ التحفيز ══ -->
 <section class="panel" id="cert">
   <div class="page-head"><div><h1>الشهادات</h1><p>شهادات تقدير للطلاب — تُطبع أو تُرسل إلى مركز الرسائل.</p></div><button class="back">الرئيسية</button></div>
-  <div class="subtabs" role="tablist"><button type="button" data-sub="messages">الرسائل</button><button type="button" data-sub="cert" class="on" aria-selected="true">الشهادات</button></div>
+  <div class="subtabs" role="tablist"><button type="button" data-sub="messages">الرسائل</button><button type="button" data-dash="certs" title="في لوحة التحكم">الشهادات ↗</button></div>
   <div class="sheet tinted">
     <div class="section-head"><h3>🏅 شهادة تقدير</h3><span class="count">اختر الطالب</span></div>
     <div class="search"><span class="search-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span><input class="inp" id="c-search" autocomplete="off" placeholder="ابحث عن الطالب…"></div>
@@ -1765,7 +1765,7 @@ setTimeout(function(){if(window.__portalBooted)return;var g=document.getElementB
 <div class="hidden-store">
   <select id="cls"></select><select id="home-class"></select><select id="level-class"></select><select id="students-class"></select><select id="rec-class"></select>
   <div id="main-tabs">
-    <button class="tab" data-p="home"></button><button class="tab" data-p="daily"></button><button class="tab" data-p="levels"></button><button class="tab" data-p="students"></button><button class="tab" data-p="behavior"></button><button class="tab" data-p="messages"></button><button class="tab" data-p="cert"></button><button class="tab" data-p="schedule"></button><button class="tab" data-p="records"></button><button class="tab" data-p="grades"></button><button class="tab" data-p="exams"></button><button class="tab" data-p="attendance"></button><button class="tab" data-p="duties"></button>
+    <button class="tab" data-p="home"></button><button class="tab" data-p="daily"></button><button class="tab" data-p="students"></button><button class="tab" data-p="behavior"></button><button class="tab" data-p="messages"></button><button class="tab" data-p="schedule"></button><button class="tab" data-p="records"></button><button class="tab" data-p="grades"></button><button class="tab" data-p="exams"></button><button class="tab" data-p="attendance"></button><button class="tab" data-p="duties"></button>
   </div>
 </div>
 <script>
@@ -4256,6 +4256,8 @@ const NAV_MAIN=['home','daily','students','behavior'];
 const NAV_GROUP={levels:'students',attendance:'students',duties:'students'};
 function syncNav(target){const g=NAV_GROUP[target]||target;document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('on',b.dataset.p===(NAV_MAIN.includes(g)?g:'more')))}
 document.addEventListener('click',e=>{const b=e.target.closest('.subtabs [data-sub]');if(b&&!b.classList.contains('on'))openTeacherPanel(b.dataset.sub)});
+/* 📱 البوابة للرصد والتصحيح الآلي فقط: الشهادات والمستويات والمهام مكانها «أدوات الفصل» في لوحة التحكم (لا تكرار) */
+document.addEventListener('click',e=>{const b=e.target.closest('.subtabs [data-dash]');if(b){e.preventDefault();tpToDash('?open=ct&tab='+encodeURIComponent(b.dataset.dash))}});
 function openMore(){const e=$('more');e.classList.add('show');e.setAttribute('aria-hidden','false')}
 function closeMore(){const e=$('more');e.classList.remove('show');e.setAttribute('aria-hidden','true')}
 function openTeacherPanel(target){

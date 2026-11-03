@@ -29,6 +29,12 @@ export default async function run() {
       await S.t('بوابة المعلم تفتح بنفس الدخول بلا أخطاء', async () => {
         const q = await ctx.newPage(), e2 = watch(q); await q.goto(base + '/teacher-dashboard/portal/'); await q.waitForTimeout(5000);
         ok(await q.evaluate(() => !!window.__portalBooted && !document.getElementById('gate').classList.contains('show')), 'لم تفتح'); eq(e2, [], 'أخطاء'); });
+      await S.t('بوابة المعلم: «المستويات ↗» تفتح أدوات الفصل في اللوحة (لا تكرار)', async () => {
+        const q = await ctx.newPage(), e3 = watch(q); await q.goto(base + '/teacher-dashboard/portal/'); await q.waitForTimeout(3500);
+        await q.evaluate(() => openTeacherPanel('students')); await q.waitForTimeout(300);
+        const tabs = await q.$$eval('#students .subtabs button', bs => bs.map(b => b.textContent.trim())); ok(tabs.includes('المستويات ↗') && tabs.includes('المهام ↗'), 'الأزرار: ' + tabs.join('،'));
+        await q.click('#students .subtabs [data-dash=levels]'); await q.waitForURL(/teacher-dashboard\/(\?|$)/, { timeout: 8000 }); await q.waitForTimeout(3500);
+        ok(await q.evaluate(() => typeof CT_TAB !== 'undefined' && CT_TAB === 'levels' && !!document.querySelector('#p-classtools.on')), 'لم تُفتح المستويات في اللوحة'); eq(e3, [], 'أخطاء'); });
       await ctx.close(); }
     // ── بوابة الطالب ──
     { const ctx = await newCtx({ viewport: { width: 390, height: 800 } }), p = await ctx.newPage(), errs = watch(p);
