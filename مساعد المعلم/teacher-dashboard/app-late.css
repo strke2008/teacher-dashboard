@@ -3136,3 +3136,15 @@ body.pf-open #simp-bottomnav,body.pf-open .askf-btn{display:none!important}
 :root[data-ui-theme="dark"] .qr-mode button.on{background:#22324D;color:#8CC2FF}
 :root[data-ui-theme="dark"] .qr-row{background:#152033}
 :root[data-ui-theme="dark"] .qr-vlive{background:#3A2E14;border-color:#6B5221}
+/* ☑️ سلوك لعدة طلاب · ⏳ فترة السماح (الرصد السريع) */
+.qr-mbtn{width:100%;margin:0 0 .45rem;border:1px dashed var(--rule,#DCE4EE);background:transparent;border-radius:12px;padding:.5rem;font:inherit;font-weight:800;font-size:.85rem;color:#1B6FD1;cursor:pointer}
+.qr-mbar{display:flex;align-items:center;gap:.35rem;flex-wrap:wrap;background:#EAF3FF;border:1px solid #BCD7F7;border-radius:12px;padding:.45rem .6rem;margin-bottom:.45rem;font-size:.84rem}
+.qr-mbar b{flex:1;min-width:10rem}.qr-mbar button{border:1px solid #BCD7F7;background:#fff;border-radius:9px;padding:.3rem .6rem;font:inherit;font-size:.8rem;font-weight:700;cursor:pointer}
+.qr-row.qr-pick .nm{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}.qr-row.qr-pick.on{background:#EAF3FF;border-color:#1B6FD1}
+.qr-mk{flex:0 0 auto;width:26px;height:26px;border-radius:8px;border:2px solid #9FB4CF;display:grid;place-items:center;color:#fff;font-weight:900}
+.qr-row.on .qr-mk{background:#1B6FD1;border-color:#1B6FD1}
+.qr-wk{color:var(--ink-soft,#5a6b84)}.qr-wk i{font-style:normal;opacity:.75;font-size:.66rem}
+.qr-grace{margin-top:.7rem;display:flex;flex-direction:column;gap:.35rem}.qr-grace>small{font-size:.74rem}
+.qr-gr{display:flex;align-items:center;gap:.35rem;border-top:1px solid var(--rule,#DCE4EE);padding-top:.35rem}.qr-gr>span{flex:1;min-width:0}.qr-gr small{display:block;font-size:.72rem;color:var(--ink-soft,#5a6b84)}
+:root[data-ui-theme="dark"] .qr-mbar,:root[data-ui-theme="dark"] .qr-row.qr-pick.on{background:#16294A;border-color:#2C5A9A}
+:root[data-ui-theme="dark"] .qr-mbar button{background:#152033;color:inherit}

@@ -4,7 +4,7 @@
       أحدث نسخة من الخادم ← تطبيق الطابور ← حفظ — والخادم يدمج كل رصد بوقته (الأحدث يفوز).
       لا تُزال من الطابور إلا بعد تأكيد الخادم؛ وتُعاد المحاولة عند عودة الشبكة والعودة للتطبيق وكل 30 ث.
    البيانات بالشكل نفسه الذي تكتبه البوابة (participation/homework/behavior) — فالدرجات والتقارير لا تتغير. */
-const QR = { mode: 'participation', q: '', undo: [], open: '', busy: false };
+const QR = { mode: 'participation', q: '', undo: [], open: '', busy: false, multi: false, sel: new Set() };
 const QR_OUT = 'ct_outbox_v1';
 const QR_P = [['شارك', '✅', 'g', 'شارك'], ['لم يشارك', '✋', 'y', 'لم يشارك'], ['غائب', '🚫', 'r', 'غائب']];
 const QR_H = [['أنجز', '📗', 'g', 'أنجز'], ['لم ينجز', '📕', 'r', 'لم ينجز'], ['معذور', '🕊️', 'y', 'معذور']];
@@ -19,7 +19,7 @@ function qrApply(D, op) {
   if (op.k === 'st') {
     D[op.m] = D[op.m] || {}; D[op.m][op.d] = D[op.m][op.d] || {};
     const prev = D[op.m][op.d][op.sid]; if (prev && (Number(prev.at) || 0) > op.at) return;   // أحدث منه موجود: لا يُرجع للخلف
-    D[op.m][op.d][op.sid] = { status: op.v, at: op.at };
+    D[op.m][op.d][op.sid] = { status: op.v, at: op.at, ...(op.x && typeof op.x === 'object' ? op.x : {}) };   // x: forgiven/prev («سامحه»/«سلّمه»)
     if (op.m === 'participation') {
       D.homework = D.homework || {}; D.homework[op.d] = D.homework[op.d] || {};
       const h = D.homework[op.d][op.sid], hs = String(h && h.status || '');
@@ -35,6 +35,8 @@ function qrApply(D, op) {
     D.examBooks = D.examBooks && typeof D.examBooks === 'object' ? D.examBooks : {};
     const S = D.examBooks[op.sem] = D.examBooks[op.sem] && typeof D.examBooks[op.sem] === 'object' ? D.examBooks[op.sem] : {};
     S[op.per] = qrMergeBook(S[op.per], op.book);
+  } else if (op.k === 'set') {                                 // حقل يُرسل كاملًا (الخادم يأخذ الوارد كما هو): msgFlags · msgq
+    if (['msgFlags', 'msgq'].includes(op.f)) D[op.f] = op.v;
   } else if (op.k === 'sch') { D.schedule = op.v;            // 🗓️ الجدول والتذكيرات: يُرسلان كاملين كما في البوابة (الخادم يأخذ الوارد كما هو)
   } else if (op.k === 'rem') { D.reminders = op.v;
   } else if (op.k === 'tpl') {
@@ -62,7 +64,7 @@ function qrDo(ops, label) {
   ops = (Array.isArray(ops) ? ops : [ops]).map(o => ({ id: qrId(), at: Date.now(), ...o }));
   if (!ops.length) return;
   CT_DATA = CT_DATA || {}; let L = qrOut();
-  ops.forEach(o => { if (o.k === 'exb') L = L.filter(x => !(x.k === 'exb' && x.sem === o.sem && x.per === o.per)); if (o.k === 'sch' || o.k === 'rem') L = L.filter(x => x.k !== o.k); });   // لقطة الدفتر الأحدث تشمل ما قبلها
+  ops.forEach(o => { if (o.k === 'exb') L = L.filter(x => !(x.k === 'exb' && x.sem === o.sem && x.per === o.per)); if (o.k === 'sch' || o.k === 'rem') L = L.filter(x => x.k !== o.k); if (o.k === 'set') L = L.filter(x => !(x.k === 'set' && x.f === o.f)); });   // لقطة الدفتر الأحدث تشمل ما قبلها
   ops.forEach(o => { qrApply(CT_DATA, o); L.push(o); });
   qrOutSet(L); try { window._classroomData = CT_DATA; COMP_GRADES = null; } catch (e) {}
   qrPaint(); qrFlushSoon();
@@ -121,9 +123,13 @@ function qrDayHTML() {
 function qrRowsHTML() {
   const cls = qrCls(), roster = ctRoster(cls), m = QR.mode, q = QR.q.trim();
   const opts = m === 'homework' ? QR_H : QR_P, show = s => !q || String(s.name).includes(q);
-  const sub = s => { const b = qrBehOf(s.id); return b.length ? `<small>${b.slice(0, 2).map(x => (x.type === 'positive' ? '🌟 ' : '⚠️ ') + esc(String(x.category || '').replace(/^[^\p{L}]+/u, ''))).join(' · ')}${b.length > 2 ? ` +${b.length - 2}` : ''}</small>` : ''; };
+  const wk = s => { const t0 = Date.now() - 7 * 864e5, L = ((CT_DATA && CT_DATA.behavior) || []).filter(x => x && !x.deleted && String(x.studentId) === String(s.id) && (Number(x.at) || Date.parse(x.date || '') || 0) >= t0);
+    const p = L.filter(x => x.type === 'positive').length, n = L.length - p; return p || n ? `<small class="qr-wk">${p ? `🌟 ${p}` : ''}${p && n ? ' · ' : ''}${n ? `⚠️ ${n}` : ''} <i>آخر ٧ أيام</i></small>` : ''; };
+  const sub = s => { if (m === 'behavior' && !qrBehOf(s.id).length) return wk(s); const b = qrBehOf(s.id); return b.length ? `<small>${b.slice(0, 2).map(x => (x.type === 'positive' ? '🌟 ' : '⚠️ ') + esc(String(x.category || '').replace(/^[^\p{L}]+/u, ''))).join(' · ')}${b.length > 2 ? ` +${b.length - 2}` : ''}</small>` : ''; };
   return roster.map(s => {
     const id = String(s.id), v = qrSt(m === 'behavior' ? 'participation' : m, id);
+    if (m === 'behavior' && QR.multi) { const on = QR.sel.has(id);
+      return `<div class="qr-row qr-pick ${on ? 'done on' : ''}" data-sid="${esc(id)}" ${show(s) ? '' : 'hidden'}><button type="button" class="nm" onclick="qrPick('${esc(id)}')"><span class="qr-mk">${on ? '✓' : ''}</span>${esc(s.name)}${sub(s)}</button></div>`; }
     const btns = m === 'behavior'
       ? `<button type="button" class="c g on" title="إيجابي" onclick="qrBehOpen('${esc(id)}')">🌟</button><button type="button" class="c r on" title="ملاحظة" onclick="qrBehOpen('${esc(id)}')">⚠️</button>`
       : opts.map(([val, ic, c, l]) => `<button type="button" class="c ${c} ${v === val ? 'on' : ''}" title="${l}" aria-pressed="${v === val}" onclick="qrSet('${m}','${esc(id)}','${val}')">${ic}</button>`).join('');
@@ -147,15 +153,16 @@ function qrPaint() {
       ${QRV.sup ? `<button type="button" class="qr-ic ${QRV.on ? 'on' : ''}" id="qr-mic" onclick="qrVoiceToggle()" title="رصد بالصوت">${QRV.on ? '⏹️' : '🎤'}</button>` : ''}
       <label class="qr-ic qr-date" title="التاريخ">📅<input type="date" value="${esc(d)}" onchange="window._ctRcD=this.value;renderClassTools()"></label></div>
     ${QRV.on || QRV.msg ? `<div class="qr-vlive" id="qr-vlive">${QRV.msg || '🎙️ أستمع… قل اسم الطالب ثم الحالة — ويمكن عدة طلاب في جملة واحدة'}</div>` : ''}
-    <div class="qr-mode">${[['participation', '✋ المشاركة'], ['homework', '📚 الواجب'], ['behavior', '⭐ السلوك']].map(([k, l]) => `<button type="button" class="${m === k ? 'on' : ''}" onclick="QR.mode='${k}';QR.open='';qrPaint()">${l}</button>`).join('')}</div>
+    <div class="qr-mode">${[['participation', '✋ المشاركة'], ['homework', '📚 الواجب'], ['behavior', '⭐ السلوك']].map(([k, l]) => `<button type="button" class="${m === k ? 'on' : ''}" onclick="QR.mode='${k}';QR.open='';QR.multi=false;QR.sel.clear();qrPaint()">${l}</button>`).join('')}</div>
     <div class="qr-cnt" style="grid-template-columns:repeat(${counters.length},1fr)">${counters.map(([c, n, l]) => `<div class="${c}"><b>${n}</b><small>${l}</small></div>`).join('')}</div>
     <div class="qr-st"><span id="qr-sync" class="qr-sync"></span>${QR.undo.length ? `<button type="button" onclick="qrUndo()">↩️ تراجع</button>` : ''}</div>
     ${d !== ctToday() ? `<div class="qr-old">📅 ترصد ليوم ${esc(d)} — ليس اليوم</div>` : ''}
+    ${m === 'behavior' ? qrMultiBarHTML() : ''}
     <div class="qr-list">${qrRowsHTML()}</div>
     <div class="qr-foot">
       ${m !== 'behavior' && none ? `<button type="button" class="qr-all" onclick="qrRest()">${m === 'homework' ? `📗 الباقي (${none}): أنجز` : `✅ الباقي (${none}): شارك`}<small>من رصدته يبقى كما هو${m === 'participation' ? ' — والغائب يبقى غائبًا' : ''}</small></button>` : ''}
     </div>
-    ${m === 'behavior' ? qrBehDayHTML() : ''}`;
+    ${m === 'behavior' ? qrBehDayHTML() : ''}${m === 'homework' ? qrGraceHTML() : ''}`;
   const l = root.querySelector('.qr-list'); if (l) l.scrollTop = sc;
   if (window._qrScroll) { window._qrScroll = 0; setTimeout(() => { const t = document.querySelector('.qr-lesson') || root; t.scrollIntoView({ block: 'start', behavior: 'smooth' }); }, 120); }   // قادم من «ارصدها»: مباشرة للأسماء
   qrStatus();
@@ -192,9 +199,39 @@ function qrSearch(v) {
 function qrStudent(sid) { if (QR.mode === 'behavior') return qrBehOpen(sid); if (typeof ctOpenProfile === 'function') ctOpenProfile(sid); }
 function qrBehOpen(sid) { QR.open = QR.open === sid ? '' : sid; qrPaint(); const r = document.querySelector(`#qr-root .qr-row[data-sid="${CSS.escape(sid)}"]`); if (r) r.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
 function qrBehAdd(sid, type, cat, note) {
-  const it = { id: qrId(), studentId: String(sid), type, category: cat, note: note || '', date: qrDay(), at: Date.now() };
-  QR.undo.push([{ k: 'behdel', id: it.id }]); QR.open = '';
-  qrDo({ k: 'beh', item: it }, `${type === 'positive' ? '🌟' : '⚠️'} سُجّلت «${String(cat).replace(/^[^\p{L}]+/u, '')}»`);
+  const ids = sid === '*' ? [...QR.sel] : [String(sid)]; if (!ids.length) return;
+  const now = Date.now(), its = ids.map((id, i) => ({ id: qrId(), studentId: id, type, category: cat, note: note || '', date: qrDay(), at: now + i }));
+  QR.undo.push(its.map(it => ({ k: 'behdel', id: it.id }))); QR.open = ''; if (sid === '*') { QR.multi = false; QR.sel.clear(); }
+  const nm = String(cat).replace(/^[^\p{L}]+/u, '');
+  qrDo(its.map(item => ({ k: 'beh', item })), `${type === 'positive' ? '🌟' : '⚠️'} سُجّلت «${nm}»${its.length > 1 ? ` لـ ${its.length} طلاب` : ''}`);
+}
+/* ☑️ سلوك واحد لعدة طلاب (كما في البوابة): حدّدهم ثم اختر السلوك مرة واحدة */
+function qrMulti(on) { QR.multi = !!on; QR.sel.clear(); QR.open = ''; qrPaint(); }
+function qrPick(id) { QR.sel.has(id) ? QR.sel.delete(id) : QR.sel.add(id); qrPaint(); }
+function qrPickAll() { const q = QR.q.trim(); ctRoster(qrCls()).filter(s => !q || String(s.name).includes(q)).forEach(s => QR.sel.add(String(s.id))); qrPaint(); }
+function qrMultiBarHTML() {
+  if (!QR.multi) return `<button type="button" class="qr-mbtn" onclick="qrMulti(true)">☑️ سلوك لعدة طلاب</button>`;
+  const n = QR.sel.size;
+  return `<div class="qr-mbar"><b>☑️ ${n ? `${n} ${n === 1 ? 'طالب' : n === 2 ? 'طالبان' : 'طلاب'} — اختر السلوك` : 'اضغط على الطلاب لتحديدهم'}</b><button type="button" onclick="qrPickAll()">تحديد الكل</button><button type="button" onclick="qrMulti(false)">إلغاء</button></div>
+    ${n ? `<div class="qr-bpick">${bhvPickerHTML('*', 'qr')}</div>` : ''}`;
+}
+/* ⏳ مهلة الواجبات (كما في البوابة): «لم ينجز» لا يُخصم إلا بعد أيام السماح — «سامحه» تجعله معذورًا، و«سلّمه» تجعله أنجز */
+function qrGraceDays() { const r = (typeof CT_GRADES !== 'undefined' && CT_GRADES && CT_GRADES.rules) || {}; return Number(r.graceDays) || 7; }
+function qrGraceItems() {
+  const H = (CT_DATA && CT_DATA.homework) || {}, G = qrGraceDays(), roster = ctRoster(qrCls()), out = [];
+  for (const d of Object.keys(H)) { const age = Math.floor((Date.parse(ctToday() + 'T00:00:00Z') - Date.parse(d + 'T00:00:00Z')) / 864e5), left = G - age; if (!(left > 0)) continue;
+    for (const s of roster) { const r = H[d] && H[d][String(s.id)]; if (r && String(r.status || '') === 'لم ينجز') out.push({ s, d, left }); } }
+  return out.sort((a, b) => a.left - b.left || String(a.s.name).localeCompare(String(b.s.name), 'ar'));
+}
+function qrGraceHTML() {
+  const L = qrGraceItems(); if (!L.length) return '';
+  return `<div class="ct-card qr-grace"><b>⏳ في فترة السماح (${L.length})</b><small class="muted">«لم ينجز» لا يُخصم قبل ${qrGraceDays()} أيام — إن سلّم متأخرًا أو له عذر:</small>
+    ${L.map(x => `<div class="qr-gr"><span><b>${esc(x.s.name)}</b><small>${esc(x.d)} · يُخصم بعد ${x.left} ${x.left === 1 ? 'يوم' : 'أيام'}</small></span>
+      <button type="button" class="btn ghost sm" onclick="qrForgive('${esc(String(x.s.id))}','${esc(x.d)}','معذور')">🕊️ سامحه</button><button type="button" class="btn sm" onclick="qrForgive('${esc(String(x.s.id))}','${esc(x.d)}','أنجز')">✓ سلّمه</button></div>`).join('')}</div>`;
+}
+function qrForgive(sid, d, st) {
+  QR.undo.push([{ k: 'st', m: 'homework', d, sid: String(sid), v: 'لم ينجز' }]);
+  qrDo({ k: 'st', m: 'homework', d, sid: String(sid), v: st, x: { forgiven: true, prev: 'لم ينجز' } }, st === 'معذور' ? '🕊️ سُومح' : '✓ سُجّل أنه سلّم');
 }
 function qrBehDel(id) { qrDo({ k: 'behdel', id: String(id) }, 'حُذفت الملاحظة'); }
 

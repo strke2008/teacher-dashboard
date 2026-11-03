@@ -1729,12 +1729,12 @@ function printPlansSummary(){
    تقرأ وتكتب بيانات الفصل نفسها على الخادم (/classroom) التي تستخدمها البوابة، فيبقى الاثنان متزامنين.
    كل حفظ يجلب أحدث نسخة من الخادم أولًا ثم يعدّل الحقل المطلوب وحده — فلا يُمحى ما رصدته البوابة للتو. */
 let CT_TAB='levels', CT_DATA=null, CT_GRADES=null, CT_BUSY=false;
-const CT_TABS=[['profile','👤 ملف الطالب'],['levels','📊 المستويات'],['skills','🧭 خريطة المهارات'],['exams','📝 دفتر الاختبارات'],['records','🗂️ السجلات'],['certs','🏅 الشهادات'],['schedule','🗓️ الجدول']];
+const CT_TABS=[['profile','👤 ملف الطالب'],['levels','📊 المستويات'],['skills','🧭 خريطة المهارات'],['exams','📝 دفتر الاختبارات'],['records','🗂️ السجلات'],['certs','🏅 الشهادات'],['schedule','🗓️ الجدول'],['messages','💌 رسائل الحصة']];
 /* أقسام القائمة الجانبية: كل قسم يعرض جزءًا من الأدوات بعنوانه، ويبقى «أدوات الفصل» كاملًا لمن يفتحها بلا قسم */
 let CT_VIEW='';
 const CT_VIEWS={
   profile:{tabs:['profile'],title:'👤 ملف الطالب',sub:'ملف واحد لكل طالب: النظرة الشاملة، الأنشطة والإجراءات، تقرير الأنشطة المفصل، وتقرير الفترة — مع الطباعة.'},
-  records:{tabs:['records','schedule'],title:'🗂️ السجلات والحضور',sub:'رصد الحضور والمشاركة والواجب والسلوك يوميًا، والسجل الشهري، وجدول الحصص.'},
+  records:{tabs:['records','schedule','messages'],title:'🗂️ السجلات والحضور',sub:'رصد الحضور والمشاركة والواجب والسلوك يوميًا، والسجل الشهري، وجدول الحصص.'},
   analysis:{tabs:['levels','skills'],title:'📈 المستويات والمهارات',sub:'مستوى كل طالب واتجاهه من حساب الخادم، وخريطة المهارات للفصل لاكتشاف ما يحتاج إعادة شرح.'},
   exams:{tabs:['exams'],title:'📝 دفتر الاختبارات',sub:'رصد درجات الاختبارات القصيرة والفترية، اللصق من جدول، والتصدير.'},
   certs:{tabs:['certs'],title:'🏅 الشهادات',sub:'شهادات الشكر والتقدير: المرشحون، الطباعة، والإرسال إلى بوابة الطالب.'}
@@ -1823,6 +1823,7 @@ async function renderClassTools(force){
     else if(CT_TAB==='classfile') await ctClassFile(box, force);
     else if(CT_TAB==='portfolio') await ctPortfolio(box, force);
     else if(CT_TAB==='duties') await ctDuties(box, force);
+    else if(CT_TAB==='messages') ctMessages(box);
     else ctSchedule(box);
   }catch(e){ console.error('classTools',e); box.innerHTML='<div class="ct-warn">حدث خطأ أثناء العرض.</div>'; }
 }
@@ -2017,6 +2018,14 @@ function tpxLoadPart(js,css,flag){
 function tpxLoad(){ return tpxLoadPart('js/41-exams-record.js','exams-record.css','TPX_READY'); }
 /* 🗓️ الجدول وتنبيه الحصص وتذكيراتي (js/42-schedule.js) */
 function tpx3Load(){ return tpxLoadPart('js/42-schedule.js','schedule.css','TPX3_READY'); }
+/* 💌 رسائل الحصة للطلاب (js/43-messages.js) */
+function tpx4Load(){ return tpxLoadPart('js/43-messages.js','messages.css','TPX4_READY'); }
+function ctMessages(box){
+  const cls=ctValidCls(window._ctMsCls);
+  box.innerHTML=`<div class="row ct-tools">${ctClassSel('ct-ms-cls',cls,"window._ctMsCls=this.value;renderClassTools()",false)}</div><div id="tpx4-box"><div class="feature-empty" style="padding:1.2rem">جارٍ الفتح…</div></div>`;
+  tpx4Load().then(()=>{ const b=document.getElementById('tpx4-box'); if(b&&b.isConnected) window.tpx4Mount(b); })
+    .catch(()=>{ const b=document.getElementById('tpx4-box'); if(b) b.innerHTML='<div class="feature-empty" style="padding:1.2rem">تعذّر التحميل — تحقق من الاتصال ثم <a href="#" onclick="event.preventDefault();renderClassTools()">أعد المحاولة</a>.</div>'; });
+}
 function tpx3Mount(box,fn){
   box.innerHTML='<div id="tpx3-box"><div class="feature-empty" style="padding:1.2rem">جارٍ الفتح…</div></div>';
   tpx3Load().then(()=>{ const b=document.getElementById('tpx3-box'); if(b&&b.isConnected) window[fn](b); })
