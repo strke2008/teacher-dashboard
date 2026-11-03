@@ -176,7 +176,9 @@ const PUSH_CAT_UI=[
   ['resub','🔁','إعادة التسليم','طالب أعاد حل نشاط سلّمه قبل'],
   ['review','🔎','إنهاء مهمة المراجعة','بعد تصحيح أخطائه'],
   ['ask','💬','رسائل وأسئلة الطلاب','سؤال جديد أو رد على رسالتك'],
-  ['wall','🧱','منشورات الجدار','منشور ينتظر اعتمادك']];
+  ['wall','🧱','منشورات الجدار','منشور ينتظر اعتمادك'],
+  ['lesson','⏰','بداية الحصة','من جدولك في بوابة المعلم — بضغطة تبدأ الحصة'],
+  ['task','📌','تذكيراتي','مهامك من بوابة المعلم في موعدها']];
 function pushPrefsHTML(P){
   const hrs=v=>Array.from({length:24},(_,h)=>`<option value="${h}" ${h===v?'selected':''}>${h===0?'12 ص':h<12?h+' ص':h===12?'12 م':(h-12)+' م'}</option>`).join('');
   const off=PUSH_CAT_UI.filter(([k])=>P.on[k]===false).length;
@@ -202,6 +204,10 @@ async function pushPrefSet(k,v){
 /* فتح التسليم الذي أرسل الإشعار: «آخر التسليمات» ثم إبراز الصف */
 async function openSubmissionFromPush(data){
   if(!data) return;
+  // ⏰ تنبيه حصة/تذكير (بوابة المعلم داخل اللوحة): يفتح البوابة نفسها
+  if(data.type==='lesson' || data.type==='task'){ location.href = data.url || './portal/'; return; }
+  // 📂 «الملف الكامل» من بوابة المعلم
+  if(data.open==='student' && data.sid){ const t0=Date.now(); const go=()=>{ if(typeof byId==='function' && byId(data.sid)) openStudentProfile(data.sid); else if(Date.now()-t0<8000) setTimeout(go,300); }; go(); return; }
   if(data.type==='wall' || data.open==='wall'){ goTab('walls'); if(data.id) setTimeout(()=>{ try{ wallOpen(String(data.id)); }catch(_){} },500); return; }
   if(data.type==='ask' || data.open==='asks'){
     // الضغط على التنبيه واللوحة مفتوحة: الرسالة نفسها مع التنبيه، طبّقها فورًا بدل انتظار الجلب (نسخة الخادم قد تتأخر دقيقة)
@@ -241,7 +247,7 @@ function pushHandleLaunchParams(){
   const q=new URLSearchParams(location.search);
   const open=q.get('open');
   if(!open) return;
-  const data= open==='submission' ? {type:'submission',hw:q.get('hw'),sid:q.get('sid'),at:Number(q.get('at'))||0} : open==='wall' ? {type:'wall',id:q.get('id')} : {open};
+  const data= open==='submission' ? {type:'submission',hw:q.get('hw'),sid:q.get('sid'),at:Number(q.get('at'))||0} : open==='wall' ? {type:'wall',id:q.get('id')} : open==='student' ? {open,sid:q.get('sid')} : {open};
   try{ history.replaceState(null,'',location.pathname+location.hash); }catch(_){}
   setTimeout(()=>openSubmissionFromPush(data),900);   // بعد اكتمال أول رسم ومزامنة
 }
@@ -360,3 +366,9 @@ async function appForceAll(btn){
   catch(e){ toast(/unauthorized/.test(e.message)?'كلمة السر غير صحيحة':'تعذّر الإرسال — هل رفعت worker.js الجديد؟','bad'); }
   if(btn) btn.disabled=false;
 }
+
+/* 📱 الفتح الذكي: تطبيق الشاشة الرئيسية على الجوال يبدأ في بوابة المعلم (الحصة والرصد)، والكمبيوتر في اللوحة.
+   الرجوع من البوابة للوحة لا يعيدك إليها في الجلسة نفسها. الإعداد في «بوابة المعلم» بالإعدادات */
+function smartStartGet(){ try{ return localStorage.getItem('hwapp_start_portal_v1')!=='0'; }catch(e){ return true; } }
+function smartStartSet(on){ try{ localStorage.setItem('hwapp_start_portal_v1', on?'1':'0'); }catch(e){} toast(on?'✓ على الجوال يفتح التطبيق على بوابة المعلم':'✓ يفتح التطبيق على لوحة التحكم دائمًا','good'); }
+(function(){ const e=document.getElementById('smart-start'); if(e) e.checked=smartStartGet(); })();

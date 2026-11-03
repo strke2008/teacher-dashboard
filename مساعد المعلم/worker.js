@@ -4270,7 +4270,7 @@ async function pushClaimEvent(env, eventId) {
 
 /* 🎛️ تفضيلات إشعارات المعلم: أي الأنواع تصل، وساعات الهدوء (بتوقيت المدرسة). مفتاح واحد لكل الأجهزة.
    الإشعار التجريبي يصل دائمًا. الإشعار المكتوم لا يُرسل أصلًا (ولا يُخزَّن ليصل لاحقًا) — يبقى ظاهرًا في اللوحة كالعادة. */
-const PUSH_CATS = ['act', 'files', 'games', 'lab', 'resub', 'review', 'ask', 'wall'];
+const PUSH_CATS = ['act', 'files', 'games', 'lab', 'resub', 'review', 'ask', 'wall', 'lesson', 'task'];
 const PUSH_PREFS_DEF = { on: Object.fromEntries(PUSH_CATS.map(k => [k, true])), quiet: { on: false, from: 22, to: 6 } };
 let _pushPrefs = { at: 0, v: null };
 function pushPrefsClean(x) {
@@ -4286,7 +4286,7 @@ async function pushPrefs(env) {
 function pushCatOf(message) {
   const d = (message && message.data) || {}, t = d.type;
   if (t === 'submission') { if (d.resub) return 'resub'; const k = String(d.kind || ''); return k === 'files' ? 'files' : k === 'games' || k === 'game' ? 'games' : k === 'lab' ? 'lab' : 'act'; }
-  return t === 'ask' ? 'ask' : t === 'wall' ? 'wall' : t === 'review-done' ? 'review' : '';
+  return t === 'ask' ? 'ask' : t === 'wall' ? 'wall' : t === 'review-done' ? 'review' : t === 'lesson' ? 'lesson' : t === 'task' ? 'task' : '';
 }
 function pushInQuiet(env, q, at) {
   if (!q || !q.on || q.from === q.to) return false;
@@ -4696,6 +4696,14 @@ const PAUSE_MAX_DAYS = 60;
 
 /* ⏰ يُستدعى كل دقيقة من Cron. الأوقات والفصول تأتي من بوابة المعلم نفسها (محسوبة بـ schTimes() هناك)،
    فلا يوجد حساب ثانٍ لأوقات الحصص في الخادم. */
+/* 📱 بوابة المعلم داخل موقع اللوحة (./portal/): تنبيهات الحصة والتذكيرات تصل أيضًا لأجهزة إشعارات اللوحة (اشتراك واحد للتطبيق)،
+   ورابطها يفتح البوابة. تخضع لتفضيلات الإشعارات (نوعا «بداية الحصة» و«تذكيراتي») وساعات الهدوء */
+async function pushToDash(env, dashSubs, msg, ev) {
+  if (!dashSubs || !dashSubs.length) return 0;
+  const d = msg.data || {}, url = './portal/' + String(d.url || './').replace(/^\.\//, '');
+  const res = await pushDeliver(env, { ...msg, data: { ...d, url } }, ev, dashSubs);
+  return res.filter(x => x.status >= 200 && x.status < 300).length;
+}
 async function lessonTick(env) {
   if (!pushConfigured(env)) return { skipped: 'push_not_configured' };
   const A = await kvJ(env, LESSON_ALARMS_KEY, null);
@@ -4705,8 +4713,8 @@ async function lessonTick(env) {
   const lead = Math.max(0, Math.min(15, Number(A.lead) || 0));
   const due = A.items.filter(x => x && x.dow === now.dow && x.cls && now.min >= x.sm - lead && now.min < Math.min(x.em, x.sm - lead + 10));
   if (!due.length) return { due: 0 };
-  const subs = await ppushSubs(env);
-  if (!subs.length) return { skipped: 'no_devices' };
+  const subs = await ppushSubs(env), dashSubs = await pushListSubs(env).catch(() => []);
+  if (!subs.length && !dashSubs.length) return { skipped: 'no_devices' };
   let sessions = {};
   try { const c = JSON.parse(await env.HW.get('teacher:classroom') || 'null'); sessions = (c && c.schedule && c.schedule.sessions && c.schedule.sessions[now.date]) || {}; } catch {}
   let sent = 0;
@@ -4714,14 +4722,15 @@ async function lessonTick(env) {
     if (sessions[String(x.p)]) continue;                                 // بدأتها بنفسك: لا داعي للتنبيه
     const ev = (await sha256Hex(`lesson|${now.date}|${x.p}|${x.cls}`)).slice(0, 32);
     if (!(await pushClaimEvent(env, ev))) continue;
-    const r = await pushDeliverTo(env, subs, {
+    const msg = {
       title: lead && now.min < x.sm ? `⏰ بعد ${x.sm - now.min} د: الحصة ${AR_ORD[x.p] || x.p} · ${x.cls}` : `🔔 حان موعد الحصة ${AR_ORD[x.p] || x.p} · ${x.cls}`,
       body: `${x.s} – ${x.e}\nاضغط لبدء الحصة وتحضيرها تلقائيًا`,
       tag: `lesson-${now.date}-${x.p}`,
       data: { type: 'lesson', d: now.date, p: x.p, cls: x.cls, at: Date.now(),
               url: `./?lesson=${encodeURIComponent(now.date + '.' + x.p)}` }
-    }, ev, gone => ppushDrop(env, gone));
-    sent += r.ok;
+    };
+    if (subs.length) { const r = await pushDeliverTo(env, subs, msg, ev, gone => ppushDrop(env, gone)); sent += r.ok; }
+    sent += await pushToDash(env, dashSubs, msg, ev).catch(() => 0);
   }
   return { due: due.length, sent };
 }
@@ -4736,18 +4745,17 @@ async function taskTick(env) {
   const due = A.items.filter(x => x && (x.date ? x.date === now.date : x.dow === now.dow)
     && now.min >= x.fire && now.min < x.fire + 10 && !(Array.isArray(x.done) && x.done.includes(now.date)));
   if (!due.length) return { due: 0 };
-  const subs = await ppushSubs(env);
-  if (!subs.length) return { skipped: 'no_devices' };
+  const subs = await ppushSubs(env), dashSubs = await pushListSubs(env).catch(() => []);
+  if (!subs.length && !dashSubs.length) return { skipped: 'no_devices' };
   let sent = 0;
   for (const x of due) {
     const ev = (await sha256Hex(`task|${now.date}|${x.id}|${x.fire}`)).slice(0, 32);
     if (!(await pushClaimEvent(env, ev))) continue;
-    const r = await pushDeliverTo(env, subs, {
-      title: `⏰ ${x.title}`, body: x.body || 'تذكير من «تذكيراتي»',
+    const msg = { title: `⏰ ${x.title}`, body: x.body || 'تذكير من «تذكيراتي»',
       tag: `task-${x.id}-${now.date}`,
-      data: { type: 'task', id: x.id, d: now.date, at: Date.now(), url: './?tasks=1' }
-    }, ev, gone => ppushDrop(env, gone));
-    sent += r.ok;
+      data: { type: 'task', id: x.id, d: now.date, at: Date.now(), url: './?tasks=1' } };
+    if (subs.length) { const r = await pushDeliverTo(env, subs, msg, ev, gone => ppushDrop(env, gone)); sent += r.ok; }
+    sent += await pushToDash(env, dashSubs, msg, ev).catch(() => 0);
   }
   return { due: due.length, sent };
 }
@@ -5690,9 +5698,10 @@ async function handlePushExtras(url, request, env, ctx, b) {
     }
     if (p === '/push/portal/test') {
       if (!pushConfigured(env)) return json({ ok: false, error: 'push_not_configured' }, 503);
-      const r = await pushDeliverTo(env, await ppushSubs(env), { title: '✅ تنبيهات الحصص تعمل', body: 'سيصلك تنبيه هنا عند بداية كل حصة في جدولك.',
-        tag: 'ptest-' + Date.now(), data: { type: 'test', url: './' } }, '', gone => ppushDrop(env, gone));
-      return json({ ok: true, sent: r.ok });
+      const msg = { title: '✅ تنبيهات الحصص تعمل', body: 'سيصلك تنبيه هنا عند بداية كل حصة في جدولك.', tag: 'ptest-' + Date.now(), data: { type: 'test', url: './' } };
+      const r = await pushDeliverTo(env, await ppushSubs(env), msg, '', gone => ppushDrop(env, gone));
+      const d = await pushToDash(env, await pushListSubs(env).catch(() => []), msg, '').catch(() => 0);
+      return json({ ok: true, sent: r.ok + d });
     }
     if (p === '/push/portal/tasks') {
       const items = (Array.isArray(b.items) ? b.items : []).slice(0, 300).map(x => ({

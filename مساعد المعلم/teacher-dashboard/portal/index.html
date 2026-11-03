@@ -7,14 +7,14 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">   <!-- مثل لوحة التحكم: شريط حالة معتم والصفحة تبدأ تحته -->
-<meta name="apple-mobile-web-app-title" content="بوابة المعلم">
+<meta name="apple-mobile-web-app-title" content="مساعد المعلم">
 <meta name="format-detection" content="telephone=no">
 <meta name="author" content="المعلم أحمد المرزوق">
 <meta name="application-name" content="مساعد المعلم">
 <title>مساعد المعلم | بوابة المعلم</title>
 <link rel="icon" type="image/png" sizes="32x32" href="pwa/favicon-32.png">
-<link rel="apple-touch-icon" sizes="180x180" href="pwa/apple-touch-icon-180.png">
-<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" sizes="180x180" href="../pwa/apple-touch-icon-180.png">
+<link rel="manifest" href="../manifest.webmanifest">   <!-- 📱 تطبيق واحد: إضافة البوابة للشاشة الرئيسية تضيف «مساعد المعلم» نفسه -->
 <style>
 /* ═══════════════════════════════════════════════════════════
    بوابة المعلم — طبقة تصميم واحدة (v2)
@@ -1688,7 +1688,7 @@ setTimeout(function(){if(window.__portalBooted)return;var g=document.getElementB
       </div>
     </div>
     <div class="more-grid">
-      <button type="button" onclick="location.href='../'" style="grid-column:1/-1;min-height:0;flex-direction:row;align-items:center;gap:10px"><span class="ic" style="background:var(--accent-soft);color:var(--accent);margin:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></span><b>لوحة التحكم</b><small>الأنشطة والتسليمات والتقارير</small></button>
+      <button type="button" onclick="tpToDash('')" style="grid-column:1/-1;min-height:0;flex-direction:row;align-items:center;gap:10px"><span class="ic" style="background:var(--accent-soft);color:var(--accent);margin:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></span><b>لوحة التحكم</b><small>الأنشطة والتسليمات والتقارير</small></button>
       <button data-target="schedule"><span class="ic" style="background:var(--green-soft);color:var(--green)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/></svg></span><b>الجدول</b><small>الحصص والمشاركة</small></button>
         <button data-target="grades"><span class="ic" style="background:var(--green-soft);color:var(--green)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.6" cy="6.6" r="2.4"/><circle cx="17.4" cy="17.4" r="2.4"/></svg></span><b>الدرجات</b><small>المشاركة والسلوك</small></button>
       <button data-target="exams"><span class="ic" style="background:var(--violet-soft);color:var(--violet)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z"/><path d="M7 8h10M7 12h6M7 16h4"/></svg></span><b>رصد الاختبارات</b><small>20 درجة لكل فترة</small></button>
@@ -3979,7 +3979,8 @@ function openStudentProfile(id){
    ${bshow.map(x=>`<div class="pf-ln ${x.type==='positive'?'g':'r'}"><span>${x.type==='positive'?'🌟':'⚠️'} ${esc(String(x.category||'ملاحظة').replace(/^[^\p{L}]+/u,''))}</span><small>${esc(x.date||'')}</small></div>`).join('')||'<div class="pf-empty">لا توجد ملاحظات.</div>'}</div>
   <div class="pf-sec"><b>💌 الرسائل</b>${msgH}</div>
   ${hwHistoryHTML(id)}
-  ${recent.length?`<div class="pf-sec"><b>📈 آخر مستويات التعلم</b>${recent.map(x=>`<div class="pf-ln"><span>${esc(x.date)}</span><b>${esc(x.label)}</b></div>`).join('')}</div>`:''}`;
+  ${recent.length?`<div class="pf-sec"><b>📈 آخر مستويات التعلم</b>${recent.map(x=>`<div class="pf-ln"><span>${esc(x.date)}</span><b>${esc(x.label)}</b></div>`).join('')}</div>`:''}
+  <button class="btn wide" type="button" style="margin-top:10px" onclick="tpToDash('?open=student&sid='+encodeURIComponent('${esc(id)}'))">📂 الملف الكامل في لوحة التحكم</button>`;
  $('student-modal').classList.add('show');
  $('student-modal').dataset.sid=id;
 }
@@ -5163,7 +5164,22 @@ async function ppSync(force){
 let ppTimer = 0;
 function ppSyncSoon(){ clearTimeout(ppTimer); ppTimer = setTimeout(() => { ppSync().catch(() => {}); }, 1500); }
 
+/* 🔗 الانتقال للوحة (نفس التطبيق): لا يعيدك «الفتح الذكي» للبوابة في الجلسة نفسها */
+function tpToDash(q){ try{ sessionStorage.setItem('dash_stay','1'); }catch(e){} location.href='../'+(q||''); }
+/* 🔔 تطبيق واحد = اشتراك إشعارات واحد: تنبيه الحصة والتذكيرات تصل على أجهزة «🔔 الإشعارات» في لوحة التحكم.
+   هذا المفتاح يرسل جدول الحصص للخادم فقط؛ واشتراك البوابة القديم (إن وُجد) يُلغى حتى لا يصل التنبيه مرتين */
+async function ppDashSub(){ try{ const r = await navigator.serviceWorker.getRegistration(new URL('../', location.href).href); const s = r && r.pushManager && await r.pushManager.getSubscription(); return !!s && r.scope === new URL('../', location.href).href; }catch(e){ return false; } }
+async function ppDropOld(){ try{ const reg = await navigator.serviceWorker.getRegistration('./'); if(!reg || reg.scope !== new URL('./', location.href).href) return; const sub = await reg.pushManager.getSubscription();
+  if(sub){ await ppPost('/push/portal/unsubscribe', { endpoint:sub.endpoint }).catch(() => {}); await sub.unsubscribe().catch(() => {}); } }catch(e){} }
 async function ppEnable(){
+  try{ localStorage.setItem(PP_ON, '1'); }catch(e){}
+  await ppSync(true).catch(() => {}); ppDropOld();
+  PP_DASH = await ppDashSub();
+  toast(PP_DASH ? '🔔 فُعّل تنبيه بداية الحصة' : '🔔 فُعّل — بقي تفعيل الإشعارات على هذا الجهاز من لوحة التحكم');
+  ppRender();
+}
+var PP_DASH = null;
+async function ppEnableOld(){
   if(!ppSupported()){ toast('هذا المتصفح لا يدعم الإشعارات','bad'); return; }
   if(ppIsIOS() && !ppStandalone()){ toast('على iPhone: أضف البوابة إلى الشاشة الرئيسية أولًا ثم افتحها من هناك','bad'); ppRender(); return; }
   try{
@@ -5183,11 +5199,8 @@ async function ppEnable(){
   ppRender();
 }
 async function ppDisable(){
-  try{
-    const reg = await navigator.serviceWorker.getRegistration('./');
-    const sub = reg && await reg.pushManager.getSubscription();
-    if(sub){ await ppPost('/push/portal/unsubscribe', { endpoint:sub.endpoint }); await sub.unsubscribe(); }
-  }catch(e){}
+  ppDropOld();
+  try{ await ppPost('/push/portal/alarms', { items:[], lead:0, pausedUntil:'', sig:'off' }); }catch(e){}   // لا حصص ⇒ لا تنبيه على أي جهاز
   try{ localStorage.removeItem(PP_ON); localStorage.removeItem(PP_SIG); }catch(e){}
   toast('أُوقف تنبيه الحصص على هذا الجهاز'); ppRender();
 }
@@ -5203,14 +5216,16 @@ function ppRender(){
   const on = ppOn(), o = ppOpts(), n = ppItems().length;
   const perm = ('Notification' in window) ? Notification.permission : 'unsupported';
   let note = '';
-  if(!ppSupported()) note = ppIsIOS() && !ppStandalone() ? '📲 على iPhone: افتح البوابة في Safari ← زر المشاركة ← «إضافة إلى الشاشة الرئيسية»، ثم افتحها من الأيقونة وفعّل التنبيه.' : 'هذا المتصفح لا يدعم الإشعارات.';
+  if(on && PP_DASH === null){ ppDashSub().then(v => { PP_DASH = v; if(!v) ppRender(); }); }
+  if(on && PP_DASH === false) note = '📲 يصل التنبيه على الأجهزة المفعّل فيها «🔔 الإشعارات» في لوحة التحكم — هذا الجهاز غير مفعّل بعد. <a href="#" onclick="tpToDash(\'?open=notifications\');return false">فعّلها من هنا</a> (ونوعا «بداية الحصة» و«تذكيراتي» هناك).';
+  else if(false) note = ppIsIOS() && !ppStandalone() ? '📲 على iPhone: افتح البوابة في Safari ← زر المشاركة ← «إضافة إلى الشاشة الرئيسية»، ثم افتحها من الأيقونة وفعّل التنبيه.' : 'هذا المتصفح لا يدعم الإشعارات.';
   else if(ppIsIOS() && !ppStandalone()) note = '📲 على iPhone تعمل الإشعارات فقط من أيقونة الشاشة الرئيسية: زر المشاركة ← «إضافة إلى الشاشة الرئيسية».';
   else if(perm === 'denied') note = 'الإشعارات محظورة لهذا الموقع — اسمح بها من إعدادات الجهاز ثم أعد التفعيل.';
   const paused = o.pausedUntil && o.pausedUntil >= today();
   box.innerHTML = `
     <div class="sch-switch">
       <div><b>🔔 تنبيه بداية الحصة</b>
-        <small>${on ? (paused ? `موقوف حتى ${o.pausedUntil}` : `مُفعّل على هذا الجهاز · ${n} حصة أسبوعيًا من جدولك`) : 'يصلك تنبيه عند بداية كل حصة، وبضغطة عليه تبدأ الحصة ويُحضَّر لها تلقائيًا'}</small></div>
+        <small>${on ? (paused ? `موقوف حتى ${o.pausedUntil}` : `مُفعّل · ${n} حصة أسبوعيًا من جدولك`) : 'يصلك تنبيه عند بداية كل حصة، وبضغطة عليه تبدأ الحصة ويُحضَّر لها تلقائيًا'}</small></div>
       <button class="sch-toggle${on ? ' on' : ''}" id="pp-btn" role="switch" aria-checked="${on}" onclick="${on ? 'ppDisable()' : 'ppEnable()'}"><span></span></button>
     </div>
     ${note ? `<p class="hint" style="margin:.5rem 0 0">${note}</p>` : ''}
@@ -5329,6 +5344,7 @@ async function remSync(){
 let remTimer = 0;
 function remSyncSoon(){ clearTimeout(remTimer); remTimer = setTimeout(() => { remSync().catch(() => {}); }, 1500); }
 function remAfterBoot(){
+  if(PP_DASH === null && 'serviceWorker' in navigator) ppDashSub().then(v => { PP_DASH = v; try{ renderReminders(); }catch(e){} });
   try{ if(new URLSearchParams(location.search).get('tasks')){ const u = new URL(location.href); u.searchParams.delete('tasks'); history.replaceState(null, '', u.pathname + u.search + u.hash); setTimeout(() => openTeacherPanel('reminders'), 50); } }catch(e){}
   remSyncSoon(); remBadge();
 }
@@ -5338,7 +5354,7 @@ function renderReminders(){
   const d = today(), T = remToday(), now = schNowMin(), all = (data.reminders || []).slice();
   box.innerHTML = `
     <div class="rem-head"><b>⏰ تذكيراتي</b><small>مهامك في يومك الدراسي — يصلك إشعار في موعد كل مهمة</small></div>
-    ${ppOn() ? '' : `<div class="rem-warn">🔕 الإشعارات غير مفعّلة على هذا الجهاز، فلن يصلك تنبيه.<button class="btn" type="button" onclick="openTeacherPanel('schedule')">فعّلها من «الجدول»</button></div>`}
+    ${PP_DASH === false ? `<div class="rem-warn">🔕 الإشعارات غير مفعّلة على هذا الجهاز، فلن يصلك تنبيه.<button class="btn" type="button" onclick="tpToDash('?open=notifications')">فعّلها من لوحة التحكم</button></div>` : ''}
     <h3 class="rem-h">اليوم · ${REM_DAYS[remDowOf(d)] || ''}</h3>
     ${T.length ? `<div class="rem-list">${T.map(x => `<label class="rem-it${x.done ? ' done' : ''}${!x.done && x.fire <= now ? ' late' : ''}">
         <input type="checkbox" ${x.done ? 'checked' : ''} onchange="remDone('${esc(x.r.id)}')">
@@ -5440,8 +5456,7 @@ function ppAfterBoot(){
   if(ppOn()){
     ppSyncSoon();
     // الاشتراك سقط من الجهاز (مسح البيانات مثلًا): أوقف المفتاح بدل أن يظن المعلم أنه يعمل
-    if(ppSupported()) navigator.serviceWorker.getRegistration('./').then(r => r ? r.pushManager.getSubscription() : null)
-      .then(sub => { if(!sub){ try{ localStorage.removeItem(PP_ON); }catch(e){} ppRender(); } }).catch(() => {});
+    if(ppSupported()) ppDropOld();                     // اشتراك البوابة القديم: التنبيه يصل الآن عبر إشعارات اللوحة
   }
   ppRender();
 }
