@@ -58,19 +58,21 @@
     lock:'<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
     send:'<path d="M21 3 3 10l7 3 3 7z"/><path d="M10 13l4-4"/>',
     pin:'<path d="M9 3h6l-1 6 4 4H6l4-4z"/><path d="M12 13v8"/>',
+    chev:'<path d="M6 9l6 6 6-6"/>',
+    x:'<path d="M6 6l12 12M18 6L6 18"/>',
     phone:'<rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M11 18h2"/>'
   };
   const E = {'🏠':'home','⌂':'home','📋':'clip','📁':'folder','📂':'folder','🗂️':'records','🗂':'records','🎮':'game','📚':'book','👥':'users','🩺':'steth','🎖️':'medal','🎖':'medal',
     '📝':'pen','✏️':'pen','✍️':'pen','🖨️':'printer','🖨':'printer','🧭':'compass','📑':'report','📄':'report','📊':'chart','📈':'trend','🏫':'school','🧾':'receipt','💬':'msg','🧱':'wall',
     '🏅':'award','🎓':'grad','⚙️':'gear','⚙':'gear','✋':'hand','⭐':'star','🌟':'star','⚠️':'alert','⚠':'alert','💌':'mail','📨':'send','📷':'camera','🎤':'mic','🔍':'search','🔎':'search',
     '📅':'cal','🗓️':'cal','🗓':'cal','✅':'check','🚫':'ban','📗':'bookok','📕':'bookx','🕊️':'feather','🕊':'feather','🔄':'refresh','📥':'inbox','⏰':'alarm','🔔':'bell','🧩':'puzzle',
-    '🌙':'moon','🙋':'user','🧰':'tools','🎯':'target','✅️':'check','🕘':'clock','⛔':'ban','📌':'pin','🎓':'grad','🔗':'link','💾':'save','🤖':'bot','🔒':'lock','📱':'phone','👤':'user'};
+    '🌙':'moon','🙋':'user','🧰':'tools','🎯':'target','✅️':'check','🕘':'clock','☑️':'task','☑':'task','⛔':'ban','📌':'pin','🎓':'grad','🔗':'link','💾':'save','🤖':'bot','🔒':'lock','📱':'phone','👤':'user'};
   /* في أزرار الرصد: ✋ تعني «لم يشارك» (لا «المشاركة») */
   const CHIP = {'✅':'check','✋':'minus','🚫':'ban','📗':'bookok','📕':'bookx','🕊️':'feather','🕊':'feather','🌟':'star','⚠️':'alert'};
   const svg = n => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${P[n]}</svg>`;
   window.icoSVG = n => P[n] ? svg(n) : '';
   const SEL = ['#simp-bottomnav .simp-bic', '.simp-chip', '.app-nav-icon', '.mnav-icon', '#portal-link-btn', '.panel > .sheet-head h2', '.td-head h2', '#ct-title',
-    '#ct-nav .btn', '.ct-seg button', '.qr-mode button', '.qr-ic', '.qr-s', '#fm-bot i', '.td-kpi span', '.td-card-h > b', '.sheet-head h2', '.set-tabs button', '.ct-tools > .btn', '.td-head .btn', '.td-hero-t > b', '.td-hero-go', '.td-abs > b', '.td-link', '.td-task .td-ic', '.qr-all', '.askf-pin', '.askf-mode'].join(',');
+    '#ct-nav .btn', '.ct-seg button', '.qr-mode button', '.qr-ic', '.qr-s', '#fm-bot i', '.td-kpi span', '.td-card-h > b', '.sheet-head h2', '.set-tabs button', '.ct-tools > .btn', '.td-head .btn', '.td-hero-t > b', '.td-hero-go', '.td-abs > b', '.td-link', '.td-task .td-ic', '.qr-all', '.askf-pin', '.askf-mode', '.tpx .rd-ic', '.tpx .rd-pill', '.tpx .ex-tools button', '.tpx .rd-head h1'].join(',');
   const LEAD = /^(\s*)(\p{Extended_Pictographic}️?(?:‍\p{Extended_Pictographic}️?)*|⌂|•••)\s*/u;
   function firstText(el){ const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT); let n = w.nextNode();
     while (n) { if (n.nodeType === 1) { if (n.tagName === 'svg' || n.tagName === 'INPUT') return null; } else if (n.nodeValue.trim()) return n; n = w.nextNode(); } return null; }

@@ -102,7 +102,28 @@ details.td-more{background:var(--ui-surface)!important;border:0!important;border
 .td-hero-t > b .ico{opacity:.9}
 .td-task .td-ic .ico{color:#B7791F;width:20px;height:20px}
 .td-link .ico,.td-abs > b .ico{color:var(--ui-accent)}
+
+/* 🎯 وضع الحصة: الشريط العلوي بنفس الشكل الجديد (فاتح، بلون الثيم) */
+body.fm #fm-top{background:var(--app-nav-bg)!important;color:var(--app-nav-text)!important;border-bottom:1px solid var(--ui-border);gap:.55rem!important;padding:.6rem .9rem!important;padding-top:calc(.6rem + env(safe-area-inset-top,0px))!important}
+#fm-top .fm-ic{flex:none;width:38px;height:38px;border-radius:11px;background:var(--ui-accent);color:#fff;display:grid;place-items:center}
+#fm-top .fm-ic .ico{width:22px;height:22px}
+#fm-top .fm-t b{display:flex!important;align-items:center;gap:.35rem;font-size:1.02rem!important}
+#fm-top .fm-t small{color:var(--ui-muted);opacity:1!important;font-size:.78rem!important}
+#fm-top .fm-chev .ico{width:16px;height:16px;color:var(--ui-muted);vertical-align:middle}
+#fm-top .fm-dot{width:8px;height:8px;border-radius:50%;background:#22C55E;display:inline-block;flex:none;box-shadow:0 0 0 3px rgba(34,197,94,.18)}
+#fm-top .fm-tm{display:inline-flex;align-items:center;gap:.25rem;background:var(--ui-accent-soft)!important;color:var(--app-nav-active-text)!important;border-radius:10px!important;padding:.35rem .6rem!important;font-weight:700!important}
+#fm-top .fm-tm .ico{width:15px;height:15px}
+#fm-top .fm-x{display:inline-flex;align-items:center;gap:.25rem;background:var(--ui-surface-2)!important;color:var(--ui-muted)!important;border:0!important;border-radius:10px!important;padding:.45rem .65rem!important;font-weight:600!important}
+#fm-top .fm-x .ico{width:16px;height:16px}
+#fm-bot{border-top-color:var(--ui-border)!important}
+#fm-bot button.on{background:var(--ui-accent-soft)!important;color:var(--app-nav-active-text)!important}
+#fm-top .fm-chev{flex:none;display:inline-flex}
+#fm-top .fm-t b{overflow:visible!important}#fm-top .fm-tt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-flex;align-items:center;gap:.35rem}
+.tpx .rd-ic .ico{width:20px;height:20px;color:var(--ui-muted)}
+.tpx .ex-tools button .ico{color:var(--ui-accent)}
 }
+
+
 
 
 

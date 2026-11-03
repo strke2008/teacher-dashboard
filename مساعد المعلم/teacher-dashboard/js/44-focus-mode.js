@@ -18,12 +18,14 @@ function fmCls() {
 function fmBarHTML() {
   const L = typeof qrLesson === 'function' ? qrLesson() : null, cls = fmCls(), k = tdKsaNow();
   const mine = L && L.cls === cls, ord = typeof QR_ORD !== 'undefined' ? (QR_ORD[L && L.n] || (L && L.n)) : (L && L.n);
-  const title = mine ? `${L.now ? '🟢' : '⏭️'} الحصة ${ord} · ${esc(cls)}` : `✋ ${esc(cls || 'اختر الفصل')}`;
-  const sub = mine ? `${L.s} – ${L.e} · وضع الحصة` : 'وضع الحصة · اضغط لتغيير الفصل';
-  const left = mine ? (L.now ? `⏳ ${Math.max(0, L.em - k.min)} د` : `يبدأ بعد ${Math.max(0, L.sm - k.min)} د`) : '';
+  const ic = n => (typeof window.icoSVG === 'function' ? window.icoSVG(n) : '');
+  const dot = mine && L.now ? '<i class="fm-dot" aria-hidden="true"></i>' : '';
+  const title = mine ? `${dot}الحصة ${L.n} · ${esc(cls)}` : esc(cls || 'اختر الفصل');
+  const sub = mine ? `${L.s} – ${L.e}${L.now ? '' : ' · القادمة'}` : 'اضغط لتغيير الفصل';
+  const left = mine ? (L.now ? `${Math.max(0, L.em - k.min)} د` : `بعد ${Math.max(0, L.sm - k.min)} د`) : '';
   const opts = ctClasses().map(c => `<option ${c === cls ? 'selected' : ''}>${esc(c)}</option>`).join('');
-  return `<label class="fm-t" title="تغيير الفصل"><b>${title}</b><small>${sub}</small><select aria-label="الفصل" onchange="fmPickCls(this.value)">${opts}</select></label>
-    ${left ? `<span class="fm-tm">${left}</span>` : ''}<button type="button" class="fm-x" onclick="fmExit()">✕ خروج</button>`;
+  return `<span class="fm-ic">${ic('hand')}</span><label class="fm-t" title="تغيير الفصل"><b><span class="fm-tt">${title}</span><span class="fm-chev">${ic('chev')}</span></b><small>${sub}</small><select aria-label="الفصل" onchange="fmPickCls(this.value)">${opts}</select></label>
+    ${left ? `<span class="fm-tm">${ic('clock')}${left}</span>` : ''}<button type="button" class="fm-x" onclick="fmExit()" aria-label="خروج من وضع الحصة">${ic('x')}خروج</button>`;
 }
 function fmPaintBars() {
   let top = document.getElementById('fm-top'), bot = document.getElementById('fm-bot');
