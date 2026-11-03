@@ -206,7 +206,7 @@ async function openSubmissionFromPush(data){
   if(!data) return;
   // ⏰ تنبيه حصة/تذكير (بوابة المعلم داخل اللوحة): يفتح البوابة نفسها
   // ⏰ تنبيه حصة: رصد فصلها في اللوحة · تذكير: «تذكيراتي»
-  if(data.type==='lesson'){ const t0=Date.now(); let kick=false; const go=()=>{ if(typeof tpx3Load==='function'&&typeof CT_DATA!=='undefined'&&CT_DATA){ tpx3Load().then(()=>window.tpx3LessonOpen(data.d,data.p)).catch(()=>{}); return; } if(!kick&&Date.now()-t0>2500&&typeof ctGo==='function'){ kick=true; try{ ctGo('schedule'); }catch(e){} } if(Date.now()-t0<15000) setTimeout(go,300); }; go(); return; }
+  if(data.type==='lesson'){ const t0=Date.now(); let kick=false; const go=()=>{ if(typeof tpx3Load==='function'&&typeof CT_DATA!=='undefined'&&CT_DATA){ tpx3Load().then(()=>window.tpx3LessonOpen(data.d,data.p)).then(()=>{ if(typeof fmEnter==='function'&&window._ctRcCls){ window._fmCls=window._ctRcCls; fmEnter('r'); } }).catch(()=>{}); return; } if(!kick&&Date.now()-t0>2500&&typeof ctGo==='function'){ kick=true; try{ ctGo('schedule'); }catch(e){} } if(Date.now()-t0<15000) setTimeout(go,300); }; go(); return; }
   if(data.type==='task'){ const t0=Date.now(); const go=()=>{ if(typeof rmgOpen==='function'&&typeof CT_DATA!=='undefined'&&CT_DATA){ try{ rmgOpen(); }catch(e){} } else if(Date.now()-t0<15000) setTimeout(go,300); }; setTimeout(go,600); return; }
   // 🧰 من بوابة المعلم: الشهادات/المستويات/المهام في «أدوات الفصل»
   if(data.open==='ct' && /^(certs|levels|duties)$/.test(data.tab||'')){ const t0=Date.now(); const go=()=>{ if(typeof ctGo==='function'){ try{ ctGo(data.tab); }catch(e){} } else if(Date.now()-t0<8000) setTimeout(go,300); }; setTimeout(go,600); return; }

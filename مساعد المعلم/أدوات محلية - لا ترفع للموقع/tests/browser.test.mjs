@@ -36,8 +36,15 @@ export default async function run() {
       await S.t('رابط البوابة القديم يفتح لوحة التحكم', async () => {
         const q = await ctx.newPage(), e2 = watch(q); await q.goto(base + '/teacher-dashboard/portal/'); await q.waitForURL(/teacher-dashboard\/(#.*)?$/, { timeout: 8000 });
         await q.waitForFunction(() => typeof ctGo === 'function', null, { timeout: 15000 }); eq(e2, [], 'أخطاء'); await q.close(); });
-      await S.t('زر «✋ الرصد» (مكان «بوابة المعلم») يفتح الرصد السريع', async () => {
-        await p.click('#portal-link-btn'); await p.waitForSelector('#qr-root', { timeout: 15000 }); eq(await p.evaluate(() => CT_TAB), 'records'); });
+      await S.t('«✋ الرصد» يفتح وضع الحصة: الرصد فقط بلا قوائم', async () => {
+        await p.click('#portal-link-btn'); await p.waitForSelector('#qr-root', { timeout: 15000 });
+        eq(await p.evaluate(() => [CT_TAB, document.body.classList.contains('fm'), getComputedStyle(document.querySelector('.masthead')).display, document.querySelectorAll('#fm-bot button').length]), ['records', true, 'none', 3]); });
+      await S.t('وضع الحصة: الاختبارات من الشريط السفلي، ويبقى بعد إعادة الفتح', async () => {
+        await p.click('#fm-bot button:nth-child(2)'); await p.waitForSelector('#tpx-box', { timeout: 15000 }); eq(await p.evaluate(() => CT_TAB), 'exams');
+        await p.reload(); await p.waitForFunction(() => typeof FM !== 'undefined' && FM.on && CT_TAB === 'exams', null, { timeout: 20000 }); });
+      await S.t('وضع الحصة: «✕ خروج» يعيد اللوحة كاملة', async () => {
+        await p.click('#fm-top .fm-x'); await p.waitForTimeout(500);
+        eq(await p.evaluate(() => [document.body.classList.contains('fm'), localStorage.getItem('hw_focus_v1'), !!document.getElementById('fm-bot'), getComputedStyle(document.querySelector('.masthead')).display]), [false, null, false, 'block']); eq(errs, [], 'أخطاء'); });
       await ctx.close(); }
     // ── ✋ الرصد السريع داخل لوحة التحكم ──
     { await env.HW.put('teacher:classroom', JSON.stringify({ participation: { '2020-01-01': { s2: { status: 'شارك', at: 1 } } } }));

@@ -10013,7 +10013,7 @@ function syncPortalBtn(){
   if(b) b.style.display = '';
 }
 /* 🧭 كان يفتح بوابة المعلم — البوابة صارت داخل اللوحة: يفتح «✋ الرصد» (السجلات والحضور ← اليوم) على الحصة الحالية */
-function openPortal(){ try{ closeModal(); }catch(e){} window._ctRcView='day'; window._ctRcD=ctToday(); window._ctRcClsUser=0; window._qrScroll=1; ctGo('records'); }
+function openPortal(){ try{ closeModal(); }catch(e){} if(typeof fmEnter==='function'){ window._fmCls=''; fmEnter('r'); return; } window._ctRcView='day'; window._ctRcD=ctToday(); window._ctRcClsUser=0; window._qrScroll=1; ctGo('records'); }   // 🎯 وضع الحصة (js/44-focus-mode.js)
 function getSite(){ return (localStorage.getItem(K_SITE) || SITE_URL).trim(); }
 
 const K_API = 'hwapp_api_v1_test', K_TOK = 'hwapp_tok_v1', K_SEEN = 'hwapp_seen_v1';

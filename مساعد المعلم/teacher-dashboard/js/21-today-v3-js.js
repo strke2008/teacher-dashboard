@@ -141,7 +141,7 @@ function tdLiveTick(){
   const sc=D.schedule||{}, g=(sc.grid||{})[String(k.dow)]||{}, cur=tdTimes(sc).find(t=>g[String(t.n)]&&k.min>=t.sm&&k.min<t.em);
   const key=cur?k.day+':'+cur.n:'';
   if(TD_LAST_PER!==null&&key&&key!==TD_LAST_PER){
-    const msg=`🔔 بدأت الحصة ${cur.n} · ${g[String(cur.n)]}`; toast(msg,'good');
+    const msg=`🔔 بدأت الحصة ${cur.n} · ${g[String(cur.n)]}`; if(!document.body.classList.contains('fm')) toast(msg,'good');   // وضع الحصة: الشريط العلوي يعرضها
     try{ if('Notification' in window&&Notification.permission==='granted'&&document.hidden) new Notification('مساعد المعلم',{body:msg.replace('🔔 ','')}); }catch(e){}
   }
   TD_LAST_PER=key;
