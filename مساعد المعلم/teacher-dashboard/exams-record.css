@@ -456,3 +456,4 @@ body.ex-kb-on .tpx-ex:is(.tpx,.tpx *){padding-bottom:150px}
 .omr-sheet.tpx,#exa-panel.tpx{z-index:9000}
 #ex-kb.tpx{z-index:95}
 body.ex-kb-on .askf-btn{display:none!important}
+.tpx .card{min-height:0}

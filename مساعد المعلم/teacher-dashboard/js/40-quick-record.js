@@ -35,6 +35,8 @@ function qrApply(D, op) {
     D.examBooks = D.examBooks && typeof D.examBooks === 'object' ? D.examBooks : {};
     const S = D.examBooks[op.sem] = D.examBooks[op.sem] && typeof D.examBooks[op.sem] === 'object' ? D.examBooks[op.sem] : {};
     S[op.per] = qrMergeBook(S[op.per], op.book);
+  } else if (op.k === 'sch') { D.schedule = op.v;            // 🗓️ الجدول والتذكيرات: يُرسلان كاملين كما في البوابة (الخادم يأخذ الوارد كما هو)
+  } else if (op.k === 'rem') { D.reminders = op.v;
   } else if (op.k === 'tpl') {
     D.behaviorTemplates = Array.isArray(D.behaviorTemplates) ? D.behaviorTemplates : [];
     if (!D.behaviorTemplates.some(t => t && t.title === op.item.title && (t.type || 'negative') === op.item.type)) D.behaviorTemplates = [op.item, ...D.behaviorTemplates].slice(0, 500);
@@ -60,7 +62,7 @@ function qrDo(ops, label) {
   ops = (Array.isArray(ops) ? ops : [ops]).map(o => ({ id: qrId(), at: Date.now(), ...o }));
   if (!ops.length) return;
   CT_DATA = CT_DATA || {}; let L = qrOut();
-  ops.forEach(o => { if (o.k === 'exb') L = L.filter(x => !(x.k === 'exb' && x.sem === o.sem && x.per === o.per)); });   // لقطة الدفتر الأحدث تشمل ما قبلها
+  ops.forEach(o => { if (o.k === 'exb') L = L.filter(x => !(x.k === 'exb' && x.sem === o.sem && x.per === o.per)); if (o.k === 'sch' || o.k === 'rem') L = L.filter(x => x.k !== o.k); });   // لقطة الدفتر الأحدث تشمل ما قبلها
   ops.forEach(o => { qrApply(CT_DATA, o); L.push(o); });
   qrOutSet(L); try { window._classroomData = CT_DATA; COMP_GRADES = null; } catch (e) {}
   qrPaint(); qrFlushSoon();

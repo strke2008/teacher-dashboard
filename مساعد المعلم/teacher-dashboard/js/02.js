@@ -2005,16 +2005,28 @@ async function ctPeriodMoved(e){
 function ctExMode(){ const v=window._ctExMode||(()=>{ try{ return localStorage.getItem('ct_ex_mode_v1'); }catch(e){ return ''; } })(); return v==='table'||v==='rec'?v:(innerWidth<900?'rec':'table'); }
 function ctExModeSet(v){ window._ctExMode=v; try{ localStorage.setItem('ct_ex_mode_v1',v); }catch(e){} renderClassTools(); }
 /* ملف الرصد كبير (محرّك الكاميرا): يُحمَّل عند أول حاجة فقط، بنسخته من index.html */
-let TPX_LOAD=null;
-function tpxLoad(){
-  if(window.TPX_READY) return Promise.resolve();
-  if(TPX_LOAD) return TPX_LOAD;
+const TPX_LOADS={};
+function tpxLoadPart(js,css,flag){
+  if(window[flag]) return Promise.resolve();
+  if(TPX_LOADS[js]) return TPX_LOADS[js];
   const href=f=>{ const l=document.querySelector(`link[data-tpx="${f}"]`); return l?l.getAttribute('href'):f; };
-  TPX_LOAD=new Promise((ok,no)=>{
-    if(!document.querySelector('link[rel=stylesheet][data-tpx-css]')){ const c=document.createElement('link'); c.rel='stylesheet'; c.href=href('exams-record.css'); c.dataset.tpxCss='1'; document.head.appendChild(c); }
-    const s=document.createElement('script'); s.src=href('js/41-exams-record.js'); s.onload=()=>ok(); s.onerror=()=>{ TPX_LOAD=null; no(new Error('load')); }; document.head.appendChild(s); });
-  return TPX_LOAD;
+  return TPX_LOADS[js]=new Promise((ok,no)=>{
+    if(!document.querySelector(`link[rel=stylesheet][data-tpx-css="${css}"]`)){ const c=document.createElement('link'); c.rel='stylesheet'; c.href=href(css); c.dataset.tpxCss=css; document.head.appendChild(c); }
+    const s=document.createElement('script'); s.src=href(js); s.onload=()=>ok(); s.onerror=()=>{ delete TPX_LOADS[js]; no(new Error('load')); }; document.head.appendChild(s); });
 }
+function tpxLoad(){ return tpxLoadPart('js/41-exams-record.js','exams-record.css','TPX_READY'); }
+/* 🗓️ الجدول وتنبيه الحصص وتذكيراتي (js/42-schedule.js) */
+function tpx3Load(){ return tpxLoadPart('js/42-schedule.js','schedule.css','TPX3_READY'); }
+function tpx3Mount(box,fn){
+  box.innerHTML='<div id="tpx3-box"><div class="feature-empty" style="padding:1.2rem">جارٍ الفتح…</div></div>';
+  tpx3Load().then(()=>{ const b=document.getElementById('tpx3-box'); if(b&&b.isConnected) window[fn](b); })
+    .catch(()=>{ const b=document.getElementById('tpx3-box'); if(b) b.innerHTML='<div class="feature-empty" style="padding:1.2rem">تعذّر التحميل — تحقق من الاتصال ثم <a href="#" onclick="event.preventDefault();renderClassTools()">أعد المحاولة</a>.</div>'; });
+}
+/* يُحمَّل ملف الجدول وحده بعد فتح اللوحة إن احتاجه شيء يعمل في الخلفية:
+   «الرصد التلقائي» (يُنهي الحصص في وقتها) · تنبيه الحصص · تذكيراتي (تُرسل مواعيدها للخادم ليصل الإشعار) */
+function tpx3Need(){ try{ if(window.TPX3_READY||!CT_DATA) return false; let pp=false; try{ pp=localStorage.getItem('tp_push_on_v1')==='1'; }catch(e){}
+  return !!((CT_DATA.schedule&&CT_DATA.schedule.auto)||(Array.isArray(CT_DATA.reminders)&&CT_DATA.reminders.length)||pp); }catch(e){ return false; } }
+setInterval(()=>{ if(tpx3Need()) tpx3Load().catch(()=>{}); },20000);
 function ctExams(box){
   const mode=ctExMode(), seg=`<span class="ct-seg ct-ex-mode"><button type="button" class="${mode==='rec'?'on':''}" onclick="ctExModeSet('rec')">📱 رصد</button><button type="button" class="${mode==='table'?'on':''}" onclick="ctExModeSet('table')">📊 جدول</button></span>`;
   if(mode==='rec'){
@@ -2397,7 +2409,9 @@ function ctSch(D){
   const s=(D.schedule&&typeof D.schedule==='object')?D.schedule:{};
   return { count:Math.max(4,Math.min(8,Number(s.count)||7)), grid:(s.grid&&typeof s.grid==='object')?s.grid:{} };
 }
-function ctSchedule(box){
+function ctSchedule(box){ tpx3Mount(box,'tpx3ScheduleMount'); }
+/* الجدول القديم (قائمة خانات) — لم يعد يُعرض؛ يبقى للمرجع */
+function ctScheduleOld(box){
   const s=ctSch(CT_DATA||{}), cls=ctClasses();
   const used={}; for(const dy of Object.keys(s.grid)) for(const p of Object.keys(s.grid[dy]||{})){ const c=s.grid[dy][p]; if(c) used[c]=(used[c]||0)+1; }
   box.innerHTML=`<div class="row" style="justify-content:flex-end;margin-bottom:.3rem"><button class="btn ghost sm" onclick="ctSchPrint()">🖨️ طباعة الجدول</button></div><div class="muted" style="font-size:.8rem;margin-bottom:.5rem">حدد الفصل في كل حصة. يظهر الجدول في بوابة المعلم فورًا، ومنه تنبيه بداية الحصة والتحضير التلقائي. أوقات الحصص وطولها تُضبط من البوابة.</div>

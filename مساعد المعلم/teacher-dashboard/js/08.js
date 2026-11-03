@@ -177,7 +177,7 @@ const PUSH_CAT_UI=[
   ['review','🔎','إنهاء مهمة المراجعة','بعد تصحيح أخطائه'],
   ['ask','💬','رسائل وأسئلة الطلاب','سؤال جديد أو رد على رسالتك'],
   ['wall','🧱','منشورات الجدار','منشور ينتظر اعتمادك'],
-  ['lesson','⏰','بداية الحصة','من جدولك في بوابة المعلم — بضغطة تبدأ الحصة'],
+  ['lesson','⏰','بداية الحصة','من جدولك — بضغطة يفتح رصد الفصل'],
   ['task','📌','تذكيراتي','مهامك من بوابة المعلم في موعدها']];
 function pushPrefsHTML(P){
   const hrs=v=>Array.from({length:24},(_,h)=>`<option value="${h}" ${h===v?'selected':''}>${h===0?'12 ص':h<12?h+' ص':h===12?'12 م':(h-12)+' م'}</option>`).join('');
@@ -205,7 +205,9 @@ async function pushPrefSet(k,v){
 async function openSubmissionFromPush(data){
   if(!data) return;
   // ⏰ تنبيه حصة/تذكير (بوابة المعلم داخل اللوحة): يفتح البوابة نفسها
-  if(data.type==='lesson' || data.type==='task'){ location.href = data.url || './portal/'; return; }
+  // ⏰ تنبيه حصة: رصد فصلها في اللوحة · تذكير: «تذكيراتي»
+  if(data.type==='lesson'){ const t0=Date.now(); let kick=false; const go=()=>{ if(typeof tpx3Load==='function'&&typeof CT_DATA!=='undefined'&&CT_DATA){ tpx3Load().then(()=>window.tpx3LessonOpen(data.d,data.p)).catch(()=>{}); return; } if(!kick&&Date.now()-t0>2500&&typeof ctGo==='function'){ kick=true; try{ ctGo('schedule'); }catch(e){} } if(Date.now()-t0<15000) setTimeout(go,300); }; go(); return; }
+  if(data.type==='task'){ const t0=Date.now(); const go=()=>{ if(typeof rmgOpen==='function'&&typeof CT_DATA!=='undefined'&&CT_DATA){ try{ rmgOpen(); }catch(e){} } else if(Date.now()-t0<15000) setTimeout(go,300); }; setTimeout(go,600); return; }
   // 🧰 من بوابة المعلم: الشهادات/المستويات/المهام في «أدوات الفصل»
   if(data.open==='ct' && /^(certs|levels|duties)$/.test(data.tab||'')){ const t0=Date.now(); const go=()=>{ if(typeof ctGo==='function'){ try{ ctGo(data.tab); }catch(e){} } else if(Date.now()-t0<8000) setTimeout(go,300); }; setTimeout(go,600); return; }
   // 📂 «الملف الكامل» من بوابة المعلم
@@ -249,7 +251,7 @@ function pushHandleLaunchParams(){
   const q=new URLSearchParams(location.search);
   const open=q.get('open');
   if(!open) return;
-  const data= open==='submission' ? {type:'submission',hw:q.get('hw'),sid:q.get('sid'),at:Number(q.get('at'))||0} : open==='wall' ? {type:'wall',id:q.get('id')} : open==='student' ? {open,sid:q.get('sid')} : open==='ct' ? {open,tab:q.get('tab')} : {open};
+  const data= open==='submission' ? {type:'submission',hw:q.get('hw'),sid:q.get('sid'),at:Number(q.get('at'))||0} : open==='wall' ? {type:'wall',id:q.get('id')} : open==='student' ? {open,sid:q.get('sid')} : open==='ct' ? {open,tab:q.get('tab')} : open==='lesson' ? {type:'lesson',d:q.get('d'),p:q.get('p')} : open==='tasks' ? {type:'task'} : {open};
   try{ history.replaceState(null,'',location.pathname+location.hash); }catch(_){}
   setTimeout(()=>openSubmissionFromPush(data),900);   // بعد اكتمال أول رسم ومزامنة
 }

@@ -5,7 +5,7 @@
    لا يغيّر أي حساب ولا الطباعة ولا الكمبيوتر: يعمل فقط على شاشة الجوال (≤700px). */
 (function(){
   const MQ = window.matchMedia('(max-width:700px)');
-  const SKIP = '.cm-t, .nf-fig-t, .cm-sheet table, .no-mt';
+  const SKIP = '.cm-t, .nf-fig-t, .cm-sheet table, .no-mt, .tpx table';   // .tpx: شاشات البوابة المنقولة تدير جداولها بنفسها
   const isMob = () => MQ.matches && !/\bprinting-/.test(document.body.className);
   const txt = el => String((el && (el.innerText || el.textContent)) || '').replace(/\s+/g, ' ').trim();
 

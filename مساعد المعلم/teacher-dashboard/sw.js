@@ -139,7 +139,10 @@ self.addEventListener('push', event => {
 self.addEventListener('notificationclick', event => {
   event.notification.close();
   const data = event.notification.data || {};
-  const target = new URL(data.url || './', self.registration.scope).href;
+  // ⏰ تنبيه الحصة والتذكير يفتحان اللوحة نفسها (كانا يفتحان بوابة المعلم)
+  const url = data.type === 'lesson' && data.d && data.p ? `./?open=lesson&d=${encodeURIComponent(data.d)}&p=${encodeURIComponent(data.p)}`
+            : data.type === 'task' ? './?open=tasks' : (data.url || './');
+  const target = new URL(url, self.registration.scope).href;
   event.waitUntil((async () => {
     const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     const inScope = all.find(c => c.url.startsWith(self.registration.scope));

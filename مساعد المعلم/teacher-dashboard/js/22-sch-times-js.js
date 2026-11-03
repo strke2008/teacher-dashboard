@@ -46,14 +46,4 @@ function schTimesPanel(){
   <details class="st-panel"><summary style="cursor:pointer;font-weight:800">📜 سجل الحصص <small class="muted">— الحصص التي بدأتها وأنهيتها من بوابة المعلم</small></summary>
     <div class="st-log" style="margin-top:.5rem">${log||'<div class="muted" style="display:block">لم تبدأ حصة من البوابة في الأيام الأخيرة.</div>'}</div></details>`;
 }
-/* محرر الجدول: لوحة الأوقات أعلاه، والأوقات تحت رؤوس الحصص */
-(function(){
-  const _cs=ctSchedule;
-  ctSchedule=function(box){
-    _cs(box);
-    const w=document.createElement('div'); w.innerHTML=schTimesPanel();
-    box.insertBefore(w, box.firstChild);
-    const T=tdTimes(((CT_DATA||{}).schedule)||{});
-    box.querySelectorAll('table.ct-sch thead th').forEach((th,i)=>{ const t=T[i-1]; if(i>0&&t) th.insertAdjacentHTML('beforeend',`<small>${schH12(t.sm)} – ${schH12(t.em)}</small>`); });
-  };
-})();
+/* محرر الجدول صار شاشة البوابة نفسها (js/42-schedule.js) وفيها الأوقات في ⚙️ — لوحة الأوقات القديمة لم تعد تُضاف فوقها (تكرار) */
