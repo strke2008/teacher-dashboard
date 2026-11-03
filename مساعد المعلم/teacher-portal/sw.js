@@ -1,10 +1,15 @@
 /* مساعد المعلم — بوابة المعلم: Service Worker للإشعارات فقط (تنبيه بداية الحصة).
    لا مستمع fetch ولا تخزين مؤقت: البيانات تُجلب دائمًا من الخادم. لا يحتوي أي سر. */
-const SW_VERSION = 'portal-push-v1';
+const SW_VERSION = 'portal-push-v2';
 const API = new URL(self.location.href).searchParams.get('api') || '';
 
 self.addEventListener('install', () => { self.skipWaiting(); });
-self.addEventListener('activate', event => { event.waitUntil(self.clients.claim()); });
+/* 🧹 هذا العامل لا يخزّن شيئًا ولا يعترض الصفحات: أي ذاكرة مؤقتة على هذا النطاق بقايا نسخة سابقة
+   (قد تجعل تطبيق الشاشة الرئيسية في iPhone لا يفتح بينما سفاري يفتح) — تُحذف عند كل تحديث */
+self.addEventListener('activate', event => { event.waitUntil((async () => {
+  try { for (const k of await caches.keys()) await caches.delete(k); } catch {}
+  await self.clients.claim();
+})()); });
 
 self.addEventListener('push', event => {
   let msg = {};

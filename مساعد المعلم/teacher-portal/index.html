@@ -5128,6 +5128,13 @@ async function ppPost(path, body){
   return { status:r.status, j };
 }
 async function ppReg(){ return navigator.serviceWorker.register('./sw.js?api=' + encodeURIComponent(API)); }
+/* 🧹 عامل خدمة غريب على هذا النطاق (من نسخة/موقع سابق) قد يعترض فتح الصفحة في تطبيق الشاشة الرئيسية: يُلغى، ويُحدَّث عاملنا */
+if('serviceWorker' in navigator && navigator.serviceWorker.getRegistrations) setTimeout(() => {
+  navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => {
+    const w = r.active || r.waiting || r.installing, u = w ? new URL(w.scriptURL) : null, mine = new URL('./sw.js', location.href).pathname;
+    if(!u || u.pathname !== mine) r.unregister().catch(() => {}); else r.update().catch(() => {});
+  })).catch(() => {});
+}, 3000);
 function ppKey(b64){ const s = String(b64).replace(/-/g,'+').replace(/_/g,'/'); return Uint8Array.from(atob(s + '==='.slice((s.length+3)%4)), c => c.charCodeAt(0)); }
 
 /* جدول الأسبوع كما هو في شاشة «الجدول» حرفيًا: كل خلية فيها فصل = تنبيه */
