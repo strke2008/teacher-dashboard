@@ -5128,13 +5128,16 @@ async function ppPost(path, body){
   return { status:r.status, j };
 }
 async function ppReg(){ return navigator.serviceWorker.register('./sw.js?api=' + encodeURIComponent(API)); }
-/* 🧹 عامل خدمة غريب على هذا النطاق (من نسخة/موقع سابق) قد يعترض فتح الصفحة في تطبيق الشاشة الرئيسية: يُلغى، ويُحدَّث عاملنا */
-if('serviceWorker' in navigator && navigator.serviceWorker.getRegistrations) setTimeout(() => {
-  navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => {
-    const w = r.active || r.waiting || r.installing, u = w ? new URL(w.scriptURL) : null, mine = new URL('./sw.js', location.href).pathname;
-    if(!u || u.pathname !== mine) r.unregister().catch(() => {}); else r.update().catch(() => {});
-  })).catch(() => {});
-}, 3000);
+/* 📱 العامل يُسجَّل عند كل فتح (لا عند تفعيل التنبيهات فقط): يحفظ نسخة من الصفحة على الجهاز، فيفتح تطبيق الشاشة الرئيسية
+   حتى لو تعذّر الوصول للموقع من الشبكة. وأي عامل غريب على النطاق (من نسخة/موقع سابق) يُلغى */
+if('serviceWorker' in navigator && window.isSecureContext) setTimeout(() => {
+  const mine = new URL('./sw.js', location.href).pathname;
+  (navigator.serviceWorker.getRegistrations ? navigator.serviceWorker.getRegistrations() : Promise.resolve([])).then(rs => {
+    rs.forEach(r => { const w = r.active || r.waiting || r.installing, u = w ? new URL(w.scriptURL) : null; if(u && u.pathname !== mine) r.unregister().catch(() => {}); });
+    return ppReg().then(r => r && r.update && r.update().catch(() => {}));
+  }).catch(() => {});
+  navigator.serviceWorker.addEventListener('message', e => { if(e.data && e.data.type === 'dash-update' && typeof APPUPD !== 'undefined') APPUPD.mark(); });
+}, 1500);
 function ppKey(b64){ const s = String(b64).replace(/-/g,'+').replace(/_/g,'/'); return Uint8Array.from(atob(s + '==='.slice((s.length+3)%4)), c => c.charCodeAt(0)); }
 
 /* جدول الأسبوع كما هو في شاشة «الجدول» حرفيًا: كل خلية فيها فصل = تنبيه */

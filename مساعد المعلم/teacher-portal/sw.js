@@ -1,15 +1,59 @@
-/* مساعد المعلم — بوابة المعلم: Service Worker للإشعارات فقط (تنبيه بداية الحصة).
-   لا مستمع fetch ولا تخزين مؤقت: البيانات تُجلب دائمًا من الخادم. لا يحتوي أي سر. */
-const SW_VERSION = 'portal-push-v2';
+/* مساعد المعلم — بوابة المعلم: Service Worker للإشعارات (تنبيه بداية الحصة) + نسخة من الصفحة على الجهاز.
+   📱 تطبيق الشاشة الرئيسية في iPhone قد لا يصل لصفحة الموقع على بعض شبكات الواي فاي («الخادم توقف عن الاستجابة»)
+   بينما سفاري يصل. لذلك: الصفحة من الخادم أولًا (حتى 4 ث)، وإن تأخرت أو فشلت تُفتح النسخة المحفوظة على الجهاز فورًا،
+   وتُحدَّث في الخلفية. البيانات (الطلاب والدرجات) لا تُحفظ هنا إطلاقًا: تُجلب من الخادم (نطاق آخر لا يمر بهذا العامل). لا أسرار. */
+const SW_VERSION = 'portal-push-v3+page-v1';
 const API = new URL(self.location.href).searchParams.get('api') || '';
+const PAGE_CACHE = 'tp-page-v1';
+const SCOPE = new URL(self.registration ? self.registration.scope : './', self.location.href);
+const PAGE_KEY = new URL('./', SCOPE).href;
+const isPage = u => u.pathname === SCOPE.pathname || u.pathname === SCOPE.pathname + 'index.html';
+const isAsset = u => u.pathname.startsWith(SCOPE.pathname + 'pwa/') || u.pathname === SCOPE.pathname + 'manifest.webmanifest';
 
 self.addEventListener('install', () => { self.skipWaiting(); });
-/* 🧹 هذا العامل لا يخزّن شيئًا ولا يعترض الصفحات: أي ذاكرة مؤقتة على هذا النطاق بقايا نسخة سابقة
-   (قد تجعل تطبيق الشاشة الرئيسية في iPhone لا يفتح بينما سفاري يفتح) — تُحذف عند كل تحديث */
 self.addEventListener('activate', event => { event.waitUntil((async () => {
-  try { for (const k of await caches.keys()) await caches.delete(k); } catch {}
+  try { for (const k of await caches.keys()) if (k !== PAGE_CACHE) await caches.delete(k); } catch {}   // 🧹 بقايا أي نسخة سابقة
   await self.clients.claim();
 })()); });
+
+async function notifyUpdate(){ for (const c of await self.clients.matchAll({ type: 'window', includeUncontrolled: true })) c.postMessage({ type: 'dash-update' }); }
+/* الصفحة من الشبكة: ‎?_sw=‎ فريد يتجاوز أي نسخة وسيطة، ثم تُحفظ. تُعاد استجابة جديدة (لا «محوَّلة») — WebKit يرفض تسليم استجابة فيها تحويل لصفحة */
+async function pageFromNet(req){
+  const u = new URL(req.url); u.searchParams.set('_sw', Date.now().toString(36));
+  const r = await fetch(u.href, { cache: 'no-store', credentials: 'same-origin' });
+  if (!r.ok) throw new Error('http ' + r.status);
+  const txt = await r.text();
+  const cache = await caches.open(PAGE_CACHE), old = await cache.match(PAGE_KEY), oldTxt = old ? await old.text() : null;
+  await cache.put(PAGE_KEY, new Response(txt, { headers: { 'Content-Type': 'text/html; charset=utf-8' } }));
+  return { res: new Response(txt, { headers: { 'Content-Type': 'text/html; charset=utf-8' } }), changed: oldTxt !== null && oldTxt !== txt };
+}
+self.addEventListener('fetch', event => {
+  const req = event.request;
+  if (req.method !== 'GET') return;
+  const u = new URL(req.url);
+  if (u.origin !== self.location.origin) return;                                  // الخادم (API) ونطاقات أخرى: لا نتدخل
+  if (req.mode === 'navigate' && isPage(u)) {
+    event.respondWith((async () => {
+      const cached = await caches.match(PAGE_KEY, { cacheName: PAGE_CACHE });
+      const net = pageFromNet(req);
+      if (!cached) { try { return (await net).res; } catch { return fetch(req); } }
+      let served = false;
+      event.waitUntil(net.then(x => { if (served && x.changed) return notifyUpdate(); }).catch(() => {}));
+      const won = await Promise.race([net.then(x => x.res).catch(() => null), new Promise(r => setTimeout(() => r(null), 4000))]);
+      if (won) return won;
+      served = true; return cached;                                                // الشبكة متأخرة/فاشلة: النسخة المحفوظة فورًا
+    })());
+    return;
+  }
+  if (isAsset(u)) {
+    event.respondWith((async () => {
+      const cache = await caches.open(PAGE_CACHE), hit = await cache.match(req);
+      const net = fetch(req).then(r => { if (r.ok && r.type === 'basic' && !r.redirected) cache.put(req, r.clone()); return r; });
+      if (hit) { event.waitUntil(net.catch(() => {})); return hit; }
+      return net;
+    })());
+  }
+});
 
 self.addEventListener('push', event => {
   let msg = {};
