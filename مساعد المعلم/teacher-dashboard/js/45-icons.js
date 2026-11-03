@@ -79,6 +79,7 @@
     const t = firstText(el); if (!t) return; const m = LEAD.exec(t.nodeValue); if (!m) return;
     const name = m[2] === '•••' ? 'more' : (map[m[2]] || map[m[2].replace(/️/g, '')]); if (!name || !P[name]) return;
     const span = document.createElement('span'); span.innerHTML = svg(name); const ic = span.firstChild;
+    if (!el.hasAttribute('data-emo')) el.setAttribute('data-emo', m[2]);   // من يقرأ الإيموجي من هذا العنصر (مثل الشريط السفلي) يجده
     t.parentNode.insertBefore(ic, t); t.nodeValue = t.nodeValue.slice(m[0].length);
     if (t.nodeValue && !/^\s/.test(t.nodeValue) && !el.matches('.simp-bic,.app-nav-icon,.mnav-icon,#fm-bot i,.qr-ic,.qr-row .c')) t.nodeValue = ' ' + t.nodeValue;
   }

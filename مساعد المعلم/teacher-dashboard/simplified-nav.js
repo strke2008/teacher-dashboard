@@ -115,7 +115,7 @@
     var icon = b.querySelector('.app-nav-icon');
     var spans = b.querySelectorAll('span:not(.proj-badge)');   // العدّاد ليس جزءًا من الاسم
     var label = spans.length ? spans[spans.length-1].textContent.trim() : b.textContent.trim();
-    return { icon: icon ? icon.textContent.trim() : '•', label: label };
+    return { icon: icon ? (icon.getAttribute('data-emo') || icon.textContent.trim() || '•') : '•', label: label };   // data-emo: الإيموجي الأصلي بعد تحويله لأيقونة (js/45-icons.js)
   }
   function activate(tab, view){
     var b = origBtn(tab, view);
