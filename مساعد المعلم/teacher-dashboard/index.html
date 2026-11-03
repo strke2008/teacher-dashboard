@@ -23,13 +23,13 @@
 <link rel="stylesheet" href="app.css?v=16178ead">
 <script src="js/00-fetch-dedupe-js.js?v=e77498d1" defer></script>
 <script src="js/01-right-sidebar-navigation-js.js?v=41ea29b3" defer></script>
-<script src="js/02.js?v=c2ef35c0" defer></script>
+<script src="js/02.js?v=045fcd4d" defer></script>
 <script src="js/03-projects-students-logic-v13.js?v=d4950f64" defer></script>
 <script src="js/04.js?v=5a7c663e" defer></script>
 <script src="js/05.js?v=a7c074c3" defer></script>
 <script src="js/06.js?v=4e76f64a" defer></script>
 <script src="js/07.js?v=ee4fadce" defer></script>
-<script src="js/08.js?v=26ba662f" defer></script>
+<script src="js/08.js?v=a6099650" defer></script>
 <script src="js/09.js?v=ef17fc2a" defer></script>
 <script src="js/10.js?v=bbaf2a38" defer></script>
 <script src="js/11.js?v=8ccd78e3" defer></script>
@@ -502,7 +502,7 @@
 <div class="brand brand-refresh" role="button" tabindex="0" title="اضغط لتحديث الصفحة" aria-label="تحديث الصفحة"><span class="mark"></span><span class="brand-txt">مساعد المعلم</span></div>
 <div class="meta" id="meta-line">—</div>
 <button class="btn ghost sm no-print vsp-btn" id="vsp-btn" onclick="vspOpen()" style="display:none" title="الفترة المعروضة في اللوحة — اضغط لعرض فترة مغلقة" type="button">📅</button>
-<button class="btn ghost sm no-print" id="portal-link-btn" onclick="openPortal()" style="display:none;margin-inline-start:.4rem" type="button" title="بوابة المعلم" aria-label="بوابة المعلم">🧭<span class="portal-w"> بوابة المعلم</span></button>
+<button class="btn ghost sm no-print" id="portal-link-btn" onclick="openPortal()" style="margin-inline-start:.4rem" type="button" title="بوابة المعلم" aria-label="بوابة المعلم">🧭<span class="portal-w"> بوابة المعلم</span></button>
 </div>
 <div class="vsp-banner hide no-print" id="vsp-banner"></div>
 </header>
@@ -1669,12 +1669,13 @@
 </div>
 </div>
 <div class="sheet">
-<div class="sheet-head"><h2>رابط بوابة المعلم</h2></div>
+<div class="sheet-head"><h2>بوابة المعلم</h2></div>
 <p style="margin:0 0 .9rem;color:var(--ink-soft);font-size:.88rem">
-        عنوان بوابة الرصد التي رفعتها. يُستعمل لزر الاختصار في الأعلى — ولا يُرفَق به رمزك أبدًا.
+        بوابة المعلم (الحصة والرصد والتصحيح الآلي) صارت داخل اللوحة نفسها: زر «🧭 بوابة المعلم» في الأعلى، وبالكلمة السر نفسها.
+        اترك هذا الحقل فارغًا — إلا إن أردت فتح بوابة على رابط آخر.
       </p>
 <div class="field" style="margin:0">
-<input class="inp" id="portal-url" oninput="savePortal()" placeholder="https://…pages.dev/"/>
+<input class="inp" id="portal-url" oninput="savePortal()" placeholder="فارغ = البوابة المدمجة"/>
 </div>
 </div>
 <div class="sheet">

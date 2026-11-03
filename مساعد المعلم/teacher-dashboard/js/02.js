@@ -9953,14 +9953,18 @@ function saveSite(){ localStorage.setItem(K_SITE, document.getElementById('site-
    لئلا ينكسر يوم تنشرها على نطاق آخر — يُحفظ هنا ويُحرَّر من الإعدادات. */
 const K_PORTAL = 'hwapp_portal_url_v1';
 function savePortal(){ localStorage.setItem(K_PORTAL, document.getElementById('portal-url').value.trim()); syncPortalBtn(); }
+/* 📱 بوابة المعلم صارت جزءًا من موقع اللوحة (./portal/): تطبيق واحد ودخول واحد (كلمة السر نفسها محفوظة للاثنين).
+   رابط مخصص قديم في الإعدادات يبقى يعمل إن كتبه المعلم */
+try{ if(/teachergate\.pages\.dev/i.test(localStorage.getItem('hwapp_portal_url_v1')||'')) localStorage.removeItem('hwapp_portal_url_v1'); }catch(e){}   // الرابط القديم المنفصل ⇒ المدمجة
 function getPortal(){ return (localStorage.getItem(K_PORTAL) || '').trim(); }
 function syncPortalBtn(){
   const b=document.getElementById('portal-link-btn');
-  if(b) b.style.display = getPortal() ? '' : 'none';   // بلا عنوان: لا زر معطّل يربك
+  if(b) b.style.display = '';
 }
 function openPortal(){
   const u=getPortal();
-  if(!u){ toast('اكتب رابط بوابة المعلم في الإعدادات أولًا','bad'); return; }
+  const app = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  if(!u){ if(app) location.href='./portal/'; else window.open('./portal/','_blank'); return; }   // داخل تطبيق الشاشة الرئيسية: الصفحة نفسها (لا يخرج لسفاري)
   // تبويب جديد: اللوحة تحمل حالة غير محفوظة (تقرير مرسوم، ترشيح، مسودة)
   // ولا رمز في الرابط: الرمز يُدخَل في البوابة نفسها ولا يُسجَّل في التاريخ
   window.open(/^https?:\/\//i.test(u) ? u : 'https://'+u, '_blank', 'noopener');

@@ -497,7 +497,7 @@ window.__APPUPD_CFG={api:()=>(typeof API!=='undefined'?API:''),show:()=>spShowUp
    ولا يُطبَّق أبدًا وسط عمل (نافذة مفتوحة، كتابة، حل نشاط). و«إجبار كل الأجهزة» من لوحة التحكم: الخادم يحفظ وقت الطلب،
    وكل جهاز يراه (عند الفتح والعودة وكل 10 دقائق) يمسح نسخته المحفوظة ويعيد التحميل مرة واحدة. لا يُلغى تسجيل الإشعارات. */
 const APPUPD=(()=>{
-  const LS='app_force_seen',CFG=window.__APPUPD_CFG||{};let pending=false,hard=0,since=0,lastAct=Date.now(),lastInput=0,hidAt=0,going=false;
+  const CFG=window.__APPUPD_CFG||{},LS=CFG.key||'app_force_seen';let pending=false,hard=0,since=0,lastAct=Date.now(),lastInput=0,hidAt=0,going=false;
   addEventListener('input',()=>{lastInput=Date.now()},true);
   ['pointerdown','keydown','wheel','touchstart'].forEach(e=>addEventListener(e,()=>{lastAct=Date.now()},{capture:true,passive:true}));
   const editing=()=>{const a=document.activeElement;return !!(a&&(a.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))&&!/^(button|checkbox|radio|range|submit)$/i.test(a.type||''))};

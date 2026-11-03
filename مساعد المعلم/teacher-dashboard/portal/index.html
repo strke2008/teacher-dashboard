@@ -1688,6 +1688,7 @@ setTimeout(function(){if(window.__portalBooted)return;var g=document.getElementB
       </div>
     </div>
     <div class="more-grid">
+      <button type="button" onclick="location.href='../'" style="grid-column:1/-1;min-height:0;flex-direction:row;align-items:center;gap:10px"><span class="ic" style="background:var(--accent-soft);color:var(--accent);margin:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></span><b>لوحة التحكم</b><small>الأنشطة والتسليمات والتقارير</small></button>
       <button data-target="schedule"><span class="ic" style="background:var(--green-soft);color:var(--green)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/></svg></span><b>الجدول</b><small>الحصص والمشاركة</small></button>
         <button data-target="grades"><span class="ic" style="background:var(--green-soft);color:var(--green)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.6" cy="6.6" r="2.4"/><circle cx="17.4" cy="17.4" r="2.4"/></svg></span><b>الدرجات</b><small>المشاركة والسلوك</small></button>
       <button data-target="exams"><span class="ic" style="background:var(--violet-soft);color:var(--violet)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z"/><path d="M7 8h10M7 12h6M7 16h4"/></svg></span><b>رصد الاختبارات</b><small>20 درجة لكل فترة</small></button>
@@ -4349,7 +4350,7 @@ function wire(){
  document.querySelectorAll('.back').forEach(b=>b.onclick=()=>openTeacherPanel('home'));
  document.querySelectorAll('.tile[data-go]').forEach(b=>b.onclick=()=>openTeacherPanel(b.dataset.go));
  document.querySelectorAll('.nav-item').forEach(b=>b.onclick=()=>{b.dataset.p==='more'?openMore():openTeacherPanel(b.dataset.p)});
- document.querySelectorAll('.more-grid button').forEach(b=>b.onclick=e=>{e.preventDefault();closeMore();openTeacherPanel(b.dataset.target)});
+ document.querySelectorAll('.more-grid button[data-target]').forEach(b=>b.onclick=e=>{e.preventDefault();closeMore();openTeacherPanel(b.dataset.target)});
  $('student-modal').addEventListener('click',e=>{if(e.target===$('student-modal'))closeStudentProfile()});
  document.querySelectorAll('[data-theme-set]').forEach(b=>b.onclick=()=>applyTheme(b.dataset.themeSet,true));
  applyTheme(currentThemeMode(),false);
@@ -5133,7 +5134,8 @@ async function ppReg(){ return navigator.serviceWorker.register('./sw.js?api=' +
 if('serviceWorker' in navigator && window.isSecureContext) setTimeout(() => {
   const mine = new URL('./sw.js', location.href).pathname;
   (navigator.serviceWorker.getRegistrations ? navigator.serviceWorker.getRegistrations() : Promise.resolve([])).then(rs => {
-    rs.forEach(r => { const w = r.active || r.waiting || r.installing, u = w ? new URL(w.scriptURL) : null; if(u && u.pathname !== mine) r.unregister().catch(() => {}); });
+    const myScope = new URL('./', location.href).href;   // البوابة داخل موقع لوحة التحكم: عامل اللوحة (نطاقه أعلى) لا يُمس أبدًا
+    rs.forEach(r => { const w = r.active || r.waiting || r.installing, u = w ? new URL(w.scriptURL) : null; if(u && r.scope.startsWith(myScope) && u.pathname !== mine) r.unregister().catch(() => {}); });
     return ppReg().then(r => r && r.update && r.update().catch(() => {}));
   }).catch(() => {});
   navigator.serviceWorker.addEventListener('message', e => { if(e.data && e.data.type === 'dash-update' && typeof APPUPD !== 'undefined') APPUPD.mark(); });
@@ -7422,13 +7424,13 @@ function tpShowUpdate(){
   b.children[1].onclick=()=>APPUPD.apply(); b.children[2].onclick=()=>b.remove();
   document.body.appendChild(b);
 }
-window.__APPUPD_CFG={api:()=>API,show:tpShowUpdate,
+window.__APPUPD_CFG={key:'app_force_seen_tp',api:()=>API,show:tpShowUpdate,
   busy:()=>!!(document.getElementById('omr-sheet')||document.querySelector('.modal.show,#more.show,#gate.show')||(typeof OMRUI!=='undefined'&&(OMRUI.stream||OMRUI.starting)))};
 /* 🔄 التحديث الإجباري: أي إصدار أحدث يُطبَّق وحده في أول لحظة آمنة — عند الخروج من التطبيق أو العودة إليه، أو بعد دقيقتين بلا لمس —
    ولا يُطبَّق أبدًا وسط عمل (نافذة مفتوحة، كتابة، حل نشاط). و«إجبار كل الأجهزة» من لوحة التحكم: الخادم يحفظ وقت الطلب،
    وكل جهاز يراه (عند الفتح والعودة وكل 10 دقائق) يمسح نسخته المحفوظة ويعيد التحميل مرة واحدة. لا يُلغى تسجيل الإشعارات. */
 const APPUPD=(()=>{
-  const LS='app_force_seen',CFG=window.__APPUPD_CFG||{};let pending=false,hard=0,since=0,lastAct=Date.now(),lastInput=0,hidAt=0,going=false;
+  const CFG=window.__APPUPD_CFG||{},LS=CFG.key||'app_force_seen';let pending=false,hard=0,since=0,lastAct=Date.now(),lastInput=0,hidAt=0,going=false;
   addEventListener('input',()=>{lastInput=Date.now()},true);
   ['pointerdown','keydown','wheel','touchstart'].forEach(e=>addEventListener(e,()=>{lastAct=Date.now()},{capture:true,passive:true}));
   const editing=()=>{const a=document.activeElement;return !!(a&&(a.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))&&!/^(button|checkbox|radio|range|submit)$/i.test(a.type||''))};

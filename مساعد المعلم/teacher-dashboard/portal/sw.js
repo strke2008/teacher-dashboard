@@ -2,7 +2,7 @@
    📱 تطبيق الشاشة الرئيسية في iPhone قد لا يصل لصفحة الموقع على بعض شبكات الواي فاي («الخادم توقف عن الاستجابة»)
    بينما سفاري يصل. لذلك: الصفحة من الخادم أولًا (حتى 4 ث)، وإن تأخرت أو فشلت تُفتح النسخة المحفوظة على الجهاز فورًا،
    وتُحدَّث في الخلفية. البيانات (الطلاب والدرجات) لا تُحفظ هنا إطلاقًا: تُجلب من الخادم (نطاق آخر لا يمر بهذا العامل). لا أسرار. */
-const SW_VERSION = 'portal-push-v3+page-v1';
+const SW_VERSION = 'portal-push-v4+page-v1';
 const API = new URL(self.location.href).searchParams.get('api') || '';
 const PAGE_CACHE = 'tp-page-v1';
 const SCOPE = new URL(self.registration ? self.registration.scope : './', self.location.href);
@@ -12,7 +12,7 @@ const isAsset = u => u.pathname.startsWith(SCOPE.pathname + 'pwa/') || u.pathnam
 
 self.addEventListener('install', () => { self.skipWaiting(); });
 self.addEventListener('activate', event => { event.waitUntil((async () => {
-  try { for (const k of await caches.keys()) if (k !== PAGE_CACHE) await caches.delete(k); } catch {}   // 🧹 بقايا أي نسخة سابقة
+  try { for (const k of await caches.keys()) if (k.startsWith('tp-') && k !== PAGE_CACHE) await caches.delete(k); } catch {}   // 🧹 نسخ سابقة من ذاكرتنا فقط — النطاق مشترك مع لوحة التحكم
   await self.clients.claim();
 })()); });
 
