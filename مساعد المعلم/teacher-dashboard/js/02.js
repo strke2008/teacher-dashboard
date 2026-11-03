@@ -1536,7 +1536,7 @@ async function annLoad(){
     <span class="ann-st ${st.k}">${st.t}</span>
     <small class="muted">أُنشئ ${new Date(a.at).toLocaleString('ar-SA',{dateStyle:'medium',timeStyle:'short'})}${a.editedAt?` · ✏️ عُدّل ${new Date(a.editedAt).toLocaleString('ar-SA',{dateStyle:'medium',timeStyle:'short'})}`:''} · ${a.classes&&a.classes.length?esc(a.classes.join('، ')):'كل الطلاب'}</small>
     ${a.body?`<div class="muted" style="font-size:.84rem;white-space:pre-wrap">${esc(a.body.slice(0,160))}${a.body.length>160?'…':''}</div>`:''}
-    ${(()=>{ const u=i=>`${base}/ann-file?a=${encodeURIComponent(a.id)}&f=${i}&t=${tk}`, fs=(a.files||[]).map((f,i)=>({...f,i}));
+    ${(()=>{ const fa=(window.hwFileAuth?hwFileAuth():'t='+tk), u=i=>`${base}/ann-file?a=${encodeURIComponent(a.id)}&f=${i}&${fa}`, fs=(a.files||[]).map((f,i)=>({...f,i}));
       // 🖼️ معاينة كما يراها الطلاب: الصور مصغّرة (تُفتح كاملة بالضغط) والفيديو يعمل هنا، وبقية الملفات روابط
       const im=fs.filter(f=>f.kind==='image'), vd=fs.filter(f=>f.kind==='video'), ot=fs.filter(f=>f.kind!=='image'&&f.kind!=='video');
       return `${im.length||vd.length?`<div class="ann-pv">${im.map(f=>`<a href="${u(f.i)}" target="_blank" rel="noopener" title="${esc(f.name)}"><img loading="lazy" src="${u(f.i)}" alt="${esc(f.name)}"></a>`).join('')}${vd.map(f=>`<video controls playsinline preload="metadata" src="${u(f.i)}"></video>`).join('')}</div>`:''}
@@ -9828,7 +9828,7 @@ function openReport(id){
       ${subs.map(([sid,v])=>{
         const st=byId(sid); const files=Array.isArray(v.files)?v.files:[];
         const links=files.map((f,i)=>{
-          const href=getApi()+'/file-download?hw='+encodeURIComponent(h.sid||h.id)+'&sid='+encodeURIComponent(st.id||sid)+'&name='+encodeURIComponent(st.name)+'&key='+encodeURIComponent(f.key)+'&t='+encodeURIComponent(getTok());
+          const href=getApi()+'/file-download?hw='+encodeURIComponent(h.sid||h.id)+'&sid='+encodeURIComponent(st.id||sid)+'&name='+encodeURIComponent(st.name)+'&key='+encodeURIComponent(f.key)+'&'+(window.hwFileAuth?hwFileAuth():'t='+encodeURIComponent(getTok()));
           return `<a href="${href}" target="_blank" rel="noopener" class="btn ghost sm" style="text-decoration:none">${f.type==='application/pdf'?'📄':String(f.type||'').startsWith('video/')?'🎥':'🖼️'} ${esc(f.name||('ملف '+(i+1)))}</a>`;
         }).join(' ');
         return `<div style="padding:.55rem .2rem;border-bottom:1px solid var(--rule)"><b>${esc(st.name)}</b><div style="margin-top:.4rem;display:flex;gap:.35rem;flex-wrap:wrap">${links||'<span class="muted">لا توجد مرفقات</span>'}</div></div>`;

@@ -2,6 +2,35 @@
 
 <html dir="rtl" lang="ar">
 <head>
+<script>
+/* 🔐 كلمة سر المعلم لا تُكتب في الروابط: أي طلب للخادم فيه ‎?t=‎ (كلمة السر نفسها) تُنقل كلمته إلى ترويسة مخفية.
+   يعمل فقط إن أكّد الخادم دعمه (hdrAuth في /version) — فترتيب الرفع لا يكسر شيئًا. وروابط الملفات المفتوحة مباشرة
+   (صورة/فيديو/تنزيل) تحمل «مفتاح عرض» مؤقتًا بدل كلمة السر: hwFileAuth(). */
+(function(){
+  var KT='hwapp_tok_v1',KOK='hw_hdr_auth_v1',KVK='hw_vk_v1',DEF='https://homework.ahmadalmarzooq2009.workers.dev';
+  var ls=function(k){try{return localStorage.getItem(k)||''}catch(e){return ''}}, put=function(k,v){try{if(v==null)localStorage.removeItem(k);else localStorage.setItem(k,v)}catch(e){}};
+  var on=ls(KOK)==='1', F=window.fetch.bind(window);
+  var tok=function(){return ls(KT).trim()}, api=function(){return (ls('hwapp_api_v1_test')||DEF).trim().replace(/\/+$/,'')};
+  var day=function(o){return new Date(Date.now()+3*3600e3-(o||0)*864e5).toISOString().slice(0,10)};
+  window.fetch=function(input,init){
+    try{ if(on&&(typeof input==='string'||input instanceof URL)){ var u=new URL(String(input),location.href), k=tok();
+      if(k&&u.origin!==location.origin&&u.searchParams.get('t')===k){ u.searchParams.delete('t'); init=Object.assign({},init||{});
+        var h=new Headers(init.headers||{}); h.set('X-Teacher-Token',k); init.headers=h; input=u.href; } } }catch(e){}
+    return F(input,init);
+  };
+  function vkLoad(){ var k=tok(); if(!k||!on) return; var c={}; try{c=JSON.parse(ls(KVK)||'{}')}catch(e){}
+    if(c.vk&&c.tk===k.length+':'+k.slice(-2)&&c.day===day(0)) return;
+    F(api()+'/auth/viewkey',{cache:'no-store',headers:{'X-Teacher-Token':k}}).then(function(r){return r.json()}).then(function(j){
+      if(j&&j.ok&&j.vk) put(KVK,JSON.stringify({vk:j.vk,day:j.day,tk:k.length+':'+k.slice(-2)})); }).catch(function(){}); }
+  /* معامل الهوية لروابط الملفات: مفتاح العرض إن كان صالحًا (اليوم أو أمس)، وإلا كلمة السر كالسابق */
+  window.hwFileAuth=function(){ var k=tok(), c={}; try{c=JSON.parse(ls(KVK)||'{}')}catch(e){}
+    if(on&&c.vk&&c.tk===k.length+':'+k.slice(-2)&&(c.day===day(0)||c.day===day(1))) return 'vk='+encodeURIComponent(c.vk);
+    vkLoad(); return 't='+encodeURIComponent(k); };
+  F(api()+'/version',{cache:'no-store'}).then(function(r){return r.json()}).then(function(j){
+    on=!!(j&&j.hdrAuth); put(KOK,on?'1':null); if(on) vkLoad(); }).catch(function(){});
+  if(on) vkLoad();
+})();
+</script>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
 <meta content="#16233A" name="theme-color"/>
@@ -23,7 +52,7 @@
 <link rel="stylesheet" href="app.css?v=16178ead">
 <script src="js/00-fetch-dedupe-js.js?v=e77498d1" defer></script>
 <script src="js/01-right-sidebar-navigation-js.js?v=41ea29b3" defer></script>
-<script src="js/02.js?v=045fcd4d" defer></script>
+<script src="js/02.js?v=f1c47d3d" defer></script>
 <script src="js/03-projects-students-logic-v13.js?v=d4950f64" defer></script>
 <script src="js/04.js?v=5a7c663e" defer></script>
 <script src="js/05.js?v=a7c074c3" defer></script>
@@ -61,7 +90,7 @@
 <script src="theme-picker.js?v=7debd8d7" defer></script>
 <script src="simplified-nav.js?v=66a25b2f" defer></script>
 <script src="tab-polish.js?v=bd1e2e02" defer></script>
-<script src="js/wall.js?v=24960a43" defer></script>
+<script src="js/wall.js?v=bb38e88b" defer></script>
 <script src="js/wall-admin.js?v=8ef1469d" defer></script>
 <style id="comprehensive-print-identical-all-devices">
 /* 🖨️ الكشف الشامل: نفس التخطيط الفيزيائي على الجوال والكمبيوتر.

@@ -1255,7 +1255,8 @@ function nameTokens(s) {
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Headers': 'Content-Type, X-Teacher-Token',
+  'Access-Control-Max-Age': '86400',
 };
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -5776,6 +5777,25 @@ async function ttsHandle(request, env, ctx, url) {
   return res;
 }
 
+/* 🔐 كلمة سر المعلم خارج الروابط: اللوحة والبوابة ترسلانها في ترويسة X-Teacher-Token بدل ‎?t=‎ في الرابط
+   (الروابط تُحفظ في السجلات والذاكرة). تُوضع هنا في مكانها المعتاد فتعمل كل المسارات كما هي، والطلاب لا يتأثرون بشيء.
+   روابط الملفات المفتوحة مباشرة (صورة/فيديو/تنزيل) لا تحمل ترويسة: «مفتاح عرض» ‎vk‎ مؤقت (يومان) يصلح لعرض الملفات فقط. */
+const VK_PATHS = new Set(['/ann-file', '/file-download', '/wall-file']);
+const vkDay = (off = 0) => ksaDay(Date.now() - off * 864e5);
+async function viewKey(env, day) {
+  const k = await crypto.subtle.importKey('raw', new TextEncoder().encode(String(env.TEACHER_TOKEN)), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = new Uint8Array(await crypto.subtle.sign('HMAC', k, new TextEncoder().encode('vk|' + day)));
+  return [...sig.slice(0, 16)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+async function teacherAuthFromHeaders(request, url, env) {
+  const ht = request.headers.get('X-Teacher-Token');
+  if (ht && !url.searchParams.has('t')) url.searchParams.set('t', ht);
+  const vk = url.searchParams.get('vk');
+  if (vk && !url.searchParams.has('t') && env.TEACHER_TOKEN && request.method === 'GET' && VK_PATHS.has(url.pathname)) {
+    if (vk === await viewKey(env, vkDay(0)) || vk === await viewKey(env, vkDay(1))) url.searchParams.set('t', String(env.TEACHER_TOKEN));
+  }
+}
+
 export default {
   /* ⏰ Cron (كل دقيقة): تنبيه بداية الحصة لبوابة المعلم. يلزم إضافة Cron Trigger «* * * * *» في Cloudflare */
   async scheduled(event, env, ctx) {
@@ -5793,6 +5813,7 @@ export default {
 
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    try { await teacherAuthFromHeaders(request, url, env); } catch {}
     // 🗄️ نقل KV ← D1 في الخلفية: دفعة كل 10 ث على الأكثر لكل نسخة خادم حتى يكتمل
     if (env.DB && env.HW && !_kvsDone.done && Date.now() - _kvsMigAt > 10000 && ctx && typeof ctx.waitUntil === 'function') { _kvsMigAt = Date.now(); ctx.waitUntil(kvsMigrateStep(env).catch(() => {})); }
     env = subTrackEnv(env);
@@ -5802,6 +5823,11 @@ export default {
     if (!env.HW) return json({ error: 'KV binding HW is missing' }, 500);
 
     if (url.pathname === '/tts' && request.method === 'GET') return ttsHandle(request, env, ctx, url);
+    // 🔐 مفتاح عرض الملفات (للمعلم فقط، بالترويسة)
+    if (url.pathname === '/auth/viewkey' && request.method === 'GET') {
+      if (!env.TEACHER_TOKEN || url.searchParams.get('t') !== env.TEACHER_TOKEN) return json({ ok: false, error: 'unauthorized' }, 401);
+      return json({ ok: true, vk: await viewKey(env, vkDay(0)), day: vkDay(0) });
+    }
     // 🔄 إجبار كل الأجهزة على التحديث (المعلم فقط): كل جهاز يرى الوقت الجديد في /version فيعيد تحميل نفسه مرة واحدة
     if (url.pathname === '/app/force' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch {}
@@ -5822,6 +5848,7 @@ export default {
         multiGame: true,
         tts: !!env.ELEVENLABS_API_KEY,
         force: Number(await env.HW.get('app:force').catch(() => 0)) || 0,
+        hdrAuth: true,
         maxGamesPerActivity: MAX_GAMES,
         gameTypes: Object.keys(GAME_LIMITS)
       });

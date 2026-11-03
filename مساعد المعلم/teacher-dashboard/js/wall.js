@@ -16,7 +16,7 @@ function wallHash(s) { let h = 0; for (const c of String(s)) h = (h * 31 + c.cha
 function wallAgo(t) { const m = Math.round((Date.now() - t) / 60000); return m < 1 ? 'الآن' : m < 60 ? `قبل ${m} د` : m < 1440 ? `قبل ${Math.round(m / 60)} س` : `قبل ${Math.round(m / 1440)} يوم`; }
 function wallSize(n) { return n < 1048576 ? Math.max(1, Math.round(n / 1024)) + ' KB' : (n / 1048576).toFixed(1) + ' MB'; }
 function wallYt(link) { const m = /(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/|live\/))([\w-]{11})/.exec(String(link || '')); return m ? m[1] : ''; }
-function wallFileUrl(p, i) { return `${WALL_ENV.api()}/wall-file?p=${encodeURIComponent(p.id)}&f=${i}${WALL_ENV.who()}`; }
+function wallFileUrl(p, i) { const w = WALL_ENV.who(); return `${WALL_ENV.api()}/wall-file?p=${encodeURIComponent(p.id)}&f=${i}${/[?&]t=/.test(w) && window.hwFileAuth ? '&' + hwFileAuth() : w}`; }   // 🔐 المعلم: مفتاح عرض لا كلمة السر
 async function wallGetJ(path) { try { const r = await fetch(WALL_ENV.api() + path + WALL_ENV.who() + '&_=' + Date.now(), { cache: 'no-store' }); return await r.json(); } catch (e) { return null; } }
 // آخر زيارة لكل حائط (لعلامة «جديد») — على هذا الجهاز
 function wallSeenGet() { try { return JSON.parse(localStorage.getItem('wall_seen_v1') || '{}') || {}; } catch (e) { return {}; } }
