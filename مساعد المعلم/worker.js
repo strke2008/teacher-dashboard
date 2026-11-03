@@ -7530,6 +7530,19 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         out.sort((a, c) => String(a.cls).localeCompare(String(c.cls), 'ar') || String(a.name).localeCompare(String(c.name), 'ar'));
         return json({ ok: true, title: e.title, pub: !!e.pub, pubCls: Array.isArray(e.pubCls) ? e.pubCls : [], key: !!e.key, papers: out });
       }
+      // 👤 أوراق طالب واحد (ملف الطالب في لوحة التحكم): كل اختباراته الممسوحة، منشورة له أم لا
+      if (url.pathname === '/omr/papers/of') {
+        const sid = String(url.searchParams.get('sid') || '').slice(0, 60); if (!sid) return json({ ok: true, papers: [] });
+        const [idx, roster] = await Promise.all([omrPapersRepair(env, await omrPapersIdx(env)), loadRoster(env).catch(() => [])]);
+        const me = roster.find(x => String(x.id) === sid), cls = me ? String(me.cls || '') : '';
+        const out = [];
+        for (const [test, e] of Object.entries(idx)) { if (!(e.sids || []).includes(sid)) continue;
+          let r = null; try { r = JSON.parse(await env.HW.get(`omrp:${sid}:${test}`) || 'null'); } catch {}
+          if (r) out.push({ test, title: e.title || r.title, score: r.score, max: r.max, sem: e.sem || r.sem || 1, at: r.at || e.at || 0, pub: omrPubFor(e, cls),
+            right: (r.marks || []).filter(m => m === 1).length, n: (r.marks || []).length }); }
+        out.sort((a, c) => c.at - a.at);
+        return json({ ok: true, papers: out });
+      }
       // 🔑 بيانات الأوراق بلا صور: لتحليل الأسئلة ولمعاينة إعادة التصحيح قبل تطبيقها
       if (url.pathname === '/omr/papers/full') {
         const t = String(url.searchParams.get('test') || ''), idx = await omrPapersRepair(env, await omrPapersIdx(env)), e = idx[t]; if (!e) return json({ ok: true, papers: [] });

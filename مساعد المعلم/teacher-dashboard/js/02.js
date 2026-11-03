@@ -2785,15 +2785,40 @@ function sfEmbed(el,fn){
   finally{ window.openModal=orig; }
   if(!got) el.innerHTML='<div class="muted">لا توجد بيانات لعرضها.</div>';
 }
+/* 📄 ورقة الاختبار الممسوحة داخل تقرير الفترة في ملف الطالب: زر بجانب الاختبار يفتح الصورة المصححة
+   (بختم الدرجة)، والإجابات الصحيحة بإطار أخضر متقطع، وصح/خطأ لكل سؤال. المعلم يراها ولو لم تُنشر للطالب */
+const SFPP={sid:'',list:[],used:new Set(),on:false};
+function sfPaperOf(t){ if(!SFPP.on) return null; const L=SFPP.list||[]; const p=L.find(x=>t.id!=null&&String(x.test)===String(t.id))||L.find(x=>x.title===t.title&&!SFPP.used.has(x.test)); if(p) SFPP.used.add(p.test); return p||null; }
+async function sfPaperOpen(test){
+  const p=(SFPP.list||[]).find(x=>x.test===test), sid=SFPP.sid; if(!p) return;
+  const v=document.createElement('div'); v.className='opv-veil'; v.innerHTML='<div class="opv-box" style="width:min(760px,100%)"><p class="muted" style="padding:2rem;text-align:center">⏳ جارٍ فتح الورقة…</p></div>';
+  v.onclick=e=>{ if(e.target===v||e.target.closest('.sfpp-x')) v.remove(); }; document.body.appendChild(v);
+  try{
+    const r=await omrApiCall(`/omr/papers/img?test=${encodeURIComponent(test)}&sid=${encodeURIComponent(sid)}`), M=r.marks||[], bad=M.map((m,i)=>m===1?0:i+1).filter(Boolean);
+    v.querySelector('.opv-box').innerHTML=`<div class="opv-head"><div><b>📄 ${esc(p.title)}</b><small>${p.score} من ${p.max}${M.length?` · صحيح ${p.right} من ${p.n}`:''} · ${p.pub?'منشورة للطالب':'غير منشورة للطالب بعد'}</small></div>
+        <button type="button" class="btn sm" onclick="sfPaperPrint(this)">🖨️ طباعة</button><button type="button" class="btn sm sfpp-x">✕ إغلاق</button></div>
+      <div class="sfpp-img"><img src="${r.img}" alt="ورقة الاختبار">${(r.keyBoxes||[]).map(b=>`<i style="left:${b[0]*100}%;top:${b[1]*100}%;width:${b[2]*100}%;height:${b[3]*100}%"></i>`).join('')}</div>
+      ${M.length?`<div class="sfpp-qs">${M.map((m,i)=>`<span class="${m===1?'ok':'no'}"><b>${i+1}</b>${m===1?'✓':'✗'}</span>`).join('')}</div>`:''}
+      <p class="muted" style="font-size:.82rem;margin:.5rem 0 0">${bad.length?`أخطأ في ${bad.length===1?'السؤال':'الأسئلة'}: ${bad.join('، ')}.`:'كل الإجابات صحيحة.'}${(r.keyBoxes||[]).length?' الإطار الأخضر المتقطع = الإجابة الصحيحة (يظهر لك فقط).':''}</p>`;
+  }catch(e){ v.querySelector('.opv-box').innerHTML='<p class="muted" style="padding:2rem;text-align:center">تعذّر فتح الورقة — يحتاج اتصالًا بالخادم.</p><button type="button" class="btn sm sfpp-x">إغلاق</button>'; }
+}
+function sfPaperPrint(btn){
+  const img=btn.closest('.opv-box').querySelector('.sfpp-img img'); if(!img) return;
+  const w=window.open('','_blank'); if(!w){ toast('اسمح بالنوافذ المنبثقة للطباعة','bad'); return; }
+  w.document.write(`<!doctype html><html dir="rtl"><head><meta charset="utf-8"><title>ورقة الاختبار</title><style>@page{size:A4;margin:0}html,body{margin:0}img{width:100%;display:block}</style></head><body><img src="${img.src}" onload="setTimeout(()=>{print()},200)"></body></html>`); w.document.close();
+}
 async function sfPeriod(el,sid){
   const {sem,per}=ctSem(), s=(STUDENTS||[]).find(x=>String(x.id)===String(sid));
   el.innerHTML='<div class="muted" style="padding:1rem">⏳ جارٍ إعداد تقرير الفترة…</div>'; window.__srepPreview=null;
   try{ if(!compTermFor(sem,per)) await loadServerGrades(false,sem,per); }catch(e){}
   try{
-    const j=await healthApi('/student-report/preview',{semester:sem,period:per,sid,note:'',acts:srepActsFor(s?[s]:[],sem,per)});
+    const [j,pp]=await Promise.all([healthApi('/student-report/preview',{semester:sem,period:per,sid,note:'',acts:srepActsFor(s?[s]:[],sem,per)}),
+      omrApiCall('/omr/papers/of?sid='+encodeURIComponent(sid)).catch(()=>({papers:[]}))]);
     if(String(window._ctPfSid)!==String(sid)) return;
-    window.__srepPreview=j.report;
-    el.innerHTML=`<div class="muted no-print" style="font-size:.8rem;margin-bottom:.5rem">هكذا يظهر التقرير للطالب في بوابته. الإرسال لكل الفصل من «الكشوف ← 📤 تقارير الطلاب».</div>${srxHTML(j.report)}`;
+    window.__srepPreview=j.report; SFPP.sid=String(sid); SFPP.list=(pp.papers||[]); SFPP.used=new Set();
+    SFPP.on=true; let rep=''; try{ rep=srxHTML(j.report); }finally{ SFPP.on=false; } const rest=SFPP.list.filter(p=>!SFPP.used.has(p.test)&&(p.sem||1)===Number(sem));   // أوراق ممسوحة لا تقابل اختبارًا في التقرير
+    el.innerHTML=`<div class="muted no-print" style="font-size:.8rem;margin-bottom:.5rem">هكذا يظهر التقرير للطالب في بوابته. الإرسال لكل الفصل من «الكشوف ← 📤 تقارير الطلاب».</div>${rep}
+      ${rest.length?`<div class="sfpp-rest no-print"><b>📝 أوراق اختبارات ممسوحة أخرى</b>${rest.map(p=>`<button type="button" class="sfpp-btn" onclick="sfPaperOpen('${esc(p.test)}')">📄 ${esc(p.title)} · ${p.score} / ${p.max}${p.pub?'':' <small>(غير منشورة)</small>'}</button>`).join('')}</div>`:''}`;
   }catch(e){ el.innerHTML='<div class="ct-warn">تعذّر إعداد تقرير الفترة — يحتاج اتصالًا بالخادم.</div>'; }
 }
 /* 🔍 لماذا «لم يُقَس» الإتقان؟ نفس شروط الخادم: نشاط عادي/مختبر · له أسئلة · نُشر في الفترة (كدرجة الأنشطة) وسُلّم قبل إغلاقها.

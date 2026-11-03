@@ -202,7 +202,7 @@ function srxHTML(r){
         ${pend.length?`<div class="srx-list warn"><b>⏳ ما زال مفتوحًا — حلّه الآن (${pend.length})</b><ul>${pend.map(x=>`<li>${E(x.title)}${pendTxt(x)?` <small>· ${E(pendTxt(x))}</small>`:''}</li>`).join('')}</ul></div>`:''}
       </div>
       <div class="srx-col"><div class="srx-card" ${sty('ex')}><h3><i>📝</i>الاختبارات الفترية</h3>
-        ${tests.length?tests.map(t=>`<div class="srx-row"><div><b>${E(t.title)}</b>${t.score==null?'':`<div class="srx-mini"><i style="width:${pct(t.score,t.max)}%"></i></div>`}</div><em>${t.score==null?'<span class="srx-na">لم يُرصد</span>':`${N(t.score)} / ${N(t.max)}`}</em></div>`).join('')
+        ${tests.length?tests.map(t=>`<div class="srx-row"><div><b>${E(t.title)}</b>${t.score==null?'':`<div class="srx-mini"><i style="width:${pct(t.score,t.max)}%"></i></div>`}${(()=>{ const pp=sfPaperOf(t); return pp?`<button type="button" class="sfpp-btn no-print" onclick="sfPaperOpen('${E(pp.test)}')">📄 الورقة${pp.pub?'':' <small>(غير منشورة للطالب)</small>'}</button>`:''; })()}</div><em>${t.score==null?'<span class="srx-na">لم يُرصد</span>':`${N(t.score)} / ${N(t.max)}`}</em></div>`).join('')
           +`<div class="srx-row sum"><b>الدرجة من ${e.max||20}</b><em>${e.measured?N(e.score):'—'} / ${e.max||20}</em></div>`
           :'<p class="srx-empty">لا توجد اختبارات مسجّلة لهذه الفترة.</p>'}
       </div>
