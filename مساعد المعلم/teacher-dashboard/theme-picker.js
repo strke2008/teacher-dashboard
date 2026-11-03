@@ -8,6 +8,8 @@
 (function(){
   var KEY='oasis_theme_v1';
   var PRESETS={
+    /* ✨ عصري (التصميم الجديد «أ»): أبيض وأخضر هادئ — الافتراضي */
+    modern:{label:'عصري',vars:{'--paper':'#F5F7F9','--paper-2':'#FFFFFF','--ink':'#0F1A24','--ink-soft':'#6B7785','--ui-muted':'#6B7785','--rule':'#E3E8ED','--ui-bg':'#F5F7F9','--ui-surface':'#FFFFFF','--ui-surface-2':'#F5F7F9','--ui-border':'#E8ECF0','--ui-border-strong':'#D5DCE3','--ui-accent':'#0F9D74','--ui-accent-soft':'#E7F6F0','--app-nav-bg':'#FFFFFF','--app-nav-text':'#0F1A24','--app-nav-muted':'#6B7785','--app-nav-active':'#E7F6F0','--app-nav-active-text':'#0B7A5A','--card':'#FFFFFF'}},
     old:{label:'الواجهة القديمة',vars:{'--paper':'#E9EEF5','--paper-2':'#F7FAFD','--ink':'#16233A','--ink-soft':'#5A6B84','--ui-muted':'#5A6B84','--rule':'#C9D6E5','--ui-bg':'#E9EEF5','--ui-surface':'#F7FAFD','--ui-surface-2':'#F1F5FA','--ui-border':'#D5E0EC','--ui-border-strong':'#C9D6E5','--ui-accent':'#3B5F86','--ui-accent-soft':'#EEF3F8','--app-nav-bg':'#16233A','--app-nav-text':'#DCE6F1','--app-nav-muted':'#91A4BD','--app-nav-active':'#F1F5F9','--app-nav-active-text':'#16233A','--card':'#FFFFFF'}},
     oasis:{label:'واحة المعلم',vars:{'--paper':'#F7F1E5','--paper-2':'#FFFCF5','--ink':'#1F2A22','--ink-soft':'#7A6F5C','--ui-muted':'#7A6F5C','--rule':'#E8DDC4','--ui-bg':'#FFFCF5','--ui-surface':'#FFFCF5','--ui-surface-2':'#F3E6C8','--ui-border':'#E8DDC4','--ui-border-strong':'#D8C9A8','--ui-accent':'#C9A86A','--ui-accent-soft':'#F3E6C8','--app-nav-bg':'#123332','--app-nav-text':'#F5EEDD','--app-nav-muted':'#D8CDB4','--app-nav-active':'#C9A86A','--app-nav-active-text':'#123332','--card':'#FFFCF5'}},
     sand:{label:'رمل فاتح',vars:{'--paper':'#F3EDE0','--paper-2':'#FFFFFF','--ink':'#2B2620','--ink-soft':'#7C7263','--ui-muted':'#7C7263','--rule':'#E2D9C3','--ui-bg':'#FFFFFF','--ui-surface':'#FFFFFF','--ui-surface-2':'#F5E7C8','--ui-border':'#E2D9C3','--ui-border-strong':'#D8C9A8','--ui-accent':'#B7791F','--ui-accent-soft':'#F5E7C8','--app-nav-bg':'#3E3A2E','--app-nav-text':'#F5EFE0','--app-nav-muted':'#D8CDB4','--app-nav-active':'#B7791F','--app-nav-active-text':'#FFFFFF','--card':'#FFFFFF'}},
@@ -26,8 +28,12 @@
     ['--ink-soft','لون النص الثانوي'],
     ['--ui-border','لون الحدود']
   ];
-  function load(){try{var t=JSON.parse(localStorage.getItem(KEY)||'null');if(t&&t.vars&&t.name!=='night'){t.at=Number(t.at)||0;return t;}}catch(e){}return {name:'oasis',at:0,vars:JSON.parse(JSON.stringify(PRESETS.oasis.vars))};}
-  var theme=load();
+  function load(){try{var t=JSON.parse(localStorage.getItem(KEY)||'null');if(t&&t.vars&&t.name!=='night'){t.at=Number(t.at)||0;return t;}}catch(e){}return {name:'modern',at:0,vars:JSON.parse(JSON.stringify(PRESETS.modern.vars))};}
+  /* 🔁 التصميم الجديد: ثيم جاهز اختير قبل صدوره (أو لم يُختر شيء) ينتقل مرة واحدة إلى «عصري».
+     الألوان المخصّصة تبقى كما هي، وما يُختار بعد صدوره (طابعه أحدث) لا يُمس — على كل الأجهزة */
+  var MODERN_AT=Date.parse('2026-11-03T19:00:00Z');   // صدور التصميم الجديد
+  function migrate(t){ if(t&&t.name!=='custom'&&t.name!=='modern'&&PRESETS[t.name]&&(Number(t.at)||0)<MODERN_AT){ var was=Number(t.at)||0; return {name:'modern',at:was?Date.now():0,vars:JSON.parse(JSON.stringify(PRESETS.modern.vars)),_mig:was?1:0}; } return t; }   // لم يُختر شيء (at=0): لا يُرفع للخادم — ثيم الخادم (لو مخصص) يغلب
+  var theme=migrate(load()); var MIGRATED=!!theme._mig; delete theme._mig;
   function isDark(){ if(theme.name!=='custom')return false; var h=String(theme.vars['--paper']||'').replace('#',''); if(h.length===3)h=h.split('').map(function(c){return c+c;}).join(''); if(h.length!==6)return false; var r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16); return (0.2126*r+0.7152*g+0.0722*b)/255<0.45; }
   function apply(){var r=document.documentElement.style;if(!theme.vars['--card'])theme.vars['--card']=theme.vars['--ui-surface']||'#FFFFFF';Object.keys(theme.vars).forEach(function(k){r.setProperty(k,theme.vars[k]);});
     /* التشخيص الجذري: ثيم الليل كان يغيّر المتغيرات فقط دون تفعيل الوضع الداكن الأصلي
@@ -53,7 +59,7 @@
       if(!st||!st.vars){if(Number(theme.at||0)>0)scheduleServerSave();else serverNote('☁️ الربط بالخادم جاهز — سيُحفظ الثيم عليه عند تغييره.');return;}
       var sat=Number(st.at)||0,lat=Number(theme.at)||0;
       if(!sessionChanged&&sat>=lat){var clean={};Object.keys(st.vars).forEach(function(k){var v=st.vars[k];if(/^--[a-z0-9-]+$/.test(k)&&typeof v==='string'&&/^#[0-9A-Fa-f]{3,8}$/.test(v))clean[k]=v;});
-        theme={name:String(st.name||'custom'),at:sat,vars:Object.assign({},JSON.parse(JSON.stringify(PRESETS.oasis.vars)),clean)};
+        theme={name:String(st.name||'custom'),at:sat,vars:Object.assign({},JSON.parse(JSON.stringify(PRESETS.modern.vars)),clean)}; var mt=migrate(theme); if(mt!==theme){ delete mt._mig; theme=mt; apply(); save(); sync(); return; }
         apply();saveLocal();sync();serverNote('☁️ تمت مزامنة الثيم من الخادم.');}
       else if(lat>sat){scheduleServerSave();}
       else{serverNote('☁️ الثيم محفوظ على الخادم — يظهر على كل أجهزتك.');}})
@@ -76,10 +82,10 @@
     try{ var curCat=localStorage.getItem('dash_set_cat_v1')||'school'; if(curCat==='danger') curCat='school'; if(typeof window.settingsCat==='function') window.settingsCat(curCat); else if(curCat!=='all'&&curCat!=='school') sheet.classList.add('set-off'); }catch(e){}
     sheet.querySelectorAll('.thm-card').forEach(function(c){c.addEventListener('click',function(){setPreset(c.getAttribute('data-name'));});});
     FIELDS.forEach(function(f){var el=document.getElementById('thm-col-'+f[0]);if(el)el.addEventListener('input',function(){setColor(f[0],el.value);});});
-    sheet.querySelector('.thm-reset').addEventListener('click',function(){setPreset('oasis');});
+    sheet.querySelector('.thm-reset').addEventListener('click',function(){setPreset('modern');});
     sync();
     serverLoad();
   }
-  apply();
+  apply(); if(MIGRATED){ saveLocal(); setTimeout(scheduleServerSave,1500); }
   if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',build);}else{build();}
 })();
