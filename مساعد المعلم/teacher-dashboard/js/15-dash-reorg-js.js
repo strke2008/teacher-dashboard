@@ -314,6 +314,7 @@ function tdTaskList(){
 }
 function thDrawNow(){
   const box=document.getElementById('today-hub'); if(!box) return;
+  if(typeof tdLiveTick!=='function'||typeof tdWeek!=='function'){ clearTimeout(thDrawNow._w); thDrawNow._w=setTimeout(thDrawNow,150); return; }   // ملف «اليوم» (21) لم يُحمَّل بعد على تحميل سريع: يُرسم بعده
   const dl=document.getElementById('td-date'); if(dl&&!dl.textContent) dl.textContent=tdDateLabel();
   const done=tdDone(), all=tdTaskList(), open=all.filter(x=>!done[x.key]), hid=all.length-open.length;
   const main=open.filter(x=>x.lv!=='info'), low=open.filter(x=>x.lv==='info');

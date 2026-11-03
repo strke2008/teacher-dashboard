@@ -168,12 +168,15 @@ export default async function run() {
     { const ctx = await newCtx({ viewport: { width: 390, height: 844 } }); const p = await ctx.newPage(), errs = watch(p);
       const navBg = async th => { await p.goto(base + '/teacher-dashboard/'); await p.evaluate(([t, th]) => { localStorage.setItem('hwapp_tok_v1', t); if (th) localStorage.setItem('oasis_theme_v1', JSON.stringify(th)); else localStorage.removeItem('oasis_theme_v1'); }, [TOKEN, th]);
         await p.reload(); await p.waitForFunction(() => typeof ctGo === 'function', null, { timeout: 15000 }); await p.waitForTimeout(800);
-        return p.evaluate(() => [JSON.parse(localStorage.getItem('oasis_theme_v1') || '{}').name || 'modern', document.documentElement.style.getPropertyValue('--app-nav-bg')]); };
+        const r = await p.evaluate(() => [JSON.parse(localStorage.getItem('oasis_theme_v1') || '{}').name || 'modern', document.documentElement.style.getPropertyValue('--app-nav-bg'), localStorage.getItem('oasis_theme_v1')]); if (process.env.THDBG) console.log('THDBG', JSON.stringify(th), r[2]); return r.slice(0, 2); };
       await S.t('الأيقونات: الشريط السفلي وأزرار الرصد بأيقونات خطية لا إيموجي', async () => {
         await navBg(null); await p.waitForTimeout(500);
         const nb = await p.evaluate(() => [...document.querySelectorAll('#simp-bottomnav .simp-bic')].map(e => [!!e.querySelector('svg.ico'), e.textContent.trim()]));
         ok(nb.length >= 4 && nb.every(([sv, t]) => sv && !t), 'الشريط السفلي: ' + JSON.stringify(nb));
         await p.click('#simp-bottomnav button:nth-child(3)'); await p.waitForTimeout(600); await p.click('#simp-bottomnav button:nth-child(1)'); await p.waitForTimeout(600);   // الشريط يُعاد بناؤه بعد التنقل
+        await p.evaluate(() => goTab('hw')); await p.waitForTimeout(800);
+        const chips = await p.evaluate(() => [...document.querySelectorAll('#simp-strip .simp-chip')].map(e => [!!e.querySelector('svg.ico'), e.textContent.trim().slice(0, 2)]));
+        ok(chips.length >= 2 && chips.every(([sv, t]) => sv && t !== '•'), 'أزرار الأقسام: ' + JSON.stringify(chips));
         const nb2 = await p.evaluate(() => [...document.querySelectorAll('#simp-bottomnav .simp-bic')].map(e => !!e.querySelector('svg.ico'))); ok(nb2.length >= 4 && nb2.every(Boolean), 'اختفت بعد التنقل: ' + JSON.stringify(nb2));
         await p.evaluate(() => { window._ctRcCls = 'أول 1'; window._ctRcClsUser = 1; window._ctRcView = 'day'; ctGo('records'); }); await p.waitForSelector('#qr-root .qr-row .c svg.ico', { timeout: 15000 });
         eq(await p.$$eval('#qr-root .qr-row[data-sid=s1] .c', b => b.map(x => x.textContent.trim())), ['', '', ''], 'بقي إيموجي في أزرار الرصد'); });

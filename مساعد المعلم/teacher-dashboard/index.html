@@ -35,10 +35,11 @@
     XMLHttpRequest.prototype.open=function(m,u){ try{this.__hwApi=new URL(String(u),location.href).origin===apiOrigin()}catch(e){this.__hwApi=false} return XO.apply(this,arguments) };
     XMLHttpRequest.prototype.send=function(){ try{ var k=tok(); if(this.__hwApi&&k&&isSess(k)) this.setRequestHeader('X-Teacher-Token',k) }catch(e){} return XS.apply(this,arguments) };
   }catch(e){}
-  function vkLoad(){ var k=tok(); if(!k||!on) return; var c={}; try{c=JSON.parse(ls(KVK)||'{}')}catch(e){}
+  var vkBusy='';   /* طلب واحد في الطريق لكل جلسة (كان يُطلب 3 مرات عند الفتح) */
+  function vkLoad(){ var k=tok(); if(!k||!on||vkBusy===k) return; var c={}; try{c=JSON.parse(ls(KVK)||'{}')}catch(e){}
     if(c.vk&&c.tk===k.length+':'+k.slice(-2)&&c.day===day(0)) return;
-    F(api()+'/auth/viewkey',{cache:'no-store',headers:{'X-Teacher-Token':k}}).then(function(r){return r.json()}).then(function(j){
-      if(j&&j.ok&&j.vk) put(KVK,JSON.stringify({vk:j.vk,day:j.day,tk:k.length+':'+k.slice(-2)})); }).catch(function(){}); }
+    vkBusy=k; F(api()+'/auth/viewkey',{cache:'no-store',headers:{'X-Teacher-Token':k}}).then(function(r){return r.json()}).then(function(j){
+      if(j&&j.ok&&j.vk) put(KVK,JSON.stringify({vk:j.vk,day:j.day,tk:k.length+':'+k.slice(-2)})); }).catch(function(){}).then(function(){ if(vkBusy===k) vkBusy=''; }); }
   window.hwFileAuth=function(){ var k=tok(), c={}; try{c=JSON.parse(ls(KVK)||'{}')}catch(e){}
     if(on&&c.vk&&c.tk===k.length+':'+k.slice(-2)&&(c.day===day(0)||c.day===day(1))) return 'vk='+encodeURIComponent(c.vk);
     vkLoad(); return 't='+encodeURIComponent(k); };
@@ -73,7 +74,7 @@
 <link rel="stylesheet" href="app.css?v=16178ead">
 <script src="js/00-fetch-dedupe-js.js?v=e77498d1" defer></script>
 <script src="js/01-right-sidebar-navigation-js.js?v=41ea29b3" defer></script>
-<script src="js/02.js?v=ef39aae4" defer></script>
+<script src="js/02.js?v=515c1c29" defer></script>
 <script src="js/03-projects-students-logic-v13.js?v=d4950f64" defer></script>
 <script src="js/04.js?v=5a7c663e" defer></script>
 <script src="js/05.js?v=a7c074c3" defer></script>
@@ -82,19 +83,19 @@
 <script src="js/08.js?v=249e04bd" defer></script>
 <script src="js/09.js?v=ef17fc2a" defer></script>
 <script src="js/10.js?v=bbaf2a38" defer></script>
-<script src="js/11.js?v=8ccd78e3" defer></script>
+<script src="js/11.js?v=f8090988" defer></script>
 <script src="js/12.js?v=8672864f" defer></script>
 <script src="js/13.js?v=0f4a40e9" defer></script>
 <script src="js/14.js?v=1d148ef4" defer></script>
-<script src="js/15-dash-reorg-js.js?v=bc378059" defer></script>
+<script src="js/15-dash-reorg-js.js?v=b935ba8f" defer></script>
 <script src="js/16-dash-v2-js.js?v=852ba069" defer></script>
 <script src="js/17-dash-v3-js.js?v=ee824a1f" defer></script>
 <script src="js/18-kashf-js.js?v=59c3afda" defer></script>
 <script src="js/19-bulk-rem-js.js?v=21144be9" defer></script>
 <script src="js/20-sch-art-js.js?v=d4b6c153" defer></script>
-<script src="js/21-today-v3-js.js?v=205ee665" defer></script>
-<script src="js/22-sch-times-js.js?v=e5e7ce43" defer></script>
-<script src="js/23-portal5-js.js?v=5a104a0e" defer></script>
+<script src="js/21-today-v3-js.js?v=f7c1ded3" defer></script>
+<script src="js/22-sch-times-js.js?v=f6b742f0" defer></script>
+<script src="js/23-portal5-js.js?v=b1c11019" defer></script>
 <script src="js/24-not-started-js.js?v=85ea9ea3" defer></script>
 <script src="js/25-today-board-js.js?v=eadc015e" defer></script>
 <script src="js/26-br-v2-js.js?v=219e99dd" defer></script>
@@ -116,8 +117,8 @@
 <link rel="prefetch" data-tpx="messages.css" href="messages.css?v=3ed3afb0" as="style">
 <script src="js/40-quick-record.js?v=0a4a8341" defer></script>
 <script src="js/44-focus-mode.js?v=9f15aa0b" defer></script>
-<script src="js/45-icons.js?v=480435a5" defer></script>
-<script src="theme-picker.js?v=d43d2ba0" defer></script>
+<script src="js/45-icons.js?v=78f9f843" defer></script>
+<script src="theme-picker.js?v=9022a180" defer></script>
 <script src="simplified-nav.js?v=7f3bb1e6" defer></script>
 <script src="tab-polish.js?v=bd1e2e02" defer></script>
 <script src="js/wall.js?v=bb38e88b" defer></script>
@@ -553,9 +554,8 @@
 <link rel="stylesheet" href="tab-polish.css?v=b9d66f7c">
 <link rel="stylesheet" href="audit-fixes.css?v=a05870b6">
 <link rel="stylesheet" href="wall.css?v=af13d2ec">
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="modern.css?v=eee57175">
+<link rel="preload" href="fonts/plex-arabic-400-arabic.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="modern.css?v=c3edde69">
 </head>
 <body>
 <header class="masthead">
@@ -908,7 +908,7 @@
 </div>
 </section><section class="panel" id="p-classtools">
 <div class="sheet-head no-print"><div><h2 id="ct-title">🧰 أدوات الفصل</h2>
-<span class="sub" id="ct-sub">المستويات ودفتر الاختبارات والسجلات والشهادات والجدول — على شاشة كبيرة. البيانات نفسها التي في بوابة المعلم، وما تعدّله هنا يظهر هناك.</span></div>
+<span class="sub" id="ct-sub">المستويات ودفتر الاختبارات والسجلات والشهادات والجدول — على شاشة كبيرة. تُرصد من «✋ الرصد» وتُراجع هنا.</span></div>
 <span class="spacer"></span><button class="btn ghost sm" onclick="renderClassTools(true)">🔄 تحديث</button></div>
 <div class="no-print" id="ct-today-box"></div>
 <div class="row no-print" id="ct-nav" style="gap:.4rem;flex-wrap:wrap;margin:.2rem 0 .8rem"></div>
@@ -1038,7 +1038,7 @@
 <button class="btn tick" onclick="printExam()" type="button">🖨️ طباعة A4</button>
 <button class="btn tick" id="ex-print-all-models" onclick="printAllExamModels()" style="display:none" type="button">🖨️ طباعة جميع النماذج</button>
 <button class="btn tick" id="ex-print-named" onclick="printNamedExams()" style="display:none" type="button">🖨️ طباعة أوراق الأسماء</button>
-<button class="btn ghost" id="ex-omr-send" onclick="omrSendTemplate()" type="button" title="يصحح بوابة المعلم أوراق هذا الاختبار بكاميرا الجوال">📷 تجهيز للتصحيح الآلي</button>
+<button class="btn ghost" id="ex-omr-send" onclick="omrSendTemplate()" type="button" title="يُصحَّح بكاميرا الجوال من «دفتر الاختبارات ← 📱 رصد ← بالكاميرا»">📷 تجهيز للتصحيح الآلي</button>
 <button class="btn ghost" id="ex-omr-manage" onclick="omrManage()" type="button" title="الاختبارات المجهّزة للجوال وإعدادات التصوير">⚙️ إعدادات التصحيح الآلي</button>
 </div>
 <div class="muted" id="ex-status" style="font-size:.8rem;margin-top:.5rem"></div>

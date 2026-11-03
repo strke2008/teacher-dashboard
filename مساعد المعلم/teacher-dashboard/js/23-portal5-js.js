@@ -42,7 +42,7 @@ async function bhvSave(sid,type,cat,note,asTpl){
 }
 function bhvTplManage(){
   const T=bhvTemplates();
-  openModal(`<h2>⚙️ قوالب السلوك</h2><p class="muted" style="font-size:.8rem">قوالبك المشتركة مع بوابة المعلم.</p>
+  openModal(`<h2>⚙️ قوالب السلوك</h2><p class="muted" style="font-size:.8rem">قوالبك تظهر في «✋ الرصد» أيضًا.</p>
     ${T.map((x,i)=>`<div class="du-li"><span>${x.type==='positive'?'🌟':'⚠️'} ${esc(x.title)}${x.note?`<small>${esc(x.note)}</small>`:''}</span><button class="btn ghost sm" onclick="bhvTplDel(${i})">🗑️</button></div>`).join('')||'<div class="feature-empty">لا قوالب.</div>'}
     <div class="modal-foot"><button class="btn ghost" onclick="closeModal()">إغلاق</button></div>`);
 }
@@ -61,7 +61,7 @@ function rmgWhen(r){ const a=r.at||{}, lead=Number(r.lead)||0, hm=t=>{ const p=S
   return `${days} · ${when}${lead?` · قبلها بـ ${lead} د`:''}`; }
 function rmgOpen(){
   const all=((CT_DATA&&CT_DATA.reminders)||[]).slice(), T=tdRemToday();
-  openModal(`<h2>⏰ تذكيراتي</h2><p class="muted" style="font-size:.8rem;margin:.1rem 0 .4rem">مشتركة مع بوابة المعلم. ⓘ إشعار الجوال للتذكير الجديد أو المعدّل يُفعَّل عند فتحك البوابة بعده.</p>
+  openModal(`<h2>⏰ تذكيراتي</h2><p class="muted" style="font-size:.8rem;margin:.1rem 0 .4rem">ⓘ إشعار الجوال للتذكير الجديد أو المعدّل يُفعَّل عند فتحك البوابة بعده.</p>
     <b style="font-size:.85rem">اليوم</b>${T.map(x=>`<div class="rm-row"><span>${x.done?'✅':'⏰'} ${esc(tdRemTitle(x.r))}<small>${x.hm}</small></span></div>`).join('')||'<div class="muted" style="font-size:.82rem;padding:.3rem">لا تذكيرات اليوم.</div>'}
     <div id="rmg-form"></div>
     <div class="row" style="gap:.4rem;margin:.5rem 0"><button class="btn tick sm" onclick="rmgEdit()">＋ تذكير جديد</button><button class="btn ghost sm" onclick="rmgEditDuty()">📋 تذكير رصد الواجبات</button></div>
@@ -161,7 +161,7 @@ async function ctDuties(box,force){
   const act=roles.filter(r=>r.active).sort((a,b)=>{const ia=DUTY_PRESETS_D.indexOf(a.title), ib=DUTY_PRESETS_D.indexOf(b.title); return (ia<0?999:ia)-(ib<0?999:ib);});
   const fair=roster.map(s=>({s,d:ctG(s.id).duties||{count:roles.filter(r=>String(r.studentId)===String(s.id)).length}})).map(x=>({...x,c:Number(x.d.count)||0})).sort((a,b)=>a.c-b.c||String(a.s.name).localeCompare(String(b.s.name),'ar'));
   const past=roles.filter(r=>!r.active).sort((a,b)=>String(b.to||b.from).localeCompare(String(a.to||a.from))).slice(0,20);
-  box.innerHTML=`<div class="row ct-tools">${ctClassSel('du-cls',cls,"window._duCls=this.value;renderClassTools()",false)}<span class="muted" style="font-size:.78rem">مسؤوليات تُسند للطلاب — لا تدخل في الدرجات. مشتركة مع بوابة المعلم.</span></div>
+  box.innerHTML=`<div class="row ct-tools">${ctClassSel('du-cls',cls,"window._duCls=this.value;renderClassTools()",false)}<span class="muted" style="font-size:.78rem">مسؤوليات تُسند للطلاب — لا تدخل في الدرجات.</span></div>
     <div class="ct-card"><b>＋ إسناد مهمة</b><div class="row" style="gap:.4rem;margin-top:.4rem;flex-wrap:wrap">
       <select class="inp" id="du-title" style="width:auto" onchange="document.getElementById('du-custom').style.display=this.value==='__c'?'':'none'">${DUTY_PRESETS_D.map(t=>`<option>${esc(t)}</option>`).join('')}<option value="__c">مهمة أخرى…</option></select>
       <input class="inp" id="du-custom" placeholder="اسم المهمة" style="display:none;width:auto">
@@ -187,7 +187,7 @@ async function dutyAssign(){
 }
 async function dutyEnd(id){ try{ await ctSave(D=>{ const r=(D.roles||[]).find(x=>x&&x.id===id); if(r){ r.active=false; r.to=ctToday(); } }); toast('أُنهيت المهمة','good'); CT_GRADES=null; renderClassTools(true); }catch(e){ toast('تعذّر الحفظ','bad'); } }
 CT_TABS.push(['duties','🎖️ مهام الطلاب']);
-CT_VIEWS.duties={tabs:['duties'],title:'🎖️ مهام الطلاب',sub:'إسناد المسؤوليات للطلاب (عريف الفصل، مسؤول رصد الواجبات…) مع عدالة التوزيع وسجل المهام — مشتركة مع بوابة المعلم.'};
+CT_VIEWS.duties={tabs:['duties'],title:'🎖️ مهام الطلاب',sub:'إسناد المسؤوليات للطلاب (عريف الفصل، مسؤول رصد الواجبات…) مع عدالة التوزيع وسجل المهام.'};
 
 /* ═════════ 📆 تواريخ فترات التقييم — في الإعدادات ← السنة الدراسية ═════════ */
 function termsRender(){
@@ -200,7 +200,7 @@ function termsRender(){
       <label class="muted" style="font-size:.78rem">إلى <input class="inp" type="date" id="${id}-e" value="${esc(p.end||'')}" ${closed?'disabled':''}></label></div>
       <div class="row" style="margin-top:.35rem">${closed?'<span class="muted" style="font-size:.76rem">مغلقة ومحفوظة بلقطة — لا تتغير حدودها</span>':`<button class="btn sm" onclick="termsSave(${sem},${per})">حفظ</button><button class="btn ghost sm" onclick="termsSave(${sem},${per},true)">↩️ تلقائي</button>`}</div></div>`; };
   box.innerHTML=`<h3 style="margin:1rem 0 .2rem;font-size:.95rem">📆 تواريخ فترات التقييم</h3>
-    <p class="muted" style="font-size:.8rem;margin:0">كل الدرجات والكشوف والتقارير تُحسب داخل هذه الحدود. «تلقائي» يعيدها للحساب الافتراضي. مشتركة مع بوابة المعلم.</p>
+    <p class="muted" style="font-size:.8rem;margin:0">كل الدرجات والكشوف والتقارير تُحسب داخل هذه الحدود. «تلقائي» يعيدها للحساب الافتراضي.</p>
     <div class="tr-grid">${card(1,1)}${card(1,2)}${card(2,1)}${card(2,2)}</div>`;
 }
 async function termsSave(sem,per,reset){

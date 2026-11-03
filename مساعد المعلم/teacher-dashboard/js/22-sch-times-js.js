@@ -30,7 +30,7 @@ function schTimesPanel(){
   const days=Object.keys(s.sessions||{}).sort().reverse().slice(0,7);
   const log=days.map(d=>{ const day=s.sessions[d]||{}; return Object.keys(day).sort((a,b)=>a-b).map(k=>{ const x=day[k]||{};
     return `<div><b>${d===ctToday()?'اليوم':d.slice(5).replace('-','/')} · ${k}</b><span>${esc(x.cls||'')}</span><span>${x.en?(x.skipped?'بلا كتابة':`${x.n||0} مشاركة تلقائية`):'مفتوحة'}</span><span class="muted">${x.en?(x.auto?'أُغلقت تلقائيًا':'أنهيتها'):'—'}</span></div>`; }).join(''); }).join('');
-  return `<div class="st-panel"><h4>⏰ أوقات الحصص <small>تُحفظ على الخادم وتظهر في بوابة المعلم والجدول المطبوع وشريط «الآن»</small>
+  return `<div class="st-panel"><h4>⏰ أوقات الحصص <small>تُحفظ على الخادم وتظهر في الجدول المطبوع وشريط «الآن»</small>
       <span class="ct-seg" style="margin-inline-start:auto"><button type="button" class="${s.active==='summer'?'on':''}" onclick="schPresetD('summer')">☀️ صيفي</button><button type="button" class="${s.active==='winter'?'on':''}" onclick="schPresetD('winter')">❄️ شتوي</button></span></h4>
     <div class="st-fields">
       ${f('st-base',`بداية الحصة الأولى (${s.active==='winter'?'شتوي':'صيفي'})`,s.presets[s.active],'type="time"')}
@@ -43,7 +43,7 @@ function schTimesPanel(){
     </div>
     <div class="st-times">${rows}</div>
     <div class="muted" style="font-size:.74rem;margin-top:.4rem">غيّر وقت أي حصة مباشرة إن اختلفت عن الحساب (تظهر بلون مميّز) — ↩️ يعيدها للحساب.</div></div>
-  <details class="st-panel"><summary style="cursor:pointer;font-weight:800">📜 سجل الحصص <small class="muted">— الحصص التي بدأتها وأنهيتها من بوابة المعلم</small></summary>
+  <details class="st-panel"><summary style="cursor:pointer;font-weight:800">📜 سجل الحصص <small class="muted">— الحصص التي بدأتها وأنهيتها</small></summary>
     <div class="st-log" style="margin-top:.5rem">${log||'<div class="muted" style="display:block">لم تبدأ حصة من البوابة في الأيام الأخيرة.</div>'}</div></details>`;
 }
 /* محرر الجدول صار شاشة البوابة نفسها (js/42-schedule.js) وفيها الأوقات في ⚙️ — لوحة الأوقات القديمة لم تعد تُضاف فوقها (تكرار) */

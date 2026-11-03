@@ -7,7 +7,7 @@ const SW_VERSION = 'push-v2+static-v4';
 const STATIC = 'dash-static-v2';   // v2: يمسح ما حُفظ قبل التحقق من البصمة (قد يكون فيه ملف قديم بعنوان جديد)
 const SCOPE = new URL(self.registration ? self.registration.scope : './', self.location.href);
 const PAGE_KEY = new URL('index.html', SCOPE).href;
-const isStaticFile = u => /\.(css|js|webmanifest|png|svg|webp|ico|woff2?)$/i.test(u.pathname) && !/\/sw\.js$/i.test(u.pathname);
+const isStaticFile = u => /\.(css|js|webmanifest|png|jpe?g|svg|webp|ico|woff2?)$/i.test(u.pathname) && !/\/sw\.js$/i.test(u.pathname);
 const isPage = u => u.pathname === SCOPE.pathname || u.pathname === new URL(PAGE_KEY).pathname;
 
 /* 🔏 ‎?v=‎ هي أول 8 من بصمة SHA-1 لمحتوى الملف (stamp_dashboard.py). أثناء الرفع قد تصل الصفحة الجديدة قبل ملفاتها،

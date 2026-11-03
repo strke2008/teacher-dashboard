@@ -84,7 +84,7 @@ function tdRemToday(){
 }
 async function tdRemDone(id){
   const d=tdKsaNow().day;
-  try{ await ctSave(D=>{ const r=(D.reminders||[]).find(x=>x&&x.id===id); if(r){ r.done=r.done||{}; r.done[d]=true; } }); toast('✓ تمّت — وتظهر منجزة في بوابة المعلم أيضًا','good'); thDraw(); }
+  try{ await ctSave(D=>{ const r=(D.reminders||[]).find(x=>x&&x.id===id); if(r){ r.done=r.done||{}; r.done[d]=true; } }); toast('✓ تمّت','good'); thDraw(); }
   catch(e){ toast('تعذّر الحفظ','bad'); }
 }
 

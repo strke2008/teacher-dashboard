@@ -60,19 +60,43 @@
     pin:'<path d="M9 3h6l-1 6 4 4H6l4-4z"/><path d="M12 13v8"/>',
     chev:'<path d="M6 9l6 6 6-6"/>',
     x:'<path d="M6 6l12 12M18 6L6 18"/>',
+    trophy:'<path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8 21h8M10 17h4"/>',
+    eye:'<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+    download:'<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
+    upload:'<path d="M12 20V9M7 14l5-5 5 5M5 4h14"/>',
+    scale:'<path d="M12 4v16M7 20h10M5 8h14M5 8l-3 6a3 3 0 0 0 6 0zM19 8l-3 6a3 3 0 0 0 6 0z"/>',
+    brain:'<path d="M9 4a3 3 0 0 0-3 3 3 3 0 0 0-2 5 3 3 0 0 0 2 5 3 3 0 0 0 3 3h0a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zM15 4a3 3 0 0 1 3 3 3 3 0 0 1 2 5 3 3 0 0 1-2 5 3 3 0 0 1-3 3 2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/>',
+    mega:'<path d="M3 11v2a1 1 0 0 0 1 1h3l6 4V6L7 10H4a1 1 0 0 0-1 1z"/><path d="M17 9a4 4 0 0 1 0 6M7 14l1 6h3l-1-5"/>',
+    tag:'<path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.3"/>',
+    trash:'<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
+    gift:'<rect x="3" y="8" width="18" height="5" rx="1"/><path d="M5 13v8h14v-8M12 8v13M12 8S10 3 7.5 4.5 9 8 12 8zM12 8s2-5 4.5-3.5S15 8 12 8z"/>',
+    key:'<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M15 8l2 2"/>',
+    down:'<path d="M3 7l6 6 4-4 8 8"/><path d="M15 17h6v-6"/>',
+    call:'<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/>',
+    clipx:'<path d="M21 11l-9 9a5 5 0 0 1-7-7l9-9a3.5 3.5 0 0 1 5 5l-9 9a2 2 0 0 1-3-3l8-8"/>',
+    cart:'<circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l3 12h11l2-8H6"/>',
+    undo:'<path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/>',
+    palette:'<path d="M12 3a9 9 0 0 0 0 18c1.5 0 2-1 2-2s-1-1.5-1-2.5 1-1.5 2-1.5h2a4 4 0 0 0 4-4c0-4.5-4-8-9-8z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="15" cy="7" r="1"/>',
+    plus:'<path d="M12 5v14M5 12h14"/>',
+    broom:'<path d="M14 3l-4 9M6 14h10l2 7H4z"/>',
     phone:'<rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M11 18h2"/>'
   };
   const E = {'🏠':'home','⌂':'home','📋':'clip','📁':'folder','📂':'folder','🗂️':'records','🗂':'records','🎮':'game','📚':'book','👥':'users','🩺':'steth','🎖️':'medal','🎖':'medal',
     '📝':'pen','✏️':'pen','✍️':'pen','🖨️':'printer','🖨':'printer','🧭':'compass','📑':'report','📄':'report','📊':'chart','📈':'trend','🏫':'school','🧾':'receipt','💬':'msg','🧱':'wall',
     '🏅':'award','🎓':'grad','⚙️':'gear','⚙':'gear','✋':'hand','⭐':'star','🌟':'star','⚠️':'alert','⚠':'alert','💌':'mail','📨':'send','📷':'camera','🎤':'mic','🔍':'search','🔎':'search',
     '📅':'cal','🗓️':'cal','🗓':'cal','✅':'check','🚫':'ban','📗':'bookok','📕':'bookx','🕊️':'feather','🕊':'feather','🔄':'refresh','📥':'inbox','⏰':'alarm','🔔':'bell','🧩':'puzzle',
-    '🌙':'moon','🙋':'user','🧰':'tools','🎯':'target','✅️':'check','🕘':'clock','☑️':'task','☑':'task','⛔':'ban','📌':'pin','🎓':'grad','🔗':'link','💾':'save','🤖':'bot','🔒':'lock','📱':'phone','👤':'user'};
+    '🌙':'moon','🙋':'user','🧰':'tools','🎯':'target','✅️':'check','🕘':'clock','☑️':'task','☑':'task','⛔':'ban','📌':'pin','🎓':'grad','🔗':'link','💾':'save','🤖':'bot','🔒':'lock','📱':'phone','👤':'user',
+    '🏆':'trophy','👁':'eye','👁️':'eye','⬇️':'download','⬇':'download','📤':'upload','⚖️':'scale','⚖':'scale','🧠':'brain','📢':'mega','🏷️':'tag','🏷':'tag','🕐':'clock','🗑️':'trash','🗑':'trash',
+    '🎁':'gift','🔐':'lock','📜':'report','🧹':'broom','🔑':'key','📒':'book','🆘':'alert','🚨':'alert','🔻':'down','🔺':'trend','📞':'call','🗳️':'task','🗳':'task','📎':'clipx','🛒':'cart',
+    '↩️':'undo','↩':'undo','🎨':'palette','👪':'users','➕':'plus','🔬':'target','💡':'star'};
   /* في أزرار الرصد: ✋ تعني «لم يشارك» (لا «المشاركة») */
   const CHIP = {'✅':'check','✋':'minus','🚫':'ban','📗':'bookok','📕':'bookx','🕊️':'feather','🕊':'feather','🌟':'star','⚠️':'alert'};
   const svg = n => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${P[n]}</svg>`;
   window.icoSVG = n => P[n] ? svg(n) : '';
-  const SEL = ['#simp-bottomnav .simp-bic', '.simp-chip', '.app-nav-icon', '.mnav-icon', '#portal-link-btn', '.panel > .sheet-head h2', '.td-head h2', '#ct-title',
-    '#ct-nav .btn', '.ct-seg button', '.qr-mode button', '.qr-ic', '.qr-s', '#fm-bot i', '.td-kpi span', '.td-card-h > b', '.sheet-head h2', '.set-tabs button', '.ct-tools > .btn', '.td-head .btn', '.td-hero-t > b', '.td-hero-go', '.td-abs > b', '.td-link', '.td-task .td-ic', '.qr-all', '.askf-pin', '.askf-mode', '.tpx .rd-ic', '.tpx .rd-pill', '.tpx .ex-tools button', '.tpx .rd-head h1'].join(',');
+  /* «هيكل» الصفحات: الأزرار والعناوين والقوائم والوسوم — لا محتوى الطلاب ولا الرسائل ولا المتجر */
+  const SEL = ['#simp-bottomnav .simp-bic', '.simp-chip', '.app-nav-icon', '.mnav-icon', '#fm-bot i', '.td-kpi span', '.td-task .td-ic', '.qr-ic', '.qr-s', '.askf-ic',
+    'button', 'summary', 'h1', 'h2', 'h3', 'h4', 'legend', 'label', '.chip', '.stat-icon', '.report-hub-icon', '.td-link', 'b', '.td-hero-t > b'].join(',');
+  const SKIP = '.nafs-ic, .nafs-q, .wall-post, .wall-card, .ask-msg, .askf-msg, .askf-thread, .msg-body, .store-item, .ms-prev, .m2-prev, .pm-card p, [contenteditable], textarea, [data-noico]';
   const LEAD = /^(\s*)(\p{Extended_Pictographic}️?(?:‍\p{Extended_Pictographic}️?)*|⌂|•••)\s*/u;
   function firstText(el){ const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT); let n = w.nextNode();
     while (n) { if (n.nodeType === 1) { if (n.tagName === 'svg' || n.tagName === 'INPUT') return null; } else if (n.nodeValue.trim()) return n; n = w.nextNode(); } return null; }
@@ -81,16 +105,17 @@
     const t = firstText(el); if (!t) return; const m = LEAD.exec(t.nodeValue); if (!m) return;
     const name = m[2] === '•••' ? 'more' : (map[m[2]] || map[m[2].replace(/️/g, '')]); if (!name || !P[name]) return;
     const span = document.createElement('span'); span.innerHTML = svg(name); const ic = span.firstChild;
-    if (!el.hasAttribute('data-emo')) el.setAttribute('data-emo', m[2]);   // من يقرأ الإيموجي من هذا العنصر (مثل الشريط السفلي) يجده
+    for (const x of [el, t.parentNode]) if (x && x.nodeType === 1 && !x.hasAttribute('data-emo')) x.setAttribute('data-emo', m[2]);   // على العنصر وعلى حاوية الإيموجي نفسها   // من يقرأ الإيموجي من هذا العنصر (مثل الشريط السفلي) يجده
     t.parentNode.insertBefore(ic, t); t.nodeValue = t.nodeValue.slice(m[0].length);
     if (t.nodeValue && !/^\s/.test(t.nodeValue) && !el.matches('.simp-bic,.app-nav-icon,.mnav-icon,#fm-bot i,.qr-ic,.qr-row .c')) t.nodeValue = ' ' + t.nodeValue;
   }
-  let q = 0;
-  function run(){ q = 0; try {
-    document.querySelectorAll(SEL).forEach(el => iconize(el, E));
-    document.querySelectorAll('.qr-row .c').forEach(el => iconize(el, CHIP));
-  } catch (e) {} }
-  const kick = () => { if (!q) q = requestAnimationFrame(run); };
-  new MutationObserver(kick).observe(document.documentElement, { childList: true, subtree: true });
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', kick); else kick();
+  /* أول مرة: مسح كامل. بعدها: ما أُضيف أو تغيّر فقط (لا مسح للصفحة كلها مع كل تغيير) */
+  const one = el => { try { if (el.matches('.qr-row .c')) iconize(el, CHIP); else if (el.matches(SEL) && !el.closest(SKIP)) iconize(el, E); } catch (e) {} };
+  const scan = root => { if (root.nodeType !== 1) return; one(root); root.querySelectorAll(SEL + ',.qr-row .c').forEach(one); };
+  let q = 0; const pend = new Set();
+  function flush(){ q = 0; const L = [...pend]; pend.clear(); for (const n of L) if (n.isConnected) scan(n); }
+  new MutationObserver(recs => { for (const r of recs) { if (r.type === 'childList') { r.addedNodes.forEach(n => { if (n.nodeType === 1) pend.add(n); }); if (r.target.nodeType === 1) { const c = r.target.closest(SEL); if (c) pend.add(c); } } }   // (target: نص تغيّر داخل زر/عنوان)
+    if (pend.size && !q) q = requestAnimationFrame(flush); }).observe(document.documentElement, { childList: true, subtree: true });
+  const first = () => scan(document.body);
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', first); else first();
 })();

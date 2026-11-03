@@ -43,7 +43,7 @@
     try{localStorage.setItem('hwapp_ui_theme_v1',dark?'dark':'light');}catch(e){}
     /* لون شريط حالة الجوال يتبع لون الشريط العلوي للثيم */
     try{var m=document.querySelector('meta[name="theme-color"]');if(m&&theme.vars['--app-nav-bg'])m.setAttribute('content',theme.vars['--app-nav-bg']);}catch(e){} }
-  function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify(theme));}catch(e){}}
+  function saveLocal(){try{var o=JSON.parse(localStorage.getItem(KEY)||'null');if(o&&(Number(o.at)||0)>(Number(theme.at)||0))return;localStorage.setItem(KEY,JSON.stringify(theme));}catch(e){}}   // نسخة أحدث حُفظت في تبويب آخر أثناء المزامنة: لا تُكتب فوقها نسخة أقدم
   var sessionChanged=false, serverTimer=null;
   function save(){theme.at=Date.now();saveLocal();scheduleServerSave();}
   function scheduleServerSave(){try{clearTimeout(serverTimer);}catch(e){}serverTimer=setTimeout(serverSave,600);}
