@@ -84,5 +84,25 @@ details.td-more{background:var(--ui-surface)!important;border:0!important;border
 .ct-seg button.on{background:var(--ui-accent)!important;color:#fff!important}
 #portal-link-btn{box-shadow:0 2px 8px rgba(15,157,116,.25)!important}
 #ct-nav .btn{border-radius:999px!important}
+
+/* ═════ المرحلة 3: الأيقونات الخطية (js/45-icons.js) ═════ */
+.ico{width:1.15em;height:1.15em;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;vertical-align:-.2em;flex:none;display:inline-block}
+#simp-bottomnav .simp-bic .ico,#fm-bot i .ico{width:24px;height:24px;vertical-align:middle}
+#simp-bottomnav .simp-bic{display:inline-flex;align-items:center;justify-content:center;min-height:30px}
+.app-nav-icon .ico,.mnav-icon .ico{width:20px;height:20px}
+.qr-row .c{filter:none!important;opacity:1!important;color:#A8B1BB;display:inline-grid;place-items:center}
+.qr-row .c .ico{width:22px;height:22px;stroke-width:2}
+.qr-row .c.g.on{color:var(--ui-accent)!important}.qr-row .c.y.on{color:#B7791F!important}.qr-row .c.r.on{color:#E5484D!important}
+.qr-ic .ico{width:20px;height:20px;color:var(--ui-muted)}
+.qr-s .ico{color:var(--ui-muted)}
+.qr-mode button .ico,#ct-nav .btn .ico,.simp-chip .ico,.ct-seg button .ico{margin-inline-end:.15em}
+#portal-link-btn .ico{width:18px;height:18px}
+.td-kpi span .ico{color:var(--ui-accent)}
+.panel > .sheet-head h2 .ico,.td-head h2 .ico,#ct-title .ico{color:var(--ui-accent);width:1em;height:1em;vertical-align:-.12em}
+.td-hero-t > b .ico{opacity:.9}
+.td-task .td-ic .ico{color:#B7791F;width:20px;height:20px}
+.td-link .ico,.td-abs > b .ico{color:var(--ui-accent)}
 }
+
+
 
