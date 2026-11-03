@@ -2001,7 +2001,32 @@ async function ctPeriodMoved(e){
   toast('🔒 هذه الفترة أُغلقت (من جهاز آخر) — لم يُحفظ شيء. حدّثت الصفحة على الفترة الجارية، أعد الإدخال.','bad');
   renderClassTools(true); return true;
 }
+/* 📱 «رصد» (مثل بوابة المعلم: اختبار ظاهر، لوحة أرقام، صوت، كاميرا التصحيح الآلي) · 📊 «جدول» (كل الاختبارات) */
+function ctExMode(){ const v=window._ctExMode||(()=>{ try{ return localStorage.getItem('ct_ex_mode_v1'); }catch(e){ return ''; } })(); return v==='table'||v==='rec'?v:(innerWidth<900?'rec':'table'); }
+function ctExModeSet(v){ window._ctExMode=v; try{ localStorage.setItem('ct_ex_mode_v1',v); }catch(e){} renderClassTools(); }
+/* ملف الرصد كبير (محرّك الكاميرا): يُحمَّل عند أول حاجة فقط، بنسخته من index.html */
+let TPX_LOAD=null;
+function tpxLoad(){
+  if(window.TPX_READY) return Promise.resolve();
+  if(TPX_LOAD) return TPX_LOAD;
+  const href=f=>{ const l=document.querySelector(`link[data-tpx="${f}"]`); return l?l.getAttribute('href'):f; };
+  TPX_LOAD=new Promise((ok,no)=>{
+    if(!document.querySelector('link[rel=stylesheet][data-tpx-css]')){ const c=document.createElement('link'); c.rel='stylesheet'; c.href=href('exams-record.css'); c.dataset.tpxCss='1'; document.head.appendChild(c); }
+    const s=document.createElement('script'); s.src=href('js/41-exams-record.js'); s.onload=()=>ok(); s.onerror=()=>{ TPX_LOAD=null; no(new Error('load')); }; document.head.appendChild(s); });
+  return TPX_LOAD;
+}
 function ctExams(box){
+  const mode=ctExMode(), seg=`<span class="ct-seg ct-ex-mode"><button type="button" class="${mode==='rec'?'on':''}" onclick="ctExModeSet('rec')">📱 رصد</button><button type="button" class="${mode==='table'?'on':''}" onclick="ctExModeSet('table')">📊 جدول</button></span>`;
+  if(mode==='rec'){
+    const cls=ctValidCls(window._ctExCls);
+    box.innerHTML=`<div class="row ct-tools">${ctClassSel('ct-ex-cls',cls,"window._ctExCls=this.value;renderClassTools()",false)}${seg}</div><div id="tpx-box"><div class="feature-empty" style="padding:1.2rem">جارٍ فتح الرصد…</div></div>`;
+    tpxLoad().then(()=>{ const b=document.getElementById('tpx-box'); if(b&&b.isConnected) window.tpxExamsMount(b); })
+      .catch(()=>{ const b=document.getElementById('tpx-box'); if(b) b.innerHTML='<div class="feature-empty" style="padding:1.2rem">تعذّر تحميل صفحة الرصد — تحقق من الاتصال ثم <a href="#" onclick="event.preventDefault();renderClassTools()">أعد المحاولة</a>.</div>'; });
+    return;
+  }
+  ctExamsTable(box,seg);
+}
+function ctExamsTable(box,seg){
   const {sem,per,closed}=ctExamSP(), cls=ctValidCls(window._ctExCls);
   const b=ctBook(JSON.parse(JSON.stringify(CT_DATA)),sem,per), max=b.tests.reduce((t,x)=>t+Math.max(0,Number(x.max)||0),0);
   const dis=closed?'disabled':'';
@@ -2011,7 +2036,7 @@ function ctExams(box){
   box.innerHTML=`<div class="row ct-tools">
       <select class="inp" style="width:auto" onchange="window._ctExSem=this.value;renderClassTools()"><option value="1" ${sem===1?'selected':''}>الفصل الأول</option><option value="2" ${sem===2?'selected':''}>الفصل الثاني</option></select>
       <select class="inp" style="width:auto" onchange="window._ctExPer=this.value;renderClassTools()"><option value="1" ${per===1?'selected':''}>الفترة الأولى</option><option value="2" ${per===2?'selected':''}>الفترة الثانية</option></select>
-      ${closed?'<span class="chip bad" title="الدرجات المعتمدة لهذه الفترة من لقطة الإغلاق — التعديل بعده لا يصل إلى الكشوف ولا ولي الأمر">🔒 الفترة مغلقة — للعرض فقط</span>':''}</div>
+      ${closed?'<span class="chip bad" title="الدرجات المعتمدة لهذه الفترة من لقطة الإغلاق — التعديل بعده لا يصل إلى الكشوف ولا ولي الأمر">🔒 الفترة مغلقة — للعرض فقط</span>':''}${seg||''}</div>
     <div class="ct-card"><div class="row" style="justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap"><b>الاختبارات (${b.tests.length}) · مجموعها ${max} ← يُحوَّل إلى 20</b>
       <button class="btn tick sm" ${dis} onclick="ctExamAdd()">＋ اختبار</button></div>
       <div class="muted" style="font-size:.76rem;margin:.25rem 0 .5rem">📅 تاريخ الاختبار تعتمد عليه الخطط العلاجية في القياس قبل الخطة وبعدها — حدّده لكل اختبار.</div>

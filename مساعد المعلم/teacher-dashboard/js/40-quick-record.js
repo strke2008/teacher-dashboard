@@ -31,10 +31,27 @@ function qrApply(D, op) {
     if (!D.behavior.some(x => x && String(x.id) === String(op.item.id))) D.behavior.unshift({ ...op.item });
   } else if (op.k === 'behdel') {
     const x = (D.behavior || []).find(b => b && String(b.id) === String(op.id)); if (x && (Number(x.at) || 0) <= op.at) { x.deleted = true; x.at = op.at; }
+  } else if (op.k === 'exb') {                                 // 📝 دفتر اختبارات فترة (من «رصد الاختبارات»): دمج مثل الخادم تمامًا
+    D.examBooks = D.examBooks && typeof D.examBooks === 'object' ? D.examBooks : {};
+    const S = D.examBooks[op.sem] = D.examBooks[op.sem] && typeof D.examBooks[op.sem] === 'object' ? D.examBooks[op.sem] : {};
+    S[op.per] = qrMergeBook(S[op.per], op.book);
   } else if (op.k === 'tpl') {
     D.behaviorTemplates = Array.isArray(D.behaviorTemplates) ? D.behaviorTemplates : [];
     if (!D.behaviorTemplates.some(t => t && t.title === op.item.title && (t.type || 'negative') === op.item.type)) D.behaviorTemplates = [op.item, ...D.behaviorTemplates].slice(0, 500);
   }
+}
+/* نسخة من mergeExamBooks في worker.js لدفتر واحد: الدرجة الأحدث تفوز، والاختبار المحذوف لا يعود */
+function qrMergeBook(ab, bb) {
+  ab = ab && typeof ab === 'object' ? ab : {}; bb = bb && typeof bb === 'object' ? bb : {};
+  if (ab === bb) return ab;
+  const delT = new Map();
+  for (const d of [...(Array.isArray(ab.delTests) ? ab.delTests : []), ...(Array.isArray(bb.delTests) ? bb.delTests : [])]) if (d && d.id) { const k = String(d.id); if (!delT.has(k) || (Number(d.at) || 0) > delT.get(k)) delT.set(k, Number(d.at) || 0); }
+  const tm = new Map(); for (const t of [...(Array.isArray(ab.tests) ? ab.tests : []), ...(Array.isArray(bb.tests) ? bb.tests : [])]) if (t && t.id && !delT.has(String(t.id))) tm.set(String(t.id), t);
+  const order = [...(Array.isArray(bb.tests) ? bb.tests : []), ...(Array.isArray(ab.tests) ? ab.tests : [])].map(t => t && String(t.id)).filter((v, i, a) => v && a.indexOf(v) === i && tm.has(v));
+  const scores = {}, add = src => { for (const sid of Object.keys(src || {})) { const by = src[sid] && typeof src[sid] === 'object' ? src[sid] : {}; scores[sid] = scores[sid] || {};
+    for (const tid of Object.keys(by)) { const inc = by[tid], prev = scores[sid][tid]; if (prev == null || (Number(inc && inc.at) || 0) >= (Number(prev && prev.at) || 0)) scores[sid][tid] = inc; } } };
+  add(ab.scores); add(bb.scores);
+  return { ...ab, ...bb, tests: order.map(k => tm.get(k)).slice(0, 100), scores, ...(delT.size ? { delTests: [...delT].map(([id, at]) => ({ id, at })).slice(-200) } : {}) };
 }
 /* كل قراءة للخادم تُظهر ما في الطابور فوقها — فلا «يرجع» رصدٌ لم يُرسل بعد */
 if (typeof ctLoad === 'function') { const _ctLoad = ctLoad; ctLoad = async function () { const D = await _ctLoad(); qrOut().forEach(op => qrApply(D, op)); return D; }; }
@@ -42,7 +59,8 @@ if (typeof ctLoad === 'function') { const _ctLoad = ctLoad; ctLoad = async funct
 function qrDo(ops, label) {
   ops = (Array.isArray(ops) ? ops : [ops]).map(o => ({ id: qrId(), at: Date.now(), ...o }));
   if (!ops.length) return;
-  CT_DATA = CT_DATA || {}; const L = qrOut();
+  CT_DATA = CT_DATA || {}; let L = qrOut();
+  ops.forEach(o => { if (o.k === 'exb') L = L.filter(x => !(x.k === 'exb' && x.sem === o.sem && x.per === o.per)); });   // لقطة الدفتر الأحدث تشمل ما قبلها
   ops.forEach(o => { qrApply(CT_DATA, o); L.push(o); });
   qrOutSet(L); try { window._classroomData = CT_DATA; COMP_GRADES = null; } catch (e) {}
   qrPaint(); qrFlushSoon();
