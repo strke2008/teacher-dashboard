@@ -2145,6 +2145,7 @@ async function ctExamScore(sid,tid,el){
 /* ── 🗂️ السجلات: مراجعة الرصد وتعديله حسب الفصل والتاريخ ── */
 const CT_PART=['شارك','لم يشارك','غائب','غائب بعذر'], CT_HW=['أنجز','لم ينجز','معذور'];
 function ctRecords(box){
+  if(!window._ctRcClsUser&&typeof qrLesson==='function'){ const L=qrLesson(); if(L&&L.now&&(!window._ctRcD||window._ctRcD===ctToday())) window._ctRcCls=L.cls; }   // الحصة الجارية تُختار وحدها
   const cls=ctValidCls(window._ctRcCls), d=window._ctRcD||ctToday(), D=CT_DATA||{};
   const st=(m,sid)=>{ const r=D[m]&&D[m][d]&&D[m][d][String(sid)]; return String((r&&(typeof r==='string'?r:r.status))||''); };
   const roster=ctRoster(cls);
@@ -2152,11 +2153,13 @@ function ctRecords(box){
   const sel=(m,sid,opts)=>`<select class="inp ct-st ${st(m,sid)?'on':''}" onchange="ctSetStatus('${m}','${esc(sid)}',this.value)"><option value="">—</option>${opts.map(o=>`<option ${st(m,sid)===o?'selected':''}>${o}</option>`).join('')}</select>`;
   const c=(m,v)=>roster.filter(s=>st(m,s.id)===v).length;
   const view=window._ctRcView||'day', al=ctAlerts(cls);
-  const top=`<div class="row ct-tools">${ctClassSel('ct-rc-cls',cls,"window._ctRcCls=this.value;renderClassTools()",false)}
+  const top=`<div class="row ct-tools">${ctClassSel('ct-rc-cls',cls,"window._ctRcCls=this.value;window._ctRcClsUser=1;renderClassTools()",false)}
       <span class="ct-seg"><button type="button" class="${view==='day'?'on':''}" onclick="window._ctRcView='day';renderClassTools()">يوم</button><button type="button" class="${view==='month'?'on':''}" onclick="window._ctRcView='month';renderClassTools()">شهر</button></span>
       ${view==='month'?`<input class="inp" type="month" value="${esc(window._ctRcM||ctToday().slice(0,7))}" style="width:auto" onchange="window._ctRcM=this.value;renderClassTools()">`:''}</div>
     ${al.length?`<details class="ct-alerts" ${window._ctAlOpen!==false?'open':''} ontoggle="window._ctAlOpen=this.open"><summary>🔔 تنبيهات الانضباط (${al.length})</summary>${al.map(a=>`<div class="ct-al ${a.lvl}">${ctNameLink(a.s)} — ${esc(a.t)}</div>`).join('')}</details>`:''}`;
   if(view==='month'){ box.innerHTML=top+ctRecordsMonth(box); return; }
+  // ✋ الرصد السريع (js/40-quick-record.js): لمسة فورية + طابور لا يضيع دون شبكة
+  if(typeof qrDayHTML==='function'){ box.innerHTML=top+qrDayHTML(); qrPaint(); return; }
   box.innerHTML=top+`<div class="row ct-tools">
       <input class="inp" type="date" value="${esc(d)}" style="width:auto" onchange="window._ctRcD=this.value;renderClassTools()">
       <button class="btn ghost sm" onclick="ctAllPresent()" title="يرصد «شارك» لكل من لم يُرصد له شيء في هذا اليوم">✅ الكل شارك</button>
@@ -2432,7 +2435,7 @@ function ctTodayHTML(){
   if(!ps.length) return `<div class="ct-today muted">📅 ${CT_DAYS[dow]}: لا حصص في جدولك اليوم — أضفها من «🗓️ الجدول».</div>`;
   const d=ctToday(), done=c=>{ const P=D.participation&&D.participation[d]||{}; return ctRoster(c).some(x=>P[String(x.id)]); };
   return `<div class="ct-today"><b>📅 حصص اليوم (${CT_DAYS[dow]})</b>${ps.map(p=>{ const c=g[String(p)];
-    return `<button type="button" class="ct-per ${done(c)?'done':''}" onclick="window._ctRcCls='${esc(c)}';window._ctRcD='${d}';window._ctRcView='day';ctGo('records')" title="افتح سجل ${esc(c)} لليوم">الحصة ${p} · <b>${esc(c)}</b> ${done(c)?'✓ رُصد':'— لم يُرصد'}</button>`; }).join('')}</div>`;
+    return `<button type="button" class="ct-per ${done(c)?'done':''}" onclick="window._ctRcCls='${esc(c)}';window._ctRcClsUser=1;window._ctRcD='${d}';window._ctRcView='day';ctGo('records')" title="افتح سجل ${esc(c)} لليوم">الحصة ${p} · <b>${esc(c)}</b> ${done(c)?'✓ رُصد':'— لم يُرصد'}</button>`; }).join('')}</div>`;
 }
 
 /* ── 🧭 خريطة المهارات — ثلاث قراءات للبيانات نفسها:

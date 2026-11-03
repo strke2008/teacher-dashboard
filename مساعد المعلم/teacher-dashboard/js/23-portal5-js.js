@@ -5,7 +5,7 @@ function bhvTemplates(){ return ((CT_DATA&&CT_DATA.behaviorTemplates)||[]).filte
 function bhvToday(sid){ const d=tdKsaNow().day; return ((CT_DATA&&CT_DATA.behavior)||[]).filter(x=>x&&!x.deleted&&x.date===d&&String(x.studentId)===String(sid)).length; }
 /* mode: 'tq' (داخل الرصد السريع — يُحفظ مع الرصد) · 'one' (نافذة طالب — يُحفظ فورًا) */
 function bhvPickerHTML(sid,mode){
-  const T=bhvTemplates(), f=mode==='tq'?'tqBehAdd':'bhvSave', q=s=>esc(String(s)).replace(/'/g,'&#39;');
+  const T=bhvTemplates(), f=mode==='tq'?'tqBehAdd':mode==='qr'?'qrBehAdd':'bhvSave', q=s=>esc(String(s)).replace(/'/g,'&#39;');
   const chip=(type,t,n,cls)=>`<button type="button" class="bh-chip ${cls}" title="${q(n)}" onclick="${f}('${esc(sid)}','${type}','${q(t)}','${q(n)}')">${esc(t)}</button>`;
   return `<div class="bh-grp"><b>🌟 إيجابي</b>${BHV_POS.map(([t,n])=>chip('positive',t,n,'p')).join('')}${T.filter(x=>x.type==='positive').map(x=>chip('positive',x.title,x.note||'','p t')).join('')}</div>
     <div class="bh-grp"><b>⚠️ يحتاج متابعة</b>${BHV_NEG.map(([t,n])=>chip('negative',t,n,'n')).join('')}${T.filter(x=>x.type!=='positive').map(x=>chip('negative',x.title,x.note||'','n t')).join('')}</div>
@@ -21,6 +21,7 @@ function bhvCustom(sid,mode){
   const g=id=>document.getElementById(id), t=String(g('bh-title-'+sid)?.value||'').trim(), type=g('bh-type-'+sid)?.value||'negative', save=!!g('bh-tpl-'+sid)?.checked;
   if(!t){ toast('اكتب السلوك أولًا','bad'); return; }
   if(mode==='tq'){ if(save) TQ.tpl.push({title:t,note:'',type}); tqBehAdd(sid,type,t,''); }
+  else if(mode==='qr'){ if(save) qrDo({k:'tpl',item:{title:t,note:'',type}}); qrBehAdd(sid,type,t,''); }
   else bhvSave(sid,type,t,'',save);
 }
 function bhvOpen(sid){

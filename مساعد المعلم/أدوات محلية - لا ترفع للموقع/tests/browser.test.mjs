@@ -52,6 +52,41 @@ export default async function run() {
         ctx.offline = false; await p.evaluate(() => dispatchEvent(new Event('online'))); await p.waitForTimeout(4000);
         ok((((await srv()).participation || {})[d] || {}).s2, 'لم يُرسل بعد عودة الشبكة'); eq(await p.$eval('#save-text', e => e.textContent), 'محفوظ'); });
       await ctx.close(); }
+    // ── ✋ الرصد السريع داخل لوحة التحكم ──
+    { await env.HW.put('teacher:classroom', JSON.stringify({ participation: { '2020-01-01': { s2: { status: 'شارك', at: 1 } } } }));
+      const ctx = await newCtx({ viewport: { width: 390, height: 844 } }); let p = await ctx.newPage(), errs = watch(p);
+      const srv = async () => JSON.parse(await env.HW.get('teacher:classroom') || '{}');
+      const open = async () => { await p.waitForFunction(() => typeof CT_DATA !== 'undefined' && CT_DATA && typeof qrPaint === 'function', null, { timeout: 15000 });
+        await p.evaluate(() => { window._ctRcCls = 'أول 1'; window._ctRcClsUser = 1; window._ctRcView = 'day'; ctGo('records'); }); await p.waitForSelector('#qr-root .qr-row', { timeout: 8000 }); };
+      await p.goto(base + '/teacher-dashboard/'); await p.evaluate(t => localStorage.setItem('hwapp_tok_v1', t), TOKEN); await p.reload(); await open();
+      const d = await p.evaluate(() => ctToday());
+      await S.t('الرصد السريع: لمسة واحدة تظهر فورًا وتصل للخادم', async () => {
+        await p.click('#qr-root .qr-row[data-sid=s1] .c.g'); ok(await p.$('#qr-root .qr-row[data-sid=s1] .c.g.on'), 'لم تظهر فورًا');
+        await p.waitForTimeout(2500); eq(((((await srv()).participation || {})[d] || {}).s1 || {}).status, 'شارك');
+        ok(((await srv()).participation || {})['2020-01-01'], 'ضاع رصد قديم'); eq(await p.$eval('#qr-sync', e => e.textContent.trim()), '✓ محفوظ'); eq(errs, [], 'أخطاء'); });
+      await S.t('الرصد السريع: الغائب «معذور» في الواجب، والتراجع يعيده', async () => {
+        await p.click('#qr-root .qr-row[data-sid=s2] .c.r'); await p.waitForTimeout(2200);
+        let sv = await srv(); eq(sv.participation[d].s2.status, 'غائب'); eq(sv.homework[d].s2.status, 'معذور');
+        await p.click('.qr-st button'); await p.waitForTimeout(2200); sv = await srv();
+        eq(sv.participation[d].s2.status, ''); eq(sv.homework[d].s2.status, ''); });
+      await S.t('الرصد السريع: «الباقي شارك» لا يغيّر من رُصد', async () => {
+        await p.click('#qr-root .qr-row[data-sid=s1] .c.y'); await p.click('.qr-all'); await p.waitForTimeout(2200); const sv = await srv();
+        eq(sv.participation[d].s1.status, 'لم يشارك'); eq(sv.participation[d].s2.status, 'شارك'); });
+      await S.t('الرصد السريع: ملاحظة سلوك من القوالب', async () => {
+        await p.click('.qr-mode button:nth-child(3)'); await p.click('#qr-root .qr-row[data-sid=s1] .c.g'); await p.click('.qr-bpick .bh-chip.p'); await p.waitForTimeout(2200);
+        const b = ((await srv()).behavior || []).filter(x => x.studentId === 's1' && x.date === d); eq(b.length, 1); eq(b[0].type, 'positive'); });
+      await S.t('زر «ارصدها» في «اليوم» يفتح صفحة الرصد للفصل', async () => {
+        await p.evaluate(() => { window._ctRcCls = ''; goTab('today'); }); await p.waitForTimeout(800);
+        await p.evaluate(() => tdQuick('أول 1')); await p.waitForSelector('#qr-root .qr-row', { timeout: 8000 });
+        eq(await p.evaluate(() => [CT_TAB, qrCls(), !!document.querySelector('#modal.show, #modal.on')]), ['records', 'أول 1', false]); });
+      await S.t('الرصد السريع بلا شبكة ثم إغلاق وفتح: يبقى ويُرسل', async () => {
+        await p.click('.qr-mode button:nth-child(2)'); ctx.offline = true;
+        await p.click('#qr-root .qr-row[data-sid=s1] .c.r'); await p.waitForTimeout(1800);
+        ok(/بانتظار/.test(await p.$eval('#qr-sync', e => e.textContent)), 'لا تنبيه «بانتظار الإرسال»');
+        await p.close(); ctx.offline = false; p = await ctx.newPage(); errs = watch(p); await p.goto(base + '/teacher-dashboard/'); await open(); await p.waitForTimeout(6000);
+        eq(((((await srv()).homework || {})[d] || {}).s1 || {}).status, 'لم ينجز', 'لم يصل للخادم');
+        eq(await p.evaluate(() => localStorage.getItem('ct_outbox_v1')), null, 'الطابور لم يُفرغ'); eq(errs, [], 'أخطاء'); });
+      await ctx.close(); }
     // ── بوابة الطالب ──
     { const ctx = await newCtx({ viewport: { width: 390, height: 800 } }), p = await ctx.newPage(), errs = watch(p);
       await S.t('بوابة الطالب: الرئيسية بلا أخطاء', async () => { await p.goto(base + '/student-portal/index.html'); await p.waitForTimeout(3000); eq(errs, [], 'أخطاء'); });

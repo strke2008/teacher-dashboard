@@ -5,6 +5,8 @@ const TQ_H=[['أنجز','hd','أنجز'],['لم ينجز','hn','لم ينجز']]
 function tqVal(m,sid){ const k=m+'|'+sid; if(k in TQ.ch) return TQ.ch[k]; return ctStatus(CT_DATA||{},m,TQ.day,sid); }
 function tdQuick(cls){
   if(!CT_DATA){ toast('بيانات الفصل لم تُحمّل بعد — حاول بعد لحظة','bad'); return; }
+  // ✋ صار الرصد صفحة كاملة فورية («السجلات والحضور ← يوم») — لا نافذة بحفظ واحد
+  if(typeof qrPaint==='function'&&typeof ctGo==='function'){ window._ctRcCls=cls; window._ctRcClsUser=1; window._ctRcD=tdKsaNow().day; window._ctRcView='day'; window._qrScroll=1; QR.q=''; QR.open=''; ctGo('records'); return; }
   TQ.cls=cls; TQ.day=tdKsaNow().day; TQ.ch={}; TQ.beh=[]; TQ.tpl=[]; TQ.openBeh=''; tqRender();
 }
 function tqRender(){
