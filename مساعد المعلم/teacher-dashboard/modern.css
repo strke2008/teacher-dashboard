@@ -35,4 +35,54 @@ button,input,select,textarea{font-family:inherit}
 .sheet .sheet,.card .card,.sheet .card,.card .ct-card,.sheet .ct-card{box-shadow:none!important;border:1px solid var(--ui-border)!important}
 .btn{border-radius:var(--m-r-sm)}
 .inp,input.inp,select.inp,textarea.inp{border-radius:var(--m-r-sm)!important;border-color:var(--ui-border)!important}
+
+/* ═════ المرحلة 2: الأزرار والبطاقات الداخلية ═════ */
+/* الأزرار: الأساسي بلون التمييز، والثانوي أبيض بحد رفيع */
+.btn:not(.ghost):not(.tick):not(.pen):not(.danger):not(.bad){background:var(--ui-accent)!important;color:#fff!important}
+.btn{border-radius:var(--m-r-sm)!important;box-shadow:none!important;font-weight:600}
+.btn:hover{transform:none!important;filter:brightness(1.05)}
+.btn.ghost{background:var(--ui-surface)!important;color:var(--ink)!important;box-shadow:inset 0 0 0 1px var(--ui-border)!important}
+.btn.ghost:hover{background:var(--ui-surface-2)!important}
+.btn.sm{border-radius:10px!important}
+
+/* «اليوم»: بطاقة الحصة بلون التمييز (ثيم عصري) أو لون الشريط (الثيمات الأخرى) */
+.td-hero{background:var(--m-hero,var(--app-nav-bg))!important;background-image:none!important;color:var(--m-hero-ink,var(--app-nav-text))!important;border-radius:var(--m-r)!important;box-shadow:0 6px 18px rgba(15,157,116,.18)!important}
+.td-hero small{opacity:.88}
+.td-ring{background:conic-gradient(#fff calc(var(--p)*1%),rgba(255,255,255,.22) 0)!important}
+.td-ring i{background:var(--m-hero,var(--app-nav-bg))!important;color:var(--m-hero-ink,var(--app-nav-text))!important}
+.td-hero-go{background:#fff!important;color:var(--ui-accent)!important;border-radius:12px!important;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.td-kpi{background:var(--ui-surface)!important;border:0!important;box-shadow:var(--m-sh)!important}
+.td-kpi.on{box-shadow:0 0 0 2px var(--ui-accent),var(--m-sh)!important}
+.td-per{border:0!important;background:var(--ui-surface-2)!important;font-weight:600}
+.td-per.miss{background:#FDF4E1!important;color:#8A5A00!important}
+.td-task{background:var(--ui-surface-2)!important;border-radius:var(--m-r-sm)!important}
+.td-day{border-radius:var(--m-r-sm)!important;border-color:var(--ui-border)!important}
+.td-day.today{border-color:var(--ui-accent)!important;box-shadow:0 0 0 1px var(--ui-accent)}
+details.td-more{background:var(--ui-surface)!important;border:0!important;border-radius:var(--m-r)!important;box-shadow:var(--m-sh)!important}
+
+/* ✋ الرصد السريع: صفوف بيضاء وأزرار تتلوّن عند الاختيار فقط */
+.qr-row{background:var(--ui-surface)!important;border:0!important;box-shadow:var(--m-sh);border-radius:var(--m-r-sm)!important}
+.qr-row.done{box-shadow:inset -3px 0 0 var(--ui-accent),var(--m-sh)}
+.qr-row .c:not(.on){background:var(--ui-surface)!important;border:1.5px solid var(--ui-border)!important}
+.qr-row .c.g.on{background:var(--ui-accent-soft)!important;border-color:var(--ui-accent)!important}
+.qr-row .c.y.on{background:#FDF4E1!important;border-color:#E8A317!important}
+.qr-row .c.r.on{background:#FDECEC!important;border-color:#E5484D!important}
+.qr-mode{background:var(--ui-surface-2)!important;border:0!important}
+.qr-mode button.on{background:var(--ui-surface)!important;color:var(--ink)!important}
+.qr-cnt>div{background:var(--ui-surface)!important;box-shadow:var(--m-sh)}
+.qr-s,.qr-ic{background:var(--ui-surface)!important;border-color:var(--ui-border)!important}
+.qr-all{background:var(--ui-accent)!important;border-radius:var(--m-r)!important}
+.qr-lesson{background:var(--ui-accent-soft)!important;border:0!important;border-radius:var(--m-r)!important}
+.qr-lesson .x{background:var(--ui-accent)!important}
+
+/* شاشات البوابة المنقولة (الاختبارات، الجدول، الرسائل): ألوانها من الثيم نفسه */
+.tpx.tpx{--surface:var(--ui-surface);--surface-2:var(--ui-surface-2);--surface-3:var(--ui-surface-2);--paper:var(--ui-bg);--rule:var(--ui-border);--rule-strong:var(--ui-border-strong);
+  --accent:var(--ui-accent);--accent-soft:var(--ui-accent-soft);--accent-ink:var(--app-nav-active-text);--ink-soft:var(--ui-muted);--font:var(--m-font);--shadow:var(--m-sh)}
+
+/* أدوات الفصل: أزرار الأقسام */
+.ct-seg{border-radius:var(--m-r-sm)!important}
+.ct-seg button.on{background:var(--ui-accent)!important;color:#fff!important}
+#portal-link-btn{box-shadow:0 2px 8px rgba(15,157,116,.25)!important}
+#ct-nav .btn{border-radius:999px!important}
 }
+
