@@ -5793,6 +5793,12 @@ export default {
     if (!env.HW) return json({ error: 'KV binding HW is missing' }, 500);
 
     if (url.pathname === '/tts' && request.method === 'GET') return ttsHandle(request, env, ctx, url);
+    // 🔄 إجبار كل الأجهزة على التحديث (المعلم فقط): كل جهاز يرى الوقت الجديد في /version فيعيد تحميل نفسه مرة واحدة
+    if (url.pathname === '/app/force' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch {}
+      if (!pushIsTeacher(env, b)) return json({ ok: false, error: 'unauthorized' }, 401);
+      const at = Date.now(); await env.HW.put('app:force', String(at)); return json({ ok: true, at });
+    }
 
     /* 🔎 بصمة النسخة: تكشف فورًا إن كان الخادم المنشور قديمًا.
        النسخة القديمة لا تعرف هذا المسار، فغيابه هو الجواب. */
@@ -5806,6 +5812,7 @@ export default {
         sessions: !!(env.SESSION_SECRET || env.TEACHER_TOKEN),
         multiGame: true,
         tts: !!env.ELEVENLABS_API_KEY,
+        force: Number(await env.HW.get('app:force').catch(() => 0)) || 0,
         maxGamesPerActivity: MAX_GAMES,
         gameTypes: Object.keys(GAME_LIMITS)
       });

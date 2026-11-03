@@ -255,14 +255,14 @@ if('serviceWorker' in navigator){
       else if(d.type==='wall'){ try{ wallBadgeRefresh(true); }catch(e){} }
       else if(d.hw){ try{ liveApplyPushRow(d); }catch(e){} try{ liveCheckOne(String(d.hw)); }catch(e){} try{ projBadgeRefresh(true); }catch(e){} } }
     // ⚡ اللوحة تُفتح من النسخة المحفوظة على الجهاز؛ إن وُجد إصدار أحدث نعرض زر تحديث بدل إعادة تحميل مفاجئة
-    if(ev.data && ev.data.type==='dash-update') dashShowUpdate();
+    if(ev.data && ev.data.type==='dash-update') APPUPD.mark();
   });
 }
-function dashShowUpdate(){
+function dashShowUpdate(auto){
   if(document.getElementById('dash-upd')) return;
   const b=document.createElement('div'); b.id='dash-upd';
   b.style.cssText='position:fixed;inset-inline:12px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:3000;max-width:460px;margin:auto;background:#16233A;color:#fff;border-radius:14px;padding:10px 12px;display:flex;align-items:center;gap:10px;font-weight:700;font-size:.9rem;box-shadow:0 10px 30px rgba(0,0,0,.25)';
-  b.innerHTML='<span style="flex:1">🔄 نسخة أحدث من اللوحة جاهزة</span><button type="button" style="font:inherit;font-weight:800;border:0;border-radius:10px;padding:7px 12px;background:#1B9C6B;color:#fff;cursor:pointer">تحديث الآن</button><button type="button" aria-label="لاحقًا" style="font:inherit;border:0;background:transparent;color:#9FB2CC;cursor:pointer;font-size:1rem">✕</button>';
+  b.innerHTML='<span style="flex:1">🔄 نسخة أحدث من اللوحة جاهزة<small style="display:block;font-weight:500;opacity:.75;font-size:.78em">تُحدَّث وحدها حين تتوقف عن العمل</small></span><button type="button" style="font:inherit;font-weight:800;border:0;border-radius:10px;padding:7px 12px;background:#1B9C6B;color:#fff;cursor:pointer">تحديث الآن</button><button type="button" aria-label="لاحقًا" style="font:inherit;border:0;background:transparent;color:#9FB2CC;cursor:pointer;font-size:1rem">✕</button>';
   b.children[1].onclick=()=>location.reload(); b.children[2].onclick=()=>b.remove();
   document.body.appendChild(b);
 }
@@ -279,7 +279,7 @@ function dashShowUpdate(){
       const r = await fetch(location.pathname + '?_sw=' + Date.now().toString(36), { cache: 'no-store', credentials: 'same-origin' });
       if(!r.ok) return;
       const other = sig(await r.text());
-      if(other && other !== mine) dashShowUpdate();
+      if(other && other !== mine) APPUPD.mark();
     }catch(e){}
   };
   document.addEventListener('visibilitychange', () => { if(!document.hidden) check(); });
@@ -313,3 +313,50 @@ function dashShowUpdate(){
   if('onscrollend' in window) addEventListener('scrollend',fix);
   setTimeout(fix,500);
 })();
+
+window.__APPUPD_CFG={api:()=>getApi(),show:()=>dashShowUpdate(true),
+  busy:()=>{const m=document.getElementById('modal');return !!(m&&m.innerHTML.trim()&&m.offsetParent!==null&&getComputedStyle(m).visibility!=='hidden')||!!document.querySelector('.opv-veil,dialog[open]')}};
+/* 🔄 التحديث الإجباري: أي إصدار أحدث يُطبَّق وحده في أول لحظة آمنة — عند الخروج من التطبيق أو العودة إليه، أو بعد دقيقتين بلا لمس —
+   ولا يُطبَّق أبدًا وسط عمل (نافذة مفتوحة، كتابة، حل نشاط). و«إجبار كل الأجهزة» من لوحة التحكم: الخادم يحفظ وقت الطلب،
+   وكل جهاز يراه (عند الفتح والعودة وكل 10 دقائق) يمسح نسخته المحفوظة ويعيد التحميل مرة واحدة. لا يُلغى تسجيل الإشعارات. */
+const APPUPD=(()=>{
+  const LS='app_force_seen',CFG=window.__APPUPD_CFG||{};let pending=false,hard=0,since=0,lastAct=Date.now(),lastInput=0,hidAt=0,going=false;
+  addEventListener('input',()=>{lastInput=Date.now()},true);
+  ['pointerdown','keydown','wheel','touchstart'].forEach(e=>addEventListener(e,()=>{lastAct=Date.now()},{capture:true,passive:true}));
+  const editing=()=>{const a=document.activeElement;return !!(a&&(a.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))&&!/^(button|checkbox|radio|range|submit)$/i.test(a.type||''))};
+  const busy=()=>editing()||Date.now()-lastInput<120000||!!(CFG.busy&&CFG.busy());
+  async function apply(){
+    if(going)return;going=true;
+    if(hard){try{localStorage.setItem(LS,String(hard))}catch(e){}
+      try{if(window.caches)for(const k of await caches.keys())await caches.delete(k)}catch(e){}
+      try{const R=navigator.serviceWorker&&navigator.serviceWorker.getRegistrations?await navigator.serviceWorker.getRegistrations():[];await Promise.all(R.map(r=>r.update().catch(()=>{})))}catch(e){}}
+    location.reload();
+  }
+  function tick(){if(!pending||going)return;
+    const idle=Date.now()-lastAct>120000,late=Date.now()-since>4*3600e3;
+    if((idle&&!busy())||(late&&!editing()&&Date.now()-lastInput>120000))apply()}
+  function mark(h){if(h)hard=Math.max(hard,h);if(!pending){pending=true;since=Date.now()}if(CFG.show)try{CFG.show()}catch(e){}}
+  document.addEventListener('visibilitychange',()=>{
+    if(document.hidden){hidAt=Date.now();if(pending&&!busy())apply();return}
+    if(pending&&hidAt&&Date.now()-hidAt>15000&&!busy())apply();else checkForce()});
+  async function checkForce(){
+    if(!CFG.api)return;let api='';try{api=String(CFG.api()||'').replace(/\/+$/,'')}catch(e){}if(!api)return;
+    try{const j=await (await fetch(api+'/version',{cache:'no-store'})).json(),f=Number(j&&j.force)||0;let seen=0;try{seen=Number(localStorage.getItem(LS))||0}catch(e){}
+      if(f>seen){if(!seen&&performance.now()<15000&&Date.now()-f>86400e3){try{localStorage.setItem(LS,String(f))}catch(e){}return}   // جهاز جديد فُتح الآن بعد طلب قديم: هو أصلًا أحدث نسخة
+        mark(f);tick()}}catch(e){}
+  }
+  setInterval(tick,30000);setTimeout(checkForce,4000);setInterval(checkForce,600000);
+  return {mark,apply,get pending(){return pending}};
+})();
+
+async function appForceAll(btn){
+  if(!getApi()||!getTok()){ toast('اضبط عنوان الخادم وكلمة السر أولًا','bad'); return; }
+  if(typeof askConfirm==='function' && !(await askConfirm('كل الأجهزة المفتوحة (لوحتك وبوابات الطلاب) تمسح نسختها المحفوظة وتعيد التحميل مرة واحدة، في أول لحظة لا يكون فيها أحد يكتب أو يحل نشاطًا. متابعة؟'))) return;
+  if(btn) btn.disabled=true;
+  try{ const r=await fetch(getApi().replace(/\/+$/,'')+'/app/force',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:getTok()})}); const j=await r.json();
+    if(!j.ok) throw new Error(j.error||'fail'); try{ localStorage.setItem('app_force_seen',String(j.at)); }catch(e){}
+    const o=document.getElementById('app-force-last'); if(o) o.textContent='آخر طلب: '+fmtDate(j.at)+' '+fmtTime(j.at);
+    toast('✓ أُرسل طلب التحديث — يصل لكل جهاز خلال 10 دقائق أو عند فتحه','good'); }
+  catch(e){ toast(/unauthorized/.test(e.message)?'كلمة السر غير صحيحة':'تعذّر الإرسال — هل رفعت worker.js الجديد؟','bad'); }
+  if(btn) btn.disabled=false;
+}
