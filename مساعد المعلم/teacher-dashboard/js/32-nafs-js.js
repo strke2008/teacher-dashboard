@@ -497,12 +497,12 @@ function nafsRender() {
         <label class="nafs-sec-h"><input type="checkbox" ${on ? 'checked' : ''} onchange="nafsPick('${s.id}',this.checked)"><span class="nafs-ic">${s.ic}</span>
           <span><b>${esc(s.title)}</b><small>${esc(s.lessons)}</small></span></label>
         <div class="nafs-sec-n"><span class="chip tick">✍️ ${c.auto} آلي</span>${c.open ? `<span class="chip ghost">📝 ${c.open} مقالي</span>` : ''}<span class="chip ghost">🎯 ${s.outcomes.length} ناتج</span>${thin(s) ? `<span class="chip warn" title="الخطط تحكم على الناتج بعد ${NAFS_MIN_Q} أسئلة للطالب — ولّد أسئلة لهذه النواتج">⚠️ ${thin(s)} ${thin(s) === 1 ? 'ناتج' : thin(s) <= 10 ? 'نواتج' : 'ناتجًا'} أقل من ${NAFS_MIN_Q} أسئلة</span>` : ''}</div>
-        <details ${NAFS.open === s.id ? 'open' : ''} ontoggle="if(this.open)NAFS.open='${s.id}'"><summary>نواتج التعلم والأسئلة</summary>
+        <details ${NAFS.open === s.id ? 'open' : ''} ontoggle="if(this.open){NAFS.open='${s.id}';nafsFillQs(this)}"><summary>نواتج التعلم والأسئلة</summary>
           <ol class="nafs-out">${s.outcomes.map(([id, sh, tx]) => { const n = NAFS_BANK.filter(q => q.o === id && nafsIn(q)).length, a = autoN(id);
             return `<li><b>${esc(sh)}</b> <small class="muted">${n ? n + ' سؤال' : 'لا سؤال في الدليل'}</small>${a < NAFS_MIN_Q ? ` <small class="nafs-thin">⚠️ ${a ? `${a} آلي فقط` : 'بلا سؤال آلي'} — يحتاج ${NAFS_MIN_Q - a} ليُحكم عليه من نشاط نافس وحده</small>` : ''}<div class="muted">${esc(tx)}</div></li>`; }).join('')}</ol>
           <div class="nafs-sec-tools"><button type="button" class="btn ghost sm" onclick="nafsSelAll('${s.id}',true)">✓ اختر الكل</button><button type="button" class="btn ghost sm" onclick="nafsSelAll('${s.id}',false)">✕ ألغِ الكل</button>
             <button type="button" class="ai-btn sm" onclick="nafsGenOpen('${s.id}')"><span class="ai-mark">✦</span> توليد أسئلة جديدة</button></div>
-          <div class="nafs-qs">${NAFS_BANK.filter(q => q.s === s.id).map((q, i) => { try { return nafsQPreview(q, i); } catch (e) { return ''; } }).join('')}</div>
+          <div class="nafs-qs" data-sec="${s.id}">${NAFS.open === s.id ? nafsQsHTML(s.id) : ''}</div>
         </details></div>`; }).join('')}</div>
     <div class="nafs-make sheet">
       <b>📝 ${ps.length ? `اختبار من ${ps.length === secs.length ? 'كل أقسام ' + NAFS_TERMS[NAFS.term] : ps.length + ' ' + (ps.length === 1 ? 'قسم' : 'أقسام')}: ${pa} سؤال يُصحَّح آليًا${po ? ` + ${po} مقالي للورقة` : ''}` : 'اختر قسمًا واحدًا على الأقل'}</b>
@@ -517,6 +517,9 @@ function nafsRender() {
     <div id="nafs-results"></div>`;
   nafsResults();
 }
+/* أسئلة القسم تُرسم عند فتحه فقط (كانت كل أسئلة البنك تُرسم داخل أقسام مغلقة مع كل فتح للصفحة) */
+function nafsQsHTML(sec) { return NAFS_BANK.filter(q => q.s === sec).map((q, i) => { try { return nafsQPreview(q, i); } catch (e) { return ''; } }).join(''); }
+function nafsFillQs(det) { const b = det && det.querySelector('.nafs-qs'); if (b && !b.childElementCount) b.innerHTML = nafsQsHTML(b.dataset.sec); }
 function nafsQPreview(q, i) {
   const keyTag = q.k === 'off' ? '<span class="nafs-k off">مفتاح رسمي</span>' : q.k === 'ai' ? '<span class="nafs-k ai">✦ مولّد بالذكاء الاصطناعي</span>' : q.k === 'add' ? '<span class="nafs-k add" title="ليس من الدليل الرسمي — أُضيف ليكتمل كل ناتج إلى ٣ أسئلة آلية">➕ سؤال إضافي بأسلوب نافس</span>' : '<span class="nafs-k pr">مفتاح مقترح</span>';
   const inc = nafsIn(q);

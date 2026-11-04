@@ -3307,20 +3307,22 @@ function examModelsBarInto(listId, bank){
 const EX_LONG_CACHE = new WeakMap();
 /* 📐 أربعة خيارات في سطر واحد؟ يُقاس كل سؤال كما يُطبع (الخط والمقاس نفسهما): يُعتمد السطر الواحد إن لم يلتف أي خيار،
    وإلا خياران في السطر. كان الحكم بعدد الحروف: ٢٢ يلتف أحيانًا، و١٦ يرسل أسئلة كثيرة إلى سطرين فلا تتسع الورقة */
-const EX_FOUR_CACHE = new WeakMap();
+const EX_FOUR_CACHE = new Map();   // بالنص لا بالكائن: الأسئلة تُبنى من جديد مع كل فتح، فكان القياس يُعاد كاملًا كل مرة
 function examFourFits(qs, font, size, fit){
+  if(EX_FOUR_CACHE.size > 6000) EX_FOUR_CACHE.clear();
   const out = new Set(), sig = q => [font, size, fit || 0, ...(q.o || [])].join('\u0001');
-  const need = qs.filter(q => { const c = EX_FOUR_CACHE.get(q); if(c && c.sig === sig(q)){ if(c.ok) out.add(q); return false; } return true; });
+  const need = qs.filter(q => { const c = EX_FOUR_CACHE.get(sig(q)); if(c !== undefined){ if(c) out.add(q); return false; } return true; });
   if(!need.length) return out;
   let box = document.getElementById('exam-measure-q');
   if(!box){ box = document.createElement('div'); box.id = 'exam-measure-q'; document.body.appendChild(box); }
   box.style.cssText = 'position:absolute;left:-10000px;top:0;width:210mm;visibility:hidden;pointer-events:none;zoom:1';
   box.innerHTML = `<div class="exam-page" data-font="${esc(font)}" data-size="${esc(size)}" data-auto="1"${fit ? ` data-fit="${fit}"` : ''} style="height:auto;box-shadow:none"><div class="ex-sec">${need.map((q, i) =>
     `<div class="ex-q" data-k="${i}"><div class="ex-qt"><span class="ex-num">1</span><span>.</span></div><div class="ex-opts four">${(q.o || []).map(o => `<div class="ex-opt"><span class="ex-box"></span><span class="ex-ltr">أ</span><span class="exm-o">${escExamText(o)}</span></div>`).join('')}</div></div>`).join('')}</div></div>`;
+  let fs0 = 0;   // كل الخيارات بالخط والمقاس نفسيهما: يكفي حسابه مرة
   box.querySelectorAll('[data-k]').forEach(el => { const q = need[+el.dataset.k];
-    const ok = [...el.querySelectorAll('.exm-o')].every(o => { const r = document.createRange(); r.selectNodeContents(o); const fs = parseFloat(getComputedStyle(o).fontSize) || 12;
+    const ok = [...el.querySelectorAll('.exm-o')].every(o => { const r = document.createRange(); r.selectNodeContents(o); const fs = fs0 || (fs0 = parseFloat(getComputedStyle(o).fontSize) || 12);
       const tops = [...r.getClientRects()].filter(b => b.width > 1).map(b => b.top); return !tops.length || Math.max(...tops) - Math.min(...tops) < fs * 0.6; });
-    EX_FOUR_CACHE.set(q, { sig:sig(q), ok }); if(ok) out.add(q); });
+    EX_FOUR_CACHE.set(sig(q), ok); if(ok) out.add(q); });
   box.innerHTML = '';
   return out;
 }
@@ -4249,12 +4251,25 @@ function examOpenSec(X, o){
   return `<div class="ex-sec">${examSecHead('h-op', `السؤال ${o.no}: أجب عن كل مما يلي:`, X.marksTail, o.D)}${rows}</div>`;
 }
 /* ارتفاع صفحة كاملة بعرض A4 الحقيقي (المحتوى + الحشو) لنعرف هل تتسع */
+/* القياس نفسه يتكرر مع كل فتح للصفحة ومع كل تعديل لا يغيّر المحتوى: يُحفظ ارتفاع كل محتوى (بعد اكتمال تحميل الخطوط فقط) */
+const EX_MEASURE_CACHE = new Map();
+function exHash(str){ let h1 = 0xdeadbeef, h2 = 0x41c6ce57; for(let i = 0; i < str.length; i++){ const ch = str.charCodeAt(i); h1 = Math.imul(h1 ^ ch, 2654435761); h2 = Math.imul(h2 ^ ch, 1597334677); }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909); h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (h2 >>> 0).toString(36) + (h1 >>> 0).toString(36) + ':' + str.length; }
 function examMeasurePage(attrs, html){
+  const fontsOk = !document.fonts || document.fonts.status === 'loaded', ck = fontsOk ? exHash(attrs + '\u0001' + html) : '';
+  if(ck && EX_MEASURE_CACHE.has(ck)) return EX_MEASURE_CACHE.get(ck);
+  const h = examMeasurePageNow(attrs, html);
+  if(ck && h > 0 && examMeasurePageNow.stable){ if(EX_MEASURE_CACHE.size > 300) EX_MEASURE_CACHE.clear(); EX_MEASURE_CACHE.set(ck, h); }   // صورة (شعار) لم تكتمل بعد ⇒ لا يُحفظ
+  return h;
+}
+function examMeasurePageNow(attrs, html){
   let box = document.getElementById('exam-measure');
   if(!box){ box = document.createElement('div'); box.id = 'exam-measure'; document.body.appendChild(box); }
   box.style.cssText = 'position:absolute;left:-10000px;top:0;width:210mm;visibility:hidden;pointer-events:none;zoom:1';
   box.innerHTML = `<div class="exam-page" ${attrs} style="height:auto;box-shadow:none">${html}</div>`;
   let h = 0; try{ h = box.firstElementChild.getBoundingClientRect().height || 0; }catch(e){}
+  examMeasurePageNow.stable = [...box.querySelectorAll('img')].every(i => i.complete && i.naturalWidth);
   box.innerHTML = '';
   return h;
 }

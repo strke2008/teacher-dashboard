@@ -184,6 +184,20 @@ export default async function run() {
         ok(await p.evaluate(() => /نظام نور/.test((document.querySelector('#modal, .modal') || {}).innerText || '')), 'لم تُفتح نافذة نور');
         eq(await p.evaluate(() => LZ_STUBS.filter(n => typeof window[n] !== 'function' || String(window[n]).includes('lzLoad'))), [], 'بدائل لم تُستبدل'); eq(errs, [], 'أخطاء'); });
       await ctx.close(); }
+    // ── ⚡ سرعة التنقل: الاختبارات تعيد استخدام القياس، ونافس يرسم أسئلة القسم المفتوح فقط ──
+    { const ctx = await newCtx(); const p = await ctx.newPage(), errs = watch(p);
+      await S.t('الاختبارات: الفتح الثاني يعيد القياس المحفوظ والورقة نفسها · نافس: أسئلة القسم تُرسم عند فتحه', async () => {
+        await p.goto(base + '/teacher-dashboard/'); await p.evaluate(t => localStorage.setItem('hwapp_tok_v1', t), TOKEN); await p.reload(); await dashReady(p);
+        await p.evaluate(() => document.fonts.ready); await p.evaluate(() => goTab('exam')); await p.waitForTimeout(800);
+        const a = await p.evaluate(() => [document.getElementById('exam-paper').innerHTML, EX_MEASURE_CACHE.size]);
+        await p.evaluate(() => goTab('dashboard')); await p.evaluate(() => goTab('exam')); await p.waitForTimeout(800);
+        const b = await p.evaluate(() => [document.getElementById('exam-paper').innerHTML, EX_MEASURE_CACHE.size]);
+        ok(a[0].length > 200 && a[0] === b[0], 'الورقة تغيّرت بين الفتحين'); ok(a[1] > 0 && b[1] === a[1], 'القياس لم يُحفظ/أُعيد: ' + a[1] + ' → ' + b[1]);
+        await p.evaluate(() => goTab('nafs')); await p.waitForSelector('#nafs-root details', { timeout: 15000 });
+        const r = await p.evaluate(() => { const D = [...document.querySelectorAll('#nafs-root .nafs-sec details')], c = D.find(d => !d.open);
+          const closedEmpty = D.filter(d => !d.open).every(d => !d.querySelector('.nafs-qs').childElementCount); c.open = true; return new Promise(ok => setTimeout(() => ok([closedEmpty, c.querySelector('.nafs-qs').childElementCount]), 100)); });
+        ok(r[0], 'أقسام مغلقة فيها أسئلة مرسومة'); ok(r[1] > 0, 'فتح القسم لم يرسم أسئلته'); eq(errs, [], 'أخطاء'); });
+      await ctx.close(); }
     // ── كل الصفحات تفتح بلا أخطاء (يحمي من حذف دالة ما زالت مستخدمة) ──
     { const ctx = await newCtx(); const p = await ctx.newPage(), errs = watch(p);
       await S.t('كل صفحات اللوحة وأدوات الفصل وملف الطالب تفتح بلا أخطاء برمجية', async () => {
