@@ -1625,11 +1625,15 @@ function sfExamSyncWarn(rep,sem,per,sid){
   try{
     const b=(((CT_DATA||{}).examBooks||{})[String(sem)]||{})[String(per)]; if(!b||!b.scores) return '';
     const mine=b.scores[String(sid)]||{}, num=v=>{ const n=v&&typeof v==='object'?Number(v.score):Number(v); return Number.isFinite(n)?n:null; };
-    const srv=new Map(((rep&&rep.exam&&rep.exam.tests)||[]).map(t=>[String(t.id),t]));
+    const srvT=(rep&&rep.exam&&rep.exam.tests)||[], srv=new Map(srvT.map(t=>[String(t.id),t]));
     const miss=(b.tests||[]).filter(t=>{ const loc=num(mine[String(t.id)]); if(loc==null) return false; const s=srv.get(String(t.id)); return !s||s.score==null||Number(s.score)!==loc; });
-    if(!miss.length) return '';
+    // 🗑️ اختبار حذفته من هذا الجهاز وما زال في دفتر الخادم (فيظهر في التقرير وبوابة الطالب وولي الأمر)
+    const dels=new Set((Array.isArray(b.delTests)?b.delTests:[]).map(d=>d&&String(d.id))), live=new Set((b.tests||[]).map(t=>String(t.id)));
+    const gone=srvT.filter(t=>dels.has(String(t.id))&&!live.has(String(t.id)));
+    if(!miss.length&&!gone.length) return '';
     const pend=(typeof qrOut==='function'?qrOut():[]).length, err=(typeof QR!=='undefined'&&QR.err)||'';
-    return `<div class="ct-warn no-print" style="margin-bottom:.6rem">⚠️ <b>درجات مرصودة على هذا الجهاز لم تصل للخادم بعد:</b> ${miss.map(t=>esc(t.title||t.id)).join('، ')} — لذلك يظهر هنا «لم يُرصد».
+    return `<div class="ct-warn no-print" style="margin-bottom:.6rem">⚠️ ${miss.length?`<b>درجات مرصودة على هذا الجهاز لم تصل للخادم بعد:</b> ${miss.map(t=>esc(t.title||t.id)).join('، ')} — لذلك يظهر هنا «لم يُرصد».`:''}
+      ${gone.length?`${miss.length?'<br>':''}<b>اختبار حذفته على هذا الجهاز ولم يصل حذفه للخادم:</b> ${gone.map(t=>esc(t.title||t.id)).join('، ')} — لذلك ما زال يظهر في التقرير.`:''}
       <div class="muted" style="font-size:.8rem;margin-top:.25rem">${pend?`${pend} عملية بانتظار الإرسال`:'لا شيء في طابور الإرسال'}${err?` · آخر محاولة: ${esc(err)}`:''}</div>
       <button type="button" class="btn sm" style="margin-top:.4rem" onclick="this.disabled=true;this.textContent='⏳ جارٍ الإرسال…';sfExamResend()">📤 أرسلها الآن</button></div>`;
   }catch(e){ return ''; }

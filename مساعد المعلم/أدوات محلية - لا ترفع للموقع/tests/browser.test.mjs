@@ -251,6 +251,19 @@ export default async function run() {
         block = false; await p.click('text=أرسلها الآن');
         await p.waitForFunction(() => !/لم تصل للخادم/.test(document.body.innerText) && /9 \/ 10/.test(document.body.innerText), null, { timeout: 20000 });
         await p.evaluate(() => { window._ctPfSub = 'overview'; }); eq(errs, [], 'أخطاء'); });
+      await S.t('تقرير الفترة: اختبار حُذف على الجهاز ولم يصل حذفه ⇒ تنبيه، و«أرسلها الآن» يحذفه من الخادم', async () => {
+        const { sem, per } = await p.evaluate(() => ctExamSP());
+        const srvHas = async () => { const b = (JSON.parse(await env.HW.get('teacher:classroom')).examBooks[String(sem)] || {})[String(per)] || {}; return (b.tests || []).some(t => t.id === 'tsync'); };
+        ok(await srvHas(), 'الاختبار ليس في الخادم أصلًا');
+        block = true;
+        await p.evaluate(() => { const { sem, per } = ctExamSP(); const b = CT_DATA.examBooks[String(sem)][String(per)]; b.tests = b.tests.filter(t => t.id !== 'tsync');
+          b.delTests = (b.delTests || []).concat([{ id: 'tsync', at: Date.now() }]); qrDo({ k: 'exb', sem: String(sem), per: String(per), book: JSON.parse(JSON.stringify(b)) }); });
+        await p.waitForTimeout(2500); ok(await srvHas(), 'وصل رغم الحجب');
+        await p.evaluate(() => { window._ctPfSub = 'period'; ctOpenProfile('s1', 'period'); });
+        await p.waitForFunction(() => /لم يصل حذفه للخادم/.test(document.body.innerText) && /اختبار المزامنة/.test((document.querySelector('.ct-warn') || {}).innerText || ''), null, { timeout: 20000 });
+        block = false; await p.click('text=أرسلها الآن');
+        await p.waitForFunction(() => !/لم يصل حذفه/.test(document.body.innerText), null, { timeout: 20000 });
+        ok(!(await srvHas()), 'لم يُحذف من الخادم'); await p.evaluate(() => { window._ctPfSub = 'overview'; }); eq(errs, [], 'أخطاء'); });
       await ctx.close(); }
     // ── ⏳ التحميل المؤجَّل: زر يُضغط قبل وصول الجزء المؤجَّل يعمل بعد وصوله ──
     { const ctx = await newCtx({ viewport: { width: 390, height: 844 } }); await ctx.route(/-lazy\.js|30-noor-export/, async r => { await new Promise(x => setTimeout(x, 9000)); try { await r.continue(); } catch {} });

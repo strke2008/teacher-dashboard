@@ -76,8 +76,11 @@ async function qrFlush() {
   if (navigator.onLine === false) { qrStatus(); return; }
   QR.busy = true; qrStatus();
   try {
-    const fresh = await ctLoad();                                // يشمل الطابور كله
-    const r = await fetch(ctApi() + '/classroom', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ t: getTok(), data: fresh, clientAt: Date.now() }) });
+    /* ⏱️ مهلة: طلب علِق (شبكة ضعيفة) كان يبقي «جارٍ الإرسال» للأبد فلا يُرسل شيء بعده حتى يُعاد فتح اللوحة —
+       فيبقى حذف اختبار أو درجة على الجهاز وحده بلا تنبيه */
+    const tmo = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('انتهت مهلة الاتصال بالخادم')), ms))]);
+    const fresh = await tmo(ctLoad(), 30000);                    // يشمل الطابور كله
+    const r = await tmo(fetch(ctApi() + '/classroom', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ t: getTok(), data: fresh, clientAt: Date.now() }) }), 45000);
     if (!r.ok) { let m = ''; try { m = ((await r.json()) || {}).error || ''; } catch (x) {} throw new Error('الخادم رفض الحفظ (' + r.status + (m ? ' · ' + m : '') + ')'); }
     QR.err = ''; QR.errAt = 0;
     const sent = new Set(L.map(o => o.id)), rest = qrOut().filter(o => !sent.has(o.id));
