@@ -72,7 +72,7 @@
 <meta content="black" name="apple-mobile-web-app-status-bar-style"/>
 <meta content="yes" name="mobile-web-app-capable"/>
 <meta content="root-cause-sync-v2" name="sync-fix-version"/>
-<link rel="stylesheet" href="app.css?v=16178ead">
+<link rel="stylesheet" href="app.css?v=5b26a9bf">
 <script src="js/00-fetch-dedupe-js.js?v=e77498d1" defer></script>
 <script src="js/01-right-sidebar-navigation-js.js?v=41ea29b3" defer></script>
 <script src="js/02.js?v=c97b0169" defer></script>
@@ -110,11 +110,11 @@
 <script src="js/34-skill-outcomes-js.js?v=4273a664" defer></script>
 <script src="js/35-mobile-tables-js.js?v=90aed9e5" defer></script>
 <link rel="prefetch" data-tpx="js/41-exams-record.js" href="js/41-exams-record.js?v=bcec1139" as="script">
-<link rel="prefetch" data-tpx="exams-record.css" href="exams-record.css?v=38728e6c" as="style">
+<link rel="prefetch" data-tpx="exams-record.css" href="exams-record.css?v=92c170e6" as="style">
 <link rel="prefetch" data-tpx="js/42-schedule.js" href="js/42-schedule.js?v=abad23ee" as="script">
 <link rel="prefetch" data-tpx="schedule.css" href="schedule.css?v=474fc42e" as="style">
 <link rel="prefetch" data-tpx="js/43-messages.js" href="js/43-messages.js?v=fe637266" as="script">
-<link rel="prefetch" data-tpx="messages.css" href="messages.css?v=3ed3afb0" as="style">
+<link rel="prefetch" data-tpx="messages.css" href="messages.css?v=dccec1d9" as="style">
 <link rel="lz" data-lz="js/02-lazy.js" href="js/02-lazy.js?v=11506e5a">
 <link rel="lz" data-lz="js/07-lazy.js" href="js/07-lazy.js?v=2796db62">
 <link rel="lz" data-lz="js/30-noor-export-js.js" href="js/30-noor-export-js.js?v=4c6736f8">
@@ -134,15 +134,6 @@
    هذه القواعد تأتي في آخر الرأس لتتغلب على أي قواعد شاشة سابقة. */
 @media print {
   @page { size: A4 portrait; margin: 7mm !important; }
-
-  html, body {
-    width: auto !important;
-    min-width: 0 !important;
-    max-width: none !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    background: #fff !important;
-  }
 
   body.printing-comprehensive {
     -webkit-print-color-adjust: exact !important;
@@ -275,12 +266,9 @@
   .ask-card p{margin:0 0 1rem;font-size:.86rem;line-height:1.8;color:var(--ui-muted,#5B6B7F);white-space:pre-wrap}
   .ask-row{display:flex;gap:.5rem}
   .ask-row .btn{flex:1;min-height:44px;font-size:.9rem}
-  .ask-box{text-align:right;max-width:420px}
   .ask-ic{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;
     font-size:1.25rem;background:rgba(27,156,107,.12);margin-bottom:.35rem}
   .ask-ic.danger{background:rgba(190,40,40,.12)}
-  .ask-actions{display:flex;gap:.5rem;justify-content:flex-start}
-  .ask-actions .btn{min-height:42px;padding-inline:1.1rem;font-size:.9rem}
   .btn.danger{background:#B3261E;color:#fff;border-color:#B3261E}
 </style>
 <style id="project-view-image-fallback">
@@ -325,35 +313,32 @@
 .report-hub-card b{display:block;font-size:1rem;margin-bottom:.2rem}
 .report-hub-card small{display:block;color:var(--ink-soft);font-size:.78rem;line-height:1.75}
 .report-hub-arrow{font-size:1.2rem;color:var(--tick);font-weight:900}
-.reports-hub-help{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
-.reports-hub-help>div{border:1px solid var(--rule);border-radius:14px;padding:.8rem;background:var(--paper-2)}
-.reports-hub-help b,.reports-hub-help span{display:block}.reports-hub-help span{font-size:.78rem;color:var(--ink-soft);line-height:1.7;margin-top:.2rem}
-@media screen and (max-width:700px){.reports-hub-grid,.reports-hub-help{grid-template-columns:1fr}.report-hub-card{min-height:92px}.reports-hub-grid{gap:.65rem}}
+@media screen and (max-width:700px){.reports-hub-grid{grid-template-columns:1fr}.report-hub-card{min-height:92px}.reports-hub-grid{gap:.65rem}}
 </style>
 <style id="app-sidebar-navigation-clean-v4">
 /* نظام تنقل واحد معزول عن .tabs القديمة وmobile-nav */
 :root{--app-nav-w:268px;--app-nav-bg:#16233A;--app-nav-text:#DCE6F1;--app-nav-muted:#91A4BD;--app-nav-active:#F1F5F9;--app-nav-active-text:#16233A}
 .app-sidebar{position:fixed;top:0;right:0;bottom:0;left:auto;width:var(--app-nav-w);z-index:1200;display:flex;flex-direction:column;background:var(--app-nav-bg);color:var(--app-nav-text);border-left:1px solid rgba(255,255,255,.08);box-shadow:-8px 0 28px rgba(13,24,40,.12);direction:rtl}
 .app-sidebar-head{height:68px;flex:0 0 68px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;border-bottom:1px solid rgba(255,255,255,.08)}
-.app-sidebar-brand{font-size:.95rem;font-weight:800;color:#fff}
-.app-sidebar-close{display:none;border:0;background:rgba(255,255,255,.08);color:#fff;width:38px;height:38px;border-radius:10px;font-size:1.35rem;line-height:1;cursor:pointer}
+.app-sidebar-brand{font-size:.95rem;font-weight:800}
+.app-sidebar-close{display:none;border:0;background:rgba(255,255,255,.08);width:38px;height:38px;border-radius:10px;font-size:1.35rem;line-height:1;cursor:pointer}
 .app-sidebar-scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:10px 10px 20px;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.22) transparent}
 .app-nav-group{padding:8px 0 12px;margin:0;border-bottom:1px solid rgba(255,255,255,.08)}
 .app-nav-group:last-child{border-bottom:0}
 .app-nav-title{padding:3px 10px 7px;color:var(--app-nav-muted);font-size:.68rem;font-weight:800}
 .app-sidebar .tab{appearance:none;-webkit-appearance:none;width:100%;min-height:46px;display:flex;align-items:center;gap:10px;padding:9px 11px;margin:2px 0;border:1px solid transparent;border-radius:11px;background:transparent!important;color:var(--app-nav-text)!important;font:inherit;font-size:.84rem;font-weight:700;line-height:1.25;text-align:right;white-space:nowrap;cursor:pointer;box-sizing:border-box;transition:background .16s ease,color .16s ease}
-.app-sidebar .tab:hover{background:rgba(255,255,255,.075)!important;color:#fff!important}
+.app-sidebar .tab:hover{background:rgba(255,255,255,.075)!important}
 .app-sidebar .tab.on,.app-sidebar .tab.on:hover{background:var(--app-nav-active)!important;color:var(--app-nav-active-text)!important;box-shadow:0 2px 9px rgba(0,0,0,.12)}
 .app-sidebar .tab:focus-visible{outline:2px solid #8EB7DD;outline-offset:2px}
 .app-nav-icon{width:25px;flex:0 0 25px;text-align:center;font-size:1rem;line-height:1}
-.app-sidebar .tab>span:last-child{min-width:0;flex:1 1 auto;overflow:visible;text-overflow:clip;white-space:normal;overflow-wrap:anywhere;word-break:normal;line-height:1.45}
+.app-sidebar .tab>span:last-child{overflow:visible;overflow-wrap:anywhere;word-break:normal}
 .app-nav-scrim{display:none}
 @media (min-width:701px){
   html,body{min-width:0!important;overflow-x:hidden!important}
   body{padding-right:var(--app-nav-w)!important;padding-left:0!important;box-sizing:border-box!important}
   .masthead{width:100%!important;max-width:none!important;margin:0!important;box-sizing:border-box!important}
   .masthead-in{width:min(1320px,calc(100% - 32px))!important;max-width:1320px!important;margin-inline:auto!important;box-sizing:border-box!important}
-  .wrap{width:min(1320px,calc(100% - 32px))!important;max-width:1320px!important;margin-inline:auto!important;box-sizing:border-box!important;min-width:0!important}
+  .wrap{width:min(1320px,calc(100% - 32px))!important;max-width:1320px!important;margin-inline:auto!important;box-sizing:border-box!important}
   .app-sidebar{transform:none!important}
   #nav-drawer-toggle{display:none!important}
   .app-sidebar-close{display:none!important}
@@ -365,7 +350,7 @@
   body{padding:0!important}
   .masthead{width:100%!important;max-width:none!important;margin:0!important;position:sticky!important;top:0!important;z-index:1100!important;box-sizing:border-box!important}
   .masthead-in{width:100%!important;max-width:none!important;margin:0!important;padding:8px!important;min-height:58px!important;flex-wrap:nowrap!important;box-sizing:border-box!important}
-  #nav-drawer-toggle{display:inline-flex!important;align-items:center;justify-content:center;width:42px;height:42px;flex:0 0 42px;margin:0;border-radius:11px;box-sizing:border-box}
+  #nav-drawer-toggle{align-items:center;justify-content:center;width:42px;height:42px;flex:0 0 42px;margin:0;border-radius:11px;box-sizing:border-box}
   .brand{min-width:0;flex:1;font-size:1rem!important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .masthead .meta{max-width:42%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .wrap{width:100%!important;max-width:none!important;margin:0!important;padding:12px 9px calc(24px + env(safe-area-inset-bottom,0px))!important;box-sizing:border-box!important;min-width:0!important}
@@ -380,7 +365,7 @@
   .app-nav-scrim.is-open{display:block;position:fixed;inset:0;z-index:1190;background:rgba(8,16,29,.46);backdrop-filter:blur(1.5px);-webkit-backdrop-filter:blur(1.5px)}
   body.nav-drawer-open{overflow:hidden!important;touch-action:none}
 }
-@media print{.app-sidebar,#nav-scrim,#nav-drawer-toggle{display:none!important}body{padding:0!important;overflow:visible!important}}
+@media print{.app-sidebar,#nav-scrim,#nav-drawer-toggle{display:none!important}}
 /* منع قص أسماء عناصر القائمة مهما كانت قواعد المشروع القديمة */
 .app-sidebar .tab,.app-sidebar .tab *{overflow:visible!important}
 .app-sidebar .tab>span:last-child{flex:1 1 auto!important;min-width:0!important;white-space:normal!important;text-overflow:clip!important;line-height:1.45!important}
@@ -489,9 +474,6 @@
   }
   .modal-mobile-close{
     display:flex!important;
-    position:absolute;
-    top:.55rem;
-    inset-inline-start:.55rem;
     width:40px;
     height:40px;
     align-items:center;
@@ -554,14 +536,14 @@
 .exam-shop-status.open{background:#E4F4EC;color:#167852}.exam-shop-status.closed{background:#FFF1F2;color:#9F2538}
 @media screen and (max-width:600px){.exam-shop-kpis{grid-template-columns:1fr 1fr}.exam-shop-student{grid-template-columns:1fr 105px}.exam-shop-student small{grid-column:1}.exam-shop-student .exam-shop-used{display:none}}
 </style>
-<link rel="stylesheet" id="late-css" href="app-late.css?v=7201ba69">
-<link rel="stylesheet" href="theme-picker.css?v=8ddeba87">
+<link rel="stylesheet" id="late-css" href="app-late.css?v=9998c6d9">
+<link rel="stylesheet" href="theme-picker.css?v=f1415a04">
 <link rel="stylesheet" href="simplified-nav.css?v=154681ae">
-<link rel="stylesheet" href="tab-polish.css?v=b9d66f7c">
+<link rel="stylesheet" href="tab-polish.css?v=6f5bfbbe">
 <link rel="stylesheet" href="audit-fixes.css?v=a05870b6">
-<link rel="stylesheet" href="wall.css?v=af13d2ec">
+<link rel="stylesheet" href="wall.css?v=e9acbc8c">
 <link rel="preload" href="fonts/plex-arabic-400-arabic.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="modern.css?v=c3edde69">
+<link rel="stylesheet" href="modern.css?v=41e5e2e8">
 </head>
 <body>
 <header class="masthead">

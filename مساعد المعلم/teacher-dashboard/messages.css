@@ -161,9 +161,6 @@ input:is(.tpx,.tpx *),select:is(.tpx,.tpx *),textarea:is(.tpx,.tpx *){font-size:
 .vb-resume:is(.tpx,.tpx *){border:0;background:var(--accent);color:#fff;border-radius:8px;padding:4px 10px;font:inherit;font-weight:800;font-size:.8rem;margin-inline-start:6px;cursor:pointer}
 .vb-live:is(.tpx,.tpx *){cursor:pointer}
 .vb-v:is(.tpx,.tpx *){flex:none;font-size:.62rem;color:var(--ink-faint);font-weight:700}
-.bh-log:is(.tpx,.tpx *){margin-top:14px}
-.bh-log h3:is(.tpx,.tpx *){font-size:.95rem;margin:0 0 6px;display:flex;justify-content:space-between;align-items:baseline}
-.bh-log h3 small:is(.tpx,.tpx *){font-weight:600;color:var(--ink-soft);font-size:.74rem}
 .bh-hint:is(.tpx,.tpx *){font-size:.78rem;color:var(--accent-ink);font-weight:700;margin:0 0 6px}
 .bh-hint small:is(.tpx,.tpx *){color:var(--ink-faint);font-weight:600}
 .bh-list:is(.tpx,.tpx *){background:var(--surface);border:1px solid var(--rule);border-radius:var(--r);overflow:hidden}

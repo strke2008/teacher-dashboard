@@ -25,7 +25,7 @@ button,input,select,textarea{font-family:inherit}
   mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='4' width='7' height='7' rx='1.5'/%3E%3Crect x='13' y='4' width='7' height='7' rx='1.5'/%3E%3Crect x='4' y='13' width='7' height='7' rx='1.5'/%3E%3Crect x='13' y='13' width='7' height='7' rx='1.5'/%3E%3C/svg%3E") center/contain no-repeat;background-color:#fff!important}
 .masthead .brand .mark::before{display:none!important}
 /* ✋ الرصد: زر أساسي واضح */
-#portal-link-btn{background:var(--ui-accent)!important;color:#fff!important;border:0!important;border-radius:999px!important;padding:.45rem .9rem!important;font-weight:700!important;box-shadow:0 2px 8px rgba(15,157,116,.25)}
+#portal-link-btn{background:var(--ui-accent)!important;color:#fff!important;border:0!important;border-radius:999px!important;padding:.45rem .9rem!important;font-weight:700!important}
 #portal-link-btn .portal-w{display:inline!important}
 .masthead .btn.ghost:not(#portal-link-btn),.masthead .onl-chip{background:var(--ui-surface-2)!important;border-color:transparent!important;color:var(--ink-soft)!important}
 
@@ -42,7 +42,6 @@ button,input,select,textarea{font-family:inherit}
 /* ── البطاقات: بيضاء بظل ناعم وزوايا موحّدة بدل الحدود ── */
 .sheet,.card,.td-card,.stat-card,.ct-card{background:var(--ui-surface)!important;border-color:transparent!important;border-radius:var(--m-r)!important;box-shadow:var(--m-sh)!important}
 .sheet .sheet,.card .card,.sheet .card,.card .ct-card,.sheet .ct-card{box-shadow:none!important;border:1px solid var(--ui-border)!important}
-.btn{border-radius:var(--m-r-sm)}
 .inp,input.inp,select.inp,textarea.inp{border-radius:var(--m-r-sm)!important;border-color:var(--ui-border)!important}
 
 /* ═════ المرحلة 2: الأزرار والبطاقات الداخلية ═════ */

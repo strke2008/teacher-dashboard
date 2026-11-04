@@ -64,8 +64,7 @@
 :root[data-ui-theme="dark"] .cf2-rn{background:var(--ui-surface-2)!important;color:var(--ink)!important}
 :root[data-ui-theme="dark"] .cf2-cand{background:var(--ui-surface-2)!important}
 :root[data-ui-theme="dark"] .cf2-al{background:rgba(233,185,73,.15)!important;color:#E5C98E!important}
-:root[data-ui-theme="dark"] .cf2-al.bad,
-:root[data-ui-theme="dark"] .cf2-al.high{background:rgba(214,69,91,.15)!important;color:#FF8798!important}
+:root[data-ui-theme="dark"] .cf2-al.bad{background:rgba(214,69,91,.15)!important;color:#FF8798!important}
 :root[data-ui-theme="dark"] .cf2-nums div{background:var(--ui-surface-2)!important}
 :root[data-ui-theme="dark"] .cf2-nums .g{background:rgba(46,158,107,.15)!important}
 :root[data-ui-theme="dark"] .cf2-pod{border-color:var(--ui-border)!important}
@@ -77,7 +76,6 @@
 :root[data-ui-theme="dark"] .cf2-rbar{background:var(--ui-surface-2)!important}
 /* كشف الدرجات: عمود الطالب المثبّت كان أبيض ثابتًا بنص فاتح */
 :root[data-ui-theme="dark"] .grades-pro .g-student{background:var(--ui-surface)!important}
-:root[data-ui-theme="dark"] .grades-pro tbody .g-check{background:var(--ui-surface)!important}
 
 /* ── 4. الكشوف على الشاشة في الداكن (الطباعة مستثناة عمدًا: الورق يبقى أبيض) ── */
 @media screen{
