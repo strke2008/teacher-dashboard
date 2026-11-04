@@ -17,6 +17,7 @@ for (const f of files.filter(f => /\.html$/.test(f))) {
   fs.writeFileSync(out, blocks.map(b => `;(function(){${b}\n})();`).join('\n')); await check(path.relative(ROOT, f) + ' (المضمّنة)', out);
 }
 all.push(syn);
+all.push(await (await import('./lazy.test.mjs')).default());
 all.push(await (await import('./worker.test.mjs')).default());
 if (!fast) all.push(await (await import('./browser.test.mjs')).default());
 

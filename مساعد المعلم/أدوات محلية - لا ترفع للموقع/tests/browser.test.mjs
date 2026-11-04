@@ -164,6 +164,16 @@ export default async function run() {
         ok(ctx.reqs.some(x => x.u.startsWith('/messages')), 'لم يُرسل'); const r = await call('/messages?sid=s2&name=' + encodeURIComponent('طالب الاختبار الثاني'));
         ok(JSON.stringify(r.j).includes('مشاركتك'), 'لم تصل للطالب: ' + JSON.stringify(r.j).slice(0, 200)); eq(errs, [], 'أخطاء'); });
       await ctx.close(); }
+    // ── ⏳ التحميل المؤجَّل: زر يُضغط قبل وصول الجزء المؤجَّل يعمل بعد وصوله ──
+    { const ctx = await newCtx({ viewport: { width: 390, height: 844 } }); await ctx.route(/-lazy\.js|30-noor-export/, async r => { await new Promise(x => setTimeout(x, 3000)); try { await r.continue(); } catch {} });
+      const p = await ctx.newPage(), errs = watch(p);
+      await S.t('التحميل المؤجَّل: زر قبل وصول الجزء يعمل بعده، وكل البدائل المؤقتة تُستبدل', async () => {
+        await p.goto(base + '/teacher-dashboard/'); await p.evaluate(t => localStorage.setItem('hwapp_tok_v1', t), TOKEN); await p.reload(); await dashReady(p);
+        eq(await p.evaluate(() => [!!window.LZ_READY, String(window.noorExportOpen).includes('lzLoad')]), [false, true], 'الجزء وصل قبل الضغط');
+        await p.evaluate(() => { goTab('reports'); noorExportOpen(); }); await p.waitForFunction(() => window.LZ_READY, null, { timeout: 20000 }); await p.waitForTimeout(600);
+        ok(await p.evaluate(() => /نظام نور/.test((document.querySelector('#modal, .modal') || {}).innerText || '')), 'لم تُفتح نافذة نور');
+        eq(await p.evaluate(() => LZ_STUBS.filter(n => typeof window[n] !== 'function' || String(window[n]).includes('lzLoad'))), [], 'بدائل لم تُستبدل'); eq(errs, [], 'أخطاء'); });
+      await ctx.close(); }
     // ── كل الصفحات تفتح بلا أخطاء (يحمي من حذف دالة ما زالت مستخدمة) ──
     { const ctx = await newCtx(); const p = await ctx.newPage(), errs = watch(p);
       await S.t('كل صفحات اللوحة وأدوات الفصل وملف الطالب تفتح بلا أخطاء برمجية', async () => {
