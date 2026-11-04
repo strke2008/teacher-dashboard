@@ -306,8 +306,13 @@ export default async function run() {
       await ctx.close(); }
     // ── 🖥️ وضع الحصة على الكمبيوتر: القائمة الجانبية لا تغطي شريط الفصل ──
     { const ctx = await newCtx({ viewport: { width: 1280, height: 800 } }); const p = await ctx.newPage(), errs = watch(p);
-      await S.t('وضع الحصة على الكمبيوتر: اسم الفصل ظاهر (القائمة الجانبية مخفية ولا تحجز مكانًا)', async () => {
+      await S.t('الشريط العلوي على الكمبيوتر: بلا اسم مكرر، وبحدود المحتوى نفسها، والفترة المخفية تبقى مخفية', async () => {
         await p.goto(base + '/teacher-dashboard/'); await p.evaluate(t => localStorage.setItem('hwapp_tok_v1', t), TOKEN); await p.reload(); await dashReady(p);
+        const r = await p.evaluate(() => { const R = s => { const e = document.querySelector(s).getBoundingClientRect(); return [Math.round(e.left), Math.round(e.right)]; };
+          const v = document.getElementById('vsp-btn'); v.style.display = 'none'; const hid = getComputedStyle(v).display; v.style.display = ''; const shown = getComputedStyle(v).display; v.style.display = 'none';
+          return [getComputedStyle(document.querySelector('.masthead .brand')).display, JSON.stringify(R('.masthead-in')) === JSON.stringify(R('main.wrap')), hid, shown]; });
+        eq(r, ['none', true, 'none', 'flex']); eq(errs, [], 'أخطاء'); });
+      await S.t('وضع الحصة على الكمبيوتر: اسم الفصل ظاهر (القائمة الجانبية مخفية ولا تحجز مكانًا)', async () => {
         await p.evaluate(() => fmEnter()); await p.waitForSelector('#fm-top .fm-t', { timeout: 10000 });
         const r = await p.evaluate(() => { const t = document.querySelector('#fm-top .fm-t').getBoundingClientRect(), el = document.elementFromPoint(t.right - 12, t.top + t.height / 2);
           return [!!(el && el.closest('#fm-top')), getComputedStyle(document.getElementById('main-nav')).display, getComputedStyle(document.body).paddingRight]; });

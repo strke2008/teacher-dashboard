@@ -180,3 +180,18 @@ summary .ico,h3 .ico,h4 .ico,b .ico{color:var(--ui-accent)}
 @keyframes vsPulse{0%{box-shadow:0 0 0 0 rgba(229,72,77,.45)}70%{box-shadow:0 0 0 9px rgba(229,72,77,0)}100%{box-shadow:0 0 0 0 rgba(229,72,77,0)}}
 @media (prefers-reduced-motion:reduce){.vs-mic.on{animation:none}}
 @media print{.vs-mic{display:none!important}}
+
+/* 🖥️ الشريط العلوي على الكمبيوتر: بلا اسم مكرر (في القائمة الجانبية)، وبحدود الصفحة نفسها (1320 مثل المحتوى)،
+   الفترة يمينًا، و«متصل الآن» + «الرصد» يسارًا بارتفاع واحد. الجوال كما هو */
+@media (min-width:701px){
+  .masthead{background:var(--ui-surface,#fff)!important;padding-inline:0!important}
+  .masthead-in{max-width:none!important;width:auto!important;min-height:60px;padding-block:.55rem!important;padding-inline:20px!important;margin-inline:max(16px,calc((100% - 1320px) / 2))!important;gap:.6rem!important;flex-wrap:nowrap!important}
+  .masthead .brand{display:none!important}
+  .masthead #vsp-btn{order:1;display:inline-flex;align-items:center;gap:.4rem;height:40px;padding:0 .9rem!important;border-radius:12px!important;font-weight:700!important;font-size:.9rem!important;background:var(--ui-surface-2)!important;color:var(--ink)!important;border:1px solid var(--ui-border)!important}
+  .masthead #vsp-btn .ico{color:var(--ui-accent)}
+  .masthead .onl-chip{order:2;margin-inline-start:auto!important;height:40px;padding:0 .9rem!important;border-radius:12px!important;font-size:.88rem!important;gap:.45rem!important;border:1px solid var(--ui-border)!important;background:var(--ui-surface)!important;color:var(--ink)!important}
+  .masthead .onl-chip{white-space:nowrap}
+  .masthead #portal-link-btn{order:3;margin-inline-start:0!important;height:40px;padding:0 1.1rem!important;border-radius:12px!important;font-size:.95rem!important;box-shadow:none!important}
+  .masthead .onl-chip ~ #portal-link-btn, .masthead #portal-link-btn{margin-inline-start:.5rem}
+  .masthead:not(:has(.onl-chip)) #portal-link-btn{margin-inline-start:auto!important}
+}
