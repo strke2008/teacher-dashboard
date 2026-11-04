@@ -42,6 +42,14 @@ export default async function run() {
       await S.t('وضع الحصة: الاختبارات من الشريط السفلي، ويبقى بعد إعادة الفتح', async () => {
         await p.click('#fm-bot button:nth-child(2)'); await p.waitForSelector('#tpx-box', { timeout: 15000 }); eq(await p.evaluate(() => CT_TAB), 'exams');
         await p.reload(); await p.waitForFunction(() => typeof FM !== 'undefined' && FM.on && CT_TAB === 'exams', null, { timeout: 20000 }); });
+      await S.t('وضع الحصة: قائمة الفصل تعرض حصص اليوم بأوقاتها، والشريط موعد الفصل المختار', async () => {
+        await p.waitForFunction(() => typeof CT_DATA !== 'undefined' && CT_DATA, null, { timeout: 20000 });
+        const r = await p.evaluate(() => { const k0 = window.tdKsaNow, sc0 = CT_DATA.schedule, f0 = window._fmCls;
+          try { window.tdKsaNow = () => ({ ...k0(), dow: 0, min: 8 * 60 + 5 }); CT_DATA.schedule = { grid: { '0': { '1': 'أول 2', '3': 'أول 1' } } }; window._fmCls = 'أول 2';
+            const d = document.createElement('div'); d.innerHTML = fmBarHTML();
+            return [[...d.querySelectorAll('optgroup')].map(g => g.label), [...d.querySelectorAll('option')].map(o => o.textContent.trim()), d.querySelector('small').textContent]; }
+          finally { window.tdKsaNow = k0; CT_DATA.schedule = sc0; window._fmCls = f0; } });
+        eq(r[0][0], 'حصص اليوم'); eq(r[1].slice(0, 2), ['الحصة 1 · 07:00 – 07:45 · أول 2 ✓', 'الحصة 3 · 08:30 – 09:15 · أول 1']); eq(r[2], 'الحصة 1 · 07:00 – 07:45 · انتهت'); });
       await S.t('وضع الحصة: «✕ خروج» يعيد اللوحة كاملة', async () => {
         await p.click('#fm-top .fm-x'); await p.waitForTimeout(500);
         eq(await p.evaluate(() => [document.body.classList.contains('fm'), localStorage.getItem('hw_focus_v1'), !!document.getElementById('fm-bot'), getComputedStyle(document.querySelector('.masthead')).display]), [false, null, false, 'block']); eq(errs, [], 'أخطاء'); });

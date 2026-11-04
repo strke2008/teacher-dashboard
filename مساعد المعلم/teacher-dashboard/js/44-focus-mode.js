@@ -15,15 +15,30 @@ function fmCls() {
   const L = typeof qrLesson === 'function' ? qrLesson() : null;
   return ctValidCls(L && L.cls || window._ctRcCls);
 }
+/* حصص اليوم من الجدول بأوقاتها (نفس مصدر qrLesson) */
+function fmTodayLessons(k) {
+  try {
+    if (!(k.dow >= 0 && k.dow <= 4)) return [];
+    const sc = (CT_DATA || {}).schedule || {}, g = (sc.grid || {})[String(k.dow)] || {};
+    return tdTimes(sc).filter(t => g[String(t.n)]).map(t => ({ ...t, cls: g[String(t.n)] }));
+  } catch (e) { return []; }
+}
 function fmBarHTML() {
   const L = typeof qrLesson === 'function' ? qrLesson() : null, cls = fmCls(), k = tdKsaNow();
   const mine = L && L.cls === cls, ord = typeof QR_ORD !== 'undefined' ? (QR_ORD[L && L.n] || (L && L.n)) : (L && L.n);
   const ic = n => (typeof window.icoSVG === 'function' ? window.icoSVG(n) : '');
   const dot = mine && L.now ? '<i class="fm-dot" aria-hidden="true"></i>' : '';
   const title = mine ? `${dot}الحصة ${L.n} · ${esc(cls)}` : esc(cls || 'اختر الفصل');
-  const sub = mine ? `${L.s} – ${L.e}${L.now ? '' : ' · القادمة'}` : 'اضغط لتغيير الفصل';
+  const dl = fmTodayLessons(k).filter(t => t.cls === cls), other = dl.find(t => t.em > k.min) || dl[dl.length - 1];   // فصل مختار غير الحصة الحالية: موعده اليوم
+  const sub = mine ? `${L.s} – ${L.e}${L.now ? '' : ' · القادمة'}` : other ? `الحصة ${other.n} · ${other.s} – ${other.e}${other.em <= k.min ? ' · انتهت' : ''}` : 'لا حصة له اليوم · اضغط لتغيير الفصل';
   const left = mine ? (L.now ? `${Math.max(0, L.em - k.min)} د` : `بعد ${Math.max(0, L.sm - k.min)} د`) : '';
-  const opts = ctClasses().map(c => `<option ${c === cls ? 'selected' : ''}>${esc(c)}</option>`).join('');
+  // قائمة الفصل = جدول اليوم: كل حصة بوقتها (الجارية والقادمة والمنتهية)، ثم الفصول التي ليس لها حصة اليوم
+  const day = fmTodayLessons(k), cur = L && L.cls === cls ? L.n : 0; let sel = false;
+  const pick = (c, n) => { const on = !sel && c === cls && (!n || !cur || n === cur); if (on) sel = true; return on ? 'selected' : ''; };
+  const lessonOpts = day.map(t => `<option value="${esc(t.cls)}" ${pick(t.cls, t.n)}>الحصة ${t.n} · ${t.s} – ${t.e} · ${esc(t.cls)}${k.min >= t.sm && k.min < t.em ? ' — الآن' : k.min >= t.em ? ' ✓' : ''}</option>`).join('');
+  const rest = ctClasses().filter(c => !day.some(t => t.cls === c)).map(c => `<option value="${esc(c)}" ${pick(c, 0)}>${esc(c)}</option>`).join('');
+  const opts = day.length ? `<optgroup label="حصص اليوم">${lessonOpts}</optgroup>${rest ? `<optgroup label="${day.length ? 'لا حصة لها اليوم' : 'الفصول'}">${rest}</optgroup>` : ''}`
+    : `<optgroup label="لا حصص في جدولك اليوم">${rest}</optgroup>`;
   return `<span class="fm-ic">${ic('hand')}</span><label class="fm-t" title="تغيير الفصل"><b><span class="fm-tt">${title}</span><span class="fm-chev">${ic('chev')}</span></b><small>${sub}</small><select aria-label="الفصل" onchange="fmPickCls(this.value)">${opts}</select></label>
     ${left ? `<span class="fm-tm">${ic('clock')}${left}</span>` : ''}<button type="button" class="fm-x" onclick="fmExit()" aria-label="خروج من وضع الحصة">${ic('x')}خروج</button>`;
 }
