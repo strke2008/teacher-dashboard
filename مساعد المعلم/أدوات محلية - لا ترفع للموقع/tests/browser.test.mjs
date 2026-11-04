@@ -122,6 +122,25 @@ export default async function run() {
         ok(await p.evaluate(() => { const r = document.querySelector('.omr-top').getBoundingClientRect(); return document.elementFromPoint(r.left + 30, r.top + 20).closest('.omr-sheet') !== null; }), 'الشريط مغطّى');
         await p.click('#omr-go'); await p.waitForSelector('.omr-tile', { timeout: 5000 });
         await p.evaluate(() => omrClose()); ok(await p.evaluate(() => !document.getElementById('omr-sheet')), 'لم تُغلق'); eq(errs, [], 'أخطاء'); });
+      await S.t('التصحيح الآلي: الورقة شبكة إجابات، و🔍 يكبّر المعلّق وينتقل للتالي (والأرقام من لوحة المفاتيح)', async () => {
+        await p.evaluate(async () => { await omrOpen();
+          const keys = [0, 2, 1, 0, 3, 2], st = ['ok', 'ok', 'blank', 'ok', 'faint', 'ok'];
+          OMRUI.tpl = { id: 'tp', models: [{ letter: 'أ', total: 6, questions: keys.map((k, i) => ({ boxes: [{}, {}, {}, {}], key: k, q: 'سؤال ' + (i + 1) })) }], total: 6, mark: 1 };
+          OMRUI.sheets = [{ id: 'g1', model: 0, at: 1, saved: false, noCode: true, name: 'data:image/gif;base64,R0lGODlhAQABAAAAACw=', manual: '',
+            answers: keys.map((k, i) => ({ t: 'mc', key: k, status: st[i], pick: k, final: st[i] === 'ok' ? (i === 3 ? 2 : k) : null })) }];
+          OMRUI.openId = 'g1'; OMRUI.zoom = null; omrMatchRender(); });
+        const g = await p.evaluate(() => [document.querySelectorAll('#mc-g1 .omr-gq').length, document.querySelectorAll('#mc-g1 .omr-gq.w').length,
+          document.querySelectorAll('#mc-g1 .omr-gr.ok').length, document.querySelectorAll('#mc-g1 .omr-gr.no').length,
+          !!document.querySelector('#mc-g1 .omr-stuhd') && document.querySelector('#mc-g1 .omr-stuhd').compareDocumentPosition(document.querySelector('#mc-g1 .omr-grid')) === 4]);
+        eq(g, [6, 2, 3, 1, true], 'الشبكة');
+        await p.click('#mc-g1 .omr-gq.w .omr-gz'); await p.waitForSelector('#omr-zoom');
+        eq(await p.evaluate(() => OMRUI.zoom.i), 2, 'أول معلّق'); await p.keyboard.press('2'); await p.waitForTimeout(200);
+        eq(await p.evaluate(() => [OMRUI.sheets[0].answers[2].final, OMRUI.zoom && OMRUI.zoom.i]), [1, 4], 'انتقل للتالي');
+        await p.keyboard.press('0'); await p.waitForTimeout(200);
+        eq(await p.evaluate(() => [OMRUI.sheets[0].answers[4].final, OMRUI.zoom, !!document.getElementById('omr-zoom')]), [-1, null, false], 'أُغلق بعد آخر معلّق');
+        await p.evaluate(() => document.querySelector('#mc-g1 .omr-gq:nth-child(4) .omr-go button:nth-child(1)').click()); await p.waitForTimeout(150);
+        eq(await p.evaluate(() => OMRUI.sheets[0].answers[3].final), 0, 'تعديل إجابة مقروءة من الشبكة');
+        await p.evaluate(() => { OMRUI.sheets = []; omrClose(); }); eq(errs, [], 'أخطاء'); });
       await S.t('عرض الورقة المصححة: تفتح فوق الصفحة كلها بتنسيقها (لا نصًا في أسفل الصفحة)', async () => {
         const r = await p.evaluate(() => { EXPAP.sids = new Map([['s1', { name: 'أ', cls: 'أول 1', score: 1, max: 2 }]]); EXPAP.test = 'none'; exPaperOpen('s1');
           const v = document.querySelector('body > .omr-full'); if (!v) return null; const cs = getComputedStyle(v), b = v.getBoundingClientRect();

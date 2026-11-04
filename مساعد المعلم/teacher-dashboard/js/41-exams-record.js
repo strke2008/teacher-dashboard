@@ -2453,7 +2453,8 @@ function omrMatchRender(){
         ${open && !s.saved ? omrMatchBody(s, used) : ''}
       </div>`; }).join('')}</div>`;
   const s = S.find(x => x.id === OMRUI.openId && !x.saved);
-  if(s){ s.answers.forEach((a, i) => { if(a.final === null) omrSheetCrop(s, i); }); const q = $('omr-q'); if(q && !s.answers.some(a => a.final === null)) q.focus({ preventScroll:true }); }
+  if(s){ const z = OMRUI.zoom; if(z && z.id === s.id){ const bx = $(`zc-${s.id}-${z.i}`), a = s.answers[z.i]; if(bx && a && a.boxes){ const pi = omrPageImg(s, a); omrRowCrop(bx, pi.img, pi.H, pi.fs, a, z.i); } }
+    const q = $('omr-q'); if(q && !z && !s.answers.some(a => a.final === null)) q.focus({ preventScroll:true }); }
 }
 function omrMatchBody(s, used){
   const L = ['أ','ب','ج','د','هـ','و'], M = OMRUI.tpl.models[s.model];
@@ -2464,25 +2465,73 @@ function omrMatchBody(s, used){
   // الفصل المختار أولًا؛ وطلاب الفصول الأخرى مخفيون ويظهرون بالبحث (ورقة طالب من فصل آخر في الدفعة)، والمربوط من فصل آخر ظاهر دائمًا
   const free = x => !used.has(String(x.id)) || String(x.id) === String(s.sid);
   const studs = list(OMRUI.cls).filter(free).concat(OMRUI.cls ? list('').filter(x => x.cls !== OMRUI.cls && free(x)).map(x => ({ ...x, other: true })) : []);
-  return `<div class="omr-mbody">
-    ${missP.map(pg => `<div class="omr-fixbox omr-misspg"><b>📄 الصفحة ${pg} لم تُصوَّر</b><small class="omr-qtxt">صوّرها الآن («➕ تصوير المزيد») فتُضم لهذه الورقة، أو احسبها بلا إجابة إن لم يحلّها الطالب.</small>
-      <div class="omr-opts"><button type="button" class="btn ghost" onclick="omrPageBlank('${s.id}',${pg})">احسب الصفحة ${pg} بلا إجابة</button></div></div>`).join('')}
-    ${pend.map(({ a, i }) => { const n = M.questions[i].boxes.length, opts = a.t === 'tf' ? [[0,'صح'],[1,'خطأ']] : Array.from({ length:n }, (_, k) => [k, a.t === 'mt' ? String(k+1) : L[k]]);
-      const qt = M.questions[i].q ? esc(String(M.questions[i].q).slice(0, 90)) : '';
-      return `<div class="omr-fixbox"><b>السؤال ${i+1} — ${why[a.status] || ''}</b>${qt ? `<small class="omr-qtxt">${qt}</small>` : ''}<div class="omr-crop" id="crop-${s.id}-${i}"></div>
-        <div class="omr-opts">${opts.map(([v, l]) => `<button type="button" class="btn ghost" onclick="omrSheetSet('${s.id}',${i},${v})">${l}</button>`).join('')}
-        <button type="button" class="btn ghost" onclick="omrSheetSet('${s.id}',${i},-1)">فارغ</button></div></div>`; }).join('')}
-    ${omrManualHTML('man-' + s.id, s.manual ?? '', s.model, `omrSheetManual('${s.id}',this.value)`)}
-    ${omrManualMax(s.model) && s.sid ? `<button type="button" class="btn primary" onclick="omrMatchPick('${s.id}','${esc(String(s.sid))}')">💾 حفظ الدرجة كاملة</button>` : ''}
-    <input class="inp omr-q" id="omr-q" placeholder="ابحث باسم الطالب…" oninput="omrMatchFilter('${s.id}')" autocomplete="off">
+  const stuPick = `<input class="inp omr-q" id="omr-q" placeholder="ابحث باسم الطالب…" oninput="omrMatchFilter('${s.id}')" autocomplete="off">
     <div class="omr-slist" id="omr-slist">${studs.map(x => { const has = exHas(x.id, OMRUI.testId);
       const on = String(x.id) === String(s.sid);
       return `<button type="button" class="omr-sbtn${on ? ' on' : ''}${x.other ? ' oth' : ''}" data-n="${esc(omrNorm(x.name))}"${x.other && !on ? ' style="display:none"' : ''} onclick="omrMatchPick('${s.id}','${esc(x.id)}')">${esc(x.name)}${x.other ? ` <small>· ${esc(x.cls || '')}</small>` : ''}${has ? ' <small>· مرصود</small>' : ''}</button>`; }).join('')}</div>
-    ${OMRUI.cls ? '<small class="omr-note" style="display:block;margin-top:4px">طالب من فصل آخر؟ اكتب اسمه في البحث.</small>' : ''}
+    ${OMRUI.cls ? '<small class="omr-note" style="display:block;margin-top:4px">طالب من فصل آخر؟ اكتب اسمه في البحث.</small>' : ''}`;
+  return `<div class="omr-mbody">
+    ${missP.map(pg => `<div class="omr-fixbox omr-misspg"><b>📄 الصفحة ${pg} لم تُصوَّر</b><small class="omr-qtxt">صوّرها الآن («➕ تصوير المزيد») فتُضم لهذه الورقة، أو احسبها بلا إجابة إن لم يحلّها الطالب.</small>
+      <div class="omr-opts"><button type="button" class="btn ghost" onclick="omrPageBlank('${s.id}',${pg})">احسب الصفحة ${pg} بلا إجابة</button></div></div>`).join('')}
+    ${s.sid ? '' : '<b class="omr-stuhd">لمن هذه الورقة؟</b>' + stuPick}
+    ${OMRUI.zoom && OMRUI.zoom.id === s.id ? omrZoomHTML(s, why) : ''}
+    ${omrGridHTML(s, pend.length)}
+    ${omrManualHTML('man-' + s.id, s.manual ?? '', s.model, `omrSheetManual('${s.id}',this.value)`)}
+    ${omrManualMax(s.model) && s.sid ? `<button type="button" class="btn primary" onclick="omrMatchPick('${s.id}','${esc(String(s.sid))}')">💾 حفظ الدرجة كاملة</button>` : ''}
+    ${s.sid ? stuPick : ''}
     <div class="omr-row"><button class="btn ghost" type="button" onclick="omrSheetView('${s.id}')">🖼️ الورقة كاملة</button>
       <button class="btn ghost" type="button" onclick="omrSheetDelete('${s.id}')">🗑️ حذف الورقة</button></div>
   </div>`;
 }
+/* 🧮 الورقة كشبكة إجابات (أ): كل الأسئلة في سطر لكل منها — ما قرأه النظام معبّأ، والإجابة الصحيحة بإطار أخضر،
+   والخطأ أحمر، وما يحتاج تأكيدك برتقالي. لمسة على خيار تغيّر الإجابة (ولو كانت مقروءة).
+   🔍 التكبير (ب): إن لم تتضح لك الإجابة في الشبكة، القصاصة مكبّرة بأزرار كبيرة، وبعد اختيارك ينتقل لما بعده مما يحتاج تأكيدًا.
+   في السطر المعلّق لا يظهر إطار الإجابة الصحيحة: تحكم بما ظلّله الطالب، لا بما يُفترض أن يكون */
+const OMR_L = ['أ','ب','ج','د','هـ','و'];
+const omrIco = n => (window.icoSVG && window.icoSVG(n)) || (n === 'x' ? '✕' : '🔍');
+function omrOptsOf(a, n){ return a.t === 'tf' ? [[0,'صح'],[1,'خطأ']] : Array.from({ length:n }, (_, k) => [k, a.t === 'mt' ? String(k + 1) : OMR_L[k]]); }
+function omrGridHTML(s, npend){
+  const M = OMRUI.tpl.models[s.model], zi = OMRUI.zoom && OMRUI.zoom.id === s.id ? OMRUI.zoom.i : -1;
+  const rows = s.answers.map((a, i) => { if(a.status === 'nopage') return '';
+    const pend = a.final === null, opts = omrOptsOf(a, M.questions[i].boxes.length);
+    const res = pend ? `<button type="button" class="omr-gz" onclick="omrZoom('${s.id}',${i})" aria-label="كبّر السؤال ${i + 1} للتأكد" title="لم تتضح؟ كبّر السؤال">${omrIco('search')}</button>`
+      : a.final === -2 ? '<span class="omr-gr no" title="ظلّل خيارين">✗✗</span>' : `<span class="omr-gr ${a.final === a.key ? 'ok' : 'no'}">${a.final === a.key ? '✓' : '✗'}</span>`;
+    return `<div class="omr-gq${pend ? ' w' : ''}${zi === i ? ' z' : ''}"><button type="button" class="omr-gn" onclick="omrZoom('${s.id}',${i})" title="كبّر السؤال ${i + 1}">${i + 1}</button>
+      <span class="omr-go">${opts.map(([v, l]) => `<button type="button" class="${a.final === v ? 'p' : ''}${!pend && v === a.key ? ' k' : ''}${a.final === v && v !== a.key ? ' x' : ''}" onclick="omrSheetSet('${s.id}',${i},${v})">${l}</button>`).join('')}<button type="button" class="e${a.final === -1 ? ' p' : ''}" onclick="omrSheetSet('${s.id}',${i},-1)" title="فارغ (لم يجب)" aria-label="فارغ">—</button></span>${res}</div>`; }).join('');
+  return `<div class="omr-gh"><span class="omr-gc ok">✓ ${s.answers.filter(a => a.final !== null && a.status !== 'nopage').length} محسومة</span>${npend ? `<span class="omr-gc w">${npend} للتأكيد</span>` : ''}<span class="omr-gc">الإطار الأخضر = الإجابة الصحيحة · رقم السؤال يكبّره</span></div>
+    <div class="omr-grid">${rows}</div>`;
+}
+function omrZoomHTML(s, why){
+  const i = OMRUI.zoom.i, a = s.answers[i], M = OMRUI.tpl.models[s.model]; if(!a || !M.questions[i]) return '';
+  const opts = omrOptsOf(a, M.questions[i].boxes.length), qt = M.questions[i].q ? esc(String(M.questions[i].q).slice(0, 110)) : '';
+  const left = s.answers.filter((x, k) => k !== i && x.final === null && x.status !== 'nopage').length;
+  return `<div class="omr-zoom" id="omr-zoom"><div class="omr-zh"><b>السؤال ${i + 1}</b>${a.final === null && why[a.status] ? `<span class="omr-zw">${why[a.status]}</span>` : ''}
+      <button type="button" class="omr-zx" onclick="omrZoom()" aria-label="رجوع للشبكة">${omrIco('x')}</button></div>
+    ${qt ? `<small class="omr-qtxt">${qt}</small>` : ''}<div class="omr-crop omr-zcrop" id="zc-${s.id}-${i}"></div>
+    <div class="omr-zo">${opts.map(([v, l]) => `<button type="button" class="${a.final === v ? 'p' : ''}" onclick="omrZoomSet(${v})">${l}</button>`).join('')}</div>
+    <div class="omr-zb"><button type="button" class="${a.final === -1 ? 'p' : ''}" onclick="omrZoomSet(-1)">فارغ (لم يجب)</button>${a.status === 'multi' ? '<button type="button" onclick="omrZoomSet(-2)">إجابتان — خطأ</button>' : ''}</div>
+    <small class="omr-zh2">${left ? `بعده ${left} ${left === 1 ? 'سؤال' : 'أسئلة'} للتأكيد في هذه الورقة · ` : ''}على الكمبيوتر: الأرقام 1–${opts.length} للإجابة و0 للفارغ</small></div>`;
+}
+function omrZoom(id, i){
+  OMRUI.zoom = id == null ? null : { id, i }; omrMatchRender();
+  const z = $(OMRUI.zoom ? 'omr-zoom' : 'mc-' + id); if(z) z.scrollIntoView({ block:'start', behavior:'smooth' });
+}
+async function omrZoomSet(v){
+  const z = OMRUI.zoom; if(!z) return; const s = OMRUI.sheets.find(x => x.id === z.id); if(!s || !s.answers[z.i]) return;
+  s.answers[z.i].final = v; OMRDB.put(s);
+  const P = s.answers.map((a, k) => k).filter(k => s.answers[k].final === null && s.answers[k].status !== 'nopage');
+  const nx = P.find(k => k > z.i) ?? P[0];
+  OMRUI.zoom = nx != null ? { id:s.id, i:nx } : null;
+  if(s.sid && !P.length && omrManualOk(s.manual, s.model)){ OMRUI.zoom = null; await omrSheetSave(s); return; }
+  omrMatchRender(); const el = $(OMRUI.zoom ? 'omr-zoom' : 'mc-' + s.id); if(el) el.scrollIntoView({ block:'start', behavior:'smooth' });
+}
+/* لوحة المفاتيح في التكبير: 1..ن للإجابة، 0 للفارغ، Esc للرجوع */
+document.addEventListener('keydown', e => {
+  if(!OMRUI.zoom || !document.getElementById('omr-zoom') || e.ctrlKey || e.metaKey || e.altKey || /^(INPUT|TEXTAREA|SELECT)$/.test((e.target && e.target.tagName) || '')) return;
+  if(e.key === 'Escape'){ e.preventDefault(); omrZoom(); return; }
+  const d = /^[0-9]$/.test(e.key) ? Number(e.key) : /^[٠-٩]$/.test(e.key) ? '٠١٢٣٤٥٦٧٨٩'.indexOf(e.key) : -1; if(d < 0) return;
+  const b = document.querySelectorAll('#omr-zoom .omr-zo button'); if(d === 0){ e.preventDefault(); omrZoomSet(-1); } else if(b[d - 1]){ e.preventDefault(); b[d - 1].click(); }
+});
 /* 🔍 مراجعة المعلّق: كل الأسئلة غير المحسومة في الدفعة، واحدًا واحدًا — المقترح بالأخضر، والضغط يحسمه وينتقل للتالي.
    الورقة التي اكتملت وهي مربوطة بطالب تُرصد فورًا كما في «ربط الأوراق» */
 const OMRQ = { items:[], pos:0, hist:[] };
@@ -2901,6 +2950,8 @@ if(typeof window.omrRevBack==='undefined') window.omrRevBack=omrRevBack;
 if(typeof window.omrMatchOpen==='undefined') window.omrMatchOpen=omrMatchOpen;
 if(typeof window.omrMatchFilter==='undefined') window.omrMatchFilter=omrMatchFilter;
 if(typeof window.omrSheetSet==='undefined') window.omrSheetSet=omrSheetSet;
+if(typeof window.omrZoom==='undefined') window.omrZoom=omrZoom;
+if(typeof window.omrZoomSet==='undefined') window.omrZoomSet=omrZoomSet;
 if(typeof window.OMR_AR==='undefined') window.OMR_AR=OMR_AR;
 if(typeof window.omrStampDraw==='undefined') window.omrStampDraw=omrStampDraw;
 if(typeof window.omrPaperImage==='undefined') window.omrPaperImage=omrPaperImage;
