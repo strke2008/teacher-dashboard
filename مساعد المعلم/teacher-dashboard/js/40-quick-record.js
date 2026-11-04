@@ -236,7 +236,7 @@ function qrForgive(sid, d, st) {
 function qrBehDel(id) { qrDo({ k: 'behdel', id: String(id) }, 'حُذفت الملاحظة'); }
 
 /* ═══════════ 🎤 الرصد بالصوت — محرّك الفهم منقول كما هو من البوابة ═══════════ */
-const QRV = { sup: !!(window.SpeechRecognition || window.webkitSpeechRecognition), on: false, rec: null, msg: '' };
+const QRV = { sup: !!(window.SpeechRecognition || window.webkitSpeechRecognition), on: false, owner: null, msg: '' };
 function vrNorm(t){
   return String(t||'').toLowerCase()
     .replace(/[ً-ْٰـ]/g,'').replace(/[أإآٱ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/ؤ/g,'و').replace(/ئ/g,'ي')
@@ -329,12 +329,14 @@ function qrVoicePick(sid, kindEnc, btn) {
   const r = qrVoiceApply(st, JSON.parse(decodeURIComponent(kindEnc))); if (btn && btn.parentElement) btn.parentElement.innerHTML = r;
 }
 function qrVoiceToggle() {
-  if (QRV.on) { QRV.on = false; try { QRV.rec && QRV.rec.stop(); } catch (e) {} QRV.msg = ''; qrPaint(); return; }
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition; if (!SR) { toast('الرصد بالصوت غير مدعوم في هذا المتصفح', 'bad'); return; }
-  const r = new SR(); r.lang = 'ar-SA'; r.continuous = true; r.interimResults = true; QRV.rec = r; QRV.on = true; QRV.msg = ''; qrPaint();
-  r.onresult = ev => { for (let i = ev.resultIndex; i < ev.results.length; i++) { const x = ev.results[i], t = String(x[0] && x[0].transcript || '').trim(); if (!t) continue;
-    if (x.isFinal) qrVoiceHandle(t); else { const e = document.getElementById('qr-vlive'); if (e) e.innerHTML = `🎙️ <b>«${esc(t)}»</b>`; } } };
-  r.onerror = ev => { if (ev.error === 'not-allowed') { QRV.on = false; toast('اسمح باستخدام الميكروفون من إعدادات المتصفح', 'bad'); qrPaint(); } };
-  r.onend = () => { if (QRV.on) { try { r.start(); } catch (e) { QRV.on = false; qrPaint(); } } };
-  try { r.start(); } catch (e) { QRV.on = false; qrPaint(); }
+  // عبر محرّك الصوت الموحّد (HWV): جلسة واحدة للصفحة كلها — كانت جلسة جديدة كل مرة، فعلى iPhone يسمع أول مرة فقط
+  if (QRV.on) { QRV.on = false; if (window.HWV && QRV.owner) HWV.mute(QRV.owner); QRV.msg = ''; qrPaint(); return; }
+  if (!window.HWV || !HWV.sup) { toast('الرصد بالصوت غير مدعوم في هذا المتصفح', 'bad'); return; }
+  const o = QRV.owner = { on: false,
+    onText: (t, final) => { if (final) qrVoiceHandle(t); else { const e = document.getElementById('qr-vlive'); if (e) e.innerHTML = `🎙️ <b>«${esc(t)}»</b>`; } },
+    onStop: why => { if (QRV.owner !== o) return; QRV.on = false; QRV.msg = why === 'ended' ? '⏸️ توقف الاستماع — اضغط 🎤 للمتابعة' : ''; qrPaint(); },
+    onError: err => { if (err === 'not-allowed' || err === 'service-not-allowed') { QRV.on = false; HWV.mute(o); toast('اسمح باستخدام الميكروفون من إعدادات المتصفح', 'bad'); qrPaint(); } } };
+  QRV.on = true; QRV.msg = ''; qrPaint();
+  if (!HWV.go(o)) { QRV.on = false; toast('تعذّر تشغيل الميكروفون — أغلق المتصفح وافتحه ثم حاول', 'bad'); qrPaint(); }
 }
+

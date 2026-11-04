@@ -77,6 +77,7 @@ const VB_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform
    فإن فتحت الصوت مجددًا خلالها يكمل فورًا. بعدها تُغلق، ويُعاد تشغيل الكائن نفسه عند الحاجة.
    النص فيها يطول مع كلامك: نعتمد الجديد منه بعد سكوتك 1.3 ث (بعدّ الكلمات — iPhone يعدّل ما قبله). */
 const VBI = { rec:null, active:false, owner:null, n:{}, idleT:0, offT:0, pend:null, err:'', endedAt:0 };
+if(window.HWV) HWV.onTakeover(() => { if(VBI.owner && VBI.owner.on){ try{ VBI.owner.stopAll(); }catch(e){} } });
 const vbiWords = t => vrNorm(t).split(' ').filter(Boolean);
 function vbiCommit(i, t, why){
   const E = VBI.owner, w = vbiWords(t), n = VBI.n[i] || 0;
@@ -85,8 +86,9 @@ function vbiCommit(i, t, why){
   const f = w.slice(n).join(' '); E.L(why + ' «' + f + '»'); E.worked = true; E.fire(f);
 }
 function vbiRec(fresh){
-  if(VBI.rec && !fresh) return VBI.rec;
-  const r = new VR_SUP();
+  // الكائن نفسه لكل الموقع (محرّك الصوت الموحّد HWV): جلسة جديدة على iPhone لا يصلها صوت
+  const r = window.HWV ? HWV.adopt(fresh) : ((VBI.rec && !fresh) ? VBI.rec : new VR_SUP());
+  if(!window.HWV && r === VBI.rec) return r;
   r.lang = 'ar-SA'; r.interimResults = true; r.maxAlternatives = 1; r.continuous = true;
   r.onstart = () => { VBI.active = true; VBI.n = {}; VBI.err = ''; VBI.owner && VBI.owner.L('start'); };
   r.onresult = ev => {
@@ -120,7 +122,8 @@ function vbiGo(E){                                  // تُستدعى داخل �
   clearTimeout(VBI.offT);
   if(VBI.owner && VBI.owner !== E && VBI.owner.on) VBI.owner.stopAll();
   VBI.owner = E;
-  if(VBI.active){ E.L('live'); return; }            // الجلسة تعمل (مكتومة): نكمل فورًا
+  if(window.HWV) vbiRec(false);                      // يركّب معالجاته على الكائن المشترك (قد يكون البحث بالصوت استعمله)
+  if(window.HWV ? HWV.active : VBI.active){ VBI.active = true; E.L('live'); return; }            // الجلسة تعمل (مكتومة): نكمل فورًا
   try{ if(typeof omrKillStreams === 'function' && OMR_STREAMS && OMR_STREAMS.size) omrKillStreams(); }catch(e){}   // الكاميرا تنافس الميكروفون
   // بعد «audio-capture» قد يعلق الكائن نفسه: نبدأ بكائن جديد
   const fresh = VBI.err === 'audio-capture'; VBI.err = '';
@@ -131,6 +134,7 @@ function vbiGo(E){                                  // تُستدعى داخل �
 function vbiMute(E){
   E.L('stop'); clearTimeout(VBI.idleT); VBI.pend = null;
   clearTimeout(VBI.offT);
+  if(window.HWV){ HWV.release(); return; }
   VBI.offT = setTimeout(() => { if(!(VBI.owner && VBI.owner.on) && VBI.active){ try{ VBI.rec.stop(); }catch(e){} } }, 600000);   // ١٠ دقائق
 }
 document.addEventListener('visibilitychange', () => {   // مغادرة التطبيق: إغلاق حقيقي للميكروفون

@@ -255,14 +255,25 @@ export default async function run() {
       await ctx.close(); }
     // ── 🎤 البحث بالصوت في خانات البحث عن طالب ──
     { const ctx = await newCtx({ viewport: { width: 390, height: 844 } });
-      await ctx.addInitScript(() => { window.SpeechRecognition = window.webkitSpeechRecognition = class { start() { setTimeout(() => { const r = [[{ transcript: 'ابحث عن الاختبار الثاني.' }]]; r[0].isFinal = true; this.onresult && this.onresult({ results: r, resultIndex: 0 }); setTimeout(() => this.onend && this.onend(), 30); }, 200); } stop() {} abort() {} }; });
+      // 🍎 محاكاة iPhone: بعد إغلاق أي جلسة، أي كائن تعرّف جديد لا يصله صوت؛ والنص يطول في نتيجة واحدة غير نهائية
+      await ctx.addInitScript(() => { window.__made = 0; window.__deaf = false; window.__live = null;
+        class FakeSR extends EventTarget { constructor() { super(); window.__made++; this.on = false; this.deaf = window.__deaf; this.text = ''; }
+          _fire(type, props) { const e = new Event(type); Object.assign(e, props || {}); const h = this['on' + type]; this.dispatchEvent(e); if (h) h.call(this, e); }
+          start() { if (this.on) { const e = new Error('already'); e.name = 'InvalidStateError'; throw e; } this.on = true; this.text = ''; window.__live = this; setTimeout(() => this._fire('start'), 10); }
+          stop() { if (!this.on) return; this.on = false; window.__deaf = true; setTimeout(() => this._fire('end'), 20); } abort() { this.stop(); }
+          say(t) { if (!this.on || this.deaf) return false; this.text = (this.text + ' ' + t).trim(); const res = [{ transcript: this.text }]; res.isFinal = false; this._fire('result', { resultIndex: 0, results: [res] }); return true; } }
+        window.SpeechRecognition = window.webkitSpeechRecognition = FakeSR; window.__say = t => !!(window.__live && window.__live.say(t)); });
       const p = await ctx.newPage(), errs = watch(p);
       await S.t('البحث بالصوت: ميكروفون في خانات البحث عن طالب (لا في «الرصد»)، والاسم المنطوق يُكتب ويصفّي', async () => {
         await p.goto(base + '/teacher-dashboard/'); await p.evaluate(t => localStorage.setItem('hwapp_tok_v1', t), TOKEN); await p.reload(); await dashReady(p);
         eq(await p.evaluate(() => ['th-q', 'students-center-search', 'wk-search', 'projects-search'].map(id => !!document.querySelector('#' + id + ' + .vs-mic'))), [true, true, true, true], 'خانات بلا ميكروفون');
-        await p.evaluate(() => goTab('students')); await p.waitForTimeout(600); await p.click('#students-center-search + .vs-mic'); await p.waitForTimeout(700);
+        await p.evaluate(() => goTab('students')); await p.waitForTimeout(600); await p.click('#students-center-search + .vs-mic'); await p.waitForTimeout(100); await p.evaluate(() => window.__say('ابحث عن الاختبار الثاني.')); await p.waitForTimeout(1700);
         eq(await p.evaluate(() => document.getElementById('students-center-search').value), 'الاختبار الثاني', 'لم يُكتب الاسم');
         ok(await p.evaluate(() => [...document.querySelectorAll('.student-list-item')].every(e => e.textContent.includes('الثاني'))), 'لم تُصفَّ القائمة');
+        // المرة الثانية والثالثة (كانت لا تعمل على iPhone: جلسة جديدة صمّاء) — والرصد بالصوت بينهما على الكائن نفسه
+        for (const say of ['الاختبار الأول', 'الاختبار الثاني']) { await p.click('#students-center-search + .vs-mic'); await p.waitForTimeout(100); ok(await p.evaluate(t => window.__say(t), say), 'الميكروفون لا يسمع في المرة التالية'); await p.waitForTimeout(1700);
+          eq(await p.evaluate(() => document.getElementById('students-center-search').value), say, 'لم يُكتب الاسم في المرة التالية'); }
+        eq(await p.evaluate(() => window.__made), 1, 'أُنشئ أكثر من كائن تعرّف');
         // 🔎 المطابقة الذكية (كل خانات البحث): همزات وحروف مخفية وعبد الله/عبدالله و«ال» وخطأ حرف في الطويلة وأي ترتيب — بلا خلط «احمد/محمد»
         const N = ['أحمد بن صالح الغامدي', 'محمد عبدالله العتيبي', 'حمد سالم الحربي', 'عبد الرحمن فهد الشهراني', 'سالم بن محمد القحطاني'];
         const M = await p.evaluate(N => [['احمد\u200f'], ['حمد'], ['عبدالرحمن'], ['الشهرنى'], ['القحطانى سالم'], ['عتيبي'], ['ابن صالح']].map(([q]) => N.filter(n => stuMatch(q, n)).length ? N.filter(n => stuMatch(q, n)).map(n => N.indexOf(n)) : []), N);
