@@ -78,11 +78,12 @@ async function qrFlush() {
   try {
     const fresh = await ctLoad();                                // يشمل الطابور كله
     const r = await fetch(ctApi() + '/classroom', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ t: getTok(), data: fresh, clientAt: Date.now() }) });
-    if (!r.ok) throw new Error('save ' + r.status);
+    if (!r.ok) { let m = ''; try { m = ((await r.json()) || {}).error || ''; } catch (x) {} throw new Error('الخادم رفض الحفظ (' + r.status + (m ? ' · ' + m : '') + ')'); }
+    QR.err = ''; QR.errAt = 0;
     const sent = new Set(L.map(o => o.id)), rest = qrOut().filter(o => !sent.has(o.id));
     qrOutSet(rest); rest.forEach(o => qrApply(fresh, o));
     CT_DATA = fresh; try { window._classroomData = fresh; COMP_GRADES = null; if (typeof tdCacheSave === 'function') tdCacheSave(); } catch (e) {}
-  } catch (e) {}
+  } catch (e) { QR.err = (e && e.message) || 'تعذّر الاتصال بالخادم'; QR.errAt = Date.now(); }   // سبب آخر فشل: يظهر للمعلم (تقرير الفترة) بدل إعادة المحاولة بصمت
   QR.busy = false; qrStatus(); qrPaint();
   if (qrOut().length) qrFlushSoon(20000);
 }

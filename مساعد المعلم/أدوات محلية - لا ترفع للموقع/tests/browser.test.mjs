@@ -229,6 +229,24 @@ export default async function run() {
         eq(await p.evaluate(async () => (await (await caches.open('ct-grades-v1')).keys()).map(r => r.url.split('/').pop()).sort()), ['1-1', '1-2'], 'نسخة الفترتين على الجهاز');
         slow = 0; ok(rep > n, 'لم يُحدَّث من الخادم في الخلفية'); eq(errs, [], 'أخطاء'); });
       await ctx.close(); }
+    // ── 📝 درجة اختبار مرصودة لم تصل للخادم: تقرير الفترة ينبّه ويرسلها بضغطة ──
+    { const ctx = await newCtx({ viewport: { width: 390, height: 844 } }); let block = false;
+      await ctx.route(/workers\.dev\/classroom/, async r => { if (block && r.request().method() === 'POST') return r.fulfill({ status: 500, body: '{"error":"boom"}' }); return r.fallback(); });
+      const p = await ctx.newPage(), errs = watch(p);
+      await S.t('تقرير الفترة: درجة اختبار على الجهاز لم تصل للخادم ⇒ تنبيه بالسبب و«أرسلها الآن» يرسلها', async () => {
+        await p.goto(base + '/teacher-dashboard/'); await p.evaluate(t => localStorage.setItem('hwapp_tok_v1', t), TOKEN); await p.reload(); await dashReady(p);
+        await p.waitForFunction(() => window.LZ_READY, null, { timeout: 20000 });
+        await p.evaluate(async () => { const { sem, per } = ctExamSP(); await ctSave(d => { const b = ctBookW(d, sem, per); if (!b.tests.some(t => t.id === 'tsync')) b.tests.push({ id: 'tsync', title: 'اختبار المزامنة', max: 10 }); }); });
+        block = true;
+        await p.evaluate(() => { const { sem, per } = ctExamSP(); const b = CT_DATA.examBooks[String(sem)][String(per)]; (b.scores.s1 = b.scores.s1 || {}).tsync = { score: 9, at: Date.now() }; qrDo({ k: 'exb', sem: String(sem), per: String(per), book: JSON.parse(JSON.stringify(b)) }); });
+        await p.waitForTimeout(2500);
+        await p.evaluate(() => { window._ctPfSub = 'period'; ctOpenProfile('s1', 'period'); });
+        await p.waitForFunction(() => /لم تصل للخادم/.test(document.body.innerText), null, { timeout: 20000 });
+        ok(await p.evaluate(() => /اختبار المزامنة/.test(document.querySelector('.ct-warn').innerText) && /500/.test(document.querySelector('.ct-warn').innerText)), 'التنبيه بلا اسم الاختبار أو السبب');
+        block = false; await p.click('text=أرسلها الآن');
+        await p.waitForFunction(() => !/لم تصل للخادم/.test(document.body.innerText) && /9 \/ 10/.test(document.body.innerText), null, { timeout: 20000 });
+        await p.evaluate(() => { window._ctPfSub = 'overview'; }); eq(errs, [], 'أخطاء'); });
+      await ctx.close(); }
     // ── ⏳ التحميل المؤجَّل: زر يُضغط قبل وصول الجزء المؤجَّل يعمل بعد وصوله ──
     { const ctx = await newCtx({ viewport: { width: 390, height: 844 } }); await ctx.route(/-lazy\.js|30-noor-export/, async r => { await new Promise(x => setTimeout(x, 9000)); try { await r.continue(); } catch {} });
       const p = await ctx.newPage(), errs = watch(p);

@@ -1617,6 +1617,29 @@ function sfEmbed(el,fn){
    (بختم الدرجة)، والإجابات الصحيحة بإطار أخضر متقطع، وصح/خطأ لكل سؤال. المعلم يراها ولو لم تُنشر للطالب */
 const SFPP={sid:'',list:[],used:new Set(),on:false};
 function sfPaperOf(t){ if(!SFPP.on) return null; const L=SFPP.list||[]; const p=L.find(x=>t.id!=null&&String(x.test)===String(t.id))||L.find(x=>x.title===t.title&&!SFPP.used.has(x.test)); if(p) SFPP.used.add(p.test); return p||null; }
+/* ⚠️ درجات اختبارات مرصودة على هذا الجهاز ولم تصل للخادم (التقرير يبنيه الخادم): كانت تظهر في الكشف و«لم يُرصد» في التقرير بلا تفسير */
+function sfExamSyncWarn(rep,sem,per,sid){
+  try{
+    const b=(((CT_DATA||{}).examBooks||{})[String(sem)]||{})[String(per)]; if(!b||!b.scores) return '';
+    const mine=b.scores[String(sid)]||{}, num=v=>{ const n=v&&typeof v==='object'?Number(v.score):Number(v); return Number.isFinite(n)?n:null; };
+    const srv=new Map(((rep&&rep.exam&&rep.exam.tests)||[]).map(t=>[String(t.id),t]));
+    const miss=(b.tests||[]).filter(t=>{ const loc=num(mine[String(t.id)]); if(loc==null) return false; const s=srv.get(String(t.id)); return !s||s.score==null||Number(s.score)!==loc; });
+    if(!miss.length) return '';
+    const pend=(typeof qrOut==='function'?qrOut():[]).length, err=(typeof QR!=='undefined'&&QR.err)||'';
+    return `<div class="ct-warn no-print" style="margin-bottom:.6rem">⚠️ <b>درجات مرصودة على هذا الجهاز لم تصل للخادم بعد:</b> ${miss.map(t=>esc(t.title||t.id)).join('، ')} — لذلك يظهر هنا «لم يُرصد».
+      <div class="muted" style="font-size:.8rem;margin-top:.25rem">${pend?`${pend} عملية بانتظار الإرسال`:'لا شيء في طابور الإرسال'}${err?` · آخر محاولة: ${esc(err)}`:''}</div>
+      <button type="button" class="btn sm" style="margin-top:.4rem" onclick="this.disabled=true;this.textContent='⏳ جارٍ الإرسال…';sfExamResend()">📤 أرسلها الآن</button></div>`;
+  }catch(e){ return ''; }
+}
+async function sfExamResend(){
+  try{
+    const {sem,per}=ctExamSP(), b=(((CT_DATA||{}).examBooks||{})[String(sem)]||{})[String(per)];
+    if(b&&typeof qrDo==='function') qrDo({k:'exb',sem:String(sem),per:String(per),book:JSON.parse(JSON.stringify(b))});   // لقطة الدفتر من جديد (لو ضاعت من الطابور)
+    if(typeof qrFlush==='function') await qrFlush();
+  }catch(e){}
+  if(typeof QR!=='undefined'&&QR.err) toast('لم تُرسل: '+QR.err,'bad'); else toast('تم الإرسال للخادم','good');
+  try{ if(stcActive()) renderStudentCenterDetail(1); else renderClassTools(); }catch(e){}
+}
 async function sfPeriod(el,sid){
   const {sem,per}=ctSem(), s=(STUDENTS||[]).find(x=>String(x.id)===String(sid));
   el.innerHTML='<div class="muted" style="padding:1rem">⏳ جارٍ إعداد تقرير الفترة…</div>'; window.__srepPreview=null;
@@ -1627,7 +1650,7 @@ async function sfPeriod(el,sid){
     if(String(window._ctPfSid)!==String(sid)) return;
     window.__srepPreview=j.report; SFPP.sid=String(sid); SFPP.list=(pp.papers||[]); SFPP.used=new Set();
     SFPP.on=true; let rep=''; try{ rep=srxHTML(j.report); }finally{ SFPP.on=false; } const rest=SFPP.list.filter(p=>!SFPP.used.has(p.test)&&(p.sem||1)===Number(sem));   // أوراق ممسوحة لا تقابل اختبارًا في التقرير
-    el.innerHTML=`<div class="muted no-print" style="font-size:.8rem;margin-bottom:.5rem">هكذا يظهر التقرير للطالب في بوابته. الإرسال لكل الفصل من «الكشوف ← 📤 تقارير الطلاب».</div>${rep}
+    el.innerHTML=sfExamSyncWarn(j.report,sem,per,sid)+`<div class="muted no-print" style="font-size:.8rem;margin-bottom:.5rem">هكذا يظهر التقرير للطالب في بوابته. الإرسال لكل الفصل من «الكشوف ← 📤 تقارير الطلاب».</div>${rep}
       ${rest.length?`<div class="sfpp-rest no-print"><b>📝 أوراق اختبارات ممسوحة أخرى</b>${rest.map(p=>`<button type="button" class="sfpp-btn" onclick="sfPaperOpen('${esc(p.test)}')">📄 ${esc(p.title)} · ${p.score} / ${p.max}${p.pub?'':' <small>(غير منشورة)</small>'}</button>`).join('')}</div>`:''}`;
   }catch(e){ el.innerHTML='<div class="ct-warn">تعذّر إعداد تقرير الفترة — يحتاج اتصالًا بالخادم.</div>'; }
 }
