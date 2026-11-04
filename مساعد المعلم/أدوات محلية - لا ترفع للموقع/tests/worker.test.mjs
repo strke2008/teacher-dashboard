@@ -82,6 +82,16 @@ export default async function run() {
     const g = await call('/grades?t=' + TOKEN + '&semester=1&period=1'); ok(g.j.students.find(x => x.id === 's1').exam.measured, 'الدرجات لا تحسب درجة الورقة');
     ok(!JSON.stringify(JSON.parse(await env.HW.get('teacher:classroom')).examBooks).includes('fromPaper'), 'كُتب في التخزين');
   });
+  await S.t('سرعة: التقرير لا يقرأ الأوراق (صورها كبيرة) — الدرجة من الفهرس، والأوراق القديمة تُكمَّل فيه مرة واحدة', async () => {
+    const idx = JSON.parse(await env.HW.get('omrp:idx')); for (const e of Object.values(idx)) delete e.sc;   // فهرس قديم بلا درجات
+    await env.HW.put('omrp:idx', JSON.stringify(idx));
+    const get0 = env.HW.get.bind(env.HW); let reads = 0; env.HW.get = k => { if (/^omrp:s/.test(k)) reads++; return get0(k); };
+    try {
+      const rep = async () => (await call('/student-report/preview', { method: 'POST', body: { t: TOKEN, semester: 1, period: 1, sid: 's1' } })).j.report.exam.tests.map(t => [t.id, t.score]);
+      eq(await rep(), [['pz1', 9], ['pz2', 4], ['pz3', null]], 'الأولى'); ok(reads > 0, 'لم يكمل الفهرس');
+      reads = 0; eq(await rep(), [['pz1', 9], ['pz2', 4], ['pz3', null]], 'الثانية'); eq(reads, 0, 'قرأ الأوراق مرة أخرى');
+    } finally { env.HW.get = get0; }
+  });
   await S.t('اختبار محذوف من الدفتر: تختفي ورقته من ملف الطالب ولا تُفتح، وتعود إن أُعيد', async () => {
     const before = (await call('/omr/papers/of?sid=s1&t=' + TOKEN)).j.papers.map(p => p.test); ok(before.includes('pz3'), 'قبل الحذف');
     const cr = JSON.parse(await env.HW.get('teacher:classroom'));

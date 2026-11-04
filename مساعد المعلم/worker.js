@@ -645,14 +645,13 @@ const omrPubFor = (e, cls) => !!(e && (e.pub || (Array.isArray(e.pubCls) && e.pu
    كانت تبقى لمن مُسحت ورقته فقط (فيظهر الاختبار المحذوف «لبعض الطلاب»). الأوراق نفسها لا تُمسح: لو أُعيد الاختبار تعود. */
 async function examDeletedIds(env, data) {
   const out = new Set();
-  try { const d = data || await loadClassroom(env), books = (d && d.examBooks) || {};
-    for (const sm of Object.keys(books)) for (const pr of Object.keys(books[sm] || {})) {
-      const bk = books[sm][pr]; if (!bk) continue;
-      const live = new Set((Array.isArray(bk.tests) ? bk.tests : []).map(t => t && String(t.id)));
-      for (const x of Array.isArray(bk.delTests) ? bk.delTests : []) if (x && x.id && !live.has(String(x.id))) out.add(String(x.id)); } } catch {}
-  // اختبار بالمعرّف نفسه حيّ في دفتر آخر لا يُخفى
-  try { const d = data || await loadClassroom(env), books = (d && d.examBooks) || {};
-    for (const sm of Object.keys(books)) for (const pr of Object.keys(books[sm] || {})) for (const t of ((books[sm][pr] || {}).tests || [])) if (t && out.has(String(t.id))) out.delete(String(t.id)); } catch {}
+  try {   // ⚡ يكفيه الملف الخام (الدفاتر فقط) — لا loadClassroom بكل إضافاته
+    const d = data || JSON.parse(await env.HW.get('teacher:classroom') || '{}') || {}, books = (d && d.examBooks) || {}, live = new Set();
+    for (const sm of Object.keys(books)) for (const pr of Object.keys(books[sm] || {})) { const bk = books[sm][pr]; if (!bk) continue;
+      for (const t of Array.isArray(bk.tests) ? bk.tests : []) if (t) live.add(String(t.id));
+      for (const x of Array.isArray(bk.delTests) ? bk.delTests : []) if (x && x.id) out.add(String(x.id)); }
+    for (const id of live) out.delete(id);   // اختبار بالمعرّف نفسه حيّ في أي دفتر لا يُخفى
+  } catch {}
   return out;
 }
 async function omrPapersOf(env, sid, cls) {
@@ -1097,22 +1096,34 @@ async function srepLiveReports(env, st, reports) {
 async function overlayOmrScores(env, data) {
   const books = data && data.examBooks; if (!books || typeof books !== 'object') return data;
   let idx = {}; try { idx = await omrPapersIdx(env); } catch { return data; }
-  let reads = 0;
+  /* ⚡ الدرجة من الفهرس (sc) — كانت تُقرأ الورقة كاملة (بصورتها، مئات الكيلوبايت) لكل خانة فارغة واحدة تلو الأخرى،
+     حتى 400 قراءة في كل تقرير وكشف وفتح للوحة: هذا ما أبطأ الخادم. الأوراق القديمة بلا sc تُكمَّل مرة واحدة ويُحفظ الفهرس */
+  const cells = [], need = [];
   for (const [test, e] of Object.entries(idx || {})) {
     for (const sm of Object.keys(books)) for (const pr of Object.keys(books[sm] || {})) {
       const bk = books[sm][pr]; if (!bk || !Array.isArray(bk.tests)) continue;
       const t = bk.tests.find(x => x && String(x.id) === test); if (!t) continue;
-      const max = Math.max(1, Number(t.max) || 10);
       for (const sid of (e && e.sids) || []) {
         bk.scores = bk.scores && typeof bk.scores === 'object' ? bk.scores : {};
         if (bk.scores[sid] && bk.scores[sid][test] != null) continue;
-        if (++reads > 400) return data;
-        let r = null; try { r = JSON.parse(await env.HW.get(`omrp:${sid}:${test}`) || 'null'); } catch { r = null; }
-        const sc = r && Number(r.score); if (!r || !Number.isFinite(sc)) continue;
-        const v = r.max && Number(r.max) !== max ? +(sc / Number(r.max) * max).toFixed(2) : sc;
-        (bk.scores[sid] = bk.scores[sid] || {})[test] = { score: Math.max(0, Math.min(max, v)), at: Number(r.at) || 0, fromPaper: 1 };
+        const c = { bk, t, test, sid, e }; cells.push(c); if (!(e.sc && Array.isArray(e.sc[sid]))) need.push(c);
       }
     }
+  }
+  if (need.length) {
+    const got = {};
+    await inBatches(need.slice(0, 60), 12, async c => { let r = null; try { r = JSON.parse(await env.HW.get(`omrp:${c.sid}:${c.test}`) || 'null'); } catch {}
+      if (r && Number.isFinite(Number(r.score))) (got[c.test] = got[c.test] || {})[c.sid] = [Number(r.score), Number(r.max) || 0, Number(r.at) || 0]; });
+    for (const [test, m] of Object.entries(got)) { const e = idx[test]; if (e) e.sc = { ...(e.sc || {}), ...m }; }
+    if (Object.keys(got).length) try {   // يُحفظ في أحدث فهرس (لا نمحو ورقة رُفعت للتو)
+      const cur = await omrPapersIdx(env); for (const [test, m] of Object.entries(got)) if (cur[test]) cur[test].sc = { ...(cur[test].sc || {}), ...m };
+      await env.HW.put('omrp:idx', JSON.stringify(cur)); } catch {}
+  }
+  for (const { bk, t, test, sid, e } of cells) {
+    const p = e.sc && e.sc[sid]; if (!Array.isArray(p)) continue;
+    const sc = Number(p[0]), pm = Number(p[1]) || 0, max = Math.max(1, Number(t.max) || 10); if (!Number.isFinite(sc)) continue;
+    const v = pm && pm !== max ? +(sc / pm * max).toFixed(2) : sc;
+    (bk.scores[sid] = bk.scores[sid] || {})[test] = { score: Math.max(0, Math.min(max, v)), at: Number(p[2]) || 0, fromPaper: 1 };
   }
   return data;
 }
@@ -7710,6 +7721,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         for (const [t, v] of old) { for (const s of v.sids || []) await env.HW.delete(`omrp:${s}:${t}`); delete idx[t]; }
         const e = idx[test] || { title: rec.title, sids: [], pub: false, key: false, sem };
         e.title = rec.title; e.sem = sem; e.at = rec.at; if (!e.sids.includes(sid)) e.sids.push(sid);
+        (e.sc = e.sc && typeof e.sc === 'object' ? e.sc : {})[sid] = [rec.score, rec.max, rec.at];   // ⚡ الدرجة في الفهرس: التقارير لا تقرأ الورقة (صورتها مئات الكيلوبايت)
         idx[test] = e;
         await env.HW.put(`omrp:${sid}:${test}`, JSON.stringify(rec));
         await env.HW.put('omrp:idx', JSON.stringify(idx));
@@ -7761,13 +7773,14 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       // 👤 أوراق طالب واحد (ملف الطالب في لوحة التحكم): كل اختباراته الممسوحة، منشورة له أم لا
       if (url.pathname === '/omr/papers/of') {
         const sid = String(url.searchParams.get('sid') || '').slice(0, 60); if (!sid) return json({ ok: true, papers: [] });
-        const [idx, roster, del] = await Promise.all([omrPapersRepair(env, await omrPapersIdx(env)), loadRoster(env).catch(() => []), examDeletedIds(env)]);
+        // ⚡ الفهرس فقط (إصلاحه بعملية list على كل الأوراق صار في صفحة التصحيح وحدها)، وأوراق الطالب تُقرأ معًا لا واحدة تلو الأخرى
+        const [idx, roster, del] = await Promise.all([omrPapersIdx(env), loadRoster(env).catch(() => []), examDeletedIds(env)]);
         const me = roster.find(x => String(x.id) === sid), cls = me ? String(me.cls || '') : '';
         const out = [];
-        for (const [test, e] of Object.entries(idx)) { if (!(e.sids || []).includes(sid) || del.has(test)) continue;
+        await Promise.all(Object.entries(idx).filter(([test, e]) => (e.sids || []).includes(sid) && !del.has(test)).map(async ([test, e]) => {
           let r = null; try { r = JSON.parse(await env.HW.get(`omrp:${sid}:${test}`) || 'null'); } catch {}
           if (r) out.push({ test, title: e.title || r.title, score: r.score, max: r.max, sem: e.sem || r.sem || 1, at: r.at || e.at || 0, pub: omrPubFor(e, cls),
-            right: (r.marks || []).filter(m => m === 1).length, n: (r.marks || []).length }); }
+            right: (r.marks || []).filter(m => m === 1).length, n: (r.marks || []).length }); }));
         out.sort((a, c) => c.at - a.at);
         return json({ ok: true, papers: out });
       }
@@ -7793,7 +7806,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         await env.HW.put(`omr:t:${id}`, JSON.stringify(tpl));
         const idx = await omrPapersRepair(env, await omrPapersIdx(env)), changed = [];
         let c0 = {}; try { c0 = JSON.parse(await env.HW.get('teacher:classroom') || '{}') || {}; } catch { c0 = {}; }
-        let bookDirty = false; const books = c0.examBooks && typeof c0.examBooks === 'object' ? c0.examBooks : {};
+        let bookDirty = false, idxDirty = false; const books = c0.examBooks && typeof c0.examBooks === 'object' ? c0.examBooks : {};
         for (const [test, e] of Object.entries(idx)) for (const sid of e.sids || []) {
           const key = `omrp:${sid}:${test}`; let r = null; try { r = JSON.parse(await env.HW.get(key) || 'null'); } catch {}
           if (!r || r.tpl !== id || (r.model || 0) !== mi || !Array.isArray(r.ch)) continue;
@@ -7809,7 +7822,9 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
             const w = r.ch.map((c, i) => M.questions[i] && c !== M.questions[i].key ? i : -1).filter(i => i >= 0);
             bk.scores[sid][test] = { ...(typeof cell === 'object' ? cell : {}), score: val, at: Date.now(), ...(cell && cell.om ? { om: { ...cell.om, w } } : {}) }; bookDirty = true; }
           if (old !== val) changed.push({ sid, test, old, now: val });
+          (e.sc = e.sc && typeof e.sc === 'object' ? e.sc : {})[sid] = [val, r.max, r.at]; idxDirty = true;
         }
+        if (idxDirty) await env.HW.put('omrp:idx', JSON.stringify(idx));
         if (bookDirty) { c0.savedAt = Date.now(); await env.HW.put('teacher:classroom', JSON.stringify(c0)); }
         return json({ ok: true, changed, keys: M.questions.map(q => q.key) });
       }
