@@ -685,7 +685,7 @@ function renderExamGrades(){
   const cls=$('cls')?.value||'',q=String($('exam-search')?.value||'').trim(),b=examBook(),max=examMaxTotal(),t=exCurTest(),locked=academicClosed();
   if(t) exPapersLoad(String(t.id));
   examFilter.test=t?String(t.id):'';
-  const base=list(cls).filter(s=>!q||s.name.includes(q));
+  const base=list(cls).filter(s=>!q||stuMatch(q,s.name));
   const rows=!t||examFilter.mode!=='missing'?base:base.filter(s=>examIsMissing(s.id));
   if($('ex-chips'))$('ex-chips').innerHTML=b.tests.map(x=>`<button type="button" class="${t&&String(t.id)===String(x.id)?'on':''}" onclick="exPick('${esc(String(x.id))}')">${esc(x.title)} · من ${fmt(x.max)}</button>`).join('')+(locked?'':'<button type="button" class="add" onclick="addExamTest()">＋ اختبار</button>');
   if($('ex-miss-btn')){$('ex-miss-btn').classList.toggle('on',examFilter.mode==='missing');$('ex-miss-btn').textContent=examFilter.mode==='missing'?'↩︎ الكل':'⚠️ لم يُرصد فقط';}
@@ -2524,7 +2524,7 @@ function omrRevBack(){
   s.answers[it.i].final = null; OMRDB.put(s); OMRQ.items.unshift(it); omrRevRender();
 }
 function omrMatchOpen(id){ OMRUI.openId = OMRUI.openId === id ? null : id; omrMatchRender(); const el = $('mc-' + id); if(el) el.scrollIntoView({ block:'start', behavior:'smooth' }); }
-function omrMatchFilter(){ const q = omrNorm($('omr-q').value); document.querySelectorAll('#omr-slist .omr-sbtn').forEach(b => { b.style.display = (q ? b.dataset.n.includes(q) && (!b.classList.contains('oth') || q.length >= 2) : !b.classList.contains('oth') || b.classList.contains('on')) ? '' : 'none'; }); }
+function omrMatchFilter(){ const q = omrNorm($('omr-q').value); document.querySelectorAll('#omr-slist .omr-sbtn').forEach(b => { b.style.display = (q ? stuMatch($('omr-q').value, b.dataset.n) && (!b.classList.contains('oth') || q.length >= 2) : !b.classList.contains('oth') || b.classList.contains('on')) ? '' : 'none'; }); }
 function omrSheetSet(id, i, v){ const s = OMRUI.sheets.find(x => x.id === id); if(!s) return; s.answers[i].final = v; OMRDB.put(s); if(s.sid && !s.answers.some(a => a.final === null) && omrManualOk(s.manual, s.model)) omrSheetSave(s); else omrMatchRender(); }
 /* 📄 ورقة الطالب المصححة للطالب وولي أمره: الصفحة مقوّمة (A4 مستقيمة) وعليها إطار أخضر/أحمر حول ما اختاره،
    وختم أحمر بالدرجة المرصودة بجانب عنوان الاختبار. الإجابة الصحيحة لا تُرسم: تُحفظ مواقعها فقط وتظهر إن سمح المعلم */

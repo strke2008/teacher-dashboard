@@ -191,7 +191,7 @@ function wrFilter(){
   const srt = String(document.getElementById('wr-sort')?.value||'name');
   WR_VIEW = WR_LIST.map((x,i)=>({x,i})).filter(({x})=>{
     if(cls && String(x.s.cls||x.s.className||x.s.class||'').trim()!==cls) return false;
-    if(q && !wrNorm(x.s.name).includes(q)) return false;
+    if(q && !stuMatch(document.getElementById('wr-q')?.value||'', x.s.name)) return false;
     const open=(x.acts||0)-(x.subs||0);
     if(f==='neg'   && !(x.neg>0)) return false;
     if(f==='open'  && !(open>0)) return false;

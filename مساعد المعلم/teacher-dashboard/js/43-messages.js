@@ -704,7 +704,7 @@ function renderMsgList(){
   const A=msAlerts(), alertIds=new Set(A.map(a=>a.studentId));
   const al=$('ms-alert'); if(al){ al.hidden=!A.length; $('ms-alert-t').textContent=`🔔 ${A.length} ${A.length===1?'يحتاج':'يحتاجون'} رسالة`; $('ms-alert-btn').textContent=MS_ALERT?'↩︎ الكل':'اعرضهم'; }
   if(!A.length) MS_ALERT=false;
-  const q=String($('ms-q')?.value||'').trim(); let L=list($('cls')?.value||''); if(MS_ALERT) L=L.filter(s=>alertIds.has(s.id)); if(q) L=L.filter(s=>s.name.includes(q));
+  const q=String($('ms-q')?.value||'').trim(); let L=list($('cls')?.value||''); if(MS_ALERT) L=L.filter(s=>alertIds.has(s.id)); if(q) L=L.filter(s=>stuMatch(q,s.name));
   box.innerHTML=L.map((s,i)=>{ const r=msReady(s.id);
     return `<button type="button" class="bh-r${MS_MULTI&&MS_SEL.has(s.id)?' pick':''}${TPX4.msid===s.id&&!$('ms-sheet').hidden?' sel':''}" data-ms-open="${esc(s.id)}">${MS_MULTI?`<span class="mk">${MS_SEL.has(s.id)?'✓':''}</span>`:''}<i>${i+1}</i><span class="n">${esc(s.name)}</span><span class="bh-cnt">${msSentToday(s.id).length?'<span class="m2-tag ok">✓ أُرسلت اليوم</span>':''}${r?`<span class="m2-tag lt">🕘 ${r>1?r+' ':''}لاحقًا</span>`:''}${alertIds.has(s.id)?'<span class="m2-tag nd">🔔</span>':''}</span></button>`; }).join('')||'<div class="empty">لا يوجد طلاب مطابقون.</div>';
   const n=MSGQ.length, b=$('mq-badge'); if(b){ b.hidden=!n; b.textContent=n; }
@@ -1072,7 +1072,7 @@ window.tpx4Mount = function(box){
     if (MS_MULTI) { const id = r.dataset.msOpen; MS_SEL.has(id) ? MS_SEL.delete(id) : MS_SEL.add(id); renderMsgList(); return; } msOpen(r.dataset.msOpen); });
   $('ms-multi-btn').onclick = () => msMulti(!MS_MULTI);
   $('ms-mcancel').onclick = () => msMulti(false);
-  $('ms-all').onclick = () => { const q = String($('ms-q')?.value || '').trim(); list(TPX4.cls).filter(s => !q || s.name.includes(q)).forEach(s => MS_SEL.add(s.id)); renderMsgList(); };
+  $('ms-all').onclick = () => { const q = String($('ms-q')?.value || '').trim(); list(TPX4.cls).filter(s => !q || stuMatch(q, s.name)).forEach(s => MS_SEL.add(s.id)); renderMsgList(); };
   $('ms-alert-btn').onclick = () => { MS_ALERT = !MS_ALERT; renderMsgList(); };
   $('ms-q').addEventListener('input', renderMsgList);
   $('ms-search-btn').onclick = () => { const w = $('ms-search'); w.hidden = !w.hidden; $('ms-search-btn').classList.toggle('on', !w.hidden); if (!w.hidden) $('ms-q').focus(); else { $('ms-q').value = ''; renderMsgList(); } };

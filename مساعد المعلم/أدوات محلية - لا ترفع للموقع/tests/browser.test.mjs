@@ -263,6 +263,12 @@ export default async function run() {
         await p.evaluate(() => goTab('students')); await p.waitForTimeout(600); await p.click('#students-center-search + .vs-mic'); await p.waitForTimeout(700);
         eq(await p.evaluate(() => document.getElementById('students-center-search').value), 'الاختبار الثاني', 'لم يُكتب الاسم');
         ok(await p.evaluate(() => [...document.querySelectorAll('.student-list-item')].every(e => e.textContent.includes('الثاني'))), 'لم تُصفَّ القائمة');
+        // 🔎 المطابقة الذكية (كل خانات البحث): همزات وحروف مخفية وعبد الله/عبدالله و«ال» وخطأ حرف في الطويلة وأي ترتيب — بلا خلط «احمد/محمد»
+        const N = ['أحمد بن صالح الغامدي', 'محمد عبدالله العتيبي', 'حمد سالم الحربي', 'عبد الرحمن فهد الشهراني', 'سالم بن محمد القحطاني'];
+        const M = await p.evaluate(N => [['احمد\u200f'], ['حمد'], ['عبدالرحمن'], ['الشهرنى'], ['القحطانى سالم'], ['عتيبي'], ['ابن صالح']].map(([q]) => N.filter(n => stuMatch(q, n)).length ? N.filter(n => stuMatch(q, n)).map(n => N.indexOf(n)) : []), N);
+        eq(M, [[0], [2], [3], [3], [4], [1], [0]], 'المطابقة الذكية');
+        await p.evaluate(() => goTab('dashboard')); await p.fill('#th-q', 'الإختبار الثانى'); await p.waitForTimeout(300);
+        ok(await p.evaluate(() => document.getElementById('th-res').innerText.includes('طالب الاختبار الثاني')), 'بحث «اليوم» لم يجد الاسم بهمزة/ياء مختلفة');
         await p.evaluate(() => { window._ctRcCls = 'أول 1'; window._ctRcClsUser = 1; window._ctRcView = 'day'; ctGo('records'); }); await p.waitForSelector('#qr-q', { timeout: 15000 });
         eq(await p.evaluate(() => !!document.querySelector('#qr-q + .vs-mic, #qr-q').closest('.vs-wrap')), false, 'ميكروفون بحث أُضيف لخانة الرصد'); eq(errs, [], 'أخطاء'); });
       await ctx.close(); }

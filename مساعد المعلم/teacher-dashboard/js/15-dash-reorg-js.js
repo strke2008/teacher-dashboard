@@ -46,7 +46,7 @@ function thSearch(){
   const n=v=>typeof normAr==='function'?normAr(v):String(v||'');
   const t=n(q.value).trim();
   if(!t){ out.innerHTML=''; return; }
-  const list=(STUDENTS||[]).filter(s=>n(`${s.name||''} ${s.cls||''}`).includes(t)).slice(0,6);
+  const list=(STUDENTS||[]).filter(s=>stuMatch(q.value,`${s.name||''} ${s.cls||''}`)).slice(0,6);
   out.innerHTML=list.map(s=>`<button type="button" onclick="ctOpenProfile('${thEsc(s.id)}')" title="الملف الشامل">👤 ${thEsc(s.name)}<small>${thEsc(s.cls||'')}</small></button>`).join('')
     ||'<div class="muted" style="font-size:.8rem">لا يوجد طالب بهذا الاسم.</div>';
 }

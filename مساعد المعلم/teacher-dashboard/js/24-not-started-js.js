@@ -273,7 +273,7 @@ function askFabPanel(){
         <div class="ch-cl">${hasOpen?`<button type="button" class="btn ghost sm" style="margin-top:.3rem" title="حللتها معه في الفصل — لا يُرسل شيء" onclick="chClose('${id}')">✓ أُغلق سؤاله دون رد</button>`:''}</div></div>`;
   } else {
     const q=ASKF.q.trim(), onl=typeof onlRows==='function'?onlRows().on:[];
-    const found=q?(STUDENTS||[]).filter(s=>String(s.name||'').includes(q)).slice(0,8):[];
+    const found=q?(STUDENTS||[]).filter(s=>stuMatch(q,s.name)).slice(0,8):[];
     const row=t=>{ const last=t.items.slice().sort((a,b)=>Math.max(b.at||0,b.repliedAt||0)-Math.max(a.at||0,a.repliedAt||0))[0];
       const lastTxt=last?(last.kind==='t'?'أنت: '+last.text:last.reply&&last.repliedAt>=last.at?'أنت: '+last.reply:last.text):'';
       return `<button type="button" class="ch-it${t.open?' open':''}" onclick="chOpen('${thEsc(t.sid)}')"><span class="ch-nm">${chOn(t.sid)?'<i class="onl-dot on"></i>':''}<b>${thEsc(t.name)}</b><small>${thEsc(t.cls||'')}</small>${chIsOpen(t.sid)?'<em class="ch-open">🔓 دردشة</em>':''}

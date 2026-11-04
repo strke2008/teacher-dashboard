@@ -94,7 +94,7 @@ function projectFiltered(){
     // نمرّ عبر projectReviewStatus نفسها التي ترسم الشارة، فلا يختلف
     // ما يُرشَّح عمّا يُعرض على البطاقة
     if(sf && projectReviewStatus(x).key!==sf) return false;
-    if(q && !((x.studentName||'')+' '+(x.title||'')).toLowerCase().includes(q)) return false;
+    if(q && !stuMatch(q,x.studentName||'') && !stuNorm(x.title||'').includes(stuNorm(q))) return false;
     return true;
   });
   rows.sort((a,b)=>{

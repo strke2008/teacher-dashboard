@@ -7673,7 +7673,7 @@ function bpMode(k){ BP.mode=k; document.querySelectorAll('[data-bpm]').forEach(b
   if(k==='pick'){ bpList(); setTimeout(()=>document.getElementById('bp-q')?.focus(),50); } bulkPointsSummary(); }
 function bpList(){
   const box=document.getElementById('bp-list'), ch=document.getElementById('bp-chosen'); if(!box) return;
-  const q=normAr(BP.q||''), L=STUDENTS.filter(s=>s&&s.id&&(!BP.fcls||String(s.cls||'')===BP.fcls)&&(!q||normAr(s.name).includes(q))).sort((a,b)=>String(a.name).localeCompare(String(b.name),'ar'));
+  const q=normAr(BP.q||''), L=STUDENTS.filter(s=>s&&s.id&&(!BP.fcls||String(s.cls||'')===BP.fcls)&&(!q||stuMatch(BP.q,s.name))).sort((a,b)=>String(a.name).localeCompare(String(b.name),'ar'));
   box.innerHTML=L.slice(0,200).map(s=>`<label class="bp2-row ${BP.picked.has(String(s.id))?'on':''}"><input type="checkbox" ${BP.picked.has(String(s.id))?'checked':''} onchange="bpToggle('${esc(String(s.id))}',this.checked)"><span>${esc(s.name)}</span><small>${esc(s.cls||'')}</small></label>`).join('')||'<div class="muted" style="padding:.6rem">لا نتائج</div>';
   const P=STUDENTS.filter(s=>s&&BP.picked.has(String(s.id)));
   ch.innerHTML=P.length?P.map(s=>`<button type="button" class="bp2-tag" onclick="bpToggle('${esc(String(s.id))}',false)" title="إزالة">${esc(String(s.name).split(' ').slice(0,2).join(' '))} ✕</button>`).join(''):'<span class="muted" style="font-size:.8rem">لم تختر أحدًا بعد — حدّد الفائزين من القائمة</span>';

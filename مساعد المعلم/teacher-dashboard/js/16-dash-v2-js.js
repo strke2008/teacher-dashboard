@@ -382,7 +382,7 @@ function qkOpen(){
   let sel=0, items=[];
   const n=x=>typeof normAr==='function'?normAr(x):String(x||'');
   const draw=()=>{ const q=n(document.getElementById('qk-q').value).trim();
-    const st=(STUDENTS||[]).filter(s=>!q||n(s.name).includes(q)).slice(0,q?8:0).map(s=>({t:s.name,ic:'👤',k:s.cls||'',act:'profile',id:s.id}));
+    const st=(STUDENTS||[]).filter(s=>!q||stuMatch(q,s.name)).slice(0,q?8:0).map(s=>({t:s.name,ic:'👤',k:s.cls||'',act:'profile',id:s.id}));
     const cl=ctClasses().filter(c=>!q||n(c).includes(q)).slice(0,4).map(c=>({t:'ملف الفصل '+c,ic:'🏫',k:'فصل',act:'classfile',cls:c}));
     const pg=pages.filter(p=>!q||n(p.t).includes(q)).slice(0,q?6:20);
     items=[...st,...cl,...pg]; sel=Math.min(sel,Math.max(0,items.length-1));

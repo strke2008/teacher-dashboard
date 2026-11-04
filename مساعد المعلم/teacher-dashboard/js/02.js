@@ -2439,7 +2439,7 @@ async function renderComprehensive(force=false){
       const name=String(s.name||s.n||'');
       const nm=typeof normAr==='function'?normAr(name):name.toLowerCase();
       const sc=String(s.cls||s.className||s.class||'');
-      return (!search||nm.includes(search)) && (!cls||sc===cls);
+      return (!search||stuMatch(searchRaw,name)) && (!cls||sc===cls);
     }).sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'ar'));
 
     let sums={p:0,h:0,b:0,a:0,exam:0,total:0};
@@ -2623,7 +2623,7 @@ async function renderWeekly(force=false){
     if(!searchNorm) return true;
     const nm=String(s.name||'');
     const nn=typeof normAr==='function' ? normAr(nm) : nm.toLowerCase();
-    return nn.includes(searchNorm);
+    return stuMatch(search, nm);
   });
 
   // سلوك الأسبوع مفهرسًا بالطالب
@@ -4824,6 +4824,26 @@ function fillClassFilter() {
   sel.value = [...sel.options].some(o => o.value === cur) ? cur : '__all__';
 }
 // تطبيع عربي للبحث: يتجاهل التشكيل والهمزات و«بن»
+/* 🔎 مطابقة ذكية لأسماء الطلاب (كل خانات البحث، بالكتابة والصوت) — على نهج بوابة الطالب وأكثر تسامحًا:
+   تتجاهل التشكيل والحروف المخفية والهمزات (أ إ آ ا · ى ي · ة ه · ؤ و · ئ ي) و«بن/ابن/بنت»، وتوحّد «عبد الله/عبدالله»،
+   وتقبل «ال» أو بدونها، وبداية الكلمة، وخطأ حرف في كلمة من 5 أحرف فأكثر (حرفين من 8)، وأي ترتيب للكلمات */
+const STU_STOP={'بن':1,'ابن':1,'بنت':1};
+function stuNorm(x){ return String(x||'').normalize('NFKC').replace(/[ً-ٰٟـ]/g,'').replace(/[​-‏‪-‮⁦-⁩؜﻿]/g,'')
+  .replace(/[أإآٱ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/ؤ/g,'و').replace(/ئ/g,'ي').replace(/[^\p{L}\p{N}\s]/gu,' ').toLowerCase().replace(/\s+/g,' ').trim(); }
+function stuToks(x){ const r=stuNorm(x).split(' ').filter(Boolean), o=[]; for(let i=0;i<r.length;i++){ if((r[i]==='عبد'||r[i]==='ابو'||r[i]==='ابي')&&r[i+1]){ o.push(r[i]+r[++i]); continue; } if(!STU_STOP[r[i]]) o.push(r[i]); } return o; }
+const stuBare=t=>t.length>3&&t.startsWith('ال')?t.slice(2):t;
+function stuLev(a,b,max){ if(Math.abs(a.length-b.length)>max) return max+1; let p=Array.from({length:b.length+1},(_,j)=>j);
+  for(let i=1;i<=a.length;i++){ const c=[i]; let m=i; for(let j=1;j<=b.length;j++){ c[j]=Math.min(p[j]+1,c[j-1]+1,p[j-1]+(a[i-1]===b[j-1]?0:1)); if(c[j]<m) m=c[j]; } if(m>max) return max+1; p=c; } return p[b.length]; }
+function stuTokOk(q,t){ if(t.startsWith(q)) return true; const qb=stuBare(q), tb=stuBare(t); if(tb.startsWith(qb)) return true;
+  // التسامح من 5 أحرف: «احمد/محمد» بينهما حرف واحد فلا تسامح في القصيرة
+  if(qb.length>=5 && !/\d/.test(qb)){ const max=qb.length>=8?2:1; if(stuLev(qb,tb,max)<=max) return true; if(tb.length>qb.length && stuLev(qb,tb.slice(0,qb.length),max)<=max) return true; } return false; }
+function stuMatch(q,name){
+  const qs=stuToks(q); if(!qs.length) return true; const ns=stuToks(name), used=new Set();
+  const ok=qs.every(x=>{ const k=ns.findIndex((t,i)=>!used.has(i)&&stuTokOk(x,t)); if(k<0) return false; used.add(k); return true; });
+  if(ok) return true;
+  // احتياط لكتابة ملتصقة/مفصولة («عبدالله»، «الشهري سعد») — لبحث من 5 أحرف فقط، وإلا جاء «حمد» بكل «احمد/محمد»
+  const qq=stuNorm(q).replace(/\s/g,''); return qq.length>=5 && stuNorm(name).replace(/\s/g,'').includes(qq);
+}
 function normAr(x){
   return String(x||'')
     .replace(/[\u064B-\u0652\u0640]/g,'')
@@ -4845,7 +4865,7 @@ function filtered() {
   const words = q.split(' ').filter(Boolean);
   return list.filter(s=>{
     const hay = normAr(s.name + ' ' + (s.cls||''));
-    return words.every(x => hay.indexOf(x) !== -1);
+    return stuMatch(box.value, s.name + ' ' + (s.cls||''));
   });
 }
 
@@ -8434,7 +8454,7 @@ function gBuild(){
   const gq = (()=>{ const b=document.getElementById('g-search'); return b ? normAr(b.value) : ''; })();
   if(gq){
     const words = gq.split(' ').filter(Boolean);
-    studs = studs.filter(s=>{ const hay = normAr(s.name); return words.every(x=>hay.indexOf(x)!==-1); });
+    studs = studs.filter(s=>stuMatch(document.getElementById('g-search').value, s.name));
   }
   // أنشطة هذا الفصل فقط (أو كلها)، مع دعم اختيار نشاط واحد
   const hwSel = document.getElementById('g-hw');

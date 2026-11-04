@@ -166,7 +166,7 @@ function renderMessageStudentPicker(){
   const list=document.getElementById('msg-student-list'), count=document.getElementById('msg-student-count'), search=document.getElementById('msg-student-search');
   if(!list) return;
   const q=String(search?.value||'').trim().toLocaleLowerCase('ar');
-  const rows=MSG_STUDENT_DATA.filter(st=>{const hay=`${st.name||''} ${st.cls||''}`.toLocaleLowerCase('ar');return !q||hay.includes(q);});
+  const rows=MSG_STUDENT_DATA.filter(st=>{const hay=`${st.name||''} ${st.cls||''}`.toLocaleLowerCase('ar');return !q||stuMatch(q,hay);});
   count.textContent=MSG_SELECTED_STUDENTS.size?`تم اختيار ${MSG_SELECTED_STUDENTS.size} طالب${MSG_SELECTED_STUDENTS.size===1?'':'ًا'}`:'لم يتم اختيار أي طالب';
   if(!rows.length){list.innerHTML='<div class="msg-student-empty">'+(MSG_STUDENT_DATA.length?'لا يوجد طالب مطابق للبحث.':'لا طلاب محمّلة بعد.')+'</div>';return;}
   list.innerHTML=rows.map(st=>{
