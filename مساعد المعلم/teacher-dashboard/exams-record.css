@@ -487,3 +487,9 @@ body.ex-kb-on .askf-btn{display:none!important}
 .omr-zo button.p:is(.tpx,.tpx *),.omr-zb button.p:is(.tpx,.tpx *){background:var(--ink);border-color:var(--ink);color:#fff}
 .omr-zh2:is(.tpx,.tpx *){font-size:.74rem;color:var(--ink-soft);text-align:center}
 .omr-stuhd:is(.tpx,.tpx *){display:block;font-size:.9rem;margin:2px 0 -2px;color:var(--amber-ink)}
+/* 🏷️ اختيار الطالب في ربط الأوراق: وسوم مختصرة بدل قائمة بعرض الشاشة */
+.omr-mbody .omr-slist:is(.tpx,.tpx *){display:flex;flex-wrap:wrap;gap:6px;max-height:132px;overflow:auto;padding:1px}
+.omr-mbody .omr-sbtn:is(.tpx,.tpx *){min-height:36px;padding:5px 11px;border-radius:99px;font-size:.86rem;white-space:nowrap}
+.omr-mbody .omr-sbtn small:is(.tpx,.tpx *){font-size:.7rem;margin-inline-start:3px}
+.omr-mbody .omr-sbtn.on:is(.tpx,.tpx *){background:var(--ink);border-color:var(--ink);color:#fff}
+.omr-snote:is(.tpx,.tpx *){display:block;margin-top:2px;font-size:.74rem}

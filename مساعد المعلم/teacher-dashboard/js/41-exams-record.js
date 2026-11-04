@@ -2456,6 +2456,12 @@ function omrMatchRender(){
   if(s){ const z = OMRUI.zoom; if(z && z.id === s.id){ const bx = $(`zc-${s.id}-${z.i}`), a = s.answers[z.i]; if(bx && a && a.boxes){ const pi = omrPageImg(s, a); omrRowCrop(bx, pi.img, pi.H, pi.fs, a, z.i); } }
     const q = $('omr-q'); if(q && !z && !s.answers.some(a => a.final === null)) q.focus({ preventScroll:true }); }
 }
+/* الاسم المختصر للوسم: الأول والأخير، وإن تشابه مع طالب آخر في القائمة: الأول والثاني والأخير، ثم الكامل */
+function omrShortName(name, all){
+  const cut = (n, k) => { const w = String(n).trim().split(/\s+/); return w.length <= k ? w.join(' ') : k === 2 ? w[0] + ' ' + w[w.length - 1] : w[0] + ' ' + w[1] + ' ' + w[w.length - 1]; };
+  for (const k of [2, 3]) { const me = cut(name, k); if (!all.some(o => o.name !== name && cut(o.name, k) === me)) return me; }
+  return String(name);
+}
 function omrMatchBody(s, used){
   const L = ['أ','ب','ج','د','هـ','و'], M = OMRUI.tpl.models[s.model];
   const why = { multi:'مربعان معلّمان', faint:'علامة باهتة', blank:'لم يُعلَّم شيء', unaligned:'لم يتضح المربع', glare:'لمعة ضوء فوقه' };
@@ -2468,8 +2474,11 @@ function omrMatchBody(s, used){
   const stuPick = `<input class="inp omr-q" id="omr-q" placeholder="ابحث باسم الطالب…" oninput="omrMatchFilter('${s.id}')" autocomplete="off">
     <div class="omr-slist" id="omr-slist">${studs.map(x => { const has = exHas(x.id, OMRUI.testId);
       const on = String(x.id) === String(s.sid);
-      return `<button type="button" class="omr-sbtn${on ? ' on' : ''}${x.other ? ' oth' : ''}" data-n="${esc(omrNorm(x.name))}"${x.other && !on ? ' style="display:none"' : ''} onclick="omrMatchPick('${s.id}','${esc(x.id)}')">${esc(x.name)}${x.other ? ` <small>· ${esc(x.cls || '')}</small>` : ''}${has ? ' <small>· مرصود</small>' : ''}</button>`; }).join('')}</div>
-    ${OMRUI.cls ? '<small class="omr-note" style="display:block;margin-top:4px">طالب من فصل آخر؟ اكتب اسمه في البحث.</small>' : ''}`;
+      // 🏷️ مختصر: الاسم الأول والأخير (الكامل في التلميح)، والمرصود مخفي حتى تبحث — كانت القائمة تأخذ الشاشة كلها
+      const short = omrShortName(x.name, studs);
+      return `<button type="button" class="omr-sbtn${on ? ' on' : ''}${x.other ? ' oth' : ''}${has ? ' rec' : ''}" data-n="${esc(omrNorm(x.name))}" title="${esc(x.name)}${has ? ' · مرصود' : ''}"${(x.other || has) && !on ? ' style="display:none"' : ''} onclick="omrMatchPick('${s.id}','${esc(x.id)}')">${esc(short)}${x.other ? ` <small>${esc(x.cls || '')}</small>` : ''}${has ? ' <small>مرصود</small>' : ''}</button>`; }).join('')}</div>
+    ${(() => { const nr = studs.filter(x => !x.other && exHas(x.id, OMRUI.testId) && String(x.id) !== String(s.sid)).length;
+      return `<small class="omr-note omr-snote">${nr ? `مخفي ${nr} مرصود${OMRUI.cls ? ' وطلاب الفصول الأخرى' : ''} — ابحث بالاسم لإظهارهم.` : OMRUI.cls ? 'طالب من فصل آخر؟ اكتب اسمه في البحث.' : ''}</small>`; })()}`;
   return `<div class="omr-mbody">
     ${missP.map(pg => `<div class="omr-fixbox omr-misspg"><b>📄 الصفحة ${pg} لم تُصوَّر</b><small class="omr-qtxt">صوّرها الآن («➕ تصوير المزيد») فتُضم لهذه الورقة، أو احسبها بلا إجابة إن لم يحلّها الطالب.</small>
       <div class="omr-opts"><button type="button" class="btn ghost" onclick="omrPageBlank('${s.id}',${pg})">احسب الصفحة ${pg} بلا إجابة</button></div></div>`).join('')}
@@ -2577,7 +2586,7 @@ function omrRevBack(){
   s.answers[it.i].final = null; OMRDB.put(s); OMRQ.items.unshift(it); omrRevRender();
 }
 function omrMatchOpen(id){ OMRUI.openId = OMRUI.openId === id ? null : id; omrMatchRender(); const el = $('mc-' + id); if(el) el.scrollIntoView({ block:'start', behavior:'smooth' }); }
-function omrMatchFilter(){ const q = omrNorm($('omr-q').value); document.querySelectorAll('#omr-slist .omr-sbtn').forEach(b => { b.style.display = (q ? stuMatch($('omr-q').value, b.dataset.n) && (!b.classList.contains('oth') || q.length >= 2) : !b.classList.contains('oth') || b.classList.contains('on')) ? '' : 'none'; }); }
+function omrMatchFilter(){ const q = omrNorm($('omr-q').value); document.querySelectorAll('#omr-slist .omr-sbtn').forEach(b => { b.style.display = (q ? stuMatch($('omr-q').value, b.dataset.n) && (!b.classList.contains('oth') || q.length >= 2) : !(b.classList.contains('oth') || b.classList.contains('rec')) || b.classList.contains('on')) ? '' : 'none'; }); }
 function omrSheetSet(id, i, v){ const s = OMRUI.sheets.find(x => x.id === id); if(!s) return; s.answers[i].final = v; OMRDB.put(s); if(s.sid && !s.answers.some(a => a.final === null) && omrManualOk(s.manual, s.model)) omrSheetSave(s); else omrMatchRender(); }
 /* 📄 ورقة الطالب المصححة للطالب وولي أمره: الصفحة مقوّمة (A4 مستقيمة) وعليها إطار أخضر/أحمر حول ما اختاره،
    وختم أحمر بالدرجة المرصودة بجانب عنوان الاختبار. الإجابة الصحيحة لا تُرسم: تُحفظ مواقعها فقط وتظهر إن سمح المعلم */
