@@ -230,7 +230,7 @@ function renderProjects(){
         <span class="muted project-file-count">${files.length} ${files.length===1?'ملف':'ملفات'}</span>
       </div>
     </article>`;
-  }).join('') : `<div class="projects-empty"><div style="font-size:2rem">📁</div><h3 style="margin:.4rem 0">${PROJECTS_DATA.length?'لا توجد مشاريع مطابقة للتصفية الحالية':'لا توجد مشاريع بعد'}</h3><p style="margin:0">${PROJECTS_DATA.length?'جرّب تعديل التصفية.':'ستظهر هنا المشاريع التي سلّمها الطلاب بعد وصولها للخادم.'}</p></div>`;
+  }).join('') : `<div class="projects-empty"><div class="projects-empty-ic" style="font-size:2rem">${(window.icoSVG&&window.icoSVG('folder'))||'📁'}</div><h3 style="margin:.4rem 0">${PROJECTS_DATA.length?'لا توجد مشاريع مطابقة للتصفية الحالية':'لا توجد مشاريع بعد'}</h3><p style="margin:0">${PROJECTS_DATA.length?'جرّب تعديل التصفية.':'ستظهر هنا المشاريع التي سلّمها الطلاب بعد وصولها للخادم.'}</p></div>`;
   if(sum){
     const graded=gradedProjectCatalog();
     const each=graded.length ? PROJECTS_MAX_GRADE/graded.length : 0;

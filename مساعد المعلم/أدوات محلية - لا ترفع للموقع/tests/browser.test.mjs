@@ -370,6 +370,18 @@ export default async function run() {
         const nb2 = await p.evaluate(() => [...document.querySelectorAll('#simp-bottomnav .simp-bic')].map(e => !!e.querySelector('svg.ico'))); ok(nb2.length >= 4 && nb2.every(Boolean), 'اختفت بعد التنقل: ' + JSON.stringify(nb2));
         await p.evaluate(() => { window._ctRcCls = 'أول 1'; window._ctRcClsUser = 1; window._ctRcView = 'day'; ctGo('records'); }); await p.waitForSelector('#qr-root .qr-row .c svg.ico', { timeout: 15000 });
         eq(await p.$$eval('#qr-root .qr-row[data-sid=s1] .c', b => b.map(x => x.textContent.trim())), ['', '', ''], 'بقي إيموجي في أزرار الرصد'); });
+      await S.t('الأيقونات موحّدة: الوسوم وأزرار البطاقات ووسط السطر خطية، والقوائم المنسدلة بلا إيموجي، ومحتوى الرسائل كما هو', async () => {
+        const r = await p.evaluate(async () => {
+          const box = document.createElement('div'); box.id = 'ico-t';
+          box.innerHTML = '<span class="pill">🎯 تدريب</span><button class="btn">🩹</button><span class="act-kind">📖 فهم قرائي</span><span>0/3 · 📎 سُلّم</span>'
+            + '<select><option value="reading">📖 فهم قرائي</option></select><div class="msg-body"><span>🎯 رسالة طالب</span></div>';
+          document.querySelector('.wrap').appendChild(box); await new Promise(x => setTimeout(x, 150));
+          const emo = el => /\p{Extended_Pictographic}/u.test(el.textContent), q = s => box.querySelector(s);
+          const out = [[...box.querySelectorAll('.pill,.btn,.act-kind,span:not(.msg-body span)')].filter(e => !e.closest('.msg-body') && !e.closest('svg')).map(e => !emo(e) && !!e.querySelector('svg.ico')),
+            [q('option').textContent.trim(), q('select').value], emo(q('.msg-body'))];
+          box.remove(); return out; });
+        ok(r[0].length >= 4 && r[0].every(Boolean), 'بقي إيموجي: ' + JSON.stringify(r[0]));
+        eq(r[1], ['فهم قرائي', 'reading'], 'القائمة المنسدلة'); eq(r[2], true, 'غيّر محتوى رسالة'); eq(errs, [], 'أخطاء'); });
       await S.t('الفتح: الشكل الجديد من أول رسم — ألوان الثيم، والتنقل الجديد بآخر شكل، والأيقونات في الصفحة نفسها، ولا شريط قديم', async () => {
         // ثيم مخصص at:0 ⇒ لا يُرفع للخادم فلا يؤثر في اختبارات الثيم بعده
         await p.goto(base + '/teacher-dashboard/'); await p.waitForTimeout(1500);   // يُحفظ آخر شكل للتنقل

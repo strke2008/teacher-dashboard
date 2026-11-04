@@ -79,7 +79,27 @@
     palette:'<path d="M12 3a9 9 0 0 0 0 18c1.5 0 2-1 2-2s-1-1.5-1-2.5 1-1.5 2-1.5h2a4 4 0 0 0 4-4c0-4.5-4-8-9-8z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="15" cy="7" r="1"/>',
     plus:'<path d="M12 5v14M5 12h14"/>',
     broom:'<path d="M14 3l-4 9M6 14h10l2 7H4z"/>',
-    phone:'<rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M11 18h2"/>'
+    phone:'<rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M11 18h2"/>',
+    /* توحيد الأيقونات: ما بقي إيموجي في الوسوم والتلميحات وأزرار البطاقات */
+    bandage:'<rect x="2.5" y="8.5" width="19" height="7" rx="3.5" transform="rotate(-45 12 12)"/><path d="M10 10h.01M14 14h.01M10 14h.01M14 10h.01"/>',
+    bookopen:'<path d="M2.5 5.5C5 4.5 8.5 4.5 12 6.5c3.5-2 7-2 9.5-1V19c-2.5-1-6-1-9.5 1-3.5-2-7-2-9.5-1z"/><path d="M12 6.5V20"/>',
+    flask:'<path d="M9 3h6M10 3v6L4.5 18.5A1.7 1.7 0 0 0 6 21h12a1.7 1.7 0 0 0 1.5-2.5L14 9V3"/><path d="M7.5 14h9"/>',
+    coin:'<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v9M9.5 9.5h3.75a1.75 1.75 0 0 1 0 3.5h-2.5a1.75 1.75 0 0 0 0 3.5h3.75"/>',
+    bulb:'<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/>',
+    cloud:'<path d="M7 18a4.5 4.5 0 0 1-.6-9A6 6 0 0 1 18 9.5a4.3 4.3 0 0 1-.5 8.5z"/>',
+    coffee:'<path d="M4 9h12v6a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z"/><path d="M16 10h1.5a2.5 2.5 0 0 1 0 5H16M8 3v3M12 3v3"/>',
+    leaf:'<path d="M5 19C5 10 10 5 20 4c-1 10-6 15-15 15z"/><path d="M5 19l8-8"/>',
+    walk:'<circle cx="13" cy="4.5" r="1.8"/><path d="M10 21l2-6 3 3v3M9 12l2-4.5 3 1.5 2 3M11 7.5l-3 2-1 3"/>',
+    belloff:'<path d="M6 16V11a6 6 0 0 1 9.5-4.9M18 11v5l1.5 2H8M10 21h4M3 3l18 18"/>',
+    cards:'<rect x="3" y="6" width="12" height="15" rx="2"/><path d="M9 3h10a2 2 0 0 1 2 2v12"/>',
+    timer:'<circle cx="12" cy="13.5" r="7.5"/><path d="M12 13.5V10M10 2.5h4M18.5 6.5l1.5-1.5"/>',
+    mosque:'<path d="M4 21V12a8 8 0 0 1 16 0v9z"/><path d="M12 4V2M9 21v-4a3 3 0 0 1 6 0v4"/>',
+    sparkle:'<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>',
+    dotg:'<circle cx="12" cy="12" r="5.5" fill="#22C55E" stroke="none"/>',
+    doty:'<circle cx="12" cy="12" r="5.5" fill="#EAB308" stroke="none"/>',
+    doto:'<circle cx="12" cy="12" r="5.5" fill="#F97316" stroke="none"/>',
+    dotr:'<circle cx="12" cy="12" r="5.5" fill="#EF4444" stroke="none"/>',
+    dotw:'<circle cx="12" cy="12" r="5"/>'
   };
   const E = {'🏠':'home','⌂':'home','📋':'clip','📁':'folder','📂':'folder','🗂️':'records','🗂':'records','🎮':'game','📚':'book','👥':'users','🩺':'steth','🎖️':'medal','🎖':'medal',
     '📝':'pen','✏️':'pen','✍️':'pen','🖨️':'printer','🖨':'printer','🧭':'compass','📑':'report','📄':'report','📊':'chart','📈':'trend','🏫':'school','🧾':'receipt','💬':'msg','🧱':'wall',
@@ -88,7 +108,10 @@
     '🌙':'moon','🙋':'user','🧰':'tools','🎯':'target','✅️':'check','🕘':'clock','☑️':'task','☑':'task','⛔':'ban','📌':'pin','🎓':'grad','🔗':'link','💾':'save','🤖':'bot','🔒':'lock','📱':'phone','👤':'user',
     '🏆':'trophy','👁':'eye','👁️':'eye','⬇️':'download','⬇':'download','📤':'upload','⚖️':'scale','⚖':'scale','🧠':'brain','📢':'mega','🏷️':'tag','🏷':'tag','🕐':'clock','🗑️':'trash','🗑':'trash',
     '🎁':'gift','🔐':'lock','📜':'report','🧹':'broom','🔑':'key','📒':'book','🆘':'alert','🚨':'alert','🔻':'down','🔺':'trend','📞':'call','🗳️':'task','🗳':'task','📎':'clipx','🛒':'cart',
-    '↩️':'undo','↩':'undo','🎨':'palette','👪':'users','➕':'plus','🔬':'target','💡':'star'};
+    '↩️':'undo','↩':'undo','🎨':'palette','👪':'users','➕':'plus','🔬':'flask','💡':'bulb',
+    '🩹':'bandage','📖':'bookopen','🧪':'flask','🪙':'coin','☁️':'cloud','☁':'cloud','☕':'coffee','🌿':'leaf','🚶':'walk','🔕':'belloff','🎴':'cards',
+    '⏱️':'timer','⏱':'timer','⏲️':'timer','⏲':'timer','⌛':'timer','⏳':'timer','🕌':'mosque','🌈':'sparkle','✨':'sparkle','❌':'x','✖️':'x','✉️':'mail','✉':'mail','📉':'down',
+    '🕓':'clock','🕒':'clock','🕑':'clock','🔘':'dotw','⚪':'dotw','🟢':'dotg','🟡':'doty','🟠':'doto','🔴':'dotr','📃':'report','🗒️':'report','🗒':'report','📆':'cal','🏁':'task'};
   /* في أزرار الرصد: ✋ تعني «لم يشارك» (لا «المشاركة») */
   const CHIP = {'✅':'check','✋':'minus','🚫':'ban','📗':'bookok','📕':'bookx','🕊️':'feather','🕊':'feather','🌟':'star','⚠️':'alert'};
   const svg = n => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${P[n]}</svg>`;
@@ -97,11 +120,14 @@
   window.icoFor = e => { const k = String(e || '').trim(); const n = k === '•••' ? 'more' : (E[k] || E[k.replace(/️/g, '')]); return n && P[n] ? svg(n) : ''; };
   /* «هيكل» الصفحات: الأزرار والعناوين والقوائم والوسوم — لا محتوى الطلاب ولا الرسائل ولا المتجر */
   const SEL = ['#simp-bottomnav .simp-bic', '.simp-chip', '.app-nav-icon', '.mnav-icon', '#fm-bot i', '.td-kpi span', '.td-task .td-ic', '.qr-ic', '.qr-s', '.askf-ic',
-    'button', 'summary', 'h1', 'h2', 'h3', 'h4', 'legend', 'label', '.chip', '.stat-icon', '.report-hub-icon', '.td-link', 'b', '.td-hero-t > b'].join(',');
+    'button', 'summary', 'h1', 'h2', 'h3', 'h4', 'legend', 'label', '.chip', '.stat-icon', '.report-hub-icon', '.td-link', 'b', '.td-hero-t > b',
+    /* توحيد كامل: الوسوم (نوع النشاط، منشور، تدريب…)، أيقونات البطاقات والملف، والتلميحات والحالات أول السطر */
+    '.pill', '.act-kind', '.a-icon', '.td-ic', '.pf-ti', '.par-ic', '.pf-pin', '.td-now', '.ct-today', '.td-empty', '.simp-grp-title', '.sc-brk', '.ni',
+    '.madb-pill', '.sale-status', '.exam-shop-status', '.thm-note', 'small', 'span', 'div.muted', '.sheet.muted', '.badge', '.tag', '.ann-hint'].join(',');
   const SKIP = '.nafs-ic, .nafs-q, .wall-post, .wall-card, .ask-msg, .askf-msg, .askf-thread, .msg-body, .store-item, .ms-prev, .m2-prev, .pm-card p, [contenteditable], textarea, [data-noico]';
   const LEAD = /^(\s*)(\p{Extended_Pictographic}️?(?:‍\p{Extended_Pictographic}️?)*|⌂|•••)\s*/u;
   function firstText(el){ const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT); let n = w.nextNode();
-    while (n) { if (n.nodeType === 1) { if (n.tagName === 'svg' || n.tagName === 'INPUT') return null; } else if (n.nodeValue.trim()) return n; n = w.nextNode(); } return null; }
+    while (n) { if (n.nodeType === 1) { if (n.tagName === 'svg') return null; } else if (n.nodeValue.trim()) return n; n = w.nextNode(); } return null; }   // (مربع اختيار قبل النص في label لا يمنع)
   function iconize(el, map){
     if (el.querySelector(':scope > svg.ico, :scope > * > svg.ico')) return;
     const t = firstText(el); if (!t) return; const m = LEAD.exec(t.nodeValue); if (!m) return;
@@ -111,9 +137,22 @@
     t.parentNode.insertBefore(ic, t); t.nodeValue = t.nodeValue.slice(m[0].length);
     if (t.nodeValue && !/^\s/.test(t.nodeValue) && !el.matches('.simp-bic,.app-nav-icon,.mnav-icon,#fm-bot i,.qr-ic,.qr-row .c')) t.nodeValue = ' ' + t.nodeValue;
   }
+  /* إيموجي في وسط السطر (مثل «0/3 · 📎 سُلّم» و«الفصل 1 · 🟢 الشراء متاح»): نصوص العنصر المباشرة فقط، والمعروف منها فقط */
+  const ANY = /(\p{Extended_Pictographic}️?)/u;
+  function inline(el){
+    for (const t of [...el.childNodes]) { if (t.nodeType !== 3 || !ANY.test(t.nodeValue)) continue;
+      const parts = t.nodeValue.split(/(\p{Extended_Pictographic}️?)/u); if (parts.length < 3) continue;
+      if (!parts.some((x, i) => i % 2 && (E[x] || E[x.replace(/️/g, '')]))) continue;
+      const frag = document.createDocumentFragment();
+      parts.forEach((x, i) => { const n = i % 2 ? (E[x] || E[x.replace(/️/g, '')]) : null;
+        if (n && P[n]) { const sp = document.createElement('span'); sp.innerHTML = svg(n); frag.appendChild(sp.firstChild); } else if (x) frag.appendChild(document.createTextNode(x)); });
+      el.replaceChild(frag, t); }
+  }
   /* أول مرة: مسح كامل. بعدها: ما أُضيف أو تغيّر فقط (لا مسح للصفحة كلها مع كل تغيير) */
-  const one = el => { try { if (el.matches('.qr-row .c')) iconize(el, CHIP); else if (el.matches(SEL) && !el.closest(SKIP)) iconize(el, E); } catch (e) {} };
-  const scan = root => { if (root.nodeType !== 1) return; one(root); root.querySelectorAll(SEL + ',.qr-row .c').forEach(one); };
+  /* القائمة المنسدلة (select) لا تعرض رسمًا أصلًا: يُحذف الإيموجي من أول نص الخيار فقط (value لا تتغير) */
+  const opt = el => { const t = el.firstChild; if (!t || t.nodeType !== 3) return; const m = LEAD.exec(t.nodeValue); if (!m || m[2] === '•••') return; if (!el.hasAttribute('data-emo')) el.setAttribute('data-emo', m[2]); t.nodeValue = m[1] + t.nodeValue.slice(m[0].length); };
+  const one = el => { try { if (el.tagName === 'OPTION') { if (!el.closest(SKIP)) opt(el); } else if (el.matches('.qr-row .c')) iconize(el, CHIP); else if (el.matches(SEL) && !el.closest(SKIP)) { iconize(el, E); inline(el); } } catch (e) {} };
+  const scan = root => { if (root.nodeType !== 1) return; one(root); root.querySelectorAll(SEL + ',.qr-row .c,option').forEach(one); };
   let q = 0; const pend = new Set();
   function flush(){ q = 0; const L = [...pend]; pend.clear(); for (const n of L) if (n.isConnected) scan(n); }
   new MutationObserver(recs => { for (const r of recs) { if (r.type === 'childList') { r.addedNodes.forEach(n => { if (n.nodeType === 1) pend.add(n); }); if (r.target.nodeType === 1) { const c = r.target.closest(SEL); if (c) pend.add(c); } } }   // (target: نص تغيّر داخل زر/عنوان)
