@@ -10351,7 +10351,7 @@ function renderStudentsCenter(quiet){
     STUDENT_CENTER_SELECTED=null;
   }
   if(STUDENT_CENTER_SELECTED && list.some(s=>String(s.id)===String(STUDENT_CENTER_SELECTED))){
-    renderStudentCenterDetail(quiet?0:1);   // البحث والفرز لا يعيدان رسم الملف المفتوح
+    renderStudentCenterDetail(quiet?0:'auto');   // البحث والفرز لا يعيدان رسم الملف المفتوح، والتحديثات في الخلفية فقط إن تغيّرت بيانات هذا الطالب
   }else if(list.length){
     STUDENT_CENTER_SELECTED=list[0].id;
     renderStudentCenterDetail(1);
@@ -10656,11 +10656,22 @@ function stcWarm(){   // يُنادى أثناء تحميل هذا الملف ن
     try{ if(typeof ctEnsurePrev==='function') await ctEnsurePrev(); }catch(e){} };
   setTimeout(()=>{ if('requestIdleCallback' in window) requestIdleCallback(go,{timeout:3000}); else go(); },1500);
 }
+/* بصمة ما يعرضه ملف الطالب: سجله، ودرجاته (الحالية والسابقة)، وتسليماته، وبيانات الفصل */
+function stcSig(s){
+  try{ const sid=String(s.id), J=x=>JSON.stringify(x===undefined?null:x);
+    const subs=(HW||[]).reduce((a,h)=>{ const v=h&&h.subs&&(h.subs[sid]||h.subs[String(s.name||'')]); return v?a+(h.id||'')+':'+(v.at||v.fat||1)+';':a; },'');
+    return [J(s), J(CT_GRADES&&CT_GRADES.map&&CT_GRADES.map[sid]), J(typeof CT_PREV!=='undefined'&&CT_PREV&&CT_PREV.map&&CT_PREV.map[sid]), subs, (CT_DATA&&CT_DATA.savedAt)||0, window._ctPfSub||''].join('\u0001');
+  }catch(e){ return String(Math.random()); }
+}
 async function renderStudentCenterDetail(force){
   const box=document.getElementById('student-center-detail'), s=byId(STUDENT_CENTER_SELECTED);
   if(!box||!s) return;
   if(!stcActive()){ STC_SHOWN=''; stcWarm(); return; }   // صفحة الطلاب مخفية: لا يُرسم الملف — تُجهَّز بياناته فقط في الخلفية
+  // تحديث في الخلفية (مزامنة المتجر/البيانات/القائمة): كان يعيد رسم الملف المفتوح كاملًا كل مرة فيُرى «يتحمّل من جديد».
+  // الآن يُعاد رسمه فقط إن تغيّرت بيانات هذا الطالب نفسه
+  if(force==='auto'){ force=(STC_SHOWN===String(s.id)&&box.querySelector('.stc-file')&&box._stcSig===stcSig(s))?0:1; }
   if(!force && STC_SHOWN===String(s.id) && box.querySelector('.stc-file')) return;
+  box._stcSig=stcSig(s);
   const seq=STC_SEQ=(STC_SEQ||0)+1; STC_SHOWN=String(s.id);
   if(String(window._ctPfSid)!==String(s.id)) window._ctPfSub=window._ctPfSub||'overview';
   window._ctPfSid=String(s.id); window._ctPfCls=String(s.cls||'');

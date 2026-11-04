@@ -3,6 +3,26 @@
 <html dir="rtl" lang="ar">
 <head>
 <script>
+/* 🎨 قبل أول رسم: ألوان الثيم المحفوظ فورًا، وشاشة بداية بالتصميم الجديد حتى تكتمل الواجهة
+   (كان الشكل القديم يظهر ثوانٍ على الجوال إلى أن تُحمَّل theme-picker.js والأيقونات والشريط السفلي) */
+(function(){var d=document.documentElement,M={'--paper':'#F5F7F9','--paper-2':'#FFFFFF','--ink':'#0F1A24','--ink-soft':'#6B7785','--ui-muted':'#6B7785','--rule':'#E3E8ED','--ui-bg':'#F5F7F9','--ui-surface':'#FFFFFF','--ui-surface-2':'#F5F7F9','--ui-border':'#E8ECF0','--ui-border-strong':'#D5DCE3','--ui-accent':'#0F9D74','--ui-accent-soft':'#E7F6F0','--app-nav-bg':'#FFFFFF','--app-nav-text':'#0F1A24','--app-nav-muted':'#6B7785','--app-nav-active':'#E7F6F0','--app-nav-active-text':'#0B7A5A','--card':'#FFFFFF','--m-hero':'#0F9D74','--m-hero-ink':'#FFFFFF'},AT=Date.parse('2026-11-03T19:00:00Z'),v=M,t=null;
+  try{t=JSON.parse(localStorage.getItem('oasis_theme_v1')||'null')}catch(e){}
+  if(t&&t.vars&&t.name!=='night'&&(t.name==='custom'||t.name==='modern'||(Number(t.at)||0)>=AT))v=t.vars;
+  for(var k in M)if(!(k in v))d.style.setProperty(k,M[k]);for(var k2 in v)if(/^--[a-z0-9-]+$/.test(k2))d.style.setProperty(k2,v[k2]);
+  try{d.dataset.uiTheme=localStorage.getItem('hwapp_ui_theme_v1')==='dark'?'dark':'light'}catch(e){}
+  d.classList.add('boot');var off=function(){d.classList.remove('boot')},t0=Date.now();
+  setTimeout(off,12000);   // أمان: لا تبقى شاشة البداية أبدًا
+  document.addEventListener('DOMContentLoaded',function(){(function w(){ if(document.getElementById('simp-bottomnav')||Date.now()-t0>12000) requestAnimationFrame(function(){requestAnimationFrame(off)}); else setTimeout(w,60); })();});
+})();
+</script>
+<style>
+html.boot body>*{visibility:hidden!important}
+html.boot body{background:var(--paper,#F5F7F9)!important}
+html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;height:64px;border-radius:18px;background:var(--ui-accent,#0F9D74) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='7' height='7' rx='1.5'/%3E%3Crect x='14' y='3' width='7' height='7' rx='1.5'/%3E%3Crect x='3' y='14' width='7' height='7' rx='1.5'/%3E%3Crect x='14' y='14' width='7' height='7' rx='1.5'/%3E%3C/svg%3E") center/34px no-repeat;box-shadow:0 10px 30px rgba(15,157,116,.25);animation:bootp 1.2s ease-in-out infinite;visibility:visible!important;z-index:2147483647}
+@keyframes bootp{50%{transform:scale(.92);opacity:.85}}
+@media (prefers-reduced-motion:reduce){html.boot body::before{animation:none}}
+</style>
+<script>
 /* 🔐 دخول المعلم: (1) كلمة السر لا تُكتب في الروابط — تُرسل في ترويسة مخفية. (2) جلسة لكل جهاز: أول فتح بعد التحديث
    يستبدل كلمة السر المحفوظة على هذا الجهاز بجلسة خاصة به (بلا إعادة دخول)، تُلغى وحدها من «الأجهزة» في الإعدادات.
    لا شيء يتغير قبل أن يؤكد الخادم دعمه (/version)، فترتيب الرفع لا يكسر شيئًا. صفحات الطلاب لا تحمل هذا الملف. */
@@ -75,7 +95,7 @@
 <link rel="stylesheet" href="app.css?v=5b26a9bf">
 <script src="js/00-fetch-dedupe-js.js?v=e77498d1" defer></script>
 <script src="js/01-right-sidebar-navigation-js.js?v=41ea29b3" defer></script>
-<script src="js/02.js?v=7f552daa" defer></script>
+<script src="js/02.js?v=52a5bf82" defer></script>
 <script src="js/03-projects-students-logic-v13.js?v=d4950f64" defer></script>
 <script src="js/04.js?v=5a7c663e" defer></script>
 <script src="js/05.js?v=a7c074c3" defer></script>

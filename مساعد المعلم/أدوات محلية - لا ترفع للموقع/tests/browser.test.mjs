@@ -209,6 +209,14 @@ export default async function run() {
           try { await p.waitForFunction(() => { const f = [...document.querySelectorAll('#student-center-detail .stc-file')].pop(); const e = f && f.querySelector('#ct-pf'); return f && f.style.display !== 'none' && e && e.innerText.trim().length > 20; }, null, { timeout: 6000 }); }
           catch { empty.push(sub); } }
         eq(empty, [], 'تبويبات فارغة'); await p.evaluate(() => { window._ctPfSub = 'overview'; renderStudentCenterDetail(1); }); eq(errs, [], 'أخطاء'); });
+      await S.t('ملف الطالب: المزامنة في الخلفية لا تعيد رسمه إلا إن تغيّرت بيانات الطالب نفسه', async () => {
+        await p.evaluate(() => { window._ctPfSub = 'period'; renderStudentCenterDetail(1); }); await pfReady(); await p.waitForTimeout(800);
+        const mark = () => p.evaluate(() => { const f = [...document.querySelectorAll('#student-center-detail .stc-file')].pop(); return !!(f && f.dataset.mk); });
+        await p.evaluate(() => { [...document.querySelectorAll('#student-center-detail .stc-file')].pop().dataset.mk = '1'; renderStudentsCenter(); renderStudentsCenter(); });
+        await p.waitForTimeout(1200); eq(await mark(), true, 'أُعيد رسم الملف بلا تغيير');
+        await p.evaluate(() => { const s = byId(STUDENT_CENTER_SELECTED); s.points = (Number(s.points) || 0) + 7; renderStudentsCenter(); });
+        await p.waitForFunction(() => { const f = [...document.querySelectorAll('#student-center-detail .stc-file')].pop(); return f && !f.dataset.mk && f.style.display !== 'none'; }, null, { timeout: 15000 });
+        await p.evaluate(() => { window._ctPfSub = 'overview'; renderStudentCenterDetail(1); }); eq(errs, [], 'أخطاء'); });
       await S.t('ملف الطالب: تعذّر الخادم يُعاد تلقائيًا ويختفي التحذير عند نجاحه', async () => {
         await p.evaluate(() => goTab('dashboard')); fails = 1; await p.evaluate(async () => { await caches.delete('ct-grades-v1'); CT_GRADES = null; CT_PREV = null; STC_SHOWN = ''; REPORT_BUNDLE_CACHE.clear(); COMP_GRADES_CACHE.clear(); goTab('students'); });   // بلا نسخة جهاز ولا ذاكرة: فشل حقيقي
         await p.waitForFunction(() => document.querySelector('#student-center-detail .stc-file:not([style*="none"]) .ct-warn'), null, { timeout: 30000 });
@@ -270,6 +278,14 @@ export default async function run() {
         const nb2 = await p.evaluate(() => [...document.querySelectorAll('#simp-bottomnav .simp-bic')].map(e => !!e.querySelector('svg.ico'))); ok(nb2.length >= 4 && nb2.every(Boolean), 'اختفت بعد التنقل: ' + JSON.stringify(nb2));
         await p.evaluate(() => { window._ctRcCls = 'أول 1'; window._ctRcClsUser = 1; window._ctRcView = 'day'; ctGo('records'); }); await p.waitForSelector('#qr-root .qr-row .c svg.ico', { timeout: 15000 });
         eq(await p.$$eval('#qr-root .qr-row[data-sid=s1] .c', b => b.map(x => x.textContent.trim())), ['', '', ''], 'بقي إيموجي في أزرار الرصد'); });
+      await S.t('الفتح: ألوان الثيم قبل أول رسم، وشاشة البداية تختفي بعد اكتمال الواجهة', async () => {
+        await p.goto(base + '/teacher-dashboard/'); await p.evaluate(t => { localStorage.setItem('hwapp_tok_v1', t); localStorage.setItem('oasis_theme_v1', JSON.stringify({ name: 'custom', at: Date.now(), vars: { '--app-nav-bg': '#224466', '--paper': '#FAF0E6' } })); }, TOKEN);
+        await p.route('**/theme-picker.js*', async r => { await new Promise(x => setTimeout(x, 2500)); try { await r.continue(); } catch {} });
+        await p.reload({ waitUntil: 'commit' }); await p.waitForSelector('body', { state: 'attached' });
+        const early = await p.evaluate(() => [document.documentElement.classList.contains('boot'), document.documentElement.style.getPropertyValue('--app-nav-bg')]);
+        eq(early, [true, '#224466'], 'قبل تحميل theme-picker');
+        await p.waitForFunction(() => !document.documentElement.classList.contains('boot'), null, { timeout: 15000 }); await p.unroute('**/theme-picker.js*');
+        ok(await p.evaluate(() => !!document.getElementById('simp-bottomnav')), 'الشريط السفلي لم يكتمل عند إخفاء شاشة البداية'); eq(errs, [], 'أخطاء'); });
       await S.t('الثيم: بلا اختيار سابق ⇒ «عصري»', async () => { eq((await navBg(null))[1], '#FFFFFF'); });
       await S.t('الثيم: ثيم جاهز اختير قبل التصميم الجديد ينتقل مرة واحدة إلى «عصري»', async () => { eq((await navBg({ name: 'oasis', at: 1700000000000, vars: { '--app-nav-bg': '#123332' } }))[0], 'modern'); });
       await S.t('الثيم: ثيم جاهز اختير بعده يبقى، والألوان المخصصة تبقى', async () => {
