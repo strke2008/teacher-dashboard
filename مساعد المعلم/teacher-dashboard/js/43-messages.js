@@ -457,7 +457,7 @@ document.addEventListener('click', e => {
   const p = (live.id || '').replace(/-live$/, ''), E = VB_ENGINES[p]; if(!E) return;
   askConfirm(VB_VER + (VB_IOS?' · iOS':'') + '\n' + (E.log.join('\n') || 'لا أحداث بعد'), { title:'🩺 أحداث الميكروفون', yes:'حسنًا', no:null }).then(()=>{});
 });
-function copyText(t){if(navigator.clipboard&&window.isSecureContext)return navigator.clipboard.writeText(t);const ta=document.createElement('textarea');ta.value=t;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();try{document.execCommand('copy')}catch(e){}ta.remove();return Promise.resolve()}
+function copyText(t){if(navigator.clipboard&&window.isSecureContext)return navigator.clipboard.writeText(t);const ta=document.createElement('textarea');ta.value=t;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(tpxOwn(ta));ta.select();try{document.execCommand('copy')}catch(e){}ta.remove();return Promise.resolve()}
 function copyCustomMessage(){const s=studentForMessage();if(!s){toast('اختر طالبًا أولًا');return}const t=($('custom-msg').value||'').replaceAll('{الطالب}',firstName(s.name)).replaceAll('{الاسم الكامل}',s.name).replaceAll('{الفصل}',s.cls||'بدون فصل');if(!t.trim()){toast('اكتب الرسالة أولًا');return}copyText(t).then(()=>{$('message-preview').textContent=t;toast('تم نسخ الرسالة')}).catch(()=>toast('تعذر النسخ'))}
 const POS_MSGS=[['🌟 مشاركة إيجابية','participation'],['📚 إنجاز الواجب','homework'],['🏆 إنجاز متميز','achievement'],['🌱 تحسن ملحوظ','improvement'],['🤝 تعاون والتزام','cooperation'],['🧪 تميز في العلوم','science']];
 const NEG_MSGS=[['⚠️ ملاحظة سلوكية','behavior'],['📚 عدم إنجاز الواجب','homework_neg'],['⏰ تأخر','late'],['📝 يحتاج متابعة دراسية','support'],['🎯 يحتاج تعزيز مهارة','skill']];
@@ -1050,7 +1050,7 @@ function tpx4SheetsHTML(){ return `
 <div class="bh-mbar tpx" id="ms-mbar" hidden><button type="button" class="go" id="ms-mgo"></button><button type="button" class="x" id="ms-mx">إلغاء</button></div>`; }
 function tpx4Sheets(){
   if (document.getElementById('ms-sheet')) return;
-  const w = document.createElement('div'); w.innerHTML = tpx4SheetsHTML(); [...w.children].forEach(c => document.body.appendChild(c));
+  const w = document.createElement('div'); w.innerHTML = tpx4SheetsHTML(); [...w.children].forEach(c => document.body.appendChild(tpxOwn(c)));
   $('ms-chips').addEventListener('click', e => { const c = e.target.closest('[data-msk]'); if (!c) return; MS_K = c.dataset.msk; msSheet(); });
   document.querySelectorAll('[data-ms-tab]').forEach(b => b.onclick = () => { MS_TAB = b.dataset.msTab; if (MS_TAB !== 'custom' && !(MS_TAB === 'pos' ? POS_MSGS : NEG_MSGS).some(([, k]) => k === MS_K)) MS_K = ''; msSheet(); if (MS_TAB === 'custom') $('custom-msg').focus(); });
   $('custom-msg').addEventListener('input', () => msSheet());

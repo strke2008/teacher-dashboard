@@ -755,7 +755,7 @@ function tpx3SheetsHTML(){ return `
 </div>`; }
 function tpx3Sheets(){
   if (document.getElementById('sc-set')) return;
-  const w = document.createElement('div'); w.innerHTML = tpx3SheetsHTML(); [...w.children].forEach(c => document.body.appendChild(c));
+  const w = document.createElement('div'); w.innerHTML = tpx3SheetsHTML(); [...w.children].forEach(c => document.body.appendChild(tpxOwn(c)));
   document.querySelectorAll('[data-sc-close]').forEach(b => b.onclick = () => scSet(false));
   document.querySelectorAll('[data-sc-pclose]').forEach(b => b.onclick = () => scPickClose());
   $('sc-pick-l').addEventListener('click', e => { const b = e.target.closest('[data-sc-set]'); if (!b || !SC_PICK) return; const { dy, n } = SC_PICK; scPickClose(); schSetCell(dy, n, b.dataset.scSet);

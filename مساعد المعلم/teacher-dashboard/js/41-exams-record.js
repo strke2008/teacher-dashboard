@@ -480,7 +480,7 @@ async function examCoversPick(id){
     <p>الطالب الذي يحصل على أقل من 60% في هذا الاختبار يحصل تلقائيًا على مهمة علاجية من أخطائه في هذه الأنشطة.</p>
     <div class="cov-list">${rows.map(a=>`<label><input type="checkbox" value="${esc(a.id)}" ${sel.has(a.id)?'checked':''}> <span>${esc(a.title)}${a.cls?` <small style="opacity:.7">— ${esc(a.cls)}</small>`:''}</span></label>`).join('')}</div>
     <div class="cov-foot"><button class="btn" type="button" data-cov-save>حفظ</button><button class="btn ghost" type="button" data-cov-x>إلغاء</button></div></div>`;
-  document.body.appendChild(ov);
+  document.body.appendChild(tpxOwn(ov));
   const close=()=>ov.remove();
   ov.addEventListener('click',e=>{if(e.target===ov||e.target.closest('[data-cov-x]'))close()});
   ov.querySelector('[data-cov-save]').onclick=async()=>{
@@ -540,7 +540,7 @@ async function exPapersLoad(test){
 async function exPaperOpen(sid){
   const x=EXPAP.sids.get(String(sid)); if(!x) return;
   const v=document.createElement('div'); v.className='omr-full'; v.onclick=e=>{ if(e.target===v||e.target.closest('[data-x]')) v.remove(); };
-  v.innerHTML='<span>جارٍ فتح الورقة…</span>'; document.body.appendChild(v);
+  v.innerHTML='<span>جارٍ فتح الورقة…</span>'; document.body.appendChild(tpxOwn(v));
   try{ const j=await (await fetch(`${ctApi()}/omr/papers/img?t=${encodeURIComponent(getTok())}&test=${encodeURIComponent(EXPAP.test)}&sid=${encodeURIComponent(sid)}`)).json(); if(!j.ok) throw 0;
     const on=EXPAP.pub||EXPAP.pubCls.includes(x.cls), diff=x.now!=null&&Math.abs(x.now-x.score)>1e-9;
     v.innerHTML=`<img src="${j.img}" alt="ورقة ${esc(x.name)}"><span>${esc(x.name)} · الختم ${x.score} / ${x.max}${diff?` · ⚠️ المرصودة الآن ${x.now}`:''} · ${on?'📢 منشورة لولي الأمر':'🔒 لم تُنشر بعد'}</span>
@@ -557,7 +557,7 @@ async function exPaperOpen(sid){
 
 /* ═══ 🔑 مفتاح الإجابة وإعادة التصحيح · 📊 تحليل الأسئلة — للأوراق المصححة آليًا في الاختبار الظاهر ═══ */
 const EXK = { test:'', papers:[], tpls:{}, sel:'', draft:{}, open:-1 };
-function exPanel(title, sub){ let v = $('exa-panel'); if(!v){ v = document.createElement('div'); v.id = 'exa-panel'; v.className = 'exa-panel'; document.body.appendChild(v); }
+function exPanel(title, sub){ let v = $('exa-panel'); if(!v){ v = document.createElement('div'); v.id = 'exa-panel'; v.className = 'exa-panel'; document.body.appendChild(tpxOwn(v)); }
   v.innerHTML = `<div class="exa-h"><div><b>${title}</b><small>${sub || ''}</small></div><button type="button" class="exa-x" onclick="exPanelClose()">إغلاق</button></div><div class="exa-b" id="exa-b"><p class="exa-note">جارٍ التحميل…</p></div>`;
   v.classList.add('on'); document.body.style.overflow = 'hidden'; return $('exa-b'); }
 function exPanelClose(){ const v = $('exa-panel'); if(v) v.classList.remove('on'); document.body.style.overflow = ''; }
@@ -716,7 +716,7 @@ function exKbEl(){let k=$('ex-kb');if(k)return k;k=document.createElement('div')
   <div class="exk-d">${[1,2,3,4,5,6,7,8,9,0].map(n=>`<button type="button" data-k="${n}">${n}</button>`).join('')}</div>
   <div class="exk-e"><button type="button" data-k=".">.</button><button type="button" data-k="del" aria-label="مسح">⌫</button><button type="button" class="ab" data-k="abs">غائب</button><button type="button" class="nx" data-k="next" id="exk-next">التالي ⬇️</button></div>`;
   k.addEventListener('click',e=>{const b=e.target.closest('[data-k]');if(b)exKbKey(b.dataset.k)});
-  document.body.appendChild(k);return k;}
+  document.body.appendChild(tpxOwn(k));return k;}
 function exRowsSids(){return [...document.querySelectorAll('#exam-list [data-ex-row]')].map(x=>x.dataset.exRow);}
 function exKbOpen(sid){
   const t=exCurTest();if(!t||academicClosed())return;
@@ -1400,7 +1400,7 @@ async function omrOpen(){
   document.getElementById('omr-sheet')?.remove();
   const el = document.createElement('div'); el.id = 'omr-sheet'; el.className = 'omr-sheet';
   el.innerHTML = `<div class="omr-top"><button class="omr-x" onclick="omrClose()" aria-label="إغلاق">✕</button><b>📷 التصحيح الآلي</b><span></span></div><div class="omr-body" id="omr-body"><p class="omr-note">جارٍ جلب الاختبارات…</p></div>`;
-  document.body.appendChild(el); document.body.style.overflow='hidden';
+  document.body.appendChild(tpxOwn(el)); document.body.style.overflow='hidden';
   let list_ = [];
   try{ const j = await (await fetch(omrApi('/omr/list?t='+encodeURIComponent(getTok())))).json(); list_ = (j.templates||[]).filter(t => !t.hidden); OMRUI.cfg = j.settings || {}; }catch(e){}   // المخفية من «إعدادات التصحيح الآلي» في اللوحة لا تظهر
   const tests = examBook().tests;
@@ -2144,7 +2144,7 @@ function omrRowCrop(box, src, H, fs, a, qi){
       x.restore(); oy += q.h + gap;
     });
     box.innerHTML = ''; box.style.height = ''; box.appendChild(cv);
-    box.onclick = () => { const o = document.createElement('div'); o.className = 'omr-full'; o.onclick = () => o.remove(); o.innerHTML = `<img src="${cv.toDataURL('image/jpeg', .9)}" alt=""><span>اضغط للإغلاق</span>`; document.body.appendChild(o); };
+    box.onclick = () => { const o = document.createElement('div'); o.className = 'omr-full'; o.onclick = () => o.remove(); o.innerHTML = `<img src="${cv.toDataURL('image/jpeg', .9)}" alt=""><span>اضغط للإغلاق</span>`; document.body.appendChild(tpxOwn(o)); };
   };
   im.src = src;
 }
@@ -2385,7 +2385,7 @@ function omrBatchCardDraw(sh, id = 'omr-bimg'){
 function omrBatchCardFull(id = 'omr-bimg'){
   const cv = $(id); if(!cv || !cv.width) return;
   const o = document.createElement('div'); o.className = 'omr-full'; o.onclick = () => o.remove();
-  o.innerHTML = `<img src="${cv.toDataURL('image/jpeg', 0.85)}" alt=""><span>اضغط للإغلاق</span>`; document.body.appendChild(o);
+  o.innerHTML = `<img src="${cv.toDataURL('image/jpeg', 0.85)}" alt=""><span>اضغط للإغلاق</span>`; document.body.appendChild(tpxOwn(o));
 }
 async function omrBatchUndo(id){
   OMRUI.sheets = OMRUI.sheets.filter(x => x.id !== id); try{ OMRDB.del(id); }catch(e){}
@@ -2680,7 +2680,7 @@ function omrPageBlank(id, pg){ const s = OMRUI.sheets.find(x => x.id === id); if
 function omrSheetView(id){
   const s = OMRUI.sheets.find(x => x.id === id); if(!s) return;
   const o = document.createElement('div'); o.className = 'omr-full'; o.onclick = () => o.remove();
-  o.innerHTML = `<img src="${s.img}" alt=""><span>اضغط للإغلاق</span>`; document.body.appendChild(o);
+  o.innerHTML = `<img src="${s.img}" alt=""><span>اضغط للإغلاق</span>`; document.body.appendChild(tpxOwn(o));
 }
 async function omrSheetDelete(id){
   if(!(await askConfirm('حذف هذه الورقة من الدفعة؟', { title:'حذف الورقة', yes:'احذف', no:'إلغاء' }))) return;

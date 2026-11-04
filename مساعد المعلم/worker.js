@@ -641,13 +641,28 @@ async function omrPapersRepair(env, idx) {
 }
 // النشر لكل الطلاب (pub) أو لفصول محددة (pubCls)
 const omrPubFor = (e, cls) => !!(e && (e.pub || (Array.isArray(e.pubCls) && e.pubCls.includes(String(cls || '')))));
+/* 🗑️ اختبار حذفه المعلم من دفتر الاختبارات (delTests) تختفي أوراقه الممسوحة من ملف الطالب وبوابته وصفحة ولي الأمر —
+   كانت تبقى لمن مُسحت ورقته فقط (فيظهر الاختبار المحذوف «لبعض الطلاب»). الأوراق نفسها لا تُمسح: لو أُعيد الاختبار تعود. */
+async function examDeletedIds(env, data) {
+  const out = new Set();
+  try { const d = data || await loadClassroom(env), books = (d && d.examBooks) || {};
+    for (const sm of Object.keys(books)) for (const pr of Object.keys(books[sm] || {})) {
+      const bk = books[sm][pr]; if (!bk) continue;
+      const live = new Set((Array.isArray(bk.tests) ? bk.tests : []).map(t => t && String(t.id)));
+      for (const x of Array.isArray(bk.delTests) ? bk.delTests : []) if (x && x.id && !live.has(String(x.id))) out.add(String(x.id)); } } catch {}
+  // اختبار بالمعرّف نفسه حيّ في دفتر آخر لا يُخفى
+  try { const d = data || await loadClassroom(env), books = (d && d.examBooks) || {};
+    for (const sm of Object.keys(books)) for (const pr of Object.keys(books[sm] || {})) for (const t of ((books[sm][pr] || {}).tests || [])) if (t && out.has(String(t.id))) out.delete(String(t.id)); } catch {}
+  return out;
+}
 async function omrPapersOf(env, sid, cls) {
-  const idx = await omrPapersIdx(env);
-  return Object.entries(idx).filter(([, v]) => omrPubFor(v, cls) && (v.sids || []).includes(String(sid))).map(([test, v]) => ({ test, title: v.title }));
+  const [idx, del] = await Promise.all([omrPapersIdx(env), examDeletedIds(env)]);
+  return Object.entries(idx).filter(([test, v]) => !del.has(test) && omrPubFor(v, cls) && (v.sids || []).includes(String(sid))).map(([test, v]) => ({ test, title: v.title }));
 }
 async function omrPaperRead(env, sid, test, cls) {
   const t = String(test || ''), idx = await omrPapersIdx(env), e = idx[t];
   if (!e || !omrPubFor(e, cls) || !(e.sids || []).includes(String(sid))) return { ok: false, error: 'not_published' };
+  if ((await examDeletedIds(env)).has(t)) return { ok: false, error: 'not_published' };
   let r = null; try { r = JSON.parse(await env.HW.get(`omrp:${sid}:${t}`) || 'null'); } catch {}
   if (!r) return { ok: false, error: 'notfound' };
   return { ok: true, paper: { title: r.title, score: r.score, max: r.max, marks: r.marks, img: r.img, at: r.at, ...(e.key ? { keyBoxes: r.keyBoxes } : {}) } };
@@ -6526,7 +6541,9 @@ export default {
         if (sub) done.push({ t: String(h.title || '').slice(0, 80), at: Number(sub.at) || 0, c: Number(sub.correct) || 0, n: Number(sub.total) || 0 });
         else missing.push({ t: String(h.title || '').slice(0, 80), due: String(h.due || ''), late: !!(h.due && h.due < today) }); }
       const readJ = async k => { try { return JSON.parse(await env.HW.get(k) || 'null'); } catch { return null; } };
-      const reports = (await Promise.all(((srIdx) || []).slice(0, 4).map(x => readJ(`srep:${x.semester}:${x.period}:${sid}`)))).filter(Boolean);
+      // نفس التقارير الحيّة التي يراها الطالب (كانت لقطة لحظة الإرسال: اختبار حُذف بعده يبقى ظاهرًا وتنقص درجته)
+      const reports0 = (await Promise.all(((srIdx) || []).slice(0, 4).map(x => readJ(`srep:${x.semester}:${x.period}:${sid}`)))).filter(Boolean);
+      const reports = await srepLiveReports(env, st, reports0).catch(() => reports0);
       reports.sort((a, c) => (c.semester - a.semester) || (c.period - a.period));
       let weekly = null; try { const ms = msgs0 || await readMessages(env, { id: sid, name: st.name }); const w = ms.filter(m => m && m.type === 'weekly').sort((a, c) => String(c.createdAt).localeCompare(String(a.createdAt)))[0];
         if (w) { const i = String(w.body || '').indexOf('⟨WK⟩'); weekly = { at: w.createdAt, text: (i < 0 ? w.body : w.body.slice(0, i)).trim().slice(0, 1200), d: i < 0 ? null : (() => { try { return JSON.parse(w.body.slice(i + 4)); } catch { return null; } })() }; } } catch {}
@@ -7744,10 +7761,10 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       // 👤 أوراق طالب واحد (ملف الطالب في لوحة التحكم): كل اختباراته الممسوحة، منشورة له أم لا
       if (url.pathname === '/omr/papers/of') {
         const sid = String(url.searchParams.get('sid') || '').slice(0, 60); if (!sid) return json({ ok: true, papers: [] });
-        const [idx, roster] = await Promise.all([omrPapersRepair(env, await omrPapersIdx(env)), loadRoster(env).catch(() => [])]);
+        const [idx, roster, del] = await Promise.all([omrPapersRepair(env, await omrPapersIdx(env)), loadRoster(env).catch(() => []), examDeletedIds(env)]);
         const me = roster.find(x => String(x.id) === sid), cls = me ? String(me.cls || '') : '';
         const out = [];
-        for (const [test, e] of Object.entries(idx)) { if (!(e.sids || []).includes(sid)) continue;
+        for (const [test, e] of Object.entries(idx)) { if (!(e.sids || []).includes(sid) || del.has(test)) continue;
           let r = null; try { r = JSON.parse(await env.HW.get(`omrp:${sid}:${test}`) || 'null'); } catch {}
           if (r) out.push({ test, title: e.title || r.title, score: r.score, max: r.max, sem: e.sem || r.sem || 1, at: r.at || e.at || 0, pub: omrPubFor(e, cls),
             right: (r.marks || []).filter(m => m === 1).length, n: (r.marks || []).length }); }

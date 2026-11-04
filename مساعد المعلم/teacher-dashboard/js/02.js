@@ -1113,6 +1113,9 @@ function ctExamSP(){ const a=ctSemActive(), sem=Number(window._ctExSem||a.sem)==
 function ctExMode(){ const v=window._ctExMode||(()=>{ try{ return localStorage.getItem('ct_ex_mode_v1'); }catch(e){ return ''; } })(); return v==='table'||v==='rec'?v:(innerWidth<900?'rec':'table'); }
 /* ملف الرصد كبير (محرّك الكاميرا): يُحمَّل عند أول حاجة فقط، بنسخته من index.html */
 const TPX_LOADS={};
+/* نافذة تضيفها الصفحات المنقولة (الاختبارات/الجدول/الرسائل) خارج منطقتها (body): تنسيقاتها محصورة في .tpx،
+   فبدون هذه العلامة كانت تُضاف بلا تنسيق (مثل «عرض الورقة المصححة» لا تظهر). .tpx نفسها متغيرات ألوان فقط */
+function tpxOwn(el){ try{ if(el&&el.classList) el.classList.add('tpx'); }catch(e){} return el; }
 function tpxLoadPart(js,css,flag){
   if(window[flag]) return Promise.resolve();
   if(TPX_LOADS[js]) return TPX_LOADS[js];

@@ -82,6 +82,16 @@ export default async function run() {
     const g = await call('/grades?t=' + TOKEN + '&semester=1&period=1'); ok(g.j.students.find(x => x.id === 's1').exam.measured, 'الدرجات لا تحسب درجة الورقة');
     ok(!JSON.stringify(JSON.parse(await env.HW.get('teacher:classroom')).examBooks).includes('fromPaper'), 'كُتب في التخزين');
   });
+  await S.t('اختبار محذوف من الدفتر: تختفي ورقته من ملف الطالب ولا تُفتح، وتعود إن أُعيد', async () => {
+    const before = (await call('/omr/papers/of?sid=s1&t=' + TOKEN)).j.papers.map(p => p.test); ok(before.includes('pz3'), 'قبل الحذف');
+    const cr = JSON.parse(await env.HW.get('teacher:classroom'));
+    const bk = cr.examBooks[1][1]; bk.tests = bk.tests.filter(t => t.id !== 'pz3'); bk.delTests = [{ id: 'pz3', at: Date.now() }];
+    await env.HW.put('teacher:classroom', JSON.stringify(cr));
+    const after = (await call('/omr/papers/of?sid=s1&t=' + TOKEN)).j.papers.map(p => p.test);
+    ok(!after.includes('pz3') && after.includes('pz1'), 'بعد الحذف: ' + after);
+    bk.tests.push({ id: 'pz3', title: 'ورقي 3', max: 10 }); await env.HW.put('teacher:classroom', JSON.stringify(cr));
+    ok((await call('/omr/papers/of?sid=s1&t=' + TOKEN)).j.papers.some(p => p.test === 'pz3'), 'أُعيد');
+  });
   await S.t('صوت المختبر بلا مفتاح: صامت بلا خطأ', async () => { eq((await call('/tts?t=' + encodeURIComponent('مرحبا'))).s, 404); });
   return S;
 }

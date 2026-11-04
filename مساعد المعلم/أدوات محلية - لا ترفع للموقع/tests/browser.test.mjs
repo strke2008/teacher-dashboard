@@ -122,6 +122,11 @@ export default async function run() {
         ok(await p.evaluate(() => { const r = document.querySelector('.omr-top').getBoundingClientRect(); return document.elementFromPoint(r.left + 30, r.top + 20).closest('.omr-sheet') !== null; }), 'الشريط مغطّى');
         await p.click('#omr-go'); await p.waitForSelector('.omr-tile', { timeout: 5000 });
         await p.evaluate(() => omrClose()); ok(await p.evaluate(() => !document.getElementById('omr-sheet')), 'لم تُغلق'); eq(errs, [], 'أخطاء'); });
+      await S.t('عرض الورقة المصححة: تفتح فوق الصفحة كلها بتنسيقها (لا نصًا في أسفل الصفحة)', async () => {
+        const r = await p.evaluate(() => { EXPAP.sids = new Map([['s1', { name: 'أ', cls: 'أول 1', score: 1, max: 2 }]]); EXPAP.test = 'none'; exPaperOpen('s1');
+          const v = document.querySelector('body > .omr-full'); if (!v) return null; const cs = getComputedStyle(v), b = v.getBoundingClientRect();
+          const out = [v.classList.contains('tpx'), cs.position, Math.round(b.width) >= innerWidth - 2, Math.round(b.height) >= innerHeight - 2]; v.remove(); return out; });
+        eq(r, [true, 'fixed', true, true]); });
       await S.t('الاختبارات: وضع «جدول» ما زال يعمل', async () => {
         await p.evaluate(() => ctExModeSet('table')); await p.waitForSelector('.ct-sc', { timeout: 5000 });
         eq(await p.$$eval('.ct-sc', x => x.length) >= 4, true); await p.evaluate(() => ctExModeSet('rec')); });
