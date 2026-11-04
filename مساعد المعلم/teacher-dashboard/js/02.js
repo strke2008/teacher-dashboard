@@ -1603,16 +1603,17 @@ async function ctProfile(box,force){
   box.innerHTML=head+bar+`<div id="ct-pf" class="sf-body"></div>`;
   const el=box.querySelector('#ct-pf');   // داخل هذا الملف تحديدًا: قد توجد نسخة أخرى قيد الاستبدال (تبويب «الطلاب»)
   if(sub==='overview') el.innerHTML=(off?'<div class="ct-warn">تعذّر الاتصال بالخادم — المستوى والحضور والسلوك تحتاج الخادم. تبويب «الأنشطة والإجراءات» يعمل من بيانات هذا الجهاز.'+(window._ctOffline?'':' <span class="muted">· إعادة المحاولة تلقائيًا…</span>')+'</div>':'')+ctProfileBody(sid);
-  // تعذّر جلب الدرجات (شبكة بطيئة): يُعاد المحاولة وحده مرتين، ويُستبدل الملف إن نجح وهو ما زال معروضًا
-  if(off&&!window._ctOffline&&(box._pfRetry||0)<2){ box._pfRetry=(box._pfRetry||0)+1; const s0=sid;
-    setTimeout(()=>{ if(box.isConnected&&String(window._ctPfSid)===String(s0)) ctProfile(box,false).catch(()=>{}); },4000*box._pfRetry); }
-  else if(!off) box._pfRetry=0;
   else if(sub==='acts'){ el.classList.add('sf-embed'); sfEmbed(el,()=>_legacyStudentProfile(sid)); el.insertAdjacentHTML('afterbegin',pfGradeBox(sid)); }
   else if(sub==='report'){ el.classList.add('sf-embed'); sfEmbed(el,()=>_legacyStudentReport(sid)); }
   else if(sub==='timeline') sfTimeline(el,sid);
   else if(sub==='contacts') sfContacts(el,sid);
   else if(sub==='points' && typeof sfPoints==='function') sfPoints(el,sid);
   else sfPeriod(el,sid);
+  // تعذّر جلب الدرجات (شبكة بطيئة): يُعاد المحاولة وحده مرتين، ويُستبدل الملف إن نجح وهو ما زال معروضًا
+  // (بعد سلسلة التبويبات لا داخلها — كان وضعه بينها يُفرغ كل تبويب غير «نظرة شاملة»)
+  if(off&&!window._ctOffline&&(box._pfRetry||0)<2){ box._pfRetry=(box._pfRetry||0)+1; const s0=sid;
+    setTimeout(()=>{ if(box.isConnected&&String(window._ctPfSid)===String(s0)) ctProfile(box,false).catch(()=>{}); },4000*box._pfRetry); }
+  else if(!off) box._pfRetry=0;
 }
 /* يعرض محتوى نافذة قديمة داخل الصفحة: نلتقط ما كانت سترسله إلى النافذة ونضعه هنا */
 /* 📊 درجة الأنشطة في ملف الطالب: سلّم كم من الأنشطة المحسوبة في الفترة الحالية، وما الناقص */

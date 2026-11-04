@@ -202,6 +202,13 @@ export default async function run() {
         await p.waitForFunction(() => typeof CT_PREV !== 'undefined' && CT_PREV && CT_GRADES, null, { timeout: 20000 });
         const n = rep, t0 = Date.now(); await p.evaluate(() => goTab('students')); await pfReady();
         ok(Date.now() - t0 < 1200, 'فتح الملف انتظر الخادم: ' + (Date.now() - t0) + ' م.ث'); eq(rep, n, 'طلب /reports جديد عند الفتح'); eq(await warn(), false, 'تحذير الخادم'); });
+      await S.t('ملف الطالب: كل تبويب (الشامل، الأنشطة، التقارير، الخط الزمني، التواصل، النقاط) يرسم محتواه', async () => {
+        const empty = [];
+        for (const sub of ['overview', 'acts', 'report', 'period', 'timeline', 'contacts', 'points']) {
+          await p.evaluate(sub => { window._ctPfSub = sub; renderStudentCenterDetail(1); }, sub);
+          try { await p.waitForFunction(() => { const f = [...document.querySelectorAll('#student-center-detail .stc-file')].pop(); const e = f && f.querySelector('#ct-pf'); return f && f.style.display !== 'none' && e && e.innerText.trim().length > 20; }, null, { timeout: 6000 }); }
+          catch { empty.push(sub); } }
+        eq(empty, [], 'تبويبات فارغة'); await p.evaluate(() => { window._ctPfSub = 'overview'; renderStudentCenterDetail(1); }); eq(errs, [], 'أخطاء'); });
       await S.t('ملف الطالب: تعذّر الخادم يُعاد تلقائيًا ويختفي التحذير عند نجاحه', async () => {
         await p.evaluate(() => goTab('dashboard')); fails = 1; await p.evaluate(async () => { await caches.delete('ct-grades-v1'); CT_GRADES = null; CT_PREV = null; STC_SHOWN = ''; REPORT_BUNDLE_CACHE.clear(); COMP_GRADES_CACHE.clear(); goTab('students'); });   // بلا نسخة جهاز ولا ذاكرة: فشل حقيقي
         await p.waitForFunction(() => document.querySelector('#student-center-detail .stc-file:not([style*="none"]) .ct-warn'), null, { timeout: 30000 });
