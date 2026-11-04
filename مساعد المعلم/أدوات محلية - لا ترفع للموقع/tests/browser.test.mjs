@@ -281,6 +281,16 @@ export default async function run() {
         const b2 = await book(); ok(!b2.tests.some(t => t.id === 'tsync'), 'عاد الاختبار المحذوف'); eq((b2.scores.s2 || {})[t0]?.score, 6, 'سقطت الدرجة');
         eq(errs, [], 'أخطاء'); });
       await ctx.close(); }
+    // ── 🖥️ وضع الحصة على الكمبيوتر: القائمة الجانبية لا تغطي شريط الفصل ──
+    { const ctx = await newCtx({ viewport: { width: 1280, height: 800 } }); const p = await ctx.newPage(), errs = watch(p);
+      await S.t('وضع الحصة على الكمبيوتر: اسم الفصل ظاهر (القائمة الجانبية مخفية ولا تحجز مكانًا)', async () => {
+        await p.goto(base + '/teacher-dashboard/'); await p.evaluate(t => localStorage.setItem('hwapp_tok_v1', t), TOKEN); await p.reload(); await dashReady(p);
+        await p.evaluate(() => fmEnter()); await p.waitForSelector('#fm-top .fm-t', { timeout: 10000 });
+        const r = await p.evaluate(() => { const t = document.querySelector('#fm-top .fm-t').getBoundingClientRect(), el = document.elementFromPoint(t.right - 12, t.top + t.height / 2);
+          return [!!(el && el.closest('#fm-top')), getComputedStyle(document.getElementById('main-nav')).display, getComputedStyle(document.body).paddingRight]; });
+        eq(r, [true, 'none', '0px']); await p.evaluate(() => fmExit()); await p.waitForTimeout(300);
+        ok(await p.evaluate(() => getComputedStyle(document.getElementById('main-nav')).display !== 'none'), 'القائمة لم تعد بعد الخروج'); eq(errs, [], 'أخطاء'); });
+      await ctx.close(); }
     // ── ⏳ التحميل المؤجَّل: زر يُضغط قبل وصول الجزء المؤجَّل يعمل بعد وصوله ──
     { const ctx = await newCtx({ viewport: { width: 390, height: 844 } }); await ctx.route(/-lazy\.js|30-noor-export/, async r => { await new Promise(x => setTimeout(x, 9000)); try { await r.continue(); } catch {} });
       const p = await ctx.newPage(), errs = watch(p);

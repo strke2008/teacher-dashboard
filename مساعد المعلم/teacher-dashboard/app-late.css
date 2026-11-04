@@ -2842,6 +2842,8 @@ body.fm #ct-body{border:0!important;box-shadow:none!important;background:transpa
 body.fm .qr-foot{padding-bottom:1rem}
 body.fm #ex-kb.tpx{bottom:calc(88px + env(safe-area-inset-bottom,0px))}
 body.fm #toast{bottom:calc(98px + env(safe-area-inset-bottom,0px))!important}
+/* 🖥️ الكمبيوتر: القائمة الجانبية الثابتة كانت فوق شريط الحصة فتغطي اسم الفصل — تُخفى في وضع الحصة ويُعاد مكانها للصفحة */
+body.fm #main-nav{display:none!important}body.fm.simp-nav,body.fm{padding-right:0!important;padding-left:0!important}
 #fm-top,#fm-bot{display:none}
 body.fm #fm-top{position:fixed;top:0;inset-inline:0;z-index:600;background:#13302A;color:#fff;display:flex;align-items:center;gap:.6rem;padding:.55rem .8rem;padding-top:calc(.55rem + env(safe-area-inset-top,0px))}
 #fm-top .fm-t{position:relative;flex:1;min-width:0;cursor:pointer}
