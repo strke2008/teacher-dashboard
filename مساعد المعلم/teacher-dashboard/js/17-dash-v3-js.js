@@ -82,7 +82,14 @@ function ctPrevSP(){ const {sem,per}=ctSem(); return per===2?{sem,per:1,label:`�
 async function ctEnsurePrev(force){
   const P=ctPrevSP(); if(!P){ CT_PREV=null; return null; }
   const key=P.sem+':'+P.per; if(!force&&CT_PREV&&CT_PREV.key===key) return CT_PREV;
-  try{ const g=await loadServerGrades(false,P.sem,P.per); CT_PREV={key,label:P.label,map:(g&&g.map)||{},plans:(g&&g.plans)||[]}; }
+  // 💾 الفترة السابقة نادرًا ما تتغير: نسخة الجهاز تكفي للعرض فورًا، وتُحدَّث في الخلفية
+  if(!force&&typeof ctGradesStoreGet==='function'&&!(typeof COMP_GRADES_CACHE!=='undefined'&&COMP_GRADES_CACHE.has(key))){
+    const st=await ctGradesStoreGet(P.sem,P.per);
+    if(st){ CT_PREV={key,label:P.label,map:st.map||{},plans:st.plans||[]};
+      setTimeout(()=>{ loadServerGrades(true,P.sem,P.per).then(g=>{ ctGradesStorePut(P.sem,P.per,g); if(ctPrevSP()&&ctPrevSP().per===P.per&&ctPrevSP().sem===P.sem) CT_PREV={key,label:P.label,map:(g&&g.map)||{},plans:(g&&g.plans)||[]}; })
+        .catch(()=>{}).finally(()=>{ try{ const c=ctSem(); loadServerGrades(false,c.sem,c.per).catch(()=>{}); }catch(e){} }); },2500);
+      return CT_PREV; } }
+  try{ const g=await loadServerGrades(false,P.sem,P.per); CT_PREV={key,label:P.label,map:(g&&g.map)||{},plans:(g&&g.plans)||[]}; if(typeof ctGradesStorePut==='function') ctGradesStorePut(P.sem,P.per,g); }
   catch(e){ CT_PREV=null; }
   // نعيد مخزن التقارير إلى الفترة الحالية (من الذاكرة) كي لا تتأثر صفحات التقارير
   try{ const {sem,per}=ctSem(); await loadServerGrades(false,sem,per); }catch(e){}

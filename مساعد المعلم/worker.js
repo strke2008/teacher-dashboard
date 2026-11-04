@@ -1435,7 +1435,7 @@ function gradeHomework(data, sid, range, now) {
   };
 }
 /* السلوك: الإيجابي يرمّم المفقود فقط ولا يرفع فوق الكامل */
-function gradeBehavior(data, sid, range) {
+function gradeBehavior0(data, sid, range) {
   let pos = 0, neg = 0;
   for (const x of (data.behavior || [])) {
     if (!x || x.deleted || String(x.studentId || x.sid || '') !== String(sid)) continue;
@@ -1456,7 +1456,7 @@ function gradeBehavior(data, sid, range) {
    قياس موضوعي مما أجاب به فعلًا، لا تقدير يدوي ولا تخمين من المشاركة.
    من لم يسلّم أي نشاط: «لم يُقَس بعد» — حالة تستدعي القياس لا الحكم بالتعثّر. */
 const MASTERY = { excellent: 85, near: 70 };   // حدود الإتقان بالنسبة المئوية
-function gradeLevel(assignments, sid, range) {
+function gradeLevel0(assignments, sid, range) {
   let correct = 0, total = 0, acts = 0, last = '';
   for (const h of (assignments || [])) {
     if (!h || !['normal','lab'].includes(h.kind || 'normal')) continue;
@@ -1487,7 +1487,7 @@ function gradeLevel(assignments, sid, range) {
    من الأيام المرصودة. ويُحتسب فيه الغياب بعذر أيضًا، لأن أثر الفقد التعليمي
    واحد؛ ويُعرض منفصلًا ليبقى الحكم الانضباطي لك. */
 const ATTEND = { regular: 95, watch: 90 };
-function gradeAttendance(data, sid, range) {
+function gradeAttendance0(data, sid, range) {
   const P = data.participation || {};
   let days = 0, absent = 0, excused = 0;
   const absentDays = [];
@@ -1756,7 +1756,7 @@ function skOutcome(k) {
   return o ? { key: c, short: sh, term: o[0], unit: o[1], ord: o[2] } : null;
 }
 /* ملف المهارات الرسمي: نواتج نافس فقط، ومعها الوحدة، و«سابقة» إن كان الناتج من غير الفصل الدراسي الحالي */
-function officialProfile(data, assignments, sid, range) {
+function officialProfile0(data, assignments, sid, range) {
   const sem = range && range.semester ? Number(range.semester) : 0;
   return skillProfile(data, assignments, sid, range).map(x => { const o = skOutcome(x.skill); return o ? { ...x, skill: o.key, unit: o.unit, ord: o.ord, term: o.term, prior: !!(sem && o.term !== sem) } : null; }).filter(Boolean);
 }
@@ -2188,7 +2188,7 @@ function prevDay(d) {
    البيانات تقول: حضر أم لا · سلّم أم لا · حين سلّم أصاب أم أخطأ · متى تغيّر.
    ولا تقول: لماذا. سبب الضعف قد يكون بصريًا أو قرائيًا أو منزليًا أو فجوة
    سابقة — ولا يظهر في أي رقم هنا. فالنمط يوجّهك، والسبب يبقى لملاحظتك أنت. */
-function weakActivities(assignments, sid, range) {
+function weakActivities0(assignments, sid, range) {
   const out = [];
   for (const h of (assignments || [])) {
     if (!h || !['normal','lab'].includes(h.kind || 'normal')) continue;
@@ -2203,7 +2203,7 @@ function weakActivities(assignments, sid, range) {
   }
   return out.sort((a, b) => a.rate - b.rate);
 }
-function masteryTrend(assignments, sid, range) {
+function masteryTrend0(assignments, sid, range) {
   const acts = weakActivities(assignments, sid, range).slice().sort((a, b) => a.date.localeCompare(b.date));
   if (acts.length < 2) return { measurable: false, change: null };
   const mid = Math.floor(acts.length / 2);
@@ -2597,7 +2597,29 @@ function academicGradeView(data) {
   };
 }
 
+
+/* ⚡ حساب الكشوف مرة واحدة لكل طالب داخل الطلب الواحد: computeAllGrades كان يعيد الحسابات نفسها لكل طالب
+   (الدرجات ثم التشخيص ثم المجموعات ثم المرشحون)، فيتضاعف زمن /reports. الذاكرة تعيش أثناء computeAllGrades فقط
+   (دالة متزامنة: لا يتداخل معها طلب آخر)، والمفتاح يشمل البيانات والفترة نفسيهما، والنتائج لا يعدّلها من يستخدمها. */
+let GMEMO = null, GMEMO_N = 0; const GMEMO_ID = new WeakMap();
+const gmId = o => (o && typeof o === 'object') ? (GMEMO_ID.get(o) || (GMEMO_ID.set(o, ++GMEMO_N), GMEMO_N)) : String(o);
+function gmemo(tag, objs, sid, range, fn) {   // objs: البيانات/الأنشطة بهويتها · range: الفترة بقيمتها
+  if (!GMEMO) return fn();
+  const k = tag + '\u0001' + objs.map(gmId).join(',') + '\u0001' + String(sid) + '\u0001' + (range && typeof range === 'object' ? JSON.stringify(range) : String(range));
+  if (GMEMO.has(k)) return GMEMO.get(k);
+  const v = fn(); GMEMO.set(k, v); return v;
+}
+function officialProfile(data, assignments, sid, range) { return gmemo('op', [data, assignments], sid, range, () => officialProfile0(data, assignments, sid, range)); }
+function weakActivities(assignments, sid, range) { return gmemo('wa', [assignments], sid, range, () => weakActivities0(assignments, sid, range)); }
+function gradeLevel(assignments, sid, range) { return gmemo('gl', [assignments], sid, range, () => gradeLevel0(assignments, sid, range)); }
+function gradeAttendance(data, sid, range) { return gmemo('ga', [data], sid, range, () => gradeAttendance0(data, sid, range)); }
+function gradeBehavior(data, sid, range) { return gmemo('gb', [data], sid, range, () => gradeBehavior0(data, sid, range)); }
+function masteryTrend(assignments, sid, range) { return gmemo('mt', [assignments], sid, range, () => masteryTrend0(assignments, sid, range)); }
 function computeAllGrades(students, data, assignments, semester = 1, period = 1) {
+  const outer = GMEMO; if (!outer) GMEMO = new Map();
+  try { return computeAllGrades0(students, data, assignments, semester, period); } finally { if (!outer) GMEMO = null; }
+}
+function computeAllGrades0(students, data, assignments, semester = 1, period = 1) {
   semester = Number(semester) === 2 ? 2 : 1;
   period = Number(period) === 2 ? 2 : 1;
   const range = gradeTermRange(data, period, semester);

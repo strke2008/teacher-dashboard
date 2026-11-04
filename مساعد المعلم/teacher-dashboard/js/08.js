@@ -405,5 +405,6 @@ async function devLogout(){
   if(typeof askConfirm==='function' && !(await askConfirm('ستخرج من هذا الجهاز وتحتاج كلمة السر للدخول مرة أخرى. متابعة؟'))) return;
   try{ await devCall('/auth/logout'); }catch(e){}
   try{ localStorage.removeItem(K_TOK); localStorage.removeItem('hw_vk_v1'); }catch(e){}
+  try{ if(window.caches) await caches.delete('ct-grades-v1'); }catch(e){}   // نسخة الدرجات على الجهاز تخرج مع الجلسة
   location.reload();
 }

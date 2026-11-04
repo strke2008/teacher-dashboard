@@ -18,7 +18,7 @@
     return d};
   function revoked(){ if(checking) return; checking=true; var k=tok(); if(!isSess(k)){checking=false;return}
     F(api()+'/auth/check',{method:'POST',headers:{'Content-Type':'application/json','X-Teacher-Token':k},body:'{}'}).then(function(r){return r.json()}).then(function(j){
-      if(j&&j.ok&&j.valid===false&&tok()===k){ put(KT,null); put(KVK,null); alert('🔒 أُلغي دخول هذا الجهاز من قائمة الأجهزة. ادخل بكلمة السر من جديد.'); location.reload(); } else checking=false;
+      if(j&&j.ok&&j.valid===false&&tok()===k){ put(KT,null); put(KVK,null); try{ window.caches&&caches.delete('ct-grades-v1'); }catch(e){} alert('🔒 أُلغي دخول هذا الجهاز من قائمة الأجهزة. ادخل بكلمة السر من جديد.'); location.reload(); } else checking=false;
     }).catch(function(){checking=false}); }
   window.fetch=function(input,init){
     var isApi=false;
@@ -75,13 +75,13 @@
 <link rel="stylesheet" href="app.css?v=5b26a9bf">
 <script src="js/00-fetch-dedupe-js.js?v=e77498d1" defer></script>
 <script src="js/01-right-sidebar-navigation-js.js?v=41ea29b3" defer></script>
-<script src="js/02.js?v=6d4f9fb9" defer></script>
+<script src="js/02.js?v=e613157d" defer></script>
 <script src="js/03-projects-students-logic-v13.js?v=d4950f64" defer></script>
 <script src="js/04.js?v=5a7c663e" defer></script>
 <script src="js/05.js?v=a7c074c3" defer></script>
 <script src="js/06.js?v=4e76f64a" defer></script>
 <script src="js/07.js?v=de43f185" defer></script>
-<script src="js/08.js?v=5835863c" defer></script>
+<script src="js/08.js?v=3e9240ca" defer></script>
 <script src="js/09.js?v=ef17fc2a" defer></script>
 <script src="js/10.js?v=9d5a33ee" defer></script>
 <script src="js/11.js?v=f8090988" defer></script>
@@ -90,7 +90,7 @@
 <script src="js/14.js?v=1d148ef4" defer></script>
 <script src="js/15-dash-reorg-js.js?v=b935ba8f" defer></script>
 <script src="js/16-dash-v2-js.js?v=852ba069" defer></script>
-<script src="js/17-dash-v3-js.js?v=ee824a1f" defer></script>
+<script src="js/17-dash-v3-js.js?v=95515a2a" defer></script>
 <script src="js/18-kashf-js.js?v=59c3afda" defer></script>
 <script src="js/19-bulk-rem-js.js?v=21144be9" defer></script>
 <script src="js/20-sch-art-js.js?v=d4b6c153" defer></script>

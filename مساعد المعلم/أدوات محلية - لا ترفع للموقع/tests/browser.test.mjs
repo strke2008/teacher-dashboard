@@ -183,9 +183,9 @@ export default async function run() {
         eq(errs, [], 'أخطاء'); });
       await ctx.close(); }
     // ── 👤 ملف الطالب: بياناته تُجهَّز في الخلفية (والفترة السابقة)، وتعذّر الخادم يُعاد وحده ──
-    { const ctx = await newCtx({ viewport: { width: 390, height: 844 } }); let fails = 0, rep = 0;
+    { const ctx = await newCtx({ viewport: { width: 390, height: 844 } }); let fails = 0, rep = 0, slow = 0;
       await ctx.route(/workers\.dev\/(reports|academic)/, async r => { const u = new URL(r.request().url());
-        try { if (u.pathname === '/reports') { rep++; if (fails) return r.fulfill({ status: 500, body: '{}' }); await new Promise(x => setTimeout(x, 1500)); }
+        try { if (u.pathname === '/reports') { rep++; if (fails) return r.fulfill({ status: 500, body: '{}' }); await new Promise(x => setTimeout(x, slow || 1500)); }
           const resp = await r.fetch({ url: 'http://localhost:' + WP + u.pathname + u.search });
           if (u.pathname === '/academic') { const j = await resp.json(); const a = j.academic = j.academic || {}; a.currentSemester = 1; a.semesters = { ...(a.semesters || {}), 1: { ...((a.semesters || {})[1] || {}), status: 'active', activePeriod: 2 } }; return r.fulfill({ response: resp, body: JSON.stringify(j) }); }
           await r.fulfill({ response: resp }); } catch { try { await r.abort(); } catch {} } });
@@ -198,13 +198,19 @@ export default async function run() {
         const n = rep, t0 = Date.now(); await p.evaluate(() => goTab('students')); await pfReady();
         ok(Date.now() - t0 < 1200, 'فتح الملف انتظر الخادم: ' + (Date.now() - t0) + ' م.ث'); eq(rep, n, 'طلب /reports جديد عند الفتح'); eq(await warn(), false, 'تحذير الخادم'); });
       await S.t('ملف الطالب: تعذّر الخادم يُعاد تلقائيًا ويختفي التحذير عند نجاحه', async () => {
-        await p.evaluate(() => goTab('dashboard')); fails = 1; await p.evaluate(() => { CT_GRADES = null; STC_SHOWN = ''; REPORT_BUNDLE_CACHE.clear(); COMP_GRADES_CACHE.clear(); goTab('students'); });
+        await p.evaluate(() => goTab('dashboard')); fails = 1; await p.evaluate(async () => { await caches.delete('ct-grades-v1'); CT_GRADES = null; CT_PREV = null; STC_SHOWN = ''; REPORT_BUNDLE_CACHE.clear(); COMP_GRADES_CACHE.clear(); goTab('students'); });   // بلا نسخة جهاز ولا ذاكرة: فشل حقيقي
         await p.waitForFunction(() => document.querySelector('#student-center-detail .stc-file:not([style*="none"]) .ct-warn'), null, { timeout: 30000 });
         fails = 0; await p.waitForFunction(() => !document.querySelector('#student-center-detail .stc-file:not([style*="none"]) .ct-warn'), null, { timeout: 20000 });
         eq(errs, [], 'أخطاء'); });
+      await S.t('ملف الطالب: بعد إعادة فتح التطبيق يُعرض فورًا من نسخة الجهاز والخادم بطيء، ثم يُحدَّث', async () => {
+        await p.waitForTimeout(1500); slow = 8000; const n = rep; await p.reload(); await p.waitForFunction(() => typeof goTab === 'function' && typeof ctEnsureGrades === 'function', null, { timeout: 15000 });
+        const t0 = Date.now(); await p.evaluate(() => goTab('students')); await pfReady();
+        ok(Date.now() - t0 < 2500, 'انتظر الخادم البطيء: ' + (Date.now() - t0) + ' م.ث'); eq(await warn(), false, 'تحذير');
+        eq(await p.evaluate(async () => (await (await caches.open('ct-grades-v1')).keys()).map(r => r.url.split('/').pop()).sort()), ['1-1', '1-2'], 'نسخة الفترتين على الجهاز');
+        slow = 0; ok(rep > n, 'لم يُحدَّث من الخادم في الخلفية'); eq(errs, [], 'أخطاء'); });
       await ctx.close(); }
     // ── ⏳ التحميل المؤجَّل: زر يُضغط قبل وصول الجزء المؤجَّل يعمل بعد وصوله ──
-    { const ctx = await newCtx({ viewport: { width: 390, height: 844 } }); await ctx.route(/-lazy\.js|30-noor-export/, async r => { await new Promise(x => setTimeout(x, 3000)); try { await r.continue(); } catch {} });
+    { const ctx = await newCtx({ viewport: { width: 390, height: 844 } }); await ctx.route(/-lazy\.js|30-noor-export/, async r => { await new Promise(x => setTimeout(x, 9000)); try { await r.continue(); } catch {} });
       const p = await ctx.newPage(), errs = watch(p);
       await S.t('التحميل المؤجَّل: زر قبل وصول الجزء يعمل بعده، وكل البدائل المؤقتة تُستبدل', async () => {
         await p.goto(base + '/teacher-dashboard/'); await p.evaluate(t => localStorage.setItem('hwapp_tok_v1', t), TOKEN); await p.reload(); await dashReady(p);

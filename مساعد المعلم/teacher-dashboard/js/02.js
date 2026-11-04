@@ -1312,8 +1312,36 @@ function ctSchedule(box){ tpx3Mount(box,'tpx3ScheduleMount'); }
 /* ═══════════ 🧰 أدوات الفصل — الإضافات المتقدمة ═══════════ */
 async function ctEnsureGrades(force){
   const {sem,per}=ctSem();
-  if(force||!CT_GRADES) CT_GRADES=await loadServerGrades(true,sem,per);
+  if(!force&&!CT_GRADES){   // 💾 آخر نسخة على هذا الجهاز تُعرض فورًا، والجديدة تُجلب في الخلفية ثم يُعاد الرسم
+    const st=await ctGradesStoreGet(sem,per);
+    if(st&&!CT_GRADES){ CT_GRADES=st; ctGradesRefresh(sem,per); return CT_GRADES; }
+  }
+  if(force||!CT_GRADES){ CT_GRADES=await loadServerGrades(true,sem,per); ctGradesStorePut(sem,per,CT_GRADES); }
   return CT_GRADES;
+}
+/* 💾 نسخة الدرجات على الجهاز (Cache API — أكبر من حد localStorage)، لكل جلسة دخول وفترة.
+   جلب /reports ثقيل (كل الطلاب وكل الأنشطة): بدونها كان ملف الطالب ينتظره مع كل فتح للتطبيق */
+function ctGradesKey(sem,per){ let t=''; try{ t=String(getTok()||'').slice(-8); }catch(e){} return '/__ct_grades__/'+encodeURIComponent(t)+'/'+sem+'-'+per; }
+async function ctGradesStoreGet(sem,per){
+  try{ if(!('caches' in window)) return null; const c=await caches.open('ct-grades-v1'), r=await c.match(ctGradesKey(sem,per)); if(!r) return null;
+    const j=await r.json(); return j&&j.map&&Array.isArray(j.students)?j:null; }catch(e){ return null; }
+}
+function ctGradesStorePut(sem,per,g){
+  try{ if(!('caches' in window)||!g||!g.map) return; const body=JSON.stringify(g);
+    caches.open('ct-grades-v1').then(c=>c.put(ctGradesKey(sem,per),new Response(body,{headers:{'Content-Type':'application/json'}}))).catch(()=>{}); }catch(e){}
+}
+let CT_GRADES_REFRESH=null;
+function ctGradesRefresh(sem,per){
+  if(CT_GRADES_REFRESH) return CT_GRADES_REFRESH;
+  return CT_GRADES_REFRESH=loadServerGrades(true,sem,per).then(g=>{
+    ctGradesStorePut(sem,per,g); const c=ctSem(); if(c.sem!==sem||c.per!==per) return;
+    const old=CT_GRADES, sid=String(window._ctPfSid||''), J=x=>JSON.stringify(x||null);
+    CT_GRADES=g;
+    if(old&&old.map&&g&&g.map&&J(old.map[sid])===J(g.map[sid])) { try{ if(typeof thDraw==='function') thDraw(); }catch(e){} return; }   // ملف الطالب المعروض لم يتغير: لا إعادة رسم
+    try{ if(typeof stcActive==='function'&&stcActive()&&document.querySelector('#student-center-detail .stc-file')) renderStudentCenterDetail(1); }catch(e){}
+    try{ if(CT_TAB==='profile'&&document.querySelector('#ct-body #ct-pf')) renderClassTools(); }catch(e){}
+    try{ if(typeof thDraw==='function') thDraw(); }catch(e){}
+  }).catch(()=>{}).finally(()=>{ CT_GRADES_REFRESH=null; });
 }
 function ctG(sid){ return (CT_GRADES&&CT_GRADES.map&&CT_GRADES.map[String(sid)])||{}; }
 /* 🎯 مهارات الطالب بقواعد الخطط نفسها (من الخادم): نواتج نافس للفصل الدراسي كله، آخر 6 أسئلة، 3 أسئلة على الأقل.
