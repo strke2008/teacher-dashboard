@@ -133,6 +133,8 @@
     return b;
   }
 
+  /* الأيقونة مرسومة مباشرة (45-icons.js يُحمَّل أولًا)، مع الإيموجي في data-emo لمن يقرأه؛ وإلا الإيموجي نفسه */
+  function icoOf(e){ var h = (typeof window.icoFor === 'function') ? window.icoFor(e) : ''; return h || e; }
   function build(){
     var nav = document.getElementById('main-nav');
     if(!nav) return false;
@@ -210,7 +212,7 @@
         var info = origLabel(pg[0], pg[1]);
         var on = pg[0]===activeTab && (pg[1]||null)===(activeView||null);
         html += '<button type="button" class="simp-chip'+(on?' on':'')+'" data-simp-key="'+keyOf(pg[0], pg[1])+'" data-simp-tab="'+pg[0]+'"'+(pg[1]?' data-simp-view="'+pg[1]+'"':'')+'>'
-          + '<span>'+info.icon+'</span><span>'+info.label+'</span></button>';
+          + '<span>'+icoOf(info.icon)+'</span><span>'+info.label+'</span></button>';
       });
       strip.innerHTML = html;
       strip.hidden = false;
@@ -263,7 +265,7 @@
         sheet.appendChild(g);
         pins.slice(MOBILE_BAR_PINS).forEach(function(p){
           var info = origLabel(p.tab, p.view);
-          var b = mkBtn('simp-sh-page', '<span>'+info.icon+'</span><span>'+info.label+'</span>');
+          var b = mkBtn('simp-sh-page', '<span>'+icoOf(info.icon)+'</span><span>'+info.label+'</span>');
           b.setAttribute('data-simp-key', keyOf(p.tab, p.view));
           b.addEventListener('click', function(){ closeSheet(); activate(p.tab, p.view); });
           sheet.appendChild(b);
@@ -277,7 +279,7 @@
         sheet.appendChild(title);
         rest.forEach(function(pg){
           var info = origLabel(pg[0], pg[1]);
-          var b = mkBtn('simp-sh-page', '<span>'+info.icon+'</span><span>'+info.label+'</span>');
+          var b = mkBtn('simp-sh-page', '<span>'+icoOf(info.icon)+'</span><span>'+info.label+'</span>');
           b.setAttribute('data-simp-key', keyOf(pg[0], pg[1]));
           b.addEventListener('click', function(){ closeSheet(); activate(pg[0], pg[1]); });
           sheet.appendChild(b);
@@ -370,7 +372,7 @@
           var info = origLabel(pg[0], pg[1]);
           var pinned = !!pinSet[k];
           var row = mkBtn('simp-pin-row'+(pinned?' pinned':''),
-            '<span>'+info.icon+'</span><span class="simp-lb">'+info.label+'</span>'
+            '<span>'+icoOf(info.icon)+'</span><span class="simp-lb">'+info.label+'</span>'
             + '<span class="simp-pin-state">'+(pinned?'✓ مثبّتة':'+ تثبيت')+'</span>');
           row.setAttribute('data-simp-pin', k);
           row.addEventListener('click', function(){
@@ -400,8 +402,8 @@
     }
 
     // ---- القائمة الجانبية (كمبيوتر): المثبّتة + المزيد + تخصيص ----
-    var box = document.createElement('div');
-    box.id = 'simp-nav';
+    var box = document.getElementById('simp-nav') || document.createElement('div');   // موجود في الصفحة (بآخر شكل محفوظ)
+    box.id = 'simp-nav'; box.innerHTML = '';
     var pinWrap = document.createElement('div');
     pinWrap.id = 'simp-pins';
     box.appendChild(pinWrap);
@@ -428,7 +430,7 @@
       }
       pins.forEach(function(p){
         var info = origLabel(p.tab, p.view);
-        var b = mkBtn('simp-sec', '<span class="simp-ic">'+info.icon+'</span><span class="simp-lb">'+info.label+'</span>');
+        var b = mkBtn('simp-sec', '<span class="simp-ic">'+icoOf(info.icon)+'</span><span class="simp-lb">'+info.label+'</span>');
         b.setAttribute('data-simp-pin', keyOf(p.tab, p.view));
         b.addEventListener('click', function(){ activate(p.tab, p.view); });
         pinWrap.appendChild(b);
@@ -437,26 +439,27 @@
     }
 
     // ---- الشريط السفلي (جوال): أول 4 مثبّتات + المزيد ----
-    var bar = document.createElement('nav');
+    var bar = document.getElementById('simp-bottomnav') || document.createElement('nav');   // موجود في الصفحة (بآخر شكل محفوظ)
     bar.id = 'simp-bottomnav';
     bar.setAttribute('aria-label','التنقل المخصص للجوال');
-    document.body.appendChild(bar);
+    if(!bar.parentNode) document.body.appendChild(bar);
     var barMoreBtn = null;
     function renderBar(){
       while(bar.firstChild) bar.removeChild(bar.firstChild);
       var pins = pinnedPages().slice(0, MOBILE_BAR_PINS);
       pins.forEach(function(p){
         var info = origLabel(p.tab, p.view);
-        var b = mkBtn('', '<span class="simp-bic">'+info.icon+'</span><b>'+info.label+'</b>');
+        var b = mkBtn('', '<span class="simp-bic">'+icoOf(info.icon)+'</span><b>'+info.label+'</b>');
         b.setAttribute('data-simp-pin', keyOf(p.tab, p.view));
         b.addEventListener('click', function(){ activate(p.tab, p.view); });
         bar.appendChild(b);
       });
-      barMoreBtn = mkBtn('', '<span class="simp-bic">•••</span><b>المزيد</b>');
+      barMoreBtn = mkBtn('', '<span class="simp-bic" data-emo="•••">'+icoOf('•••')+'</span><b>المزيد</b>');
       barMoreBtn.setAttribute('data-simp-more', '1');
       barMoreBtn.addEventListener('click', openMore);
       bar.appendChild(barMoreBtn);
       paintBadges();
+      snapSoon();
     }
 
     // ---- 🔴 العدّادات (المشاريع، حائط الإبداع…): تأتي من navBadgeSet في 03-projects ----
@@ -500,7 +503,11 @@
       moreBtn.classList.toggle('on', !pinnedPages().some(function(p){ return keyOf(p.tab, p.view) === cur; }));
       if(barMoreBtn) barMoreBtn.classList.toggle('on', !inBar);
       renderStrip(sec, tab, view);
+      snapSoon();
     }
+    /* آخر شكل للشريطين يُحفظ ليُعرض فورًا في الفتح التالي قبل تحميل السكربتات (بعد أن تأخذ الأزرار أيقوناتها) */
+    var snapT = 0;
+    function snapSoon(){ clearTimeout(snapT); snapT = setTimeout(function(){ try{ localStorage.setItem('simp_snap_v1', JSON.stringify({ bar: bar.innerHTML, side: box.innerHTML, at: Date.now() })); }catch(e){} }, 700); }
     renderSidebarPins();
     renderBar();
     var obs = new MutationObserver(function(muts){
@@ -516,6 +523,9 @@
     return true;
   }
 
-  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', build);
-  else build();
+  /* فشل البناء: يعود التنقل الأصلي (الصفحة تبدأ بـ simp-nav لتخفيه من أول رسم) */
+  function start(){ var ok = false; try{ ok = build(); }catch(e){ ok = false; }
+    if(!ok){ document.body.classList.remove('simp-nav'); ['simp-bottomnav','simp-nav'].forEach(function(id){ var e = document.getElementById(id); if(e) e.remove(); }); try{ localStorage.removeItem('simp_snap_v1'); }catch(e){} } }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+  else start();
 })();

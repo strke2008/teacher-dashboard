@@ -363,7 +363,6 @@
 
   /* أخرج واجهة المنصة بالكامل من تدفق الطباعة، لا مجرد إخفائها بصريًا */
   body.printing-exam > header,
-  body.printing-exam > .mobile-nav,
   body.printing-exam > .veil,
   body.printing-exam > #toast{
     display:none !important;
@@ -1031,7 +1030,6 @@ html{overscroll-behavior-y:none}
 @media screen and (max-width:700px){
   /* في وضع التطبيق المثبت يمتد المحتوى تحت الساعة والبطارية: الترويسة تحجز مساحتها */
   .masthead{padding-top:env(safe-area-inset-top,0px)!important}
-  .mobile-nav{-webkit-transform:translateZ(0);transform:translateZ(0)}
   #dash-recent .fi-sub .fi-when{white-space:nowrap}
 }
 
@@ -1289,7 +1287,6 @@ thead .madr-name{background:var(--ui-surface-2,#F7FAFD)}
 /* ── \3c style id=dash-reorg-css> ── */
 
 /* الشريط السفلي: أعمدة بعدد الأزرار الفعلي — كان مثبتًا على 7 فيبقى فراغ عند 5 أزرار */
-.mobile-nav{grid-template-columns:none!important;grid-auto-flow:column!important;grid-auto-columns:minmax(0,1fr)!important}
 .more-grp{font-size:.74rem;font-weight:800;color:var(--ink-soft);margin:.7rem .2rem .35rem;letter-spacing:.2px}
 .set-tabs{display:flex;flex-wrap:wrap;gap:.4rem;margin:0 0 .9rem;position:sticky;z-index:5;background:var(--paper,#fff);padding:.5rem 0;border-bottom:1px solid var(--ui-border,#e5e7eb)}
 .set-tabs button{border:1px solid var(--ui-border,#e5e7eb);background:var(--ui-surface,#fff);color:var(--ink);border-radius:999px;padding:.4rem .85rem;font:inherit;font-size:.84rem;font-weight:700;cursor:pointer}
@@ -2838,8 +2835,7 @@ body.pf-open #simp-bottomnav,body.pf-open .askf-btn{display:none!important}
 :root[data-ui-theme="dark"] .qr-mbar button{background:#152033;color:inherit}
 
 /* 🎯 وضع الحصة (js/44-focus-mode.js): لا شيء غير الرصد */
-body.fm .masthead,body.fm .mobile-nav,body.fm #simp-bottomnav,body.fm #simp-strip,body.fm .askf-btn,body.fm #p-classtools>.sheet-head,
-body.fm #ct-today-box,body.fm #ct-nav,body.fm .qr-lesson,body.fm #ct-body>.ct-tools,body.fm #ct-body>.row.ct-tools,body.fm .vsp-banner{display:none!important}
+body.fm .masthead,body.fm #simp-bottomnav,body.fm #simp-strip,body.fm .askf-btn,body.fm #p-classtools>.sheet-head,body.fm #ct-today-box,body.fm #ct-nav,body.fm .qr-lesson,body.fm #ct-body>.ct-tools,body.fm #ct-body>.row.ct-tools,body.fm .vsp-banner{display:none!important}
 body.fm{padding-top:calc(64px + env(safe-area-inset-top,0px))!important;padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))!important}
 body.fm #p-classtools{padding-top:0!important;margin-top:0!important}
 body.fm #ct-body{border:0!important;box-shadow:none!important;background:transparent!important;padding:0!important}

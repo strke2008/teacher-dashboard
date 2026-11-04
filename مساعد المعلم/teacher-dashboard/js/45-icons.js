@@ -93,6 +93,8 @@
   const CHIP = {'✅':'check','✋':'minus','🚫':'ban','📗':'bookok','📕':'bookx','🕊️':'feather','🕊':'feather','🌟':'star','⚠️':'alert'};
   const svg = n => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${P[n]}</svg>`;
   window.icoSVG = n => P[n] ? svg(n) : '';
+  /* إيموجي ← أيقونته مباشرة (للتنقل الذي يُبنى بالسكربت: يُرسم بالأيقونة من البداية بلا انتظار المراقب) */
+  window.icoFor = e => { const k = String(e || '').trim(); const n = k === '•••' ? 'more' : (E[k] || E[k.replace(/️/g, '')]); return n && P[n] ? svg(n) : ''; };
   /* «هيكل» الصفحات: الأزرار والعناوين والقوائم والوسوم — لا محتوى الطلاب ولا الرسائل ولا المتجر */
   const SEL = ['#simp-bottomnav .simp-bic', '.simp-chip', '.app-nav-icon', '.mnav-icon', '#fm-bot i', '.td-kpi span', '.td-task .td-ic', '.qr-ic', '.qr-s', '.askf-ic',
     'button', 'summary', 'h1', 'h2', 'h3', 'h4', 'legend', 'label', '.chip', '.stat-icon', '.report-hub-icon', '.td-link', 'b', '.td-hero-t > b'].join(',');

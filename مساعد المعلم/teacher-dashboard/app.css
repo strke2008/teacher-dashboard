@@ -32,7 +32,7 @@
 .exh-g{margin-top:.6rem;display:grid;gap:.35rem}.exh-gh{font-weight:800;font-size:.86rem}.exh-gh small{color:var(--ink-soft);font-weight:600}
 
 /* 🔴 عدّاد المشاريع بانتظار المراجعة */
-.tab[data-tab="projects"],.tab[data-tab="walls"],#nav-more-btn{position:relative}
+.tab[data-tab="projects"],.tab[data-tab="walls"]{position:relative}
 .proj-new-pill{background:#FDE7EA;color:#B3263B;font-weight:800}
 .proj-badge{position:absolute;top:2px;inset-inline-end:2px;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:#D6455B;color:#fff;font-size:.68rem;font-weight:900;line-height:18px;text-align:center;box-shadow:0 0 0 2px #fff;pointer-events:none}
 .proj-badge-in{margin-inline-start:.5rem;display:inline-block;min-width:22px;height:22px;padding:0 7px;border-radius:999px;background:#D6455B;color:#fff;font-size:.75rem;font-weight:900;line-height:22px;text-align:center}
@@ -1310,18 +1310,8 @@ body{
 
 .tabs{max-width:1120px;display:flex;gap:.35rem}
 .tabs .tab{flex:1;text-align:center}
-.mobile-nav{display:none}
 /* 📱 الشريط السفلي كان display:none بلا استثناء — أي أنه لم يظهر قط.
    نُظهره في الجوال بتصميم بوابة المعلم نفسه: أيقونات خطّية ونصّ تحتها. */
-@media screen and (max-width:700px){
-  .mobile-nav{gap:2px;inset-inline:0;
-  }
-  .mobile-nav button svg{width:22px;height:22px;flex:0 0 22px}
-  .mobile-nav button.on,.mobile-nav button.on:active{
-    background:transparent !important;color:#7FD8C4 !important;
-    -webkit-text-fill-color:#7FD8C4 !important;
-  }
-}
 
 /* ── \3c style id=grades-pro-style> ── */
 
@@ -1499,27 +1489,6 @@ body{
 .tabs .tab:focus,
 .tabs .tab:focus-visible{
   outline:none;
-}
-
-.mobile-nav button{
-  -webkit-appearance:none;
-  appearance:none;
-  -webkit-tap-highlight-color:transparent;
-  background:transparent !important;
-  text-shadow:none;
-}
-
-.mobile-nav button:active{
-  background:rgba(255,255,255,.08) !important;
-  color:#FFFFFF !important;
-}
-
-.mobile-nav button.on,
-.mobile-nav button.on:active{
-  background:#EEF2F7 !important;
-  color:#16233A !important;
-  -webkit-text-fill-color:#16233A !important;
-  opacity:1 !important;
 }
 
 /* ── \3c style id=hw-icon-actions> ── */

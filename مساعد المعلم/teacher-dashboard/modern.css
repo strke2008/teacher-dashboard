@@ -11,6 +11,8 @@
 @font-face{font-family:'IBM Plex Sans Arabic';font-style:normal;font-weight:700;font-display:swap;src:url(fonts/plex-arabic-700-arabic.woff2) format('woff2');unicode-range:U+0600-06FF, U+0750-077F, U+0870-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC, U+102E0-102FB, U+10E60-10E7E, U+10EC2-10EC7, U+10EC9-10EEE, U+10EF0-10EFF, U+1EE00-1EE03, U+1EE05-1EE1F, U+1EE21-1EE22, U+1EE24, U+1EE27, U+1EE29-1EE32, U+1EE34-1EE37, U+1EE39, U+1EE3B, U+1EE42, U+1EE47, U+1EE49, U+1EE4B, U+1EE4D-1EE4F, U+1EE51-1EE52, U+1EE54, U+1EE57, U+1EE59, U+1EE5B, U+1EE5D, U+1EE5F, U+1EE61-1EE62, U+1EE64, U+1EE67-1EE6A, U+1EE6C-1EE72, U+1EE74-1EE77, U+1EE79-1EE7C, U+1EE7E, U+1EE80-1EE89, U+1EE8B-1EE9B, U+1EEA1-1EEA3, U+1EEA5-1EEA9, U+1EEAB-1EEBB, U+1EEF0-1EEF1}
 @font-face{font-family:'IBM Plex Sans Arabic';font-style:normal;font-weight:700;font-display:swap;src:url(fonts/plex-arabic-700-latin.woff2) format('woff2');unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
 @media screen{
+/* ألوان «عصري» هي الأساس نفسه (لا ينتظر الشكلُ الجديد أيَّ سكربت). الثيمات الأخرى تُطبَّق فوقها من theme-picker.js */
+:root{--paper:#F5F7F9;--paper-2:#FFFFFF;--ink:#0F1A24;--ink-soft:#6B7785;--ui-muted:#6B7785;--rule:#E3E8ED;--ui-bg:#F5F7F9;--ui-surface:#FFFFFF;--ui-surface-2:#F5F7F9;--ui-border:#E8ECF0;--ui-border-strong:#D5DCE3;--ui-accent:#0F9D74;--ui-accent-soft:#E7F6F0;--app-nav-bg:#FFFFFF;--app-nav-text:#0F1A24;--app-nav-muted:#6B7785;--app-nav-active:#E7F6F0;--app-nav-active-text:#0B7A5A;--card:#FFFFFF;--m-hero:#0F9D74;--m-hero-ink:#FFFFFF}
 :root{--m-r:16px;--m-r-sm:12px;--m-sh:0 1px 2px rgba(16,24,40,.04),0 4px 14px rgba(16,24,40,.06);--m-font:'IBM Plex Sans Arabic','Readex Pro','Tajawal','Segoe UI',system-ui,sans-serif}
 body{font-family:var(--m-font)!important;background:var(--paper)!important;-webkit-font-smoothing:antialiased}
 button,input,select,textarea{font-family:inherit}
@@ -97,7 +99,7 @@ details.td-more{background:var(--ui-surface)!important;border:0!important;border
 .ico{width:1.15em;height:1.15em;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;vertical-align:-.2em;flex:none;display:inline-block}
 #simp-bottomnav .simp-bic .ico,#fm-bot i .ico{width:24px;height:24px;vertical-align:middle}
 #simp-bottomnav .simp-bic{display:inline-flex;align-items:center;justify-content:center;min-height:30px}
-.app-nav-icon .ico,.mnav-icon .ico{width:20px;height:20px}
+.app-nav-icon .ico{width:20px;height:20px}
 .qr-row .c{filter:none!important;opacity:1!important;color:#A8B1BB;display:inline-grid;place-items:center}
 .qr-row .c .ico{width:22px;height:22px;stroke-width:2}
 .qr-row .c.g.on{color:var(--ui-accent)!important}.qr-row .c.y.on{color:#B7791F!important}.qr-row .c.r.on{color:#E5484D!important}

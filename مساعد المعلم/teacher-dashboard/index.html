@@ -3,25 +3,14 @@
 <html dir="rtl" lang="ar">
 <head>
 <script>
-/* 🎨 قبل أول رسم: ألوان الثيم المحفوظ فورًا، وشاشة بداية بالتصميم الجديد حتى تكتمل الواجهة
-   (كان الشكل القديم يظهر ثوانٍ على الجوال إلى أن تُحمَّل theme-picker.js والأيقونات والشريط السفلي) */
+/* 🎨 قبل أول رسم: ألوان الثيم المحفوظ (غير «عصري») تُطبَّق فورًا — «عصري» نفسه في modern.css، والأيقونات والتنقل جزء من الصفحة */
 (function(){var d=document.documentElement,M={'--paper':'#F5F7F9','--paper-2':'#FFFFFF','--ink':'#0F1A24','--ink-soft':'#6B7785','--ui-muted':'#6B7785','--rule':'#E3E8ED','--ui-bg':'#F5F7F9','--ui-surface':'#FFFFFF','--ui-surface-2':'#F5F7F9','--ui-border':'#E8ECF0','--ui-border-strong':'#D5DCE3','--ui-accent':'#0F9D74','--ui-accent-soft':'#E7F6F0','--app-nav-bg':'#FFFFFF','--app-nav-text':'#0F1A24','--app-nav-muted':'#6B7785','--app-nav-active':'#E7F6F0','--app-nav-active-text':'#0B7A5A','--card':'#FFFFFF','--m-hero':'#0F9D74','--m-hero-ink':'#FFFFFF'},AT=Date.parse('2026-11-03T19:00:00Z'),v=M,t=null;
   try{t=JSON.parse(localStorage.getItem('oasis_theme_v1')||'null')}catch(e){}
   if(t&&t.vars&&t.name!=='night'&&(t.name==='custom'||t.name==='modern'||(Number(t.at)||0)>=AT))v=t.vars;
   for(var k in M)if(!(k in v))d.style.setProperty(k,M[k]);for(var k2 in v)if(/^--[a-z0-9-]+$/.test(k2))d.style.setProperty(k2,v[k2]);
   try{d.dataset.uiTheme=localStorage.getItem('hwapp_ui_theme_v1')==='dark'?'dark':'light'}catch(e){}
-  d.classList.add('boot');var off=function(){d.classList.remove('boot')},t0=Date.now();
-  setTimeout(off,12000);   // أمان: لا تبقى شاشة البداية أبدًا
-  document.addEventListener('DOMContentLoaded',function(){(function w(){ if(document.getElementById('simp-bottomnav')||Date.now()-t0>12000) requestAnimationFrame(function(){requestAnimationFrame(off)}); else setTimeout(w,60); })();});
 })();
 </script>
-<style>
-html.boot body>*{visibility:hidden!important}
-html.boot body{background:var(--paper,#F5F7F9)!important}
-html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;height:64px;border-radius:18px;background:var(--ui-accent,#0F9D74) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='7' height='7' rx='1.5'/%3E%3Crect x='14' y='3' width='7' height='7' rx='1.5'/%3E%3Crect x='3' y='14' width='7' height='7' rx='1.5'/%3E%3Crect x='14' y='14' width='7' height='7' rx='1.5'/%3E%3C/svg%3E") center/34px no-repeat;box-shadow:0 10px 30px rgba(15,157,116,.25);animation:bootp 1.2s ease-in-out infinite;visibility:visible!important;z-index:2147483647}
-@keyframes bootp{50%{transform:scale(.92);opacity:.85}}
-@media (prefers-reduced-motion:reduce){html.boot body::before{animation:none}}
-</style>
 <script>
 /* 🔐 دخول المعلم: (1) كلمة السر لا تُكتب في الروابط — تُرسل في ترويسة مخفية. (2) جلسة لكل جهاز: أول فتح بعد التحديث
    يستبدل كلمة السر المحفوظة على هذا الجهاز بجلسة خاصة به (بلا إعادة دخول)، تُلغى وحدها من «الأجهزة» في الإعدادات.
@@ -92,16 +81,18 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
 <meta content="black" name="apple-mobile-web-app-status-bar-style"/>
 <meta content="yes" name="mobile-web-app-capable"/>
 <meta content="root-cause-sync-v2" name="sync-fix-version"/>
-<link rel="stylesheet" href="app.css?v=5b26a9bf">
+<link rel="stylesheet" href="app.css?v=a65a380e">
+<!-- الأيقونات أولًا: ما تبنيه السكربتات التالية أثناء الفتح يأخذ أيقونته قبل أن يُرسم -->
+<script src="js/45-icons.js?v=e6646825" defer></script>
 <script src="js/00-fetch-dedupe-js.js?v=e77498d1" defer></script>
 <script src="js/01-right-sidebar-navigation-js.js?v=41ea29b3" defer></script>
-<script src="js/02.js?v=52a5bf82" defer></script>
+<script src="js/02.js?v=3dec9011" defer></script>
 <script src="js/03-projects-students-logic-v13.js?v=d4950f64" defer></script>
 <script src="js/04.js?v=5a7c663e" defer></script>
 <script src="js/05.js?v=a7c074c3" defer></script>
 <script src="js/06.js?v=4e76f64a" defer></script>
 <script src="js/07.js?v=de43f185" defer></script>
-<script src="js/08.js?v=3e9240ca" defer></script>
+<script src="js/08.js?v=578eae54" defer></script>
 <script src="js/09.js?v=ef17fc2a" defer></script>
 <script src="js/10.js?v=9d5a33ee" defer></script>
 <script src="js/11.js?v=f8090988" defer></script>
@@ -142,10 +133,9 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
 <link rel="lz" data-lz="js/wall-admin-lazy.js" href="js/wall-admin-lazy.js?v=4fd83629">
 <script src="js/40-quick-record.js?v=0a4a8341" defer></script>
 <script src="js/44-focus-mode.js?v=ee16bc68" defer></script>
-<script src="js/45-icons.js?v=78f9f843" defer></script>
 <script src="js/46-lazy.js?v=e1dc003c" defer></script>
 <script src="theme-picker.js?v=9022a180" defer></script>
-<script src="simplified-nav.js?v=7f3bb1e6" defer></script>
+<script src="simplified-nav.js?v=fd0b42d0" defer></script>
 <script src="tab-polish.js?v=bd1e2e02" defer></script>
 <script src="js/wall.js?v=bb38e88b" defer></script>
 <script src="js/wall-admin.js?v=cf437929" defer></script>
@@ -398,71 +388,9 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
   #nav-scrim{display:none!important;}
   body{padding-bottom:calc(70px + env(safe-area-inset-bottom,0px))!important;}
   .wrap{padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))!important;}
-  .mobile-nav{
-    display:grid!important;
-    grid-template-columns:repeat(7,minmax(0,1fr));
-    position:fixed!important;
-    left:0!important;right:0!important;bottom:0!important;
-    z-index:2000!important;
-    /* سقف لمسافة شريط الإيماءات: قيمة env قد تتضخم مؤقتًا في سفاري فيطول الشريط */
-    height:calc(64px + min(env(safe-area-inset-bottom,0px),34px));
-    padding:4px 5px min(env(safe-area-inset-bottom,0px),34px)!important;
-    box-sizing:border-box!important;
-    background:#16233A!important;
-    border-top:1px solid rgba(255,255,255,.12)!important;
-    box-shadow:0 -6px 20px rgba(13,24,40,.16)!important;
-    direction:rtl;
-  }
-  .mobile-nav button{
-    appearance:none!important;-webkit-appearance:none!important;
-    display:flex!important;flex-direction:column!important;
-    align-items:center!important;justify-content:center!important;
-    gap:2px!important;min-width:0!important;height:56px!important;
-    margin:0!important;padding:3px 1px!important;border:0!important;
-    border-radius:10px!important;background:transparent!important;
-    color:#DCE6F1!important;font:inherit!important;
-    box-sizing:border-box!important;
-  }
-  .mobile-nav button:active{transform:scale(.96);}
-  .mobile-nav button.on{background:rgba(255,255,255,.10)!important;color:#fff!important;}
-  .mobile-nav button b{
-    display:block!important;font-size:clamp(9px,2.4vw,11px)!important;
-    line-height:1.15!important;font-weight:700!important;
-    white-space:nowrap!important;overflow:visible!important;
-  }
-  .mobile-nav .mnav-icon{
-    display:flex!important;align-items:center!important;justify-content:center!important;
-    width:24px;height:24px;font-size:19px;line-height:1;
-    flex:0 0 24px;
-  }
-  #nav-more-btn .mnav-icon{font-size:18px;letter-spacing:1px;}
 }
-@media (min-width:701px){.mobile-nav{display:none!important;}}
-@media print{.mobile-nav{display:none!important;}body{padding-bottom:0!important;}}
+@media print{body{padding-bottom:0!important;}}
 </style>
-<style id="mobile-bottom-active-color-fix">
-/* إصلاح لون العنصر النشط في الشريط السفلي للجوال */
-@media screen and (max-width:700px){
-  #mobile-nav button.on,
-  #mobile-nav button.on:active{
-    background:#F1F5F9 !important;
-    color:#16233A !important;
-    -webkit-text-fill-color:#16233A !important;
-    opacity:1 !important;
-  }
-  #mobile-nav button.on .mnav-icon{color:#16233A !important;}
-  #mobile-nav button:not(.on){
-    background:transparent !important;
-    color:#DCE6F1 !important;
-    -webkit-text-fill-color:#DCE6F1 !important;
-  }
-  #mobile-nav button:not(.on):active{
-    background:rgba(255,255,255,.08) !important;
-    color:#FFFFFF !important;
-  }
-}
-</style>
-
 <style id="mobile-modal-universal-fix-v2">
 /* نوافذ الجوال: مساحة آمنة، زر إغلاق ثابت، وتمرير داخلي فقط */
 .modal-mobile-close{
@@ -537,13 +465,11 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
   .modal-mobile-close{width:38px;height:38px;}
 }
 </style>
-
 <style id="reports-main-hub-clean">
 #p-reports-main .reports-main-grid{margin-top:1rem;}
 #p-reports-main .report-hub-card{min-height:88px;}
 @media screen and (max-width:700px){#p-reports-main .reports-main-grid{grid-template-columns:1fr;}#p-reports-main .report-hub-card{min-height:76px;}}
 </style>
-
 <style id="exam-shop-control-css">
 .exam-shop-control{display:flex;flex-direction:column;gap:1rem}
 .exam-shop-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:.6rem}
@@ -556,23 +482,23 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
 .exam-shop-status.open{background:#E4F4EC;color:#167852}.exam-shop-status.closed{background:#FFF1F2;color:#9F2538}
 @media screen and (max-width:600px){.exam-shop-kpis{grid-template-columns:1fr 1fr}.exam-shop-student{grid-template-columns:1fr 105px}.exam-shop-student small{grid-column:1}.exam-shop-student .exam-shop-used{display:none}}
 </style>
-<link rel="stylesheet" id="late-css" href="app-late.css?v=9998c6d9">
-<link rel="stylesheet" href="theme-picker.css?v=f1415a04">
-<link rel="stylesheet" href="simplified-nav.css?v=154681ae">
+<link rel="stylesheet" id="late-css" href="app-late.css?v=ced8e033">
+<link rel="stylesheet" href="theme-picker.css?v=8ea5ab83">
+<link rel="stylesheet" href="simplified-nav.css?v=c368d3a8">
 <link rel="stylesheet" href="tab-polish.css?v=6f5bfbbe">
 <link rel="stylesheet" href="audit-fixes.css?v=a05870b6">
 <link rel="stylesheet" href="wall.css?v=e9acbc8c">
 <link rel="preload" href="fonts/plex-arabic-400-arabic.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="modern.css?v=e94ba396">
+<link rel="stylesheet" href="modern.css?v=fe55f976">
 </head>
-<body>
+<body class="simp-nav">
 <header class="masthead">
 <div class="masthead-in">
 <button aria-controls="main-nav" aria-expanded="false" aria-label="فتح قائمة التنقل" class="nav-drawer-toggle no-print" id="nav-drawer-toggle" type="button">☰</button>
 <div class="brand brand-refresh" role="button" tabindex="0" title="اضغط لتحديث الصفحة" aria-label="تحديث الصفحة"><span class="mark"></span><span class="brand-txt">مساعد المعلم</span></div>
 <div class="meta" id="meta-line">—</div>
-<button class="btn ghost sm no-print vsp-btn" id="vsp-btn" onclick="vspOpen()" style="display:none" title="الفترة المعروضة في اللوحة — اضغط لعرض فترة مغلقة" type="button">📅</button>
-<button class="btn ghost sm no-print" id="portal-link-btn" onclick="openPortal()" style="margin-inline-start:.4rem" type="button" title="الرصد السريع للحصة" aria-label="الرصد السريع">✋<span class="portal-w"> الرصد</span></button>
+<button class="btn ghost sm no-print vsp-btn" id="vsp-btn" onclick="vspOpen()" style="display:none" title="الفترة المعروضة في اللوحة — اضغط لعرض فترة مغلقة" type="button" data-emo="📅"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></button>
+<button class="btn ghost sm no-print" id="portal-link-btn" onclick="openPortal()" style="margin-inline-start:.4rem" type="button" title="الرصد السريع للحصة" aria-label="الرصد السريع" data-emo="✋"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18 11V6a2 2 0 0 0-4 0v5M14 10V4a2 2 0 0 0-4 0v6M10 10.5V6a2 2 0 0 0-4 0v8a8 8 0 0 0 16 0v-3a2 2 0 0 0-4 0"/></svg><span class="portal-w"> الرصد</span></button>
 </div>
 <div class="vsp-banner hide no-print" id="vsp-banner"></div>
 </header>
@@ -583,46 +509,47 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
 <button aria-label="إغلاق القائمة" class="app-sidebar-close no-print" id="nav-drawer-close" type="button">×</button>
 </div>
 <div class="app-sidebar-scroll">
+<div id="simp-nav"></div>
 <section class="app-nav-group">
-<button class="tab on" data-tab="dashboard" type="button"><span class="app-nav-icon">🏠</span><span>اليوم</span></button>
+<button class="tab on" data-tab="dashboard" type="button" data-emo="🏠"><span class="app-nav-icon" data-emo="🏠"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg></span><span>اليوم</span></button>
 </section>
 <section class="app-nav-group">
 <div class="app-nav-title">📚 التعليم</div>
-<button class="tab" data-tab="hw" type="button"><span class="app-nav-icon">📋</span><span>الأنشطة</span></button>
-<button class="tab" data-tab="projects" type="button"><span class="app-nav-icon">📁</span><span>المشاريع</span></button>
-<button class="tab" data-tab="live" type="button"><span class="app-nav-icon">🎮</span><span>المسابقات المباشرة</span></button>
-<button class="tab" data-tab="madrasati" type="button"><span class="app-nav-icon">📚</span><span>مدرستي</span></button>
+<button class="tab" data-tab="hw" type="button" data-emo="📋"><span class="app-nav-icon" data-emo="📋"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9zM9 12h6M9 16h4"/></svg></span><span>الأنشطة</span></button>
+<button class="tab" data-tab="projects" type="button" data-emo="📁"><span class="app-nav-icon" data-emo="📁"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span><span>المشاريع</span></button>
+<button class="tab" data-tab="live" type="button" data-emo="🎮"><span class="app-nav-icon" data-emo="🎮"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="2.5" y="7" width="19" height="11" rx="4"/><path d="M7 11v3M5.5 12.5h3M15 12h.01M18 13.5h.01"/></svg></span><span>المسابقات المباشرة</span></button>
+<button class="tab" data-tab="madrasati" type="button" data-emo="📚"><span class="app-nav-icon" data-emo="📚"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg></span><span>مدرستي</span></button>
 </section>
 <section class="app-nav-group">
 <div class="app-nav-title">👥 الطلاب والمتابعة</div>
-<button class="tab" data-tab="students" type="button"><span class="app-nav-icon">👥</span><span>الطلاب</span></button>
-<button class="tab" data-tab="classtools" data-view="records" type="button"><span class="app-nav-icon">🗂️</span><span>السجلات والحضور</span></button>
-<button class="tab" data-tab="plans" type="button"><span class="app-nav-icon">🩺</span><span>الخطط العلاجية</span></button>
-<button class="tab" data-tab="classtools" data-view="duties" type="button"><span class="app-nav-icon">🎖️</span><span>مهام الطلاب</span></button>
+<button class="tab" data-tab="students" type="button" data-emo="👥"><span class="app-nav-icon" data-emo="👥"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a5 5 0 0 1 3.5 6"/></svg></span><span>الطلاب</span></button>
+<button class="tab" data-tab="classtools" data-view="records" type="button" data-emo="🗂️"><span class="app-nav-icon" data-emo="🗂️"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></span><span>السجلات والحضور</span></button>
+<button class="tab" data-tab="plans" type="button" data-emo="🩺"><span class="app-nav-icon" data-emo="🩺"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 3v6a5 5 0 0 0 10 0V3"/><path d="M11 14v2a5 5 0 0 0 10 0v-2"/><circle cx="21" cy="12" r="1.5"/></svg></span><span>الخطط العلاجية</span></button>
+<button class="tab" data-tab="classtools" data-view="duties" type="button" data-emo="🎖️"><span class="app-nav-icon" data-emo="🎖️"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="15" r="5"/><path d="M8.5 11 6 3h4l2 5 2-5h4l-2.5 8"/></svg></span><span>مهام الطلاب</span></button>
 </section>
 <section class="app-nav-group">
 <div class="app-nav-title">📝 الاختبارات والدرجات</div>
-<button class="tab" data-tab="classtools" data-view="exams" type="button"><span class="app-nav-icon">📝</span><span>دفتر الاختبارات</span></button>
-<button class="tab" data-tab="exam" type="button"><span class="app-nav-icon">🖨️</span><span>الاختبار الورقي</span></button>
-<button class="tab" data-tab="nafs" type="button"><span class="app-nav-icon">🧭</span><span>نافس ونواتج التعلم</span></button>
-<button class="tab" data-tab="reports" type="button"><span class="app-nav-icon">📑</span><span>الكشوف</span></button>
+<button class="tab" data-tab="classtools" data-view="exams" type="button" data-emo="📝"><span class="app-nav-icon" data-emo="📝"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M14 4l6 6L9 21H3v-6z"/><path d="M12.5 5.5l6 6"/></svg></span><span>دفتر الاختبارات</span></button>
+<button class="tab" data-tab="exam" type="button" data-emo="🖨️"><span class="app-nav-icon" data-emo="🖨️"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 8V3h10v5"/><rect x="3" y="8" width="18" height="9" rx="2"/><path d="M7 14h10v7H7z"/></svg></span><span>الاختبار الورقي</span></button>
+<button class="tab" data-tab="nafs" type="button" data-emo="🧭"><span class="app-nav-icon" data-emo="🧭"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg></span><span>نافس ونواتج التعلم</span></button>
+<button class="tab" data-tab="reports" type="button" data-emo="📑"><span class="app-nav-icon" data-emo="📑"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4M9 12h7M9 16h7"/></svg></span><span>الكشوف</span></button>
 </section>
 <section class="app-nav-group">
 <div class="app-nav-title">📈 التقارير والتحليل</div>
-<button class="tab" data-tab="grades" type="button"><span class="app-nav-icon">📊</span><span>تقارير الأنشطة</span></button>
-<button class="tab" data-tab="classtools" data-view="analysis" type="button"><span class="app-nav-icon">📈</span><span>المستويات والمهارات</span></button>
-<button class="tab" data-tab="classtools" data-view="classfile" type="button"><span class="app-nav-icon">🏫</span><span>ملف الفصل</span></button>
-<button class="tab" data-tab="classtools" data-view="portfolio" type="button"><span class="app-nav-icon">🧾</span><span>ملف الإنجاز</span></button>
+<button class="tab" data-tab="grades" type="button" data-emo="📊"><span class="app-nav-icon" data-emo="📊"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 20V4M4 20h16"/><rect x="7" y="11" width="3" height="6"/><rect x="12" y="7" width="3" height="10"/><rect x="17" y="13" width="3" height="4"/></svg></span><span>تقارير الأنشطة</span></button>
+<button class="tab" data-tab="classtools" data-view="analysis" type="button" data-emo="📈"><span class="app-nav-icon" data-emo="📈"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg></span><span>المستويات والمهارات</span></button>
+<button class="tab" data-tab="classtools" data-view="classfile" type="button" data-emo="🏫"><span class="app-nav-icon" data-emo="🏫"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 10l9-5 9 5-9 5z"/><path d="M7 12v5c3 2 7 2 10 0v-5"/></svg></span><span>ملف الفصل</span></button>
+<button class="tab" data-tab="classtools" data-view="portfolio" type="button" data-emo="🧾"><span class="app-nav-icon" data-emo="🧾"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg></span><span>ملف الإنجاز</span></button>
 </section>
 <section class="app-nav-group">
 <div class="app-nav-title">🏅 التواصل والتحفيز</div>
-<button class="tab" data-tab="messages" type="button"><span class="app-nav-icon">💬</span><span>رسائل الطلاب</span></button>
-<button class="tab" data-tab="walls" type="button"><span class="app-nav-icon">🧱</span><span>حائط الإبداع</span></button>
-<button class="tab" data-tab="classtools" data-view="certs" type="button"><span class="app-nav-icon">🏅</span><span>الشهادات</span></button>
-<button class="tab" data-tab="exam-shop" type="button"><span class="app-nav-icon">🎓</span><span>متجر الدرجات</span></button>
+<button class="tab" data-tab="messages" type="button" data-emo="💬"><span class="app-nav-icon" data-emo="💬"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 5h16v11H8l-4 4z"/></svg></span><span>رسائل الطلاب</span></button>
+<button class="tab" data-tab="walls" type="button" data-emo="🧱"><span class="app-nav-icon" data-emo="🧱"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M3 15h18M9 4v6M15 10v5M9 15v5"/></svg></span><span>حائط الإبداع</span></button>
+<button class="tab" data-tab="classtools" data-view="certs" type="button" data-emo="🏅"><span class="app-nav-icon" data-emo="🏅"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="9" r="6"/><path d="M8.5 14 7 22l5-3 5 3-1.5-8"/></svg></span><span>الشهادات</span></button>
+<button class="tab" data-tab="exam-shop" type="button" data-emo="🎓"><span class="app-nav-icon" data-emo="🎓"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2 9l10-5 10 5-10 5z"/><path d="M6 11v5c4 3 8 3 12 0v-5M22 9v6"/></svg></span><span>متجر الدرجات</span></button>
 </section>
 <section class="app-nav-group">
-<button class="tab" data-tab="data" type="button"><span class="app-nav-icon">⚙️</span><span>الإعدادات</span></button>
+<button class="tab" data-tab="data" type="button" data-emo="⚙️"><span class="app-nav-icon" data-emo="⚙️"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></svg></span><span>الإعدادات</span></button>
 </section>
 </div>
 </aside>
@@ -631,39 +558,39 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
 <!-- ═══ لوحة التحكم ═══ -->
 <section class="panel on" id="p-dashboard">
 <div class="td-head no-print">
-<div><h2>🏠 اليوم</h2><span class="sub" id="td-date"></span></div>
+<div><h2 data-emo="🏠"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg> اليوم</h2><span class="sub" id="td-date"></span></div>
 <div class="td-search"><input class="inp" id="th-q" placeholder="🔎 ابحث عن طالب لفتح ملفه…  (Ctrl+K)" oninput="thSearch()" autocomplete="off"><div class="th-res td-res" id="th-res"></div></div>
 <button class="btn ghost sm" onclick="openQuickStudent()">+ طالب</button>
-<button class="btn ghost sm no-print" id="tl-btn" onclick="tlEdit()" title="رتّب بطاقات صفحة اليوم: المكان والعرض والإخفاء">🧩 ترتيب</button>
+<button class="btn ghost sm no-print" id="tl-btn" onclick="tlEdit()" title="رتّب بطاقات صفحة اليوم: المكان والعرض والإخفاء" data-emo="🧩"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M10 4a2 2 0 0 1 4 0v2h4v4h2a2 2 0 0 1 0 4h-2v4h-4v-2a2 2 0 0 0-4 0v2H6v-4H4a2 2 0 0 1 0-4h2V6h4z"/></svg> ترتيب</button>
 </div>
 <div class="today-hub no-print" id="today-hub"></div>
 <div class="td-more-grid" id="td-board">
 <div class="td-blk" data-blk="tasks" id="td-slot-tasks"></div>
 <div class="td-blk" data-blk="asks" id="td-slot-asks"></div>
 <div class="td-blk td-weekcard" data-blk="week" id="td-slot-week"></div>
-<details class="td-more td-blk" data-blk="alerts" id="td-more-alerts"><summary>🔔 التنبيهات بالتفصيل والطلبات <span class="alert-count" id="dash-alert-badge">0</span><span class="attention-req-count" id="attention-req-count" style="display:none">0</span><span class="attention-req-count" id="dev-warn-count" style="display:none;background:var(--pen)">0</span></summary>
+<details class="td-more td-blk" data-blk="alerts" id="td-more-alerts"><summary data-emo="🔔"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg> التنبيهات بالتفصيل والطلبات <span class="alert-count" id="dash-alert-badge">0</span><span class="attention-req-count" id="attention-req-count" style="display:none">0</span><span class="attention-req-count" id="dev-warn-count" style="display:none;background:var(--pen)">0</span></summary>
 <div class="sheet alerts-sheet" style="margin:0">
 <div class="alert-section-head"><span class="alert-summary" id="dash-alert-count">كل شيء جيد</span></div>
 <div id="attention-requests"></div>
 <div id="store-purchases-panel" class="sheet store-purchases-panel" style="margin:1rem 0 0"></div>
 <div class="alert-list" id="dash-alerts"></div>
 </div></details>
-<details class="td-more td-blk" data-blk="follow"><summary>👥 طلاب يحتاجون متابعتك <button class="btn sm no-print" type="button" onclick="event.preventDefault();openBulkReminder()">📨 تذكير جماعي</button></summary>
+<details class="td-more td-blk" data-blk="follow"><summary data-emo="👥"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a5 5 0 0 1 3.5 6"/></svg> طلاب يحتاجون متابعتك <button class="btn sm no-print" type="button" onclick="event.preventDefault();openBulkReminder()" data-emo="📨"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M21 3 3 10l7 3 3 7z"/><path d="M10 13l4-4"/></svg> تذكير جماعي</button></summary>
 <div class="sheet followup-students-sheet" style="margin:0"><div class="feature-list" id="dash-followup-students"></div></div></details>
-<details class="td-more td-blk" data-blk="recent"><summary>🕐 آخر التسليمات</summary><div class="sheet" style="margin:0"><div class="feature-list" id="dash-recent"></div></div></details>
-<details class="td-more td-blk" data-blk="hw"><summary>📚 حالة الأنشطة <span class="muted" id="dash-hw-summary"></span></summary><div class="sheet" style="margin:0"><div id="dash-hw"></div></div></details>
-<details class="td-more td-blk" data-blk="stats"><summary>📊 أرقام عامة</summary><div class="feature-grid" id="dash-stats"></div></details>
+<details class="td-more td-blk" data-blk="recent"><summary data-emo="🕐"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg> آخر التسليمات</summary><div class="sheet" style="margin:0"><div class="feature-list" id="dash-recent"></div></div></details>
+<details class="td-more td-blk" data-blk="hw"><summary data-emo="📚"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg> حالة الأنشطة <span class="muted" id="dash-hw-summary"></span></summary><div class="sheet" style="margin:0"><div id="dash-hw"></div></div></details>
+<details class="td-more td-blk" data-blk="stats"><summary data-emo="📊"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 20V4M4 20h16"/><rect x="7" y="11" width="3" height="6"/><rect x="12" y="7" width="3" height="10"/><rect x="17" y="13" width="3" height="4"/></svg> أرقام عامة</summary><div class="feature-grid" id="dash-stats"></div></details>
 </div>
 <div><div class="sheet"><div class="feature-list" id="dash-next-actions"></div></div></div>
 </section>
 <!-- ═══ حائط الإبداع ═══ -->
 <section class="panel" id="p-walls">
 <div class="sheet-head">
-<div><h2>🧱 حائط الإبداع</h2><span class="sub">منشورات الطلاب على الحوائط — اعتمدها واعرضها</span></div>
+<div><h2 data-emo="🧱"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M3 15h18M9 4v6M15 10v5M9 15v5"/></svg> حائط الإبداع</h2><span class="sub">منشورات الطلاب على الحوائط — اعتمدها واعرضها</span></div>
 <span class="spacer"></span>
 </div>
 <div class="sheet" id="wall-sheet">
-<div class="sheet-head" style="margin:0 0 .5rem"><div><h3 style="margin:0">🧱 حوائط الإبداع</h3>
+<div class="sheet-head" style="margin:0 0 .5rem"><div><h3 style="margin:0" data-emo="🧱"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M3 15h18M9 4v6M15 10v5M9 15v5"/></svg> حوائط الإبداع</h3>
 <span class="sub">حائط لموضوع (أسبوع الفضاء، اليوم الوطني، تجربة…) ينشر فيه كل طالب إبداعه ويشاهد أعمال زملائه</span></div>
 <span class="spacer"></span><button class="btn tick" type="button" onclick="wallEdit()">＋ حائط جديد</button></div>
 <div id="vote-link-row" class="muted" style="font-size:.84rem;margin:-.2rem 0 .6rem"></div>
@@ -677,27 +604,27 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
 <span class="spacer"></span>
 </div>
 <div class="sheet" id="ann-sheet">
-<div class="sheet-head" style="margin:0 0 .5rem"><div><h3 style="margin:0">📢 إعلان أو ملفات للطلاب</h3>
+<div class="sheet-head" style="margin:0 0 .5rem"><div><h3 style="margin:0" data-emo="📢"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 11v2a1 1 0 0 0 1 1h3l6 4V6L7 10H4a1 1 0 0 0-1 1z"/><path d="M17 9a4 4 0 0 1 0 6M7 14l1 6h3l-1-5"/></svg> إعلان أو ملفات للطلاب</h3>
 <span class="sub">صورة أو فيديو أو PDF أو عرض PowerPoint يظهر في الصفحة الرئيسية لبوابة الطالب — لإعلان مشروع أو مشاركة ملف</span></div></div>
-<div class="row" style="gap:.5rem;margin:0 0 .5rem"><button class="btn ghost" type="button" onclick="annVoteTemplate()">🗳️ إعلان التصويت جاهز</button></div>
+<div class="row" style="gap:.5rem;margin:0 0 .5rem"><button class="btn ghost" type="button" onclick="annVoteTemplate()" data-emo="🗳️"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8.5 12l2.5 2.5L16 9.5"/></svg> إعلان التصويت جاهز</button></div>
 <div class="field"><label>العنوان</label><input class="inp" id="ann-title" maxlength="140" placeholder="مثال: مشروع الفصل — نموذج الخلية"></div>
 <div class="field"><label>النص (اختياري)</label><textarea class="inp" id="ann-body" rows="3" maxlength="3000" placeholder="تفاصيل الإعلان، المطلوب، الموعد…"></textarea><small class="ann-hint">🔘 الرابط يظهر للطلاب زرًّا. لتسميته اكتب الاسم ثم الرابط في السطر نفسه: <code>وثيقة المسابقة https://…</code></small></div>
 <div class="field"><label>لمن؟</label><div id="ann-classes" class="ann-cls"></div></div>
-<div class="field"><label>⏰ وقت الظهور للطلاب</label>
+<div class="field"><label data-emo="⏰"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M5 3 2 6M19 3l3 3"/></svg> وقت الظهور للطلاب</label>
 <div class="ann-when"><label>يظهر من<input class="inp" type="datetime-local" id="ann-from"><small>فارغ = الآن</small></label>
 <label>ويختفي في<input class="inp" type="datetime-local" id="ann-until"><small>فارغ = يبقى حتى تحذفه</small></label></div>
 <div class="ann-quick" id="ann-quick"><span>يختفي بعد:</span><button type="button" data-ann-q="1">يوم</button><button type="button" data-ann-q="3">3 أيام</button><button type="button" data-ann-q="7">أسبوع</button><button type="button" data-ann-q="14">أسبوعين</button><button type="button" data-ann-q="30">شهر</button><button type="button" data-ann-q="0">بلا نهاية</button></div></div>
 <div class="field"><label>المرفقات (حتى 6)</label>
-<label class="ann-drop" for="ann-files">📎 اختر صورًا أو فيديو أو PDF أو PowerPoint<small>الصورة حتى 10MB · الـPDF حتى 25MB · PowerPoint حتى 50MB · الفيديو حتى 95MB (MP4 مفضّل)</small></label>
+<label class="ann-drop" for="ann-files" data-emo="📎"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M21 11l-9 9a5 5 0 0 1-7-7l9-9a3.5 3.5 0 0 1 5 5l-9 9a2 2 0 0 1-3-3l8-8"/></svg> اختر صورًا أو فيديو أو PDF أو PowerPoint<small>الصورة حتى 10MB · الـPDF حتى 25MB · PowerPoint حتى 50MB · الفيديو حتى 95MB (MP4 مفضّل)</small></label>
 <input type="file" id="ann-files" multiple accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime,application/pdf,.ppt,.pptx,.ppsx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation" hidden>
 <div id="ann-picked" class="ann-picked"></div></div>
 <div id="ann-progress" class="ann-progress hide"><i></i><span></span></div>
-<div class="row" style="gap:.5rem;justify-content:flex-end"><button class="btn tick" id="ann-send" type="button">📢 انشر الإعلان</button></div>
+<div class="row" style="gap:.5rem;justify-content:flex-end"><button class="btn tick" id="ann-send" type="button" data-emo="📢"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 11v2a1 1 0 0 0 1 1h3l6 4V6L7 10H4a1 1 0 0 0-1 1z"/><path d="M17 9a4 4 0 0 1 0 6M7 14l1 6h3l-1-5"/></svg> انشر الإعلان</button></div>
 <div style="margin-top:1rem"><b>الإعلانات</b><div id="ann-list" class="ann-list"><div class="muted">جارٍ التحميل…</div></div></div>
 </div>
 <div class="sheet" id="msgq-sheet" style="display:none">
 <div class="sheet-head" style="margin:0 0 .5rem">
-<div><h3 style="margin:0">📥 رسائل «لاحقًا»</h3>
+<div><h3 style="margin:0" data-emo="📥"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 13l3-8h12l3 8v6H3z"/><path d="M3 13h5l1 2h6l1-2h5"/></svg> رسائل «لاحقًا»</h3>
 <span class="sub">رسائل جهّزتها بصوتك على الجوال — راجعها وأرسلها من هنا</span></div>
 <span class="spacer"></span>
 <button class="btn" id="msgq-refresh">تحديث</button>
@@ -741,11 +668,11 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
 <option value="achievement">تشجيع</option>
 </select>
 <div aria-label="نوع الرسالة" class="msg-chips" id="msg-type-chips" role="group">
-<button aria-pressed="true" class="msg-chip" data-type="message" type="button">💬 رسالة</button>
-<button aria-pressed="false" class="msg-chip" data-type="activity" type="button">📚 نشاط</button>
-<button aria-pressed="false" class="msg-chip" data-type="warning" type="button">⚠️ تنبيه</button>
-<button aria-pressed="false" class="msg-chip" data-type="exam" type="button">🗓️ اختبار</button>
-<button aria-pressed="false" class="msg-chip" data-type="achievement" type="button">⭐ تشجيع</button>
+<button aria-pressed="true" class="msg-chip" data-type="message" type="button" data-emo="💬"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 5h16v11H8l-4 4z"/></svg> رسالة</button>
+<button aria-pressed="false" class="msg-chip" data-type="activity" type="button" data-emo="📚"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg> نشاط</button>
+<button aria-pressed="false" class="msg-chip" data-type="warning" type="button" data-emo="⚠️"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17h.01"/></svg> تنبيه</button>
+<button aria-pressed="false" class="msg-chip" data-type="exam" type="button" data-emo="🗓️"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg> اختبار</button>
+<button aria-pressed="false" class="msg-chip" data-type="achievement" type="button" data-emo="⭐"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></svg> تشجيع</button>
 </div>
 </div>
 <div class="hide" id="msg-students-wrap" style="margin-bottom:.8rem">
@@ -774,8 +701,8 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
 </select>
 <div aria-label="أهمية الرسالة" class="msg-chips" id="msg-priority-chips" role="group">
 <button aria-pressed="true" class="msg-chip" data-pri="normal" type="button">عادية</button>
-<button aria-pressed="false" class="msg-chip" data-pri="important" type="button">⭐ مهمة</button>
-<button aria-pressed="false" class="msg-chip" data-pri="urgent" type="button">🚨 عاجلة</button>
+<button aria-pressed="false" class="msg-chip" data-pri="important" type="button" data-emo="⭐"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></svg> مهمة</button>
+<button aria-pressed="false" class="msg-chip" data-pri="urgent" type="button" data-emo="🚨"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17h.01"/></svg> عاجلة</button>
 </div>
 </div>
 <div class="field hide" id="msg-exam-date-wrap" style="margin-top:.7rem">
@@ -819,7 +746,7 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
 <span class="sub" id="hw-sub"></span>
 </div>
 <span class="spacer"></span>
-<button class="btn ghost sm no-print" onclick="restoreActivitiesFromServer()" title="استرجاع الأنشطة المنشورة الموجودة على الخادم" type="button">🔄 استعادة الأنشطة المفقودة</button>
+<button class="btn ghost sm no-print" onclick="restoreActivitiesFromServer()" title="استرجاع الأنشطة المنشورة الموجودة على الخادم" type="button" data-emo="🔄"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 11a8 8 0 0 0-14.5-4.5L4 8M4 4v4h4M4 13a8 8 0 0 0 14.5 4.5L20 16M20 20v-4h-4"/></svg> استعادة الأنشطة المفقودة</button>
 <select aria-label="تصفية الأنشطة" class="inp sm no-print" id="hw-filter" onchange="renderHw()" style="width:auto;min-width:145px">
 <option value="all">كل الأنشطة</option>
 <option value="draft">غير منشور</option>
@@ -846,8 +773,8 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
 </div>
 <span class="spacer"></span>
 <span class="pill due hide" id="req-badge" title="طلبات رسائل الشكر">💌 <b>0</b></span>
-<button class="btn ghost" onclick="openBulkPoints()">🎁 مكافأة نقاط</button>
-<button class="btn ghost" onclick="openPinsQuick()">🔐 الرموز</button>
+<button class="btn ghost" onclick="openBulkPoints()" data-emo="🎁"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="8" width="18" height="5" rx="1"/><path d="M5 13v8h14v-8M12 8v13M12 8S10 3 7.5 4.5 9 8 12 8zM12 8s2-5 4.5-3.5S15 8 12 8z"/></svg> مكافأة نقاط</button>
+<button class="btn ghost" onclick="openPinsQuick()" data-emo="🔐"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg> الرموز</button>
 <button class="btn ghost" onclick="openBulkAdd()">إضافة دفعة</button>
 <button class="btn ghost" onclick="delMany()" title="حذف الطلاب المعروضين">حذف دفعة</button>
 <button class="btn" onclick="openStudentForm()">إضافة طالب</button>
@@ -889,13 +816,13 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
 </section><section class="panel" id="p-plans">
 <div class="sheet-head no-print">
 <div>
-<h2>🩺 الخطط العلاجية</h2>
+<h2 data-emo="🩺"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 3v6a5 5 0 0 0 10 0V3"/><path d="M11 14v2a5 5 0 0 0 10 0v-2"/><circle cx="21" cy="12" r="1.5"/></svg> الخطط العلاجية</h2>
 <span class="sub">خطة فردية لرفع التحصيل، بقياس قبلي وبعدي يُحسبان من إجابات الطالب الفعلية في الأنشطة — لا من التقدير.</span>
 </div>
 <span class="spacer"></span>
-<button class="btn ghost sm" onclick="renderPlans(true)">🔄 تحديث</button>
-<button class="btn ghost sm" onclick="printPlans()" title="يطبع الخطط الظاهرة حسب الفصل والحالة">🖨️ طباعة الكل</button>
-<button class="btn ghost sm" onclick="printPlansSummary()" title="تقرير إجمالي بصفحة واحدة: الأثر والأنماط والتفاصيل">📊 تقرير إجمالي</button>
+<button class="btn ghost sm" onclick="renderPlans(true)" data-emo="🔄"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 11a8 8 0 0 0-14.5-4.5L4 8M4 4v4h4M4 13a8 8 0 0 0 14.5 4.5L20 16M20 20v-4h-4"/></svg> تحديث</button>
+<button class="btn ghost sm" onclick="printPlans()" title="يطبع الخطط الظاهرة حسب الفصل والحالة" data-emo="🖨️"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 8V3h10v5"/><rect x="3" y="8" width="18" height="9" rx="2"/><path d="M7 14h10v7H7z"/></svg> طباعة الكل</button>
+<button class="btn ghost sm" onclick="printPlansSummary()" title="تقرير إجمالي بصفحة واحدة: الأثر والأنماط والتفاصيل" data-emo="📊"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 20V4M4 20h16"/><rect x="7" y="11" width="3" height="6"/><rect x="12" y="7" width="3" height="10"/><rect x="17" y="13" width="3" height="4"/></svg> تقرير إجمالي</button>
 <button class="btn tick sm" onclick="openPlanForm()">＋ خطة جديدة</button>
 </div>
 <div class="sheet no-print report-filters" style="padding:.7rem 1rem">
@@ -915,9 +842,9 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
 <div id="plan-list" style="margin-top:.7rem"></div>
 </div>
 </section><section class="panel" id="p-classtools">
-<div class="sheet-head no-print"><div><h2 id="ct-title">🧰 أدوات الفصل</h2>
+<div class="sheet-head no-print"><div><h2 id="ct-title" data-emo="🧰"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 13h18"/></svg> أدوات الفصل</h2>
 <span class="sub" id="ct-sub">المستويات ودفتر الاختبارات والسجلات والشهادات والجدول — على شاشة كبيرة. تُرصد من «✋ الرصد» وتُراجع هنا.</span></div>
-<span class="spacer"></span><button class="btn ghost sm" onclick="renderClassTools(true)">🔄 تحديث</button></div>
+<span class="spacer"></span><button class="btn ghost sm" onclick="renderClassTools(true)" data-emo="🔄"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 11a8 8 0 0 0-14.5-4.5L4 8M4 4v4h4M4 13a8 8 0 0 0 14.5 4.5L20 16M20 20v-4h-4"/></svg> تحديث</button></div>
 <div class="no-print" id="ct-today-box"></div>
 <div class="row no-print" id="ct-nav" style="gap:.4rem;flex-wrap:wrap;margin:.2rem 0 .8rem"></div>
 <div class="card" id="ct-body"></div>
@@ -925,22 +852,22 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
 <section class="panel" id="p-comprehensive">
 <div class="report-topbar no-print kashf-bar">
 <div aria-label="الكشوف" class="report-switch no-print" role="tablist">
-<button class="report-switch-btn" data-kmain="weekly" onclick="kashfGo('weekly')" role="tab">🗓️ الكشف الأسبوعي</button>
-<button class="report-switch-btn" data-kmain="comprehensive" onclick="kashfGo('comprehensive')" role="tab">📒 الكشف الشامل (الفترة)</button>
+<button class="report-switch-btn" data-kmain="weekly" onclick="kashfGo('weekly')" role="tab" data-emo="🗓️"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg> الكشف الأسبوعي</button>
+<button class="report-switch-btn" data-kmain="comprehensive" onclick="kashfGo('comprehensive')" role="tab" data-emo="📒"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg> الكشف الشامل (الفترة)</button>
 </div>
-<div aria-label="طريقة العرض" class="ct-seg kashf-sub" role="tablist"><button type="button" data-ksub="comprehensive" onclick="kashfGo('comprehensive')">📋 الجدول</button><button type="button" data-ksub="compan" onclick="kashfGo('compan')">📊 التحليل</button></div>
+<div aria-label="طريقة العرض" class="ct-seg kashf-sub" role="tablist"><button type="button" data-ksub="comprehensive" onclick="kashfGo('comprehensive')" data-emo="📋"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9zM9 12h6M9 16h4"/></svg> الجدول</button><button type="button" data-ksub="compan" onclick="kashfGo('compan')" data-emo="📊"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 20V4M4 20h16"/><rect x="7" y="11" width="3" height="6"/><rect x="12" y="7" width="3" height="10"/><rect x="17" y="13" width="3" height="4"/></svg> التحليل</button></div>
 </div>
 <div class="sheet-head no-print">
 <div>
-<h2>📒 الكشف الشامل لأعمال السنة</h2>
+<h2 data-emo="📒"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg> الكشف الشامل لأعمال السنة</h2>
 <span class="sub">الكشف النهائي لكل فترة من 60 درجة: أعمال السنة 40 + الاختبار 20 · إغلاق الفترات وإنهاء السنة من ⚙️ الإعدادات ← 📅 السنة الدراسية</span>
 </div>
 <span class="spacer"></span>
 <button class="btn sm" onclick="noorExportOpen()" title="تصدير درجات الكشف الشامل (أعمال السنة 40 + الاختبار 20) مع جبر الكسر إلى نظام نور">🏛️ تصدير لنظام نور</button>
-<button class="btn ghost sm" onclick="noorOpenSite()" title="يفتح صفحة إدخال الدرجات في نظام نور لرصد درجات الطلاب">🔗 افتح نور للرصد</button>
-<button class="btn ghost sm" onclick="renderComprehensive(true)">🔄 تحديث</button>
-<button class="btn tick sm" onclick="printComprehensive()">🖨️ طباعة</button>
-<button class="btn sm" onclick="srepOpen()" title="معاينة وإرسال تقرير الفترة إلى بوابة كل طالب">📤 إرسال للطلاب</button>
+<button class="btn ghost sm" onclick="noorOpenSite()" title="يفتح صفحة إدخال الدرجات في نظام نور لرصد درجات الطلاب" data-emo="🔗"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg> افتح نور للرصد</button>
+<button class="btn ghost sm" onclick="renderComprehensive(true)" data-emo="🔄"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 11a8 8 0 0 0-14.5-4.5L4 8M4 4v4h4M4 13a8 8 0 0 0 14.5 4.5L20 16M20 20v-4h-4"/></svg> تحديث</button>
+<button class="btn tick sm" onclick="printComprehensive()" data-emo="🖨️"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 8V3h10v5"/><rect x="3" y="8" width="18" height="9" rx="2"/><path d="M7 14h10v7H7z"/></svg> طباعة</button>
+<button class="btn sm" onclick="srepOpen()" title="معاينة وإرسال تقرير الفترة إلى بوابة كل طالب" data-emo="📤"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 20V9M7 14l5-5 5 5M5 4h14"/></svg> إرسال للطلاب</button>
 </div>
 <div class="sheet no-print report-filters" style="padding:.7rem 1rem">
 <div class="row report-filter-row">
@@ -959,14 +886,14 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
 <section class="panel" id="p-compan">
 <div class="report-topbar no-print kashf-bar">
 <div aria-label="الكشوف" class="report-switch no-print" role="tablist">
-<button class="report-switch-btn" data-kmain="weekly" onclick="kashfGo('weekly')" role="tab">🗓️ الكشف الأسبوعي</button>
-<button class="report-switch-btn" data-kmain="comprehensive" onclick="kashfGo('comprehensive')" role="tab">📒 الكشف الشامل (الفترة)</button>
+<button class="report-switch-btn" data-kmain="weekly" onclick="kashfGo('weekly')" role="tab" data-emo="🗓️"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg> الكشف الأسبوعي</button>
+<button class="report-switch-btn" data-kmain="comprehensive" onclick="kashfGo('comprehensive')" role="tab" data-emo="📒"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg> الكشف الشامل (الفترة)</button>
 </div>
-<div aria-label="طريقة العرض" class="ct-seg kashf-sub" role="tablist"><button type="button" data-ksub="comprehensive" onclick="kashfGo('comprehensive')">📋 الجدول</button><button type="button" data-ksub="compan" onclick="kashfGo('compan')">📊 التحليل</button></div>
+<div aria-label="طريقة العرض" class="ct-seg kashf-sub" role="tablist"><button type="button" data-ksub="comprehensive" onclick="kashfGo('comprehensive')" data-emo="📋"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9zM9 12h6M9 16h4"/></svg> الجدول</button><button type="button" data-ksub="compan" onclick="kashfGo('compan')" data-emo="📊"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 20V4M4 20h16"/><rect x="7" y="11" width="3" height="6"/><rect x="12" y="7" width="3" height="10"/><rect x="17" y="13" width="3" height="4"/></svg> التحليل</button></div>
 </div>
 <div class="sheet-head no-print">
 <div>
-<h2>📊 تحليل الكشف الشامل</h2>
+<h2 data-emo="📊"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 20V4M4 20h16"/><rect x="7" y="11" width="3" height="6"/><rect x="12" y="7" width="3" height="10"/><rect x="17" y="13" width="3" height="4"/></svg> تحليل الكشف الشامل</h2>
 <span class="sub">أين يقف الفصل في أعمال السنة، وأي عنصر يسحب الدرجة لأسفل</span>
 </div>
 <span class="spacer"></span>
@@ -975,8 +902,8 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
 <button class="an-mode" data-ca="1" data-m="brief" onclick="setCaMode('brief')">مختصر</button>
 <button class="an-mode" data-ca="1" data-m="full" onclick="setCaMode('full')">مفصّل</button>
 </div>
-<button class="btn ghost sm" onclick="renderCompAnalysis(true)">🔄 تحديث</button>
-<button class="btn tick sm" onclick="printCompAnalysis()">🖨️ طباعة</button>
+<button class="btn ghost sm" onclick="renderCompAnalysis(true)" data-emo="🔄"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 11a8 8 0 0 0-14.5-4.5L4 8M4 4v4h4M4 13a8 8 0 0 0 14.5 4.5L20 16M20 20v-4h-4"/></svg> تحديث</button>
+<button class="btn tick sm" onclick="printCompAnalysis()" data-emo="🖨️"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 8V3h10v5"/><rect x="3" y="8" width="18" height="9" rx="2"/><path d="M7 14h10v7H7z"/></svg> طباعة</button>
 </div>
 <div class="sheet no-print report-filters" style="padding:.7rem 1rem">
 <div class="row report-filter-row">
@@ -994,23 +921,23 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
 <section class="panel" id="p-weekly">
 <div class="report-topbar no-print kashf-bar">
 <div aria-label="الكشوف" class="report-switch no-print" role="tablist">
-<button class="report-switch-btn" data-kmain="weekly" onclick="kashfGo('weekly')" role="tab">🗓️ الكشف الأسبوعي</button>
-<button class="report-switch-btn" data-kmain="comprehensive" onclick="kashfGo('comprehensive')" role="tab">📒 الكشف الشامل (الفترة)</button>
+<button class="report-switch-btn" data-kmain="weekly" onclick="kashfGo('weekly')" role="tab" data-emo="🗓️"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg> الكشف الأسبوعي</button>
+<button class="report-switch-btn" data-kmain="comprehensive" onclick="kashfGo('comprehensive')" role="tab" data-emo="📒"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg> الكشف الشامل (الفترة)</button>
 </div>
 </div>
 <div class="sheet-head no-print">
 <div>
-<h2>🗓️ الكشف الأسبوعي</h2>
+<h2 data-emo="🗓️"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg> الكشف الأسبوعي</h2>
 <span class="sub">ما رُصد هذا الأسبوع من مشاركة وواجب وسلوك — أرقام خام لا درجات</span>
 </div>
 <span class="spacer"></span>
-<button class="btn ghost sm" onclick="renderWeekly(true)">🔄 تحديث</button>
-<button class="btn tick sm" onclick="printWeekly()">🖨️ طباعة</button>
-<button class="btn sm" onclick="wrOpen()" title="تقرير أسبوع كل طالب يصل إلى بوابته">📤 إرسال للطلاب</button>
+<button class="btn ghost sm" onclick="renderWeekly(true)" data-emo="🔄"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 11a8 8 0 0 0-14.5-4.5L4 8M4 4v4h4M4 13a8 8 0 0 0 14.5 4.5L20 16M20 20v-4h-4"/></svg> تحديث</button>
+<button class="btn tick sm" onclick="printWeekly()" data-emo="🖨️"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 8V3h10v5"/><rect x="3" y="8" width="18" height="9" rx="2"/><path d="M7 14h10v7H7z"/></svg> طباعة</button>
+<button class="btn sm" onclick="wrOpen()" title="تقرير أسبوع كل طالب يصل إلى بوابته" data-emo="📤"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 20V9M7 14l5-5 5 5M5 4h14"/></svg> إرسال للطلاب</button>
 </div>
 <div class="sheet no-print wkauto" id="wkauto">
 <label class="wkauto-tg"><input type="checkbox" id="wkauto-on" onchange="wkAutoSet(this.checked)"/>
-<span><b>🗓️ إرسال تلقائي كل أحد صباحًا</b><small>يصل كل طالب تقرير أسبوعه الماضي بين 7 و12 صباح الأحد، بلا تدخّل منك. لا يُرسل لفصل لم يُرصد له شيء (أسبوع إجازة)، ولا يتكرر.</small></span></label>
+<span><b data-emo="🗓️"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg> إرسال تلقائي كل أحد صباحًا</b><small>يصل كل طالب تقرير أسبوعه الماضي بين 7 و12 صباح الأحد، بلا تدخّل منك. لا يُرسل لفصل لم يُرصد له شيء (أسبوع إجازة)، ولا يتكرر.</small></span></label>
 <div class="wkauto-last" id="wkauto-last"></div>
 </div>
 <div class="sheet no-print report-filters" style="padding:.7rem 1rem">
@@ -1032,22 +959,22 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
 <section class="panel" id="p-exam">
 <div class="sheet no-print exw-top">
 <div class="exw-h">
-<div><h2 style="margin:0">🖨️ الاختبارات الورقية</h2>
+<div><h2 style="margin:0" data-emo="🖨️"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 8V3h10v5"/><rect x="3" y="8" width="18" height="9" rx="2"/><path d="M7 14h10v7H7z"/></svg> الاختبارات الورقية</h2>
 <p class="muted" style="margin:.15rem 0 0;font-size:.8rem">اختر القالب والأسئلة، وعدّل الترويسة — والمعاينة بجانبك تتحدث مباشرة.</p></div>
 <span class="spacer"></span>
 <div class="exw-tools">
-<button class="btn ghost sm" onclick="openSavedPaperExams()" type="button">📂 الاختبارات المحفوظة</button>
-<button class="btn tick sm" onclick="saveCurrentPaperExam()" type="button">💾 حفظ الاختبار</button>
-<button class="btn ghost sm exw-goprev" onclick="document.getElementById('exw-prev').scrollIntoView({behavior:'smooth'})" type="button">👁 المعاينة</button>
+<button class="btn ghost sm" onclick="openSavedPaperExams()" type="button" data-emo="📂"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg> الاختبارات المحفوظة</button>
+<button class="btn tick sm" onclick="saveCurrentPaperExam()" type="button" data-emo="💾"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 3h11l3 3v15H5z"/><path d="M8 3v5h7V3M8 21v-7h8v7"/></svg> حفظ الاختبار</button>
+<button class="btn ghost sm exw-goprev" onclick="document.getElementById('exw-prev').scrollIntoView({behavior:'smooth'})" type="button" data-emo="👁"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg> المعاينة</button>
 </div>
 </div>
 <span class="muted" id="exam-save-status" style="font-size:.76rem"></span>
 <div aria-label="خيارات الطباعة" class="exam-print-actions" role="group">
-<button class="btn tick" onclick="printExam()" type="button">🖨️ طباعة A4</button>
-<button class="btn tick" id="ex-print-all-models" onclick="printAllExamModels()" style="display:none" type="button">🖨️ طباعة جميع النماذج</button>
-<button class="btn tick" id="ex-print-named" onclick="printNamedExams()" style="display:none" type="button">🖨️ طباعة أوراق الأسماء</button>
-<button class="btn ghost" id="ex-omr-send" onclick="omrSendTemplate()" type="button" title="يُصحَّح بكاميرا الجوال من «دفتر الاختبارات ← 📱 رصد ← بالكاميرا»">📷 تجهيز للتصحيح الآلي</button>
-<button class="btn ghost" id="ex-omr-manage" onclick="omrManage()" type="button" title="الاختبارات المجهّزة للجوال وإعدادات التصوير">⚙️ إعدادات التصحيح الآلي</button>
+<button class="btn tick" onclick="printExam()" type="button" data-emo="🖨️"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 8V3h10v5"/><rect x="3" y="8" width="18" height="9" rx="2"/><path d="M7 14h10v7H7z"/></svg> طباعة A4</button>
+<button class="btn tick" id="ex-print-all-models" onclick="printAllExamModels()" style="display:none" type="button" data-emo="🖨️"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 8V3h10v5"/><rect x="3" y="8" width="18" height="9" rx="2"/><path d="M7 14h10v7H7z"/></svg> طباعة جميع النماذج</button>
+<button class="btn tick" id="ex-print-named" onclick="printNamedExams()" style="display:none" type="button" data-emo="🖨️"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 8V3h10v5"/><rect x="3" y="8" width="18" height="9" rx="2"/><path d="M7 14h10v7H7z"/></svg> طباعة أوراق الأسماء</button>
+<button class="btn ghost" id="ex-omr-send" onclick="omrSendTemplate()" type="button" title="يُصحَّح بكاميرا الجوال من «دفتر الاختبارات ← 📱 رصد ← بالكاميرا»" data-emo="📷"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg> تجهيز للتصحيح الآلي</button>
+<button class="btn ghost" id="ex-omr-manage" onclick="omrManage()" type="button" title="الاختبارات المجهّزة للجوال وإعدادات التصوير" data-emo="⚙️"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></svg> إعدادات التصحيح الآلي</button>
 </div>
 <div class="muted" id="ex-status" style="font-size:.8rem;margin-top:.5rem"></div>
 </div>
@@ -1062,7 +989,7 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
 <option value="t4">🧩 مصمَّم — صفحة أو أكثر: تختار لكل صفحة نوع الأسئلة وعددها ودرجتها</option>
 </select></div>
 <input id="ex-flex" type="hidden" value=""/>
-<label class="row ex-omr-opt" id="ex-omr-marks-f" style="display:none;gap:.45rem;align-items:flex-start;font-size:.84rem;cursor:pointer;margin:0 0 .7rem;padding:.55rem .7rem;border:1px dashed var(--ui-border,#D5E0EC);border-radius:10px" title="علامات الزوايا السوداء يعرف بها الجوال الورقة — ومعها يكون الوصل بمربعات أرقام تُضلَّل"><input checked="" id="ex-omr-marks" onchange="examBuild(true)" type="checkbox" style="margin-top:.2rem"/> <span><b>📷 للتصحيح الآلي بالجوال</b> <span class="muted" style="font-size:.76rem">— علامات الزوايا، والوصل بمربعات أرقام يضلّلها الطالب. أزل العلامة لورقة عادية بلا علامات ووصلٍ تقليدي يُكتب فيه الرقم.</span></span></label>
+<label class="row ex-omr-opt" id="ex-omr-marks-f" style="display:none;gap:.45rem;align-items:flex-start;font-size:.84rem;cursor:pointer;margin:0 0 .7rem;padding:.55rem .7rem;border:1px dashed var(--ui-border,#D5E0EC);border-radius:10px" title="علامات الزوايا السوداء يعرف بها الجوال الورقة — ومعها يكون الوصل بمربعات أرقام تُضلَّل"><input checked="" id="ex-omr-marks" onchange="examBuild(true)" type="checkbox" style="margin-top:.2rem"/> <span><b data-emo="📷"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg> للتصحيح الآلي بالجوال</b> <span class="muted" style="font-size:.76rem">— علامات الزوايا، والوصل بمربعات أرقام يضلّلها الطالب. أزل العلامة لورقة عادية بلا علامات ووصلٍ تقليدي يُكتب فيه الرقم.</span></span></label>
 <div class="sheet" id="ex-flex-ui" style="display:none;margin:.2rem 0 1rem;padding:.85rem"></div>
 <div class="grid2 exw-counts">
 <div class="field"><label>فقرات الاختيار من متعدد</label>
@@ -1107,9 +1034,9 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
 <div class="exhw" id="ex-hw-pick"></div></div>
 <div class="field" id="ex-json-wrap" style="display:none"><label>ملفات الأسئلة <span class="muted" style="font-weight:400">(ملف أو أكثر — تُدمج في بنك واحد)</span></label>
 <div class="row" style="gap:.4rem;flex-wrap:wrap">
-<label class="btn ghost" style="cursor:pointer;justify-content:center;flex:1" title="يستبدل البنك الحالي بالملفات المختارة">📥 اختر ملف/ملفات JSON
+<label class="btn ghost" style="cursor:pointer;justify-content:center;flex:1" title="يستبدل البنك الحالي بالملفات المختارة" data-emo="📥"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 13l3-8h12l3 8v6H3z"/><path d="M3 13h5l1 2h6l1-2h5"/></svg> اختر ملف/ملفات JSON
           <input accept=".json,application/json" id="ex-file" multiple onchange="examLoadJson(event,false)" style="display:none" type="file"/></label>
-<label class="btn ghost" style="cursor:pointer;justify-content:center;flex:1" title="يضيف أسئلة الملفات إلى البنك الحالي دون حذف شيء">➕ دمج ملف آخر في البنك
+<label class="btn ghost" style="cursor:pointer;justify-content:center;flex:1" title="يضيف أسئلة الملفات إلى البنك الحالي دون حذف شيء" data-emo="➕"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg> دمج ملف آخر في البنك
           <input accept=".json,application/json" id="ex-file-add" multiple onchange="examLoadJson(event,true)" style="display:none" type="file"/></label>
 </div>
 <div id="ex-json-files" class="exjf"></div></div>
@@ -1130,8 +1057,7 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
 <span class="ai-mark">✦</span> توليد أسئلة الاختبار بالذكاء
         </button>
 <label class="row" style="gap:.35rem;align-items:center;font-size:.8rem;cursor:pointer;flex-basis:100%" title="يولّد ٤٠ سؤالًا من كل نوع مطلوب، ثم توزّعها على النماذج تلقائيًا أو بنفسك من البنك"><input id="ex-ai-big" type="checkbox"/> 📦 بنك موسّع: ولّد أكبر عدد من الأسئلة (٤٠ لكل نوع) ثم وزّعها على النماذج</label>
-<button class="btn ghost sm" onclick="exportExamAIBank()" type="button">
-          💾 حفظ بنك الأسئلة كـ JSON
+<button class="btn ghost sm" onclick="exportExamAIBank()" type="button" data-emo="💾"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 3h11l3 3v15H5z"/><path d="M8 3v5h7V3M8 21v-7h8v7"/></svg> حفظ بنك الأسئلة كـ JSON
         </button>
 <span class="muted" id="ex-ai-status" style="font-size:.76rem">
           يستخدم نفس مولد الأنشطة العادية وإعداداته. بعد التوليد يمكنك حفظ البنك كملف JSON واستخدامه لاحقًا دون إعادة التوليد.
@@ -1141,7 +1067,7 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
 <div class="sheet" id="ex-hw-bank" style="display:none;margin:.4rem 0 1rem;padding:.85rem">
 <div class="sheet-head" style="margin-bottom:.65rem">
 <div>
-<h3 style="font-size:.95rem;margin:0">📚 بنك أسئلة النشاط</h3>
+<h3 style="font-size:.95rem;margin:0" data-emo="📚"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg> بنك أسئلة النشاط</h3>
 <div class="muted" style="font-size:.74rem;margin-top:.15rem">✓ = يدخل الاختبار</div>
 </div>
 <span class="spacer"></span>
@@ -1158,11 +1084,11 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
 <select class="inp" id="ex-hw-bank-view" onchange="renderExamHwBank()" aria-label="عرض" title="كل البنك، أو الطويل والمتشابه فقط، أو ما في نموذج بعينه"><option value="all">كل البنك</option></select>
 </div>
 <div class="exb-btns">
-<button class="btn ghost sm" onclick="examHwBankSelectAll(true)" title="يحدد كل الأسئلة الظاهرة (حسب البحث والنوع)" type="button">☑ تحديد الكل</button>
+<button class="btn ghost sm" onclick="examHwBankSelectAll(true)" title="يحدد كل الأسئلة الظاهرة (حسب البحث والنوع)" type="button" data-emo="☑"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8.5 12l2.5 2.5L16 9.5"/></svg> تحديد الكل</button>
 <button class="btn ghost sm" onclick="examHwBankSelectAll(false)" title="يلغي تحديد الأسئلة الظاهرة" type="button">☐ إلغاء الكل</button>
 <button class="btn ghost sm" id="ex-hw-sim-btn" onclick="examHwSimOpen()" title="أسئلة تسأل عن الفكرة نفسها بصيغة أخرى أو بنوع آخر — تختار ما يبقى" type="button">🔁 المتشابهة</button>
 <button class="btn ghost sm" onclick="examLongOpen('hw')" title="أسئلة أو خيارات طويلة تلتف في الورقة فتخرّب التصميم — تختار ما تفعله بها" type="button">📏 الطويلة</button>
-<button class="btn ghost sm" onclick="examHwExportJson()" title="المحدد من الاختيار والصح/خطأ + الفراغ والتوصيل من الأنشطة، بلا تكرار — يُستورد في نشاط جديد بـ«📥 استيراد JSON» كنشاط مراجعة" type="button">💾 JSON</button>
+<button class="btn ghost sm" onclick="examHwExportJson()" title="المحدد من الاختيار والصح/خطأ + الفراغ والتوصيل من الأنشطة، بلا تكرار — يُستورد في نشاط جديد بـ«📥 استيراد JSON» كنشاط مراجعة" type="button" data-emo="💾"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 3h11l3 3v15H5z"/><path d="M8 3v5h7V3M8 21v-7h8v7"/></svg> JSON</button>
 </div>
 </div>
 <div class="exam-bank-list" id="ex-hw-bank-list"></div>
@@ -1170,7 +1096,7 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
 <div class="sheet" id="ex-json-bank" style="display:none;margin:.4rem 0 1rem;padding:.85rem">
 <div class="sheet-head" style="margin-bottom:.65rem">
 <div>
-<h3 id="ex-bank-title" style="font-size:.95rem;margin:0">📚 بنك أسئلة ملف JSON</h3>
+<h3 id="ex-bank-title" style="font-size:.95rem;margin:0" data-emo="📚"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg> بنك أسئلة ملف JSON</h3>
 <div class="muted" id="ex-bank-desc" style="font-size:.74rem;margin-top:.15rem">حدد الأسئلة التي تريد إدخالها في الاختبار، ثم صدّر البنك عند الحاجة.</div>
 </div>
 <span class="spacer"></span>
@@ -1187,7 +1113,7 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
 <select class="inp" id="ex-bank-view" onchange="renderExamJsonBank()" aria-label="عرض" title="كل البنك، أو الطويل والمتشابه فقط، أو ما في نموذج بعينه"><option value="all">كل البنك</option></select>
 </div>
 <div class="exb-btns">
-<button class="btn ghost sm" onclick="examBankSelectAll(true)" title="يحدد كل الأسئلة الظاهرة (حسب البحث والنوع)" type="button">☑ تحديد الكل</button>
+<button class="btn ghost sm" onclick="examBankSelectAll(true)" title="يحدد كل الأسئلة الظاهرة (حسب البحث والنوع)" type="button" data-emo="☑"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8.5 12l2.5 2.5L16 9.5"/></svg> تحديد الكل</button>
 <button class="btn ghost sm" onclick="examBankSelectAll(false)" title="يلغي تحديد الأسئلة الظاهرة" type="button">☐ إلغاء الكل</button>
 <button class="btn ghost sm" onclick="examLongOpen('json')" title="أسئلة أو خيارات طويلة تلتف في الورقة فتخرّب التصميم — تختار ما تفعله بها" type="button">📏 الطويلة</button>
 </div>
@@ -1196,8 +1122,8 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
 <label class="row" style="gap:.4rem;font-size:.82rem;cursor:pointer">
 <input checked="" id="ex-use-selected" onchange="examBuild()" type="checkbox"/> استخدام الأسئلة المحددة فقط في الاختبار</label>
 <div class="row" style="gap:.4rem">
-<button class="btn ghost sm" onclick="exportExamJson(true)" type="button">⬇️ تصدير المحدد</button>
-<button class="btn ghost sm" onclick="exportExamJson(false)" type="button">⬇️ تصدير كامل البنك</button>
+<button class="btn ghost sm" onclick="exportExamJson(true)" type="button" data-emo="⬇️"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg> تصدير المحدد</button>
+<button class="btn ghost sm" onclick="exportExamJson(false)" type="button" data-emo="⬇️"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg> تصدير كامل البنك</button>
 </div>
 </div>
 <div class="exam-bank-list" id="ex-bank-list"></div>
@@ -1263,8 +1189,8 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
 </div>
 <div class="row exam-header-savebar" style="gap:.5rem;flex-wrap:wrap;margin:.35rem 0 .7rem">
 <span class="muted" style="font-size:.76rem">💾 بيانات الترويسة تُحفظ تلقائيًا على هذا الجهاز</span>
-<button class="btn ghost sm" onclick="saveExamHeaderNow()" type="button">💾 حفظ الآن</button>
-<button class="btn ghost sm" onclick="clearExamHeaderSaved()" type="button">🧹 مسح البيانات المحفوظة</button>
+<button class="btn ghost sm" onclick="saveExamHeaderNow()" type="button" data-emo="💾"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 3h11l3 3v15H5z"/><path d="M8 3v5h7V3M8 21v-7h8v7"/></svg> حفظ الآن</button>
+<button class="btn ghost sm" onclick="clearExamHeaderSaved()" type="button" data-emo="🧹"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M14 3l-4 9M6 14h10l2 7H4z"/></svg> مسح البيانات المحفوظة</button>
 </div>
 </div>
 </details>
@@ -1296,14 +1222,14 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
 </div>
 <div class="exw-prev" id="exw-prev">
 <div class="exw-pbar no-print">
-<b>👁 المعاينة</b>
+<b data-emo="👁"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg> المعاينة</b>
 <label class="exw-mcur"><select class="inp" disabled="" id="ex-model" onchange="examBuild()">
 <option value="0">نموذج (أ)</option>
 </select></label>
 <label class="row" style="gap:.4rem;font-size:.84rem;cursor:pointer">
 <input id="ex-key" onchange="examBuild()" type="checkbox"/> نموذج الإجابة (نسخة المعلم)</label>
 <span class="spacer"></span>
-<button class="btn ghost sm" onclick="examBuild(true)" type="button" title="تحديث المعاينة">🔄</button>
+<button class="btn ghost sm" onclick="examBuild(true)" type="button" title="تحديث المعاينة" data-emo="🔄"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 11a8 8 0 0 0-14.5-4.5L4 8M4 4v4h4M4 13a8 8 0 0 0 14.5 4.5L20 16M20 20v-4h-4"/></svg></button>
 </div>
 <div id="exam-preview"><div id="exam-paper"></div></div>
 </div>
@@ -1311,32 +1237,32 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
 </section>
 <section class="panel" id="p-reports-main">
 <div class="sheet-head">
-  <div><h2>📊 تقارير الأنشطة</h2><span class="sub">درجات الأنشطة وتحليلها والاختبارات التشخيصية وأنماط التعلّم. (الكشوف الرسمية في «الكشوف»، ومستويات الطلاب في «المستويات والمهارات».)</span></div>
+  <div><h2 data-emo="📊"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 20V4M4 20h16"/><rect x="7" y="11" width="3" height="6"/><rect x="12" y="7" width="3" height="10"/><rect x="17" y="13" width="3" height="4"/></svg> تقارير الأنشطة</h2><span class="sub">درجات الأنشطة وتحليلها والاختبارات التشخيصية وأنماط التعلّم. (الكشوف الرسمية في «الكشوف»، ومستويات الطلاب في «المستويات والمهارات».)</span></div>
 </div>
 <div class="reports-hub-grid reports-main-grid">
-  <button class="report-hub-card" onclick="switchReportView('grades')" type="button"><span class="report-hub-icon">📋</span><span><b>درجات الأنشطة</b><small>عرض درجات الطلاب في الأنشطة والتسليمات.</small></span><span class="report-hub-arrow">←</span></button>
-  <button class="report-hub-card" onclick="switchReportView('analysis')" type="button"><span class="report-hub-icon">📈</span><span><b>تحليل الأنشطة</b><small>تحليل أداء الطلاب والأنشطة ومؤشرات الإنجاز.</small></span><span class="report-hub-arrow">←</span></button>
-  <button class="report-hub-card" onclick="switchReportView('diag')" type="button"><span class="report-hub-icon">🔍</span><span><b>التشخيصي</b><small>عرض نتائج الاختبارات التشخيصية وتحليلها.</small></span><span class="report-hub-arrow">←</span></button>
-  <button class="report-hub-card" onclick="switchReportView('styles')" type="button"><span class="report-hub-icon">🧠</span><span><b>أنماط التعلّم</b><small>تحليل مؤشرات وأنماط تعلم الطلاب.</small></span><span class="report-hub-arrow">←</span></button>
+  <button class="report-hub-card" onclick="switchReportView('grades')" type="button" data-emo="📋"><span class="report-hub-icon" data-emo="📋"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9zM9 12h6M9 16h4"/></svg></span><span><b>درجات الأنشطة</b><small>عرض درجات الطلاب في الأنشطة والتسليمات.</small></span><span class="report-hub-arrow">←</span></button>
+  <button class="report-hub-card" onclick="switchReportView('analysis')" type="button" data-emo="📈"><span class="report-hub-icon" data-emo="📈"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg></span><span><b>تحليل الأنشطة</b><small>تحليل أداء الطلاب والأنشطة ومؤشرات الإنجاز.</small></span><span class="report-hub-arrow">←</span></button>
+  <button class="report-hub-card" onclick="switchReportView('diag')" type="button" data-emo="🔍"><span class="report-hub-icon" data-emo="🔍"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></span><span><b>التشخيصي</b><small>عرض نتائج الاختبارات التشخيصية وتحليلها.</small></span><span class="report-hub-arrow">←</span></button>
+  <button class="report-hub-card" onclick="switchReportView('styles')" type="button" data-emo="🧠"><span class="report-hub-icon" data-emo="🧠"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 4a3 3 0 0 0-3 3 3 3 0 0 0-2 5 3 3 0 0 0 2 5 3 3 0 0 0 3 3h0a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zM15 4a3 3 0 0 1 3 3 3 3 0 0 1 2 5 3 3 0 0 1-2 5 3 3 0 0 1-3 3 2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/></svg></span><span><b>أنماط التعلّم</b><small>تحليل مؤشرات وأنماط تعلم الطلاب.</small></span><span class="report-hub-arrow">←</span></button>
 </div>
 </section>
 <section class="panel" id="p-grades">
 <div class="report-topbar no-print">
 <div aria-label="أقسام التقارير" class="report-switch no-print" role="tablist">
-<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('grades')" role="tab">📋 درجات الأنشطة</button>
+<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('grades')" role="tab" data-emo="📋"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9zM9 12h6M9 16h4"/></svg> درجات الأنشطة</button>
 
 
-<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('analysis')" role="tab">📈 تحليل الأنشطة</button>
-<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('diag')" role="tab">🔍 التشخيصي</button>
-<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('styles')" role="tab">🧠 أنماط التعلّم</button>
+<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('analysis')" role="tab" data-emo="📈"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg> تحليل الأنشطة</button>
+<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('diag')" role="tab" data-emo="🔍"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg> التشخيصي</button>
+<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('styles')" role="tab" data-emo="🧠"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 4a3 3 0 0 0-3 3 3 3 0 0 0-2 5 3 3 0 0 0 2 5 3 3 0 0 0 3 3h0a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zM15 4a3 3 0 0 1 3 3 3 3 0 0 1 2 5 3 3 0 0 1-2 5 3 3 0 0 1-3 3 2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/></svg> أنماط التعلّم</button>
 </div>
 </div>
 <div class="sheet-head">
 <h2>كشف الدرجات</h2>
 <span class="spacer"></span>
 <button class="btn ghost sm no-print" onclick="backToReportsHub()">← لوحة التقارير</button><button class="btn ghost sm" onclick="copyGrades()">نسخ للجدول</button>
-<button class="btn ghost sm" onclick="printGrades()">🖨️ طباعة الكشف</button>
-<button class="btn ghost sm" onclick="chooseClassActivityPrint()">🖨️ طباعة كشف الفصل</button>
+<button class="btn ghost sm" onclick="printGrades()" data-emo="🖨️"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 8V3h10v5"/><rect x="3" y="8" width="18" height="9" rx="2"/><path d="M7 14h10v7H7z"/></svg> طباعة الكشف</button>
+<button class="btn ghost sm" onclick="chooseClassActivityPrint()" data-emo="🖨️"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 8V3h10v5"/><rect x="3" y="8" width="18" height="9" rx="2"/><path d="M7 14h10v7H7z"/></svg> طباعة كشف الفصل</button>
 <button class="btn tick sm" onclick="exportGrades()">تصدير CSV</button>
 </div>
 <div class="sheet" style="padding:.7rem 1rem">
@@ -1357,19 +1283,19 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
 <section class="panel" id="p-analysis">
 <div class="report-topbar no-print">
 <div aria-label="أقسام التقارير" class="report-switch no-print" role="tablist">
-<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('grades')" role="tab">📋 درجات الأنشطة</button>
+<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('grades')" role="tab" data-emo="📋"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9zM9 12h6M9 16h4"/></svg> درجات الأنشطة</button>
 
 
-<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('analysis')" role="tab">📈 تحليل الأنشطة</button>
-<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('diag')" role="tab">🔍 التشخيصي</button>
-<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('styles')" role="tab">🧠 أنماط التعلّم</button>
+<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('analysis')" role="tab" data-emo="📈"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg> تحليل الأنشطة</button>
+<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('diag')" role="tab" data-emo="🔍"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg> التشخيصي</button>
+<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('styles')" role="tab" data-emo="🧠"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 4a3 3 0 0 0-3 3 3 3 0 0 0-2 5 3 3 0 0 0 2 5 3 3 0 0 0 3 3h0a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zM15 4a3 3 0 0 1 3 3 3 3 0 0 1 2 5 3 3 0 0 1-2 5 3 3 0 0 1-3 3 2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/></svg> أنماط التعلّم</button>
 </div>
 </div>
 <div class="sheet-head no-print">
 <h2>تحليل النتائج</h2>
 <span class="spacer"></span>
 <button class="btn ghost sm no-print" onclick="backToReportsHub()">← لوحة التقارير</button><button class="btn ghost sm" onclick="toggleRepCfg()">بيانات التقرير</button>
-<button class="btn tick sm" onclick="printAnalysisReport()">🖨️ طباعة</button>
+<button class="btn tick sm" onclick="printAnalysisReport()" data-emo="🖨️"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 8V3h10v5"/><rect x="3" y="8" width="18" height="9" rx="2"/><path d="M7 14h10v7H7z"/></svg> طباعة</button>
 </div>
 <div class="sheet no-print" id="rep-cfg" style="display:none">
 <div class="grid2">
@@ -1402,22 +1328,22 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
 <section class="panel report-view-hidden" id="p-diag">
 <div class="report-topbar no-print">
 <div aria-label="أقسام التقارير" class="report-switch no-print" role="tablist">
-<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('grades')" role="tab">📋 درجات الأنشطة</button>
+<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('grades')" role="tab" data-emo="📋"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9zM9 12h6M9 16h4"/></svg> درجات الأنشطة</button>
 
 
-<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('analysis')" role="tab">📈 تحليل الأنشطة</button>
-<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('diag')" role="tab">🔍 التشخيصي</button>
-<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('styles')" role="tab">🧠 أنماط التعلّم</button>
+<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('analysis')" role="tab" data-emo="📈"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg> تحليل الأنشطة</button>
+<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('diag')" role="tab" data-emo="🔍"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg> التشخيصي</button>
+<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('styles')" role="tab" data-emo="🧠"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 4a3 3 0 0 0-3 3 3 3 0 0 0-2 5 3 3 0 0 0 2 5 3 3 0 0 0 3 3h0a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zM15 4a3 3 0 0 1 3 3 3 3 0 0 1 2 5 3 3 0 0 1-2 5 3 3 0 0 1-3 3 2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/></svg> أنماط التعلّم</button>
 </div>
 </div>
 <div class="sheet-head no-print">
-<h2>🔍 التقرير التشخيصي</h2>
+<h2 data-emo="🔍"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg> التقرير التشخيصي</h2>
 <span class="spacer"></span>
 <div aria-label="طريقة عرض التقرير" class="report-mode-toggle" role="tablist">
 <button class="diag-mode" data-m="brief" data-report-mode="diag" onclick="setDiagMode('brief')">مختصر</button>
 <button class="diag-mode" data-m="full" data-report-mode="diag" onclick="setDiagMode('full')">مفصّل</button>
 </div>
-<button class="btn ghost sm no-print" onclick="backToReportsHub()">← لوحة التقارير</button><button class="btn tick sm" onclick="window.print()">🖨️ طباعة</button>
+<button class="btn ghost sm no-print" onclick="backToReportsHub()">← لوحة التقارير</button><button class="btn tick sm" onclick="window.print()" data-emo="🖨️"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 8V3h10v5"/><rect x="3" y="8" width="18" height="9" rx="2"/><path d="M7 14h10v7H7z"/></svg> طباعة</button>
 </div>
 <div class="sheet no-print" style="padding:.7rem 1rem">
 <div class="row" style="gap:.5rem;flex-wrap:wrap">
@@ -1433,22 +1359,22 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
 <section class="panel report-view-hidden" id="p-styles">
 <div class="report-topbar no-print">
 <div aria-label="أقسام التقارير" class="report-switch no-print" role="tablist">
-<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('grades')" role="tab">📋 درجات الأنشطة</button>
+<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('grades')" role="tab" data-emo="📋"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9zM9 12h6M9 16h4"/></svg> درجات الأنشطة</button>
 
 
-<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('analysis')" role="tab">📈 تحليل الأنشطة</button>
-<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('diag')" role="tab">🔍 التشخيصي</button>
-<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('styles')" role="tab">🧠 أنماط التعلّم</button>
+<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('analysis')" role="tab" data-emo="📈"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg> تحليل الأنشطة</button>
+<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('diag')" role="tab" data-emo="🔍"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg> التشخيصي</button>
+<button class="report-switch-btn" aria-selected="false" onclick="switchReportView('styles')" role="tab" data-emo="🧠"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 4a3 3 0 0 0-3 3 3 3 0 0 0-2 5 3 3 0 0 0 2 5 3 3 0 0 0 3 3h0a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zM15 4a3 3 0 0 1 3 3 3 3 0 0 1 2 5 3 3 0 0 1-2 5 3 3 0 0 1-3 3 2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/></svg> أنماط التعلّم</button>
 </div>
 </div>
 <div class="sheet-head no-print">
-<h2>🧠 تقرير أنماط التعلّم</h2>
+<h2 data-emo="🧠"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 4a3 3 0 0 0-3 3 3 3 0 0 0-2 5 3 3 0 0 0 2 5 3 3 0 0 0 3 3h0a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zM15 4a3 3 0 0 1 3 3 3 3 0 0 1 2 5 3 3 0 0 1-2 5 3 3 0 0 1-3 3 2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/></svg> تقرير أنماط التعلّم</h2>
 <span class="spacer"></span>
 <div aria-label="طريقة عرض التقرير" class="report-mode-toggle" role="tablist">
 <button class="styles-mode" data-m="brief" data-report-mode="styles" onclick="setStylesMode('brief')">مختصر</button>
 <button class="styles-mode" data-m="full" data-report-mode="styles" onclick="setStylesMode('full')">مفصّل</button>
 </div>
-<button class="btn ghost sm no-print" onclick="backToReportsHub()">← لوحة التقارير</button><button class="btn tick sm" onclick="window.print()">🖨️ طباعة</button>
+<button class="btn ghost sm no-print" onclick="backToReportsHub()">← لوحة التقارير</button><button class="btn tick sm" onclick="window.print()" data-emo="🖨️"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 8V3h10v5"/><rect x="3" y="8" width="18" height="9" rx="2"/><path d="M7 14h10v7H7z"/></svg> طباعة</button>
 </div>
 <div class="sheet no-print" style="padding:.7rem 1rem">
 <div class="row" style="gap:.5rem;flex-wrap:wrap">
@@ -1463,19 +1389,19 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
 <!-- ═══ تحكم درجات المتجر ═══ -->
 <section class="panel" id="p-nafs">
 <div class="sheet-head">
-  <div><h2>🧭 نافس ونواتج التعلم</h2><span class="sub">اختبارات تدريبية على الاختبارات الوطنية مرتبطة بنواتج التعلم — نشاط يُصحَّح آليًا، وورقة مطبوعة، ونتائج لكل ناتج.</span></div>
+  <div><h2 data-emo="🧭"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg> نافس ونواتج التعلم</h2><span class="sub">اختبارات تدريبية على الاختبارات الوطنية مرتبطة بنواتج التعلم — نشاط يُصحَّح آليًا، وورقة مطبوعة، ونتائج لكل ناتج.</span></div>
 </div>
 <div id="nafs-root"></div>
 </section>
 <section class="panel" id="p-exam-shop">
 <div class="sheet-head">
-  <div><h2>🎓 تحكم درجات المتجر</h2><span class="sub">حدد متى تُفتح عملية شراء درجات الاختبارات، وكم درجة يسمح بها لكل طالب.</span></div>
-  <span class="spacer"></span><button class="btn ghost sm" type="button" onclick="openAllStorePurchases()">🛒 سجل عمليات الشراء<span id="store-log-count"></span></button><button class="btn ghost sm" type="button" onclick="loadExamShopPolicy(true)">↻ تحديث</button>
+  <div><h2 data-emo="🎓"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2 9l10-5 10 5-10 5z"/><path d="M6 11v5c4 3 8 3 12 0v-5M22 9v6"/></svg> تحكم درجات المتجر</h2><span class="sub">حدد متى تُفتح عملية شراء درجات الاختبارات، وكم درجة يسمح بها لكل طالب.</span></div>
+  <span class="spacer"></span><button class="btn ghost sm" type="button" onclick="openAllStorePurchases()" data-emo="🛒"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l3 12h11l2-8H6"/></svg> سجل عمليات الشراء<span id="store-log-count"></span></button><button class="btn ghost sm" type="button" onclick="loadExamShopPolicy(true)">↻ تحديث</button>
 </div>
 <div class="exam-shop-control">
   <div id="exam-shop-status" class="exam-shop-status">جارٍ تحميل الإعدادات…</div>
   <div class="sheet sale-sheet" id="store-sale-card">
-    <div class="sheet-head"><div><h3>🏷️ تخفيضات المتجر</h3><span class="sub">خصم بنسبة على كل بطاقات المتجر لمناسبة (يوم وطني، عيد، تكريم…). يرى الطلاب السعر القديم مشطوبًا والجديد بجانبه.</span></div></div>
+    <div class="sheet-head"><div><h3 data-emo="🏷️"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.3"/></svg> تخفيضات المتجر</h3><span class="sub">خصم بنسبة على كل بطاقات المتجر لمناسبة (يوم وطني، عيد، تكريم…). يرى الطلاب السعر القديم مشطوبًا والجديد بجانبه.</span></div></div>
     <div id="sale-status" class="sale-status">جارٍ التحميل…</div>
     <div class="grid2">
       <div class="field"><label>نسبة الخصم</label>
@@ -1485,7 +1411,7 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
       <div class="field"><label>ينتهي التخفيض</label><input class="inp" id="sale-until" type="datetime-local" oninput="salePreview()"><small class="muted">اتركه فارغًا ليستمر حتى توقفه بنفسك.</small></div>
       <div class="field"><label>معاينة الأسعار</label><div id="sale-preview" class="sale-preview"></div></div>
     </div>
-    <div class="row" style="gap:.5rem;justify-content:flex-end;flex-wrap:wrap"><button class="btn tick" type="button" onclick="saleSave()">🏷️ تفعيل التخفيض</button><button class="btn ghost" type="button" id="sale-stop" onclick="saleStop()" disabled>إيقاف التخفيض</button></div>
+    <div class="row" style="gap:.5rem;justify-content:flex-end;flex-wrap:wrap"><button class="btn tick" type="button" onclick="saleSave()" data-emo="🏷️"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.3"/></svg> تفعيل التخفيض</button><button class="btn ghost" type="button" id="sale-stop" onclick="saleStop()" disabled>إيقاف التخفيض</button></div>
   </div>
   <div class="sheet">
     <div class="sheet-head"><h3>إعداد الإتاحة العامة</h3><span class="muted">السقف الأقصى 20 درجة لكل طالب</span></div>
@@ -1496,16 +1422,16 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
       <div class="field"><label>تبدأ الإتاحة</label><input class="inp" id="esp-start" type="datetime-local"><small class="muted">اتركها فارغة لتكون الإتاحة فورية.</small></div>
       <div class="field"><label>تنتهي الإتاحة</label><input class="inp" id="esp-end" type="datetime-local"><small class="muted">اتركها فارغة بدون موعد انتهاء.</small></div>
     </div>
-    <div class="row" style="gap:.5rem;justify-content:flex-end;flex-wrap:wrap"><button class="btn tick" type="button" onclick="saveExamShopPolicy()">💾 حفظ الإعدادات</button><button class="btn ghost" type="button" onclick="clearExamShopWindow()">فتحها الآن</button></div>
+    <div class="row" style="gap:.5rem;justify-content:flex-end;flex-wrap:wrap"><button class="btn tick" type="button" onclick="saveExamShopPolicy()" data-emo="💾"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 3h11l3 3v15H5z"/><path d="M8 3v5h7V3M8 21v-7h8v7"/></svg> حفظ الإعدادات</button><button class="btn ghost" type="button" onclick="clearExamShopWindow()">فتحها الآن</button></div>
   </div>
   <div class="sheet">
-    <div class="sheet-head"><div><h3>👥 السماح لكل طالب</h3><span class="sub">يمكنك وضع حد خاص لطالب بدل الحد العام. اترك «افتراضي» ليستخدم الحد العام.</span></div></div>
+    <div class="sheet-head"><div><h3 data-emo="👥"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a5 5 0 0 1 3.5 6"/></svg> السماح لكل طالب</h3><span class="sub">يمكنك وضع حد خاص لطالب بدل الحد العام. اترك «افتراضي» ليستخدم الحد العام.</span></div></div>
     <div class="exam-shop-kpis"><div class="exam-shop-kpi"><b id="esp-student-count">0</b><small>طالب (في المعروض)</small></div><div class="exam-shop-kpi"><b id="esp-overrides">0</b><small>حدود خاصة (في كل السياسة)</small></div><div class="exam-shop-kpi"><b id="esp-max-summary">3</b><small>الحد العام</small></div></div>
     <div class="row" style="gap:.5rem;flex-wrap:wrap;margin:.7rem 0"><select class="inp" id="esp-class-filter" onchange="renderExamShopStudents()" style="width:auto;min-width:180px"><option value="">📚 كل الصفوف</option></select><input class="inp" id="esp-search" placeholder="🔍 ابحث باسم الطالب" oninput="renderExamShopStudents()" style="flex:1;min-width:180px"><button class="btn ghost sm" type="button" onclick="setAllExamShopStudentsToDefault()">إزالة الحدود الخاصة</button></div>
     <div id="exam-shop-students" class="exam-shop-student-list"></div>
   </div>
   <div class="sheet">
-    <div class="sheet-head"><div><h3>↩️ مشتريات لم ترفع الدرجة</h3><span class="sub">طلاب دفعوا نقاطًا على بطاقة رفع الاختبار ودرجتهم كانت مكتملة (الزيادة فوق 20 لا تُحسب). استرجع لهم نقاط الجزء الضائع.</span></div><span class="spacer"></span><button class="btn ghost sm" type="button" onclick="ebwLoad()">🔄 فحص</button></div>
+    <div class="sheet-head"><div><h3 data-emo="↩️"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg> مشتريات لم ترفع الدرجة</h3><span class="sub">طلاب دفعوا نقاطًا على بطاقة رفع الاختبار ودرجتهم كانت مكتملة (الزيادة فوق 20 لا تُحسب). استرجع لهم نقاط الجزء الضائع.</span></div><span class="spacer"></span><button class="btn ghost sm" type="button" onclick="ebwLoad()" data-emo="🔄"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 11a8 8 0 0 0-14.5-4.5L4 8M4 4v4h4M4 13a8 8 0 0 0 14.5 4.5L20 16M20 20v-4h-4"/></svg> فحص</button></div>
     <div id="ebw-box" class="exam-shop-status">اضغط «فحص» لعرض المشتريات التي لم تُضف درجة.</div>
   </div>
 </div>
@@ -1514,7 +1440,7 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
 <!-- ═══ مشاريع الطلاب ═══ -->
 <section class="panel" id="p-live">
 <div class="sheet">
-<div class="sheet-head"><div><h2>🎮 المسابقات المباشرة</h2><span class="sub">مسابقة جماعية بتوقيت واحد — الخادم يدير الرسوم والتوقيت والتصحيح والجوائز</span></div>
+<div class="sheet-head"><div><h2 data-emo="🎮"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="2.5" y="7" width="19" height="11" rx="4"/><path d="M7 11v3M5.5 12.5h3M15 12h.01M18 13.5h.01"/></svg> المسابقات المباشرة</h2><span class="sub">مسابقة جماعية بتوقيت واحد — الخادم يدير الرسوم والتوقيت والتصحيح والجوائز</span></div>
 <span class="spacer"></span><button class="lv-refresh" type="button" title="تحديث" aria-label="تحديث" onclick="liveTLoad()"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6"/></svg></button><button class="btn tick" type="button" onclick="openLiveCreate()">＋ مسابقة جديدة</button></div>
 <div id="lv-daily"></div>
 <div id="lv-list"><p class="muted">جارٍ التحميل…</p></div>
@@ -1522,16 +1448,16 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
 </section>
 <section class="panel" id="p-madrasati">
 <div class="sheet">
-<div class="sheet-head"><div><h2>📚 مدرستي</h2><p class="mad-sub">من حل ومن لم يحل في واجبات منصة مدرستي — تُحدَّث من إضافة «جسر مدرستي» في متصفحك.</p></div>
+<div class="sheet-head"><div><h2 data-emo="📚"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg> مدرستي</h2><p class="mad-sub">من حل ومن لم يحل في واجبات منصة مدرستي — تُحدَّث من إضافة «جسر مدرستي» في متصفحك.</p></div>
 <button class="btn ghost sm" type="button" onclick="madLoad(true)">↻ تحديث</button></div>
 <div class="madb" id="madb">
   <div class="madb-top"><span id="madb-pill" class="madb-pill off">⚪ جسر مدرستي</span>
     <div class="madb-acts">
-      <button class="btn tick sm" id="madb-sync" type="button" onclick="madBridgeSync()" disabled>🔄 مزامنة الآن</button>
-      <button class="btn ghost sm" id="madb-sort" type="button" onclick="madSyncSortOpen()" disabled>🧰 فرز المزامنة</button>
-      <button class="btn ghost sm" id="madb-set-btn" type="button" onclick="madBridgeToggleSettings()" disabled>⏰ الجدولة</button>
-      <button class="btn ghost sm" id="madb-rep" type="button" onclick="madBridgeOpenReport()" disabled title="تقرير الواجبات لاختيار واجبات بعينها">📊 اختيار يدوي</button>
-      <button class="btn ghost sm" type="button" onclick="madClearOpen()">🗑️ مسح</button>
+      <button class="btn tick sm" id="madb-sync" type="button" onclick="madBridgeSync()" disabled data-emo="🔄"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 11a8 8 0 0 0-14.5-4.5L4 8M4 4v4h4M4 13a8 8 0 0 0 14.5 4.5L20 16M20 20v-4h-4"/></svg> مزامنة الآن</button>
+      <button class="btn ghost sm" id="madb-sort" type="button" onclick="madSyncSortOpen()" disabled data-emo="🧰"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 13h18"/></svg> فرز المزامنة</button>
+      <button class="btn ghost sm" id="madb-set-btn" type="button" onclick="madBridgeToggleSettings()" disabled data-emo="⏰"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M5 3 2 6M19 3l3 3"/></svg> الجدولة</button>
+      <button class="btn ghost sm" id="madb-rep" type="button" onclick="madBridgeOpenReport()" disabled title="تقرير الواجبات لاختيار واجبات بعينها" data-emo="📊"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 20V4M4 20h16"/><rect x="7" y="11" width="3" height="6"/><rect x="12" y="7" width="3" height="10"/><rect x="17" y="13" width="3" height="4"/></svg> اختيار يدوي</button>
+      <button class="btn ghost sm" type="button" onclick="madClearOpen()" data-emo="🗑️"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg> مسح</button>
     </div></div>
   <div class="madb-row"><span>نطاق السحب:</span>
     <select class="inp" id="madb-scope"><option value="7d" selected>آخر أسبوع (المفتوحة + المنتهية خلال 7 أيام)</option><option value="week">الأسبوع الحالي</option><option value="2w">آخر أسبوعين</option><option value="4w">آخر 4 أسابيع</option><option value="term">الفصل الدراسي كله</option></select>
@@ -1552,7 +1478,7 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
     <br><button class="btn ghost sm" type="button" onclick="madBridgeInit(true)" style="margin-top:.35rem">إعادة الفحص</button>
   </div>
 </div>
-<div class="mad-tabs"><button class="mad-tab on" type="button" data-v="list" onclick="madTab('list')">📚 الواجبات</button><button class="mad-tab" type="button" data-v="register" onclick="madTab('register')">📋 سجل الرصد</button></div>
+<div class="mad-tabs"><button class="mad-tab on" type="button" data-v="list" onclick="madTab('list')" data-emo="📚"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg> الواجبات</button><button class="mad-tab" type="button" data-v="register" onclick="madTab('register')" data-emo="📋"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9zM9 12h6M9 16h4"/></svg> سجل الرصد</button></div>
 <div id="mad-list"><div class="feature-empty">جارٍ التحميل…</div></div>
 <div id="mad-register" hidden></div>
 </div>
@@ -1560,11 +1486,11 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
 <section class="panel" id="p-projects">
 <div class="sheet-head projects-head">
 <div>
-<h2>📁 مشاريع الطلاب</h2>
+<h2 data-emo="📁"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg> مشاريع الطلاب</h2>
 <span class="sub">المشاريع التي سلّمها الطلاب كصور أو ملفات PDF</span>
 </div>
 <span class="spacer"></span>
-<button class="btn ghost sm" id="projects-dl-btn" onclick="projDownloadVisible()" title="تحميل ملفات المشاريع المعروضة (بعد التصفية) في ملف ZIP واحد">⬇️ تحميل المعروض</button>
+<button class="btn ghost sm" id="projects-dl-btn" onclick="projDownloadVisible()" title="تحميل ملفات المشاريع المعروضة (بعد التصفية) في ملف ZIP واحد" data-emo="⬇️"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg> تحميل المعروض</button>
 <button class="btn ghost sm" id="projects-refresh-btn" onclick="loadProjects(true)">↻ تحديث</button>
 </div>
 <div class="sheet projects-filters no-print">
@@ -1593,18 +1519,18 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
 </section>
 <section class="panel" id="p-data">
 <div class="sheet" id="academic-year-sheet">
-<div class="sheet-head"><h2>📅 السنة الدراسية والفترات</h2></div>
+<div class="sheet-head"><h2 data-emo="📅"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg> السنة الدراسية والفترات</h2></div>
 <p class="muted" style="margin:0 0 .6rem;font-size:.85rem">حالة الفصل الدراسي والفترة الحالية، والانتقال للفترة التالية، وإنهاء السنة. الكشوف والتقارير تتبع الفترة النشطة هنا.</p>
 <div class="row report-academic-row" id="dashboard-academic-control">
 <span class="chip ghost" id="dashboard-academic-status">جاري قراءة الحالة الأكاديمية…</span>
 <span class="spacer"></span>
 <button class="btn ghost sm" id="dashboard-academic-action" onclick="runDashboardAcademicAction()" style="display:none" type="button"></button>
 <button class="btn ghost sm" id="dashboard-year-archive" onclick="finishYearFromDashboard('archive')" style="display:none" type="button">🏁 إنهاء السنة وأرشفة البيانات</button>
-<button class="btn ghost sm report-danger" id="dashboard-year-delete" onclick="finishYearFromDashboard('delete')" style="display:none" type="button">🗑️ إنهاء السنة وحذف بيانات الرصد</button>
+<button class="btn ghost sm report-danger" id="dashboard-year-delete" onclick="finishYearFromDashboard('delete')" style="display:none" type="button" data-emo="🗑️"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg> إنهاء السنة وحذف بيانات الرصد</button>
 </div>
 </div>
 <div class="sheet" id="official-names-sheet">
-<div class="sheet-head"><h2>🏫 بيانات المدرسة والتوقيعات الرسمية</h2><span class="pill" id="off-names-status">—</span></div>
+<div class="sheet-head"><h2 data-emo="🏫"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 10l9-5 9 5-9 5z"/><path d="M7 12v5c3 2 7 2 10 0v-5"/></svg> بيانات المدرسة والتوقيعات الرسمية</h2><span class="pill" id="off-names-status">—</span></div>
 <p style="margin:0 0 .9rem;color:var(--ink-soft);font-size:.88rem;line-height:1.7">تظهر هذه الأسماء تلقائيًا في ترويسة وتوقيعات كل التقارير الرسمية: الكشوف، وتحليل النتائج، والتشخيصي، والخطط العلاجية، وكليشة الاختبار الورقي. أي تعديل هنا يسري على التقارير فورًا، ويُحفظ على الخادم فيظهر في كل أجهزتك.</p>
 <div class="grid2">
 <div class="field"><label>معلم المادة</label><input class="inp offn" data-rc="teacher" placeholder="أحمد عبدالله المرزوق"/></div>
@@ -1617,16 +1543,16 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
 <div class="muted" id="off-names-saved" style="font-size:.8rem;margin-top:.3rem;min-height:1.2em"></div>
 </div>
 <div class="sheet" id="par-settings-sheet">
-<div class="sheet-head"><h2>👪 صفحة متابعة ولي الأمر</h2></div>
+<div class="sheet-head"><h2 data-emo="👪"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a5 5 0 0 1 3.5 6"/></svg> صفحة متابعة ولي الأمر</h2></div>
 <label class="row" style="gap:.6rem;align-items:flex-start;cursor:pointer"><input type="checkbox" id="rc-parskills" style="margin-top:.3rem;width:20px;height:20px;flex:none">
 <span><b>إظهار «مهارات ابنكم في المادة»</b><br><small class="muted">أضعف 3 مهارات للطالب (من نواتج التعلم الرسمية) مع نصيحة للبيت، والمهارات التي أتقنها</small></span></label>
 </div>
 <div class="sheet" id="push-settings-sheet">
-<div class="sheet-head"><h2>🔔 الإشعارات</h2><span class="pill push-off" id="push-settings-status">🔴 الإشعارات غير مفعلة</span></div>
+<div class="sheet-head"><h2 data-emo="🔔"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg> الإشعارات</h2><span class="pill push-off" id="push-settings-status">🔴 الإشعارات غير مفعلة</span></div>
 <div id="push-settings-body"><p class="push-lead">جارٍ فحص الإشعارات على هذا الجهاز…</p></div>
 </div>
 <div class="sheet" id="ai-settings-sheet">
-<div class="sheet-head"><h2>🤖 إعدادات الذكاء الاصطناعي</h2><span class="pill" id="ai-settings-status">غير مُعد</span></div>
+<div class="sheet-head"><h2 data-emo="🤖"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="4" y="8" width="16" height="12" rx="3"/><path d="M12 4v4M9 13h.01M15 13h.01M9 17h6"/></svg> إعدادات الذكاء الاصطناعي</h2><span class="pill" id="ai-settings-status">غير مُعد</span></div>
 <p style="margin:0 0 .9rem;color:var(--ink-soft);font-size:.88rem;line-height:1.7">
         نفس منظومة الذكاء الاصطناعي الموجودة في تطبيق الألعاب التعليمية: مزوّدات متعددة، نماذج متعددة، مفاتيح متعددة، تبديل تلقائي عند تعطل المفتاح، واحتياطي بين المزوّدات. تُحفظ المفاتيح في هذا المتصفح فقط.
       </p>
@@ -1649,12 +1575,12 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
 <div id="ai-settings-keys-list" style="margin-top:.65rem"></div>
 <div class="row" style="gap:.45rem;margin-top:.65rem;align-items:stretch">
 <input autocomplete="off" class="inp" id="ai-settings-new-key" placeholder="ألصق مفتاح API هنا" style="flex:1;min-width:200px" type="password"/>
-<button class="btn" onclick="aiSettingsAddKey()" type="button">➕ إضافة مفتاح</button>
+<button class="btn" onclick="aiSettingsAddKey()" type="button" data-emo="➕"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg> إضافة مفتاح</button>
 <button class="btn ghost" onclick="aiSettingsResetKeys()" type="button">♻️ إعادة تفعيل المستنفد</button>
 </div>
 </div>
 <div style="margin-top:.8rem;border:1px solid var(--rule);border-radius:14px;padding:.8rem">
-<div class="sheet-head" style="padding:0 0 .55rem;margin:0"><h3 style="margin:0;font-size:1rem">⚙️ إعدادات التوليد</h3></div>
+<div class="sheet-head" style="padding:0 0 .55rem;margin:0"><h3 style="margin:0;font-size:1rem" data-emo="⚙️"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></svg> إعدادات التوليد</h3></div>
 <div class="row" style="gap:.6rem;flex-wrap:wrap">
 <label class="field" style="flex:1;min-width:150px;margin:0"><span>الإبداع / Temperature</span><input class="inp" id="ai-settings-temp" max="2" min="0" onchange="aiSettingsSavePrefs()" step=".1" type="number" value=".3"/></label>
 <label class="field" style="flex:1;min-width:150px;margin:0"><span>أقصى توكنات</span><input class="inp" id="ai-settings-tokens" max="32000" min="500" onchange="aiSettingsSavePrefs()" step="500" type="number" value="12000"/></label>
@@ -1664,14 +1590,14 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
 </div>
 <div class="row" style="gap:.45rem;margin-top:.8rem;flex-wrap:wrap">
 <button class="btn tick" onclick="aiSettingsTest()" type="button">🧪 اختبار الاتصال</button>
-<button class="btn ghost" onclick="aiSettingsExportKeys()" type="button">📤 تصدير المفاتيح</button>
-<button class="btn ghost" onclick="document.getElementById('ai-settings-import').click()" type="button">📥 استيراد المفاتيح</button>
+<button class="btn ghost" onclick="aiSettingsExportKeys()" type="button" data-emo="📤"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 20V9M7 14l5-5 5 5M5 4h14"/></svg> تصدير المفاتيح</button>
+<button class="btn ghost" onclick="document.getElementById('ai-settings-import').click()" type="button" data-emo="📥"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 13l3-8h12l3 8v6H3z"/><path d="M3 13h5l1 2h6l1-2h5"/></svg> استيراد المفاتيح</button>
 <input accept=".json,.txt" id="ai-settings-import" onchange="aiSettingsImportKeys(event)" style="display:none" type="file"/>
 </div>
 <div class="muted" id="ai-settings-message" style="margin-top:.65rem;min-height:1.2rem"></div>
 </div>
 <div class="sheet">
-<div class="sheet-head"><h2>📁 نقل الطلاب والأنشطة (ملف جزئي)</h2></div>
+<div class="sheet-head"><h2 data-emo="📁"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg> نقل الطلاب والأنشطة (ملف جزئي)</h2></div>
 <p style="margin:0 0 .9rem;color:var(--ink-soft);font-size:.88rem">
         ملف بالطلاب والأنشطة ونقاطها فقط — لنقلها بين أجهزة أو منصات. <b>ليس نسخة احتياطية كاملة</b>: للنسخة الكاملة استخدم «💾 النسخ الاحتياطية» بالأسفل.
       </p>
@@ -1682,11 +1608,11 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
 </div>
 </div>
 <div class="sheet" id="imp-methods">
-<div class="sheet-head"><h2>👥 طرق استيراد أسماء الطلاب</h2></div>
+<div class="sheet-head"><h2 data-emo="👥"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a5 5 0 0 1 3.5 6"/></svg> طرق استيراد أسماء الطلاب</h2></div>
 <p style="margin:0 0 .9rem;color:var(--ink-soft);font-size:.88rem">اختر المصدر. كل الطرق تعرض القائمة للمراجعة قبل الإضافة، ولا تكرر اسمًا موجودًا.</p>
 <div class="imp-grid">
 <div class="imp-card rec">
-<div class="imp-h"><b>📚 من مدرستي</b><span class="pill pts">الأدق</span></div>
+<div class="imp-h"><b data-emo="📚"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg> من مدرستي</b><span class="pill pts">الأدق</span></div>
 <p>أسماء رسمية كاملة لكل فصل، ويُربط كل طالب برقمه في مدرستي فتنتقل واجباته تلقائيًا. يعتمد على واجب واحد على الأقل محفوظ لكل فصل عبر «جسر مدرستي».</p>
 <button class="btn tick" onclick="madImportOpen()" type="button">استيراد من مدرستي</button>
 </div>
@@ -1694,10 +1620,10 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
 <div class="imp-h"><b>🏛️ من نور</b><span class="pill pts">الأسماء الرسمية</span></div>
 <p>أسماء الطلاب الكاملة لكل فصل من نور: من صفحة <b>إدخال الدرجات</b>، أو — إن كان الرصد مقفلًا — من صفحة <b>الطلاب حسب العلاقات التدريسية</b>. اسحبها أولًا من لوحة «جسر مدرستي» في نور، ثم اضغط هنا.</p>
 <div class="row" style="gap:.4rem;flex-wrap:wrap"><button class="btn tick" onclick="noorRosterImport()" type="button">استيراد من نور</button>
-<button class="btn ghost sm" onclick="noorOpenSite()" type="button">🔗 افتح نور</button></div>
+<button class="btn ghost sm" onclick="noorOpenSite()" type="button" data-emo="🔗"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg> افتح نور</button></div>
 </div>
 <div class="imp-card">
-<div class="imp-h"><b>📊 ملف Excel</b></div>
+<div class="imp-h"><b data-emo="📊"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 20V4M4 20h16"/><rect x="7" y="11" width="3" height="6"/><rect x="12" y="7" width="3" height="10"/><rect x="17" y="13" width="3" height="4"/></svg> ملف Excel</b></div>
 <p>كشف من نور أو مدرستي أو أي جدول (xlsx / xls). يتعرّف على عمود الاسم والفصل ويتجاهل الأرقام والسجل المدني.</p>
 <div class="field" style="margin:.2rem 0 .5rem"><label>الفصل (إن لم يُقرأ من الملف)</label>
 <input class="inp" id="imp-cls" placeholder="مثال: أول ١ — اتركه فارغاً لقراءته من الملف"/></div>
@@ -1705,12 +1631,12 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
 <input accept=".xlsx,.xls" id="imp-file" onchange="importStudentsFile(event)" style="display:none" type="file"/>
 </div>
 <div class="imp-card">
-<div class="imp-h"><b>📋 لصق الأسماء</b></div>
+<div class="imp-h"><b data-emo="📋"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9zM9 12h6M9 16h4"/></svg> لصق الأسماء</b></div>
 <p>اسم في كل سطر، أو الصق عمودًا من Excel مباشرة. مناسب لفصل واحد أو أسماء قليلة.</p>
 <button class="btn ghost" onclick="openBulkAdd()" type="button">لصق الأسماء</button>
 </div>
 <div class="imp-card">
-<div class="imp-h"><b>🎮 نسخة تطبيق الألعاب</b></div>
+<div class="imp-h"><b data-emo="🎮"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="2.5" y="7" width="19" height="11" rx="4"/><path d="M7 11v3M5.5 12.5h3M15 12h.01M18 13.5h.01"/></svg> نسخة تطبيق الألعاب</b></div>
 <p>ملف JSON من تطبيق الألعاب التعليمية — تُنقل الأسماء والفصول فقط، ولا تُنقل نقاط الفصل.</p>
 <button class="btn ghost" onclick="document.getElementById('imp-games').click()" type="button">اختر الملف</button>
 <input accept=".json" id="imp-games" onchange="importFromGames(event)" style="display:none" type="file"/>
@@ -1718,13 +1644,13 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
 </div>
 </div>
 <div class="sheet" id="backup-sheet">
-<div class="sheet-head"><h2>💾 النسخ الاحتياطية</h2></div>
+<div class="sheet-head"><h2 data-emo="💾"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 3h11l3 3v15H5z"/><path d="M8 3v5h7V3M8 21v-7h8v7"/></svg> النسخ الاحتياطية</h2></div>
 <p style="margin:0 0 .8rem;color:var(--ink-soft);font-size:.86rem;line-height:1.8">يأخذ الخادم نسخة كاملة تلقائيًا <b>كل جمعة فجرًا</b> ويحفظ آخر 5: الطلاب والأنشطة ونتائجها، والمشاركة والواجبات والسلوك والغياب، ودرجات الاختبارات، والجدول والتذكيرات. الاستعادة تأخذ نسخة من الحال قبلها، فيمكن التراجع عنها.</p>
 <div class="row" style="gap:.5rem;flex-wrap:wrap;margin-bottom:.7rem">
-<button class="btn tick" type="button" onclick="backupDownloadFull()">⬇️ نسخة كاملة على جهازي</button>
+<button class="btn tick" type="button" onclick="backupDownloadFull()" data-emo="⬇️"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg> نسخة كاملة على جهازي</button>
 <button class="btn" type="button" onclick="backupNow()">📸 نسخة في الخادم الآن</button>
 <button class="btn ghost" type="button" onclick="backupLoad()">↻ تحديث القائمة</button>
-<button class="btn ghost" type="button" onclick="document.getElementById('backup-file').click()">↩️ استعادة من ملف</button>
+<button class="btn ghost" type="button" onclick="document.getElementById('backup-file').click()" data-emo="↩️"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg> استعادة من ملف</button>
 <input accept=".json" id="backup-file" onchange="backupRestoreFile(event)" style="display:none" type="file"/>
 </div>
 <div id="backup-list"><p class="muted">جارٍ التحميل…</p></div>
@@ -1750,19 +1676,19 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
 <input class="inp" id="api-tok" oninput="saveApi()" placeholder="نفس التي وضعتها في Cloudflare"/></div>
 </div>
 <div class="sheet">
-<div class="sheet-head"><h2>🔐 الأجهزة المسجّل دخولها</h2></div>
+<div class="sheet-head"><h2 data-emo="🔐"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg> الأجهزة المسجّل دخولها</h2></div>
 <p style="margin:0 0 .7rem;color:var(--ink-soft);font-size:.88rem;line-height:1.8">
         كل جهاز تدخل منه له دخول خاص به، وكلمة السر نفسها لا تُحفظ عليه. إن ضاع جوالك أو نسيت الخروج من كمبيوتر المدرسة: ألغِ دخوله من هنا، وبقية أجهزتك تبقى كما هي.
       </p>
-<div id="dev-list"><button class="btn ghost" type="button" onclick="devLoad()">📋 عرض الأجهزة</button></div>
+<div id="dev-list"><button class="btn ghost" type="button" onclick="devLoad()" data-emo="📋"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9zM9 12h6M9 16h4"/></svg> عرض الأجهزة</button></div>
 </div>
 <div class="sheet">
-<div class="sheet-head"><h2>🔄 تحديث الأجهزة</h2></div>
+<div class="sheet-head"><h2 data-emo="🔄"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 11a8 8 0 0 0-14.5-4.5L4 8M4 4v4h4M4 13a8 8 0 0 0 14.5 4.5L20 16M20 20v-4h-4"/></svg> تحديث الأجهزة</h2></div>
 <p style="margin:0 0 .7rem;color:var(--ink-soft);font-size:.88rem;line-height:1.8">
         بعد رفع نسخة جديدة، كل جهاز (لوحتك وبوابات الطلاب) يحدّث نفسه وحده في أول لحظة آمنة: عند الخروج من التطبيق أو العودة إليه، أو بعد دقيقتين بلا استخدام — ولا يقطع طالبًا وسط نشاط ولا معلمًا وسط كتابة.
         وإن أردت إجبار الكل الآن (مثلًا بعد إصلاح خطأ مهم):
       </p>
-<button class="btn tick" type="button" onclick="appForceAll(this)">🔄 إجبار كل الأجهزة على التحديث</button>
+<button class="btn tick" type="button" onclick="appForceAll(this)" data-emo="🔄"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 11a8 8 0 0 0-14.5-4.5L4 8M4 4v4h4M4 13a8 8 0 0 0 14.5 4.5L20 16M20 20v-4h-4"/></svg> إجبار كل الأجهزة على التحديث</button>
 <small class="muted" id="app-force-last" style="display:block;margin-top:.4rem;font-size:.78rem">يصل لكل جهاز مفتوح خلال 10 دقائق، ولغيره عند فتحه.</small>
 </div>
 <div class="sheet">
@@ -1781,7 +1707,7 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
 </p>
 <div class="row" style="gap:.5rem;align-items:stretch;flex-wrap:wrap">
 <input class="inp" id="deleted-student-name" placeholder="اكتب اسم الطالب كما هو في الكشف" style="flex:1;min-width:240px"/>
-<button class="btn ghost" onclick="inspectDeletedStudent()" type="button">🔎 فحص البيانات</button>
+<button class="btn ghost" onclick="inspectDeletedStudent()" type="button" data-emo="🔎"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg> فحص البيانات</button>
 </div>
 <div id="deleted-student-result" style="margin-top:.7rem"></div>
 </div>
@@ -1810,13 +1736,9 @@ html.boot body::before{content:'';position:fixed;inset:0;margin:auto;width:64px;
 </div>
 </section>
 </main>
-<nav aria-label="التنقل الرئيسي للجوال" class="mobile-nav" id="mobile-nav">
-<button class="on" data-tab="dashboard"><span class="mnav-icon">⌂</span><b>اليوم</b></button>
-<button data-tab="hw"><span class="mnav-icon">📋</span><b>الأنشطة</b></button>
-<button data-tab="students"><span class="mnav-icon">👥</span><b>الطلاب</b></button>
-<button data-tab="classtools" data-view="records"><span class="mnav-icon">🗂️</span><b>السجلات</b></button>
-<button id="nav-more-btn" type="button"><span class="mnav-icon">•••</span><b>المزيد</b></button>
-</nav>
+<!-- 🧭 التنقل الجديد جزء من الصفحة نفسها: يُعرض آخر شكل له فورًا (قبل تحميل السكربتات)، ثم يربطه simplified-nav.js -->
+<nav aria-label="التنقل المخصص للجوال" id="simp-bottomnav"></nav>
+<script>(function(){try{var s=JSON.parse(localStorage.getItem('simp_snap_v1')||'null');if(!s)return;var b=document.getElementById('simp-bottomnav'),n=document.getElementById('simp-nav');if(b&&s.bar)b.innerHTML=s.bar;if(n&&s.side)n.innerHTML=s.side;}catch(e){}})();</script>
 <div id="toast"></div>
 <div id="print-report"></div>
 <div id="class-activity-print-report"></div>

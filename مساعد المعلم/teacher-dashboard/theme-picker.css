@@ -149,9 +149,6 @@
 .app-sidebar .tab:hover{color:var(--app-nav-text)!important}
 .app-sidebar{border-left-color:var(--ui-border)!important}
 /* شريط الجوال السفلي: كان كحليًا ثابتًا، الآن يتبع ألوان القائمة التي يختارها المستخدم */
-.mobile-nav{background:var(--app-nav-bg)!important;border-top-color:var(--ui-border)!important}
-.mobile-nav button{color:var(--app-nav-text)!important}
-.mobile-nav button.on{background:var(--app-nav-active)!important;color:var(--app-nav-active-text)!important}
 /* ── تصحيح: عناصر خلفيتها ثابتة لا يتبع نصها لون الثيم ──
    الخطأ السابق: أُجبرت نصوص عناصر خلفيتها ثابتة على لون النص العام، فانكسرت قراءتها:
    أزرار الفلاتر النشطة خلفيتها كحلية ثابتة (#1F2D45) ونصها أبيض، فصار نصها داكنًا على كحلي

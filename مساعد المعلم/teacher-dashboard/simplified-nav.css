@@ -41,7 +41,6 @@ body.simp-nav #main-nav .app-nav-group{display:none!important}
 .simp-sh-close{display:block;width:100%;min-height:44px;margin-top:10px;border:0;border-radius:12px;background:var(--app-nav-bg,#16233A);color:var(--app-nav-text,#DCE6F1);font:inherit;font-weight:800;cursor:pointer}
 @media screen and (max-width:700px){
   /* إخفاء الشريط الأصلي مشروط بنجاح طبقة التنقل المبسط (خ5): إن فشل build() يبقى التنقل الأصلي */
-  body.simp-nav .mobile-nav{display:none!important}
   #simp-strip{padding:7px 8px;margin-bottom:10px}
   .simp-chip{min-height:34px;padding:5px 12px;font-size:.82rem}
   #simp-bottomnav{display:flex!important;position:fixed!important;left:0!important;right:0!important;bottom:0!important;z-index:2000!important;height:calc(64px + min(env(safe-area-inset-bottom,0px),34px));padding:4px 5px min(env(safe-area-inset-bottom,0px),34px)!important;box-sizing:border-box!important;background:var(--app-nav-bg)!important;border-top:1px solid rgba(255,255,255,.12)!important;box-shadow:0 -6px 20px rgba(13,24,40,.16)!important;direction:rtl}

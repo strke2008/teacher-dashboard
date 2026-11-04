@@ -155,33 +155,12 @@ function goTab(name){
   const [tab,view] = String(name||'').split(':');
   const btn = view
     ? document.querySelector(`.tab[data-tab="${tab}"][data-view="${view}"]`)
-    : document.querySelector(`.tab[data-tab="${tab}"]:not([data-view]), .mobile-nav button[data-tab="${tab}"]:not([data-view])`);
+    : document.querySelector(`.tab[data-tab="${tab}"]:not([data-view])`);
   if(btn) btn.click();
   else if(tab==='classtools'){ // أدوات الفصل كاملة (بلا قسم)
     CT_VIEW=view||''; document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('on',p.id==='p-classtools'));
     ctMarkNav(); renderClassTools(true); }
 }
-(function navMoreInit(){
-  const b = document.getElementById('nav-more-btn');
-  if(!b) return;
-  b.onclick = ()=>{
-    const items = [['—','📚 التعليم'],['projects','📁 المشاريع'],['live','🎮 المسابقات المباشرة'],['madrasati','📚 مدرستي'],
-      ['—','👥 الطلاب والمتابعة'],['students','👥 الطلاب وملفاتهم'],['plans','🩺 الخطط العلاجية'],['classtools:duties','🎖️ مهام الطلاب'],
-      ['—','📝 الاختبارات والدرجات'],['classtools:exams','📝 دفتر الاختبارات'],['exam','🖨️ الاختبار الورقي'],['nafs','🧭 نافس ونواتج التعلم'],['reports','📑 الكشوف'],
-      ['—','📈 التقارير والتحليل'],['grades','📊 تقارير الأنشطة'],['classtools:analysis','📈 المستويات والمهارات'],['classtools:classfile','🏫 ملف الفصل'],['classtools:portfolio','🧾 ملف الإنجاز'],
-      ['—','🏅 التواصل والتحفيز'],['messages','💬 رسائل الطلاب'],['walls','🧱 حائط الإبداع'],['classtools:certs','🏅 الشهادات'],['exam-shop','🎓 متجر الدرجات'],
-      ['—','⚙️'],['data','⚙️ الإعدادات']];
-    const portal = getPortal();
-    openModal(`<div style="padding:1rem">
-      <h3 style="margin:0 0 .8rem">المزيد</h3>
-      ${items.map(([k,l])=>k==='—'?`<div class="more-grp">${l}</div>`:`<button class="btn ghost" data-more="${k}" style="width:100%;min-height:46px;margin-bottom:.4rem;justify-content:flex-start"
-        onclick="goTab('${k}')">${l}${(k==='projects'||k==='walls')?(n=>`<span class="proj-badge-in${n?'':' hide'}">${n>99?'99+':n||''}</span>`)(NAV_BADGES[k]||0):''}</button>`).join('')}
-      <button class="btn ghost" style="width:100%;min-height:48px;margin-bottom:.5rem;justify-content:flex-start"
-        onclick="closeModal();openPortal()">✋ الرصد السريع</button>
-      <button class="btn" style="width:100%;min-height:44px" onclick="closeModal()">إغلاق</button>
-    </div>`);
-  };
-})();
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
 document.querySelectorAll('.tab,.mobile-nav button[data-tab]').forEach(t => t.onclick = () => {

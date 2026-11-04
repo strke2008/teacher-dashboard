@@ -308,7 +308,7 @@ function dashShowUpdate(auto){
   const vv=window.visualViewport; if(!vv) return;
   let nav=null, cur=0, raf=0;
   const fix=()=>{ raf=0;
-    nav=nav||document.getElementById('mobile-nav'); if(!nav) return;
+    nav=nav||document.getElementById('simp-bottomnav'); if(!nav) return;   // الشريط السفلي الجديد (القديم حُذف)
     if(innerWidth>700 || vv.scale>1.05 || getComputedStyle(nav).display==='none'){ if(cur){ cur=0; nav.style.transform=''; } return; }
     const base=nav.getBoundingClientRect().bottom-cur;              // موضعه بلا تصحيح
     const gap=Math.round(vv.offsetTop+vv.height-base);
