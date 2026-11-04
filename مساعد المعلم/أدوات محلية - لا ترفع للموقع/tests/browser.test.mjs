@@ -253,6 +253,19 @@ export default async function run() {
           const closedEmpty = D.filter(d => !d.open).every(d => !d.querySelector('.nafs-qs').childElementCount); c.open = true; return new Promise(ok => setTimeout(() => ok([closedEmpty, c.querySelector('.nafs-qs').childElementCount]), 100)); });
         ok(r[0], 'أقسام مغلقة فيها أسئلة مرسومة'); ok(r[1] > 0, 'فتح القسم لم يرسم أسئلته'); eq(errs, [], 'أخطاء'); });
       await ctx.close(); }
+    // ── 🎤 البحث بالصوت في خانات البحث عن طالب ──
+    { const ctx = await newCtx({ viewport: { width: 390, height: 844 } });
+      await ctx.addInitScript(() => { window.SpeechRecognition = window.webkitSpeechRecognition = class { start() { setTimeout(() => { const r = [[{ transcript: 'ابحث عن الاختبار الثاني.' }]]; r[0].isFinal = true; this.onresult && this.onresult({ results: r, resultIndex: 0 }); setTimeout(() => this.onend && this.onend(), 30); }, 200); } stop() {} abort() {} }; });
+      const p = await ctx.newPage(), errs = watch(p);
+      await S.t('البحث بالصوت: ميكروفون في خانات البحث عن طالب (لا في «الرصد»)، والاسم المنطوق يُكتب ويصفّي', async () => {
+        await p.goto(base + '/teacher-dashboard/'); await p.evaluate(t => localStorage.setItem('hwapp_tok_v1', t), TOKEN); await p.reload(); await dashReady(p);
+        eq(await p.evaluate(() => ['th-q', 'students-center-search', 'wk-search', 'projects-search'].map(id => !!document.querySelector('#' + id + ' + .vs-mic'))), [true, true, true, true], 'خانات بلا ميكروفون');
+        await p.evaluate(() => goTab('students')); await p.waitForTimeout(600); await p.click('#students-center-search + .vs-mic'); await p.waitForTimeout(700);
+        eq(await p.evaluate(() => document.getElementById('students-center-search').value), 'الاختبار الثاني', 'لم يُكتب الاسم');
+        ok(await p.evaluate(() => [...document.querySelectorAll('.student-list-item')].every(e => e.textContent.includes('الثاني'))), 'لم تُصفَّ القائمة');
+        await p.evaluate(() => { window._ctRcCls = 'أول 1'; window._ctRcClsUser = 1; window._ctRcView = 'day'; ctGo('records'); }); await p.waitForSelector('#qr-q', { timeout: 15000 });
+        eq(await p.evaluate(() => !!document.querySelector('#qr-q + .vs-mic, #qr-q').closest('.vs-wrap')), false, 'ميكروفون بحث أُضيف لخانة الرصد'); eq(errs, [], 'أخطاء'); });
+      await ctx.close(); }
     // ── كل الصفحات تفتح بلا أخطاء (يحمي من حذف دالة ما زالت مستخدمة) ──
     { const ctx = await newCtx(); const p = await ctx.newPage(), errs = watch(p);
       await S.t('كل صفحات اللوحة وأدوات الفصل وملف الطالب تفتح بلا أخطاء برمجية', async () => {

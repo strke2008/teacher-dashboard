@@ -168,3 +168,15 @@ summary .ico,h3 .ico,h4 .ico,b .ico{color:var(--ui-accent)}
 #fm-sheet .fms-empty{background:var(--ui-surface-2,#F5F7F9);border-radius:14px;padding:14px;display:flex;gap:12px;align-items:center}
 #fm-sheet .fms-empty .ico{width:26px;height:26px;color:var(--ui-muted);flex:none}#fm-sheet .fms-empty b{display:block;font-size:.95rem}#fm-sheet .fms-empty small{color:var(--ui-muted);font-size:.8rem}
 @media (prefers-reduced-motion:reduce){#fm-sheet .fms-box,#fm-sheet .fms-dim{transition:none}}
+
+/* ═══ 🎤 البحث بالصوت داخل خانات البحث عن طالب (js/47-voice-search.js) ═══ */
+.vs-wrap{position:relative;min-width:0;vertical-align:middle}
+.vs-wrap>input{width:100%;padding-left:44px!important}
+.vs-wrap>input::-webkit-search-cancel-button{display:none}
+.vs-mic{position:absolute;left:6px;top:50%;transform:translateY(-50%);width:34px;height:34px;border-radius:10px;border:0;margin:0;padding:0;background:transparent;color:var(--ui-muted,#6B7785);display:grid;place-items:center;cursor:pointer;z-index:2;-webkit-tap-highlight-color:transparent}
+.vs-mic:hover{background:var(--ui-surface-2,#F1F4F7);color:var(--ui-accent)}
+.vs-mic .ico{width:19px;height:19px}
+.vs-mic.on{background:#E5484D;color:#fff;animation:vsPulse 1.2s ease-out infinite}
+@keyframes vsPulse{0%{box-shadow:0 0 0 0 rgba(229,72,77,.45)}70%{box-shadow:0 0 0 9px rgba(229,72,77,0)}100%{box-shadow:0 0 0 0 rgba(229,72,77,0)}}
+@media (prefers-reduced-motion:reduce){.vs-mic.on{animation:none}}
+@media print{.vs-mic{display:none!important}}
