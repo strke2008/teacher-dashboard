@@ -264,6 +264,22 @@ export default async function run() {
         block = false; await p.click('text=أرسلها الآن');
         await p.waitForFunction(() => !/لم يصل حذفه/.test(document.body.innerText), null, { timeout: 20000 });
         ok(!(await srvHas()), 'لم يُحذف من الخادم'); await p.evaluate(() => { window._ctPfSub = 'overview'; }); eq(errs, [], 'أخطاء'); });
+      await S.t('نسخة قديمة من الخادم (تخزين Cloudflare المتأخر) لا تعيد اختبارًا محذوفًا ولا تُسقط درجة — والجهاز يصلحها وحده', async () => {
+        const { sem, per } = await p.evaluate(() => ctExamSP());
+        const book = async () => (JSON.parse(await env.HW.get('teacher:classroom')).examBooks[String(sem)] || {})[String(per)] || {};
+        await p.evaluate(async () => { const { sem, per } = ctExamSP(); await ctSave(d => { const b = ctBookW(d, sem, per); if (!b.tests.some(t => t.id === 'tkeep')) b.tests.unshift({ id: 'tkeep', title: 'اختبار باقٍ', max: 10 }); }); });
+        // الخادم يرجع لنسخة قديمة: الاختبار المحذوف فيه بلا سجل حذفه، وبلا الدرجة الأخيرة
+        const cr = JSON.parse(await env.HW.get('teacher:classroom')), bk = cr.examBooks[String(sem)][String(per)];
+        await p.evaluate(() => { const { sem, per } = ctExamSP(); const b = CT_DATA.examBooks[String(sem)][String(per)]; (b.scores.s2 = b.scores.s2 || {})[b.tests[0].id] = { score: 6, at: Date.now() }; qrDo({ k: 'exb', sem: String(sem), per: String(per), book: JSON.parse(JSON.stringify(b)) }); });
+        await p.waitForFunction(() => !qrOut().length, null, { timeout: 15000 });
+        const t0 = (await book()).tests[0].id; eq(((await book()).scores.s2 || {})[t0]?.score, 6, 'لم تصل الدرجة');
+        bk.tests.push({ id: 'tsync', title: 'اختبار المزامنة', max: 10 }); delete bk.delTests; if (bk.scores.s2) delete bk.scores.s2[t0];
+        await env.HW.put('teacher:classroom', JSON.stringify(cr));
+        await p.evaluate(() => qrDo({ k: 'set', f: 'msgFlags', v: (CT_DATA.msgFlags || {}) }));   // أي حفظ آخر يُبنى على النسخة القديمة
+        await p.waitForFunction(() => !qrOut().length, null, { timeout: 15000 }); await p.waitForTimeout(1500);
+        await p.waitForFunction(() => !qrOut().length, null, { timeout: 15000 });
+        const b2 = await book(); ok(!b2.tests.some(t => t.id === 'tsync'), 'عاد الاختبار المحذوف'); eq((b2.scores.s2 || {})[t0]?.score, 6, 'سقطت الدرجة');
+        eq(errs, [], 'أخطاء'); });
       await ctx.close(); }
     // ── ⏳ التحميل المؤجَّل: زر يُضغط قبل وصول الجزء المؤجَّل يعمل بعد وصوله ──
     { const ctx = await newCtx({ viewport: { width: 390, height: 844 } }); await ctx.route(/-lazy\.js|30-noor-export/, async r => { await new Promise(x => setTimeout(x, 9000)); try { await r.continue(); } catch {} });

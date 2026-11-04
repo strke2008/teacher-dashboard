@@ -58,7 +58,32 @@ function qrMergeBook(ab, bb) {
   return { ...ab, ...bb, tests: order.map(k => tm.get(k)).slice(0, 100), scores, ...(delT.size ? { delTests: [...delT].map(([id, at]) => ({ id, at })).slice(-200) } : {}) };
 }
 /* كل قراءة للخادم تُظهر ما في الطابور فوقها — فلا «يرجع» رصدٌ لم يُرسل بعد */
-if (typeof ctLoad === 'function') { const _ctLoad = ctLoad; ctLoad = async function () { const D = await _ctLoad(); qrOut().forEach(op => qrApply(D, op)); return D; }; }
+/* 🧷 دفاتر الاختبارات على هذا الجهاز تُدمج فوق كل قراءة للخادم (الأحدث لكل درجة يفوز، والمحذوف لا يعود).
+   تخزين Cloudflare قد يعيد نسخة قديمة لدقيقة تقريبًا بعد الحفظ: كان حفظٌ تالٍ يبني على تلك النسخة فيعيد اختبارًا محذوفًا
+   أو يُسقط درجة رُصدت للتو — لبعض الطلاب دون بعض، وطابور الإرسال فارغ. الآن ما يعرفه الجهاز يُرسل مع كل حفظ،
+   وإن نقص من الخادم شيء (اختبار حذفناه ما زال فيه) يُعاد إرساله وحده. */
+const QR_RESENT = {};
+function qrPerClosed(sem, per) { try { const S = (((typeof DASH_ACADEMIC !== 'undefined' && DASH_ACADEMIC) || {}).semesters || {})[String(sem)] || {};
+  return S.status === 'closed' || (S.periodStatus || {})[String(per)] === 'closed' || (String(per) === '1' && Number(S.activePeriod) === 2); } catch (e) { return false; } }
+function qrKeepLocalBooks(D) {
+  const L = typeof CT_DATA !== 'undefined' && CT_DATA && CT_DATA.examBooks; if (!D || !L || typeof L !== 'object' || L === D.examBooks) return [];
+  const resend = [], clean = bk => { const b = JSON.parse(JSON.stringify(bk)); for (const sid of Object.keys(b.scores || {})) for (const t of Object.keys(b.scores[sid] || {})) { const c = b.scores[sid][t]; if (c && typeof c === 'object' && c.fromPaper) delete b.scores[sid][t]; } return b; };
+  D.examBooks = D.examBooks && typeof D.examBooks === 'object' ? D.examBooks : {};
+  for (const sem of Object.keys(L)) for (const per of Object.keys(L[sem] || {})) {
+    const lb = L[sem][per]; if (!lb || typeof lb !== 'object' || !Array.isArray(lb.tests)) continue;
+    const S = D.examBooks[sem] = D.examBooks[sem] && typeof D.examBooks[sem] === 'object' ? D.examBooks[sem] : {}, sb = S[per];
+    const dels = new Set((Array.isArray(lb.delTests) ? lb.delTests : []).map(d => d && String(d.id)));
+    // الفترة المغلقة: الخادم يُبقي دفترها كما هو عمدًا — لا إعادة إرسال (كانت ستتكرر بلا نهاية)، ومرة كل دقيقتين على الأكثر لكل دفتر
+    const k = sem + ':' + per, closed = qrPerClosed(sem, per);
+    if (!closed && sb && Array.isArray(sb.tests) && sb.tests.some(t => t && dels.has(String(t.id))) && Date.now() - (QR_RESENT[k] || 0) > 120000) { QR_RESENT[k] = Date.now(); resend.push([sem, per]); }
+    if (closed) continue;
+    S[per] = qrMergeBook(sb, clean(lb));
+  }
+  return resend;
+}
+if (typeof ctLoad === 'function') { const _ctLoad = ctLoad; ctLoad = async function () { const D = await _ctLoad(); let rs = []; try { rs = qrKeepLocalBooks(D); } catch (e) {} qrOut().forEach(op => qrApply(D, op));
+  if (rs.length && !qrOut().some(o => o.k === 'exb')) setTimeout(() => { try { rs.forEach(([sem, per]) => { const b = ((CT_DATA.examBooks || {})[sem] || {})[per]; if (b) qrDo({ k: 'exb', sem, per, book: JSON.parse(JSON.stringify(b)) }); }); } catch (e) {} }, 0);
+  return D; }; }
 
 function qrDo(ops, label) {
   ops = (Array.isArray(ops) ? ops : [ops]).map(o => ({ id: qrId(), at: Date.now(), ...o }));

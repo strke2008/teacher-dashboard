@@ -1644,7 +1644,7 @@ async function sfExamResend(){
     if(b&&typeof qrDo==='function') qrDo({k:'exb',sem:String(sem),per:String(per),book:JSON.parse(JSON.stringify(b))});   // لقطة الدفتر من جديد (لو ضاعت من الطابور)
     if(typeof qrFlush==='function') await qrFlush();
   }catch(e){}
-  if(typeof QR!=='undefined'&&QR.err) toast('لم تُرسل: '+QR.err,'bad'); else toast('تم الإرسال للخادم','good');
+  if(typeof QR!=='undefined'&&QR.err) toast('لم تُرسل: '+QR.err,'bad'); else toast('تم الإرسال للخادم — قد يتأخر ظهوره في التقرير دقيقة','good');
   try{ if(stcActive()) renderStudentCenterDetail(1); else renderClassTools(); }catch(e){}
 }
 async function sfPeriod(el,sid){
