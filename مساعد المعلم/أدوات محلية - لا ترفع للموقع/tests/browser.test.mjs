@@ -133,8 +133,10 @@ export default async function run() {
           document.querySelectorAll('#mc-g1 .omr-gr.ok').length, document.querySelectorAll('#mc-g1 .omr-gr.no').length,
           !!document.querySelector('#mc-g1 .omr-stuhd') && document.querySelector('#mc-g1 .omr-stuhd').compareDocumentPosition(document.querySelector('#mc-g1 .omr-grid')) === 4]);
         eq(g, [6, 2, 3, 1, true], 'الشبكة');
-        eq(await p.evaluate(() => { const b = [...document.querySelectorAll('#mc-g1 .omr-sbtn')].find(x => x.title.startsWith('طالب الاختبار الأول')); return b && [b.firstChild.textContent.trim(), getComputedStyle(b.parentNode).display, b.classList.contains('rec') === (b.style.display === 'none')]; }),
-          ['طالب الأول', 'flex', true], 'أسماء الطلاب وسوم مختصرة، والمرصود مخفي');
+        const vis = () => p.evaluate(() => [...document.querySelectorAll('#mc-g1 .omr-sbtn')].filter(b => b.offsetParent).map(b => b.firstChild.textContent.trim()));
+        eq(await vis(), [], 'الأسماء ظاهرة بلا بحث');
+        await p.fill('#omr-q', 'الأول'); eq(await vis(), ['طالب الأول'], 'البحث (وسم مختصر)');
+        await p.fill('#omr-q', ''); await p.evaluate(() => omrMatchFilter()); eq(await vis(), [], 'بعد مسح البحث');
         await p.click('#mc-g1 .omr-gq.w .omr-gz'); await p.waitForSelector('#omr-zoom');
         eq(await p.evaluate(() => OMRUI.zoom.i), 2, 'أول معلّق'); await p.keyboard.press('2'); await p.waitForTimeout(200);
         eq(await p.evaluate(() => [OMRUI.sheets[0].answers[2].final, OMRUI.zoom && OMRUI.zoom.i]), [1, 4], 'انتقل للتالي');

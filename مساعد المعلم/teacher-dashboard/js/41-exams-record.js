@@ -2476,9 +2476,8 @@ function omrMatchBody(s, used){
       const on = String(x.id) === String(s.sid);
       // 🏷️ مختصر: الاسم الأول والأخير (الكامل في التلميح)، والمرصود مخفي حتى تبحث — كانت القائمة تأخذ الشاشة كلها
       const short = omrShortName(x.name, studs);
-      return `<button type="button" class="omr-sbtn${on ? ' on' : ''}${x.other ? ' oth' : ''}${has ? ' rec' : ''}" data-n="${esc(omrNorm(x.name))}" title="${esc(x.name)}${has ? ' · مرصود' : ''}"${(x.other || has) && !on ? ' style="display:none"' : ''} onclick="omrMatchPick('${s.id}','${esc(x.id)}')">${esc(short)}${x.other ? ` <small>${esc(x.cls || '')}</small>` : ''}${has ? ' <small>مرصود</small>' : ''}</button>`; }).join('')}</div>
-    ${(() => { const nr = studs.filter(x => !x.other && exHas(x.id, OMRUI.testId) && String(x.id) !== String(s.sid)).length;
-      return `<small class="omr-note omr-snote">${nr ? `مخفي ${nr} مرصود${OMRUI.cls ? ' وطلاب الفصول الأخرى' : ''} — ابحث بالاسم لإظهارهم.` : OMRUI.cls ? 'طالب من فصل آخر؟ اكتب اسمه في البحث.' : ''}</small>`; })()}`;
+      return `<button type="button" class="omr-sbtn${on ? ' on' : ''}${x.other ? ' oth' : ''}${has ? ' rec' : ''}" data-n="${esc(omrNorm(x.name))}" title="${esc(x.name)}${has ? ' · مرصود' : ''}"${on ? '' : ' style="display:none"'} onclick="omrMatchPick('${s.id}','${esc(x.id)}')">${esc(short)}${x.other ? ` <small>${esc(x.cls || '')}</small>` : ''}${has ? ' <small>مرصود</small>' : ''}</button>`; }).join('')}</div>
+    <small class="omr-note omr-snote" id="omr-snote">اكتب اسم الطالب أو قله بالمايك — تظهر الأسماء المطابقة فقط.</small>`;
   return `<div class="omr-mbody">
     ${missP.map(pg => `<div class="omr-fixbox omr-misspg"><b>📄 الصفحة ${pg} لم تُصوَّر</b><small class="omr-qtxt">صوّرها الآن («➕ تصوير المزيد») فتُضم لهذه الورقة، أو احسبها بلا إجابة إن لم يحلّها الطالب.</small>
       <div class="omr-opts"><button type="button" class="btn ghost" onclick="omrPageBlank('${s.id}',${pg})">احسب الصفحة ${pg} بلا إجابة</button></div></div>`).join('')}
@@ -2586,7 +2585,10 @@ function omrRevBack(){
   s.answers[it.i].final = null; OMRDB.put(s); OMRQ.items.unshift(it); omrRevRender();
 }
 function omrMatchOpen(id){ OMRUI.openId = OMRUI.openId === id ? null : id; omrMatchRender(); const el = $('mc-' + id); if(el) el.scrollIntoView({ block:'start', behavior:'smooth' }); }
-function omrMatchFilter(){ const q = omrNorm($('omr-q').value); document.querySelectorAll('#omr-slist .omr-sbtn').forEach(b => { b.style.display = (q ? stuMatch($('omr-q').value, b.dataset.n) && (!b.classList.contains('oth') || q.length >= 2) : !(b.classList.contains('oth') || b.classList.contains('rec')) || b.classList.contains('on')) ? '' : 'none'; }); }
+/* 🧹 الأسماء لا تظهر إلا بالبحث (الصفحة نظيفة) — والطالب المختار يبقى ظاهرًا. المرصود يظهر بعلامته «مرصود» */
+function omrMatchFilter(){ const raw = $('omr-q').value, q = omrNorm(raw); let n = 0;
+  document.querySelectorAll('#omr-slist .omr-sbtn').forEach(b => { const show = b.classList.contains('on') || (!!q && stuMatch(raw, b.dataset.n) && (!b.classList.contains('oth') || q.length >= 2)); b.style.display = show ? '' : 'none'; if(show && !b.classList.contains('on')) n++; });
+  const t = $('omr-snote'); if(t) t.textContent = !q ? 'اكتب اسم الطالب أو قله بالمايك — تظهر الأسماء المطابقة فقط.' : n ? '' : 'لا يوجد طالب بهذا الاسم.'; }
 function omrSheetSet(id, i, v){ const s = OMRUI.sheets.find(x => x.id === id); if(!s) return; s.answers[i].final = v; OMRDB.put(s); if(s.sid && !s.answers.some(a => a.final === null) && omrManualOk(s.manual, s.model)) omrSheetSave(s); else omrMatchRender(); }
 /* 📄 ورقة الطالب المصححة للطالب وولي أمره: الصفحة مقوّمة (A4 مستقيمة) وعليها إطار أخضر/أحمر حول ما اختاره،
    وختم أحمر بالدرجة المرصودة بجانب عنوان الاختبار. الإجابة الصحيحة لا تُرسم: تُحفظ مواقعها فقط وتظهر إن سمح المعلم */
