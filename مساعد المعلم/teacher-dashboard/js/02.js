@@ -1574,7 +1574,11 @@ async function ctProfile(box,force){
       ${printBtn?`<span class="pf-print">${printBtn}</span>`:''}</div>`;
   box.innerHTML=head+bar+`<div id="ct-pf" class="sf-body"></div>`;
   const el=box.querySelector('#ct-pf');   // داخل هذا الملف تحديدًا: قد توجد نسخة أخرى قيد الاستبدال (تبويب «الطلاب»)
-  if(sub==='overview') el.innerHTML=(off?'<div class="ct-warn">تعذّر الاتصال بالخادم — المستوى والحضور والسلوك تحتاج الخادم. تبويب «الأنشطة والإجراءات» يعمل من بيانات هذا الجهاز.</div>':'')+ctProfileBody(sid);
+  if(sub==='overview') el.innerHTML=(off?'<div class="ct-warn">تعذّر الاتصال بالخادم — المستوى والحضور والسلوك تحتاج الخادم. تبويب «الأنشطة والإجراءات» يعمل من بيانات هذا الجهاز.'+(window._ctOffline?'':' <span class="muted">· إعادة المحاولة تلقائيًا…</span>')+'</div>':'')+ctProfileBody(sid);
+  // تعذّر جلب الدرجات (شبكة بطيئة): يُعاد المحاولة وحده مرتين، ويُستبدل الملف إن نجح وهو ما زال معروضًا
+  if(off&&!window._ctOffline&&(box._pfRetry||0)<2){ box._pfRetry=(box._pfRetry||0)+1; const s0=sid;
+    setTimeout(()=>{ if(box.isConnected&&String(window._ctPfSid)===String(s0)) ctProfile(box,false).catch(()=>{}); },4000*box._pfRetry); }
+  else if(!off) box._pfRetry=0;
   else if(sub==='acts'){ el.classList.add('sf-embed'); sfEmbed(el,()=>_legacyStudentProfile(sid)); el.insertAdjacentHTML('afterbegin',pfGradeBox(sid)); }
   else if(sub==='report'){ el.classList.add('sf-embed'); sfEmbed(el,()=>_legacyStudentReport(sid)); }
   else if(sub==='timeline') sfTimeline(el,sid);
@@ -10614,10 +10618,19 @@ function stcPanel(){ return document.getElementById('p-students'); }
 function stcActive(){ const p=stcPanel(); return !!(p&&p.classList.contains('on')); }
 function stcMobile(){ try{ return window.matchMedia('(max-width:900px)').matches; }catch(e){ return false; } }
 /* force: 0 لا يعيد رسم الملف المعروض نفسه · 1 يعيد رسمه · 2 يعيد جلب الدرجات أيضًا */
+/* تجهيز بيانات ملف الطالب في الخلفية بعد ظهور اللوحة (درجات الفترة الحالية + السابقة)، بلا رسم:
+   كان الملف يُرسم مخفيًا عند الإقلاع فتصل بياناته مبكرًا؛ بدونه صار فتح الملف ينتظر طلبين ثقيلين أمام المعلم */
+function stcWarm(){   // يُنادى أثناء تحميل هذا الملف نفسه: العلامة على window لا متغيّر let (لم يُعرَّف بعد)
+  if(window._stcWarm) return; window._stcWarm=1;
+  const go=async()=>{ if(window._ctOffline||!getApi()||!getTok()) { window._stcWarm=0; return; }
+    try{ await ctEnsureGrades(); }catch(e){ window._stcWarm=0; return; }
+    try{ if(typeof ctEnsurePrev==='function') await ctEnsurePrev(); }catch(e){} };
+  setTimeout(()=>{ if('requestIdleCallback' in window) requestIdleCallback(go,{timeout:3000}); else go(); },1500);
+}
 async function renderStudentCenterDetail(force){
   const box=document.getElementById('student-center-detail'), s=byId(STUDENT_CENTER_SELECTED);
   if(!box||!s) return;
-  if(!stcActive()){ STC_SHOWN=''; return; }   // صفحة الطلاب مخفية: لا يُفتح الملف (ولا طلباته) حتى تُفتح الصفحة
+  if(!stcActive()){ STC_SHOWN=''; stcWarm(); return; }   // صفحة الطلاب مخفية: لا يُرسم الملف — تُجهَّز بياناته فقط في الخلفية
   if(!force && STC_SHOWN===String(s.id) && box.querySelector('.stc-file')) return;
   const seq=STC_SEQ=(STC_SEQ||0)+1; STC_SHOWN=String(s.id);
   if(String(window._ctPfSid)!==String(s.id)) window._ctPfSub=window._ctPfSub||'overview';

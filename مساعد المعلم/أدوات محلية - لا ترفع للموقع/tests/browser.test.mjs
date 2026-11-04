@@ -182,6 +182,27 @@ export default async function run() {
         await p.evaluate(() => goTab('students')); await p.waitForFunction(() => document.querySelector('#student-center-detail .stc-file'), null, { timeout: 15000 });
         eq(errs, [], 'أخطاء'); });
       await ctx.close(); }
+    // ── 👤 ملف الطالب: بياناته تُجهَّز في الخلفية (والفترة السابقة)، وتعذّر الخادم يُعاد وحده ──
+    { const ctx = await newCtx({ viewport: { width: 390, height: 844 } }); let fails = 0, rep = 0;
+      await ctx.route(/workers\.dev\/(reports|academic)/, async r => { const u = new URL(r.request().url());
+        try { if (u.pathname === '/reports') { rep++; if (fails) return r.fulfill({ status: 500, body: '{}' }); await new Promise(x => setTimeout(x, 1500)); }
+          const resp = await r.fetch({ url: 'http://localhost:' + WP + u.pathname + u.search });
+          if (u.pathname === '/academic') { const j = await resp.json(); const a = j.academic = j.academic || {}; a.currentSemester = 1; a.semesters = { ...(a.semesters || {}), 1: { ...((a.semesters || {})[1] || {}), status: 'active', activePeriod: 2 } }; return r.fulfill({ response: resp, body: JSON.stringify(j) }); }
+          await r.fulfill({ response: resp }); } catch { try { await r.abort(); } catch {} } });
+      const p = await ctx.newPage(), errs = watch(p);
+      const pfReady = () => p.waitForFunction(() => { const f = document.querySelector('#student-center-detail .stc-file'); return f && f.style.display !== 'none' && f.querySelector('#ct-pf'); }, null, { timeout: 30000 });
+      const warn = () => p.evaluate(() => !!document.querySelector('#student-center-detail .stc-file:not([style*="none"]) .ct-warn'));
+      await S.t('ملف الطالب: الفترة الحالية والسابقة تُجهَّزان في الخلفية، فيفتح فورًا', async () => {
+        await p.goto(base + '/teacher-dashboard/'); await p.evaluate(t => localStorage.setItem('hwapp_tok_v1', t), TOKEN); await p.reload(); await dashReady(p);
+        await p.waitForFunction(() => typeof CT_PREV !== 'undefined' && CT_PREV && CT_GRADES, null, { timeout: 20000 });
+        const n = rep, t0 = Date.now(); await p.evaluate(() => goTab('students')); await pfReady();
+        ok(Date.now() - t0 < 1200, 'فتح الملف انتظر الخادم: ' + (Date.now() - t0) + ' م.ث'); eq(rep, n, 'طلب /reports جديد عند الفتح'); eq(await warn(), false, 'تحذير الخادم'); });
+      await S.t('ملف الطالب: تعذّر الخادم يُعاد تلقائيًا ويختفي التحذير عند نجاحه', async () => {
+        await p.evaluate(() => goTab('dashboard')); fails = 1; await p.evaluate(() => { CT_GRADES = null; STC_SHOWN = ''; REPORT_BUNDLE_CACHE.clear(); COMP_GRADES_CACHE.clear(); goTab('students'); });
+        await p.waitForFunction(() => document.querySelector('#student-center-detail .stc-file:not([style*="none"]) .ct-warn'), null, { timeout: 30000 });
+        fails = 0; await p.waitForFunction(() => !document.querySelector('#student-center-detail .stc-file:not([style*="none"]) .ct-warn'), null, { timeout: 20000 });
+        eq(errs, [], 'أخطاء'); });
+      await ctx.close(); }
     // ── ⏳ التحميل المؤجَّل: زر يُضغط قبل وصول الجزء المؤجَّل يعمل بعد وصوله ──
     { const ctx = await newCtx({ viewport: { width: 390, height: 844 } }); await ctx.route(/-lazy\.js|30-noor-export/, async r => { await new Promise(x => setTimeout(x, 3000)); try { await r.continue(); } catch {} });
       const p = await ctx.newPage(), errs = watch(p);
