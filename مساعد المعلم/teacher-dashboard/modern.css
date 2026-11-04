@@ -12,7 +12,7 @@
 @font-face{font-family:'IBM Plex Sans Arabic';font-style:normal;font-weight:700;font-display:swap;src:url(fonts/plex-arabic-700-latin.woff2) format('woff2');unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
 @media screen{
 /* ألوان «عصري» هي الأساس نفسه (لا ينتظر الشكلُ الجديد أيَّ سكربت). الثيمات الأخرى تُطبَّق فوقها من theme-picker.js */
-:root{--paper:#F5F7F9;--paper-2:#FFFFFF;--ink:#0F1A24;--ink-soft:#6B7785;--ui-muted:#6B7785;--rule:#E3E8ED;--ui-bg:#F5F7F9;--ui-surface:#FFFFFF;--ui-surface-2:#F5F7F9;--ui-border:#E8ECF0;--ui-border-strong:#D5DCE3;--ui-accent:#0F9D74;--ui-accent-soft:#E7F6F0;--app-nav-bg:#FFFFFF;--app-nav-text:#0F1A24;--app-nav-muted:#6B7785;--app-nav-active:#E7F6F0;--app-nav-active-text:#0B7A5A;--card:#FFFFFF;--m-hero:#0F9D74;--m-hero-ink:#FFFFFF}
+:root{--paper:#F5F7F9;--paper-2:#FFFFFF;--ink:#0F1A24;--ink-soft:#6B7785;--ui-muted:#6B7785;--rule:#E3E8ED;--ui-bg:#F5F7F9;--ui-surface:#FFFFFF;--ui-surface-2:#F5F7F9;--ui-border:#E8ECF0;--ui-border-strong:#D5DCE3;--ui-accent:#0F9D74;--ui-accent-soft:#E7F6F0;--app-nav-bg:#FFFFFF;--app-nav-text:#0F1A24;--app-nav-muted:#6B7785;--app-nav-active:#E7F6F0;--app-nav-active-text:#0B7A5A;--card:#FFFFFF}
 :root{--m-r:16px;--m-r-sm:12px;--m-sh:0 1px 2px rgba(16,24,40,.04),0 4px 14px rgba(16,24,40,.06);--m-font:'IBM Plex Sans Arabic','Readex Pro','Tajawal','Segoe UI',system-ui,sans-serif}
 body{font-family:var(--m-font)!important;background:var(--paper)!important;-webkit-font-smoothing:antialiased}
 button,input,select,textarea{font-family:inherit}
@@ -56,10 +56,10 @@ button,input,select,textarea{font-family:inherit}
 .btn.sm{border-radius:10px!important}
 
 /* «اليوم»: بطاقة الحصة بلون التمييز (ثيم عصري) أو لون الشريط (الثيمات الأخرى) */
-.td-hero{background:var(--m-hero,var(--app-nav-bg))!important;background-image:none!important;color:var(--m-hero-ink,var(--app-nav-text))!important;border-radius:var(--m-r)!important;box-shadow:0 6px 18px rgba(15,157,116,.18)!important}
+.td-hero{background:var(--m-hero,var(--ui-accent))!important;background-image:none!important;color:var(--m-hero-ink,#FFFFFF)!important;border-radius:var(--m-r)!important;box-shadow:0 6px 18px rgba(16,24,40,.12)!important;box-shadow:0 6px 18px color-mix(in srgb,var(--ui-accent) 22%,transparent)!important}
 .td-hero small{opacity:.88}
 .td-ring{background:conic-gradient(#fff calc(var(--p)*1%),rgba(255,255,255,.22) 0)!important}
-.td-ring i{background:var(--m-hero,var(--app-nav-bg))!important;color:var(--m-hero-ink,var(--app-nav-text))!important}
+.td-ring i{background:var(--m-hero,var(--ui-accent))!important;color:var(--m-hero-ink,#FFFFFF)!important}
 .td-hero-go{background:#fff!important;color:var(--ui-accent)!important;border-radius:12px!important;box-shadow:0 1px 3px rgba(0,0,0,.08)}
 .td-kpi{background:var(--ui-surface)!important;border:0!important;box-shadow:var(--m-sh)!important}
 .td-kpi.on{box-shadow:0 0 0 2px var(--ui-accent),var(--m-sh)!important}
@@ -92,7 +92,7 @@ details.td-more{background:var(--ui-surface)!important;border:0!important;border
 /* أدوات الفصل: أزرار الأقسام */
 .ct-seg{border-radius:var(--m-r-sm)!important}
 .ct-seg button.on{background:var(--ui-accent)!important;color:#fff!important}
-#portal-link-btn{box-shadow:0 2px 8px rgba(15,157,116,.25)!important}
+#portal-link-btn{box-shadow:0 2px 8px rgba(16,24,40,.14)!important;box-shadow:0 2px 8px color-mix(in srgb,var(--ui-accent) 30%,transparent)!important}
 #ct-nav .btn{border-radius:999px!important}
 
 /* ═════ المرحلة 3: الأيقونات الخطية (js/45-icons.js) ═════ */

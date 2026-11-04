@@ -295,6 +295,10 @@ export default async function run() {
       await S.t('الثيم: ثيم جاهز اختير بعده يبقى، والألوان المخصصة تبقى', async () => {
         eq(await navBg({ name: 'oasis', at: Date.now() + 5000, vars: { '--app-nav-bg': '#123332' } }), ['oasis', '#123332']);
         eq(await navBg({ name: 'custom', at: Date.now() + 5000, vars: { '--app-nav-bg': '#445566' } }), ['custom', '#445566']); eq(errs, [], 'أخطاء'); });
+      await S.t('الثيم: بطاقة «اليوم» تتبع لون تمييز الثيم (لا أخضر ثابت)، ولو كان محفوظًا من قبل', async () => {
+        const hero = () => p.evaluate(() => { const h = document.createElement('div'); h.className = 'td-hero'; document.body.appendChild(h); const c = getComputedStyle(h).backgroundColor; h.remove(); return [c, document.documentElement.style.getPropertyValue('--m-hero')]; });
+        await navBg({ name: 'custom', at: Date.now() + 5000, vars: { '--app-nav-bg': '#16233A', '--ui-accent': '#3A5F8F', '--m-hero': '#0F9D74' } });
+        eq(await hero(), ['rgb(58, 95, 143)', ''], 'مخصص'); await navBg({ name: 'modern', at: Date.now() + 9000, vars: {} }); eq((await hero())[0], 'rgb(15, 157, 116)', 'عصري'); eq(errs, [], 'أخطاء'); });
       await ctx.close(); }
     // ── بوابة الطالب ──
     { const ctx = await newCtx({ viewport: { width: 390, height: 800 } }), p = await ctx.newPage(), errs = watch(p);

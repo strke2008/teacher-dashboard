@@ -4,10 +4,10 @@
 <head>
 <script>
 /* 🎨 قبل أول رسم: ألوان الثيم المحفوظ (غير «عصري») تُطبَّق فورًا — «عصري» نفسه في modern.css، والأيقونات والتنقل جزء من الصفحة */
-(function(){var d=document.documentElement,M={'--paper':'#F5F7F9','--paper-2':'#FFFFFF','--ink':'#0F1A24','--ink-soft':'#6B7785','--ui-muted':'#6B7785','--rule':'#E3E8ED','--ui-bg':'#F5F7F9','--ui-surface':'#FFFFFF','--ui-surface-2':'#F5F7F9','--ui-border':'#E8ECF0','--ui-border-strong':'#D5DCE3','--ui-accent':'#0F9D74','--ui-accent-soft':'#E7F6F0','--app-nav-bg':'#FFFFFF','--app-nav-text':'#0F1A24','--app-nav-muted':'#6B7785','--app-nav-active':'#E7F6F0','--app-nav-active-text':'#0B7A5A','--card':'#FFFFFF','--m-hero':'#0F9D74','--m-hero-ink':'#FFFFFF'},AT=Date.parse('2026-11-03T19:00:00Z'),v=M,t=null;
+(function(){var d=document.documentElement,M={'--paper':'#F5F7F9','--paper-2':'#FFFFFF','--ink':'#0F1A24','--ink-soft':'#6B7785','--ui-muted':'#6B7785','--rule':'#E3E8ED','--ui-bg':'#F5F7F9','--ui-surface':'#FFFFFF','--ui-surface-2':'#F5F7F9','--ui-border':'#E8ECF0','--ui-border-strong':'#D5DCE3','--ui-accent':'#0F9D74','--ui-accent-soft':'#E7F6F0','--app-nav-bg':'#FFFFFF','--app-nav-text':'#0F1A24','--app-nav-muted':'#6B7785','--app-nav-active':'#E7F6F0','--app-nav-active-text':'#0B7A5A','--card':'#FFFFFF'},AT=Date.parse('2026-11-03T19:00:00Z'),v=M,t=null;
   try{t=JSON.parse(localStorage.getItem('oasis_theme_v1')||'null')}catch(e){}
   if(t&&t.vars&&t.name!=='night'&&(t.name==='custom'||t.name==='modern'||(Number(t.at)||0)>=AT))v=t.vars;
-  for(var k in M)if(!(k in v))d.style.setProperty(k,M[k]);for(var k2 in v)if(/^--[a-z0-9-]+$/.test(k2))d.style.setProperty(k2,v[k2]);
+  for(var k2 in v)if(/^--[a-z0-9-]+$/.test(k2)&&k2!=='--m-hero'&&k2!=='--m-hero-ink')d.style.setProperty(k2,v[k2]);   // ما ليس في الثيم: من modern.css؛ وبطاقة «اليوم» تتبع لون التمييز
   try{d.dataset.uiTheme=localStorage.getItem('hwapp_ui_theme_v1')==='dark'?'dark':'light'}catch(e){}
 })();
 </script>
@@ -134,7 +134,7 @@
 <script src="js/40-quick-record.js?v=0a4a8341" defer></script>
 <script src="js/44-focus-mode.js?v=ee16bc68" defer></script>
 <script src="js/46-lazy.js?v=e1dc003c" defer></script>
-<script src="theme-picker.js?v=9022a180" defer></script>
+<script src="theme-picker.js?v=e4656366" defer></script>
 <script src="simplified-nav.js?v=fd0b42d0" defer></script>
 <script src="tab-polish.js?v=bd1e2e02" defer></script>
 <script src="js/wall.js?v=bb38e88b" defer></script>
@@ -489,7 +489,7 @@
 <link rel="stylesheet" href="audit-fixes.css?v=a05870b6">
 <link rel="stylesheet" href="wall.css?v=e9acbc8c">
 <link rel="preload" href="fonts/plex-arabic-400-arabic.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="modern.css?v=fe55f976">
+<link rel="stylesheet" href="modern.css?v=cf79b38d">
 </head>
 <body class="simp-nav">
 <header class="masthead">
