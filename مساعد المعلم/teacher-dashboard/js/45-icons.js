@@ -99,7 +99,8 @@
     doty:'<circle cx="12" cy="12" r="5.5" fill="#EAB308" stroke="none"/>',
     doto:'<circle cx="12" cy="12" r="5.5" fill="#F97316" stroke="none"/>',
     dotr:'<circle cx="12" cy="12" r="5.5" fill="#EF4444" stroke="none"/>',
-    dotw:'<circle cx="12" cy="12" r="5"/>'
+    dotw:'<circle cx="12" cy="12" r="5"/>',
+    skip:'<path d="M5 5l9 7-9 7z"/><path d="M18 5v14"/>'
   };
   const E = {'🏠':'home','⌂':'home','📋':'clip','📁':'folder','📂':'folder','🗂️':'records','🗂':'records','🎮':'game','📚':'book','👥':'users','🩺':'steth','🎖️':'medal','🎖':'medal',
     '📝':'pen','✏️':'pen','✍️':'pen','🖨️':'printer','🖨':'printer','🧭':'compass','📑':'report','📄':'report','📊':'chart','📈':'trend','🏫':'school','🧾':'receipt','💬':'msg','🧱':'wall',
@@ -111,7 +112,7 @@
     '↩️':'undo','↩':'undo','🎨':'palette','👪':'users','➕':'plus','🔬':'flask','💡':'bulb',
     '🩹':'bandage','📖':'bookopen','🧪':'flask','🪙':'coin','☁️':'cloud','☁':'cloud','☕':'coffee','🌿':'leaf','🚶':'walk','🔕':'belloff','🎴':'cards',
     '⏱️':'timer','⏱':'timer','⏲️':'timer','⏲':'timer','⌛':'timer','⏳':'timer','🕌':'mosque','🌈':'sparkle','✨':'sparkle','❌':'x','✖️':'x','✉️':'mail','✉':'mail','📉':'down',
-    '🕓':'clock','🕒':'clock','🕑':'clock','🔘':'dotw','⚪':'dotw','🟢':'dotg','🟡':'doty','🟠':'doto','🔴':'dotr','📃':'report','🗒️':'report','🗒':'report','📆':'cal','🏁':'task'};
+    '🕓':'clock','🕒':'clock','🕑':'clock','🔘':'dotw','⚪':'dotw','🟢':'dotg','🟡':'doty','🟠':'doto','🔴':'dotr','📃':'report','🗒️':'report','🗒':'report','📆':'cal','🏁':'task','⏭️':'skip','⏭':'skip'};
   /* في أزرار الرصد: ✋ تعني «لم يشارك» (لا «المشاركة») */
   const CHIP = {'✅':'check','✋':'minus','🚫':'ban','📗':'bookok','📕':'bookx','🕊️':'feather','🕊':'feather','🌟':'star','⚠️':'alert'};
   const svg = n => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${P[n]}</svg>`;

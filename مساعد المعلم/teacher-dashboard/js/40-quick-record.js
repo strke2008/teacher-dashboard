@@ -145,7 +145,7 @@ function qrSt(m, sid) { const r = CT_DATA && CT_DATA[m] && CT_DATA[m][qrDay()] &
 function qrBehOf(sid) { const d = qrDay(); return ((CT_DATA && CT_DATA.behavior) || []).filter(x => x && !x.deleted && x.date === d && String(x.studentId) === String(sid)); }
 function qrDayHTML() {
   const L = qrLesson(), cls = qrCls(), mine = L && L.cls === cls;
-  const lesson = L ? `<div class="qr-lesson"><span class="dot">${L.now ? '🟢' : '⏭️'}</span><div><b>الحصة ${QR_ORD[L.n] || L.n} · <bdi>${esc(L.cls)}</bdi></b><small>${L.now ? 'جارية الآن' : 'القادمة'} · ${L.s} – ${L.e} · من جدولك</small></div>
+  const lesson = L ? `<div class="qr-lesson"><span class="dot">${L.now ? '🟢' : '🕘'}</span><div><b>الحصة ${QR_ORD[L.n] || L.n} · <bdi>${esc(L.cls)}</bdi></b><small>${L.now ? 'جارية الآن' : 'القادمة'} · ${L.s} – ${L.e} · من جدولك</small></div>
       ${mine ? '' : `<button type="button" class="x" onclick="window._ctRcCls='${esc(L.cls)}';window._ctRcClsUser=1;window._ctRcD=ctToday();renderClassTools()">ارصدها</button>`}</div>` : '';
   return `${lesson}<div id="qr-root" class="qr"></div>`;
 }

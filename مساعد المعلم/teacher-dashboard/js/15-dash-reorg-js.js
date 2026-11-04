@@ -209,7 +209,7 @@ function tdNowBar(){
   if(cur&&!rec(cur)) hd=[`⏰ الآن: ${nm(cur)}`,`تنتهي ${cur.e}`,btn(cur,'ارصدها')];
   else if(pend) hd=[`⚠️ ${nm(pend)} انتهت ولم تُرصد`,cur?`الآن: ${nm(cur)} · ✓ رُصدت`:nxt,btn(pend,'ارصدها الآن')];
   else if(cur) hd=[`⏰ الآن: ${nm(cur)}`,`<span class="td-ok">✓ رُصدت</span>${nxt?' · '+nxt:''}`,''];
-  else hd=[`⏭️ القادمة: ${nm(next)}`,`تبدأ ${next.s}`,''];
+  else hd=[`🕘 القادمة: ${nm(next)}`,`تبدأ ${next.s}`,''];
   const chip=t=>{ const st=rec(t)?'done':(cur&&cur.n===t.n)?'cur':t.em<=k.min?'miss':'soon';
     return `<button type="button" class="td-per ${st}" onclick="${go(t)}" title="${t.s}–${t.e}">${st==='done'?'✓':st==='cur'?'●':st==='miss'?'!':'○'} ${t.n} · <bdi>${thEsc(g[String(t.n)])}</bdi><small>${t.s}</small></button>`; };
   return tdHero(T.filter(rec).length,T.length,...hd)+`<div class="td-pers">${T.map(chip).join('')}</div>`;
