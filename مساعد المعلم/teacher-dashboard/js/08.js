@@ -351,7 +351,8 @@ const APPUPD=(()=>{
     if(pending&&hidAt&&Date.now()-hidAt>15000&&!busy())apply();else checkForce()});
   async function checkForce(){
     if(!CFG.api)return;let api='';try{api=String(CFG.api()||'').replace(/\/+$/,'')}catch(e){}if(!api)return;
-    try{const j=await (await fetch(api+'/version',{cache:'no-store'})).json(),f=Number(j&&j.force)||0;let seen=0;try{seen=Number(localStorage.getItem(LS))||0}catch(e){}
+    try{const v=window.__hwVer;window.__hwVer=null;   // أول فحص يستخدم ردّ /version الذي طلبته الصفحة عند الفتح
+      const j=v?await v:await (await fetch(api+'/version',{cache:'no-store'})).json(),f=Number(j&&j.force)||0;let seen=0;try{seen=Number(localStorage.getItem(LS))||0}catch(e){}
       if(f>seen){if(!seen&&performance.now()<15000&&Date.now()-f>86400e3){try{localStorage.setItem(LS,String(f))}catch(e){}return}   // جهاز جديد فُتح الآن بعد طلب قديم: هو أصلًا أحدث نسخة
         mark(f);tick()}}catch(e){}
   }

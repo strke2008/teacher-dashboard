@@ -10536,7 +10536,7 @@ renderAll();
         // المتجر والأرصدة
         await syncStore(true);
         // 💬 رسائل الطلاب (بطاقة صفحة اليوم)
-        try{ if(typeof asksLoad==='function') asksLoad(); }catch(e){}
+        try{ if(typeof asksLoad==='function' && !(typeof ASK_LAST!=='undefined' && Date.now()-ASK_LAST<5000)) asksLoad(); }catch(e){}   // «اليوم» جلبها للتو: لا طلب ثانٍ
       }
 
       initialized = true;
@@ -10602,6 +10602,7 @@ function stcMobile(){ try{ return window.matchMedia('(max-width:900px)').matches
 async function renderStudentCenterDetail(force){
   const box=document.getElementById('student-center-detail'), s=byId(STUDENT_CENTER_SELECTED);
   if(!box||!s) return;
+  if(!stcActive()){ STC_SHOWN=''; return; }   // صفحة الطلاب مخفية: لا يُفتح الملف (ولا طلباته) حتى تُفتح الصفحة
   if(!force && STC_SHOWN===String(s.id) && box.querySelector('.stc-file')) return;
   const seq=STC_SEQ=(STC_SEQ||0)+1; STC_SHOWN=String(s.id);
   if(String(window._ctPfSid)!==String(s.id)) window._ctPfSub=window._ctPfSub||'overview';

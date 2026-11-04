@@ -48,7 +48,8 @@
     F(api()+'/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:k,label:hwDeviceLabel(),temp:ls(KTMP)==='1'})})
       .then(function(r){return r.json()}).then(function(j){ if(j&&j.ok&&j.token&&tok()===k){ window.__hwPrevPw=k; put(KT,j.token); put(KTMP,null); put(KVK,null); vkLoad(); } }).catch(function(){}); }
   window.hwAuthUpgrade=upgrade;
-  F(api()+'/version',{cache:'no-store'}).then(function(r){return r.json()}).then(function(j){
+  window.__hwVer=F(api()+'/version',{cache:'no-store'}).then(function(r){return r.json()});   // يعيد استخدامه فحص التحديث الإجباري (08.js) بدل طلب ثانٍ
+  window.__hwVer.then(function(j){
     on=!!(j&&j.hdrAuth); put(KOK,on?'1':null); if(j&&j.tsess) upgrade(); if(on) vkLoad(); }).catch(function(){});
   if(on) vkLoad();
 })();
@@ -74,13 +75,13 @@
 <link rel="stylesheet" href="app.css?v=16178ead">
 <script src="js/00-fetch-dedupe-js.js?v=e77498d1" defer></script>
 <script src="js/01-right-sidebar-navigation-js.js?v=41ea29b3" defer></script>
-<script src="js/02.js?v=af74e83f" defer></script>
+<script src="js/02.js?v=c97b0169" defer></script>
 <script src="js/03-projects-students-logic-v13.js?v=d4950f64" defer></script>
 <script src="js/04.js?v=5a7c663e" defer></script>
 <script src="js/05.js?v=a7c074c3" defer></script>
 <script src="js/06.js?v=4e76f64a" defer></script>
 <script src="js/07.js?v=de43f185" defer></script>
-<script src="js/08.js?v=249e04bd" defer></script>
+<script src="js/08.js?v=5835863c" defer></script>
 <script src="js/09.js?v=ef17fc2a" defer></script>
 <script src="js/10.js?v=9d5a33ee" defer></script>
 <script src="js/11.js?v=f8090988" defer></script>
@@ -96,7 +97,7 @@
 <script src="js/21-today-v3-js.js?v=f7c1ded3" defer></script>
 <script src="js/22-sch-times-js.js?v=94601df1" defer></script>
 <script src="js/23-portal5-js.js?v=b1c11019" defer></script>
-<script src="js/24-not-started-js.js?v=85ea9ea3" defer></script>
+<script src="js/24-not-started-js.js?v=e4703896" defer></script>
 <script src="js/25-today-board-js.js?v=eadc015e" defer></script>
 <script src="js/26-br-v2-js.js?v=219e99dd" defer></script>
 <script src="js/27-proj-illus-js.js?v=d2f03a2d" defer></script>

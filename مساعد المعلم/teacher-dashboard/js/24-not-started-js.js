@@ -34,7 +34,10 @@ function askApplyPush(item){
   if(i>=0){ if((item.at||0)>=(ASKS[i].at||0)) ASKS[i]=item; } else ASKS.unshift(item);
   try{ thDraw(); }catch(e){} try{ askFabRender(); askCardRender(); }catch(e){} if(document.getElementById('ask-inbox')) try{ asksOpen(true); }catch(e){}
 }
-async function asksLoad(){
+/* طلبان في نفس اللحظة (فتح «اليوم» والمزامنة الأولى) يشتركان في طلب واحد للخادم */
+let ASKS_INFLIGHT=null;
+function asksLoad(){ return ASKS_INFLIGHT||(ASKS_INFLIGHT=asksLoadNow().finally(()=>{ ASKS_INFLIGHT=null; })); }
+async function asksLoadNow(){
   try{ const r=await fetch(getApi().replace(/\/+$/,'')+'/asks?t='+encodeURIComponent(getTok()),{cache:'no-store'}); const j=await r.json();
     if(j&&j.ok){ ASKS=j.rows||[]; if(j.cats) ASK_CATS=j.cats; if(j.mode) ASK_PMODE=j.mode;
       // نسخة الخادم وصلت ⇒ صندوق الإشعارات المحفوظة أدّى غرضه: يُفرَّغ فلا يعود عدده للأيقونة

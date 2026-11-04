@@ -164,6 +164,16 @@ export default async function run() {
         ok(ctx.reqs.some(x => x.u.startsWith('/messages')), 'لم يُرسل'); const r = await call('/messages?sid=s2&name=' + encodeURIComponent('طالب الاختبار الثاني'));
         ok(JSON.stringify(r.j).includes('مشاركتك'), 'لم تصل للطالب: ' + JSON.stringify(r.j).slice(0, 200)); eq(errs, [], 'أخطاء'); });
       await ctx.close(); }
+    // ── طلبات الفتح: لا تكرار، ولا ملف طالب مخفي يُفتح ──
+    { const ctx = await newCtx({ viewport: { width: 390, height: 844 } }); const p = await ctx.newPage(), errs = watch(p);
+      await S.t('فتح اللوحة: /version و/reports و/asks مرة واحدة، ولا /pins (ملف الطالب المخفي لا يُفتح)', async () => {
+        await p.goto(base + '/teacher-dashboard/'); await p.evaluate(t => localStorage.setItem('hwapp_tok_v1', t), TOKEN); await p.reload(); await dashReady(p); await p.waitForTimeout(2500);   // جلسة الجهاز جاهزة
+        ctx.reqs.length = 0; await p.reload(); await dashReady(p); await p.waitForTimeout(3000);
+        const n = k => ctx.reqs.filter(x => x.u.split('?')[0] === k).length;
+        eq([n('/version'), n('/reports'), n('/asks'), n('/pins')], [1, 1, 1, 0], 'عدد الطلبات: ' + ctx.reqs.map(x => x.u.split('?')[0]).join(' '));
+        await p.evaluate(() => goTab('students')); await p.waitForFunction(() => document.querySelector('#student-center-detail .stc-file'), null, { timeout: 15000 });
+        eq(errs, [], 'أخطاء'); });
+      await ctx.close(); }
     // ── ⏳ التحميل المؤجَّل: زر يُضغط قبل وصول الجزء المؤجَّل يعمل بعد وصوله ──
     { const ctx = await newCtx({ viewport: { width: 390, height: 844 } }); await ctx.route(/-lazy\.js|30-noor-export/, async r => { await new Promise(x => setTimeout(x, 3000)); try { await r.continue(); } catch {} });
       const p = await ctx.newPage(), errs = watch(p);
