@@ -30,18 +30,39 @@ function fmBarHTML() {
   const dot = mine && L.now ? '<i class="fm-dot" aria-hidden="true"></i>' : '';
   const title = mine ? `${dot}الحصة ${L.n} · ${esc(cls)}` : esc(cls || 'اختر الفصل');
   const dl = fmTodayLessons(k).filter(t => t.cls === cls), other = dl.find(t => t.em > k.min) || dl[dl.length - 1];   // فصل مختار غير الحصة الحالية: موعده اليوم
-  const sub = mine ? `${L.s} – ${L.e}${L.now ? '' : ' · القادمة'}` : other ? `الحصة ${other.n} · ${other.s} – ${other.e}${other.em <= k.min ? ' · انتهت' : ''}` : 'لا حصة له اليوم · اضغط لتغيير الفصل';
+  const sub = mine ? `<bdi>${L.s} – ${L.e}</bdi>${L.now ? '' : ' · القادمة'}` : other ? `الحصة ${other.n} · <bdi>${other.s} – ${other.e}</bdi>${other.em <= k.min ? ' · انتهت' : ''}` : 'لا حصة له اليوم · اضغط لتغيير الفصل';
   const left = mine ? (L.now ? `${Math.max(0, L.em - k.min)} د` : `بعد ${Math.max(0, L.sm - k.min)} د`) : '';
-  // قائمة الفصل = جدول اليوم: كل حصة بوقتها (الجارية والقادمة والمنتهية)، ثم الفصول التي ليس لها حصة اليوم
-  const day = fmTodayLessons(k), cur = L && L.cls === cls ? L.n : 0; let sel = false;
-  const pick = (c, n) => { const on = !sel && c === cls && (!n || !cur || n === cur); if (on) sel = true; return on ? 'selected' : ''; };
-  const lessonOpts = day.map(t => `<option value="${esc(t.cls)}" ${pick(t.cls, t.n)}>الحصة ${t.n} · ${t.s} – ${t.e} · ${esc(t.cls)}${k.min >= t.sm && k.min < t.em ? ' — الآن' : k.min >= t.em ? ' ✓' : ''}</option>`).join('');
-  const rest = ctClasses().filter(c => !day.some(t => t.cls === c)).map(c => `<option value="${esc(c)}" ${pick(c, 0)}>${esc(c)}</option>`).join('');
-  const opts = day.length ? `<optgroup label="حصص اليوم">${lessonOpts}</optgroup>${rest ? `<optgroup label="${day.length ? 'لا حصة لها اليوم' : 'الفصول'}">${rest}</optgroup>` : ''}`
-    : `<optgroup label="لا حصص في جدولك اليوم">${rest}</optgroup>`;
-  return `<span class="fm-ic">${ic('hand')}</span><label class="fm-t" title="تغيير الفصل"><b><span class="fm-tt">${title}</span><span class="fm-chev">${ic('chev')}</span></b><small>${sub}</small><select aria-label="الفصل" onchange="fmPickCls(this.value)">${opts}</select></label>
+  return `<span class="fm-ic">${ic('hand')}</span><button type="button" class="fm-t" onclick="fmSheet()" aria-haspopup="dialog" aria-label="تغيير الفصل — جدول اليوم"><b><span class="fm-tt">${title}</span><span class="fm-chev">${ic('chev')}</span></b><small>${sub}</small></button>
     ${left ? `<span class="fm-tm">${ic('clock')}${left}</span>` : ''}<button type="button" class="fm-x" onclick="fmExit()" aria-label="خروج من وضع الحصة">${ic('x')}خروج</button>`;
 }
+/* 🗓️ لوحة «جدول اليوم» من أسفل الشاشة: حصص اليوم بأوقاتها وحالتها (رُصدت · الآن · بعد كذا)، ثم بقية الفصول */
+function fmRecorded(cls, d) {
+  try { const D = CT_DATA || {}, ids = new Set(ctRoster(cls).map(x => String(x.id)));
+    return ['participation', 'homework'].some(m => Object.keys((D[m] || {})[d] || {}).some(id => ids.has(id))); } catch (e) { return false; }
+}
+function fmSheetHTML() {
+  const k = tdKsaNow(), cls = fmCls(), L = typeof qrLesson === 'function' ? qrLesson() : null, cur = L && L.cls === cls ? L.n : 0, d = ctToday();
+  const day = fmTodayLessons(k), ic = n => (typeof window.icoSVG === 'function' ? window.icoSVG(n) : '');
+  let dn = ''; try { dn = new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn', { timeZone: 'Asia/Riyadh', weekday: 'long' }).format(new Date()); } catch (e) {}
+  let sel = false; const isSel = (c, n) => { const on = !sel && c === cls && (!n || !cur || n === cur); if (on) sel = true; return on; };
+  const row = t => { const now = k.min >= t.sm && k.min < t.em, past = k.min >= t.em, on = isSel(t.cls, t.n);
+    const st = now ? ['now', `الآن · باقي ${Math.max(0, t.em - k.min)} د`] : past ? ['done', fmRecorded(t.cls, d) ? '✓ رُصدت' : 'انتهت'] : (t.sm - k.min <= 60 ? ['next', `بعد ${t.sm - k.min} د`] : ['later', t.s]);
+    return `<button type="button" class="fms-l ${st[0]}${on ? ' on' : ''}" aria-pressed="${on}" onclick="fmSheetPick('${esc(t.cls)}')"><span class="fms-n">${t.n}</span><span class="fms-m"><b>${esc(t.cls)}</b><small><bdi>${t.s} – ${t.e}</bdi></small></span><span class="fms-p">${st[1]}</span></button>`; };
+  const rest = ctClasses().filter(c => !day.some(t => t.cls === c));
+  const chips = list => `<div class="fms-chips">${list.map(c => { const on = isSel(c, 0); return `<button type="button" class="${on ? 'on' : ''}" aria-pressed="${on}" onclick="fmSheetPick('${esc(c)}')">${esc(c)}</button>`; }).join('')}</div>`;
+  const body = day.length
+    ? `${day.map(row).join('')}${rest.length ? `<div class="fms-sub">فصول أخرى</div>${chips(rest)}` : ''}`
+    : `<div class="fms-empty">${ic('cal')}<div><b>لا حصص في جدولك اليوم</b><small>أضف حصصك من «الجدول» لتظهر هنا بأوقاتها</small></div></div><div class="fms-sub">الفصول</div>${chips(rest)}`;
+  return `<div class="fms-dim" onclick="fmSheetClose()"></div><div class="fms-box" role="dialog" aria-modal="true" aria-label="${day.length ? 'جدول اليوم' : 'اختر الفصل'}"><div class="fms-grab"></div>
+    <div class="fms-h"><b>${day.length ? 'جدول اليوم' : 'اختر الفصل'}</b><small>${esc(dn)}${day.length ? ` · ${day.length} ${day.length === 1 ? 'حصة' : day.length === 2 ? 'حصتان' : day.length <= 10 ? 'حصص' : 'حصة'}` : ''}</small></div>${body}</div>`;
+}
+function fmSheet() {
+  fmSheetClose(); const w = document.createElement('div'); w.id = 'fm-sheet'; w.className = 'no-print'; w.innerHTML = fmSheetHTML(); document.body.appendChild(w);
+  requestAnimationFrame(() => w.classList.add('on')); try { (w.querySelector('.fms-l.on, .fms-chips .on') || w.querySelector('button')).focus({ preventScroll: true }); } catch (e) {}
+}
+function fmSheetClose() { document.getElementById('fm-sheet')?.remove(); }
+function fmSheetPick(c) { fmSheetClose(); fmPickCls(c); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.getElementById('fm-sheet')) fmSheetClose(); });
 function fmPaintBars() {
   let top = document.getElementById('fm-top'), bot = document.getElementById('fm-bot');
   if (!top) { top = document.createElement('div'); top.id = 'fm-top'; top.className = 'no-print'; document.body.appendChild(top); }
@@ -68,7 +89,7 @@ function fmEnter(tab) {
 function fmExit() {
   FM.on = false; fmSet(FM_KEY, null); window._fmCls = '';
   clearInterval(FM.timer); document.body.classList.remove('fm');
-  ['fm-top', 'fm-bot'].forEach(id => document.getElementById(id)?.remove());
+  ['fm-top', 'fm-bot', 'fm-sheet'].forEach(id => document.getElementById(id)?.remove());
   try { if (typeof exKbClose === 'function') exKbClose(true); } catch (e) {}
   try { goTab('dashboard'); } catch (e) {}
 }

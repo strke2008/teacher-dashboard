@@ -140,3 +140,29 @@ summary .ico,h3 .ico,h4 .ico,b .ico{color:var(--ui-accent)}
 
 
 
+
+/* ═══ 🗓️ وضع الحصة: لوحة «جدول اليوم» من أسفل الشاشة (بدل قائمة الاختيار) ═══ */
+#fm-top button.fm-t{background:none;border:0;padding:0;margin:0;font:inherit;color:inherit;text-align:right;display:block;-webkit-tap-highlight-color:transparent}
+#fm-sheet{position:fixed;inset:0;z-index:2147483000;font-family:var(--m-font)}
+#fm-sheet .fms-dim{position:absolute;inset:0;background:rgba(15,26,36,.38);opacity:0;transition:opacity .2s}
+#fm-sheet .fms-box{position:absolute;left:0;right:0;bottom:0;max-height:84vh;overflow:auto;overscroll-behavior:contain;background:var(--ui-surface,#fff);color:var(--ink,#0F1A24);border-radius:22px 22px 0 0;padding:8px 16px calc(18px + env(safe-area-inset-bottom,0px));box-shadow:0 -10px 40px rgba(0,0,0,.18);transform:translateY(100%);transition:transform .24s cubic-bezier(.2,.8,.2,1)}
+#fm-sheet.on .fms-dim{opacity:1}#fm-sheet.on .fms-box{transform:none}
+@media (min-width:700px){#fm-sheet .fms-box{max-width:520px;margin:0 auto}}
+#fm-sheet .fms-grab{width:40px;height:5px;border-radius:3px;background:var(--ui-border-strong,#D5DCE3);margin:2px auto 12px}
+#fm-sheet .fms-h{display:flex;align-items:baseline;justify-content:space-between;gap:.5rem;margin-bottom:12px}
+#fm-sheet .fms-h b{font-size:1.12rem}#fm-sheet .fms-h small{color:var(--ui-muted);font-size:.82rem}
+#fm-sheet .fms-l{display:flex;align-items:center;gap:12px;width:100%;padding:11px 12px;border:1.5px solid var(--ui-border,#E8ECF0);border-radius:14px;margin:0 0 8px;background:var(--ui-surface,#fff);color:inherit;font:inherit;text-align:right;cursor:pointer}
+#fm-sheet .fms-n{width:38px;height:38px;border-radius:12px;background:var(--ui-surface-2,#F1F4F7);display:grid;place-items:center;font-weight:700;font-size:1rem;flex:none}
+#fm-sheet .fms-m{flex:1;min-width:0}#fm-sheet .fms-m b{display:block;font-size:1rem}#fm-sheet .fms-m small{color:var(--ui-muted);font-size:.8rem}
+#fm-sheet .fms-p{font-size:.75rem;font-weight:700;border-radius:999px;padding:4px 10px;white-space:nowrap;background:var(--ui-surface-2,#F1F4F7);color:var(--ink-soft,#3A4754)}
+#fm-sheet .fms-l.done{opacity:.62}
+#fm-sheet .fms-l.now{border-color:var(--ui-accent);background:var(--ui-accent-soft)}#fm-sheet .fms-l.now .fms-n,#fm-sheet .fms-l.now .fms-p{background:var(--ui-accent);color:#fff}
+#fm-sheet .fms-l.next .fms-p{background:#FFF4DE;color:#A15C00}
+#fm-sheet .fms-l.on{box-shadow:0 0 0 3px var(--ui-accent-soft);border-color:var(--ui-accent);opacity:1}
+#fm-sheet .fms-sub{font-size:.82rem;color:var(--ui-muted);font-weight:600;margin:14px 2px 8px}
+#fm-sheet .fms-chips{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+#fm-sheet .fms-chips button{border:1.5px solid var(--ui-border,#E8ECF0);border-radius:12px;padding:11px 4px;background:var(--ui-surface,#fff);color:inherit;font:inherit;font-weight:600;font-size:.95rem;cursor:pointer}
+#fm-sheet .fms-chips button.on{border-color:var(--ui-accent);background:var(--ui-accent-soft);color:var(--app-nav-active-text,#0B7A5A)}
+#fm-sheet .fms-empty{background:var(--ui-surface-2,#F5F7F9);border-radius:14px;padding:14px;display:flex;gap:12px;align-items:center}
+#fm-sheet .fms-empty .ico{width:26px;height:26px;color:var(--ui-muted);flex:none}#fm-sheet .fms-empty b{display:block;font-size:.95rem}#fm-sheet .fms-empty small{color:var(--ui-muted);font-size:.8rem}
+@media (prefers-reduced-motion:reduce){#fm-sheet .fms-box,#fm-sheet .fms-dim{transition:none}}
