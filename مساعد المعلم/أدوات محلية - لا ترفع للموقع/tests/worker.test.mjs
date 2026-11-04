@@ -71,6 +71,17 @@ export default async function run() {
     eq((await call('/app/force', { method: 'POST', body: {} })).s, 401);
     eq((await call('/app/force', { method: 'POST', body: { t: TOKEN } })).s, 200); ok((await call('/version')).j.force > 0);
   });
+  await S.t('درجة الورقة الممسوحة تُكمل الدفتر في التقرير (خانة فارغة فقط — لا تلمس درجة ولا حذفًا مقصودًا)', async () => {
+    const cr = JSON.parse(await env.HW.get('teacher:classroom') || '{}');
+    cr.examBooks = { 1: { 1: { tests: [{ id: 'pz1', title: 'ورقي 1', max: 10 }, { id: 'pz2', title: 'ورقي 2', max: 10 }, { id: 'pz3', title: 'ورقي 3', max: 10 }],
+      scores: { s1: { pz2: { score: 4, at: 5 }, pz3: { del: true, at: Date.now() } } } } } };
+    await env.HW.put('teacher:classroom', JSON.stringify(cr));
+    for (const [test, score] of [['pz1', 9], ['pz2', 8], ['pz3', 7]]) eq((await call('/omr/paper', { method: 'POST', body: { t: TOKEN, sid: 's1', test, title: test, score, max: 10, marks: [1], img: 'data:image/jpeg;base64,AAAA', sem: 1 } })).s, 200);
+    const r = await call('/student-report/preview', { method: 'POST', body: { t: TOKEN, semester: 1, period: 1, sid: 's1' } });
+    eq(r.j.report.exam.tests.map(t => [t.id, t.score]), [['pz1', 9], ['pz2', 4], ['pz3', null]]);
+    const g = await call('/grades?t=' + TOKEN + '&semester=1&period=1'); ok(g.j.students.find(x => x.id === 's1').exam.measured, 'الدرجات لا تحسب درجة الورقة');
+    ok(!JSON.stringify(JSON.parse(await env.HW.get('teacher:classroom')).examBooks).includes('fromPaper'), 'كُتب في التخزين');
+  });
   await S.t('صوت المختبر بلا مفتاح: صامت بلا خطأ', async () => { eq((await call('/tts?t=' + encodeURIComponent('مرحبا'))).s, 404); });
   return S;
 }

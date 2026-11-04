@@ -1075,8 +1075,34 @@ async function srepLiveReports(env, st, reports) {
   return out;
 }
 // pre (اختياري): الفصل والحالة إن قُرئا في الطلب نفسه — لا قراءة ثانية لهما (صفحة ولي الأمر كانت تقرؤهما مرتين وثلاثًا)
+/* 📄 درجة الورقة الممسوحة تُكمِّل الدفتر وقت القراءة: الورقة تُرفع للخادم مباشرة، أما الدرجة فتصل الدفتر من الجهاز
+   (نسخة الدفتر في طابور الإرسال) — فإن تأخرت أو ضاعت كان التقرير يعرض «لم يُرصد» وزر «الورقة» ظاهر بجانبه.
+   هنا: خانة فارغة تمامًا لاختبار له ورقة محفوظة ⇒ درجة الورقة. لا تُلمس خانة فيها درجة أو «غائب» أو حذفٌ مقصود (del)،
+   ولا يُكتب شيء في التخزين (القراءة فقط — الكتابة المتزامنة مع حفظ المعلم كانت ستمحو رصده). */
+async function overlayOmrScores(env, data) {
+  const books = data && data.examBooks; if (!books || typeof books !== 'object') return data;
+  let idx = {}; try { idx = await omrPapersIdx(env); } catch { return data; }
+  let reads = 0;
+  for (const [test, e] of Object.entries(idx || {})) {
+    for (const sm of Object.keys(books)) for (const pr of Object.keys(books[sm] || {})) {
+      const bk = books[sm][pr]; if (!bk || !Array.isArray(bk.tests)) continue;
+      const t = bk.tests.find(x => x && String(x.id) === test); if (!t) continue;
+      const max = Math.max(1, Number(t.max) || 10);
+      for (const sid of (e && e.sids) || []) {
+        bk.scores = bk.scores && typeof bk.scores === 'object' ? bk.scores : {};
+        if (bk.scores[sid] && bk.scores[sid][test] != null) continue;
+        if (++reads > 400) return data;
+        let r = null; try { r = JSON.parse(await env.HW.get(`omrp:${sid}:${test}`) || 'null'); } catch { r = null; }
+        const sc = r && Number(r.score); if (!r || !Number.isFinite(sc)) continue;
+        const v = r.max && Number(r.max) !== max ? +(sc / Number(r.max) * max).toFixed(2) : sc;
+        (bk.scores[sid] = bk.scores[sid] || {})[test] = { score: Math.max(0, Math.min(max, v)), at: Number(r.at) || 0, fromPaper: 1 };
+      }
+    }
+  }
+  return data;
+}
 async function studentReportGrades(env, semester, period, pre) {
-  const data = await attachMadrasati(env, pre && pre.classroom ? pre.classroom : await loadClassroom(env));
+  const data = await overlayOmrScores(env, await attachMadrasati(env, pre && pre.classroom ? pre.classroom : await loadClassroom(env)));
   let students = [], assignments = [];
   try { const st = pre && pre.state ? pre.state : JSON.parse(await env.HW.get('tstate:main') || '{}'); students = (st.students || []).filter(x => x && x.id); assignments = st.assignments || []; } catch {}
   // 🔒 الفترة المغلقة: لقطتها المحفوظة لحظة الإغلاق (نفس ما يعرضه /grades للمعلم) — لا إعادة حساب بدرجات اليوم
@@ -9801,7 +9827,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
     if (url.pathname === '/grades' && request.method === 'GET') {
       const token = url.searchParams.get('t') || '';
       if (!env.TEACHER_TOKEN || token !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
-      let data = await attachPlanRem(env, await attachMadrasati(env, await loadClassroom(env)));
+      let data = await overlayOmrScores(env, await attachPlanRem(env, await attachMadrasati(env, await loadClassroom(env))));
       let students = [];
       try {
         const st = await env.HW.get('tstate:main');
@@ -9834,7 +9860,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       if (!env.TEACHER_TOKEN || token !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
       let data = {};
       let state = {};
-      data = await attachPlanRem(env, await attachMadrasati(env, await loadClassroom(env)));
+      data = await overlayOmrScores(env, await attachPlanRem(env, await attachMadrasati(env, await loadClassroom(env))));
       try { const raw = await env.HW.get('tstate:main'); if (raw) state = JSON.parse(raw) || {}; } catch { state = {}; }
       const students = Array.isArray(state.students) ? state.students.filter(x => x && x.name) : [];
       const assignments = Array.isArray(state.assignments) ? state.assignments : [];
