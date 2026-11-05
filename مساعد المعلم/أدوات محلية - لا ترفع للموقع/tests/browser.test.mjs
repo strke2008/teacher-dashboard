@@ -519,6 +519,15 @@ export default async function run() {
     // ── بوابة الطالب ──
     { const ctx = await newCtx({ viewport: { width: 390, height: 800 } }), p = await ctx.newPage(), errs = watch(p);
       await S.t('بوابة الطالب: الرئيسية بلا أخطاء', async () => { await p.goto(base + '/student-portal/index.html'); await p.waitForTimeout(3000); eq(errs, [], 'أخطاء'); });
+      await S.t('بوابة الطالب: رقم التنبيهات الجديدة على زر 🔔 ويختفي بعد فتحها', async () => {
+        const rows = n => [...Array(n)].map((_, i) => ({ id: 'bl' + i, t: 'نشاط ' + i, reviewPending: true }));
+        const st = () => p.evaluate(() => { const b = document.getElementById('hs-notes-bdg'); return b ? (b.hidden ? '' : b.textContent) : 'x'; });
+        await p.evaluate(async r => { localStorage.removeItem('hwapp_seen_notices_v1'); await loadStudentSpace('طالب البالون', r); }, rows(2)); await p.waitForTimeout(500);
+        eq(await st(), '2', 'رقم بعد الدخول');
+        await p.click('.hs-nav [data-nav="notes"]'); await p.waitForTimeout(1700); eq(await st(), '', 'يختفي بعد الفتح');
+        await p.evaluate(async r => loadStudentSpace('طالب البالون', r), rows(3)); await p.waitForTimeout(500); eq(await st(), '1', 'الجديد فقط');
+        eq(errs, [], 'أخطاء');
+      });
       await S.t('بوابة الطالب: رابط النشاط يجلبه من الخادم', async () => {
         ctx.reqs.length = 0; await p.goto('about:blank'); await p.goto(base + '/student-portal/index.html#act1'); await p.waitForTimeout(4000);
         ok(ctx.reqs.some(x => x.u.startsWith('/hw?') && x.u.includes('act1')), 'لم يُطلب النشاط'); eq(errs, [], 'أخطاء');

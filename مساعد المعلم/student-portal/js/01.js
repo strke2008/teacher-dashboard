@@ -2508,6 +2508,11 @@ async function loadStudentSpace(nm, rows){
       localStorage.setItem(NOTICE_DELETED_KEY,JSON.stringify(store));
     }catch(e){}
   };
+  // 🔔 التنبيهات التي رآها الطالب (بفتح «التنبيهات»): ما سواها يُعدّ رقمًا على الزر
+  const NOTICE_SEEN_KEY = 'hwapp_seen_notices_v1';
+  const seenStore = ()=>{ try{return JSON.parse(localStorage.getItem(NOTICE_SEEN_KEY)||'{}')||{};}catch(e){return {};} };
+  const seenKey = n => n.id ? `msg:${n.id}` : `${n.tone||n.priority||''}:${n.reviewTask||n.activityId||''}:${n.t||''}`;
+  const noticeSeen = new Set((seenStore()[noticeStudentKey]||[]).map(String));
   let allNotices = msgNotices.concat(rest).filter(n=>!deletedNoticeKeys.has(noticeKey(n)) && !(n.openReport && n.id && REP_SEEN_SRV.has(String(n.id))));
   const summary = $('space-notice-summary');
   if(summary){
@@ -2517,7 +2522,7 @@ async function loadStudentSpace(nm, rows){
       const messages=allNotices.filter(n=>kindOf(n)==='messages').length;
       const action=allNotices.filter(n=>kindOf(n)==='action').length;
       const updates=allNotices.filter(n=>kindOf(n)==='updates').length;
-      const fresh=allNotices.filter(n=>n.id && n.isNew).length;
+      const fresh=allNotices.filter(n=>!noticeSeen.has(seenKey(n))).length;   // 🔔 كل تنبيه لم يفتحه الطالب بعد
       return {messages,action,updates,fresh,total:allNotices.length};
     };
     const setNoticeCounts = ()=>{
@@ -2546,6 +2551,12 @@ async function loadStudentSpace(nm, rows){
       </div>`;
     };
     const c=noticeCounts();
+    try{ setNoticeCounts(); }catch(e){}
+    window.spNoticesSeen = ()=>{
+      allNotices.forEach(n=>noticeSeen.add(seenKey(n)));
+      try{ const st=seenStore(); st[noticeStudentKey]=[...noticeSeen].slice(-300); localStorage.setItem(NOTICE_SEEN_KEY,JSON.stringify(st)); }catch(e){}
+      setNoticeCounts();
+    };
     const filters=[
       ['all',`الكل (${c.total})`],
       ['action',`يحتاج إجراء (${c.action})`],

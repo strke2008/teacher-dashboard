@@ -98,7 +98,7 @@
       if(box && box.classList.contains('hide') && t && !t.disabled) t.click();
       scrollTo($id('gate-store').classList.contains('hide') ? $id('gate-bal') : $id('gate-store')); setOn('store'); return;
     }
-    if(k === 'notes'){ scrollTo(document.querySelector('#gate-space .space-notices')); setOn('notes'); return; }
+    if(k === 'notes'){ scrollTo(document.querySelector('#gate-space .space-notices')); setOn('notes'); setTimeout(() => { try{ window.spNoticesSeen && window.spNoticesSeen(); }catch(e){} }, 1200); return; }
     if(k === 'report'){ const box = $id('my-report-box'), t = $id('my-report-toggle'); if(box && box.classList.contains('hide') && t) t.click(); scrollTo($id('my-report-panel')); setOn('report'); return; }
     if(k === 'journey'){ scrollTo($id('hs-jmap')); setOn('journey'); return; }
     if(k === 'walls'){
