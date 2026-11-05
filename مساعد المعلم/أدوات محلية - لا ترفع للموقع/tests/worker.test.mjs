@@ -21,6 +21,16 @@ export default async function run() {
     eq([by.s2.v, by.s2.os], ['old', 'android'], 'القديمة');
     eq(by.s3.v, '', 'لم يفتح'); ok(!JSON.stringify(r.j).includes('session'), 'لا جلسات');
   });
+  await S.t('🕵️ جهاز دخل منه أكثر من طالب يظهر للمعلم، وجهاز طالب واحد لا يظهر', async () => {
+    const E = newEnv(), C = caller(W, E), ws = []; const job = { waitUntil: p => ws.push(p) };
+    const mine = async q => { await W.fetch(new Request('https://w.test/mine?name=x&os=iphone&dm=app&' + q), E, job); await Promise.all(ws.splice(0)); };
+    const A = 'aaaaaaaaaaaaaaaaaaaa', B = 'bbbbbbbbbbbbbbbbbbbb';
+    await mine('sid=s1&dv=' + A); await mine('sid=s2&dv=' + A); await mine('sid=s1&dv=' + A); await mine('sid=s3&dv=' + B); await mine('sid=s3&dv=' + B);
+    eq((await C('/app/shared', { method: 'POST', body: { t: 'خطأ' } })).s, 401, 'بلا كلمة سر');
+    const r = await C('/app/shared', { method: 'POST', body: { t: TOKEN } }); eq(r.s, 200);
+    eq(r.j.list.length, 1, 'جهاز واحد مشترك'); eq(r.j.list[0].students.map(x => x.id).sort(), ['s1', 's2']); eq(r.j.list[0].sw, 2, 'مرات التبديل');
+    ok(!JSON.stringify(r.j).includes(A), 'المعرّف الكامل لا يُكشف');
+  });
   await S.t('⚡ النشر سريع: لا يعيد قراءة كل الأنشطة، وأسماء النشاط الجديد تدخل الفهرس', async () => {
     const E = newEnv(), C = caller(W, E);
     for (let i = 0; i < 30; i++) await E.HW.put('hw:old' + i, JSON.stringify({ t: 'قديم', s: ['قديم ' + i] }));

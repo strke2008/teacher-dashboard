@@ -491,6 +491,37 @@ function appDevPaint(){
     <p class="appdev-note">يُسجَّل الطالب عند فتحه البوابة. «لم يُسجَّل» = لم يفتحها منذ رفع هذه الميزة. «نسخة قديمة» تتحدّث وحدها حين يفتحها على شبكة تصل للموقع (المدرسة أو بيانات الجوال).</p>
     <button class="btn ghost sm" type="button" onclick="appDevLoad()">🔄 تحديث القائمة</button>`;
 }
+/* 🕵️ دخول بحساب زميل: جهاز واحد دخل منه أكثر من طالب. نفس الفصل أشد ريبة؛ فصول مختلفة قد تكون إخوة.
+   «تجاهل» يخفي الجهاز من هذه اللوحة فقط (جهازك أنت حين تجرّب البوابة، أو إخوة معروفون). */
+const SHARE={list:[],showIgn:false};
+const shareIgn=()=>{ try{ return JSON.parse(localStorage.getItem('share_ign_v1')||'[]')||[]; }catch(e){ return []; } };
+function shareToggleIgn(dv){ let L=shareIgn(); L=L.includes(dv)?L.filter(x=>x!==dv):[...L,dv]; try{ localStorage.setItem('share_ign_v1',JSON.stringify(L.slice(-200))); }catch(e){} sharePaint(); }
+async function shareLoad(){
+  const box=document.getElementById('share-box'); if(!box) return;
+  if(!getApi()||!getTok()){ toast('اضبط عنوان الخادم وكلمة السر أولًا','bad'); return; }
+  box.innerHTML='<p class="muted" style="margin:.6rem 0 0">جارٍ التحميل…</p>';
+  try{ const j=await devCall('/app/shared'); SHARE.list=j.list||[]; }
+  catch(e){ box.innerHTML=`<p class="muted" style="margin:.6rem 0 .4rem">${/unauthorized/.test(e.message)?'كلمة السر غير صحيحة':'تعذّر التحميل — هل رفعت worker.js الجديد؟'}</p><button class="btn ghost" type="button" onclick="shareLoad()">🔄 إعادة المحاولة</button>`; return; }
+  sharePaint();
+}
+function sharePaint(){
+  const box=document.getElementById('share-box'); if(!box) return;
+  const ign=shareIgn(), OS={iphone:'آيفون',ipad:'آيباد',android:'أندرويد',pc:'كمبيوتر'};
+  const ago=t=>{ if(!t) return ''; const m=Math.round((Date.now()-t)/60000); return m<60?'قبل قليل':m<1440?`قبل ${Math.round(m/60)} ساعة`:`قبل ${Math.round(m/1440)} يوم`; };
+  const same=d=>{ const c=d.students.map(x=>x.cls).filter(Boolean); return new Set(c).size<c.length; };
+  const all=SHARE.list.slice().sort((a,b)=>same(b)-same(a)||b.at-a.at), shown=all.filter(d=>SHARE.showIgn||!ign.includes(d.dv)), nIgn=all.filter(d=>ign.includes(d.dv)).length;
+  box.innerHTML=`<div class="appdev-head"><b>🕵️ أجهزة دخل منها أكثر من طالب</b><small>${all.length-nIgn} جهاز</small></div>
+    ${shown.map(d=>{ const s=same(d), owner=d.students.slice().sort((a,b)=>a.f-b.f)[0], isI=ign.includes(d.dv);
+      return `<div class="share-card ${s?'same':'diff'}${isI?' ign':''}">
+        <div class="share-top"><span class="share-flag">${s?'🔴 نفس الفصل':'🟡 فصول مختلفة — قد يكونون إخوة'}</span>
+          <small>${d.os?OS[d.os]||'':''}${d.m?' · '+(d.m==='app'?'تطبيق':'متصفح'):''} · آخر استخدام ${ago(d.at)}${d.sw?` · تبدّل بين الحسابات ${d.sw} ${d.sw===1?'مرة':'مرات'}`:''}</small></div>
+        ${d.students.map(x=>`<div class="share-st"><b>${esc(x.name)}</b>${x.cls?`<small>${esc(x.cls)}</small>`:''}${x.id===owner.id?'<em>أول من دخل منه</em>':''}<span>${ago(x.at)}</span></div>`).join('')}
+        <button class="btn ghost sm share-ign" type="button" onclick="shareToggleIgn('${esc(d.dv)}')">${isI?'↩ إلغاء التجاهل':'تجاهل هذا الجهاز'}</button></div>`; }).join('')
+      || '<p class="muted" style="margin:.4rem 0">لا يوجد جهاز دخل منه أكثر من طالب ✓</p>'}
+    ${nIgn?`<button class="btn ghost sm" type="button" onclick="SHARE.showIgn=!SHARE.showIgn;sharePaint()">${SHARE.showIgn?'إخفاء المتجاهَل':`إظهار المتجاهَل (${nIgn})`}</button>`:''}
+    <p class="appdev-note">كل جهاز يُعرف بمعرّف عشوائي يحفظه في نفسه، فإن دخل منه حساب طالب آخر ظهر هنا. يُسجَّل من الآن ومن النسخ الجديدة فقط. لا يكشف من يدخل حساب زميله من جهاز آخر. إن جرّبت البوابة بحسابات طلابك من جوالك فسيظهر جوالك هنا: تجاهله.</p>
+    <button class="btn ghost sm" type="button" onclick="shareLoad()">🔄 تحديث</button>`;
+}
 async function devRevoke(id){
   if(typeof askConfirm==='function' && !(await askConfirm(id==='others'?'كل أجهزتك الأخرى ستحتاج كلمة السر من جديد. متابعة؟':'هذا الجهاز سيحتاج كلمة السر من جديد. متابعة؟'))) return;
   try{ const j=await devCall('/auth/revoke',{id}); toast(`✓ أُلغي دخول ${j.n} ${j.n===1?'جهاز':'أجهزة'}`,'good'); }catch(e){ toast('تعذّر الإلغاء','bad'); }

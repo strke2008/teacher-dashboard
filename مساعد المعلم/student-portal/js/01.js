@@ -142,13 +142,19 @@ function saveStoreSession(j){
   try{ if(j && j.session && j.sid) localStorage.setItem(STORE_SESS_KEY, JSON.stringify({ sid:String(j.sid), token:j.session, exp:Number(j.sessionExp)||0 })); }catch(e){}
 }
 function clearStoreSession(){ try{ localStorage.removeItem(STORE_SESS_KEY); }catch(e){} }
+// 🕵️ معرّف عشوائي للجهاز (لا يحمل أي معلومة شخصية): به يرى المعلم الأجهزة التي دخل منها أكثر من حساب
+function devId(){ try{
+  let d = localStorage.getItem('hw_dev_v1');
+  if(!/^[a-z0-9]{16,32}$/.test(d || '')){ d = [...crypto.getRandomValues(new Uint8Array(12))].map(b => (b % 36).toString(36)).join('') + Date.now().toString(36); localStorage.setItem('hw_dev_v1', d); }
+  return d;
+}catch(e){ return ''; } }
 // 📱 للمعلم: إصدار البوابة، وهل هي تطبيق مثبّت أم متصفح، ونوع الجهاز — يُرسل مع /mine فقط
 function appQS(){ try{
   const v = (document.querySelector('meta[name="app-version"]') || {}).content || '';
   const app = !!((window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true);
   const ua = navigator.userAgent || '';
   const os = /iPhone|iPod/.test(ua) ? 'iphone' : (/iPad/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) ? 'ipad' : /Android/.test(ua) ? 'android' : 'pc';
-  return '&av=' + encodeURIComponent(v) + '&dm=' + (app ? 'app' : 'web') + '&os=' + os;
+  return '&av=' + encodeURIComponent(v) + '&dm=' + (app ? 'app' : 'web') + '&os=' + os + '&dv=' + devId();
 }catch(e){ return ''; } }
 function idQS(){ let s = mySid ? ('&sid=' + encodeURIComponent(mySid)) : ''; try{ const t = getStoreSession(); if(t) s += '&session=' + encodeURIComponent(t); }catch(e){} return s; }
 // 🔑 القفل مرتبط بالطالب لا بالجهاز — فالإخوة على جوال واحد لا يحجب بعضهم

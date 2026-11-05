@@ -36,6 +36,9 @@ export default async function run() {
         const r = await p.evaluate(() => ({ n: document.querySelectorAll('#appdev-box .appdev-row').length, first: document.querySelector('#appdev-box .appdev-row').className,
           chips: [...document.querySelectorAll('#appdev-box .appdev-chip')].map(x => x.textContent).join('|') }));
         ok(r.n >= 3, 'عدد الطلاب ' + r.n); ok(/old/.test(r.first), 'القديمة أولًا: ' + r.first); ok(/تطبيق 1/.test(r.chips) && /قديمة 1/.test(r.chips), r.chips);
+        await fetch('http://localhost:' + WP + '/mine?name=x&sid=s1&dv=cccccccccccccccccccc'); await fetch('http://localhost:' + WP + '/mine?name=x&sid=s2&dv=cccccccccccccccccccc');
+        await p.evaluate(() => shareLoad()); await p.waitForSelector('#share-box .share-card', { timeout: 8000, state: 'attached' });
+        ok(/نفس الفصل/.test(await p.evaluate(() => document.querySelector('#share-box .share-card').textContent)), 'نفس الفصل');
         await p.evaluate(() => { APPDEV.f = 'app'; appDevPaint(); }); eq(await p.evaluate(() => document.querySelectorAll('#appdev-box .appdev-row').length), 1, 'فرز التطبيق');
         eq(errs, [], 'أخطاء'); });
       await S.t('لا كلمة سر ولا جلسة داخل أي رابط', async () => {

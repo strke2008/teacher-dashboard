@@ -2876,3 +2876,17 @@ body.fm #fm-bot{position:fixed;bottom:0;inset-inline:0;z-index:600;background:va
 .appdev-meta{grid-column:1/-1;color:var(--ink-soft,#5B6B82);font-size:.74rem}
 .appdev-meta:empty{display:none}
 .appdev-note{font-size:.76rem;color:var(--ink-soft,#5B6B82);line-height:1.7;margin:.2rem 0 .5rem}
+
+/* 🕵️ أجهزة دخل منها أكثر من طالب */
+.share-card{border:1px solid var(--rule,#E3E8EF);border-radius:14px;padding:.6rem .7rem;margin-bottom:.5rem;background:var(--paper,#fff)}
+.share-card.same{border-color:#F3B4B4;background:#FFF7F7}
+.share-card.ign{opacity:.55}
+.share-top{display:flex;flex-direction:column;gap:.15rem;margin-bottom:.4rem}
+.share-flag{font-weight:800;font-size:.84rem}
+.share-card.same .share-flag{color:#B42318}.share-card.diff .share-flag{color:#9A6A00}
+.share-top small{color:var(--ink-soft,#5B6B82);font-size:.75rem}
+.share-st{display:flex;align-items:center;gap:.4rem;padding:.3rem 0;border-top:1px dashed var(--rule,#E3E8EF);font-size:.86rem}
+.share-st small{color:var(--ink-soft,#5B6B82);font-size:.74rem}
+.share-st em{font-style:normal;font-size:.7rem;font-weight:700;background:#EEF1F5;color:#4A5A70;border-radius:999px;padding:.05rem .45rem}
+.share-st span{margin-inline-start:auto;color:var(--ink-soft,#5B6B82);font-size:.74rem;white-space:nowrap}
+.share-ign{margin-top:.35rem}

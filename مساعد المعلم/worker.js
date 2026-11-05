@@ -63,6 +63,24 @@ async function appSeen(env, id, q, request) {
   await env.HW.put(k, JSON.stringify(rec), { metadata: rec, expirationTtl: 60 * 60 * 24 * 200 });
 }
 
+/* 🕵️ جهاز واحد ← أي حسابات طلاب دخلت منه (معرّف عشوائي يولّده الجهاز). يُكتب عند حساب جديد على الجهاز
+   أو تبديل بين حسابين، وإلا مرة كل 3 ساعات. «sw» عدد مرات التبديل بين حسابات مختلفة على نفس الجهاز. */
+async function devSeen(env, id, q, request) {
+  const dv = String(q.get('dv') || ''); if (!/^[a-z0-9]{16,32}$/.test(dv)) return;
+  const ua = String(request.headers.get('user-agent') || ''), osIn = String(q.get('os') || '');
+  const os = ['iphone', 'ipad', 'android', 'pc'].includes(osIn) ? osIn : /iPhone|iPod/.test(ua) ? 'iphone' : /Android/.test(ua) ? 'android' : 'pc';
+  const k = 'dev:' + dv, now = Date.now(); id = String(id).slice(0, 40);
+  let d = null; try { d = JSON.parse(await env.HW.get(k) || 'null'); } catch {}
+  if (!d || typeof d !== 'object' || !d.s || typeof d.s !== 'object') d = { s: {} };
+  const cur = d.s[id], switched = !!(d.last && d.last !== id);
+  if (cur && !switched && now - (Number(cur.at) || 0) < 3 * 3600e3) return;
+  d.s[id] = { f: (cur && cur.f) || now, at: now };
+  if (switched) d.sw = (Number(d.sw) || 0) + 1;
+  d.last = id; d.os = os; d.m = q.get('dm') === 'app' ? 'app' : 'web'; d.at = now;
+  const ids = Object.keys(d.s); if (ids.length > 12) ids.sort((a, b) => d.s[a].at - d.s[b].at).slice(0, ids.length - 12).forEach(x => delete d.s[x]);
+  await env.HW.put(k, JSON.stringify(d), { metadata: { n: Object.keys(d.s).length, at: now }, expirationTtl: 60 * 60 * 24 * 120 });
+}
+
 async function listAllKeys(env, prefix) {
   const out = [];
   let cursor = undefined;
@@ -6042,6 +6060,25 @@ export default {
         return { id: String(x.id), name: String(x.name || ''), cls: String(x.cls || ''), v: r.v || '', m: r.m || '', os: r.os || '', at: Number(r.at) || 0 }; });
       return json({ ok: true, list });
     }
+    // 🕵️ أجهزة دخل منها أكثر من طالب (المعلم فقط)
+    if (url.pathname === '/app/shared' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch {}
+      if (!pushIsTeacher(env, b)) return json({ ok: false, error: 'unauthorized' }, 401);
+      const who = {}; try { ((JSON.parse(await env.HW.get('tstate:main')) || {}).students || []).forEach(x => { if (x && x.id) who[String(x.id)] = { name: String(x.name || ''), cls: String(x.cls || '') }; }); } catch {}
+      const keys = []; let cursor;
+      do {
+        const page = await env.HW.list(cursor ? { prefix: 'dev:', cursor } : { prefix: 'dev:' });
+        for (const k of (page.keys || [])) if (k.metadata && Number(k.metadata.n) >= 2) keys.push(k.name);
+        cursor = page.list_complete ? undefined : page.cursor;
+      } while (cursor);
+      const vals = await inBatches(keys, 25, k => env.HW.get(k));
+      const list = [];
+      vals.forEach((v, i) => { let d; try { d = JSON.parse(v); } catch { return; } if (!d || !d.s) return;
+        const st = Object.entries(d.s).filter(([id]) => who[id]).map(([id, x]) => ({ id, ...who[id], f: Number(x.f) || 0, at: Number(x.at) || 0 })).sort((a, b) => b.at - a.at);
+        if (st.length >= 2) list.push({ dv: keys[i].slice(4, 10), os: d.os || '', m: d.m || '', sw: Number(d.sw) || 0, at: Number(d.at) || 0, students: st }); });
+      list.sort((a, b) => b.at - a.at);
+      return json({ ok: true, list });
+    }
     if (url.pathname === '/app/force' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch {}
       if (!pushIsTeacher(env, b)) return json({ ok: false, error: 'unauthorized' }, 401);
@@ -6652,7 +6689,7 @@ export default {
       if (bindM && bindM.res) return bindM.res;
       const st = bindM && bindM.st ? bindM.st : await resolveStudent(env, { id: sidIn, name });
       try { if (st.known) await remFromExams(env, st); } catch {}
-      try { if (st && st.known && st.id) { const job = appSeen(env, st.id, url.searchParams, request).catch(() => {}); if (ctx && ctx.waitUntil) ctx.waitUntil(job); } } catch {}
+      try { if (st && st.known && st.id) { const job = Promise.all([appSeen(env, st.id, url.searchParams, request).catch(() => {}), devSeen(env, st.id, url.searchParams, request).catch(() => {})]); if (ctx && ctx.waitUntil) ctx.waitUntil(job); } } catch {}
 
       const rows = [];
       // 🕒 الأنشطة المنشورة قبل ختم وقت النشر: تاريخها من نسخة لوحة المعلم (h.at حين أنشأه)
