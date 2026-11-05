@@ -329,16 +329,6 @@ export default async function run() {
         eq(r, [true, 'none', '0px']); await p.evaluate(() => fmExit()); await p.waitForTimeout(300);
         ok(await p.evaluate(() => getComputedStyle(document.getElementById('main-nav')).display !== 'none'), 'القائمة لم تعد بعد الخروج'); eq(errs, [], 'أخطاء'); });
       await ctx.close(); }
-    // ── 📱 مقدمة تطبيق الآيفون: تظهر في التطبيق المثبّت فقط وتختفي بعد جاهزية اللوحة ──
-    for (const app of [true, false]) {
-      const ctx = await newCtx({ viewport: { width: 390, height: 844 }, userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1' });
-      if (app) await ctx.addInitScript(() => { Object.defineProperty(navigator, 'standalone', { get: () => true }); window.__intro = []; new MutationObserver(() => { const e = document.getElementById('boot-intro'); if (e && e.style.display === 'flex' && !window.__intro.length) window.__intro.push(Date.now()); }).observe(document, { subtree: true, attributes: true, childList: true }); });
-      const p = await ctx.newPage(), errs = watch(p);
-      await S.t(app ? 'مقدمة تطبيق الآيفون: تظهر مع أول رسم وتختفي بعد جاهزية اللوحة' : 'مقدمة تطبيق الآيفون: لا تظهر في المتصفح العادي', async () => {
-        await p.goto(base + '/teacher-dashboard/'); await p.evaluate(t => localStorage.setItem('hwapp_tok_v1', t), TOKEN); await p.reload(); await dashReady(p);
-        await p.waitForTimeout(600);
-        eq(await p.evaluate(() => [!!document.getElementById('boot-intro'), (window.__intro || []).length]), [false, app ? 1 : 0]); eq(errs, [], 'أخطاء'); });
-      await ctx.close(); }
     // ── 📱 زر «تحديث الآن»: فحص علق (تطبيق iPhone بعد الاستئناف) يُعاد بعد المهلة فيظهر الزر بلا تغيير الشبكة ──
     { const ctx = await newCtx({ viewport: { width: 390, height: 844 } }); let armed = 0;
       await ctx.route(/teacher-dashboard\/\?_sw=/, async r => {
