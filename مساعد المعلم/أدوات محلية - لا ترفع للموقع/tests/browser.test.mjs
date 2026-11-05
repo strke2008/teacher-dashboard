@@ -392,6 +392,13 @@ export default async function run() {
         armed = 0; await p.evaluate(() => sessionStorage.setItem('saw_ov', '0')); await p.evaluate(() => document.querySelector('#dash-upd button').click());
         ok(await sawOv(1, 8000), 'لم تظهر شاشة التحديث'); await p.waitForTimeout(1500);
         await p.waitForFunction(() => !document.getElementById('upd-ov') && typeof goTab === 'function', null, { timeout: 30000 }); eq(errs, [], 'أخطاء'); });
+      await S.t('«إجبار كل الأجهزة»: لا يعلق إن لم يرد الموقع (واي فاي البيت) ولا يمسح المحفوظ', async () => {
+        await p.waitForFunction(() => typeof APPUPD === 'object' && typeof goTab === 'function', null, { timeout: 30000 });
+        await p.evaluate(async () => { await (await caches.open('keep-me')).put('/x', new Response('1')); window.__old = 1;
+          Object.defineProperty(navigator.serviceWorker, 'getRegistrations', { configurable: true, value: async () => [{ update: () => new Promise(() => {}) }] });
+          APPUPD.mark(Date.now()); APPUPD.apply(); });
+        const t = Date.now(); await p.waitForFunction(() => !window.__old && typeof goTab === 'function', null, { timeout: 15000 });
+        ok(Date.now() - t < 12000, 'طال ' + (Date.now() - t)); ok(await p.evaluate(() => caches.has('keep-me')), 'مُسح المحفوظ'); eq(errs, [], 'أخطاء'); });
       await S.t('لازم آخر نسخة — عند الفتح: إصدار أحدث ⇒ شاشة «جارٍ تحديث التطبيق» ثم يُفتح عليه وحده', async () => {
         ok(/جارٍ تحديث التطبيق/.test(await p.evaluate(() => { updOverlay('مساعد المعلم'); const t = document.getElementById('upd-ov').textContent; document.getElementById('upd-ov').remove(); return t; })), 'نص الشاشة');
         await p.evaluate(() => { sessionStorage.removeItem('upd_auto'); sessionStorage.setItem('saw_ov', '0'); }); newer = true; await p.goto(base + '/teacher-dashboard/');

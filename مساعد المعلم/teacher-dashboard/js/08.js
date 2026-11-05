@@ -391,10 +391,12 @@ const APPUPD=(()=>{
     if(going)return;going=true;
     try{updOverlay(CFG.name)}catch(e){}
     try{sessionStorage.setItem('upd_auto',JSON.stringify({n:tries()+1,at:Date.now()}))}catch(e){}
+    /* «إجبار كل الأجهزة»: لا يمسح المحفوظ ولا ينتظر الموقع بلا حد — على واي فاي لا يصل لـ pages.dev كان يعلق
+       على شاشة التحديث. فحص ملف sw.js بحد 4 ث، ثم الجلب عبر الخادم كالتحديث العادي (يستبدل الصفحة وملفاتها). */
     if(hard){try{localStorage.setItem(LS,String(hard))}catch(e){}
-      try{if(window.caches)for(const k of await caches.keys())await caches.delete(k)}catch(e){}
-      try{const R=navigator.serviceWorker&&navigator.serviceWorker.getRegistrations?await navigator.serviceWorker.getRegistrations():[];await Promise.all(R.map(r=>r.update().catch(()=>{})))}catch(e){}}
-    else await updSwRefresh();
+      try{const R=navigator.serviceWorker&&navigator.serviceWorker.getRegistrations?await navigator.serviceWorker.getRegistrations():[];
+        await Promise.race([Promise.all(R.map(r=>r.update().catch(()=>{}))),new Promise(r=>setTimeout(r,4000))])}catch(e){}}
+    await updSwRefresh();
     location.reload();
   }
   const fresh=()=>Date.now()-T0<30000||Date.now()-visAt<30000;
