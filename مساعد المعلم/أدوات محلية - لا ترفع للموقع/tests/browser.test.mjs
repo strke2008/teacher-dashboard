@@ -355,24 +355,42 @@ export default async function run() {
         eq(errs, [], 'أخطاء'); });
       await ctx.close(); }
     // ── 📱 زر «تحديث الآن»: فحص علق (تطبيق iPhone بعد الاستئناف) يُعاد بعد المهلة فيظهر الزر بلا تغيير الشبكة ──
-    { const ctx = await newCtx({ viewport: { width: 390, height: 844 } }); let armed = 0, failAll = false;
+    { const ctx = await newCtx({ viewport: { width: 390, height: 844 } }); let armed = 0, failAll = false, newer = false;
       let failSite = false;
       await ctx.route(/\/site\?h=/, async r => { if (failSite) { try { await r.abort('connectionreset'); } catch {} return; } await r.fallback(); });
       await ctx.route(/teacher-dashboard\/\?_sw=/, async r => {
         if (failAll) { try { await r.abort('connectionreset'); } catch {} return; }
-        if (!armed) { try { await r.continue(); } catch {} return; }
-        if (armed++ === 1) { await new Promise(x => setTimeout(x, 14000)); try { await r.abort(); } catch {} return; }   // الأول يعلق
+        if (!armed && !newer) { try { await r.continue(); } catch {} return; }
+        if (armed && armed++ === 1) { await new Promise(x => setTimeout(x, 14000)); try { await r.abort(); } catch {} return; }   // الأول يعلق
         const res = await r.fetch(); const html = (await res.text()).replace(/(js\/08\.js\?v=)[0-9a-f]{8}/, '$1deadbeef');
         try { await r.fulfill({ response: res, body: html }); } catch {} });
+      // شاشة التحديث تظهر لحظة ثم يُعاد التحميل: نسجّل ظهورها فيما يبقى بعد إعادة التحميل
+      await ctx.addInitScript(() => { new MutationObserver(() => { if (document.getElementById('upd-ov') && !window.__sawOv) { window.__sawOv = 1; try { sessionStorage.setItem('saw_ov', String(Number(sessionStorage.getItem('saw_ov') || 0) + 1)); } catch {} } }).observe(document, { childList: true, subtree: true }); });
+      const sawOv = async (min, ms) => { const t = Date.now(); while (Date.now() - t < ms) { try { if (Number(await p.evaluate(() => sessionStorage.getItem('saw_ov') || 0)) >= min) return true; } catch {} await new Promise(x => setTimeout(x, 150)); } return false; };
       const p = await ctx.newPage(), errs = watch(p);
       await S.t('زر «تحديث الآن»: فحص الإصدار العالق يُلغى بعد مهلة ويُعاد، فيظهر الزر (لا يحتاج إطفاء الواي فاي)', async () => {
         await p.goto(base + '/teacher-dashboard/'); await p.evaluate(t => localStorage.setItem('hwapp_tok_v1', t), TOKEN); await p.reload(); await dashReady(p);
+        await p.evaluate(() => { const i = [...document.querySelectorAll('input')].find(x => x.offsetParent && /^(search|text|)$/.test(x.getAttribute('type') || '')); i.focus(); });   // وسط عمل: لا يُعاد التحميل
         armed = 1; failSite = true; await p.evaluate(() => dispatchEvent(new Event('online')));   // الطريق عبر الخادم معطّل هنا: نختبر إعادة المحاولة المباشرة
         await p.waitForTimeout(4000); ok(!(await p.$('#dash-upd')), 'ظهر قبل الأوان');
         await p.waitForSelector('#dash-upd', { timeout: 20000 }); ok(armed >= 3, 'لم يُعد الفحص'); failSite = false;
         ok(await p.evaluate(() => /الإصدار v\d+\.\d+\.\d+/.test(document.querySelector('#main-nav [data-appver]').textContent) && /يوجد إصدار أحدث/.test(document.querySelector('#main-nav [data-appver]').textContent)), 'رقم الإصدار وحالته'); eq(errs, [], 'أخطاء'); });
+      await S.t('لازم آخر نسخة — وسط عمل: شريط «تحديث مطلوب» بلا ✕ ولا يقطع، و«تحديث الآن» يحدّث', async () => {
+        ok(await p.evaluate(() => !document.querySelector('#dash-upd [aria-label="لاحقًا"]') && /تحديث مطلوب/.test(document.getElementById('dash-upd').textContent) && !document.getElementById('upd-ov')), 'الشريط');
+        armed = 0; await p.evaluate(() => sessionStorage.setItem('saw_ov', '0')); await p.evaluate(() => document.querySelector('#dash-upd button').click());
+        ok(await sawOv(1, 8000), 'لم تظهر شاشة التحديث'); await p.waitForTimeout(1500);
+        await p.waitForFunction(() => !document.getElementById('upd-ov') && typeof goTab === 'function', null, { timeout: 30000 }); eq(errs, [], 'أخطاء'); });
+      await S.t('لازم آخر نسخة — عند الفتح: إصدار أحدث ⇒ شاشة «جارٍ تحديث التطبيق» ثم يُفتح عليه وحده', async () => {
+        ok(/جارٍ تحديث التطبيق/.test(await p.evaluate(() => { updOverlay('مساعد المعلم'); const t = document.getElementById('upd-ov').textContent; document.getElementById('upd-ov').remove(); return t; })), 'نص الشاشة');
+        await p.evaluate(() => { sessionStorage.removeItem('upd_auto'); sessionStorage.setItem('saw_ov', '0'); }); newer = true; await p.goto(base + '/teacher-dashboard/');
+        ok(await sawOv(1, 20000), 'لم تظهر شاشة التحديث عند الفتح'); newer = false; await p.waitForTimeout(2000);
+        await p.waitForFunction(() => !document.getElementById('upd-ov') && typeof goTab === 'function', null, { timeout: 30000 });
+        eq(await p.evaluate(() => JSON.parse(sessionStorage.getItem('upd_auto')).n), 1, 'أُعيد الفتح مرة واحدة'); eq(errs, [], 'أخطاء'); });
+      await S.t('لازم آخر نسخة — لا دوامة: إن بقي الإصدار القديم بعد محاولتين يظهر الشريط بدل إعادة التحميل', async () => {
+        newer = true; await p.evaluate(() => sessionStorage.setItem('upd_auto', JSON.stringify({ n: 2, at: Date.now() }))); await p.goto(base + '/teacher-dashboard/'); await dashReady(p);
+        await p.waitForSelector('#dash-upd', { timeout: 20000 }); ok(!(await p.$('#upd-ov')), 'أعاد التحميل رغم المحاولتين'); newer = false; eq(errs, [], 'أخطاء'); });
       await S.t('رقم الإصدار: «اضغط للتحقق» ← «أحدث إصدار» حين لا جديد، ويظهر في «المزيد»', async () => {
-        armed = 0; await p.goto(base + '/teacher-dashboard/'); await dashReady(p);
+        armed = 0; newer = false; await p.evaluate(() => sessionStorage.removeItem('upd_auto')); await p.goto(base + '/teacher-dashboard/'); await dashReady(p);
         await p.evaluate(() => window.appVerCheck()); await p.waitForFunction(() => /أحدث إصدار/.test(document.querySelector('#main-nav [data-appver]').textContent), null, { timeout: 15000 });
         await p.evaluate(() => document.querySelector('[data-simp-more]').click()); await p.waitForTimeout(300);
         ok(await p.evaluate(() => /الإصدار .*أحدث إصدار/.test((document.querySelector('.simp-sh-ver') || {}).textContent || '')), 'في «المزيد»'); eq(errs, [], 'أخطاء'); });

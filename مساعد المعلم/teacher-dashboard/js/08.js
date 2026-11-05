@@ -272,8 +272,9 @@ function dashShowUpdate(auto){
   if(document.getElementById('dash-upd')) return;
   const b=document.createElement('div'); b.id='dash-upd';
   b.style.cssText='position:fixed;inset-inline:12px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:3000;max-width:460px;margin:auto;background:#16233A;color:#fff;border-radius:14px;padding:10px 12px;display:flex;align-items:center;gap:10px;font-weight:700;font-size:.9rem;box-shadow:0 10px 30px rgba(0,0,0,.25)';
-  b.innerHTML='<span style="flex:1">🔄 نسخة أحدث من اللوحة جاهزة<small style="display:block;font-weight:500;opacity:.75;font-size:.78em">تُحدَّث وحدها حين تتوقف عن العمل</small></span><button type="button" style="font:inherit;font-weight:800;border:0;border-radius:10px;padding:7px 12px;background:#1B9C6B;color:#fff;cursor:pointer">تحديث الآن</button><button type="button" aria-label="لاحقًا" style="font:inherit;border:0;background:transparent;color:#9FB2CC;cursor:pointer;font-size:1rem">✕</button>';
-  b.children[1].onclick=()=>location.reload(); b.children[2].onclick=()=>b.remove();
+  /* ⬆ «لازم آخر نسخة»: يظهر فقط وأنت وسط عمل (كتابة/رصد/نافذة) — لا يُغلق، ويُحدَّث وحده حين تنتهي */
+  b.innerHTML='<span style="flex:1">🔄 تحديث مطلوب للوحة<small style="display:block;font-weight:500;opacity:.75;font-size:.78em">يُحدَّث وحده حين تنتهي مما تعمله</small></span><button type="button" style="font:inherit;font-weight:800;border:0;border-radius:10px;padding:7px 12px;background:#1B9C6B;color:#fff;cursor:pointer">تحديث الآن</button>';
+  b.children[1].onclick=()=>APPUPD.apply();
   document.body.appendChild(b);
 }
 /* 🔄 فحص الإصدار من الصفحة نفسها (مع العودة إليها، وكل 10 دقائق): تُقارَن أرقام إصدار الملفات (?v=) في الصفحة
@@ -325,7 +326,7 @@ if(document.readyState === 'loading') document.addEventListener('DOMContentLoade
   addEventListener('pageshow', back); addEventListener('focus', back); addEventListener('online', () => check(true));
   /* الاستئناف بلا حدث: مؤقت كل 15 ث — إن مرّ بين نبضتين أكثر من دقيقة فالتطبيق كان مجمّدًا */
   let beat = Date.now(); setInterval(() => { const n = Date.now(); if(n - beat > 60000) check(true); beat = n; }, 15000);
-  setTimeout(check, 20000); setInterval(check, 600000);
+  setTimeout(check, 4000); setInterval(check, 600000);   // مبكرًا: يُكتشف التحديث عند الفتح قبل أن تبدأ العمل
 })();
 (function pushBoot(){
   const run=()=>{ pushRegisterWorker().then(()=>{ pushSilentSync(); pushRefreshStatus(); }); pushHandleLaunchParams(); };
@@ -356,30 +357,56 @@ if(document.readyState === 'loading') document.addEventListener('DOMContentLoade
   setTimeout(fix,500);
 })();
 
-window.__APPUPD_CFG={api:()=>getApi(),show:()=>dashShowUpdate(true),
+window.__APPUPD_CFG={api:()=>getApi(),show:()=>dashShowUpdate(true),name:'مساعد المعلم',
   busy:()=>{const m=document.getElementById('modal');return !!(m&&m.innerHTML.trim()&&m.offsetParent!==null&&getComputedStyle(m).visibility!=='hidden')||!!document.querySelector('.opv-veil,dialog[open]')}};
-/* 🔄 التحديث الإجباري: أي إصدار أحدث يُطبَّق وحده في أول لحظة آمنة — عند الخروج من التطبيق أو العودة إليه، أو بعد دقيقتين بلا لمس —
-   ولا يُطبَّق أبدًا وسط عمل (نافذة مفتوحة، كتابة، حل نشاط). و«إجبار كل الأجهزة» من لوحة التحكم: الخادم يحفظ وقت الطلب،
-   وكل جهاز يراه (عند الفتح والعودة وكل 10 دقائق) يمسح نسخته المحفوظة ويعيد التحميل مرة واحدة. لا يُلغى تسجيل الإشعارات. */
+/* ⬆ شاشة «جارٍ تحديث التطبيق» (بشعار التطبيق) أثناء تنزيل الإصدار الأحدث وإعادة الفتح */
+function updOverlay(name){
+  if(document.getElementById('upd-ov')) return; const o=document.createElement('div'); o.id='upd-ov'; o.setAttribute('role','status');
+  o.style.cssText='position:fixed;inset:0;z-index:100000;background:#F5F7F9;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;font-family:inherit;color:#0F1A24';
+  const nx=(typeof APPVER!=='undefined'&&APPVER.next)?' — v'+APPVER.next:'';
+  o.innerHTML='<svg width="88" height="88" viewBox="0 0 512 512" style="border-radius:20px;box-shadow:0 10px 30px rgba(15,157,116,.25)"><rect width="512" height="512" fill="#0F9D74"/><g transform="translate(256 256) scale(10.67) translate(-12 -12)" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></g></svg>'
+    +'<b style="font-size:1.35rem">'+(name||'مساعد المعلم')+'</b><span style="font-size:.95rem;color:#5B6B7B">جارٍ تحديث التطبيق…'+nx+'</span>'
+    +'<i style="width:150px;height:5px;border-radius:9px;background:#E3E8ED;overflow:hidden;position:relative"><i style="position:absolute;inset:0;width:40%;border-radius:9px;background:#0F9D74;animation:updMove 1.1s ease-in-out infinite alternate"></i></i>'
+    +'<style>@keyframes updMove{from{transform:translateX(0)}to{transform:translateX(-150%)}}</style>';
+  document.body.appendChild(o);
+}
+/* ملف الخلفية ينزّل الإصدار الأحدث كاملًا ويحفظه قبل إعادة الفتح (مباشرة أو عبر الخادم) — حد أقصى 25 ث */
+async function updSwRefresh(){
+  try{ const reg=navigator.serviceWorker&&await navigator.serviceWorker.getRegistration('./'), sw=reg&&reg.active; if(!sw) return;
+    await new Promise(res=>{ const ch=new MessageChannel(), to=setTimeout(res,25000); ch.port1.onmessage=()=>{ clearTimeout(to); res(); }; sw.postMessage({type:'dash-refresh'},[ch.port2]); }); }catch(e){}
+}
+/* 🔄 «لازم آخر نسخة» — إن وُجد إصدار أحدث:
+   • عند الفتح أو الرجوع للتطبيق (أول 30 ث): شاشة «جارٍ تحديث التطبيق» وإعادة الفتح عليه فورًا — بلا خيار «لاحقًا».
+   • وسط عمل (كتابة، رصد، نافذة مفتوحة): شريط «تحديث مطلوب» لا يُغلق، ويُحدَّث وحده حين تنتهي (دقيقة بلا لمس) أو تخرج من التطبيق.
+   • بلا اتصال أو تعذّر التحقق: يعمل بالنسخة المحفوظة.
+   حماية: محاولتان تلقائيتان على الأكثر كل 3 دقائق (لا دوامة إعادة تحميل). و«إجبار كل الأجهزة» من الإعدادات كما هو. */
 const APPUPD=(()=>{
-  const CFG=window.__APPUPD_CFG||{},LS=CFG.key||'app_force_seen';let pending=false,hard=0,since=0,lastAct=Date.now(),lastInput=0,hidAt=0,going=false;
+  const CFG=window.__APPUPD_CFG||{},LS=CFG.key||'app_force_seen',T0=Date.now();let pending=false,hard=0,since=0,lastAct=Date.now(),lastInput=0,hidAt=0,visAt=Date.now(),going=false;
   addEventListener('input',()=>{lastInput=Date.now()},true);
   ['pointerdown','keydown','wheel','touchstart'].forEach(e=>addEventListener(e,()=>{lastAct=Date.now()},{capture:true,passive:true}));
   const editing=()=>{const a=document.activeElement;return !!(a&&(a.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))&&!/^(button|checkbox|radio|range|submit)$/i.test(a.type||''))};
-  const busy=()=>editing()||Date.now()-lastInput<120000||!!(CFG.busy&&CFG.busy());
+  const busy=()=>editing()||Date.now()-lastInput<20000||!!(CFG.busy&&CFG.busy());
+  const tries=()=>{try{const x=JSON.parse(sessionStorage.getItem('upd_auto')||'null');return x&&Date.now()-x.at<180000?x.n:0}catch(e){return 0}};
   async function apply(){
     if(going)return;going=true;
+    try{updOverlay(CFG.name)}catch(e){}
+    try{sessionStorage.setItem('upd_auto',JSON.stringify({n:tries()+1,at:Date.now()}))}catch(e){}
     if(hard){try{localStorage.setItem(LS,String(hard))}catch(e){}
       try{if(window.caches)for(const k of await caches.keys())await caches.delete(k)}catch(e){}
       try{const R=navigator.serviceWorker&&navigator.serviceWorker.getRegistrations?await navigator.serviceWorker.getRegistrations():[];await Promise.all(R.map(r=>r.update().catch(()=>{})))}catch(e){}}
+    else await updSwRefresh();
     location.reload();
   }
+  const fresh=()=>Date.now()-T0<30000||Date.now()-visAt<30000;
   function tick(){if(!pending||going)return;
-    const idle=Date.now()-lastAct>120000,late=Date.now()-since>4*3600e3;
+    const idle=Date.now()-lastAct>60000,late=Date.now()-since>4*3600e3;
     if((idle&&!busy())||(late&&!editing()&&Date.now()-lastInput>120000))apply()}
-  function mark(h){if(h)hard=Math.max(hard,h);if(!pending){pending=true;since=Date.now()}if(CFG.show)try{CFG.show()}catch(e){}}
+  function mark(h){if(h)hard=Math.max(hard,h);if(!pending){pending=true;since=Date.now()}
+    if(!going&&fresh()&&!busy()&&tries()<2){apply();return}
+    if(CFG.show)try{CFG.show()}catch(e){}}
   document.addEventListener('visibilitychange',()=>{
     if(document.hidden){hidAt=Date.now();if(pending&&!busy())apply();return}
+    visAt=Date.now();
     if(pending&&hidAt&&Date.now()-hidAt>15000&&!busy())apply();else checkForce()});
   async function checkForce(){
     if(!CFG.api)return;let api='';try{api=String(CFG.api()||'').replace(/\/+$/,'')}catch(e){}if(!api)return;
@@ -388,7 +415,7 @@ const APPUPD=(()=>{
       if(f>seen){if(!seen&&performance.now()<15000&&Date.now()-f>86400e3){try{localStorage.setItem(LS,String(f))}catch(e){}return}   // جهاز جديد فُتح الآن بعد طلب قديم: هو أصلًا أحدث نسخة
         mark(f);tick()}}catch(e){}
   }
-  setInterval(tick,30000);setTimeout(checkForce,4000);setInterval(checkForce,600000);
+  setInterval(tick,5000);setTimeout(checkForce,4000);setInterval(checkForce,600000);
   return {mark,apply,get pending(){return pending}};
 })();
 

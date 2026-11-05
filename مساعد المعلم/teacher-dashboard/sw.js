@@ -3,7 +3,7 @@
    فتُفتح اللوحة فورًا من الجهاز ويُجلب الإصدار الأحدث في الخلفية.
    بيانات الطلاب والدرجات والتسليمات لا تُحفظ إطلاقًا: تُجلب دائمًا من الخادم (نطاق آخر لا يمرّ هنا).
    لا يحتوي أي سر: المفتاح العام يُجلب من الخادم، والخاص لا يغادر Cloudflare. */
-const SW_VERSION = 'push-v2+static-v7';
+const SW_VERSION = 'push-v2+static-v8';
 const STATIC = 'dash-static-v3';   // v3: يمسح ما حُفظ من ردّ خادم قديم (قائمة JSON) مكان الصفحة أو الخطوط   // v2: يمسح ما حُفظ قبل التحقق من البصمة (قد يكون فيه ملف قديم بعنوان جديد)
 const SCOPE = new URL(self.registration ? self.registration.scope : './', self.location.href);
 const PAGE_KEY = new URL('index.html', SCOPE).href;
@@ -103,6 +103,22 @@ const API = new URL(self.location.href).searchParams.get('api') || '';
 
 /* 🔄 إصدار جديد من هذا الملف حلّ محل قديم: الصفحات المفتوحة تُبلَّغ فيظهر زر «تحديث الآن» — بلا اختصارات لوحة المفاتيح */
 let HAD_OLD = false;
+/* ⬆ «لازم آخر نسخة»: الصفحة تطلب تنزيل الإصدار الأحدث كاملًا (الصفحة وملفاتها، مباشرة أو عبر الخادم) وتحفظه، ثم تعيد التحميل —
+   فلا تُفتح النسخة القديمة المحفوظة مرة أخرى (على شبكة لا تصل للموقع كانت ستعيد التحميل بلا نهاية) */
+self.addEventListener('message', event => {
+  const d = event.data || {}; if (d.type !== 'dash-refresh') return;
+  const port = event.ports && event.ports[0];
+  event.waitUntil((async () => {
+    let ok = false;
+    try {
+      const page = new URL(SCOPE.pathname, self.location.href); page.searchParams.set('_sw', Date.now().toString(36));
+      let txt = ''; try { const r = await timed(page.href, { cache: 'no-store', credentials: 'same-origin' }, 6000); if (r.ok) txt = await r.text(); } catch {}
+      if (!/<html[\s>]/i.test(txt.slice(0, 4096))) txt = await (await viaServer(SCOPE.pathname)).text();
+      if (/<html[\s>]/i.test(txt.slice(0, 4096))) { await (await caches.open(STATIC)).put(PAGE_KEY, new Response(txt, { headers: { 'Content-Type': 'text/html; charset=utf-8' } })); await syncAssets(txt); ok = true; }
+    } catch {}
+    try { port && port.postMessage({ type: 'dash-refreshed', ok }); } catch {}
+  })());
+});
 self.addEventListener('install', () => { HAD_OLD = !!(self.registration && self.registration.active); self.skipWaiting(); });
 self.addEventListener('activate', event => { event.waitUntil((async () => {
   for (const k of await caches.keys()) if (k.startsWith('dash-static-') && k !== STATIC) await caches.delete(k);
