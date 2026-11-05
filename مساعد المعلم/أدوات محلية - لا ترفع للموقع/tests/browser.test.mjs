@@ -306,6 +306,16 @@ export default async function run() {
       await ctx.close(); }
     // ── 🖥️ وضع الحصة على الكمبيوتر: القائمة الجانبية لا تغطي شريط الفصل ──
     { const ctx = await newCtx({ viewport: { width: 1280, height: 800 } }); const p = await ctx.newPage(), errs = watch(p);
+      await S.t('تطبيق الآيفون: الأيقونات وشاشات البداية موجودة، وكل صورة بمقاس جهازها بالضبط', async () => {
+        await p.goto(base + '/teacher-dashboard/');
+        const r = await p.evaluate(async () => { const out = [];
+          for (const l of document.querySelectorAll('link[rel="apple-touch-icon"],link[rel="apple-touch-startup-image"]')) {
+            const im = new Image(); im.src = l.href; const ok = await new Promise(x => { im.onload = () => x(true); im.onerror = () => x(false); });
+            const m = /device-width: (\d+)px\) and \(device-height: (\d+)px\) and \(-webkit-device-pixel-ratio: (\d)/.exec(l.media || ''), sz = /(\d+)x\1/.exec(l.sizes ? l.sizes.value : '');
+            out.push([l.getAttribute('href'), ok && (m ? im.naturalWidth === m[1] * m[3] && im.naturalHeight === m[2] * m[3] : sz ? im.naturalWidth === +sz[1] : true)]); }
+          return out; });
+        ok(r.filter(x => /startup/.test(x[0]) || /splash/.test(x[0])).length >= 12, 'شاشات البداية: ' + r.length);
+        eq(r.filter(x => !x[1]), [], 'صور مفقودة أو بمقاس خطأ'); });
       await S.t('الشريط العلوي على الكمبيوتر: بلا اسم مكرر، وبحدود المحتوى نفسها، والفترة المخفية تبقى مخفية', async () => {
         await p.goto(base + '/teacher-dashboard/'); await p.evaluate(t => localStorage.setItem('hwapp_tok_v1', t), TOKEN); await p.reload(); await dashReady(p);
         const r = await p.evaluate(() => { const R = s => { const e = document.querySelector(s).getBoundingClientRect(); return [Math.round(e.left), Math.round(e.right)]; };
