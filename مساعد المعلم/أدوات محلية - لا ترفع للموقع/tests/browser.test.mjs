@@ -528,6 +528,19 @@ export default async function run() {
         await p.waitForTimeout(1500); ok(await p.evaluate(() => window.__m === 1).catch(() => false), 'أُعيد تحميل الصفحة وسط النشاط');
         ok(await p.evaluate(() => /تحديث مطلوب/.test((document.getElementById('sp-upd') || {}).textContent || '') && document.querySelectorAll('#sp-upd button').length === 1 && !document.getElementById('upd-ov')), 'شريط «تحديث مطلوب» بلا ✕'); });
       await ctx.close(); }
+    // ── بوابة الطالب: مقدمة تطبيق الآيفون وصور البداية ──
+    for (const app of [true, false]) {
+      const ctx = await newCtx({ viewport: { width: 390, height: 844 }, userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1' });
+      if (app) await ctx.addInitScript(() => { Object.defineProperty(navigator, 'standalone', { get: () => true }); window.__intro = []; new MutationObserver(() => { const e = document.getElementById('boot-intro'); if (e && e.style.display === 'flex' && !window.__intro.length) window.__intro.push(Date.now()); }).observe(document, { subtree: true, attributes: true, childList: true }); });
+      const p = await ctx.newPage(), errs = watch(p);
+      await S.t(app ? 'بوابة الطالب: مقدمة تطبيق الآيفون تظهر بالأيقونة وتختفي بعد جاهزية البوابة' : 'بوابة الطالب: لا مقدمة في المتصفح العادي، وصور البداية موجودة بمقاس كل جهاز', async () => {
+        await p.goto(base + '/student-portal/index.html'); await p.waitForTimeout(2500);
+        eq(await p.evaluate(() => [!!document.getElementById('boot-intro'), (window.__intro || []).length]), [false, app ? 1 : 0]);
+        if (!app) { const r = await p.evaluate(async () => { const out = []; for (const l of document.querySelectorAll('link[rel="apple-touch-startup-image"]')) { const im = new Image(); im.src = l.href; const ok = await new Promise(x => { im.onload = () => x(true); im.onerror = () => x(false); });
+            const m = /device-width: (\d+)px\) and \(device-height: (\d+)px\) and \(-webkit-device-pixel-ratio: (\d)/.exec(l.media); out.push([l.getAttribute('href'), ok && im.naturalWidth === m[1] * m[3] && im.naturalHeight === m[2] * m[3]]); } return out; });
+          ok(r.length >= 12, 'صور البداية: ' + r.length); eq(r.filter(x => !x[1]), [], 'صور مفقودة أو بمقاس خطأ'); }
+        eq(errs, [], 'أخطاء'); });
+      await ctx.close(); }
     // ── بوابة الطالب: رقم الإصدار و«لازم آخر نسخة» ──
     { const ctx = await newCtx({ viewport: { width: 390, height: 800 } }); let newer = false;
       await ctx.route(/student-portal\/(index\.html)?\?_sw=/, async r => { if (!newer) { try { await r.continue(); } catch {} return; }
