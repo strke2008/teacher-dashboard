@@ -539,7 +539,7 @@ export default async function run() {
         await p.goto(base + '/student-portal/index.html'); await p.waitForTimeout(1500);
         await p.evaluate(() => window.appVerCheck()); await p.waitForFunction(() => /الإصدار v\d+\.\d+\.\d+.*أحدث إصدار/.test((document.querySelector('#app-developer-credit [data-appver]') || {}).textContent || ''), null, { timeout: 15000 }); eq(errs, [], 'أخطاء'); });
       await S.t('بوابة الطالب: إصدار أحدث عند الفتح ⇒ شاشة «جارٍ تحديث التطبيق» بأيقونة البوابة، ثم تُفتح عليه', async () => {
-        ok(await p.evaluate(() => { updOverlay('أنشطتي'); const o = document.getElementById('upd-ov'), t = /أنشطتي[\s\S]*جارٍ تحديث التطبيق/.test(o.textContent) && !!o.querySelector('img[src="pwa/icon-192.png"]'); o.remove(); return t; }), 'الشاشة');
+        ok(await p.evaluate(() => { updOverlay('أنشطتي'); const o = document.getElementById('upd-ov'), t = /أنشطتي[\s\S]*جارٍ تحديث التطبيق/.test(o.textContent) && !!o.querySelector('img[src^="data:image/png"]'); o.remove(); return t; }), 'الشاشة');
         await p.evaluate(() => { sessionStorage.removeItem('upd_auto'); sessionStorage.setItem('saw_ov', '0'); }); newer = true; await p.goto(base + '/student-portal/index.html');
         ok(await sawOv(1, 20000), 'لم تظهر شاشة التحديث'); newer = false; await p.waitForTimeout(2500);
         ok(await p.evaluate(() => !document.getElementById('upd-ov') && typeof APPUPD === 'object'), 'لم تُفتح بعد التحديث'); eq(errs, [], 'أخطاء'); });
