@@ -330,8 +330,9 @@ export default async function run() {
         ok(await p.evaluate(() => getComputedStyle(document.getElementById('main-nav')).display !== 'none'), 'القائمة لم تعد بعد الخروج'); eq(errs, [], 'أخطاء'); });
       await ctx.close(); }
     // ── 📱 زر «تحديث الآن»: فحص علق (تطبيق iPhone بعد الاستئناف) يُعاد بعد المهلة فيظهر الزر بلا تغيير الشبكة ──
-    { const ctx = await newCtx({ viewport: { width: 390, height: 844 } }); let armed = 0;
+    { const ctx = await newCtx({ viewport: { width: 390, height: 844 } }); let armed = 0, failAll = false;
       await ctx.route(/teacher-dashboard\/\?_sw=/, async r => {
+        if (failAll) { try { await r.abort('connectionreset'); } catch {} return; }
         if (!armed) { try { await r.continue(); } catch {} return; }
         if (armed++ === 1) { await new Promise(x => setTimeout(x, 14000)); try { await r.abort(); } catch {} return; }   // الأول يعلق
         const res = await r.fetch(); const html = (await res.text()).replace(/(js\/08\.js\?v=)[0-9a-f]{8}/, '$1deadbeef');
@@ -348,6 +349,11 @@ export default async function run() {
         await p.evaluate(() => window.appVerCheck()); await p.waitForFunction(() => /أحدث إصدار/.test(document.querySelector('#main-nav [data-appver]').textContent), null, { timeout: 15000 });
         await p.evaluate(() => document.querySelector('[data-simp-more]').click()); await p.waitForTimeout(300);
         ok(await p.evaluate(() => /الإصدار .*أحدث إصدار/.test((document.querySelector('.simp-sh-ver') || {}).textContent || '')), 'في «المزيد»'); eq(errs, [], 'أخطاء'); });
+      await S.t('رقم الإصدار: فشل التحقق يشغّل التشخيص (سبب الفشل + الموقع + خادم البيانات + ملف)', async () => {
+        failAll = true; await p.evaluate(() => window.appVerCheck());
+        await p.waitForFunction(() => /الفحص: .*م\.ث/.test(document.querySelector('#main-nav [data-appver]').textContent) && /خادم البيانات: ✓/.test(document.querySelector('#main-nav [data-appver]').textContent), null, { timeout: 25000 });
+        const t = await p.evaluate(() => document.querySelector('#main-nav [data-appver]').textContent);
+        ok(/تعذّر التحقق/.test(t) && /موقع اللوحة: ✓/.test(t) && /ملف من الموقع: ✓/.test(t), t.slice(0, 300)); failAll = false; eq(errs, [], 'أخطاء'); });
       await ctx.close(); }
     // ── ⏳ التحميل المؤجَّل: زر يُضغط قبل وصول الجزء المؤجَّل يعمل بعد وصوله ──
     { const ctx = await newCtx({ viewport: { width: 390, height: 844 } }); await ctx.route(/-lazy\.js|30-noor-export/, async r => { await new Promise(x => setTimeout(x, 9000)); try { await r.continue(); } catch {} });

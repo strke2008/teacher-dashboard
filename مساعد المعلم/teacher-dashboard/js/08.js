@@ -284,7 +284,27 @@ const APPVER = { v: ((document.querySelector('meta[name="app-version"]') || {}).
 function appVerHTML(){
   const v = APPVER.v ? 'v' + APPVER.v : '—', st = APPVER.state;
   const s = st === 'latest' ? '<b class="av-ok">✓ أحدث إصدار</b>' : st === 'update' ? '<b class="av-up">⬆ يوجد إصدار أحدث — اضغط للتحديث</b>' : st === 'checking' ? '<span>جارٍ التحقق…</span>' : st === 'fail' ? '<span>تعذّر التحقق — اضغط للمحاولة</span>' : '<span>اضغط للتحقق من التحديث</span>';
-  return `<span class="av-n">الإصدار <bdi>${v}</bdi></span>${s}`;
+  const d = APPVER.diag ? `<small class="av-d">${APPVER.diag.map(x => String(x).replace(/[<>&]/g, c => ({ '<':'&lt;', '>':'&gt;', '&':'&amp;' })[c])).join('<br>')}</small>` : '';
+  return `<span class="av-n">الإصدار <bdi>${v}</bdi></span>${s}${d}`;
+}
+/* 🩺 تشخيص مؤقت (حتى تُحل مشكلة «تعذّر التحقق» في تطبيق الآيفون على الواي فاي): ثلاث محاولات ونتيجة كل منها */
+async function appVerProbe(label, url, opt){
+  const t0 = Date.now(), ac = window.AbortController ? new AbortController() : null, to = setTimeout(() => { try{ ac && ac.abort(); }catch(e){} }, 10000);
+  try{ const r = await fetch(url, { cache: 'no-store', ...(opt || {}), ...(ac ? { signal: ac.signal } : {}) }); await r.arrayBuffer();
+    return `${label}: ${r.ok ? '✓' : '✗'} ${r.status} · ${Date.now() - t0} م.ث`; }
+  catch(e){ return `${label}: ✗ ${e && e.name === 'AbortError' ? 'انتهت المهلة' : ((e && (e.message || e.name)) || '؟')} · ${Date.now() - t0} م.ث`; }
+  finally{ clearTimeout(to); }
+}
+async function appVerDiag(){
+  const t = Date.now().toString(36), api = (typeof getApi === 'function' ? String(getApi() || '') : '').replace(/\/+$/, '');
+  const app = navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+  APPVER.diag = ['جارٍ التشخيص…']; appVerPaint();
+  const L = await Promise.all([
+    appVerProbe('موقع اللوحة', location.pathname + '?_diag=' + t, { credentials: 'same-origin' }),
+    api ? appVerProbe('خادم البيانات', api + '/version?_d=' + t) : Promise.resolve('خادم البيانات: غير مضبوط'),
+    appVerProbe('ملف من الموقع', 'pwa/badge-72.png?_d=' + t)]);
+  APPVER.diag = ['الفحص: ' + (APPVER.err || '—'), ...L, `تطبيق: ${app ? 'نعم' : 'لا'} · متصل: ${navigator.onLine ? 'نعم' : 'لا'} · عامل الخدمة: ${navigator.serviceWorker && navigator.serviceWorker.controller ? 'نعم' : 'لا'} · ${location.host}`];
+  appVerPaint();
 }
 function appVerPaint(){ document.querySelectorAll('[data-appver]').forEach(e => { e.innerHTML = appVerHTML(); e.dataset.st = APPVER.state || ''; }); }
 function appVerTap(){ if(APPVER.state === 'update') location.reload(); else if(window.appVerCheck) window.appVerCheck(); }
@@ -301,15 +321,19 @@ if(document.readyState === 'loading') document.addEventListener('DOMContentLoade
   const check = async (force) => {
     if(document.hidden || busy || (!force && Date.now() - last < 60000)) return; last = Date.now(); busy = true;
     const ac = window.AbortController ? new AbortController() : null, to = setTimeout(() => { try{ ac && ac.abort(); }catch(e){} }, 10000);
-    let ok = false;
+    let ok = false; const t0 = Date.now();
     try{
       const r = await fetch(location.pathname + '?_sw=' + Date.now().toString(36), { cache: 'no-store', credentials: 'same-origin', ...(ac ? { signal: ac.signal } : {}) });
+      if(!r.ok) APPVER.err = 'ردّ الموقع ' + r.status + ' بعد ' + (Date.now() - t0) + ' م.ث';
       if(r.ok){ const html = await r.text(), other = sig(html); ok = true; if(other && other !== mine){ APPVER.state = 'update'; APPVER.next = (/name="app-version" content="([^"]+)"/.exec(html) || [])[1] || ''; APPUPD.mark(); } else if(other) APPVER.state = 'latest'; APPVER.at = Date.now(); appVerPaint(); }
-    }catch(e){}
+    }catch(e){ APPVER.err = (e && e.name === 'AbortError' ? 'انتهت المهلة (10 ث)' : 'فشل الاتصال: ' + ((e && (e.message || e.name)) || '؟')) + ' بعد ' + (Date.now() - t0) + ' م.ث'; }
     clearTimeout(to); busy = false;
     if(!ok && !document.hidden){ clearTimeout(retry); retry = setTimeout(() => check(true), 5000); }   // علق أو فشل: محاولة جديدة باتصال جديد
   };
-  window.appVerCheck = () => { APPVER.state = 'checking'; appVerPaint(); return check(true).then(() => { if(APPVER.state === 'checking'){ APPVER.state = 'fail'; appVerPaint(); } }); };
+  /* الضغط: ينتظر فحصًا جاريًا (كان يُحكم بالفشل فورًا إن صادف فحصًا في الخلفية)، وإن فشل يشغّل التشخيص */
+  window.appVerCheck = async () => { APPVER.state = 'checking'; APPVER.diag = null; appVerPaint();
+    for(let i = 0; busy && i < 60; i++) await new Promise(r => setTimeout(r, 200));
+    await check(true); if(APPVER.state === 'checking'){ APPVER.state = 'fail'; appVerPaint(); appVerDiag(); } };
   const back = () => { if(!document.hidden) check(); };
   document.addEventListener('visibilitychange', back);
   addEventListener('pageshow', back); addEventListener('focus', back); addEventListener('online', () => check(true));
