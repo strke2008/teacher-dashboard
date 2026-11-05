@@ -304,7 +304,7 @@ async function appVerDiag(){
     api ? appVerProbe('خادم البيانات', api + '/version?_d=' + t) : Promise.resolve('خادم البيانات: غير مضبوط'),
     appVerProbe('ملف من الموقع', 'pwa/badge-72.png?_d=' + t),
     api ? appVerProbe('الموقع عبر الخادم', `${api}/site?h=${encodeURIComponent(location.host)}&p=${encodeURIComponent(location.pathname)}`) : Promise.resolve('')]);
-  APPVER.diag = ['الفحص: ' + (APPVER.err || '—'), ...L.filter(Boolean), `تطبيق: ${app ? 'نعم' : 'لا'} · متصل: ${navigator.onLine ? 'نعم' : 'لا'} · عامل الخدمة: ${navigator.serviceWorker && navigator.serviceWorker.controller ? 'نعم' : 'لا'} · ${location.host}`];
+  APPVER.diag = ['الفحص: ' + (APPVER.err || '—'), ...L.filter(Boolean), `تطبيق: ${app ? 'نعم' : 'لا'} · متصل: ${navigator.onLine ? 'نعم' : 'لا'} · عامل الخدمة: ${navigator.serviceWorker && navigator.serviceWorker.controller ? 'نعم' : 'لا'} · ${location.host}${location.pathname}`];
   appVerPaint();
 }
 function appVerPaint(){ document.querySelectorAll('[data-appver]').forEach(e => { e.innerHTML = appVerHTML(); e.dataset.st = APPVER.state || ''; }); }

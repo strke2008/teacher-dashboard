@@ -102,10 +102,10 @@ export default async function run() {
     bk.tests.push({ id: 'pz3', title: 'ورقي 3', max: 10 }); await env.HW.put('teacher:classroom', JSON.stringify(cr));
     ok((await call('/omr/papers/of?sid=s1&t=' + TOKEN)).j.papers.some(p => p.test === 'pz3'), 'أُعيد');
   });
-  await S.t('/site: مواقعنا ومجلدا اللوحة والبوابة فقط (لا وسيط مفتوح)', async () => {
+  await S.t('/site: مواقعنا فقط (لا وسيط مفتوح) ولا خروج من الموقع', async () => {
     eq((await call('/site?h=evil.example.com&p=/teacher-dashboard/')).s, 400, 'موقع غريب');
-    eq((await call('/site?h=homwork.pages.dev&p=/admin/')).s, 400, 'مجلد آخر');
     eq((await call('/site?h=homwork.pages.dev&p=/teacher-dashboard/../x')).s, 400, 'خروج من المجلد');
+    ok((await call('/site?h=mosaed.pages.dev&p=/')).s !== 400, 'اللوحة في جذر الموقع مرفوضة');
   });
   await S.t('صوت المختبر بلا مفتاح: صامت بلا خطأ', async () => { eq((await call('/tts?t=' + encodeURIComponent('مرحبا'))).s, 404); });
   return S;

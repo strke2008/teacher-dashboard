@@ -5995,11 +5995,12 @@ export default {
     }
 
     /* 🛰️ ملفات الموقع عبر الخادم: تطبيق الآيفون على بعض شبكات الواي فاي لا يصل لموقعه (*.pages.dev) وإن وصل له سفاري،
-       بينما يصل لهذا الخادم — فيجلب منه الصفحة وملفاتها (فحص الإصدار والتحديث). مواقعنا فقط، ومجلدا اللوحة والبوابة فقط */
+       بينما يصل لهذا الخادم — فيجلب منه الصفحة وملفاتها (فحص الإصدار والتحديث). مواقعنا فقط (أي ملف فيها) */
     if (url.pathname === '/site' && request.method === 'GET') {
       const hosts = ['homwork.pages.dev', 'homework-dash.pages.dev', 'mosaed.pages.dev', ...String(env.SITE_HOSTS || '').split(',').map(s => s.trim()).filter(Boolean)];
       const h = String(url.searchParams.get('h') || ''), p = String(url.searchParams.get('p') || '');
-      if (!hosts.includes(h) || !/^\/(teacher-dashboard|student-portal)\/[\w\-./]*(\?[\w=&.%-]*)?$/.test(p) || p.includes('..')) return json({ ok: false, error: 'bad_site' }, 400);
+      // أي مسار في مواقعنا (اللوحة قد تُرفع في جذر الموقع لا في مجلد teacher-dashboard) — الأمان من قائمة المواقع
+      if (!hosts.includes(h) || !/^\/[\w\-./]*(\?[\w=&.%-]*)?$/.test(p) || p.includes('..')) return json({ ok: false, error: 'bad_site' }, 400);
       try {
         const r = await fetch((env.SITE_TEST_BASE || `https://${h}`) + p, { headers: { 'Cache-Control': 'no-cache' }, cf: { cacheTtl: 0 } });
         return new Response(await r.arrayBuffer(), { status: r.status, headers: { 'Content-Type': r.headers.get('Content-Type') || 'application/octet-stream', 'Cache-Control': 'no-store', ...CORS } });
