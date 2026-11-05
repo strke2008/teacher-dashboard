@@ -142,6 +142,14 @@ function saveStoreSession(j){
   try{ if(j && j.session && j.sid) localStorage.setItem(STORE_SESS_KEY, JSON.stringify({ sid:String(j.sid), token:j.session, exp:Number(j.sessionExp)||0 })); }catch(e){}
 }
 function clearStoreSession(){ try{ localStorage.removeItem(STORE_SESS_KEY); }catch(e){} }
+// 📱 للمعلم: إصدار البوابة، وهل هي تطبيق مثبّت أم متصفح، ونوع الجهاز — يُرسل مع /mine فقط
+function appQS(){ try{
+  const v = (document.querySelector('meta[name="app-version"]') || {}).content || '';
+  const app = !!((window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true);
+  const ua = navigator.userAgent || '';
+  const os = /iPhone|iPod/.test(ua) ? 'iphone' : (/iPad/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) ? 'ipad' : /Android/.test(ua) ? 'android' : 'pc';
+  return '&av=' + encodeURIComponent(v) + '&dm=' + (app ? 'app' : 'web') + '&os=' + os;
+}catch(e){ return ''; } }
 function idQS(){ let s = mySid ? ('&sid=' + encodeURIComponent(mySid)) : ''; try{ const t = getStoreSession(); if(t) s += '&session=' + encodeURIComponent(t); }catch(e){} return s; }
 // 🔑 القفل مرتبط بالطالب لا بالجهاز — فالإخوة على جوال واحد لا يحجب بعضهم
 function doneKey(nm){
@@ -206,7 +214,7 @@ async function openRejectedProjectResubmit(nm){
 
   try{
     const r = await fetch(
-      api + '/mine?name=' + encodeURIComponent(nm) + idQS() + '&_=' + Date.now(),
+      api + '/mine?name=' + encodeURIComponent(nm) + idQS() + appQS() + '&_=' + Date.now(),
       {cache:'no-store'}
     );
     if(!r.ok) return false;
@@ -4689,7 +4697,7 @@ async function gateLoad(nm, opts){
   let studentData = { pts:0, perks:{} };
 
   // ⚡ أنشطة الطالب (أبطأ طلب) تبدأ الآن مع بيانات الرصيد — لا تنتظرها
-  const minePromise = fetch(api + '/mine?name=' + encodeURIComponent(nm) + idQS()).then(r => r.json());
+  const minePromise = fetch(api + '/mine?name=' + encodeURIComponent(nm) + idQS() + appQS()).then(r => r.json());
   minePromise.catch(() => {});
   // ⚡ مساحة الطالب تظهر فورًا باسمه و«جارٍ التحميل…» بدل صفحة فارغة حتى تصل الأنشطة
   try{ const sp=$('gate-space'); if(sp && sp.classList.contains('hide')){ sp.classList.remove('hide');
@@ -6750,7 +6758,7 @@ async function offerMore(nm, where){
     $(ids.btn).onclick = goto; return; }
 
   try{
-    const j = await (await fetch(api + '/mine?name=' + encodeURIComponent(nm) + idQS())).json();
+    const j = await (await fetch(api + '/mine?name=' + encodeURIComponent(nm) + idQS() + appQS())).json();
     if(!j.ok) return;
     const today = todayISO();
     const left = (j.rows||[]).filter(h =>

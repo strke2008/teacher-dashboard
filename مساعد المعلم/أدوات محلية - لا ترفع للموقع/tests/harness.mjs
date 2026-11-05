@@ -6,11 +6,11 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');   // مجلد «مساعد المعلم»
 export const TOKEN = 'test-secret-123';
 export function memKV(seed = {}) {
-  const m = new Map(Object.entries(seed));
-  return { m,
+  const m = new Map(Object.entries(seed)), md = new Map();
+  return { m, md,
     get: async (k, t) => { const v = m.get(k); if (v == null) return null; return t === 'json' ? JSON.parse(v) : t === 'arrayBuffer' ? (v instanceof ArrayBuffer ? v : null) : v; },
-    put: async (k, v) => { m.set(k, v); }, delete: async k => { m.delete(k); },
-    list: async (o = {}) => ({ keys: [...m.keys()].filter(k => !o.prefix || k.startsWith(o.prefix)).map(name => ({ name })), list_complete: true }),
+    put: async (k, v, o) => { m.set(k, v); if (o && o.metadata) md.set(k, o.metadata); else md.delete(k); }, delete: async k => { m.delete(k); md.delete(k); },
+    list: async (o = {}) => ({ keys: [...m.keys()].filter(k => !o.prefix || k.startsWith(o.prefix)).map(name => (md.has(name) ? { name, metadata: md.get(name) } : { name })), list_complete: true }),
     getWithMetadata: async k => ({ value: m.get(k) ?? null, metadata: null }) };
 }
 export const ROSTER = [{ id: 's1', name: 'طالب الاختبار الأول', cls: 'أول 1' }, { id: 's2', name: 'طالب الاختبار الثاني', cls: 'أول 1' }, { id: 's3', name: 'طالب من فصل آخر', cls: 'أول 2' }];

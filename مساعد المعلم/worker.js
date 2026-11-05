@@ -49,6 +49,20 @@ function nameMatches(typedTokens, recordTokens) {
 }
 
 // 📚 قراءة كل مفاتيح KV مع pagination، حتى لا يفوتنا شيء بعد تجاوز 1000 مفتاح.
+/* 📱 آخر فتح للبوابة لكل طالب: الإصدار، وتطبيق مثبّت أو متصفح، ونوع الجهاز.
+   النسخ القديمة لا ترسل إصدارًا ⇒ «old». كتابة واحدة كل 3 ساعات على الأكثر ما لم يتغير شيء. */
+async function appSeen(env, id, q, request) {
+  const ua = String(request.headers.get('user-agent') || '');
+  const osIn = String(q.get('os') || '');
+  const os = ['iphone', 'ipad', 'android', 'pc'].includes(osIn) ? osIn : /iPhone|iPod/.test(ua) ? 'iphone' : /iPad/.test(ua) ? 'ipad' : /Android/.test(ua) ? 'android' : 'pc';
+  const av = String(q.get('av') || ''), v = /^\d{1,3}\.\d{1,3}\.\d{1,4}$/.test(av) ? av : 'old';
+  const m = q.get('dm') === 'app' ? 'app' : q.get('dm') === 'web' ? 'web' : '';
+  const rec = { v, m, os, at: Date.now() }, k = 'appseen:' + String(id).slice(0, 40);
+  let ex = null; try { ex = JSON.parse(await env.HW.get(k) || 'null'); } catch {}
+  if (ex && ex.v === v && ex.m === m && ex.os === os && rec.at - (Number(ex.at) || 0) < 3 * 3600e3) return;
+  await env.HW.put(k, JSON.stringify(rec), { metadata: rec, expirationTtl: 60 * 60 * 24 * 200 });
+}
+
 async function listAllKeys(env, prefix) {
   const out = [];
   let cursor = undefined;
@@ -6013,6 +6027,21 @@ export default {
       return json({ ok: true, vk: await viewKey(env, vkDay(0)), day: vkDay(0) });
     }
     // 🔄 إجبار كل الأجهزة على التحديث (المعلم فقط): كل جهاز يرى الوقت الجديد في /version فيعيد تحميل نفسه مرة واحدة
+    // 📱 أجهزة الطلاب (المعلم فقط): من ثبّت البوابة تطبيقًا، ومن يستخدم المتصفح، وأي إصدار — من آخر فتح لكل طالب
+    if (url.pathname === '/app/devices' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch {}
+      if (!pushIsTeacher(env, b)) return json({ ok: false, error: 'unauthorized' }, 401);
+      let students = []; try { students = (JSON.parse(await env.HW.get('tstate:main')) || {}).students || []; } catch {}
+      const seen = {}; let cursor;
+      do {
+        const page = await env.HW.list(cursor ? { prefix: 'appseen:', cursor } : { prefix: 'appseen:' });
+        for (const k of (page.keys || [])) if (k.metadata) seen[k.name.slice(8)] = k.metadata;
+        cursor = page.list_complete ? undefined : page.cursor;
+      } while (cursor);
+      const list = students.filter(x => x && x.id).map(x => { const r = seen[String(x.id)] || {};
+        return { id: String(x.id), name: String(x.name || ''), cls: String(x.cls || ''), v: r.v || '', m: r.m || '', os: r.os || '', at: Number(r.at) || 0 }; });
+      return json({ ok: true, list });
+    }
     if (url.pathname === '/app/force' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch {}
       if (!pushIsTeacher(env, b)) return json({ ok: false, error: 'unauthorized' }, 401);
@@ -6623,6 +6652,7 @@ export default {
       if (bindM && bindM.res) return bindM.res;
       const st = bindM && bindM.st ? bindM.st : await resolveStudent(env, { id: sidIn, name });
       try { if (st.known) await remFromExams(env, st); } catch {}
+      try { if (st && st.known && st.id) { const job = appSeen(env, st.id, url.searchParams, request).catch(() => {}); if (ctx && ctx.waitUntil) ctx.waitUntil(job); } } catch {}
 
       const rows = [];
       // 🕒 الأنشطة المنشورة قبل ختم وقت النشر: تاريخها من نسخة لوحة المعلم (h.at حين أنشأه)

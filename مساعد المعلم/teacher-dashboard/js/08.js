@@ -455,6 +455,42 @@ async function devLoad(){
       <button class="btn ghost" type="button" onclick="devLogout()">🚪 خروج من هذا الجهاز</button>
       <button class="btn ghost" type="button" onclick="devLoad()">🔄 تحديث</button></div>`;
 }
+/* 📱 أجهزة الطلاب: من آخر فتح لكل طالب للبوابة (يسجّله الخادم مع /mine).
+   النسخ القديمة لا ترسل إصدارًا فتظهر «نسخة قديمة»؛ ومن لم يفتح بعد رفع هذه الميزة «لم يُسجَّل». */
+const APPDEV={list:[],f:'all',cls:''};
+function appDevCmp(a,b){ const x=String(a).split('.').map(Number), y=String(b).split('.').map(Number); for(let i=0;i<3;i++){ if((x[i]||0)!==(y[i]||0)) return (x[i]||0)-(y[i]||0); } return 0; }
+function appDevState(r,latest){ if(!r.v) return 'none'; if(r.v==='old'||(latest&&appDevCmp(r.v,latest)<0)) return 'old'; return r.m==='app'?'app':'web'; }
+async function appDevLoad(){
+  const box=document.getElementById('appdev-box'); if(!box) return;
+  if(!getApi()||!getTok()){ toast('اضبط عنوان الخادم وكلمة السر أولًا','bad'); return; }
+  box.innerHTML='<p class="muted" style="margin:.6rem 0 0">جارٍ التحميل…</p>';
+  try{ const j=await devCall('/app/devices'); APPDEV.list=j.list||[]; }
+  catch(e){ box.innerHTML=`<p class="muted" style="margin:.6rem 0 .4rem">${/unauthorized/.test(e.message)?'كلمة السر غير صحيحة':'تعذّر التحميل — هل رفعت worker.js الجديد؟'}</p><button class="btn ghost" type="button" onclick="appDevLoad()">🔄 إعادة المحاولة</button>`; return; }
+  appDevPaint();
+}
+function appDevPaint(){
+  const box=document.getElementById('appdev-box'); if(!box) return;
+  const L=APPDEV.list, latest=L.map(r=>r.v).filter(v=>v&&v!=='old').sort(appDevCmp).pop()||'';
+  const clsL=[...new Set(L.map(r=>r.cls).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ar'));
+  const inCls=L.filter(r=>!APPDEV.cls||r.cls===APPDEV.cls);
+  const cnt={app:0,web:0,old:0,none:0}; inCls.forEach(r=>cnt[appDevState(r,latest)]++);
+  const ORD={old:0,none:1,web:2,app:3};
+  const rows=inCls.filter(r=>APPDEV.f==='all'||appDevState(r,latest)===APPDEV.f)
+    .sort((a,b)=>ORD[appDevState(a,latest)]-ORD[appDevState(b,latest)]||a.name.localeCompare(b.name,'ar'));
+  const OS={iphone:'آيفون',ipad:'آيباد',android:'أندرويد',pc:'كمبيوتر'};
+  const ago=t=>{ if(!t) return ''; const m=Math.round((Date.now()-t)/60000); return m<60?'قبل قليل':m<1440?`قبل ${Math.round(m/60)} ساعة`:`قبل ${Math.round(m/1440)} يوم`; };
+  const TAG={app:['📱','تطبيق'],web:['🌐','متصفح'],old:['⚠️','نسخة قديمة'],none:['⏳','لم يُسجَّل']};
+  const chip=(k,lab)=>`<button type="button" class="appdev-chip ${k}${APPDEV.f===k?' on':''}" onclick="APPDEV.f='${k}';appDevPaint()">${lab}</button>`;
+  box.innerHTML=`<div class="appdev-head"><b>📱 بوابة الطلاب على أجهزتهم</b>${latest?`<small>أحدث إصدار: v${esc(latest)}</small>`:''}</div>
+    <div class="appdev-chips">${chip('all',`الكل ${inCls.length}`)}${chip('app',`📱 تطبيق ${cnt.app}`)}${chip('web',`🌐 متصفح ${cnt.web}`)}${chip('old',`⚠️ قديمة ${cnt.old}`)}${chip('none',`⏳ لم يُسجَّل ${cnt.none}`)}</div>
+    ${clsL.length>1?`<select class="inp appdev-cls" onchange="APPDEV.cls=this.value;appDevPaint()"><option value="">كل الفصول</option>${clsL.map(c=>`<option ${c===APPDEV.cls?'selected':''}>${esc(c)}</option>`).join('')}</select>`:''}
+    <div class="appdev-list">${rows.map(r=>{ const st=appDevState(r,latest), t=TAG[st];
+      return `<div class="appdev-row ${st}"><span class="appdev-nm">${esc(r.name)}${r.cls&&!APPDEV.cls?`<small>${esc(r.cls)}</small>`:''}</span>
+        <span class="appdev-tag ${st}">${t[0]} ${st==='old'&&r.m?(r.m==='app'?'تطبيق':'متصفح')+' · قديم':t[1]}</span>
+        <small class="appdev-meta">${r.v&&r.v!=='old'?'v'+esc(r.v):r.v==='old'?'قبل أرقام الإصدار':''}${r.os?' · '+(OS[r.os]||''):''}${r.at?' · '+ago(r.at):''}</small></div>`; }).join('')||'<p class="muted" style="margin:.4rem 0">لا أحد هنا.</p>'}</div>
+    <p class="appdev-note">يُسجَّل الطالب عند فتحه البوابة. «لم يُسجَّل» = لم يفتحها منذ رفع هذه الميزة. «نسخة قديمة» تتحدّث وحدها حين يفتحها على شبكة تصل للموقع (المدرسة أو بيانات الجوال).</p>
+    <button class="btn ghost sm" type="button" onclick="appDevLoad()">🔄 تحديث القائمة</button>`;
+}
 async function devRevoke(id){
   if(typeof askConfirm==='function' && !(await askConfirm(id==='others'?'كل أجهزتك الأخرى ستحتاج كلمة السر من جديد. متابعة؟':'هذا الجهاز سيحتاج كلمة السر من جديد. متابعة؟'))) return;
   try{ const j=await devCall('/auth/revoke',{id}); toast(`✓ أُلغي دخول ${j.n} ${j.n===1?'جهاز':'أجهزة'}`,'good'); }catch(e){ toast('تعذّر الإلغاء','bad'); }

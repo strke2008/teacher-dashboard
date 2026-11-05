@@ -2856,3 +2856,23 @@ body.fm #fm-bot{position:fixed;bottom:0;inset-inline:0;z-index:600;background:va
 #fm-bot button i{font-style:normal;font-size:1.35rem}#fm-bot button.on{background:#E8F7EF;color:#1B7A55}
 :root[data-ui-theme="dark"] #fm-bot button.on{background:#123326;color:#7FD8AE}
 @media(min-width:900px){body.fm #fm-bot{max-width:520px;margin:0 auto;border-radius:16px 16px 0 0;border:1px solid var(--rule,#DCE4EE)}}
+
+/* 📱 أجهزة الطلاب (تحديث الأجهزة) */
+.appdev{margin-top:.9rem;border-top:1px solid var(--rule,#E3E8EF);padding-top:.8rem}
+.appdev-head{display:flex;align-items:baseline;justify-content:space-between;gap:.5rem;margin-bottom:.55rem}
+.appdev-head small{color:var(--ink-soft,#5B6B82);font-size:.78rem}
+.appdev-chips{display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:.55rem}
+.appdev-chip{font:inherit;font-size:.8rem;font-weight:700;border:1px solid var(--rule,#E3E8EF);background:var(--paper,#fff);color:var(--ink,#16233A);border-radius:999px;padding:.28rem .7rem;cursor:pointer}
+.appdev-chip.on{background:#16233A;border-color:#16233A;color:#fff}
+.appdev-chip.old:not(.on){border-color:#F2C9A5;background:#FFF6EC;color:#9A4F0E}
+.appdev-cls{max-width:220px;margin-bottom:.5rem;padding:.35rem .6rem;font-size:.85rem}
+.appdev-list{display:flex;flex-direction:column;gap:.3rem;max-height:420px;overflow:auto;margin-bottom:.5rem}
+.appdev-row{display:grid;grid-template-columns:1fr auto;align-items:center;gap:.1rem .6rem;padding:.45rem .65rem;border-radius:12px;background:var(--paper-2,#F5F7F9)}
+.appdev-nm{font-weight:700;font-size:.88rem;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.appdev-nm small{font-weight:500;color:var(--ink-soft,#5B6B82);margin-inline-start:.4rem;font-size:.74rem}
+.appdev-tag{font-size:.76rem;font-weight:800;border-radius:999px;padding:.12rem .55rem;white-space:nowrap}
+.appdev-tag.app{background:#E3F5EE;color:#0B7A5A}.appdev-tag.web{background:#E8F0FB;color:#2456A6}
+.appdev-tag.old{background:#FFF0E0;color:#A4500C}.appdev-tag.none{background:#EEF1F5;color:#6B7A90}
+.appdev-meta{grid-column:1/-1;color:var(--ink-soft,#5B6B82);font-size:.74rem}
+.appdev-meta:empty{display:none}
+.appdev-note{font-size:.76rem;color:var(--ink-soft,#5B6B82);line-height:1.7;margin:.2rem 0 .5rem}

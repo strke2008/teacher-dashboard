@@ -30,6 +30,14 @@ export default async function run() {
         await p.goto(base + '/teacher-dashboard/'); await p.evaluate(t => localStorage.setItem('hwapp_tok_v1', t), TOKEN); await p.reload(); await p.waitForTimeout(5000);
         eq(errs, [], 'أخطاء'); });
       await S.t('كلمة السر تُستبدل بجلسة الجهاز', async () => { ok(String(await p.evaluate(() => localStorage.getItem('hwapp_tok_v1'))).startsWith('ts1.'), 'ما زالت كلمة السر محفوظة'); });
+      await S.t('📱 أجهزة الطلاب: القائمة تُحمَّل بجلسة المعلم وتفرز وتعدّ', async () => {
+        await fetch('http://localhost:' + WP + '/mine?name=x&sid=s1&av=1.0.9&dm=app&os=iphone'); await fetch('http://localhost:' + WP + '/mine?name=x&sid=s2');
+        await p.evaluate(() => appDevLoad()); try { await p.waitForSelector('#appdev-box .appdev-row', { timeout: 8000, state: 'attached' }); } catch { throw new Error('الصندوق: ' + await p.evaluate(() => (document.getElementById('appdev-box') || {}).textContent)); }
+        const r = await p.evaluate(() => ({ n: document.querySelectorAll('#appdev-box .appdev-row').length, first: document.querySelector('#appdev-box .appdev-row').className,
+          chips: [...document.querySelectorAll('#appdev-box .appdev-chip')].map(x => x.textContent).join('|') }));
+        ok(r.n >= 3, 'عدد الطلاب ' + r.n); ok(/old/.test(r.first), 'القديمة أولًا: ' + r.first); ok(/تطبيق 1/.test(r.chips) && /قديمة 1/.test(r.chips), r.chips);
+        await p.evaluate(() => { APPDEV.f = 'app'; appDevPaint(); }); eq(await p.evaluate(() => document.querySelectorAll('#appdev-box .appdev-row').length), 1, 'فرز التطبيق');
+        eq(errs, [], 'أخطاء'); });
       await S.t('لا كلمة سر ولا جلسة داخل أي رابط', async () => {
         ctx.reqs.length = 0; await p.reload(); await p.waitForTimeout(5000);
         const leak = ctx.reqs.filter(x => /[?&]t=(test-secret-123|ts1\.)/.test(x.u)); eq(leak.map(x => x.u), [], 'روابط مكشوفة'); ok(ctx.reqs.length > 5, 'طلبات قليلة'); });

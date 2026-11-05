@@ -9,6 +9,18 @@ export default async function run() {
 
   // ── 👩‍🎓 الطالب ──
   await S.t('المعلم ينشر نشاطًا', async () => { const r = await call('/publish', { method: 'POST', body: { t: TOKEN, id: 'act1', payload: ACT, silent: true } }); eq(r.s, 200, 'publish'); });
+  await S.t('📱 أجهزة الطلاب: الإصدار وتطبيق/متصفح يُسجَّلان من /mine، والقديمة «old»، وللمعلم فقط', async () => {
+    const E = newEnv(), C = caller(W, E), ws = []; const job = { waitUntil: p => ws.push(p) };
+    const mine = async (q, ua) => { await W.fetch(new Request('https://w.test/mine?' + q, { headers: { 'user-agent': ua } }), E, job); await Promise.all(ws.splice(0)); };
+    await mine('name=x&sid=s1&av=1.0.4&dm=app&os=iphone', 'Mozilla iPhone');
+    await mine('name=x&sid=s2', 'Mozilla (Linux; Android 14)');
+    eq((await C('/app/devices', { method: 'POST', body: { t: 'خطأ' } })).s, 401, 'بلا كلمة سر');
+    const r = await C('/app/devices', { method: 'POST', body: { t: TOKEN } }); eq(r.s, 200);
+    const by = Object.fromEntries(r.j.list.map(x => [x.id, x]));
+    eq([by.s1.v, by.s1.m, by.s1.os], ['1.0.4', 'app', 'iphone'], 'الجديدة');
+    eq([by.s2.v, by.s2.os], ['old', 'android'], 'القديمة');
+    eq(by.s3.v, '', 'لم يفتح'); ok(!JSON.stringify(r.j).includes('session'), 'لا جلسات');
+  });
   await S.t('⚡ النشر سريع: لا يعيد قراءة كل الأنشطة، وأسماء النشاط الجديد تدخل الفهرس', async () => {
     const E = newEnv(), C = caller(W, E);
     for (let i = 0; i < 30; i++) await E.HW.put('hw:old' + i, JSON.stringify({ t: 'قديم', s: ['قديم ' + i] }));
