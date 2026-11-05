@@ -3,7 +3,7 @@
    فتُفتح اللوحة فورًا من الجهاز ويُجلب الإصدار الأحدث في الخلفية.
    بيانات الطلاب والدرجات والتسليمات لا تُحفظ إطلاقًا: تُجلب دائمًا من الخادم (نطاق آخر لا يمرّ هنا).
    لا يحتوي أي سر: المفتاح العام يُجلب من الخادم، والخاص لا يغادر Cloudflare. */
-const SW_VERSION = 'push-v2+static-v4';
+const SW_VERSION = 'push-v2+static-v5';
 const STATIC = 'dash-static-v2';   // v2: يمسح ما حُفظ قبل التحقق من البصمة (قد يكون فيه ملف قديم بعنوان جديد)
 const SCOPE = new URL(self.registration ? self.registration.scope : './', self.location.href);
 const PAGE_KEY = new URL('index.html', SCOPE).href;
@@ -64,7 +64,8 @@ self.addEventListener('fetch', event => {
       event.waitUntil(net.catch(() => {}));
       /* 🔄 الأحدث أولًا: نسخة الخادم إن وصلت خلال 3 ث، وإلا المحفوظة على الجهاز (بلا اتصال أو شبكة بطيئة).
          كانت المحفوظة تُعرض دائمًا والجديدة لا تظهر إلا في الفتح التالي — فيبدو أن التحديث لم يصل */
-      const timeout = new Promise(r => setTimeout(() => r(null), 3000));
+      /* ⏱️ ثانية واحدة لا 3: الانتظار كله شاشة سوداء في تطبيق الآيفون؛ والأحدث يصل بزر «تحديث الآن» (فحصه لا يعلق الآن) */
+      const timeout = new Promise(r => setTimeout(() => r(null), 1000));
       const fromNet = net.then(r => (r && r.ok ? r : null)).catch(() => null);
       const won = await Promise.race([fromNet, timeout]);
       if (won) { fresh = true; return won; }        // الأحدث ظاهر الآن — لا داعي لزر «تحديث الآن»

@@ -507,6 +507,18 @@
 <link rel="stylesheet" href="modern.css?v=45259522">
 </head>
 <body class="simp-nav">
+<!-- 📱 مقدمة تطبيق الآيفون (المثبّت على الشاشة الرئيسية فقط): تظهر مع أول رسم وتختفي فور جاهزية اللوحة — لا تؤخرها.
+     الآيفون الحديث لا يعرض صورة البداية (apple-touch-startup-image) فكانت الشاشة سوداء حتى تُرسم الصفحة -->
+<div id="boot-intro" aria-hidden="true" style="display:none;position:fixed;inset:0;z-index:99999;background:#F5F7F9;flex-direction:column;align-items:center;justify-content:center;transition:opacity .25s ease;font-family:system-ui,-apple-system,sans-serif">
+<svg width="104" height="104" viewBox="0 0 512 512" style="border-radius:24px;box-shadow:0 10px 30px rgba(15,157,116,.25)"><rect width="512" height="512" fill="#0F9D74"/><g transform="translate(256 256) scale(10.67) translate(-12 -12)" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></g></svg>
+<b style="font-size:25px;font-weight:800;margin-top:20px;color:#0F1A24">مساعد المعلم</b>
+<small style="position:absolute;bottom:calc(34px + env(safe-area-inset-bottom,0px));font-size:12.5px;color:#0F1A24;opacity:.6">تطوير: المعلم أحمد المرزوق</small>
+</div>
+<script>(function(){var e=document.getElementById('boot-intro');try{var sa=navigator.standalone===true||(window.matchMedia&&matchMedia('(display-mode: standalone)').matches);
+if(!sa||!/iP(hone|ad|od)/.test(navigator.userAgent)&&!(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1)){e.remove();return;}e.style.display='flex';}catch(x){e.remove();return;}
+var gone=false,hide=function(){if(gone)return;gone=true;e.style.opacity='0';setTimeout(function(){e.remove();},280);};
+var ready=function(){requestAnimationFrame(function(){requestAnimationFrame(hide);});};
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',ready,{once:true});else ready();setTimeout(hide,4000);})();</script>
 <header class="masthead">
 <div class="masthead-in">
 <button aria-controls="main-nav" aria-expanded="false" aria-label="فتح قائمة التنقل" class="nav-drawer-toggle no-print" id="nav-drawer-toggle" type="button">☰</button>
