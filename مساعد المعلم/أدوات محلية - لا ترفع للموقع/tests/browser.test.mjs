@@ -319,6 +319,20 @@ export default async function run() {
         eq(r, [true, 'none', '0px']); await p.evaluate(() => fmExit()); await p.waitForTimeout(300);
         ok(await p.evaluate(() => getComputedStyle(document.getElementById('main-nav')).display !== 'none'), 'القائمة لم تعد بعد الخروج'); eq(errs, [], 'أخطاء'); });
       await ctx.close(); }
+    // ── 📱 زر «تحديث الآن»: فحص علق (تطبيق iPhone بعد الاستئناف) يُعاد بعد المهلة فيظهر الزر بلا تغيير الشبكة ──
+    { const ctx = await newCtx({ viewport: { width: 390, height: 844 } }); let armed = 0;
+      await ctx.route(/teacher-dashboard\/\?_sw=/, async r => {
+        if (!armed) { try { await r.continue(); } catch {} return; }
+        if (armed++ === 1) { await new Promise(x => setTimeout(x, 14000)); try { await r.abort(); } catch {} return; }   // الأول يعلق
+        const res = await r.fetch(); const html = (await res.text()).replace(/(js\/08\.js\?v=)[0-9a-f]{8}/, '$1deadbeef');
+        try { await r.fulfill({ response: res, body: html }); } catch {} });
+      const p = await ctx.newPage(), errs = watch(p);
+      await S.t('زر «تحديث الآن»: فحص الإصدار العالق يُلغى بعد مهلة ويُعاد، فيظهر الزر (لا يحتاج إطفاء الواي فاي)', async () => {
+        await p.goto(base + '/teacher-dashboard/'); await p.evaluate(t => localStorage.setItem('hwapp_tok_v1', t), TOKEN); await p.reload(); await dashReady(p);
+        armed = 1; await p.evaluate(() => dispatchEvent(new Event('online')));
+        await p.waitForTimeout(4000); ok(!(await p.$('#dash-upd')), 'ظهر قبل الأوان');
+        await p.waitForSelector('#dash-upd', { timeout: 20000 }); ok(armed >= 3, 'لم يُعد الفحص'); eq(errs, [], 'أخطاء'); });
+      await ctx.close(); }
     // ── ⏳ التحميل المؤجَّل: زر يُضغط قبل وصول الجزء المؤجَّل يعمل بعد وصوله ──
     { const ctx = await newCtx({ viewport: { width: 390, height: 844 } }); await ctx.route(/-lazy\.js|30-noor-export/, async r => { await new Promise(x => setTimeout(x, 9000)); try { await r.continue(); } catch {} });
       const p = await ctx.newPage(), errs = watch(p);

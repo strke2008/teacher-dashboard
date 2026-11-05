@@ -282,17 +282,26 @@ function dashShowUpdate(auto){
   const sig = html => [...String(html).matchAll(/(?:href|src)="([^"]+\?v=[0-9a-f]+)"/g)].map(m => m[1]).sort().join('|');
   const mine = sig(document.documentElement.outerHTML);
   if(!mine) return;
-  let last = 0;
-  const check = async () => {
-    if(document.hidden || Date.now() - last < 60000) return; last = Date.now();
+  /* 📱 تطبيق الشاشة الرئيسية في iPhone: عند الرجوع إليه «يُستأنف» ولا يُعاد فتحه — قد لا يصل حدث الظهور، والمؤقتات متوقفة
+     طوال غيابه، وأول طلب بعد الاستئناف قد يعلق على اتصال جمّده النظام (لا ينتهي حتى تتغير الشبكة). فكان الزر لا يظهر
+     إلا بإطفاء الواي فاي. الآن: مهلة 10 ث للفحص ثم إعادة، ويُفحص أيضًا عند التركيز والعودة للشبكة واكتشاف الاستئناف */
+  let last = 0, busy = false, retry = 0;
+  const check = async (force) => {
+    if(document.hidden || busy || (!force && Date.now() - last < 60000)) return; last = Date.now(); busy = true;
+    const ac = window.AbortController ? new AbortController() : null, to = setTimeout(() => { try{ ac && ac.abort(); }catch(e){} }, 10000);
+    let ok = false;
     try{
-      const r = await fetch(location.pathname + '?_sw=' + Date.now().toString(36), { cache: 'no-store', credentials: 'same-origin' });
-      if(!r.ok) return;
-      const other = sig(await r.text());
-      if(other && other !== mine) APPUPD.mark();
+      const r = await fetch(location.pathname + '?_sw=' + Date.now().toString(36), { cache: 'no-store', credentials: 'same-origin', ...(ac ? { signal: ac.signal } : {}) });
+      if(r.ok){ const other = sig(await r.text()); ok = true; if(other && other !== mine) APPUPD.mark(); }
     }catch(e){}
+    clearTimeout(to); busy = false;
+    if(!ok && !document.hidden){ clearTimeout(retry); retry = setTimeout(() => check(true), 5000); }   // علق أو فشل: محاولة جديدة باتصال جديد
   };
-  document.addEventListener('visibilitychange', () => { if(!document.hidden) check(); });
+  const back = () => { if(!document.hidden) check(); };
+  document.addEventListener('visibilitychange', back);
+  addEventListener('pageshow', back); addEventListener('focus', back); addEventListener('online', () => check(true));
+  /* الاستئناف بلا حدث: مؤقت كل 15 ث — إن مرّ بين نبضتين أكثر من دقيقة فالتطبيق كان مجمّدًا */
+  let beat = Date.now(); setInterval(() => { const n = Date.now(); if(n - beat > 60000) check(true); beat = n; }, 15000);
   setTimeout(check, 20000); setInterval(check, 600000);
 })();
 (function pushBoot(){
