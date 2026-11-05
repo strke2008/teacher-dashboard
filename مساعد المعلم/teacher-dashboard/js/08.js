@@ -302,8 +302,9 @@ async function appVerDiag(){
   const L = await Promise.all([
     appVerProbe('موقع اللوحة', location.pathname + '?_diag=' + t, { credentials: 'same-origin' }),
     api ? appVerProbe('خادم البيانات', api + '/version?_d=' + t) : Promise.resolve('خادم البيانات: غير مضبوط'),
-    appVerProbe('ملف من الموقع', 'pwa/badge-72.png?_d=' + t)]);
-  APPVER.diag = ['الفحص: ' + (APPVER.err || '—'), ...L, `تطبيق: ${app ? 'نعم' : 'لا'} · متصل: ${navigator.onLine ? 'نعم' : 'لا'} · عامل الخدمة: ${navigator.serviceWorker && navigator.serviceWorker.controller ? 'نعم' : 'لا'} · ${location.host}`];
+    appVerProbe('ملف من الموقع', 'pwa/badge-72.png?_d=' + t),
+    api ? appVerProbe('الموقع عبر الخادم', `${api}/site?h=${encodeURIComponent(location.host)}&p=${encodeURIComponent(location.pathname)}`) : Promise.resolve('')]);
+  APPVER.diag = ['الفحص: ' + (APPVER.err || '—'), ...L.filter(Boolean), `تطبيق: ${app ? 'نعم' : 'لا'} · متصل: ${navigator.onLine ? 'نعم' : 'لا'} · عامل الخدمة: ${navigator.serviceWorker && navigator.serviceWorker.controller ? 'نعم' : 'لا'} · ${location.host}`];
   appVerPaint();
 }
 function appVerPaint(){ document.querySelectorAll('[data-appver]').forEach(e => { e.innerHTML = appVerHTML(); e.dataset.st = APPVER.state || ''; }); }
@@ -327,7 +328,13 @@ if(document.readyState === 'loading') document.addEventListener('DOMContentLoade
       if(!r.ok) APPVER.err = 'ردّ الموقع ' + r.status + ' بعد ' + (Date.now() - t0) + ' م.ث';
       if(r.ok){ const html = await r.text(), other = sig(html); ok = true; if(other && other !== mine){ APPVER.state = 'update'; APPVER.next = (/name="app-version" content="([^"]+)"/.exec(html) || [])[1] || ''; APPUPD.mark(); } else if(other) APPVER.state = 'latest'; APPVER.at = Date.now(); appVerPaint(); }
     }catch(e){ APPVER.err = (e && e.name === 'AbortError' ? 'انتهت المهلة (10 ث)' : 'فشل الاتصال: ' + ((e && (e.message || e.name)) || '؟')) + ' بعد ' + (Date.now() - t0) + ' م.ث'; }
-    clearTimeout(to); busy = false;
+    clearTimeout(to);
+    /* 🛰️ الموقع لا يرد مباشرة (تطبيق الآيفون على بعض شبكات الواي فاي): نفس الصفحة عبر خادم البيانات */
+    if(!ok){ try{ const api = (typeof getApi === 'function' ? String(getApi() || '') : '').replace(/\/+$/, '');
+      if(api){ const r2 = await fetch(`${api}/site?h=${encodeURIComponent(location.host)}&p=${encodeURIComponent(location.pathname)}`, { cache: 'no-store' });
+        if(r2.ok){ const html = await r2.text(), other = sig(html); if(other.length > 1){ ok = true; APPVER.via = 'server';
+          if(other !== mine){ APPVER.state = 'update'; APPVER.next = (/name="app-version" content="([^"]+)"/.exec(html) || [])[1] || ''; APPUPD.mark(); } else APPVER.state = 'latest'; APPVER.at = Date.now(); appVerPaint(); } } } }catch(e){} }
+    busy = false;
     if(!ok && !document.hidden){ clearTimeout(retry); retry = setTimeout(() => check(true), 5000); }   // علق أو فشل: محاولة جديدة باتصال جديد
   };
   /* الضغط: ينتظر فحصًا جاريًا (كان يُحكم بالفشل فورًا إن صادف فحصًا في الخلفية)، وإن فشل يشغّل التشخيص */

@@ -9,6 +9,7 @@ export default async function run() {
   const W = await loadWorker(), env = newEnv(), call = caller(W, env);
   await call('/publish', { method: 'POST', body: { t: TOKEN, id: 'act1', silent: true, payload: { t: 'نشاط الاختبار', kind: 'normal', s: ['s1', 's2'], p: 10, q: [{ t: 'q', q: 'سؤال؟', o: ['أ', 'ب'], a: 0 }] } } });
   const WP = 18802, SP = 18801, wsrv = await serveWorker(W, env, WP), ssrv = await serveStatic(SP), base = 'http://localhost:' + SP;
+  env.SITE_HOSTS = 'localhost:' + SP; env.SITE_TEST_BASE = base;   // /site في الاختبار: الموقع المحلي بدل *.pages.dev
   const b = await chromium.launch();
   const newCtx = async (opts = {}) => { const ctx = await b.newContext({ viewport: { width: 1200, height: 850 }, ...opts }); const reqs = [];
     await ctx.route(/workers\.dev/, async r => { const u = new URL(r.request().url()); if (ctx.offline) return r.abort('internetdisconnected').catch(() => {}); reqs.push({ u: u.pathname + u.search, h: r.request().headers()['x-teacher-token'] || '' });
@@ -329,8 +330,26 @@ export default async function run() {
         eq(r, [true, 'none', '0px']); await p.evaluate(() => fmExit()); await p.waitForTimeout(300);
         ok(await p.evaluate(() => getComputedStyle(document.getElementById('main-nav')).display !== 'none'), 'القائمة لم تعد بعد الخروج'); eq(errs, [], 'أخطاء'); });
       await ctx.close(); }
+    // ── 🛰️ عامل الخدمة: موقع اللوحة لا يرد مباشرة (تطبيق الآيفون على بعض شبكات الواي فاي) ⇒ الصفحة وملفاتها عبر الخادم ──
+    { const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'allow' }); const log = []; let cut = false;
+      await ctx.route(u => /workers\.dev$/.test(u.hostname), async r => { const u = new URL(r.request().url()); if (u.pathname === '/site') log.push(decodeURIComponent(u.search));
+        try { await r.fulfill({ response: await r.fetch({ url: 'http://localhost:' + WP + u.pathname + u.search }) }); } catch { try { await r.abort(); } catch {} } });
+      await ctx.route(new RegExp('localhost:' + SP + '/teacher-dashboard/'), async r => { if (cut) { try { await r.abort('timedout'); } catch {} return; } await r.fallback(); });
+      const p = await ctx.newPage(), errs = watch(p);
+      await S.t('عامل الخدمة: الموقع لا يرد مباشرة ⇒ الصفحة وملفاتها تُجلب عبر الخادم، واللوحة تفتح', async () => {
+        await p.goto(base + '/teacher-dashboard/'); await p.evaluate(t => localStorage.setItem('hwapp_tok_v1', t), TOKEN); await p.reload();
+        await p.waitForFunction(() => typeof getApi === 'function' && getApi(), null, { timeout: 30000 });
+        await p.evaluate(async () => { await navigator.serviceWorker.register('./sw.js?api=' + encodeURIComponent(getApi().replace(/\/+$/, '')), { scope: './' }); await navigator.serviceWorker.ready; });
+        await p.reload(); await p.waitForTimeout(2500); ok(await p.evaluate(() => !!navigator.serviceWorker.controller), 'عامل الخدمة لا يتحكم');
+        cut = true; log.length = 0; await p.reload({ timeout: 60000 }); await p.waitForTimeout(9000);
+        ok(await p.evaluate(() => typeof goTab === 'function'), 'اللوحة لم تفتح');
+        ok(log.some(x => /p=\/teacher-dashboard\/(index\.html)?$/.test(x)), 'الصفحة لم تُجلب عبر الخادم: ' + JSON.stringify(log.slice(0, 4)));
+        cut = false; eq(errs, [], 'أخطاء'); });
+      await ctx.close(); }
     // ── 📱 زر «تحديث الآن»: فحص علق (تطبيق iPhone بعد الاستئناف) يُعاد بعد المهلة فيظهر الزر بلا تغيير الشبكة ──
     { const ctx = await newCtx({ viewport: { width: 390, height: 844 } }); let armed = 0, failAll = false;
+      let failSite = false;
+      await ctx.route(/\/site\?h=/, async r => { if (failSite) { try { await r.abort('connectionreset'); } catch {} return; } await r.fallback(); });
       await ctx.route(/teacher-dashboard\/\?_sw=/, async r => {
         if (failAll) { try { await r.abort('connectionreset'); } catch {} return; }
         if (!armed) { try { await r.continue(); } catch {} return; }
@@ -340,20 +359,23 @@ export default async function run() {
       const p = await ctx.newPage(), errs = watch(p);
       await S.t('زر «تحديث الآن»: فحص الإصدار العالق يُلغى بعد مهلة ويُعاد، فيظهر الزر (لا يحتاج إطفاء الواي فاي)', async () => {
         await p.goto(base + '/teacher-dashboard/'); await p.evaluate(t => localStorage.setItem('hwapp_tok_v1', t), TOKEN); await p.reload(); await dashReady(p);
-        armed = 1; await p.evaluate(() => dispatchEvent(new Event('online')));
+        armed = 1; failSite = true; await p.evaluate(() => dispatchEvent(new Event('online')));   // الطريق عبر الخادم معطّل هنا: نختبر إعادة المحاولة المباشرة
         await p.waitForTimeout(4000); ok(!(await p.$('#dash-upd')), 'ظهر قبل الأوان');
-        await p.waitForSelector('#dash-upd', { timeout: 20000 }); ok(armed >= 3, 'لم يُعد الفحص');
+        await p.waitForSelector('#dash-upd', { timeout: 20000 }); ok(armed >= 3, 'لم يُعد الفحص'); failSite = false;
         ok(await p.evaluate(() => /الإصدار v\d+\.\d+\.\d+/.test(document.querySelector('#main-nav [data-appver]').textContent) && /يوجد إصدار أحدث/.test(document.querySelector('#main-nav [data-appver]').textContent)), 'رقم الإصدار وحالته'); eq(errs, [], 'أخطاء'); });
       await S.t('رقم الإصدار: «اضغط للتحقق» ← «أحدث إصدار» حين لا جديد، ويظهر في «المزيد»', async () => {
         armed = 0; await p.goto(base + '/teacher-dashboard/'); await dashReady(p);
         await p.evaluate(() => window.appVerCheck()); await p.waitForFunction(() => /أحدث إصدار/.test(document.querySelector('#main-nav [data-appver]').textContent), null, { timeout: 15000 });
         await p.evaluate(() => document.querySelector('[data-simp-more]').click()); await p.waitForTimeout(300);
         ok(await p.evaluate(() => /الإصدار .*أحدث إصدار/.test((document.querySelector('.simp-sh-ver') || {}).textContent || '')), 'في «المزيد»'); eq(errs, [], 'أخطاء'); });
-      await S.t('رقم الإصدار: فشل التحقق يشغّل التشخيص (سبب الفشل + الموقع + خادم البيانات + ملف)', async () => {
+      await S.t('رقم الإصدار: الموقع لا يرد مباشرة ⇒ يُتحقق عبر الخادم؛ وإن فشل الاثنان يظهر التشخيص', async () => {
         failAll = true; await p.evaluate(() => window.appVerCheck());
+        await p.waitForFunction(() => /أحدث إصدار/.test(document.querySelector('#main-nav [data-appver]').textContent), null, { timeout: 15000 });
+        eq(await p.evaluate(() => APPVER.via), 'server', 'الموقع لا يرد مباشرة: يجب أن يُتحقق عبر الخادم');
+        failSite = true; await p.evaluate(() => window.appVerCheck());
         await p.waitForFunction(() => /الفحص: .*م\.ث/.test(document.querySelector('#main-nav [data-appver]').textContent) && /خادم البيانات: ✓/.test(document.querySelector('#main-nav [data-appver]').textContent), null, { timeout: 25000 });
         const t = await p.evaluate(() => document.querySelector('#main-nav [data-appver]').textContent);
-        ok(/تعذّر التحقق/.test(t) && /موقع اللوحة: ✓/.test(t) && /ملف من الموقع: ✓/.test(t), t.slice(0, 300)); failAll = false; eq(errs, [], 'أخطاء'); });
+        ok(/تعذّر التحقق/.test(t) && /موقع اللوحة: ✓/.test(t) && /ملف من الموقع: ✓/.test(t), t.slice(0, 300)); failAll = false; failSite = false; eq(errs, [], 'أخطاء'); });
       await ctx.close(); }
     // ── ⏳ التحميل المؤجَّل: زر يُضغط قبل وصول الجزء المؤجَّل يعمل بعد وصوله ──
     { const ctx = await newCtx({ viewport: { width: 390, height: 844 } }); await ctx.route(/-lazy\.js|30-noor-export/, async r => { await new Promise(x => setTimeout(x, 9000)); try { await r.continue(); } catch {} });

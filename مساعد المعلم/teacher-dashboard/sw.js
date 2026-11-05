@@ -3,7 +3,7 @@
    فتُفتح اللوحة فورًا من الجهاز ويُجلب الإصدار الأحدث في الخلفية.
    بيانات الطلاب والدرجات والتسليمات لا تُحفظ إطلاقًا: تُجلب دائمًا من الخادم (نطاق آخر لا يمرّ هنا).
    لا يحتوي أي سر: المفتاح العام يُجلب من الخادم، والخاص لا يغادر Cloudflare. */
-const SW_VERSION = 'push-v2+static-v5';
+const SW_VERSION = 'push-v2+static-v6';
 const STATIC = 'dash-static-v2';   // v2: يمسح ما حُفظ قبل التحقق من البصمة (قد يكون فيه ملف قديم بعنوان جديد)
 const SCOPE = new URL(self.registration ? self.registration.scope : './', self.location.href);
 const PAGE_KEY = new URL('index.html', SCOPE).href;
@@ -20,6 +20,16 @@ async function verOk(url, res){
     return [...d.slice(0, 4)].map(x => x.toString(16).padStart(2, '0')).join('') === v;
   } catch (e) { return true; }
 }
+/* 🛰️ بعض شبكات الواي فاي لا يصل فيها تطبيق الآيفون لموقعه (*.pages.dev) ويصل لخادم البيانات: الطلب المباشر بمهلة،
+   وإن علق أو فشل يُجلب الملف نفسه عبر الخادم (/site — مواقعنا فقط). على الشبكات السليمة لا يتغير شيء */
+function timed(url, opt, ms){ const ac = new AbortController(), t = setTimeout(() => ac.abort(), ms); return fetch(url, { ...(opt || {}), signal: ac.signal }).finally(() => clearTimeout(t)); }
+async function viaServer(u){
+  const api = new URL(self.location.href).searchParams.get('api') || ''; if (!api) throw new Error('no api');
+  const x = new URL(u, self.location.href), r = await fetch(`${api}/site?h=${encodeURIComponent(x.host)}&p=${encodeURIComponent(x.pathname + x.search)}`, { cache: 'no-store' });
+  if (!r.ok) throw new Error('site ' + r.status);
+  return new Response(await r.arrayBuffer(), { status: 200, headers: { 'Content-Type': r.headers.get('Content-Type') || 'application/octet-stream' } });
+}
+async function fetchSite(u, opt){ try { const r = await timed(u, opt, 6000); if (r.ok) return r; throw new Error('http ' + r.status); } catch (e) { return viaServer(u); } }
 async function notifyUpdate(){
   const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
   for (const c of all) c.postMessage({ type: 'dash-update' });
@@ -28,14 +38,15 @@ async function notifyUpdate(){
 async function syncAssets(html){
   const cache = await caches.open(STATIC);
   const want = new Set([...html.matchAll(/(?:href|src)="([^"]+\?v=[^"]+)"/g)].map(m => new URL(m[1], PAGE_KEY).href));
-  await Promise.all([...want].map(async u => { if (!(await cache.match(u))) { try { const r = await fetch(u, { cache: 'no-cache' }); if (r.ok && await verOk(u, r)) await cache.put(u, r); } catch {} } }));
+  await Promise.all([...want].map(async u => { if (!(await cache.match(u))) { try { const r = await fetchSite(u, { cache: 'no-cache' }); if (r.ok && await verOk(u, r)) await cache.put(u, r); } catch {} } }));
   for (const req of await cache.keys()) { const u = new URL(req.url); if (u.search.includes('v=') && !want.has(req.url)) await cache.delete(req); }
 }
 async function pageFromNetwork(request, oldP, waitUntil, servedFresh){
   /* ?_sw= فريد يتجاوز نسخة الاستضافة المؤقتة (CDN): كانت تعيد الصفحة القديمة دقائق بعد الرفع، فلا يصل التحديث لبعض الأجهزة */
   const fresh = new URL(request.url); fresh.searchParams.set('_sw', Date.now().toString(36));
-  const res = await fetch(fresh.href, { cache: 'no-store', credentials: 'same-origin' });   // طلب «تنقّل» لا يُعاد بخيارات جديدة — نطلبه بعنوانه
-  if (res.ok && res.type === 'basic') {
+  let res; try { res = await timed(fresh.href, { cache: 'no-store', credentials: 'same-origin' }, 6000); if (!res.ok) throw 0; }   // طلب «تنقّل» لا يُعاد بخيارات جديدة — نطلبه بعنوانه
+  catch (e) { const v = await viaServer(new URL(request.url).pathname); res = new Response(await v.text(), { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } }); }
+  if (res.ok && (res.type === 'basic' || res.type === 'default')) {
     const copy = res.clone();                      // قبل أي انتظار: الصفحة تُسلَّم والحفظ يكمل في الخلفية
     const work = (async () => {
       const txt = await copy.text();
@@ -78,7 +89,7 @@ self.addEventListener('fetch', event => {
     const cache = await caches.open(STATIC);
     const hit = await cache.match(req);
     if (hit && u.search.includes('v=')) return hit;            // ملف بإصدار ثابت: لا يتغير أبدًا
-    const net = fetch(req, { cache: 'no-cache' }).then(async r => { if (r.ok && r.type === 'basic' && await verOk(req.url, r)) cache.put(req, r.clone()); return r; });
+    const net = fetchSite(req.url, { cache: 'no-cache' }).then(async r => { if (r.ok && (r.type === 'basic' || r.type === 'default') && await verOk(req.url, r)) cache.put(req, r.clone()); return r; });
     if (hit) { event.waitUntil(net.catch(() => {})); return hit; }
     return net;
   })());

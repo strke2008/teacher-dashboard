@@ -5994,6 +5994,17 @@ export default {
       const at = Date.now(); await env.HW.put('app:force', String(at)); return json({ ok: true, at });
     }
 
+    /* 🛰️ ملفات الموقع عبر الخادم: تطبيق الآيفون على بعض شبكات الواي فاي لا يصل لموقعه (*.pages.dev) وإن وصل له سفاري،
+       بينما يصل لهذا الخادم — فيجلب منه الصفحة وملفاتها (فحص الإصدار والتحديث). مواقعنا فقط، ومجلدا اللوحة والبوابة فقط */
+    if (url.pathname === '/site' && request.method === 'GET') {
+      const hosts = ['homwork.pages.dev', 'homework-dash.pages.dev', 'mosaed.pages.dev', ...String(env.SITE_HOSTS || '').split(',').map(s => s.trim()).filter(Boolean)];
+      const h = String(url.searchParams.get('h') || ''), p = String(url.searchParams.get('p') || '');
+      if (!hosts.includes(h) || !/^\/(teacher-dashboard|student-portal)\/[\w\-./]*(\?[\w=&.%-]*)?$/.test(p) || p.includes('..')) return json({ ok: false, error: 'bad_site' }, 400);
+      try {
+        const r = await fetch((env.SITE_TEST_BASE || `https://${h}`) + p, { headers: { 'Cache-Control': 'no-cache' }, cf: { cacheTtl: 0 } });
+        return new Response(await r.arrayBuffer(), { status: r.status, headers: { 'Content-Type': r.headers.get('Content-Type') || 'application/octet-stream', 'Cache-Control': 'no-store', ...CORS } });
+      } catch { return json({ ok: false, error: 'site_unreachable' }, 502); }
+    }
     /* 🔎 بصمة النسخة: تكشف فورًا إن كان الخادم المنشور قديمًا.
        النسخة القديمة لا تعرف هذا المسار، فغيابه هو الجواب. */
     if (url.pathname === '/version') {
