@@ -428,28 +428,110 @@
     custRow.appendChild(setBtn); custRow.appendChild(custBtn);
     box.appendChild(custRow);
     scroll.insertBefore(box, scroll.firstChild);
+    /* 🗂️ القائمة الجانبية بالأقسام: عنوان ثابت لكل قسم وتحته صفحاتك المختارة منه؛
+       المخفية تحت «+N» (تُفتح مؤقتًا)، والصفحة المفتوحة الآن تظهر في قسمها ولو لم تكن مختارة.
+       التخصيص داخل القائمة نفسها: مفتاح لكل صفحة وسحب ⋮⋮ للترتيب داخل القسم. */
+    var editMode = false, openHid = {};
+    function curKey(){ var on = document.querySelector('#main-nav .tab.on'); return on ? keyOf(on.dataset.tab, on.dataset.view || null) : ''; }
+    function pageRow(p, k, cls){
+      var info = origLabel(p[0], p[1]);
+      var b = mkBtn('simp-sec' + (cls ? ' ' + cls : ''), '<span class="simp-ic">'+icoOf(info.icon)+'</span><span class="simp-lb">'+info.label+'</span>');
+      b.setAttribute('data-simp-pin', k);
+      b.addEventListener('click', function(){ activate(p[0], p[1]); });
+      return b;
+    }
+    function setPinned(k, on){
+      var cur = loadPins(), i = cur.indexOf(k);
+      if(on && i < 0){
+        var sec = sectionOf.apply(null, parseKey(k)), last = -1;
+        cur.forEach(function(x, j){ var s2 = sectionOf.apply(null, parseKey(x)); if(s2 && sec && s2.key === sec.key) last = j; });
+        if(last >= 0) cur.splice(last + 1, 0, k); else cur.push(k);
+      }
+      if(!on && i >= 0) cur.splice(i, 1);
+      commitPins(cur); renderSidebarPins(); renderBar();
+    }
+    function reorderSection(keys){   // ترتيب المختارة داخل قسم: تُستبدل مواضعها في الترتيب العام بالترتيب الجديد
+      var cur = loadPins(), set = {}; keys.forEach(function(k){ set[k] = 1; });
+      var slots = []; cur.forEach(function(k, i){ if(set[k]) slots.push(i); });
+      var want = keys.filter(function(k){ return cur.indexOf(k) >= 0; });
+      slots.forEach(function(pos, j){ cur[pos] = want[j]; });
+      commitPins(cur); renderBar();
+    }
+    function dragify(handle, row, list){
+      handle.addEventListener('pointerdown', function(e){
+        e.preventDefault(); e.stopPropagation(); row.classList.add('drag');
+        function mv(ev){
+          var rows = [].slice.call(list.querySelectorAll('.simp-edit-row.pinned'));
+          for(var i = 0; i < rows.length; i++){ var r = rows[i]; if(r === row) continue; var bx = r.getBoundingClientRect(), mid = bx.top + bx.height / 2;
+            var pos = row.compareDocumentPosition(r);
+            if(ev.clientY < mid && (pos & 2)){ list.insertBefore(row, r); return; }                 // r فوقه: اصعد
+            if(ev.clientY > mid && (pos & 4)){ list.insertBefore(row, r.nextElementSibling); return; } }   // r تحته: انزل
+        }
+        function up(){ window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up); row.classList.remove('drag');
+          reorderSection([].slice.call(list.querySelectorAll('.simp-edit-row.pinned')).map(function(r){ return r.getAttribute('data-simp-edit'); })); }
+        // على النافذة: نقل الصف داخل القائمة يُسقط التقاط المؤشر عن المقبض
+        window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
+      });
+    }
+    function editRow(p, k, pinned, list){
+      var info = origLabel(p[0], p[1]);
+      var r = document.createElement('div'); r.className = 'simp-edit-row' + (pinned ? ' pinned' : ''); r.setAttribute('data-simp-edit', k);
+      r.innerHTML = '<span class="simp-drag" title="اسحب للترتيب">⋮⋮</span><span class="simp-ic">'+icoOf(info.icon)+'</span><span class="simp-lb">'+info.label+'</span>'
+        + '<button type="button" class="simp-tog'+(pinned ? ' on' : '')+'" role="switch" aria-checked="'+pinned+'" aria-label="إظهار '+info.label+'"></button>';
+      r.querySelector('.simp-tog').addEventListener('click', function(){ setPinned(k, !pinned); });
+      if(pinned) dragify(r.querySelector('.simp-drag'), r, list);
+      return r;
+    }
     function renderSidebarPins(){
       while(pinWrap.firstChild) pinWrap.removeChild(pinWrap.firstChild);
-      var title = document.createElement('div');
-      title.className = 'simp-grp-title';
-      title.textContent = '📌 صفحاتك';
-      pinWrap.appendChild(title);
-      var pins = pinnedPages();
-      if(!pins.length){
-        var hint = document.createElement('div');
-        hint.className = 'simp-hint';
-        hint.textContent = 'لا صفحات مثبّتة — افتح «المزيد» ثم «تخصيص القائمة» واختر ما يظهر هنا.';
-        pinWrap.appendChild(hint);
+      pinWrap.classList.toggle('editing', editMode);
+      var pinsArr = loadPins(), pinSet = {}; pinsArr.forEach(function(k){ pinSet[k] = 1; });
+      var cur = curKey();
+      if(editMode){
+        var h = document.createElement('div'); h.className = 'simp-edit-hint';
+        h.textContent = 'شغّل الصفحات اللي تبيها تظهر، ورتّبها بسحب النقاط ⋮⋮ اللي جنب كل صفحة.'; pinWrap.appendChild(h);
       }
-      pins.forEach(function(p){
-        var info = origLabel(p.tab, p.view);
-        var b = mkBtn('simp-sec', '<span class="simp-ic">'+icoOf(info.icon)+'</span><span class="simp-lb">'+info.label+'</span>');
-        b.setAttribute('data-simp-pin', keyOf(p.tab, p.view));
-        b.addEventListener('click', function(){ activate(p.tab, p.view); });
-        pinWrap.appendChild(b);
+      SECTIONS.forEach(function(sec){
+        if(sec.key === 'settings') return;                     // للإعدادات زرها تحت
+        var ordered = pinsArr.filter(function(k){ var s2 = sectionOf.apply(null, parseKey(k)); return s2 && s2.key === sec.key; });
+        var hidden = sec.pages.filter(function(pg){ return !pinSet[keyOf(pg[0], pg[1])]; });
+        var list = document.createElement('div'); list.className = 'simp-gl';
+        if(sec.key !== 'home'){
+          var gh = document.createElement('div'); gh.className = 'simp-gh'; gh.setAttribute('data-simp-gh', sec.key);
+          gh.innerHTML = '<span>'+icoOf(sec.icon)+'</span><span class="simp-gh-t">'+sec.label+'</span>';
+          if(!editMode && hidden.length){
+            var pill = mkBtn('simp-hid' + (openHid[sec.key] ? ' open' : ''), (openHid[sec.key] ? '−' : '+') + hidden.length);
+            pill.setAttribute('data-simp-hid', sec.key);
+            pill.setAttribute('aria-label', (openHid[sec.key] ? 'إخفاء' : 'إظهار') + ' ' + hidden.length + ' صفحات مخفية من ' + sec.label);
+            pill.addEventListener('click', function(){ openHid[sec.key] = !openHid[sec.key]; renderSidebarPins(); sync(); });
+            gh.appendChild(pill);
+          }
+          pinWrap.appendChild(gh);
+        }
+        if(editMode){
+          var keysInOrder = ordered.concat(sec.pages.map(function(pg){ return keyOf(pg[0], pg[1]); }).filter(function(k){ return !pinSet[k]; }));
+          keysInOrder.forEach(function(k){ list.appendChild(editRow(parseKey(k), k, !!pinSet[k], list)); });
+        }else{
+          ordered.forEach(function(k){ list.appendChild(pageRow(parseKey(k), k)); });
+          hidden.forEach(function(pg){ var k = keyOf(pg[0], pg[1]);
+            if(openHid[sec.key] || k === cur) list.appendChild(pageRow(pg, k, 'simp-temp')); });
+          if(sec.key !== 'home' && !list.childNodes.length){ var e = document.createElement('div'); e.className = 'simp-gh-empty'; e.textContent = 'لا صفحات مختارة — اضغط الرقم'; list.appendChild(e); }
+        }
+        pinWrap.appendChild(list);
       });
+      if(editMode){
+        var mob = mkBtn('simp-mob-order', '📱 ترتيب شريط الجوال السفلي');
+        mob.addEventListener('click', openCustomize); pinWrap.appendChild(mob);
+      }
+      custBtn.innerHTML = icoOf(editMode ? '✅' : '✏️') + (editMode ? ' تم' : ' تخصيص القائمة');
+      custBtn.classList.toggle('done', editMode);
       paintBadges();
     }
+    custBtn.removeEventListener('click', openCustomize);
+    custBtn.addEventListener('click', function(){
+      if(window.innerWidth <= 700 && !editMode){ openCustomize(); return; }   // الجوال: ورقة التخصيص كما هي
+      editMode = !editMode; openHid = {}; renderSidebarPins(); sync();
+    });
 
     // ---- الشريط السفلي (جوال): أول 4 مثبّتات + المزيد ----
     var bar = document.getElementById('simp-bottomnav') || document.createElement('nav');   // موجود في الصفحة (بآخر شكل محفوظ)
@@ -494,12 +576,15 @@
       var restSide = 0, restBar = 0;
       Object.keys(m).forEach(function(k){ if(!sideKeys[k]) restSide += m[k] || 0; if(!barKeys[k]) restBar += m[k] || 0; });
       putBadge(moreBtn, restSide, 'proj-badge-in');
+      box.querySelectorAll('[data-simp-hid]').forEach(function(el){ var sec = sectionByKey(el.getAttribute('data-simp-hid')), n = 0;
+        if(sec) sec.pages.forEach(function(pg){ var k = keyOf(pg[0], pg[1]); if(!sideKeys[k]) n += m[k] || 0; }); putBadge(el, n, 'proj-badge-in'); });
       if(barMoreBtn) putBadge(barMoreBtn, restBar, 'proj-badge');
       document.querySelectorAll('#simp-sheet [data-simp-key], #simp-strip [data-simp-key]').forEach(function(el){ putBadge(el, m[el.getAttribute('data-simp-key')] || 0, 'proj-badge-in'); });
     }
     window.simpNavBadges = paintBadges;
 
     // ---- المزامنة: أي تبديل أصلي يحدّث النشط والشريط والذاكرة ----
+    var lastCur = '';
     function sync(){
       var on = document.querySelector('#main-nav .tab.on');
       if(!on) return;
@@ -507,6 +592,7 @@
       var sec = sectionOf(tab, view);
       if(sec) saveLast(sec.key, tab, view);
       var cur = keyOf(tab, view);
+      if(!editMode && cur !== lastCur){ lastCur = cur; renderSidebarPins(); }
       box.querySelectorAll('[data-simp-pin]').forEach(function(b){
         b.classList.toggle('on', b.getAttribute('data-simp-pin') === cur);
       });
@@ -520,7 +606,7 @@
     }
     /* آخر شكل للشريطين يُحفظ ليُعرض فورًا في الفتح التالي قبل تحميل السكربتات (بعد أن تأخذ الأزرار أيقوناتها) */
     var snapT = 0;
-    function snapSoon(){ clearTimeout(snapT); snapT = setTimeout(function(){ try{ localStorage.setItem('simp_snap_v1', JSON.stringify({ bar: bar.innerHTML, side: box.innerHTML, at: Date.now() })); }catch(e){} }, 700); }
+    function snapSoon(){ clearTimeout(snapT); snapT = setTimeout(function(){ if(editMode) return; try{ localStorage.setItem('simp_snap_v1', JSON.stringify({ bar: bar.innerHTML, side: box.innerHTML, at: Date.now() })); }catch(e){} }, 700); }
     renderSidebarPins();
     renderBar();
     var obs = new MutationObserver(function(muts){

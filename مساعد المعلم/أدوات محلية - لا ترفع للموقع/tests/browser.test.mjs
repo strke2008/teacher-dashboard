@@ -30,6 +30,25 @@ export default async function run() {
         await p.goto(base + '/teacher-dashboard/'); await p.evaluate(t => localStorage.setItem('hwapp_tok_v1', t), TOKEN); await p.reload(); await p.waitForTimeout(5000);
         eq(errs, [], 'أخطاء'); });
       await S.t('كلمة السر تُستبدل بجلسة الجهاز', async () => { ok(String(await p.evaluate(() => localStorage.getItem('hwapp_tok_v1'))).startsWith('ts1.'), 'ما زالت كلمة السر محفوظة'); });
+      await S.t('🗂️ القائمة بالأقسام: عناوين ثابتة، «+N» يُظهر المخفي، والتخصيص داخل القائمة (مفتاح + سحب)', async () => {
+        const pins = () => p.evaluate(() => (JSON.parse(localStorage.getItem('simp_pins_v1') || 'null') || { pins: [] }).pins);
+        const old = await p.evaluate(() => localStorage.getItem('simp_pins_v1'));
+        ok(await p.evaluate(() => ['teach', 'students', 'exams', 'reports', 'contact'].every(k => document.querySelector(`#simp-nav [data-simp-gh="${k}"]`))), 'عناوين الأقسام');
+        const hid = await p.evaluate(() => document.querySelector('#simp-nav [data-simp-hid="exams"]').textContent.trim()); ok(/^\+\d+$/.test(hid), 'الرقم ' + hid);
+        await p.evaluate(() => document.querySelector('#simp-nav [data-simp-hid="exams"]').click());
+        ok(await p.evaluate(() => !!document.querySelector('#simp-nav .simp-temp[data-simp-pin="nafs"]')), 'لم يظهر المخفي');
+        await p.evaluate(() => document.querySelector('.simp-cust-row .simp-customize:not(.simp-settings)').click());
+        ok(await p.evaluate(() => document.querySelectorAll('#simp-nav .simp-edit-row').length >= 18), 'وضع التخصيص');
+        await p.evaluate(() => document.querySelector('[data-simp-edit="nafs"] .simp-tog').click());
+        ok((await pins()).includes('nafs'), 'التشغيل لم يُحفظ');
+        await p.evaluate(() => document.querySelector('[data-simp-edit="classtools:exams"] .simp-tog').click());
+        await p.evaluate(() => document.querySelector('[data-simp-edit="classtools:exams"] .simp-tog').click());   // صار بعد نافس
+        const h = await (await p.$('[data-simp-edit="classtools:exams"] .simp-drag')).boundingBox(), t = await (await p.$('[data-simp-edit="nafs"]')).boundingBox();
+        await p.mouse.move(h.x + h.width / 2, h.y + h.height / 2); await p.mouse.down(); await p.mouse.move(h.x + h.width / 2, t.y + 3, { steps: 8 }); await p.mouse.up(); await p.waitForTimeout(200);
+        const q = await pins(); ok(q.indexOf('classtools:exams') < q.indexOf('nafs'), 'السحب لم يرتّب: ' + q.join(','));
+        await p.evaluate(() => document.querySelector('.simp-cust-row .simp-customize.done').click());
+        ok(await p.evaluate(() => !document.querySelector('#simp-nav .simp-edit-row') && !!document.querySelector('#simp-nav [data-simp-pin="nafs"]:not(.simp-temp)')), 'بعد «تم»');
+        await p.evaluate(o => { if (o) localStorage.setItem('simp_pins_v1', o); else localStorage.removeItem('simp_pins_v1'); }, old); eq(errs, [], 'أخطاء'); });
       await S.t('⚙️ زر الإعدادات بجانب «تخصيص القائمة» يفتح الإعدادات', async () => {
         ok(await p.evaluate(() => { const r = document.querySelector('#simp-nav .simp-cust-row'); return !!(r && r.querySelector('[data-simp-settings]') && /تخصيص القائمة/.test(r.textContent)); }), 'الزر بجانب التخصيص');
         await p.evaluate(() => document.querySelector('#simp-nav [data-simp-settings]').click()); await p.waitForTimeout(400);

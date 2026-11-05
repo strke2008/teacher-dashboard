@@ -71,3 +71,28 @@ body.simp-nav #main-nav .app-nav-group{display:none!important}
 .simp-sh-row{display:flex;gap:8px;margin-bottom:12px}
 .simp-sh-row .simp-sh-customize{flex:1;margin-bottom:0;text-align:center}
 .simp-sh-row .simp-sh-customize{border:1px solid var(--ui-border,#DCE5F0)}
+/* 🗂️ القائمة الجانبية بالأقسام (الخيار أ) */
+#simp-nav [data-simp-more]{display:none!important}
+.simp-gh{display:flex;align-items:center;gap:7px;padding:12px 10px 3px;color:var(--app-nav-muted,#91A4BD);font-size:.74rem;font-weight:800}
+.simp-gh .ico{width:15px;height:15px}
+.simp-gh-t{flex:1;min-width:0}
+.simp-hid{direction:ltr;unicode-bidi:isolate;appearance:none;border:0;cursor:pointer;font:inherit;font-size:.72rem;font-weight:800;line-height:1;padding:4px 9px;border-radius:999px;background:rgba(127,140,160,.14);color:var(--app-nav-text)!important;display:inline-flex;align-items:center;gap:4px}
+.simp-hid:hover{background:rgba(127,140,160,.24)}
+.simp-hid.open{background:var(--app-nav-text,#16233A);color:var(--app-nav-bg,#fff)!important}
+.simp-hid .simp-bdg{margin:0}
+.simp-gl .simp-sec{min-height:42px;padding:7px 11px;margin:1px 0}
+.simp-sec.simp-temp:not(.on){opacity:.62}
+.simp-gh-empty{padding:2px 12px 6px;color:var(--app-nav-muted,#91A4BD);font-size:.76rem}
+.simp-edit-hint{margin:2px 6px 4px;padding:8px 10px;border-radius:10px;background:rgba(15,157,116,.1);color:var(--app-nav-text);font-size:.76rem;line-height:1.6}
+.simp-edit-row{display:flex;align-items:center;gap:8px;min-height:40px;padding:5px 8px;margin:1px 0;border-radius:10px;color:var(--app-nav-text);font-size:.86rem;font-weight:700;background:transparent;user-select:none}
+.simp-edit-row:not(.pinned){color:var(--app-nav-muted,#91A4BD);font-weight:600}
+.simp-edit-row .simp-lb{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.simp-edit-row .simp-ic .ico{width:17px;height:17px}
+.simp-drag{cursor:grab;color:var(--app-nav-muted,#91A4BD);font-size:.8rem;letter-spacing:-2px;padding:4px 2px;touch-action:none}
+.simp-edit-row:not(.pinned) .simp-drag{visibility:hidden}
+.simp-edit-row.drag{background:rgba(127,140,160,.16);box-shadow:0 4px 14px rgba(0,0,0,.12)}
+.simp-tog{appearance:none;flex:0 0 auto;width:36px;height:20px;border:0;border-radius:999px;background:#C6D0DC;position:relative;cursor:pointer;padding:0}
+.simp-tog::after{content:'';position:absolute;top:2px;right:2px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:right .15s}
+.simp-tog.on{background:#0F9D74}.simp-tog.on::after{right:18px}
+.simp-mob-order{appearance:none;width:100%;margin:10px 0 0;padding:8px 10px;border:1px dashed rgba(127,140,160,.45);border-radius:10px;background:transparent;color:var(--app-nav-text)!important;font:inherit;font-size:.78rem;font-weight:700;cursor:pointer}
+.simp-cust-row .simp-customize.done{background:var(--app-nav-text,#16233A);color:var(--app-nav-bg,#fff)!important}
