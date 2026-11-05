@@ -202,3 +202,5 @@ summary .ico,h3 .ico,h4 .ico,b .ico{color:var(--ui-accent)}
 .simp-sh-ver{align-items:center;width:100%;margin:10px 0 0;padding:10px 0;border-top:1px solid var(--ui-border);font-size:.78rem}
 .app-sidebar-head{flex-wrap:wrap}
 .app-sidebar-head .app-ver{flex:1 0 100%;flex-direction:row;flex-wrap:wrap;align-items:center;gap:2px 8px;margin-top:4px}
+
+/* v1.0.8: تجربة «لازم آخر نسخة» — تحديث بلا تغيير في الشكل */
