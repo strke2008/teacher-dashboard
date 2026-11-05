@@ -331,8 +331,9 @@ export default async function run() {
         ok(await p.evaluate(() => getComputedStyle(document.getElementById('main-nav')).display !== 'none'), 'القائمة لم تعد بعد الخروج'); eq(errs, [], 'أخطاء'); });
       await ctx.close(); }
     // ── 🛰️ عامل الخدمة: موقع اللوحة لا يرد مباشرة (تطبيق الآيفون على بعض شبكات الواي فاي) ⇒ الصفحة وملفاتها عبر الخادم ──
-    { const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'allow' }); const log = []; let cut = false;
+    { const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'allow' }); const log = []; let cut = false, oldWorker = false;
       await ctx.route(u => /workers\.dev$/.test(u.hostname), async r => { const u = new URL(r.request().url()); if (u.pathname === '/site') log.push(decodeURIComponent(u.search));
+        if (oldWorker && u.pathname === '/site') return r.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true,"service":"homework","paths":["/publish"]}' }).catch(() => {});   // خادم قديم لا يعرف /site
         try { await r.fulfill({ response: await r.fetch({ url: 'http://localhost:' + WP + u.pathname + u.search }) }); } catch { try { await r.abort(); } catch {} } });
       await ctx.route(new RegExp('localhost:' + SP + '/teacher-dashboard/'), async r => { if (cut) { try { await r.abort('timedout'); } catch {} return; } await r.fallback(); });
       const p = await ctx.newPage(), errs = watch(p);
@@ -345,6 +346,13 @@ export default async function run() {
         ok(await p.evaluate(() => typeof goTab === 'function'), 'اللوحة لم تفتح');
         ok(log.some(x => /p=\/teacher-dashboard\/(index\.html)?$/.test(x)), 'الصفحة لم تُجلب عبر الخادم: ' + JSON.stringify(log.slice(0, 4)));
         cut = false; eq(errs, [], 'أخطاء'); });
+      await S.t('عامل الخدمة: خادم قديم يردّ بقائمة JSON ⇒ لا تُعرض ولا تُحفظ مكان اللوحة (تفتح من المحفوظة)', async () => {
+        cut = true; oldWorker = true; await p.reload({ timeout: 60000 }); await p.waitForTimeout(8000);
+        ok(!/"service":"homework"/.test(await p.evaluate(() => document.body.innerText.slice(0, 500))), 'عُرضت قائمة الخادم');
+        ok(await p.evaluate(() => typeof goTab === 'function'), 'اللوحة لم تفتح');
+        cut = false; oldWorker = false; await p.reload(); await p.waitForTimeout(2500);
+        ok(await p.evaluate(async () => /<html[\s>]/i.test(await (await (await caches.open('dash-static-v3')).match(new URL('index.html', location.href).href)).text())), 'حُفظ غير صفحة');
+        eq(errs, [], 'أخطاء'); });
       await ctx.close(); }
     // ── 📱 زر «تحديث الآن»: فحص علق (تطبيق iPhone بعد الاستئناف) يُعاد بعد المهلة فيظهر الزر بلا تغيير الشبكة ──
     { const ctx = await newCtx({ viewport: { width: 390, height: 844 } }); let armed = 0, failAll = false;

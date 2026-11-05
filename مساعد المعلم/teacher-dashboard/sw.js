@@ -3,8 +3,8 @@
    فتُفتح اللوحة فورًا من الجهاز ويُجلب الإصدار الأحدث في الخلفية.
    بيانات الطلاب والدرجات والتسليمات لا تُحفظ إطلاقًا: تُجلب دائمًا من الخادم (نطاق آخر لا يمرّ هنا).
    لا يحتوي أي سر: المفتاح العام يُجلب من الخادم، والخاص لا يغادر Cloudflare. */
-const SW_VERSION = 'push-v2+static-v6';
-const STATIC = 'dash-static-v2';   // v2: يمسح ما حُفظ قبل التحقق من البصمة (قد يكون فيه ملف قديم بعنوان جديد)
+const SW_VERSION = 'push-v2+static-v7';
+const STATIC = 'dash-static-v3';   // v3: يمسح ما حُفظ من ردّ خادم قديم (قائمة JSON) مكان الصفحة أو الخطوط   // v2: يمسح ما حُفظ قبل التحقق من البصمة (قد يكون فيه ملف قديم بعنوان جديد)
 const SCOPE = new URL(self.registration ? self.registration.scope : './', self.location.href);
 const PAGE_KEY = new URL('index.html', SCOPE).href;
 const isStaticFile = u => /\.(css|js|webmanifest|png|jpe?g|svg|webp|ico|woff2?)$/i.test(u.pathname) && !/\/sw\.js$/i.test(u.pathname);
@@ -27,7 +27,11 @@ async function viaServer(u){
   const api = new URL(self.location.href).searchParams.get('api') || ''; if (!api) throw new Error('no api');
   const x = new URL(u, self.location.href), r = await fetch(`${api}/site?h=${encodeURIComponent(x.host)}&p=${encodeURIComponent(x.pathname + x.search)}`, { cache: 'no-store' });
   if (!r.ok) throw new Error('site ' + r.status);
-  return new Response(await r.arrayBuffer(), { status: 200, headers: { 'Content-Type': r.headers.get('Content-Type') || 'application/octet-stream' } });
+  /* ⚠️ خادم قديم لا يعرف ‎/site‎ يردّ بقائمة JSON (200) — كانت تُعرض وتُحفظ مكان اللوحة. لا يُقبل إلا النوع المطلوب */
+  const ct = r.headers.get('Content-Type') || '', buf = await r.arrayBuffer(), path = x.pathname;
+  if (/json/i.test(ct) && !/\.(json|webmanifest)$/i.test(path)) throw new Error('not the file');
+  if ((path.endsWith('/') || /\.html?$/i.test(path)) && !/<html[\s>]/i.test(new TextDecoder().decode(buf.slice(0, 4096)))) throw new Error('not a page');
+  return new Response(buf, { status: 200, headers: { 'Content-Type': ct || 'application/octet-stream' } });
 }
 async function fetchSite(u, opt){ try { const r = await timed(u, opt, 6000); if (r.ok) return r; throw new Error('http ' + r.status); } catch (e) { return viaServer(u); } }
 async function notifyUpdate(){
@@ -67,7 +71,8 @@ self.addEventListener('fetch', event => {
   if (u.origin !== self.location.origin || !u.pathname.startsWith(SCOPE.pathname)) return;   // الخادم ونطاقات أخرى: لا نتدخل
   if (req.mode === 'navigate' && isPage(u)) {
     event.respondWith((async () => {
-      const cached = await caches.match(PAGE_KEY);
+      let cached = await caches.match(PAGE_KEY);
+      if (cached) { const t = await cached.clone().text(); if (!/<html[\s>]/i.test(t.slice(0, 4096))) { cached = null; try { await (await caches.open(STATIC)).delete(PAGE_KEY); } catch {} } }   // حُفظ غير صفحة: لا يُعرض
       // نأخذ نسخة من المحفوظ قبل تسليمه للصفحة — جسم الاستجابة لا يُقرأ مرتين
       let fresh = false;
       const net = pageFromNetwork(req, cached ? cached.clone().text() : Promise.resolve(null), p => { try { event.waitUntil(p); } catch {} }, () => fresh);

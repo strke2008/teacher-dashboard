@@ -15,6 +15,8 @@ for folder in ('teacher-dashboard', 'student-portal'):
     if folder == 'teacher-dashboard':
         mv = re.search(r'<meta name="app-version" content="(\d+)\.(\d+)\.(\d+)" data-code="([0-9a-f]{4})"/>', s2)
         body = re.sub(r'<meta name="app-version"[^>]*/>\n?', '', s2)
+        try: body += open(os.path.join(D, 'sw.js'), encoding='utf-8').read()   # عامل الخدمة ليس في الصفحة بـ ?v= لكنه جزء من الإصدار
+        except FileNotFoundError: pass
         code = hashlib.sha1(body.encode()).hexdigest()[:4]
         if not mv or mv.group(4) != code:
             a, b, n = (int(mv.group(1)), int(mv.group(2)), int(mv.group(3)) + 1) if mv else (1, 0, 1)
