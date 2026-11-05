@@ -9,6 +9,16 @@ export default async function run() {
 
   // ── 👩‍🎓 الطالب ──
   await S.t('المعلم ينشر نشاطًا', async () => { const r = await call('/publish', { method: 'POST', body: { t: TOKEN, id: 'act1', payload: ACT, silent: true } }); eq(r.s, 200, 'publish'); });
+  await S.t('⚡ النشر سريع: لا يعيد قراءة كل الأنشطة، وأسماء النشاط الجديد تدخل الفهرس', async () => {
+    const E = newEnv(), C = caller(W, E);
+    for (let i = 0; i < 30; i++) await E.HW.put('hw:old' + i, JSON.stringify({ t: 'قديم', s: ['قديم ' + i] }));
+    eq((await C('/publish', { method: 'POST', body: { t: TOKEN, id: 'p0', payload: { ...ACT, s: ['أول'] }, silent: true } })).s, 200, 'أول نشر يبني الفهرس');
+    ok(JSON.parse(await E.HW.get('idx:names')).includes('قديم 7'), 'البناء الكامل أول مرة');
+    const g = E.HW.get.bind(E.HW); let reads = 0; E.HW.get = (k, t) => { if (String(k).startsWith('hw:old')) reads++; return g(k, t); };
+    eq((await C('/publish', { method: 'POST', body: { t: TOKEN, id: 'p1', payload: { ...ACT, s: ['زائر جديد'] }, silent: true } })).s, 200, 'نشر');
+    E.HW.get = g; eq(reads, 0, 'قراءات الأنشطة القديمة');
+    ok(JSON.parse(await E.HW.get('idx:names')).includes('زائر جديد'), 'الاسم الجديد في الفهرس');
+  });
   await S.t('الطالب يفتح النشاط — بلا إجابات صحيحة', async () => {
     const r = await call('/hw?id=act1'); eq(r.s, 200); eq(r.j.q.length, 3);
     ok(r.j.q.every(q => !('a' in q)), 'الإجابة الصحيحة ظهرت للطالب!'); ok(!String(r.j.q[2].q).includes('الرياض'), 'جواب أكمل الفراغ ظاهر في السؤال');

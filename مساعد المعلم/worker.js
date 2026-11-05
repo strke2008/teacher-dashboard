@@ -1255,6 +1255,29 @@ function rosterHas(p, st) {
   return false;
 }
 
+/* ⚡ النشر: يضيف أسماء النشاط الجديد للفهرس بدل إعادة قراءة كل الأنشطة واحدًا واحدًا
+   (كانت تطول مع تراكم الأنشطة حتى صار النشر بطيئًا). بلا فهرس سابق ⇒ بناء كامل. */
+async function addNamesToIndex(env, payload) {
+  let arr = null;
+  try { arr = JSON.parse(await env.HW.get('idx:names') || 'null'); } catch {}
+  if (!Array.isArray(arr)) return rebuildNameIndex(env);
+  const names = new Set(arr), n0 = names.size, people = new Map();
+  try {
+    const st = await env.HW.get('tstate:main');
+    if (st) (JSON.parse(st).students || []).forEach(s => {
+      if (!s || !s.name) return;
+      names.add(s.name);
+      const id = String(s.id || '').trim();
+      if (id) people.set(id, { id, name: String(s.name).trim(), cls: String(s.cls || '') });
+    });
+  } catch {}
+  if (payload && !payload.personalRemedial) (payload.s || []).forEach(x => { if (x) names.add(x); });
+  if (names.size !== n0) await env.HW.put('idx:names', JSON.stringify([...names]));
+  const ps = JSON.stringify([...people.values()]);
+  if (ps !== await env.HW.get('idx:students')) await env.HW.put('idx:students', ps);
+  return [...names];
+}
+
 async function rebuildNameIndex(env) {
   const names = new Set();
   const people = new Map();   // id → {id,name,cls}
@@ -1268,10 +1291,12 @@ async function rebuildNameIndex(env) {
     });
   } catch {}
   const keys = await listAllKeys(env, 'hw:');
-  for (const key of keys) {
-    const v = await env.HW.get(key);
-    if (!v) continue;
-    try { const pv = JSON.parse(v); if (!pv.personalRemedial) (pv.s || []).forEach(x => names.add(x)); } catch {}
+  for (let i = 0; i < keys.length; i += 25) {   // ⚡ دفعات متوازية بدل قراءة كل نشاط وحده
+    const vals = await Promise.all(keys.slice(i, i + 25).map(k => env.HW.get(k).catch(() => null)));
+    for (const v of vals) {
+      if (!v) continue;
+      try { const pv = JSON.parse(v); if (!pv.personalRemedial) (pv.s || []).forEach(x => names.add(x)); } catch {}
+    }
   }
   const arr = [...names];
   await env.HW.put('idx:names', JSON.stringify(arr));
@@ -6399,7 +6424,7 @@ export default {
       let pubAt = Date.now(); if (!firstPublish) { try { pubAt = Number(JSON.parse(prevRaw).pubAt) || Number(b.payload.at) || 0; } catch { pubAt = Number(b.payload.at) || 0; } }
       if (b.payload && typeof b.payload === 'object' && pubAt) b.payload.pubAt = pubAt;
       await env.HW.put(`hw:${id}`, JSON.stringify(b.payload), { expirationTtl: 60 * 60 * 24 * 365 });
-      await rebuildNameIndex(env);          // 🗂️ حدّث فهرس الأسماء
+      await addNamesToIndex(env, b.payload);   // 🗂️ حدّث فهرس الأسماء (إضافة فقط — سريع)
       if (firstPublish && !b.silent) notifyStudentsOfActivity(env, ctx, id, { ...b.payload, id });   // 🔔 بعد الرد، لا يؤخر المعلم
       return json({ ok: true, id });
     }
@@ -10388,11 +10413,17 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         const students = Array.isArray(nextState.students) ? nextState.students : [];
         const assignments = Array.isArray(nextState.assignments) ? nextState.assignments : [];
 
+        // ⚡ اقرأ الأنشطة المنشورة بالتوازي (كانت تُقرأ واحدًا واحدًا مع كل حفظ)
+        const sids = [...new Set(assignments.map(h => String(h?.sid || '').trim()).filter(Boolean))], raws = new Map();
+        for (let i = 0; i < sids.length; i += 25) {
+          const part = sids.slice(i, i + 25), vals = await Promise.all(part.map(x => env.HW.get(`hw:${x}`).catch(() => null)));
+          part.forEach((x, j) => raws.set(x, vals[j]));
+        }
         for (const h of assignments) {
           const sid = String(h?.sid || '').trim();
           if (!sid) continue;
 
-          const raw = await env.HW.get(`hw:${sid}`);
+          const raw = raws.get(sid);
           if (!raw) continue;
 
           let p;
@@ -10439,7 +10470,8 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
         console.error('sync published rosters:', e);
       }
 
-      await rebuildNameIndex(env);          // 🗂️ حدّث فهرس الأسماء
+      // 🗂️ فهرس الأسماء بعد الرد: لا يؤخر حفظ المعلم
+      { const job = rebuildNameIndex(env).catch(e => console.error('name index:', e)); if (ctx && ctx.waitUntil) ctx.waitUntil(job); else await job; }
       return json({ ok: true, savedAt: stamp, stateAt });
     }
 

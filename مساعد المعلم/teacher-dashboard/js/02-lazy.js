@@ -5262,17 +5262,13 @@ async function openLink(id){
 
     // نجاح /publish هو نجاح نشر النشاط نفسه. مزامنة دفتر المعلم خطوة لاحقة؛
     // لا يجوز أن تحوّل تعثرها إلى رسالة «تعذّر النشر» بعد أن صار النشاط منشورًا.
-    let stateSynced = true;
-    try{
-      await pushStateNow();
-    }catch(stateErr){
-      stateSynced = false;
-      console.warn('publish activity: state sync after publish failed:', stateErr);
-    }
-
+    // ⚡ الرابط يظهر فور نجاح النشر، والمزامنة تكمل في الخلفية (كان المعلم ينتظرها).
     renderHw();
     showLinkModal(base + '/#' + h.sid, pool.length, publishContentCount(h), true);
-    if(!stateSynced) toast('تم نشر اللعبة على الخادم، لكن تعذر تحديث دفتر المزامنة مؤقتًا','bad');
+    pushStateNow().catch(stateErr=>{
+      console.warn('publish activity: state sync after publish failed:', stateErr);
+      toast('تم نشر النشاط على الخادم، لكن تعذر تحديث دفتر المزامنة مؤقتًا','bad');
+    });
   }catch(e){
     closeModal();
     if(e && e.message === 'unauthorized'){
