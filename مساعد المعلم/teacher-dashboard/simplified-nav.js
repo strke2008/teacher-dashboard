@@ -323,6 +323,7 @@
       note.className = 'simp-sh-note';
       note.textContent = 'اضغط على أي صفحة لتثبيتها في الشريط أو إلغاء تثبيتها. المثبّتة تظهر في الشريط مباشرة حسب ترتيبك، والباقي في «المزيد». على الجوال يظهر أول 4 صفحات مثبّتة حسب ترتيبك في الشريط السفلي.';
       sheet.appendChild(note);
+      if(window.innerWidth > 700) sheet.appendChild(styleToggle(function(){ if(navStyle() === 'sections'){ closeSheet(); editMode = true; renderSidebarPins(); } else openCustomize(); }));
       var statusEl = document.createElement('div');
       statusEl.className = 'simp-sh-status';
       statusEl.textContent = navStatus;
@@ -432,6 +433,26 @@
        المخفية تحت «+N» (تُفتح مؤقتًا)، والصفحة المفتوحة الآن تظهر في قسمها ولو لم تكن مختارة.
        التخصيص داخل القائمة نفسها: مفتاح لكل صفحة وسحب ⋮⋮ للترتيب داخل القسم. */
     var editMode = false, openHid = {};
+    // 🔀 شكل القائمة: «بالأقسام» (الجديد) أو «قائمة واحدة» (القديم) — يختاره المعلم، ويُحفظ على الجهاز
+    var STYLE_KEY = 'simp_style_v1';
+    function navStyle(){ try{ return localStorage.getItem(STYLE_KEY) === 'flat' ? 'flat' : 'sections'; }catch(e){ return 'sections'; } }
+    function styleToggle(after){
+      var w = document.createElement('div'); w.className = 'simp-style'; w.setAttribute('role', 'radiogroup'); w.setAttribute('aria-label', 'شكل القائمة');
+      w.innerHTML = '<span class="simp-style-t">شكل القائمة</span>';
+      [['sections', 'بالأقسام'], ['flat', 'قائمة واحدة']].forEach(function(o){
+        var b = mkBtn('simp-style-b' + (navStyle() === o[0] ? ' on' : ''), o[1]);
+        b.setAttribute('data-simp-style', o[0]); b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', String(navStyle() === o[0]));
+        b.addEventListener('click', function(){ try{ localStorage.setItem(STYLE_KEY, o[0]); }catch(e){} openHid = {}; lastCur = ''; renderSidebarPins(); sync(); if(after) after(); });
+        w.appendChild(b);
+      });
+      return w;
+    }
+    function renderFlat(){   // الشكل القديم كما كان: «📌 صفحاتك» + «المزيد»
+      var title = document.createElement('div'); title.className = 'simp-grp-title'; title.textContent = '📌 صفحاتك'; pinWrap.appendChild(title);
+      var pins = pinnedPages();
+      if(!pins.length){ var hint = document.createElement('div'); hint.className = 'simp-hint'; hint.textContent = 'لا صفحات مثبّتة — افتح «المزيد» ثم «تخصيص القائمة» واختر ما يظهر هنا.'; pinWrap.appendChild(hint); }
+      pins.forEach(function(p){ pinWrap.appendChild(pageRow([p.tab, p.view], keyOf(p.tab, p.view))); });
+    }
     function curKey(){ var on = document.querySelector('#main-nav .tab.on'); return on ? keyOf(on.dataset.tab, on.dataset.view || null) : ''; }
     function pageRow(p, k, cls){
       var info = origLabel(p[0], p[1]);
@@ -484,12 +505,16 @@
     }
     function renderSidebarPins(){
       while(pinWrap.firstChild) pinWrap.removeChild(pinWrap.firstChild);
+      var flat = navStyle() === 'flat'; if(flat) editMode = false;
+      box.classList.toggle('simp-flat', flat);
+      if(flat){ renderFlat(); custBtn.innerHTML = icoOf('✏️') + ' تخصيص القائمة'; custBtn.classList.remove('done'); paintBadges(); return; }
       pinWrap.classList.toggle('editing', editMode);
       var pinsArr = loadPins(), pinSet = {}; pinsArr.forEach(function(k){ pinSet[k] = 1; });
       var cur = curKey();
       if(editMode){
+        pinWrap.appendChild(styleToggle());
         var h = document.createElement('div'); h.className = 'simp-edit-hint';
-        h.textContent = 'شغّل الصفحات اللي تبيها تظهر، ورتّبها بسحب النقاط ⋮⋮ اللي جنب كل صفحة.'; pinWrap.appendChild(h);
+        h.textContent = 'شغّل الصفحات اللي تبيها تظهر، ورتّبها بسحب النقاط اللي جنب كل صفحة.'; pinWrap.appendChild(h);
       }
       SECTIONS.forEach(function(sec){
         if(sec.key === 'settings') return;                     // للإعدادات زرها تحت
@@ -529,7 +554,7 @@
     }
     custBtn.removeEventListener('click', openCustomize);
     custBtn.addEventListener('click', function(){
-      if(window.innerWidth <= 700 && !editMode){ openCustomize(); return; }   // الجوال: ورقة التخصيص كما هي
+      if((window.innerWidth <= 700 || navStyle() === 'flat') && !editMode){ openCustomize(); return; }   // الجوال والشكل القديم: ورقة التخصيص كما هي
       editMode = !editMode; openHid = {}; renderSidebarPins(); sync();
     });
 

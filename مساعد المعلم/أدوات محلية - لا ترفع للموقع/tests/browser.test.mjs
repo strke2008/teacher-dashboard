@@ -49,6 +49,16 @@ export default async function run() {
         await p.evaluate(() => document.querySelector('.simp-cust-row .simp-customize.done').click());
         ok(await p.evaluate(() => !document.querySelector('#simp-nav .simp-edit-row') && !!document.querySelector('#simp-nav [data-simp-pin="nafs"]:not(.simp-temp)')), 'بعد «تم»');
         await p.evaluate(o => { if (o) localStorage.setItem('simp_pins_v1', o); else localStorage.removeItem('simp_pins_v1'); }, old); eq(errs, [], 'أخطاء'); });
+      await S.t('🔀 شكل القائمة: المعلم يختار «قائمة واحدة» (القديم) أو «بالأقسام» ويُحفظ', async () => {
+        await p.evaluate(() => document.querySelector('.simp-cust-row .simp-customize:not(.simp-settings)').click());
+        await p.evaluate(() => document.querySelector('#simp-nav [data-simp-style="flat"]').click());
+        ok(await p.evaluate(() => !document.querySelector('#simp-nav [data-simp-gh]') && /صفحاتك/.test(document.getElementById('simp-pins').textContent)
+          && getComputedStyle(document.querySelector('#simp-nav [data-simp-more]')).display !== 'none' && localStorage.getItem('simp_style_v1') === 'flat'), 'القديم');
+        await p.evaluate(() => document.querySelector('.simp-cust-row .simp-customize:not(.simp-settings)').click());
+        ok(await p.evaluate(() => document.getElementById('simp-sheet').classList.contains('on') && !!document.querySelector('#simp-sheet [data-simp-style="sections"]')), 'ورقة التخصيص القديمة فيها الاختيار');
+        await p.evaluate(() => document.querySelector('#simp-sheet [data-simp-style="sections"]').click());
+        ok(await p.evaluate(() => !!document.querySelector('#simp-nav [data-simp-gh="exams"]') && !!document.querySelector('#simp-nav .simp-edit-row')), 'رجع للأقسام');
+        await p.evaluate(() => document.querySelector('.simp-cust-row .simp-customize.done').click()); eq(errs, [], 'أخطاء'); });
       await S.t('⚙️ زر الإعدادات بجانب «تخصيص القائمة» يفتح الإعدادات', async () => {
         ok(await p.evaluate(() => { const r = document.querySelector('#simp-nav .simp-cust-row'); return !!(r && r.querySelector('[data-simp-settings]') && /تخصيص القائمة/.test(r.textContent)); }), 'الزر بجانب التخصيص');
         await p.evaluate(() => document.querySelector('#simp-nav [data-simp-settings]').click()); await p.waitForTimeout(400);

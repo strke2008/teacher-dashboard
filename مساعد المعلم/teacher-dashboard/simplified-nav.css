@@ -72,7 +72,7 @@ body.simp-nav #main-nav .app-nav-group{display:none!important}
 .simp-sh-row .simp-sh-customize{flex:1;margin-bottom:0;text-align:center}
 .simp-sh-row .simp-sh-customize{border:1px solid var(--ui-border,#DCE5F0)}
 /* 🗂️ القائمة الجانبية بالأقسام (الخيار أ) */
-#simp-nav [data-simp-more]{display:none!important}
+#simp-nav:not(.simp-flat) [data-simp-more]{display:none!important}
 .simp-gh{display:flex;align-items:center;gap:7px;padding:12px 10px 3px;color:var(--app-nav-muted,#91A4BD);font-size:.74rem;font-weight:800}
 .simp-gh .ico{width:15px;height:15px}
 .simp-gh-t{flex:1;min-width:0}
@@ -96,3 +96,12 @@ body.simp-nav #main-nav .app-nav-group{display:none!important}
 .simp-tog.on{background:#0F9D74}.simp-tog.on::after{right:18px}
 .simp-mob-order{appearance:none;width:100%;margin:10px 0 0;padding:8px 10px;border:1px dashed rgba(127,140,160,.45);border-radius:10px;background:transparent;color:var(--app-nav-text)!important;font:inherit;font-size:.78rem;font-weight:700;cursor:pointer}
 .simp-cust-row .simp-customize.done{background:var(--app-nav-text,#16233A);color:var(--app-nav-bg,#fff)!important}
+
+/* 🔀 شكل القائمة: بالأقسام / قائمة واحدة */
+.simp-style{display:flex;align-items:center;gap:4px;margin:2px 4px 8px;padding:4px;border-radius:12px;background:rgba(127,140,160,.12)}
+.simp-style-t{font-size:.72rem;font-weight:800;color:var(--app-nav-muted,#91A4BD);padding:0 6px;white-space:nowrap}
+.simp-style-b{appearance:none;flex:1;border:0;border-radius:9px;padding:6px 4px;background:transparent;color:var(--app-nav-text)!important;font:inherit;font-size:.78rem;font-weight:700;cursor:pointer}
+.simp-style-b.on{background:var(--app-nav-bg,#fff);box-shadow:0 1px 4px rgba(0,0,0,.12);color:#0B7A5A!important}
+#simp-sheet .simp-style{margin:0 0 10px;background:var(--ui-surface,#F2F5F8)}
+#simp-sheet .simp-style-b{color:var(--ui-text,#16233A)!important}
+#simp-sheet .simp-style-b.on{background:#fff}
