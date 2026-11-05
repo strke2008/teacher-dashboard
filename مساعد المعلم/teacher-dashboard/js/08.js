@@ -278,8 +278,20 @@ function dashShowUpdate(auto){
 }
 /* 🔄 فحص الإصدار من الصفحة نفسها (مع العودة إليها، وكل 10 دقائق): تُقارَن أرقام إصدار الملفات (?v=) في الصفحة
    المفتوحة بنسخة الخادم الحالية — بمعامل فريد يتجاوز أي ذاكرة مؤقتة — وإن اختلفت يظهر زر «تحديث الآن» */
+/* 🏷️ رقم إصدار اللوحة v1.0.N (يزيده stamp_dashboard.py مع كل تعديل) وحالته من فحص الإصدار نفسه:
+   ✓ الأحدث · ⬆ يوجد أحدث (اضغط للتحديث) · لم يُتحقق بعد (اضغط للتحقق). يظهر في القائمة الجانبية و«المزيد» */
+const APPVER = { v: ((document.querySelector('meta[name="app-version"]') || {}).content || ''), state: '', next: '', at: 0 };
+function appVerHTML(){
+  const v = APPVER.v ? 'v' + APPVER.v : '—', st = APPVER.state;
+  const s = st === 'latest' ? '<b class="av-ok">✓ أحدث إصدار</b>' : st === 'update' ? '<b class="av-up">⬆ يوجد إصدار أحدث — اضغط للتحديث</b>' : st === 'checking' ? '<span>جارٍ التحقق…</span>' : st === 'fail' ? '<span>تعذّر التحقق — اضغط للمحاولة</span>' : '<span>اضغط للتحقق من التحديث</span>';
+  return `<span class="av-n">الإصدار <bdi>${v}</bdi></span>${s}`;
+}
+function appVerPaint(){ document.querySelectorAll('[data-appver]').forEach(e => { e.innerHTML = appVerHTML(); e.dataset.st = APPVER.state || ''; }); }
+function appVerTap(){ if(APPVER.state === 'update') location.reload(); else if(window.appVerCheck) window.appVerCheck(); }
+document.addEventListener('click', e => { const t = e.target.closest && e.target.closest('[data-appver]'); if(t){ e.preventDefault(); appVerTap(); } });
+if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', appVerPaint, { once:true }); else setTimeout(appVerPaint, 0);
 (function verWatch(){
-  const sig = html => [...String(html).matchAll(/(?:href|src)="([^"]+\?v=[0-9a-f]+)"/g)].map(m => m[1]).sort().join('|');
+  const sig = html => [...String(html).matchAll(/(?:href|src)="([^"]+\?v=[0-9a-f]+)"/g)].map(m => m[1]).sort().join('|') + '|' + ((/name="app-version" content="([^"]+)"/.exec(String(html)) || [])[1] || '');
   const mine = sig(document.documentElement.outerHTML);
   if(!mine) return;
   /* 📱 تطبيق الشاشة الرئيسية في iPhone: عند الرجوع إليه «يُستأنف» ولا يُعاد فتحه — قد لا يصل حدث الظهور، والمؤقتات متوقفة
@@ -292,11 +304,12 @@ function dashShowUpdate(auto){
     let ok = false;
     try{
       const r = await fetch(location.pathname + '?_sw=' + Date.now().toString(36), { cache: 'no-store', credentials: 'same-origin', ...(ac ? { signal: ac.signal } : {}) });
-      if(r.ok){ const other = sig(await r.text()); ok = true; if(other && other !== mine) APPUPD.mark(); }
+      if(r.ok){ const html = await r.text(), other = sig(html); ok = true; if(other && other !== mine){ APPVER.state = 'update'; APPVER.next = (/name="app-version" content="([^"]+)"/.exec(html) || [])[1] || ''; APPUPD.mark(); } else if(other) APPVER.state = 'latest'; APPVER.at = Date.now(); appVerPaint(); }
     }catch(e){}
     clearTimeout(to); busy = false;
     if(!ok && !document.hidden){ clearTimeout(retry); retry = setTimeout(() => check(true), 5000); }   // علق أو فشل: محاولة جديدة باتصال جديد
   };
+  window.appVerCheck = () => { APPVER.state = 'checking'; appVerPaint(); return check(true).then(() => { if(APPVER.state === 'checking'){ APPVER.state = 'fail'; appVerPaint(); } }); };
   const back = () => { if(!document.hidden) check(); };
   document.addEventListener('visibilitychange', back);
   addEventListener('pageshow', back); addEventListener('focus', back); addEventListener('online', () => check(true));

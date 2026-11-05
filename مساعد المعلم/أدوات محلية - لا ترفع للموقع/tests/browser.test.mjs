@@ -341,7 +341,13 @@ export default async function run() {
         await p.goto(base + '/teacher-dashboard/'); await p.evaluate(t => localStorage.setItem('hwapp_tok_v1', t), TOKEN); await p.reload(); await dashReady(p);
         armed = 1; await p.evaluate(() => dispatchEvent(new Event('online')));
         await p.waitForTimeout(4000); ok(!(await p.$('#dash-upd')), 'ظهر قبل الأوان');
-        await p.waitForSelector('#dash-upd', { timeout: 20000 }); ok(armed >= 3, 'لم يُعد الفحص'); eq(errs, [], 'أخطاء'); });
+        await p.waitForSelector('#dash-upd', { timeout: 20000 }); ok(armed >= 3, 'لم يُعد الفحص');
+        ok(await p.evaluate(() => /الإصدار v\d+\.\d+\.\d+/.test(document.querySelector('#main-nav [data-appver]').textContent) && /يوجد إصدار أحدث/.test(document.querySelector('#main-nav [data-appver]').textContent)), 'رقم الإصدار وحالته'); eq(errs, [], 'أخطاء'); });
+      await S.t('رقم الإصدار: «اضغط للتحقق» ← «أحدث إصدار» حين لا جديد، ويظهر في «المزيد»', async () => {
+        armed = 0; await p.goto(base + '/teacher-dashboard/'); await dashReady(p);
+        await p.evaluate(() => window.appVerCheck()); await p.waitForFunction(() => /أحدث إصدار/.test(document.querySelector('#main-nav [data-appver]').textContent), null, { timeout: 15000 });
+        await p.evaluate(() => document.querySelector('[data-simp-more]').click()); await p.waitForTimeout(300);
+        ok(await p.evaluate(() => /الإصدار .*أحدث إصدار/.test((document.querySelector('.simp-sh-ver') || {}).textContent || '')), 'في «المزيد»'); eq(errs, [], 'أخطاء'); });
       await ctx.close(); }
     // ── ⏳ التحميل المؤجَّل: زر يُضغط قبل وصول الجزء المؤجَّل يعمل بعد وصوله ──
     { const ctx = await newCtx({ viewport: { width: 390, height: 844 } }); await ctx.route(/-lazy\.js|30-noor-export/, async r => { await new Promise(x => setTimeout(x, 9000)); try { await r.continue(); } catch {} });

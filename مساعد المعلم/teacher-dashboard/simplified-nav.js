@@ -285,6 +285,8 @@
           sheet.appendChild(b);
         });
       });
+      var av = document.createElement('button'); av.type = 'button'; av.className = 'app-ver simp-sh-ver'; av.setAttribute('data-appver', '');   // 🏷️ رقم الإصدار وحالته
+      sheet.appendChild(av); try{ if(window.appVerPaint) window.appVerPaint(); }catch(e){}
       sheet.appendChild(sheetCloseBtn());
       sheet.classList.add('on');
       scrim.classList.add('on');

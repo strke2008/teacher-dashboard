@@ -195,3 +195,10 @@ summary .ico,h3 .ico,h4 .ico,b .ico{color:var(--ui-accent)}
   .masthead .onl-chip ~ #portal-link-btn, .masthead #portal-link-btn{margin-inline-start:.5rem}
   .masthead:not(:has(.onl-chip)) #portal-link-btn{margin-inline-start:auto!important}
 }
+/* 🏷️ رقم إصدار اللوحة وحالته (القائمة الجانبية و«المزيد») */
+.app-ver{display:flex;flex-direction:column;align-items:flex-start;gap:1px;margin-top:6px;padding:4px 0;border:0;background:none;font:inherit;font-size:.7rem;color:var(--ink-soft);cursor:pointer;text-align:start}
+.app-ver .av-n{font-weight:700}.app-ver bdi{direction:ltr;unicode-bidi:isolate}
+.app-ver b{font-weight:700}.app-ver .av-ok{color:var(--ui-accent)}.app-ver .av-up{color:#B45309}
+.simp-sh-ver{align-items:center;width:100%;margin:10px 0 0;padding:10px 0;border-top:1px solid var(--ui-border);font-size:.78rem}
+.app-sidebar-head{flex-wrap:wrap}
+.app-sidebar-head .app-ver{flex:1 0 100%;flex-direction:row;flex-wrap:wrap;align-items:center;gap:2px 8px;margin-top:4px}
