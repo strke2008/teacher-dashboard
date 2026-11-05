@@ -417,36 +417,64 @@ if('serviceWorker' in navigator && window.isSecureContext){
   addEventListener('load', ()=>setTimeout(()=>{ try{ spReg().catch(()=>{}); }catch(e){} }, 1500));
   navigator.serviceWorker.addEventListener('message', ev=>{ if(ev.data && ev.data.type==='dash-update') APPUPD.mark(); });
 }
+/* ⬆ «لازم آخر نسخة»: يظهر فقط والطالب وسط عمل (يحل نشاطًا أو يكتب) — لا يُغلق، ويُحدَّث وحده حين ينتهي */
 function spShowUpdate(){
-  {
-    if(document.getElementById('sp-upd')) return;
-    const b=document.createElement('div'); b.id='sp-upd';
-    b.style.cssText='position:fixed;inset-inline:12px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:3000;max-width:460px;margin:auto;background:#16233A;color:#fff;border-radius:14px;padding:10px 12px;display:flex;align-items:center;gap:10px;font-weight:700;font-size:.9rem;box-shadow:0 10px 30px rgba(0,0,0,.25)';
-    b.innerHTML='<span style="flex:1">🔄 نسخة أحدث من البوابة جاهزة<small style="display:block;font-weight:500;opacity:.75;font-size:.78em">تُحدَّث وحدها بعد أن تنهي ما تعمل عليه</small></span><button type="button" style="font:inherit;font-weight:800;border:0;border-radius:10px;padding:7px 12px;background:#1B9C6B;color:#fff;cursor:pointer">تحديث الآن</button><button type="button" aria-label="لاحقًا" style="font:inherit;border:0;background:transparent;color:#9FB2CC;cursor:pointer;font-size:1rem">✕</button>';
-    b.children[1].onclick=()=>location.reload(); b.children[2].onclick=()=>b.remove();
-    document.body.appendChild(b);
-  }
+  if(document.getElementById('sp-upd')) return;
+  const b=document.createElement('div'); b.id='sp-upd';
+  b.style.cssText='position:fixed;inset-inline:12px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:3000;max-width:460px;margin:auto;background:#16233A;color:#fff;border-radius:14px;padding:10px 12px;display:flex;align-items:center;gap:10px;font-weight:700;font-size:.9rem;box-shadow:0 10px 30px rgba(0,0,0,.25)';
+  b.innerHTML='<span style="flex:1">🔄 تحديث مطلوب للبوابة<small style="display:block;font-weight:500;opacity:.75;font-size:.78em">يُحدَّث وحده بعد أن تنهي ما تعمل عليه</small></span><button type="button" style="font:inherit;font-weight:800;border:0;border-radius:10px;padding:7px 12px;background:#1B9C6B;color:#fff;cursor:pointer">تحديث الآن</button>';
+  b.children[1].onclick=()=>APPUPD.apply();
+  document.body.appendChild(b);
 }
-/* 🔄 فحص الإصدار من الصفحة نفسها (مع العودة إليها، وكل 10 دقائق): تُقارَن أرقام إصدار الملفات (?v=) في الصفحة
-   المفتوحة بنسخة الخادم الحالية — بمعامل فريد يتجاوز أي ذاكرة مؤقتة — وإن اختلفت يظهر زر «تحديث الآن» */
+/* 🏷️ رقم إصدار البوابة v1.0.N (يزيده stamp_dashboard.py مع كل تعديل) وحالته من فحص الإصدار نفسه:
+   ✓ الأحدث · ⬆ يوجد أحدث (اضغط للتحديث) · لم يُتحقق بعد (اضغط للتحقق). يظهر في السطر الأخير من البوابة */
+const APPVER = { v: ((document.querySelector('meta[name="app-version"]') || {}).content || ''), state: '', next: '', at: 0 };
+function appVerHTML(){
+  const v = APPVER.v ? 'v' + APPVER.v : '—', st = APPVER.state;
+  const s = st === 'latest' ? '<b class="av-ok">✓ أحدث إصدار</b>' : st === 'update' ? '<b class="av-up">⬆ يوجد إصدار أحدث — اضغط للتحديث</b>' : st === 'checking' ? '<span>جارٍ التحقق…</span>' : st === 'fail' ? '<span>تعذّر التحقق — اضغط للمحاولة</span>' : '<span>اضغط للتحقق من التحديث</span>';
+  return `<span class="av-n">الإصدار <bdi>${v}</bdi></span>${s}`;
+}
+function appVerPaint(){ document.querySelectorAll('[data-appver]').forEach(e => { e.innerHTML = appVerHTML(); e.dataset.st = APPVER.state || ''; }); }
+function appVerTap(){ if(APPVER.state === 'update') location.reload(); else if(window.appVerCheck) window.appVerCheck(); }
+document.addEventListener('click', e => { const t = e.target.closest && e.target.closest('[data-appver]'); if(t){ e.preventDefault(); appVerTap(); } });
+if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', appVerPaint, { once:true }); else setTimeout(appVerPaint, 0);
 (function verWatch(){
-  const sig = html => [...String(html).matchAll(/(?:href|src)="([^"]+\?v=[0-9a-f]+)"/g)].map(m => m[1]).sort().join('|');
+  const sig = html => [...String(html).matchAll(/(?:href|src)="([^"]+\?v=[0-9a-f]+)"/g)].map(m => m[1]).sort().join('|') + '|' + ((/name="app-version" content="([^"]+)"/.exec(String(html)) || [])[1] || '');
   const mine = sig(document.documentElement.outerHTML);
   if(!mine) return;
-  let last = 0;
-  const check = async () => {
-    if(document.hidden || Date.now() - last < 60000) return; last = Date.now();
+  /* 📱 تطبيق الشاشة الرئيسية في iPhone: عند الرجوع إليه «يُستأنف» ولا يُعاد فتحه — قد لا يصل حدث الظهور، والمؤقتات متوقفة
+     طوال غيابه، وأول طلب بعد الاستئناف قد يعلق على اتصال جمّده النظام (لا ينتهي حتى تتغير الشبكة). فكان الزر لا يظهر
+     إلا بإطفاء الواي فاي. الآن: مهلة 10 ث للفحص ثم إعادة، ويُفحص أيضًا عند التركيز والعودة للشبكة واكتشاف الاستئناف */
+  let last = 0, busy = false, retry = 0;
+  const check = async (force) => {
+    if(document.hidden || busy || (!force && Date.now() - last < 60000)) return; last = Date.now(); busy = true;
+    const ac = window.AbortController ? new AbortController() : null, to = setTimeout(() => { try{ ac && ac.abort(); }catch(e){} }, 10000);
+    let ok = false; const t0 = Date.now();
     try{
-      const r = await fetch(location.pathname + '?_sw=' + Date.now().toString(36), { cache: 'no-store', credentials: 'same-origin' });
-      if(!r.ok) return;
-      const other = sig(await r.text());
-      if(other && other !== mine) APPUPD.mark();
-    }catch(e){}
+      const r = await fetch(location.pathname + '?_sw=' + Date.now().toString(36), { cache: 'no-store', credentials: 'same-origin', ...(ac ? { signal: ac.signal } : {}) });
+      if(!r.ok) APPVER.err = 'ردّ الموقع ' + r.status + ' بعد ' + (Date.now() - t0) + ' م.ث';
+      if(r.ok){ const html = await r.text(), other = sig(html); ok = true; if(other && other !== mine){ APPVER.state = 'update'; APPVER.next = (/name="app-version" content="([^"]+)"/.exec(html) || [])[1] || ''; APPUPD.mark(); } else if(other) APPVER.state = 'latest'; APPVER.at = Date.now(); appVerPaint(); }
+    }catch(e){ APPVER.err = (e && e.name === 'AbortError' ? 'انتهت المهلة (10 ث)' : 'فشل الاتصال: ' + ((e && (e.message || e.name)) || '؟')) + ' بعد ' + (Date.now() - t0) + ' م.ث'; }
+    clearTimeout(to);
+    /* 🛰️ الموقع لا يرد مباشرة (تطبيق الآيفون على بعض شبكات الواي فاي): نفس الصفحة عبر خادم البيانات */
+    if(!ok){ try{ const api = (typeof API !== 'undefined' ? String(API || '') : '').replace(/\/+$/, '');
+      if(api){ const r2 = await fetch(`${api}/site?h=${encodeURIComponent(location.host)}&p=${encodeURIComponent(location.pathname)}`, { cache: 'no-store' });
+        if(r2.ok){ const html = await r2.text(), other = sig(html); if(other.length > 1){ ok = true; APPVER.via = 'server';
+          if(other !== mine){ APPVER.state = 'update'; APPVER.next = (/name="app-version" content="([^"]+)"/.exec(html) || [])[1] || ''; APPUPD.mark(); } else APPVER.state = 'latest'; APPVER.at = Date.now(); appVerPaint(); } } } }catch(e){} }
+    busy = false;
+    if(!ok && !document.hidden){ clearTimeout(retry); retry = setTimeout(() => check(true), 5000); }   // علق أو فشل: محاولة جديدة باتصال جديد
   };
-  document.addEventListener('visibilitychange', () => { if(!document.hidden) check(); });
-  setTimeout(check, 20000); setInterval(check, 600000);
+  /* الضغط: ينتظر فحصًا جاريًا (كان يُحكم بالفشل فورًا إن صادف فحصًا في الخلفية) */
+  window.appVerCheck = async () => { APPVER.state = 'checking'; appVerPaint();
+    for(let i = 0; busy && i < 60; i++) await new Promise(r => setTimeout(r, 200));
+    await check(true); if(APPVER.state === 'checking'){ APPVER.state = 'fail'; appVerPaint(); } };
+  const back = () => { if(!document.hidden) check(); };
+  document.addEventListener('visibilitychange', back);
+  addEventListener('pageshow', back); addEventListener('focus', back); addEventListener('online', () => check(true));
+  /* الاستئناف بلا حدث: مؤقت كل 15 ث — إن مرّ بين نبضتين أكثر من دقيقة فالتطبيق كان مجمّدًا */
+  let beat = Date.now(); setInterval(() => { const n = Date.now(); if(n - beat > 60000) check(true); beat = n; }, 15000);
+  setTimeout(check, 4000); setInterval(check, 600000);   // مبكرًا: يُكتشف التحديث عند الفتح قبل أن تبدأ العمل
 })();
-
 
 /* 🩺 صفحة تشخيص: افتح البوابة بإضافة ?diag إلى العنوان — تُظهر إصدار هذا الجهاز وما يقوله الخادم عن التخفيض،
    للمقارنة بين جهازين. وزر «إعادة تحميل نظيفة» يمسح النسخة المحفوظة على الجهاز ثم يعيد الفتح (بدل اختصارات لوحة المفاتيح). */
@@ -491,37 +519,64 @@ function spShowUpdate(){
 /* 🔄 وقت آخر تحديث تلقائي لتقرير الفترة (يُبنى بالدرجات الحالية ما دامت الفترة مفتوحة) */
 function srpLiveTime(ms){ try{ return new Date(ms).toLocaleString('ar-SA-u-ca-gregory-nu-latn',{ timeZone:'Asia/Riyadh', day:'numeric', month:'numeric', hour:'numeric', minute:'2-digit' }); }catch(e){ return ''; } }
 
-window.__APPUPD_CFG={api:()=>(typeof API!=='undefined'?API:''),show:()=>spShowUpdate(),
+window.__APPUPD_CFG={api:()=>(typeof API!=='undefined'?API:''),show:()=>spShowUpdate(),name:'أنشطتي',
   busy:()=>!!((typeof HW!=='undefined'&&HW)||(typeof SHORT_ID!=='undefined'&&SHORT_ID)||document.querySelector('.pp-veil,dialog[open]'))};   // داخل نشاط: لا تحديث حتى يخرج منه
-/* 🔄 التحديث الإجباري: أي إصدار أحدث يُطبَّق وحده في أول لحظة آمنة — عند الخروج من التطبيق أو العودة إليه، أو بعد دقيقتين بلا لمس —
-   ولا يُطبَّق أبدًا وسط عمل (نافذة مفتوحة، كتابة، حل نشاط). و«إجبار كل الأجهزة» من لوحة التحكم: الخادم يحفظ وقت الطلب،
-   وكل جهاز يراه (عند الفتح والعودة وكل 10 دقائق) يمسح نسخته المحفوظة ويعيد التحميل مرة واحدة. لا يُلغى تسجيل الإشعارات. */
+/* ⬆ شاشة «جارٍ تحديث التطبيق» (بشعار التطبيق) أثناء تنزيل الإصدار الأحدث وإعادة الفتح */
+function updOverlay(name){
+  if(document.getElementById('upd-ov')) return; const o=document.createElement('div'); o.id='upd-ov'; o.setAttribute('role','status');
+  o.style.cssText='position:fixed;inset:0;z-index:100000;background:#F5F7F9;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;font-family:inherit;color:#0F1A24';
+  const nx=(typeof APPVER!=='undefined'&&APPVER.next)?' — v'+APPVER.next:'';
+  o.innerHTML='<img src="pwa/icon-192.png" alt="" width="88" height="88" style="border-radius:20px;box-shadow:0 10px 30px rgba(226,121,30,.28)">'
+    +'<b style="font-size:1.35rem">'+(name||'أنشطتي')+'</b><span style="font-size:.95rem;color:#5B6B7B">جارٍ تحديث التطبيق…'+nx+'</span>'
+    +'<i style="width:150px;height:5px;border-radius:9px;background:#E3E8ED;overflow:hidden;position:relative"><i style="position:absolute;inset:0;width:40%;border-radius:9px;background:#E2791E;animation:updMove 1.1s ease-in-out infinite alternate"></i></i>'
+    +'<style>@keyframes updMove{from{transform:translateX(0)}to{transform:translateX(-150%)}}</style>';
+  document.body.appendChild(o);
+}
+/* ملف الخلفية ينزّل الإصدار الأحدث كاملًا ويحفظه قبل إعادة الفتح (مباشرة أو عبر الخادم) — حد أقصى 25 ث */
+async function updSwRefresh(){
+  try{ const reg=navigator.serviceWorker&&await navigator.serviceWorker.getRegistration('./'), sw=reg&&reg.active; if(!sw) return;
+    await new Promise(res=>{ const ch=new MessageChannel(), to=setTimeout(res,25000); ch.port1.onmessage=()=>{ clearTimeout(to); res(); }; sw.postMessage({type:'dash-refresh'},[ch.port2]); }); }catch(e){}
+}
+/* 🔄 «لازم آخر نسخة» — إن وُجد إصدار أحدث:
+   • عند الفتح أو الرجوع للتطبيق (أول 30 ث): شاشة «جارٍ تحديث التطبيق» وإعادة الفتح عليه فورًا — بلا خيار «لاحقًا».
+   • وسط عمل (كتابة، رصد، نافذة مفتوحة): شريط «تحديث مطلوب» لا يُغلق، ويُحدَّث وحده حين تنتهي (دقيقة بلا لمس) أو تخرج من التطبيق.
+   • بلا اتصال أو تعذّر التحقق: يعمل بالنسخة المحفوظة.
+   حماية: محاولتان تلقائيتان على الأكثر كل 3 دقائق (لا دوامة إعادة تحميل). و«إجبار كل الأجهزة» من الإعدادات كما هو. */
 const APPUPD=(()=>{
-  const CFG=window.__APPUPD_CFG||{},LS=CFG.key||'app_force_seen';let pending=false,hard=0,since=0,lastAct=Date.now(),lastInput=0,hidAt=0,going=false;
+  const CFG=window.__APPUPD_CFG||{},LS=CFG.key||'app_force_seen',T0=Date.now();let pending=false,hard=0,since=0,lastAct=Date.now(),lastInput=0,hidAt=0,visAt=Date.now(),going=false;
   addEventListener('input',()=>{lastInput=Date.now()},true);
   ['pointerdown','keydown','wheel','touchstart'].forEach(e=>addEventListener(e,()=>{lastAct=Date.now()},{capture:true,passive:true}));
   const editing=()=>{const a=document.activeElement;return !!(a&&(a.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))&&!/^(button|checkbox|radio|range|submit)$/i.test(a.type||''))};
-  const busy=()=>editing()||Date.now()-lastInput<120000||!!(CFG.busy&&CFG.busy());
+  const busy=()=>editing()||Date.now()-lastInput<20000||!!(CFG.busy&&CFG.busy());
+  const tries=()=>{try{const x=JSON.parse(sessionStorage.getItem('upd_auto')||'null');return x&&Date.now()-x.at<180000?x.n:0}catch(e){return 0}};
   async function apply(){
     if(going)return;going=true;
+    try{updOverlay(CFG.name)}catch(e){}
+    try{sessionStorage.setItem('upd_auto',JSON.stringify({n:tries()+1,at:Date.now()}))}catch(e){}
     if(hard){try{localStorage.setItem(LS,String(hard))}catch(e){}
       try{if(window.caches)for(const k of await caches.keys())await caches.delete(k)}catch(e){}
       try{const R=navigator.serviceWorker&&navigator.serviceWorker.getRegistrations?await navigator.serviceWorker.getRegistrations():[];await Promise.all(R.map(r=>r.update().catch(()=>{})))}catch(e){}}
+    else await updSwRefresh();
     location.reload();
   }
+  const fresh=()=>Date.now()-T0<30000||Date.now()-visAt<30000;
   function tick(){if(!pending||going)return;
-    const idle=Date.now()-lastAct>120000,late=Date.now()-since>4*3600e3;
+    const idle=Date.now()-lastAct>60000,late=Date.now()-since>4*3600e3;
     if((idle&&!busy())||(late&&!editing()&&Date.now()-lastInput>120000))apply()}
-  function mark(h){if(h)hard=Math.max(hard,h);if(!pending){pending=true;since=Date.now()}if(CFG.show)try{CFG.show()}catch(e){}}
+  function mark(h){if(h)hard=Math.max(hard,h);if(!pending){pending=true;since=Date.now()}
+    if(!going&&fresh()&&!busy()&&tries()<2){apply();return}
+    if(CFG.show)try{CFG.show()}catch(e){}}
   document.addEventListener('visibilitychange',()=>{
     if(document.hidden){hidAt=Date.now();if(pending&&!busy())apply();return}
+    visAt=Date.now();
     if(pending&&hidAt&&Date.now()-hidAt>15000&&!busy())apply();else checkForce()});
   async function checkForce(){
     if(!CFG.api)return;let api='';try{api=String(CFG.api()||'').replace(/\/+$/,'')}catch(e){}if(!api)return;
-    try{const j=await (await fetch(api+'/version',{cache:'no-store'})).json(),f=Number(j&&j.force)||0;let seen=0;try{seen=Number(localStorage.getItem(LS))||0}catch(e){}
+    try{const v=window.__hwVer;window.__hwVer=null;   // أول فحص يستخدم ردّ /version الذي طلبته الصفحة عند الفتح
+      const j=v?await v:await (await fetch(api+'/version',{cache:'no-store'})).json(),f=Number(j&&j.force)||0;let seen=0;try{seen=Number(localStorage.getItem(LS))||0}catch(e){}
       if(f>seen){if(!seen&&performance.now()<15000&&Date.now()-f>86400e3){try{localStorage.setItem(LS,String(f))}catch(e){}return}   // جهاز جديد فُتح الآن بعد طلب قديم: هو أصلًا أحدث نسخة
         mark(f);tick()}}catch(e){}
   }
-  setInterval(tick,30000);setTimeout(checkForce,4000);setInterval(checkForce,600000);
+  setInterval(tick,5000);setTimeout(checkForce,4000);setInterval(checkForce,600000);
   return {mark,apply,get pending(){return pending}};
 })();

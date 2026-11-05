@@ -228,3 +228,8 @@
 .jw-item-state{flex:none}
 /* 🏷️ نوع النشاط قبل اسمه */
 .act-kind{display:inline-block;font-size:.72em;font-weight:800;padding:.08em .5em;border-radius:999px;vertical-align:.12em;margin-inline-end:.15em;white-space:nowrap;color:var(--k,#2E6BB8);background:color-mix(in srgb,var(--k,#2E6BB8) 13%,transparent)}
+
+/* 🏷️ رقم إصدار البوابة وحالته — في السطر الأخير */
+#app-developer-credit .app-ver{pointer-events:auto;display:flex;flex-wrap:wrap;justify-content:center;gap:2px 8px;margin:6px auto 0;padding:4px 8px;border:0;background:none;font:inherit;font-size:.7rem;color:inherit;cursor:pointer}
+#app-developer-credit .app-ver bdi{direction:ltr;unicode-bidi:isolate}
+#app-developer-credit .app-ver .av-ok{color:#1B9C6B}#app-developer-credit .app-ver .av-up{color:#B45309}

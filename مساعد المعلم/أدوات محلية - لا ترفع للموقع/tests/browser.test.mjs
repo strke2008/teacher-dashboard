@@ -362,6 +362,7 @@ export default async function run() {
         if (failAll) { try { await r.abort('connectionreset'); } catch {} return; }
         if (!armed && !newer) { try { await r.continue(); } catch {} return; }
         if (armed && armed++ === 1) { await new Promise(x => setTimeout(x, 14000)); try { await r.abort(); } catch {} return; }   // الأول يعلق
+        if (!armed) newer = false;   // الإصدار الأحدث يُقدَّم مرة واحدة (بعدها الموقع «محدَّث»)
         const res = await r.fetch(); const html = (await res.text()).replace(/(js\/08\.js\?v=)[0-9a-f]{8}/, '$1deadbeef');
         try { await r.fulfill({ response: res, body: html }); } catch {} });
       // شاشة التحديث تظهر لحظة ثم يُعاد التحميل: نسجّل ظهورها فيما يبقى بعد إعادة التحميل
@@ -524,7 +525,24 @@ export default async function run() {
         ok(ctx.reqs.every(x => !x.h), 'طلب الطالب يحمل ترويسة معلم!'); });
       await S.t('بوابة الطالب: لا تحديث تلقائي وسط النشاط', async () => {
         await p.evaluate(() => { window.__m = 1; APPUPD.mark(); Object.defineProperty(document, 'hidden', { configurable: true, get: () => true }); document.dispatchEvent(new Event('visibilitychange')); });
-        await p.waitForTimeout(1500); ok(await p.evaluate(() => window.__m === 1).catch(() => false), 'أُعيد تحميل الصفحة وسط النشاط'); });
+        await p.waitForTimeout(1500); ok(await p.evaluate(() => window.__m === 1).catch(() => false), 'أُعيد تحميل الصفحة وسط النشاط');
+        ok(await p.evaluate(() => /تحديث مطلوب/.test((document.getElementById('sp-upd') || {}).textContent || '') && document.querySelectorAll('#sp-upd button').length === 1 && !document.getElementById('upd-ov')), 'شريط «تحديث مطلوب» بلا ✕'); });
+      await ctx.close(); }
+    // ── بوابة الطالب: رقم الإصدار و«لازم آخر نسخة» ──
+    { const ctx = await newCtx({ viewport: { width: 390, height: 800 } }); let newer = false;
+      await ctx.route(/student-portal\/(index\.html)?\?_sw=/, async r => { if (!newer) { try { await r.continue(); } catch {} return; }
+        newer = false; const res = await r.fetch(); const html = (await res.text()).replace(/(js\/06\.js\?v=)[0-9a-f]{8}/, '$1deadbeef'); try { await r.fulfill({ response: res, body: html }); } catch {} });
+      await ctx.addInitScript(() => { new MutationObserver(() => { if (document.getElementById('upd-ov') && !window.__sawOv) { window.__sawOv = 1; try { sessionStorage.setItem('saw_ov', String(Number(sessionStorage.getItem('saw_ov') || 0) + 1)); } catch {} } }).observe(document, { childList: true, subtree: true }); });
+      const p = await ctx.newPage(), errs = watch(p);
+      const sawOv = async (min, ms) => { const t = Date.now(); while (Date.now() - t < ms) { try { if (Number(await p.evaluate(() => sessionStorage.getItem('saw_ov') || 0)) >= min) return true; } catch {} await new Promise(x => setTimeout(x, 150)); } return false; };
+      await S.t('بوابة الطالب: رقم الإصدار في السطر الأخير، والتحقق ⇒ «أحدث إصدار»', async () => {
+        await p.goto(base + '/student-portal/index.html'); await p.waitForTimeout(1500);
+        await p.evaluate(() => window.appVerCheck()); await p.waitForFunction(() => /الإصدار v\d+\.\d+\.\d+.*أحدث إصدار/.test((document.querySelector('#app-developer-credit [data-appver]') || {}).textContent || ''), null, { timeout: 15000 }); eq(errs, [], 'أخطاء'); });
+      await S.t('بوابة الطالب: إصدار أحدث عند الفتح ⇒ شاشة «جارٍ تحديث التطبيق» بأيقونة البوابة، ثم تُفتح عليه', async () => {
+        ok(await p.evaluate(() => { updOverlay('أنشطتي'); const o = document.getElementById('upd-ov'), t = /أنشطتي[\s\S]*جارٍ تحديث التطبيق/.test(o.textContent) && !!o.querySelector('img[src="pwa/icon-192.png"]'); o.remove(); return t; }), 'الشاشة');
+        await p.evaluate(() => { sessionStorage.removeItem('upd_auto'); sessionStorage.setItem('saw_ov', '0'); }); newer = true; await p.goto(base + '/student-portal/index.html');
+        ok(await sawOv(1, 20000), 'لم تظهر شاشة التحديث'); newer = false; await p.waitForTimeout(2500);
+        ok(await p.evaluate(() => !document.getElementById('upd-ov') && typeof APPUPD === 'object'), 'لم تُفتح بعد التحديث'); eq(errs, [], 'أخطاء'); });
       await ctx.close(); }
     // ── المختبر ──
     { const ctx = await newCtx(), p = await ctx.newPage(), errs = watch(p);
