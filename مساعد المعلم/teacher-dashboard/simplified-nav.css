@@ -62,3 +62,12 @@ body.simp-nav #main-nav .app-nav-group{display:none!important}
 #simp-bottomnav .simp-bdg.proj-badge{top:2px;inset-inline-end:18%}
 .simp-sec .simp-bdg,.simp-sh-page .simp-bdg{margin-inline-start:auto}
 .simp-chip .simp-bdg{margin-inline-start:.3rem;min-width:18px;height:18px;line-height:18px;font-size:.68rem;padding:0 5px}
+
+/* ⚙️ الإعدادات بجانب «تخصيص القائمة» */
+.simp-cust-row{display:flex;gap:4px;margin-top:10px;border-top:1px solid rgba(255,255,255,.12)}
+.simp-cust-row .simp-customize{flex:1;width:auto;margin-top:0;border-top:0;border-radius:9px}
+.simp-cust-row .simp-settings{color:var(--app-nav-text,#DCE6F1)!important}
+.simp-cust-row .simp-customize:hover{background:rgba(127,127,127,.1)}
+.simp-sh-row{display:flex;gap:8px;margin-bottom:12px}
+.simp-sh-row .simp-sh-customize{flex:1;margin-bottom:0;text-align:center}
+.simp-sh-row .simp-sh-customize{border:1px solid var(--ui-border,#DCE5F0)}

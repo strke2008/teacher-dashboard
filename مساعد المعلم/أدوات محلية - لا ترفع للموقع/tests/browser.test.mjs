@@ -30,6 +30,11 @@ export default async function run() {
         await p.goto(base + '/teacher-dashboard/'); await p.evaluate(t => localStorage.setItem('hwapp_tok_v1', t), TOKEN); await p.reload(); await p.waitForTimeout(5000);
         eq(errs, [], 'أخطاء'); });
       await S.t('كلمة السر تُستبدل بجلسة الجهاز', async () => { ok(String(await p.evaluate(() => localStorage.getItem('hwapp_tok_v1'))).startsWith('ts1.'), 'ما زالت كلمة السر محفوظة'); });
+      await S.t('⚙️ زر الإعدادات بجانب «تخصيص القائمة» يفتح الإعدادات', async () => {
+        ok(await p.evaluate(() => { const r = document.querySelector('#simp-nav .simp-cust-row'); return !!(r && r.querySelector('[data-simp-settings]') && /تخصيص القائمة/.test(r.textContent)); }), 'الزر بجانب التخصيص');
+        await p.evaluate(() => document.querySelector('#simp-nav [data-simp-settings]').click()); await p.waitForTimeout(400);
+        ok(await p.evaluate(() => document.getElementById('p-data').classList.contains('on')), 'لم تُفتح الإعدادات');
+        await p.evaluate(() => goTab('dashboard')); eq(errs, [], 'أخطاء'); });
       await S.t('📱 أجهزة الطلاب: القائمة تُحمَّل بجلسة المعلم وتفرز وتعدّ', async () => {
         await fetch('http://localhost:' + WP + '/mine?name=x&sid=s1&av=1.0.9&dm=app&os=iphone'); await fetch('http://localhost:' + WP + '/mine?name=x&sid=s2');
         await p.evaluate(() => appDevLoad()); try { await p.waitForSelector('#appdev-box .appdev-row', { timeout: 8000, state: 'attached' }); } catch { throw new Error('الصندوق: ' + await p.evaluate(() => (document.getElementById('appdev-box') || {}).textContent)); }

@@ -253,9 +253,14 @@
       var pins = pinnedPages();
       var pinSet = {};
       pins.forEach(function(p){ pinSet[keyOf(p.tab, p.view)] = true; });
-      var cust = mkBtn('simp-sh-customize', '⚙️ تخصيص القائمة — اختر ما يظهر في الشريط');
+      var shRow = document.createElement('div'); shRow.className = 'simp-sh-row';
+      var shSet = mkBtn('simp-sh-customize simp-sh-settings', '⚙️ الإعدادات');
+      shSet.setAttribute('data-simp-settings', '1');
+      shSet.addEventListener('click', function(){ closeSheet(); activate('data', null); });
+      var cust = mkBtn('simp-sh-customize', '✏️ تخصيص القائمة');
       cust.addEventListener('click', function(){ openCustomize(); });
-      sheet.appendChild(cust);
+      shRow.appendChild(shSet); shRow.appendChild(cust);
+      sheet.appendChild(shRow);
       // على الجوال: المثبّتة الزائدة عن أول 4 تظهر هنا أولًا.
       var isMobile = window.innerWidth <= 700;
       if(isMobile && pins.length > MOBILE_BAR_PINS){
@@ -413,9 +418,15 @@
     moreBtn.setAttribute('data-simp-more', '1');
     moreBtn.addEventListener('click', openMore);
     box.appendChild(moreBtn);
-    var custBtn = mkBtn('simp-customize', '⚙️ تخصيص القائمة');
+    // ⚙️ الإعدادات بجانب «تخصيص القائمة» — وصول بضغطة بدل «المزيد»
+    var custRow = document.createElement('div'); custRow.className = 'simp-cust-row';
+    var setBtn = mkBtn('simp-customize simp-settings', '⚙️ الإعدادات');
+    setBtn.setAttribute('data-simp-settings', '1');
+    setBtn.addEventListener('click', function(){ activate('data', null); });
+    var custBtn = mkBtn('simp-customize', '✏️ تخصيص القائمة');
     custBtn.addEventListener('click', openCustomize);
-    box.appendChild(custBtn);
+    custRow.appendChild(setBtn); custRow.appendChild(custBtn);
+    box.appendChild(custRow);
     scroll.insertBefore(box, scroll.firstChild);
     function renderSidebarPins(){
       while(pinWrap.firstChild) pinWrap.removeChild(pinWrap.firstChild);
