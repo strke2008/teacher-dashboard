@@ -284,28 +284,7 @@ const APPVER = { v: ((document.querySelector('meta[name="app-version"]') || {}).
 function appVerHTML(){
   const v = APPVER.v ? 'v' + APPVER.v : '—', st = APPVER.state;
   const s = st === 'latest' ? '<b class="av-ok">✓ أحدث إصدار</b>' : st === 'update' ? '<b class="av-up">⬆ يوجد إصدار أحدث — اضغط للتحديث</b>' : st === 'checking' ? '<span>جارٍ التحقق…</span>' : st === 'fail' ? '<span>تعذّر التحقق — اضغط للمحاولة</span>' : '<span>اضغط للتحقق من التحديث</span>';
-  const d = APPVER.diag ? `<small class="av-d">${APPVER.diag.map(x => String(x).replace(/[<>&]/g, c => ({ '<':'&lt;', '>':'&gt;', '&':'&amp;' })[c])).join('<br>')}</small>` : '';
-  return `<span class="av-n">الإصدار <bdi>${v}</bdi></span>${s}${d}`;
-}
-/* 🩺 تشخيص مؤقت (حتى تُحل مشكلة «تعذّر التحقق» في تطبيق الآيفون على الواي فاي): ثلاث محاولات ونتيجة كل منها */
-async function appVerProbe(label, url, opt){
-  const t0 = Date.now(), ac = window.AbortController ? new AbortController() : null, to = setTimeout(() => { try{ ac && ac.abort(); }catch(e){} }, 10000);
-  try{ const r = await fetch(url, { cache: 'no-store', ...(opt || {}), ...(ac ? { signal: ac.signal } : {}) }); await r.arrayBuffer();
-    return `${label}: ${r.ok ? '✓' : '✗'} ${r.status} · ${Date.now() - t0} م.ث`; }
-  catch(e){ return `${label}: ✗ ${e && e.name === 'AbortError' ? 'انتهت المهلة' : ((e && (e.message || e.name)) || '؟')} · ${Date.now() - t0} م.ث`; }
-  finally{ clearTimeout(to); }
-}
-async function appVerDiag(){
-  const t = Date.now().toString(36), api = (typeof getApi === 'function' ? String(getApi() || '') : '').replace(/\/+$/, '');
-  const app = navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
-  APPVER.diag = ['جارٍ التشخيص…']; appVerPaint();
-  const L = await Promise.all([
-    appVerProbe('موقع اللوحة', location.pathname + '?_diag=' + t, { credentials: 'same-origin' }),
-    api ? appVerProbe('خادم البيانات', api + '/version?_d=' + t) : Promise.resolve('خادم البيانات: غير مضبوط'),
-    appVerProbe('ملف من الموقع', 'pwa/badge-72.png?_d=' + t),
-    api ? appVerProbe('الموقع عبر الخادم', `${api}/site?h=${encodeURIComponent(location.host)}&p=${encodeURIComponent(location.pathname)}`) : Promise.resolve('')]);
-  APPVER.diag = ['الفحص: ' + (APPVER.err || '—'), ...L.filter(Boolean), `تطبيق: ${app ? 'نعم' : 'لا'} · متصل: ${navigator.onLine ? 'نعم' : 'لا'} · عامل الخدمة: ${navigator.serviceWorker && navigator.serviceWorker.controller ? 'نعم' : 'لا'} · ${location.host}${location.pathname}`];
-  appVerPaint();
+  return `<span class="av-n">الإصدار <bdi>${v}</bdi></span>${s}`;
 }
 function appVerPaint(){ document.querySelectorAll('[data-appver]').forEach(e => { e.innerHTML = appVerHTML(); e.dataset.st = APPVER.state || ''; }); }
 function appVerTap(){ if(APPVER.state === 'update') location.reload(); else if(window.appVerCheck) window.appVerCheck(); }
@@ -337,10 +316,10 @@ if(document.readyState === 'loading') document.addEventListener('DOMContentLoade
     busy = false;
     if(!ok && !document.hidden){ clearTimeout(retry); retry = setTimeout(() => check(true), 5000); }   // علق أو فشل: محاولة جديدة باتصال جديد
   };
-  /* الضغط: ينتظر فحصًا جاريًا (كان يُحكم بالفشل فورًا إن صادف فحصًا في الخلفية)، وإن فشل يشغّل التشخيص */
-  window.appVerCheck = async () => { APPVER.state = 'checking'; APPVER.diag = null; appVerPaint();
+  /* الضغط: ينتظر فحصًا جاريًا (كان يُحكم بالفشل فورًا إن صادف فحصًا في الخلفية) */
+  window.appVerCheck = async () => { APPVER.state = 'checking'; appVerPaint();
     for(let i = 0; busy && i < 60; i++) await new Promise(r => setTimeout(r, 200));
-    await check(true); if(APPVER.state === 'checking'){ APPVER.state = 'fail'; appVerPaint(); appVerDiag(); } };
+    await check(true); if(APPVER.state === 'checking'){ APPVER.state = 'fail'; appVerPaint(); } };
   const back = () => { if(!document.hidden) check(); };
   document.addEventListener('visibilitychange', back);
   addEventListener('pageshow', back); addEventListener('focus', back); addEventListener('online', () => check(true));

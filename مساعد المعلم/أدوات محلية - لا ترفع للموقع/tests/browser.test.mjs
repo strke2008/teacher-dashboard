@@ -376,14 +376,13 @@ export default async function run() {
         await p.evaluate(() => window.appVerCheck()); await p.waitForFunction(() => /أحدث إصدار/.test(document.querySelector('#main-nav [data-appver]').textContent), null, { timeout: 15000 });
         await p.evaluate(() => document.querySelector('[data-simp-more]').click()); await p.waitForTimeout(300);
         ok(await p.evaluate(() => /الإصدار .*أحدث إصدار/.test((document.querySelector('.simp-sh-ver') || {}).textContent || '')), 'في «المزيد»'); eq(errs, [], 'أخطاء'); });
-      await S.t('رقم الإصدار: الموقع لا يرد مباشرة ⇒ يُتحقق عبر الخادم؛ وإن فشل الاثنان يظهر التشخيص', async () => {
+      await S.t('رقم الإصدار: الموقع لا يرد مباشرة ⇒ يُتحقق عبر الخادم؛ وإن فشل الاثنان «تعذّر التحقق»', async () => {
         failAll = true; await p.evaluate(() => window.appVerCheck());
         await p.waitForFunction(() => /أحدث إصدار/.test(document.querySelector('#main-nav [data-appver]').textContent), null, { timeout: 15000 });
         eq(await p.evaluate(() => APPVER.via), 'server', 'الموقع لا يرد مباشرة: يجب أن يُتحقق عبر الخادم');
         failSite = true; await p.evaluate(() => window.appVerCheck());
-        await p.waitForFunction(() => /الفحص: .*م\.ث/.test(document.querySelector('#main-nav [data-appver]').textContent) && /خادم البيانات: ✓/.test(document.querySelector('#main-nav [data-appver]').textContent), null, { timeout: 25000 });
-        const t = await p.evaluate(() => document.querySelector('#main-nav [data-appver]').textContent);
-        ok(/تعذّر التحقق/.test(t) && /موقع اللوحة: ✓/.test(t) && /ملف من الموقع: ✓/.test(t), t.slice(0, 300)); failAll = false; failSite = false; eq(errs, [], 'أخطاء'); });
+        await p.waitForFunction(() => /تعذّر التحقق/.test(document.querySelector('#main-nav [data-appver]').textContent), null, { timeout: 25000 });
+        ok(!/خادم البيانات/.test(await p.evaluate(() => document.querySelector('#main-nav [data-appver]').textContent)), 'التشخيص المؤقت ما زال ظاهرًا'); failAll = false; failSite = false; eq(errs, [], 'أخطاء'); });
       await ctx.close(); }
     // ── ⏳ التحميل المؤجَّل: زر يُضغط قبل وصول الجزء المؤجَّل يعمل بعد وصوله ──
     { const ctx = await newCtx({ viewport: { width: 390, height: 844 } }); await ctx.route(/-lazy\.js|30-noor-export/, async r => { await new Promise(x => setTimeout(x, 9000)); try { await r.continue(); } catch {} });
