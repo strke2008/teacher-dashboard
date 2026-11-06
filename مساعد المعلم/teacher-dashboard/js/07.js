@@ -43,13 +43,25 @@ function aiSettingsRender(){
 }
 setTimeout(aiSettingsRender,0);
 
+/* 🩺 شرح عربي لأشهر أخطاء المزوّدات (يظهر مع رسالة المزوّد الأصلية في «اختبار الاتصال») */
+function aiErrHint(e){ const m=String(e?.message||''), s=Number(e?.status)||0;
+  if(/API key not valid|API_KEY_INVALID|invalid x-api-key|Incorrect API key|invalid_api_key/i.test(m)||s===401) return 'المفتاح غير صحيح أو محذوف — انسخه من جديد من صفحة المفاتيح.';
+  if(/referer|referrer|HTTP_REFERRER|API_KEY_HTTP_REFERRER_BLOCKED/i.test(m)) return 'المفتاح مقيَّد بمواقع معيّنة — في Google Cloud ← Credentials أضف عنوان لوحتك للمواقع المسموحة، أو أزل التقييد.';
+  if(/SERVICE_DISABLED|has not been used|is disabled/i.test(m)) return 'واجهة Gemini غير مفعّلة في مشروع المفتاح — أنشئ المفتاح من Google AI Studio مباشرة.';
+  if(/location is not supported|User location/i.test(m)) return 'الخدمة غير متاحة من موقعك الحالي.';
+  if(s===429||/quota|RESOURCE_EXHAUSTED|rate limit/i.test(m)) return 'انتهت الحصة أو تجاوزت عدد الطلبات المسموح — انتظر قليلًا، أو أضف مفتاحًا آخر، أو فعّل الفوترة.';
+  if(s===404||/not found|is not supported for generateContent|does not exist/i.test(m)) return 'اسم الموديل غير متاح لهذا المفتاح — اختر موديلًا آخر من القائمة.';
+  if(s===403||/permission|PERMISSION_DENIED/i.test(m)) return 'المفتاح لا يملك صلاحية — تأكد أنه من نفس الحساب وأن المشروع مفعّل.';
+  if(s>=500) return 'خادم المزوّد مشغول أو متعطل مؤقتًا — جرّب بعد قليل.';
+  if(/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'تعذّر الوصول للمزوّد من هذه الشبكة.';
+  return ''; }
 function readingAIPickProvider(){ return raiProvider(); }
 function readingAIModels(){ const out={};Object.keys(READING_AI_PROVIDERS).forEach(p=>out[p]=localStorage.getItem('ai_model_'+p)||READING_AI_PROVIDERS[p].defaultModel);return out; }
 function readingAIGetKey(provider){ return raiActiveKey(provider||raiProvider()); }
 function readingAIConfig(provider){ return READING_AI_PROVIDERS[provider]||READING_AI_PROVIDERS.gemini; }
 
 /* image (اختياري): {type:'image/jpeg', b64} — يُرسل مع النص للنماذج التي ترى الصور (توليد أسئلة من صورة يرفعها المعلم) */
-async function readingAICall(provider, model, systemText, signal, image){
+async function readingAICall(provider, model, systemText, signal, image, opts){
   provider=provider||raiProvider();
   const cfg=readingAIConfig(provider);
   let current=readingAIGetKey(provider);
@@ -70,12 +82,14 @@ async function readingAICall(provider, model, systemText, signal, image){
     const reasoning=Array.isArray(c.reasoningModels)&&c.reasoningModels.includes(m);if(c.tokenParam&&c.tokenParam!=='max_tokens'){body[c.tokenParam]=body.max_tokens;delete body.max_tokens}if(reasoning)delete body.temperature;if(reasoning&&p==='groq'&&/gpt-oss/.test(m))body.reasoning_effort='low';
     const r=await fetch(c.baseUrl,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},body:JSON.stringify(body),signal});const d=await r.json();if(!r.ok){const e=new Error(d.error?.message||('خطأ '+r.status));e.status=r.status;throw e}return d.choices?.[0]?.message?.content||'';
   };
-  try{return await request(provider,current)}catch(e){if(e?.name==='AbortError')throw e;if(e?.status===401||e?.status===429){const next=raiRotateKey(provider,current);if(next){try{return await request(provider,next)}catch(e2){if(e2?.name==='AbortError')throw e2}}}}
+  let firstErr;   // خطأ المزوّد المختار نفسه — كان يضيع فيظهر «فشلت جميع المحاولات» أو ينجح الاختبار بمزوّد آخر
+  try{return await request(provider,current)}catch(e){if(e?.name==='AbortError')throw e;firstErr=e;if(e?.status===401||e?.status===429){const next=raiRotateKey(provider,current);if(next){try{return await request(provider,next)}catch(e2){if(e2?.name==='AbortError')throw e2;firstErr=e2}}}}
+  if(opts&&opts.noFallback) throw firstErr||new Error('فشل الطلب');
   // احتياطي تلقائي بين المزوّدات التي لديها مفاتيح، كما في الألعاب.
   const order=[provider,'gemini','claude','openai','openrouter','groq'].filter((p,i,a)=>a.indexOf(p)===i);
   let lastErr;
   for(const p of order){if(p===provider)continue;const k=readingAIGetKey(p);if(!k)continue;try{if(typeof toast==='function')toast('⤵️ تحويل تلقائي إلى '+readingAIConfig(p).name,'ok');return await request(p,k)}catch(e){if(e?.name==='AbortError')throw e;lastErr=e}}
-  throw lastErr||new Error('فشلت جميع محاولات الذكاء الاصطناعي');
+  throw firstErr||lastErr||new Error('فشلت جميع محاولات الذكاء الاصطناعي');
 }
 
 /* ترميم أخطاء JSON الشائعة من نماذج الذكاء، مع احترام النصوص الموجودة بين علامات التنصيص:

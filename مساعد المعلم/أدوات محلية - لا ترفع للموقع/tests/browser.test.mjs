@@ -59,6 +59,17 @@ export default async function run() {
         await p.evaluate(() => document.querySelector('#simp-sheet [data-simp-style="sections"]').click());
         ok(await p.evaluate(() => !!document.querySelector('#simp-nav [data-simp-gh="exams"]') && !!document.querySelector('#simp-nav .simp-edit-row')), 'رجع للأقسام');
         await p.evaluate(() => document.querySelector('.simp-cust-row .simp-customize.done').click()); eq(errs, [], 'أخطاء'); });
+      await S.t('🧪 «اختبار الاتصال» يختبر المزوّد المختار وحده ويُظهر خطأه الحقيقي مع شرح (لا ينجح بمزوّد آخر)', async () => {
+        await p.route(/generativelanguage\.googleapis\.com/, r => r.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: { code: 400, message: 'API key not valid. Please pass a valid API key.', status: 'INVALID_ARGUMENT' } }) }));
+        await p.route(/api\.anthropic\.com/, r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ content: [{ type: 'text', text: '{}' }] }) }));
+        await p.waitForFunction(() => typeof aiSettingsTest === 'function', null, { timeout: 15000 });
+        const msg = await p.evaluate(async () => { const keep = {}; ['ai_provider_v1', 'aikeys_gemini', 'aikeys_claude'].forEach(k => keep[k] = localStorage.getItem(k));
+          localStorage.setItem('ai_provider_v1', 'gemini'); localStorage.setItem('aikeys_gemini', JSON.stringify([{ key: 'AIzaTEST0000000000' }])); localStorage.setItem('aikeys_claude', JSON.stringify([{ key: 'sk-ant-TEST000000' }]));
+          let out = ''; const orig = window.aiSettingsMsg; window.aiSettingsMsg = t => { out = t; };
+          try { await aiSettingsTest(); } finally { window.aiSettingsMsg = orig; Object.entries(keep).forEach(([k, v]) => v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v)); }
+          return out; });
+        await p.unroute(/generativelanguage\.googleapis\.com/); await p.unroute(/api\.anthropic\.com/);
+        ok(/فشل Google Gemini/.test(msg) && /API key not valid/.test(msg) && /المفتاح غير صحيح/.test(msg), msg); eq(errs, [], 'أخطاء'); });
       await S.t('⚙️ زر الإعدادات بجانب «تخصيص القائمة» يفتح الإعدادات', async () => {
         ok(await p.evaluate(() => { const r = document.querySelector('#simp-nav .simp-cust-row'); return !!(r && r.querySelector('[data-simp-settings]') && /تخصيص القائمة/.test(r.textContent)); }), 'الزر بجانب التخصيص');
         await p.evaluate(() => document.querySelector('#simp-nav [data-simp-settings]').click()); await p.waitForTimeout(400);
@@ -210,7 +221,8 @@ export default async function run() {
       await dashReady(p);
       await p.evaluate(() => ctGo('schedule')); await p.waitForSelector('#sch-grid .sc-wr', { timeout: 15000 });
       await S.t('الجدول: شاشة البوابة داخل اللوحة بلا تكرار لوحة الأوقات القديمة', async () => {
-        eq(await p.$$eval('.st-panel', x => x.length), 0, 'لوحة الأوقات القديمة ما زالت'); ok(await p.$('#sc-day .sc-r'), 'لا حصص اليوم'); eq(errs, [], 'أخطاء'); });
+        eq(await p.$$eval('.st-panel', x => x.length), 0, 'لوحة الأوقات القديمة ما زالت'); const wkend = await p.evaluate(() => [5, 6].includes(new Date().getDay()));   // الجمعة والسبت عطلة: لا حصص «اليوم» أصلًا
+        ok(wkend ? await p.$('#sc-day') : await p.$('#sc-day .sc-r'), wkend ? 'لا لوحة اليوم' : 'لا حصص اليوم'); eq(errs, [], 'أخطاء'); });
       await S.t('الجدول: تغيير فصل خانة من «الأسبوع كامل» يصل للخادم ولا يمس الرصد', async () => {
         await p.click('[data-sc-view=week]'); await p.click('#sc-full [data-sc-cell="1|3"]'); await p.click('#sc-pick-l [data-sc-set="أول 2"]');
         await p.waitForTimeout(2500); const c = await cr(); eq(c.schedule.grid['1']['3'], 'أول 2'); eq(c.schedule.grid['1']['2'], 'أول 1'); eq(c.participation['2020-01-01'].s1.status, 'غائب'); });
