@@ -290,9 +290,12 @@ export default async function run() {
           const ios = HWV.ios, d = Object.getOwnPropertyDescriptor(HWV, 'active'); HWV.ios = true; Object.defineProperty(HWV, 'active', { get: () => false, configurable: true });
           const conv = localStorage.getItem('asst_conv'); localStorage.setItem('asst_conv', '1'); asstOpen(); ASST_MIC = null; asstMic(true); await new Promise(z => setTimeout(z, 30));
           const wait = [ASST_MIC === null, !!ASST.waitTap, /اضغط 🎤/.test(document.getElementById('asst-live').textContent), document.getElementById('asst-mic').classList.contains('nudge')];
+          Object.defineProperty(HWV, 'active', { get: () => true, configurable: true }); const go = HWV.go, rs = HWV.restart; let calls = []; HWV.go = o => { calls.push('go'); o.on = true; return true; }; HWV.restart = o => { calls.push('restart'); o.on = true; return true; };
+          ASST.recFinal = 1; ASST.waitTap = 0; asstMic(true); const autoWait = [ASST_MIC === null, !!ASST.waitTap]; asstMic(); const c1 = calls.slice(); asstMicStop(); ASST.recFinal = 0; asstMic(); const c2 = calls.slice(); asstMicStop();
+          HWV.go = go; HWV.restart = rs; wait.push(autoWait, c1, c2);
           HWV.ios = ios; Object.defineProperty(HWV, 'active', d); ASST.waitTap = 0; if (conv == null) localStorage.removeItem('asst_conv'); else localStorage.setItem('asst_conv', conv); asstClose();
           return { got, wait }; });
-        eq(r.got, ['مين الغايب اليوم في أول واحد|F', 'مرحبا', 'مرحبا يا مساعد|F', 'كيف حالك|F'], 'الكلمات بعد الجملة الجديدة'); eq(r.wait, [true, true, true, true], 'بلا لمسة'); eq(errs, [], 'أخطاء'); });
+        eq(r.got, ['مين الغايب اليوم في أول واحد|F', 'مرحبا', 'مرحبا يا مساعد|F', 'كيف حالك|F'], 'الكلمات بعد الجملة الجديدة'); eq(r.wait, [true, true, true, true, [true, true], ['restart'], ['restart', 'go']], 'بلا لمسة + الجلسة المتجمّدة'); eq(errs, [], 'أخطاء'); });
       await S.t('🎤 مساعدي: الميكروفون عبر محرّك الصوت الموحّد (HWV) — يسمع في المرة الثانية والثالثة (لا جلسة جديدة تُفتح كل ضغطة)', async () => {
         const r = await p.evaluate(async () => { const go = HWV.go, mute = HWV.mute, ask = asstAsk; let owner = null, gos = 0, mutes = 0; const sent = [];
           HWV.go = o => { gos++; owner = o; o.on = true; return true; }; HWV.mute = o => { mutes++; if (o) o.on = false; }; window.asstAsk = q => { sent.push(q); };

@@ -42,12 +42,20 @@ window.HWV = (function () {
     try { instance(fresh).start(); if (fresh) install(V.rec); return true; }
     catch (e) { try { const r2 = instance(true); install(r2); r2.start(); return true; } catch (x) { o.on = false; return false; } }
   }
+  /* 🍎 جلسة متجمّدة (iPhone بعد أول جملة نهائية: تبقى «مفتوحة» ولا يصلها صوت ولا تعلن انتهاءها):
+     داخل لمستك نُجهض القديمة ونبدأ كائنًا جديدًا — اللمسة شرط ليصل الصوت */
+  function restart(o) {
+    if (!SR) return false; claim(o); V.ext = false; V.owner = o; o.on = true;
+    const old = V.rec; if (old) { try { old.onresult = old.onend = old.onerror = null; old.abort(); } catch (e) {} }
+    V.active = false; const r = instance(true); install(r);
+    try { r.start(); return true; } catch (e) { o.on = false; return false; }
+  }
   function idle() {   // لا أحد يستمع: على iPhone تبقى الجلسة مكتومة 10 دقائق، وعلى غيره تُغلق الآن
     clearTimeout(V.offT); const stop = () => { if (!(V.owner && V.owner.on) && !V.ext && V.active) { try { V.rec.stop(); } catch (e) {} } };
     if (IOS) V.offT = setTimeout(stop, 600000); else setTimeout(stop, 0);
   }
   function mute(o) { commit(); if (o) o.on = false; idle(); }
-  return { sup: !!SR, ios: IOS, go, mute, instance, idle, set onReset(f) { V.onReset = f; },
+  return { sup: !!SR, ios: IOS, go, restart, mute, instance, idle, set onReset(f) { V.onReset = f; },
     get active() { return V.active; },
     /* للاختبارات والرسائل (VBI): يأخذ الكائن نفسه ويركّب معالجاته، ويوقف أي مالك آخر */
     adopt(fresh) { claim(null, true); V.owner = null; V.ext = true; return instance(fresh); },
