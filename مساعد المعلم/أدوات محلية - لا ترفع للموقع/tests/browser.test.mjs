@@ -201,23 +201,6 @@ export default async function run() {
         await p.evaluate(k => { if (k == null) localStorage.removeItem('asst_tts'); else localStorage.setItem('asst_tts', k); }, r.k);
         await p.unroute(/workers\.dev\/tts\?/);
         ok(urls.length >= 1 && /k=asst/.test(urls[0]) && decodeURIComponent(urls[0]).includes('غاب اليوم طالبان'), urls[0]); eq([r.el, r.d1], [true, 0], 'ElevenLabs'); eq([r2.el, r2.dev], [false, 1], 'صوت الجهاز'); eq(errs, [], 'أخطاء'); });
-      await S.t('🗣️ نطق الأسماء: الذكاء يشكّلها مرة (ويُرفض ما غيّر الحروف)، تُحفظ في الخادم، وتُطبَّق قبل النطق حتى مع «لـ/و»', async () => {
-        await p.route(/generativelanguage\.googleapis\.com/, r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ candidates: [{ content: { parts: [{ text:
-          JSON.stringify({ w: { 'طالب': 'طَالِب', 'الأول': 'الأَوَّل', 'الثاني': 'الثَّانِي', 'آخر': 'آخَرَيْن' } }) }] } }] }) }));
-        const tts = []; await p.route(/workers\.dev\/tts\?/, r => { tts.push(decodeURIComponent(r.request().url())); r.fulfill({ status: 200, contentType: 'audio/mpeg', body: Buffer.from([0]) }); });
-        const r = await p.evaluate(async () => { const keep = {}; ['ai_provider_v1', 'aikeys_gemini', 'ai_routes_v1', 'asst_tts', 'asst_say_v1', 'asst_el_off'].forEach(k => keep[k] = localStorage.getItem(k));
-          localStorage.setItem('ai_provider_v1', 'gemini'); localStorage.setItem('aikeys_gemini', JSON.stringify([{ key: 'AIzaTEST0000000000' }])); localStorage.removeItem('ai_routes_v1'); localStorage.removeItem('asst_el_off');
-          ASST_DICT.w = null; ASST_DICT.at = 0; localStorage.removeItem('asst_say_v1'); await devCall('/say-names', { action: 'set', words: {} });
-          const words = asstNameWords(); const n = await asstSayAuto(); const srv = (await devCall('/say-names', { action: 'get' })).words;
-          const ap = asstSayApply('غاب طالب الاختبار الأول، وأعلى درجة لطالب آخر');
-          localStorage.setItem('asst_tts', '1'); ASST_EL = null; await asstSpeak('غاب **طالب** الاختبار الأول');
-          await devCall('/say-names', { action: 'set', words: {} }); ASST_DICT.w = null;
-          Object.entries(keep).forEach(([k, v]) => v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v));
-          return { words, n, srv, ap }; });
-        await p.unroute(/generativelanguage\.googleapis\.com/); await p.unroute(/workers\.dev\/tts\?/);
-        ok(r.words.includes('طالب') && r.words.includes('الاختبار'), 'كلمات الأسماء: ' + r.words.join('،')); eq(r.n, 3, 'المقبول (آخر رُفض لتغيّر حروفه)');
-        eq(r.srv['طالب'], 'طَالِب', 'الخادم'); ok(!('آخر' in r.srv), 'حُفظ ما غيّر الحروف');
-        eq(r.ap, 'غاب طَالِب الاختبار الأَوَّل، وأعلى درجة لطَالِب آخر'); ok(tts.some(u => u.includes('طَالِب الاختبار الأَوَّل')), 'النص للصوت: ' + tts.join(' | ')); eq(errs, [], 'أخطاء'); });
       await S.t('⚙️ زر الإعدادات بجانب «تخصيص القائمة» يفتح الإعدادات', async () => {
         ok(await p.evaluate(() => { const r = document.querySelector('#simp-nav .simp-cust-row'); return !!(r && r.querySelector('[data-simp-settings]') && /تخصيص القائمة/.test(r.textContent)); }), 'الزر بجانب التخصيص');
         await p.evaluate(() => document.querySelector('#simp-nav [data-simp-settings]').click()); await p.waitForTimeout(400);

@@ -6164,16 +6164,6 @@ const HW_WORKER = {
       if (Array.isArray(msg)) { const out = (await Promise.all(msg.map(m => mcpHandle(env, ctx, m)))).filter(Boolean); return out.length ? json(out) : new Response(null, { status: 202 }); }
       const r = await mcpHandle(env, ctx, msg); return r ? json(r) : new Response(null, { status: 202 });
     }
-    // 🗣️ قاموس نطق أسماء الطلاب (المعلم فقط): كلمة ← نفسها بالتشكيل — يُشكَّل مرة واحدة ويُستخدم في كل قراءة بصوت
-    if (url.pathname === '/say-names' && request.method === 'POST') {
-      let b = {}; try { b = await request.json(); } catch {}
-      if (!pushIsTeacher(env, b)) return json({ ok: false, error: 'unauthorized' }, 401);
-      if (b.action === 'set') { const w = {};
-        Object.entries(b.words && typeof b.words === 'object' ? b.words : {}).slice(0, 4000).forEach(([k, v]) => { k = String(k).trim().slice(0, 40); v = String(v || '').trim().slice(0, 80); if (k && v) w[k] = v; });
-        await env.HW.put('say:names', JSON.stringify({ at: Date.now(), w })); return json({ ok: true, n: Object.keys(w).length }); }
-      let j = null; try { j = JSON.parse(await env.HW.get('say:names') || 'null'); } catch {}
-      return json({ ok: true, words: (j && j.w) || {}, at: j ? Number(j.at) || 0 : 0 });
-    }
     // 📱 أجهزة الطلاب (المعلم فقط): من ثبّت البوابة تطبيقًا، ومن يستخدم المتصفح، وأي إصدار — من آخر فتح لكل طالب
     if (url.pathname === '/app/devices' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch {}
