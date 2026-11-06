@@ -185,6 +185,15 @@ export default async function run() {
         ok(/غابوا آخر ٣ حصص/.test(r.brief) && r.brief.includes(r.s0), 'الملخص: ' + r.brief);
         ok(/^السلام عليكم/.test(r.draft || '') && r.ta, 'المسودة'); const last = bodies[bodies.length - 1];
         ok(!r.ids.some(id => last.includes('"' + id + '"')) && !/"_id"/.test(last), 'وصل معرّف للمزوّد'); eq(errs, [], 'أخطاء'); });
+      await S.t('💰 مساعدي: «كم نقاط فلان» = رصيد نقاط المكافآت فورًا بلا ذكاء (وليس درجة)، وأداة points للترتيب، والملخص فيه الرصيد', async () => {
+        let ai = 0; await p.route(/generativelanguage\.googleapis\.com/, r => { ai++; r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ candidates: [{ content: { parts: [{ text: '{"answer":"50"}' }] } }] }) }); });
+        const r = await p.evaluate(async () => { const s0 = STUDENTS[0], s1 = STUDENTS[1], k0 = s0.points, k1 = s1.points; s0.points = 7; s1.points = 12;
+          try { asstOpen(); ASST.msgs = []; await asstAsk('كم نقاط ' + s0.name + '؟'); const m = ASST.msgs[ASST.msgs.length - 1];
+            const rank = await ASST_TOOLS.points.run({}), sum = await ASST_TOOLS.student_summary.run({ student: s0.name }); asstClose(); ASST.msgs = [];
+            return { html: m.html, src: m.src.join(' '), top: rank.students[0].reward_points, sum: sum.reward_points }; }
+          finally { s0.points = k0; s1.points = k1; } });
+        await p.unroute(/generativelanguage\.googleapis\.com/);
+        ok(/<b>7<\/b> نقطة/.test(r.html) && /فوري/.test(r.src), r.html); eq(ai, 0, 'استُدعي الذكاء'); eq([r.top, r.sum], [12, 7], 'الأداة والملخص'); eq(errs, [], 'أخطاء'); });
       await S.t('🎤 مساعدي: الميكروفون عبر محرّك الصوت الموحّد (HWV) — يسمع في المرة الثانية والثالثة (لا جلسة جديدة تُفتح كل ضغطة)', async () => {
         const r = await p.evaluate(async () => { const go = HWV.go, mute = HWV.mute, ask = asstAsk; let owner = null, gos = 0, mutes = 0; const sent = [];
           HWV.go = o => { gos++; owner = o; o.on = true; return true; }; HWV.mute = o => { mutes++; if (o) o.on = false; }; window.asstAsk = q => { sent.push(q); };

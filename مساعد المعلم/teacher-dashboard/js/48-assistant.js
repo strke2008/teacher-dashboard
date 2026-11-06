@@ -71,12 +71,12 @@ const ASST_TOOLS = {
         if (by === 'total') { const xs = [P.score, Hm.score, B.score, E.measured ? E.score : null].filter(v => typeof v === 'number'); return xs.length ? Math.round(xs.reduce((s, v) => s + v, 0) * 10) / 10 : null; } return typeof f[by] === 'number' ? f[by] : null; };
       const rows = G.students.filter(g => !cls || String(g.cls || '') === cls).map(g => ({ name: g.name, cls: g.cls || '', value: val(g) })).filter(r => r.value !== null).sort((x, y) => asc ? x.value - y.value : y.value - x.value);
       return { by, order: asc ? 'الأضعف' : 'الأعلى', cls: cls || 'كل الفصول', note: 'total = مجموع المشاركة والواجبات والسلوك والاختبار', students: rows.slice(0, Math.max(1, Math.min(50, Number(a.n) || 5))) }; } },
-  student_summary: { d: 'ملخص طالب في الفترة الحالية: المشاركة والواجبات والسلوك والاختبار والحضور والمستوى والأنشطة الناقصة. args: {student}', src: a => '👤 ملف ' + (a._name || a.student || 'الطالب'),
+  student_summary: { d: 'ملخص طالب في الفترة الحالية: رصيد نقاط المكافآت (reward_points) والمشاركة والواجبات والسلوك والاختبار والحضور والمستوى والأنشطة الناقصة. args: {student}', src: a => '👤 ملف ' + (a._name || a.student || 'الطالب'),
     async run(a) { const m = asstFindStudent(a.student); if (!m.length) return { error: 'لم أجد الطالب' }; if (m.length > 1) return { error: 'أكثر من طالب يطابق', matches: m.slice(0, 8).map(s => s.name + ' — ' + (s.cls || '')) };
       const s = m[0]; a._name = s.name; const G = await asstGrades(), g = G && (G.students || []).find(x => String(x.id) === String(s.id)) || {};
       const mw = await ASST_TOOLS.missing_work.run({ student: s.name });
       const pick = (o, k) => { const r = {}; k.forEach(x => { if (o && o[x] !== undefined) r[x] = o[x]; }); return r; };
-      return { name: s.name, cls: s.cls || '', participation: pick(g.participation, ['score', 'yes', 'no', 'absent']), homework: pick(g.homework, ['score', 'done', 'missed']), behavior: pick(g.behavior, ['score', 'pos', 'neg']),
+      return { name: s.name, cls: s.cls || '', reward_points: Number(s.points) || 0, participation: pick(g.participation, ['score', 'yes', 'no', 'absent']), homework: pick(g.homework, ['score', 'done', 'missed']), behavior: pick(g.behavior, ['score', 'pos', 'neg']),
         exam: pick(g.exam, ['score', 'max', 'measured']), attendance: pick(g.attendance, ['absent', 'excused', 'late', 'days', 'rate']), level: pick(g.level, ['label', 'rate']), missing_activities: mw.missing || [] }; } },
   behavior_notes: { d: 'ملاحظات السلوك الإيجابية والسلبية. args: {student?, cls?, days?:افتراضي 14}', src: () => '⭐ ملاحظات السلوك',
     async run(a) { const D = await asstClassroom(), days = Math.max(1, Math.min(365, Number(a.days) || 14)), from = new Date(Date.now() + 3 * 3600e3 - days * 864e5).toISOString().slice(0, 10), cls = asstCls(a.cls);
@@ -100,6 +100,11 @@ const ASST_TOOLS = {
   parent_message: { act: 1, d: 'كتابة مسودة رسالة لولي أمر طالب (المعلم يراجعها ويرسلها بنفسه). args: {student, topic:"موضوع الرسالة"}', src: a => '✉️ مسودة رسالة — ' + (a._name || a.student || ''),
     async run(a) { const s0 = await ASST_TOOLS.student_summary.run({ student: a.student }); if (s0.error) return s0; a._name = s0.name; const st = asstFindStudent(s0.name)[0];
       return { action: 'draft', topic: String(a.topic || 'متابعة مستوى الطالب'), student: s0, _id: st ? String(st.id) : '' }; } },
+  points: { d: 'رصيد «النقاط» (نقاط المكافآت/المتجر — ليست درجات): رصيد طالب، أو ترتيب الطلاب بالنقاط في فصل. args: {student?, cls?, order?:"desc"|"asc", n?}', src: () => '💰 نقاط الطلاب',
+    async run(a) { if (a.student) { const m = asstFindStudent(a.student); if (m.length !== 1) return m.length ? { error: 'أكثر من طالب يطابق', matches: m.slice(0, 8).map(s => s.name + ' — ' + (s.cls || '')) } : { error: 'لم أجد الطالب' };
+        return { name: m[0].name, cls: m[0].cls || '', reward_points: Number(m[0].points) || 0, note: 'نقاط المكافآت (رصيد المتجر)، وليست درجة' }; }
+      const cls = asstCls(a.cls), asc = a.order === 'asc', L = asstStudents().filter(s => !cls || String(s.cls || '') === cls).map(s => ({ name: s.name, cls: s.cls || '', reward_points: Number(s.points) || 0 })).sort((x, y) => asc ? x.reward_points - y.reward_points : y.reward_points - x.reward_points);
+      return { cls: cls || 'كل الفصول', total: L.reduce((n, x) => n + x.reward_points, 0), students: L.slice(0, Math.max(1, Math.min(50, Number(a.n) || 10))) }; } },
   /* ── 📝 الاختبارات والتصحيح الآلي والمهارات (قراءة) ── */
   exam_scores: { d: 'دفتر الاختبارات: قائمة الاختبارات ومتوسطاتها، أو درجات اختبار معيّن (الأعلى/الأقل/الغائب/من لم يُرصد له)، أو درجات طالب في كل الاختبارات. args: {test?:"جزء من العنوان" أو "آخر", student?, cls?, sem?:1|2, per?:1|2 (افتراضي الفترة الحالية)}', src: a => '📝 دفتر الاختبارات' + (a._title ? ' — ' + a._title : ''),
     async run(a) { const { sem, per, label } = asstSP(a), b = await asstBook(sem, per), cls = asstCls(a.cls); if (!b.tests.length) return { period: label, error: 'لا توجد اختبارات في دفتر هذه الفترة' };
@@ -222,7 +227,9 @@ const asstIntro = () => `أنت «مساعدي» داخل لوحة معلم سع
 /* ── تشغيل سؤال ── */
 function asstFast(q) {   // ⚡ بلا ذكاء: «مين الغايب اليوم» و«افتح ملف فلان»
   const t = String(q || ''), pf = t.match(/^\s*(?:افتح|إفتح|فتح|افتحي|ودّني|ودني|روح)\s+(?:لي\s+)?ملف\s+(?:الطالب\s+)?(.+?)\s*[؟?.!]*\s*$/);
-  if (pf && !/^(ال)?فصل(\s|$)/.test(pf[1])) return { tool: 'open_page', args: { page: 'student', student: pf[1] } }; if (!/(غايب|غائب|غياب|غابو|غابوا|الغائبين|الحضور)/.test(t)) return null;
+  if (pf && !/^(ال)?فصل(\s|$)/.test(pf[1])) return { tool: 'open_page', args: { page: 'student', student: pf[1] } };
+  const pp = t.match(/^\s*(?:كم\s+)?(?:نقاط|رصيد(?:\s+نقاط)?)\s+(?:الطالب\s+)?(.+?)(?:\s+كم)?\s*[؟?.!]*\s*$/);
+  if (pp && asstFindStudent(pp[1]).length === 1) return { tool: 'points', args: { student: pp[1] } }; if (!/(غايب|غائب|غياب|غابو|غابوا|الغائبين|الحضور)/.test(t)) return null;
   if (!/(اليوم|الحين|هاليوم)/.test(t) && !/^\s*(مين|من)\s+(ال)?(غايب|غائب)/.test(t)) return null;
   const cls = asstClsList().find(c => t.includes(c)) || ''; return { tool: 'attendance_day', args: { cls } };
 }
@@ -243,6 +250,7 @@ async function asstAsk(q) {
     const fast = asstFast(q);
     if (fast) { const r = await ASST_TOOLS[fast.tool].run(fast.args); bot.src = [ASST_TOOLS[fast.tool].src(fast.args), '⚡ فوري بلا ذكاء'];
       if (fast.tool === 'open_page') { if (r.error) { bot.html = '⚠️ ' + asstEsc(r.error) + (r.matches ? '<br>' + r.matches.map(asstEsc).join('<br>') : ''); return; } bot.cards = [{ ...r, state: 'ask' }]; bot.text = 'فتحت لك ' + r.label + (r.name ? ' — ' + r.name : ''); bot.html = asstMd(bot.text); bot._auto = 1; return; }
+      if (fast.tool === 'points') { bot.text = `رصيد ${r.name}: ${r.reward_points} نقطة`; bot.html = `رصيد <b>${asstEsc(r.name)}</b> <small>(${asstEsc(r.cls)})</small>: <b>${r.reward_points}</b> نقطة`; return; }
       bot.html = asstRenderFast(r); return; }
     if (typeof readingAICall !== 'function') throw new Error('الذكاء الاصطناعي غير محمّل');
     const R = typeof aiRoute === 'function' ? aiRoute('assistant') : { p: raiProvider(), m: readingAIModels()[raiProvider()] };
@@ -253,7 +261,7 @@ async function asstAsk(q) {
 الأدوات المتاحة (تُحسب من بيانات المعلم):
 ${tools}
 ${hist ? 'المحادثة السابقة:\n' + hist + '\n' : ''}سؤال المعلم: ${q}
-اختر الأدوات التي تكفي للجواب (غالبًا واحدة أو اثنتان). إن طلب المعلم تنفيذ شيء (رصد غياب/مشاركة/واجب، درجة اختبار، ملاحظة سلوك، تذكير، رسالة لولي أمر، مسودة نشاط، فتح صفحة أو طباعة) فاستخدم أداة التجهيز المناسبة — لن يُنفَّذ شيء إلا بعد تأكيده.
+اختر الأدوات التي تكفي للجواب (غالبًا واحدة أو اثنتان). «النقاط» = رصيد نقاط المكافآت (أداة points)، وهي غير «الدرجات». إن طلب المعلم تنفيذ شيء (رصد غياب/مشاركة/واجب، درجة اختبار، ملاحظة سلوك، تذكير، رسالة لولي أمر، مسودة نشاط، فتح صفحة أو طباعة) فاستخدم أداة التجهيز المناسبة — لن يُنفَّذ شيء إلا بعد تأكيده.
 إن طلب عدة مهام في رسالة واحدة فأخرج خطوة لكل مهمة بترتيبها (حتى 6 خطوات)، وكل خطوة تنفيذية تظهر له ببطاقة تأكيد مستقلة.
 أخرج JSON فقط: {"calls":[{"tool":"اسم","args":{...}}]}
 وإن كان السؤال لا يحتاج بيانات (تحية أو سؤال عام) أخرج {"answer":"ردّك"}.`, new AbortController().signal)) || {};
@@ -271,7 +279,7 @@ ${hist ? 'المحادثة السابقة:\n' + hist + '\n' : ''}سؤال الم
 سؤال المعلم: ${q}
 نتائج الأدوات من بياناته:
 ${JSON.stringify(asstStrip(info)).slice(0, 14000)}
-أجب المعلم بالعربية بإيجاز ودقة من هذه النتائج فقط — لا تخترع أسماء أو أرقامًا. استخدم **عريض** للأهم وقائمة بـ «- » عند الحاجة. إن كانت القائمة طويلة اذكر أهمها والعدد. إن كان في النتائج error فاشرحه واقترح صياغة.
+أجب المعلم بالعربية بإيجاز ودقة من هذه النتائج فقط — لا تخترع أسماء أو أرقامًا. reward_points هي «النقاط» (مكافآت)، ولا تسمِّ أي درجة نقاطًا. استخدم **عريض** للأهم وقائمة بـ «- » عند الحاجة. إن كانت القائمة طويلة اذكر أهمها والعدد. إن كان في النتائج error فاشرحه واقترح صياغة.
 ${draft ? 'واكتب في draft رسالة مهذبة قصيرة لولي أمر الطالب بالعربية الفصحى المبسطة عن الموضوع، مبنية على بياناته فقط، تبدأ بـ «السلام عليكم ورحمة الله» وتنتهي بتوقيع «معلم المادة».\nأخرج JSON فقط: {"answer":"...","draft":"..."}' : 'أخرج JSON فقط: {"answer":"..."}'}`, new AbortController().signal)) || {};
     if (draft) draft.text = String(ans.draft || '');
     bot.text = String(ans.answer || ''); bot.html = asstMd(bot.text || (draft ? 'هذه المسودة — عدّلها كما تشاء:' : 'لم يصل جواب — جرّب مرة أخرى')); bot.src.push(asstUsed());
