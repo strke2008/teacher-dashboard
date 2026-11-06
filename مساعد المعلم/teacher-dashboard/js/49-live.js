@@ -34,8 +34,9 @@ function livePlay(b64) {
   for (let i = 0; i < n; i++) { let v = bin.charCodeAt(2 * i) | (bin.charCodeAt(2 * i + 1) << 8); if (v >= 32768) v -= 65536; f[i] = v / 32768; }
   const buf = C.createBuffer(1, n, 24000); buf.copyToChannel ? buf.copyToChannel(f, 0) : buf.getChannelData(0).set(f);
   const s = C.createBufferSource(); s.buffer = buf; s.connect(C.destination); const at = Math.max(C.currentTime + 0.03, LIVE.play); s.start(at); LIVE.play = at + buf.duration;
-  LIVE.srcs.push(s); s.onended = () => { LIVE.srcs = LIVE.srcs.filter(x => x !== s); if (!LIVE.srcs.length && LIVE.on) liveSet('listen'); }; liveSet('speak');
+  LIVE.srcs.push(s); s.onended = () => { LIVE.srcs = LIVE.srcs.filter(x => x !== s); if (!LIVE.srcs.length) { LIVE.quiet = Date.now() + 450; if (LIVE.on) liveSet('listen'); } }; if (LIVE.state !== 'speak') liveSet('speak');
 }
+function liveCut() { LIVE.cut = true; liveHush(); LIVE.quiet = 0; asstMicLog('live: قاطعته'); if (LIVE.on) liveSet('listen'); }   // يتجاهل بقية جوابه حتى نهاية الدور، ويعود الميكروفون فورًا
 function liveHush() { LIVE.srcs.forEach(s => { try { s.stop(); } catch (e) {} }); LIVE.srcs = []; LIVE.play = 0; }
 /* 🎤 الميكروفون ← PCM 16 كيلوهرتز (base64) */
 function liveB64(f32, sr) {
@@ -48,7 +49,7 @@ function liveSet(st, extra) {
   LIVE.state = st; const e = document.getElementById('asst-live'), b = document.getElementById('asst-livebtn');
   if (b) b.classList.toggle('on', LIVE.on || st === 'connect');
   if (!e) return; if (!LIVE.on && st !== 'connect') { if (typeof asstLive === 'function') asstLive(); return; }
-  const L = { connect: '⏳ أتصل بـ Gemini Live…', listen: '🎙️ <b>محادثة حية</b> — تكلّم، أسمعك', speak: '🔊 <b>محادثة حية</b> — أتكلم… (قاطعني متى شئت)', tool: '🔎 <b>محادثة حية</b> — أبحث في بياناتك…' };
+  const L = { connect: '⏳ أتصل بـ Gemini Live…', listen: '🎙️ <b>محادثة حية</b> — تكلّم، أسمعك', speak: '🔊 <b>محادثة حية</b> — أتكلم… <button type="button" class="btn sm ghost" onclick="liveCut()">✋ قاطعه</button>', tool: '🔎 <b>محادثة حية</b> — أبحث في بياناتك…' };
   e.hidden = false; e.innerHTML = `<span class="dot"></span> ${L[st] || ''}${extra ? ' · ' + extra : ''} <button type="button" class="btn sm ghost" onclick="liveStop()">⏹ إنهاء</button>`;
 }
 function liveMsg(who, t) {   // النص المكتوب للمحادثة (من النسخ الحي) — يبقى في سجل «مساعدي»
@@ -78,11 +79,11 @@ function liveConnect(model) {
   ws.onmessage = async ev => { let j; try { j = JSON.parse(typeof ev.data === 'string' ? ev.data : await (ev.data.text ? ev.data.text() : new Response(ev.data).text())); } catch (e) { return; }
     if (j.setupComplete) { ready = true; asstMicLog('live: جاهز'); await liveMic(); return; }
     const sc = j.serverContent;
-    if (sc) { if (sc.interrupted) liveHush();
+    if (sc) { if (sc.interrupted) { liveHush(); LIVE.cut = false; LIVE.quiet = Date.now() + 300; }
       if (sc.inputTranscription && sc.inputTranscription.text) { LIVE.bot = null; liveMsg('me', sc.inputTranscription.text); }
       if (sc.outputTranscription && sc.outputTranscription.text) { LIVE.me = null; liveMsg('bot', sc.outputTranscription.text); }
-      ((sc.modelTurn || {}).parts || []).forEach(p => { if (p.inlineData && /audio/.test(p.inlineData.mimeType || '')) livePlay(p.inlineData.data); });
-      if (sc.turnComplete) { LIVE.me = LIVE.bot = null; try { asstSave(); } catch (e) {} } }
+      if (!LIVE.cut) ((sc.modelTurn || {}).parts || []).forEach(p => { if (p.inlineData && /audio/.test(p.inlineData.mimeType || '')) livePlay(p.inlineData.data); });
+      if (sc.turnComplete) { LIVE.cut = false; LIVE.me = LIVE.bot = null; try { asstSave(); } catch (e) {} } }
     if (j.toolCall) liveTool(j.toolCall.functionCalls || []);
     if (j.goAway) liveSet(LIVE.state, 'الجلسة توشك على الانتهاء'); };
   ws.onclose = ev => { asstMicLog('live: أُغلق ' + ev.code + (ev.reason ? ' ' + String(ev.reason).slice(0, 60) : '')); if (LIVE.ws !== ws) return;
@@ -98,7 +99,8 @@ async function liveMic(again) {
   const C = LIVE.ctx; if (C.state !== 'running') { try { await C.resume(); } catch (e) {} }
   LIVE.src = C.createMediaStreamSource(LIVE.stream); LIVE.node = C.createScriptProcessor(4096, 1, 1); let frames = 0, loud = 0;
   try { LIVE.stream.getAudioTracks()[0].onended = () => asstMicLog('live: انتهى مسار الميكروفون'); } catch (e) {}
-  LIVE.node.onaudioprocess = e => { if (!LIVE.on || !LIVE.ws || LIVE.ws.readyState !== 1) return; const d = e.inputBuffer.getChannelData(0);
+  /* 🔇 لا نُرسل الميكروفون وهو يتكلم (ونصف ثانية بعده): مكبّر الجوال يرجع صوته للميكروفون فيحسبه Gemini مقاطعة ويقطع جملته — للمقاطعة زر ✋ */
+  LIVE.node.onaudioprocess = e => { if (!LIVE.on || !LIVE.ws || LIVE.ws.readyState !== 1) return; if (LIVE.srcs.length || Date.now() < (LIVE.quiet || 0)) return; const d = e.inputBuffer.getChannelData(0);
     if (frames < 60) { frames++; let m = 0; for (let k = 0; k < d.length; k += 8) m = Math.max(m, Math.abs(d[k])); if (m > 1e-4) loud++;
       if (frames === 40) { asstMicLog(`live: صوت ${loud}/40 · سياق ${C.state}`); if (!loud) { liveSilent(again); return; } } }   // ~3 ثوانٍ صمت تام = الميكروفون لا يصل
     if (LIVE.ws) LIVE.ws.send(JSON.stringify({ realtimeInput: { audio: { data: liveB64(d, C.sampleRate), mimeType: 'audio/pcm;rate=16000' } } })); };
