@@ -321,7 +321,7 @@ function asstForget() { ASST.msgs = []; try { localStorage.removeItem('asst_hist
 /* 🗣️ وضع المحادثة: بعد كل جواب (وبعد قراءته إن كانت القراءة مفعّلة) يعود الميكروفون يسمعك بلا ضغطة */
 const asstConvOn = () => { try { return localStorage.getItem('asst_conv') === '1'; } catch (e) { return false; } };
 function asstConvToggle() { const on = !asstConvOn(); try { if (on) localStorage.setItem('asst_conv', '1'); else localStorage.removeItem('asst_conv'); } catch (e) {} const b = document.getElementById('asst-conv'); if (b) b.classList.toggle('on', on);
-  toast(on ? '🗣️ وضع المحادثة: أسمعك بعد كل جواب' : '🗣️ أُقفل وضع المحادثة', 'good'); if (on && !ASST_MIC && !ASST.busy) asstMic(); else if (!on) asstMicStop(); }
+  toast(on ? '🗣️ وضع المحادثة: تكلّم الحين — أرد وأرجع أسمعك لحالي' : '🗣️ أُقفل وضع المحادثة', 'good'); setTimeout(asstLive, 0); if (on && !ASST_MIC && !ASST.busy) asstMic(); else if (!on) asstMicStop(); }
 function asstConvNext() { const p = document.getElementById('asst-panel'); if (asstConvOn() && p && p.classList.contains('on') && !ASST_MIC && !ASST.busy) asstMic(); }
 
 /* ── تشغيل سؤال ── */
@@ -345,6 +345,7 @@ function asstMd(s) {   // تنسيق بسيط آمن: **عريض** · أسطر �
 }
 async function asstAsk(q) {
   q = String(q || '').trim(); if (!q || ASST.busy) return; asstSpeakStop(); asstAudioUnlock();
+  if (/^(سجل|سجلّ) (المايك|الميكروفون)$/.test(q)) { ASST.msgs.push({ me: 1, html: asstEsc(q) }, { html: '<b>🩺 أحداث الميكروفون</b><br>' + (window.HWV ? `iPhone: ${HWV.ios ? 'نعم' : 'لا'} · الجلسة: ${HWV.active ? 'مفتوحة' : 'مقفلة'}<br>` : '') + (ASST_MLOG.map(asstEsc).join('<br>') || 'لا أحداث بعد'), src: [] }); asstPaint(); return; }
   { const S = asstShortcuts(), k = Object.keys(S).find(n => asstTok(n).join(' ') === asstTok(q.replace(/[؟?.!]+$/, '')).join(' ')); if (k) { ASST.msgs.push({ me: 1, html: '⚡ ' + asstEsc(k) }); q = S[k]; } }
   ASST.busy = true; ASST.msgs.push({ me: 1, html: asstEsc(q) }); const bot = { html: '<i class="asst-dots"><b></b><b></b><b></b></i>', src: [] }; ASST.msgs.push(bot); asstPaint();
   try {
@@ -529,19 +530,27 @@ const ASST_SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 /* 🎤 عبر محرّك الصوت الموحّد (HWV): على iPhone جلسة الاستماع الثانية في الصفحة نفسها لا يصلها صوت،
    فنتشارك الجلسة نفسها مع البحث والرصد بالصوت — «إيقاف» يكتمها فقط، والضغطة التالية تكمل فورًا */
 let ASST_MIC = null;
-function asstMicStop() { const c = ASST_MIC; if (!c) return; ASST_MIC = null; clearTimeout(c.t); try { HWV.mute(c.owner); } catch (e) {} const b = document.getElementById('asst-mic'); if (b) b.classList.remove('on'); }
-function asstMicSend() { const c = ASST_MIC; if (!c) return; const t = (c.done + ' ' + c.pend).replace(/\s+/g, ' ').trim(); asstMicStop(); const i = document.getElementById('asst-q'); if (i) i.value = ''; if (t) asstAsk(t); }
+/* شريط الحالة تحت الخانة: يوضّح أنه يسمع ومتى يرسل، ووضع المحادثة */
+function asstLive() { const e = document.getElementById('asst-live'); if (!e) return; const conv = asstConvOn();
+  e.innerHTML = ASST_MIC ? `<span class="dot"></span> ${conv ? '🗣️ وضع المحادثة — ' : ''}أسمعك… أرسل لحالي بعد سكوتك ثانيتين، أو اضغط 🎤 للإرسال الآن`
+    : conv ? '🗣️ وضع المحادثة مفتوح: اضغط 🎤 مرة وحدة وتكلم — أرد وأرجع أسمعك لحالي. للإيقاف اضغط 🗣️' : '';
+  e.hidden = !e.innerHTML; }
+const ASST_MLOG = [];
+function asstMicLog(x) { ASST_MLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + x); if (ASST_MLOG.length > 40) ASST_MLOG.shift(); }
+function asstMicStop() { const c = ASST_MIC; if (!c) return; ASST_MIC = null; clearTimeout(c.t); try { HWV.mute(c.owner); } catch (e) {} const b = document.getElementById('asst-mic'); if (b) b.classList.remove('on'); asstLive(); }
+function asstMicSend() { const c = ASST_MIC; if (!c) return; const t = (c.done + ' ' + c.pend).replace(/\s+/g, ' ').trim(); asstMicLog('send ' + t.length); asstMicStop(); const i = document.getElementById('asst-q'); if (i) i.value = ''; if (t) asstAsk(t); }
 function asstMic() {
   if (!window.HWV || !HWV.sup) { toast('الكلام غير مدعوم في هذا المتصفح', 'bad'); return; }
   if (ASST_MIC) { asstMicSend(); return; }   // ضغطة ثانية: أرسل ما قيل
-  asstSpeakStop(); asstAudioUnlock();
+  if (!(window.HWV && HWV.ios && HWV.active)) { asstSpeakStop(); asstAudioUnlock(); }
   const i = document.getElementById('asst-q'), b = document.getElementById('asst-mic'), c = { done: '', pend: '', t: 0 };
   const show = () => { if (i) i.value = (c.done + ' ' + c.pend).replace(/\s+/g, ' ').trim(); };
   c.owner = { on: false,
-    onText: (t, final) => { clearTimeout(c.t); if (final) { c.done += ' ' + t; c.pend = ''; c.t = setTimeout(asstMicSend, 700); } else c.pend = t; show(); },
-    onStop: () => { if (ASST_MIC === c) { if ((c.done + c.pend).trim()) asstMicSend(); else asstMicStop(); } },
-    onError: err => { if (err === 'not-allowed' || err === 'service-not-allowed') { toast('اسمح للمتصفح باستخدام الميكروفون', 'bad'); asstMicStop(); } } };
-  ASST_MIC = c; if (b) b.classList.add('on');
+    onText: (t, final) => { clearTimeout(c.t); if (final) { c.done += ' ' + t; c.pend = ''; c.t = setTimeout(asstMicSend, 1800); } else c.pend = t; show(); asstLive(); },
+    onStop: why => { asstMicLog('stop:' + (why || '')); if (ASST_MIC === c) { if ((c.done + c.pend).trim()) asstMicSend(); else asstMicStop(); } },
+    onError: err => { asstMicLog('err:' + err); if (err === 'not-allowed' || err === 'service-not-allowed') { toast('اسمح للمتصفح باستخدام الميكروفون', 'bad'); asstMicStop(); } } };
+  ASST_MIC = c; if (b) b.classList.add('on'); asstMicLog('go active=' + HWV.active);
+  setTimeout(asstLive, 0);
   if (!HWV.go(c.owner)) { asstMicStop(); toast('تعذّر تشغيل الميكروفون — أغلق المتصفح وافتحه ثم حاول', 'bad'); }
 }
 const asstTtsOn = () => { try { return localStorage.getItem('asst_tts') === '1'; } catch (e) { return false; } };
@@ -549,8 +558,11 @@ function asstTtsToggle() { try { localStorage.setItem('asst_tts', asstTtsOn() ? 
 /* 🔊 القراءة بصوت ElevenLabs عبر الخادم (المفتاح في Cloudflare فقط، وبسقف يومي) — وإن تعذّر فصوت الجهاز */
 let ASST_AUDIO = null, ASST_SAY = 0, ASST_EL = null;   // ASST_EL: null لم يُجرَّب · false غير مفعّل في الخادم
 const ASST_SILENT = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+/* 🍎 iPhone: أي تشغيل/إيقاف صوت (حتى صوت صامت أو speechSynthesis.cancel) وجلسة الميكروفون مفتوحة يجعلها صمّاء — فيسمع أول مرة فقط.
+   لذا ما دامت جلسة الاستماع حيّة على iPhone: لا نلمس الصوت ولا نقرأ الجواب بصوت (يظهر مكتوبًا) */
+const asstMicLive = () => !!(window.HWV && HWV.ios && (HWV.active || ASST_MIC));
 function asstAudioUnlock() {   // يُستدعى من ضغطة المعلم: iPhone لا يشغّل صوتًا يبدأ بعد انتظار الجواب إلا إن «فُتح» العنصر بلمسة
-  if (!asstTtsOn()) return; try { if (!ASST_AUDIO) ASST_AUDIO = new Audio(); ASST_AUDIO.src = ASST_SILENT; ASST_AUDIO.play().catch(() => {}); } catch (e) {}
+  if (!asstTtsOn() || asstMicLive()) return; try { if (!ASST_AUDIO) ASST_AUDIO = new Audio(); ASST_AUDIO.src = ASST_SILENT; ASST_AUDIO.play().catch(() => {}); } catch (e) {}
 }
 /* ⚙️ مفتاح «صوت ElevenLabs» في إعدادات الذكاء الاصطناعي — مقفول افتراضيًا (صوت الجهاز)، ولا يعمل إلا إذا فتحه المعلم */
 const asstElOn = () => { try { return localStorage.getItem('asst_el_on') === '1'; } catch (e) { return false; } };
@@ -563,13 +575,14 @@ function asstOnSet(on) { try { if (on) localStorage.setItem('asst_on', '1'); els
   try { toast(on ? '✨ فُعّل «مساعدي» — زره في الشريط العلوي' : '✨ أُقفل «مساعدي»', 'good'); } catch (e) {} if (on) asstBriefDot().catch(() => {}); }
 (function asstElInit() { const go = () => { const c = document.getElementById('asst-el-tg'); if (c) c.checked = asstElOn(); asstOnApply(); };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go(); })();
-function asstSpeakStop() { ASST_SAY++; try { speechSynthesis.cancel(); } catch (e) {} try { if (ASST_AUDIO) ASST_AUDIO.pause(); } catch (e) {} }
+function asstSpeakStop() { ASST_SAY++; try { if (window.speechSynthesis && (speechSynthesis.speaking || speechSynthesis.pending)) speechSynthesis.cancel(); } catch (e) {} try { if (ASST_AUDIO && !ASST_AUDIO.paused) ASST_AUDIO.pause(); } catch (e) {} }
 function asstSpeakDevice(txt) {
   if (!window.speechSynthesis) return;
   return new Promise(res => { try { const u = new SpeechSynthesisUtterance(txt.slice(0, 600)); u.lang = 'ar-SA'; const v = speechSynthesis.getVoices().find(x => /^ar/i.test(x.lang)); if (v) u.voice = v; u.onend = u.onerror = res; speechSynthesis.speak(u); setTimeout(res, 30000); } catch (e) { res(); } });
 }
 async function asstSpeak(t) {
   if (!asstTtsOn()) return;
+  if (asstMicLive()) { if (!ASST.micTtsNote) { ASST.micTtsNote = 1; toast('🍎 على iPhone لا يُقرأ الجواب بصوت بعد استخدام الميكروفون (يُوقف السماع) — يظهر مكتوبًا', 'warn'); } return; }
   asstSpeakStop(); const my = ASST_SAY;
   const txt = String(t || '').replace(/<[^>]+>/g, ' ').replace(/\*\*/g, '').replace(/[•\-]\s/g, '، ').replace(/\s+/g, ' ').trim().slice(0, 1200); if (!txt) return;
   let api = ''; try { api = String(getApi() || '').replace(/\/+$/, ''); } catch (e) {}
@@ -637,12 +650,13 @@ function asstOpen() {
       <button type="button" class="asst-clear" id="asst-tts" onclick="asstTtsToggle()" title="قراءة الأجوبة بصوت" aria-label="قراءة الأجوبة بصوت">${asstTtsOn() ? '🔊' : '🔇'}</button><button type="button" id="asst-conv" class="${asstConvOn() ? 'on' : ''}" onclick="asstConvToggle()" title="وضع المحادثة: يسمعك بعد كل جواب" aria-label="وضع المحادثة">🗣️</button><button type="button" onclick="asstForget()" title="محادثة جديدة (ينسى المحادثة السابقة)" aria-label="محادثة جديدة">↺</button><button type="button" class="asst-x" onclick="asstClose()" aria-label="إغلاق">✕</button></div>
       <div class="asst-msgs" id="asst-msgs" aria-live="polite"></div>
       <div class="asst-sugg">${asstSuggHTML()}</div>
+      <div class="asst-live" id="asst-live" hidden></div>
       <form class="asst-in" onsubmit="event.preventDefault();const i=document.getElementById('asst-q');asstAsk(i.value);i.value=''"><textarea id="asst-q" rows="1" placeholder="اسأل عن طلابك…" autocomplete="off"
         onkeydown="if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing){event.preventDefault();this.form.requestSubmit()}"></textarea>${ASST_SR ? '<button type="button" id="asst-mic" class="asst-mic" onclick="asstMic()" title="تكلّم" aria-label="تكلّم">🎤</button>' : ''}<button type="submit" id="asst-send" class="btn tick sm">إرسال</button></form>`;
     document.body.appendChild(p);
     p.addEventListener('keydown', e => { if (e.key === 'Escape') asstClose(); });
   }
-  asstLoadHist(); p.classList.add('on'); document.body.classList.add('asst-open'); asstPaint();
+  asstLoadHist(); p.classList.add('on'); document.body.classList.add('asst-open'); asstPaint(); asstLive();
   let seen = ''; try { seen = localStorage.getItem('asst_brief_seen') || ''; } catch (e) {}
   if (seen !== asstToday() && !ASST.msgs.length) asstShowBrief();
   const b = document.getElementById('asst-btn'); if (b) b.classList.remove('has-brief');

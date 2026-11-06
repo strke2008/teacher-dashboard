@@ -266,14 +266,19 @@ export default async function run() {
         const r = await p.evaluate(async () => { const go = HWV.go, mute = HWV.mute, ask = asstAsk; let owner = null, gos = 0, mutes = 0; const sent = [];
           HWV.go = o => { gos++; owner = o; o.on = true; return true; }; HWV.mute = o => { mutes++; if (o) o.on = false; }; window.asstAsk = q => { sent.push(q); };
           try { asstOpen();
-            asstMic(); owner.onText('مين الغايب', false); owner.onText('مين الغايب اليوم', true); await new Promise(z => setTimeout(z, 900));
+            asstMic(); owner.onText('مين الغايب', false); owner.onText('مين الغايب اليوم', true); await new Promise(z => setTimeout(z, 700)); const early = sent.length; await new Promise(z => setTimeout(z, 1400));
             const on1 = document.getElementById('asst-mic').classList.contains('on');
             asstMic(); owner.onText('افتح دفتر', false); asstMic();   // ضغطة ثانية ترسل فورًا
-            asstMic(); owner.onText('أضعف مهارة', true); await new Promise(z => setTimeout(z, 900));
+            asstMic(); owner.onText('أضعف مهارة', true); await new Promise(z => setTimeout(z, 2100));
+            const ios0 = HWV.ios, d0 = Object.getOwnPropertyDescriptor(HWV, 'active'); let cancels = 0, speaks = 0, plays = 0; const sc = speechSynthesis.cancel.bind(speechSynthesis), sp = speechSynthesis.speak.bind(speechSynthesis);
+            speechSynthesis.cancel = () => { cancels++; }; speechSynthesis.speak = () => { speaks++; }; const tts = localStorage.getItem('asst_tts'); localStorage.setItem('asst_tts', '1');
+            HWV.ios = true; Object.defineProperty(HWV, 'active', { get: () => true, configurable: true }); ASST_AUDIO = { play: () => { plays++; return Promise.resolve(); }, pause() {}, paused: true };
+            asstAudioUnlock(); asstSpeakStop(); await asstSpeak('مرحبا يا معلم'); asstMic(); await new Promise(z => setTimeout(z, 30)); const live = document.getElementById('asst-live').textContent; asstMic();
+            const iosR = { cancels, speaks, plays, live: /أسمعك/.test(live) }; HWV.ios = ios0; Object.defineProperty(HWV, 'active', d0); speechSynthesis.cancel = sc; speechSynthesis.speak = sp; ASST_AUDIO = null; if (tts == null) localStorage.removeItem('asst_tts'); else localStorage.setItem('asst_tts', tts);
             asstMic(); asstClose(); const left = ASST_MIC;
-            return { sent, gos, mutes, on1, left: !!left }; }
+            return { sent, gos, mutes, on1, left: !!left, early, iosR }; }
           finally { HWV.go = go; HWV.mute = mute; window.asstAsk = ask; } });
-        eq(r.sent, [' مين الغايب اليوم'.trim(), 'افتح دفتر', 'أضعف مهارة'], 'ما أُرسل'); eq(r.gos, 4, 'كل ضغطة تأخذ الجلسة المشتركة'); ok(r.mutes >= 4, 'الإيقاف كتم فقط'); eq([r.on1, r.left], [false, false], 'الزر'); eq(errs, [], 'أخطاء'); });
+        eq(r.sent, [' مين الغايب اليوم'.trim(), 'افتح دفتر', 'أضعف مهارة'], 'ما أُرسل'); eq(r.gos, 5, 'كل ضغطة تأخذ الجلسة المشتركة'); ok(r.mutes >= 4, 'الإيقاف كتم فقط'); eq([r.on1, r.left], [false, false], 'الزر'); eq(r.early, 0, 'أرسل قبل سكوت ثانيتين'); eq(r.iosR, { cancels: 0, speaks: 0, plays: 0, live: true }, 'iPhone: لا يُلمس الصوت والجلسة حيّة'); eq(errs, [], 'أخطاء'); });
       await S.t('✨ مساعدي — صلاحيات موسّعة: دفتر الاختبارات، تحليل أسئلة التصحيح الآلي، المهارات، رصد درجة بتأكيد وتراجع، مسودة نشاط غير منشورة، التنقّل، والخطوات المتعددة', async () => {
         let plan = '', qgen = 0; try { await p.exposeFunction('__plan2', v => { plan = v; }); } catch (e) {}
         await p.route(/generativelanguage\.googleapis\.com/, async r => { const b = r.request().postData() || ''; let txt = plan;
