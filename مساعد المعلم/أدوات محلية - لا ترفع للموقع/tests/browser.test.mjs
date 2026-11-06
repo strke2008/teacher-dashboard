@@ -310,6 +310,31 @@ export default async function run() {
         eq(r.sent, ['مين الغايب اليوم1', 'مين الغايب اليوم2'], 'وصل الكلام مرتين'); eq([r.gums, r.hwv, r.live1], [2, 0, false], 'تسجيل جديد كل مرة بلا التعرّف المدمج');
         eq(r.posts.map(x => [x.model, x.lang, x.type, x.auth]), [['whisper-large-v3-turbo', 'ar', 'audio/wav', 'Bearer gsk_TEST0000000000'], ['whisper-large-v3-turbo', 'ar', 'audio/wav', 'Bearer gsk_TEST0000000000']], 'طلب التفريغ');
         ok(r.posts[0].size > 20000 && r.posts[0].size < 200000, 'حجم التسجيل ' + r.posts[0].size); eq(r.wav, ['RIFF', 44 + 32000], 'WAV 16k'); eq(errs, [], 'أخطاء'); });
+      await S.t('🎙️ المحادثة الحية (Gemini Live، تجريبية): يتصل بالنموذج ويرجع للبديل إن رُفض، يرسل صوت الميكروفون PCM 16k، ينفّذ أدوات القراءة فقط ويرد عليها بلا معرّفات، يشغّل الصوت ويكتب المحادثة، وينهي كل شيء', async () => {
+        const r = await p.evaluate(async () => { const keep = {}; ['aikeys_gemini', 'asst_hist_v1', 'live_note'].forEach(k => keep[k] = localStorage.getItem(k)); localStorage.setItem('aikeys_gemini', JSON.stringify([{ key: 'AIzaLIVE000000' }])); localStorage.setItem('live_note', '1');
+          const W0 = window.WebSocket, gum = navigator.mediaDevices.getUserMedia, socks = [], acs = [];
+          class FW { constructor(u) { this.u = u; this.sent = []; this.readyState = 0; socks.push(this); setTimeout(() => { this.readyState = 1; this.onopen && this.onopen(); }, 10); }
+            send(x) { const j = JSON.parse(x); this.sent.push(j); if (j.setup) setTimeout(() => { if (/3\.8/.test(j.setup.model)) { this.readyState = 3; this.onclose && this.onclose({ code: 1008, reason: 'model not found' }); } else this.emit({ setupComplete: {} }); }, 10); }
+            emit(j) { this.onmessage && this.onmessage({ data: JSON.stringify(j) }); } close() { this.readyState = 3; this.onclose && this.onclose({ code: 1000 }); } }
+          window.WebSocket = FW;
+          navigator.mediaDevices.getUserMedia = async () => { const ac = new AudioContext(); acs.push(ac); const o = ac.createOscillator(), d = ac.createMediaStreamDestination(); o.connect(d); o.start(); return d.stream; };
+          const W = ms => new Promise(z => setTimeout(z, ms));
+          try { asstOpen(); ASST.msgs = []; const btn = !!document.getElementById('asst-livebtn'); liveToggle(); await W(1200);
+            const ws = socks[socks.length - 1], setup = ws.sent[0].setup, audio = ws.sent.filter(x => x.realtimeInput);
+            const tools = setup.tools[0].functionDeclarations.map(f => f.name), hasAct = setup.tools[0].functionDeclarations.some(f => ASST_TOOLS[f.name].act);
+            ws.emit({ serverContent: { inputTranscription: { text: 'مين الغايب ' } } }); ws.emit({ serverContent: { inputTranscription: { text: 'اليوم؟' } } });
+            ws.emit({ toolCall: { functionCalls: [{ id: 'c1', name: 'attendance_day', args: {} }, { id: 'c2', name: 'record_attendance', args: { students: ['الكل'], status: 'غائب' } }] } }); await W(300);
+            const tr = ws.sent.find(x => x.toolResponse), resp = tr && tr.toolResponse.functionResponses;
+            ws.emit({ serverContent: { outputTranscription: { text: 'ما فيه غياب اليوم.' }, modelTurn: { parts: [{ inlineData: { mimeType: 'audio/pcm;rate=24000', data: btoa(String.fromCharCode(...new Uint8Array(4800))) } }] } } });
+            const speaking = LIVE.state, msgs = ASST.msgs.map(m => (m.me ? 'M:' : 'B:') + m.text);
+            ws.emit({ serverContent: { turnComplete: true } }); liveToggle(); await W(50);
+            return { btn, models: socks.map(x => (x.sent[0] || {}).setup && x.sent[0].setup.model), key: /key=AIzaLIVE000000/.test(ws.u), audio: audio.length, mime: audio[0] && audio[0].realtimeInput.audio.mimeType, tools, hasAct, sys: /للقراءة فقط/.test(setup.systemInstruction.parts[0].text),
+              resp: resp && resp.map(x => [x.id, /error/.test(x.response.result)]), noIds: resp && !STUDENTS.some(s => resp[0].response.result.includes('"' + s.id + '"')), speaking, msgs, after: [LIVE.on, !!LIVE.stream, ws.readyState] }; }
+          finally { window.WebSocket = W0; navigator.mediaDevices.getUserMedia = gum; acs.forEach(a => a.close().catch(() => {})); try { LIVE.ctx && LIVE.ctx.close(); LIVE.ctx = null; } catch (e) {} asstClose(); ASST.msgs = []; Object.entries(keep).forEach(([k, v]) => v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v)); } });
+        ok(r.btn, 'زر المحادثة الحية'); eq(r.models, ['models/gemini-3.8-live', 'models/gemini-3.1-flash-live-preview'], 'النموذج والبديل'); ok(r.key, 'المفتاح');
+        ok(r.audio >= 3, 'صوت الميكروفون: ' + r.audio); eq(r.mime, 'audio/pcm;rate=16000', 'صيغة الصوت'); ok(r.tools.includes('attendance_day') && r.tools.includes('exam_scores') && !r.hasAct, 'أدوات القراءة فقط'); ok(r.sys, 'تعليمات القراءة فقط');
+        eq(r.resp, [['c1', false], ['c2', true]], 'الرد على الأدوات'); ok(r.noIds, 'وصل معرّف طالب'); eq(r.speaking, 'speak', 'تشغيل الصوت');
+        eq(r.msgs, ['M:مين الغايب اليوم؟', 'B:ما فيه غياب اليوم.'], 'نص المحادثة'); eq(r.after, [false, false, 3], 'الإنهاء'); eq(errs, [], 'أخطاء'); });
       await S.t('🎤 مساعدي: الميكروفون مثل «الرصد بالصوت» — ضغطة تفتح الاستماع ويبقى مفتوحًا، كل جملة تُرسل بعد سكوت قصير بلا كتم بينها، وضغطة ثانية توقف؛ وعلى iPhone لا يُلمس الصوت والاستماع مفتوح', async () => {
         const r = await p.evaluate(async () => { const go = HWV.go, mute = HWV.mute, ask = asstAsk; let owner = null, gos = 0, mutes = 0; const sent = [];
           HWV.go = o => { gos++; owner = o; o.on = true; return true; }; HWV.mute = o => { mutes++; if (o) o.on = false; }; window.asstAsk = q => { sent.push(q); };

@@ -564,7 +564,7 @@ const ASST_SR = window.SpeechRecognition || window.webkitSpeechRecognition;
    فنتشارك الجلسة نفسها مع البحث والرصد بالصوت — «إيقاف» يكتمها فقط، والضغطة التالية تكمل فورًا */
 let ASST_MIC = null;
 /* شريط الحالة تحت الخانة: يوضّح أنه يسمع ومتى يرسل، ووضع المحادثة */
-function asstLive() { const e = document.getElementById('asst-live'); if (!e) return; const conv = asstConvOn();
+function asstLive() { const e = document.getElementById('asst-live'); if (!e) return; if (typeof LIVE !== 'undefined' && (LIVE.on || LIVE.state === 'connect')) return; const conv = asstConvOn();
   e.innerHTML = ASST_STT.busy ? '⏳ أفرّغ كلامك…' : ASST_STT.on ? `<span class="dot"></span> ${conv ? '🗣️ وضع المحادثة — ' : ''}${ASST_STT.heard ? 'أسمعك… أرسل لحالي لما تسكت' : 'تكلّم الحين…'} أو اضغط 🎤 للإرسال` : ASST_MIC ? `<span class="dot"></span> ${ASST.busy ? 'أجهّز الجواب… وأنا أسمعك' : 'أسمعك — كل جملة أرسلها لما تسكت، وأظل أسمع'}. للإيقاف اضغط 🎤`
     : conv && ASST.waitTap ? '👆 اضغط 🎤 لتكمل المحادثة — الآيفون يحتاج لمسة بعد ما يقفل السماع' : conv ? '🗣️ وضع المحادثة مفتوح: اضغط 🎤 مرة وحدة وتكلم — أرد وأرجع أسمعك لحالي. للإيقاف اضغط 🗣️' : '';
   const mb = document.getElementById('asst-mic'); if (mb) mb.classList.toggle('nudge', !!(conv && ASST.waitTap && !ASST_MIC));
@@ -756,7 +756,7 @@ function asstOpen() {
   if (!p) {
     p = document.createElement('div'); p.id = 'asst-panel'; p.className = 'no-print'; p.setAttribute('role', 'dialog'); p.setAttribute('aria-label', 'مساعدي');
     p.innerHTML = `<div class="asst-head"><span class="asst-ic">✨</span><div><b>مساعدي</b><small>لا ينفّذ شيئًا إلا بعد تأكيدك</small></div>
-      <button type="button" class="asst-clear" id="asst-tts" onclick="asstTtsToggle()" title="قراءة الأجوبة بصوت" aria-label="قراءة الأجوبة بصوت">${asstTtsOn() ? '🔊' : '🔇'}</button><button type="button" id="asst-conv" class="${asstConvOn() ? 'on' : ''}" onclick="asstConvToggle()" title="وضع المحادثة: يسمعك بعد كل جواب" aria-label="وضع المحادثة">🗣️</button><button type="button" onclick="asstForget()" title="محادثة جديدة (ينسى المحادثة السابقة)" aria-label="محادثة جديدة">↺</button><button type="button" class="asst-x" onclick="asstClose()" aria-label="إغلاق">✕</button></div>
+      <button type="button" class="asst-clear" id="asst-tts" onclick="asstTtsToggle()" title="قراءة الأجوبة بصوت" aria-label="قراءة الأجوبة بصوت">${asstTtsOn() ? '🔊' : '🔇'}</button>${typeof liveSup === 'function' && liveSup() ? '<button type="button" id="asst-livebtn" onclick="liveToggle()" title="محادثة حية بالصوت (Gemini Live — تجريبية)" aria-label="محادثة حية">🎙️</button>' : ''}<button type="button" id="asst-conv" class="${asstConvOn() ? 'on' : ''}" onclick="asstConvToggle()" title="وضع المحادثة: يسمعك بعد كل جواب" aria-label="وضع المحادثة">🗣️</button><button type="button" onclick="asstForget()" title="محادثة جديدة (ينسى المحادثة السابقة)" aria-label="محادثة جديدة">↺</button><button type="button" class="asst-x" onclick="asstClose()" aria-label="إغلاق">✕</button></div>
       <div class="asst-msgs" id="asst-msgs" aria-live="polite"></div>
       <div class="asst-sugg">${asstSuggHTML()}</div>
       <div class="asst-live" id="asst-live" hidden></div>
@@ -771,7 +771,7 @@ function asstOpen() {
   const b = document.getElementById('asst-btn'); if (b) b.classList.remove('has-brief');
   setTimeout(() => { try { document.getElementById('asst-q').focus(); } catch (e) {} }, 60);
 }
-function asstClose() { asstSpeakStop(); asstMicStop(); const p = document.getElementById('asst-panel'); if (p) p.classList.remove('on'); document.body.classList.remove('asst-open'); }
+function asstClose() { asstSpeakStop(); asstMicStop(); try { if (typeof liveStop === 'function' && (LIVE.on || LIVE.state)) liveStop(); } catch (e) {} const p = document.getElementById('asst-panel'); if (p) p.classList.remove('on'); document.body.classList.remove('asst-open'); }
 
 async function asstShowBrief() { try { localStorage.setItem('asst_brief_seen', asstToday()); } catch (e) {} const m = { html: '<i class="asst-dots"><b></b><b></b><b></b></i>', src: [] }; ASST.msgs.push(m); asstPaint();
   try { Object.assign(m, asstBriefMsg(await asstBrief())); } catch (e) { m.html = '⚠️ تعذّر تجهيز الملخص'; } asstPaint(); }
