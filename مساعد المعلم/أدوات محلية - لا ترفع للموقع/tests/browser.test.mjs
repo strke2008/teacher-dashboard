@@ -262,6 +262,22 @@ export default async function run() {
         ok(r.sc, 'حفظ الاختصار'); ok(/فوري/.test(r.scRun), 'تشغيل الاختصار: ' + r.scRun); ok(typeof r.cmp === 'number' && r.cmp >= 2, 'المقارنة: ' + r.cmp);
         eq(r.exam, 'done', 'إعلان الاختبار'); eq([P.messages && P.messages.type, P.messages && P.messages.examDate, /⟨EX⟩/.test(P.messages && P.messages.body || '')], ['exam', '2026-12-20', true], 'جسم الإعلان');
         eq(r.mem, [true, true], 'الذاكرة'); eq(r.forgot, null, 'انسَ'); eq(r.conv, [true, 1, true], 'وضع المحادثة'); eq(errs, [], 'أخطاء'); });
+      await S.t('🧭 مساعدي — التنقّل: كل صفحة في قائمته موجودة فعلًا في اللوحة، «افتح الجدول» يفتح الجدول فورًا بلا ذكاء، والاسم غير المعروف لا يُخمَّن', async () => {
+        let ai = 0; await p.route(/generativelanguage\.googleapis\.com/, r => { ai++; r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ candidates: [{ content: { parts: [{ text: '{"answer":"ما لقيت"}' }] } }] }) }); });
+        const r = await p.evaluate(async () => { const keep = {}; ['ai_provider_v1', 'aikeys_gemini', 'asst_hist_v1'].forEach(k => keep[k] = localStorage.getItem(k));
+          localStorage.setItem('ai_provider_v1', 'gemini'); localStorage.setItem('aikeys_gemini', JSON.stringify([{ key: 'AIzaTEST0000000000' }]));
+          const missing = Object.entries(ASST_PAGES).filter(([k, P]) => P[0]).filter(([k, P]) => { const g = P[0]; if (g.startsWith('ct:')) return !CT_TABS.some(x => x[0] === g.slice(3));
+            const [tab, view] = g.split(':'); return !document.querySelector(view ? `.tab[data-tab="${tab}"][data-view="${view}"]` : `.tab[data-tab="${tab}"]`); }).map(([k]) => k);
+          const M = {}; ['افتح الجدول', 'افتح جدول الحصص', 'افتح المتجر', 'افتح ملف الفصل', 'افتح الحضور', 'روح للإعدادات', 'افتح نافس', 'افتح دفتر الاختبارات', 'افتح المسابقات', 'افتح شي ما له وجود'].forEach(q => { M[q] = asstPageMatch(q); });
+          const bad = await ASST_TOOLS.open_page.run({ page: 'schedule_x', query: 'صفحة الطيران' }), fix = await ASST_TOOLS.open_page.run({ page: 'analysis', query: 'الجدول' });
+          asstOpen(); ASST.msgs = []; await asstAsk('افتح الجدول'); await new Promise(z => setTimeout(z, 1500));
+          const opened = [CT_TAB, document.getElementById('p-classtools').classList.contains('on'), ASST.msgs[1] && ASST.msgs[1].src.join(' ')];
+          ASST.msgs = []; asstClose(); try { goTab('dashboard'); } catch (e) {} Object.entries(keep).forEach(([k, v]) => v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v));
+          return { missing, M, bad: !!bad.error, fix: fix.page, opened }; });
+        await p.unroute(/generativelanguage\.googleapis\.com/);
+        eq(r.missing, [], 'صفحات غير موجودة في اللوحة');
+        eq(r.M, { 'افتح الجدول': 'schedule', 'افتح جدول الحصص': 'schedule', 'افتح المتجر': 'exam_shop', 'افتح ملف الفصل': 'classfile', 'افتح الحضور': 'records', 'روح للإعدادات': 'settings', 'افتح نافس': 'nafs', 'افتح دفتر الاختبارات': 'exams', 'افتح المسابقات': 'live', 'افتح شي ما له وجود': '' }, 'المطابقة');
+        ok(r.bad, 'خمّن صفحة غير موجودة'); eq(r.fix, 'schedule', 'تصحيح اختيار الذكاء من query'); eq(r.opened.slice(0, 2), ['schedule', true], 'فتح الجدول'); ok(/فوري/.test(r.opened[2]), 'بلا ذكاء'); eq(ai, 0, 'استُدعي الذكاء'); eq(errs, [], 'أخطاء'); });
       await S.t('🎤 مساعدي: الميكروفون عبر محرّك الصوت الموحّد (HWV) — يسمع في المرة الثانية والثالثة (لا جلسة جديدة تُفتح كل ضغطة)', async () => {
         const r = await p.evaluate(async () => { const go = HWV.go, mute = HWV.mute, ask = asstAsk; let owner = null, gos = 0, mutes = 0; const sent = [];
           HWV.go = o => { gos++; owner = o; o.on = true; return true; }; HWV.mute = o => { mutes++; if (o) o.on = false; }; window.asstAsk = q => { sent.push(q); };

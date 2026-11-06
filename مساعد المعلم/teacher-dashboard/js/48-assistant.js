@@ -234,8 +234,9 @@ const ASST_TOOLS = {
       return { action: 'rem', title, date, hm }; } },
   shortcut: { act: 1, d: 'حفظ اختصار: اسم قصير يشغّل أمرًا كاملًا متعدد الخطوات عند كتابته (أو حذفه إن كان command فارغًا). args: {name:"بداية الحصة", command:"الأمر كاملًا كما يكتبه المعلم"}', src: () => '⚡ اختصار',
     async run(a) { const name = String(a.name || '').trim().slice(0, 40), command = String(a.command || '').trim().slice(0, 400); if (!name) return { error: 'سمِّ الاختصار' }; return { action: 'shortcut', name, command, had: !!asstShortcuts()[name] }; } },
-  open_page: { act: 1, d: 'فتح صفحة في اللوحة أو طباعة كشف. args: {page:"student"(ملف طالب، مع student)|"report"(طباعة تقرير أنشطة طالب، مع student)|"activity"(فتح نموذج نشاط لتعديله أو نشره، مع activity)|"exams"(دفتر الاختبارات، مع sem/per/cls)|"records"(الحضور والسجلات)|"analysis"(المستويات وخريطة المهارات)|"grades"(كشف الدرجات، مع cls و print:true للطباعة)|"activities"|"students"|"home"|"nafs"|"plans"|"reports"|"messages"|"certs"|"paper_exams"|"settings", student?, cls?, sem?, per?, print?:true|false}', src: () => '🧭 تنقّل',
-    async run(a) { const pg = String(a.page || '').trim(), P = ASST_PAGES[pg]; if (!P) return { error: 'صفحة غير معروفة: ' + pg, pages: Object.keys(ASST_PAGES) };
+  open_page: { act: 1, get d() { return 'فتح صفحة في اللوحة أو طباعة كشف. page واحد من هذه بالضبط (ولا تختر الأقرب إن لم يطابق — اترك page فارغًا وضع اسم الصفحة كما قاله المعلم في query): ' + Object.entries(ASST_PAGES).map(([k, P]) => k + '=' + P[1].replace(/^\S+\s/, '')).join('، ') + '. student وreport يحتاجان student؛ activity يحتاج activity؛ exams يقبل sem/per/cls؛ grades يقبل cls وprint:true للطباعة. args: {page, query?, student?, activity?, cls?, sem?, per?, print?}'; }, src: () => '🧭 تنقّل',
+    async run(a) { let pg = String(a.page || '').trim(); if (!ASST_PAGES[pg] || a.query) { const m = asstPageMatch(a.query || a.page); if (m) pg = m; else if (!ASST_PAGES[pg]) pg = ''; }
+      const P = ASST_PAGES[pg]; if (!P) return { error: 'ما لقيت صفحة بهذا الاسم: «' + (a.query || a.page || '') + '»', pages: Object.values(ASST_PAGES).filter(x => x[2]).map(x => x[1]) };
       const r = { action: 'nav', page: pg, label: P[1], cls: asstCls(a.cls), print: !!a.print && pg === 'grades' };
       if (pg === 'student' || pg === 'report') { const m = asstFindStudent(a.student); if (m.length !== 1) return m.length ? { error: 'أكثر من طالب يطابق', matches: m.slice(0, 8).map(s => s.name + ' — ' + (s.cls || '')) } : { error: 'لم أجد الطالب' }; r.name = m[0].name; r.cls = m[0].cls || ''; r._sid = String(m[0].id); }
       if (pg === 'activity') { const t = asstTok(a.activity || ''), all = (typeof HW !== 'undefined' && Array.isArray(HW) ? HW : []).filter(h => h && h.id), m = /^(آخر|اخر)$/.test(String(a.activity || '').trim()) ? all.slice(-1) : all.filter(h => t.length && t.every(w => asstTok(h.title || '').some(x => x.includes(w))));
@@ -280,9 +281,33 @@ function asstDue(v) { v = String(v || '').trim(); if (!v) return ''; if (/^\d{4}
   const D = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'].map(x => asstTok(x)[0]), i = D.findIndex(x => asstTok(v.replace(/^يوم\s+/, ''))[0] === x || asstTok(v)[0] === x.replace(/^ال/, ''));
   if (i < 0) return ''; let d = (i - base.getUTCDay() + 7) % 7; if (!d) d = 7; return add(d); }
 /* 🧭 الصفحات التي يفتحها المساعد */
-const ASST_PAGES = { home: ['dashboard', '🏠 الرئيسية'], report: [null, '🖨️ تقرير الطالب'], activity: ['hw', '📋 نشاط'], live: ['live', '🎮 الحصص المباشرة'], activities: ['hw', '📋 الأنشطة'], students: ['students', '👥 الطلاب'], student: [null, '👤 ملف الطالب'], records: ['classtools:records', '🗂️ السجلات والحضور'],
-  exams: ['classtools:exams', '📝 دفتر الاختبارات'], analysis: ['classtools:analysis', '📈 المستويات والمهارات'], grades: ['grades', '📊 كشف الدرجات'], nafs: ['nafs', '🧭 نافس'], plans: ['plans', '🩺 الخطط العلاجية'],
-  reports: ['reports', '📑 التقارير'], messages: ['messages', '💬 الرسائل'], certs: ['classtools:certs', '🏅 الشهادات'], paper_exams: ['exam', '🖨️ الاختبارات الورقية'], settings: ['data', '⚙️ الإعدادات'] };
+/* 🧭 كل صفحات اللوحة كما في القائمة الجانبية + أقسام أدوات الفصل — مع أسمائها الشائعة. لا تخمين: ما لا يطابق يُرفض ويُعرض ما يوجد */
+const ASST_PAGES = {
+  home: ['dashboard', '🏠 اليوم', 'اليوم|الرئيسية|الصفحة الرئيسية|الرئيسيه|الهوم'], activities: ['hw', '📋 الأنشطة', 'الأنشطة|الانشطة|الواجبات|النشاطات'],
+  projects: ['projects', '📁 المشاريع', 'المشاريع|مشاريع الطلاب'], live: ['live', '🎮 المسابقات المباشرة', 'المسابقات المباشرة|المسابقات|المسابقة|الحصة المباشرة|اللايف'],
+  madrasati: ['madrasati', '📚 مدرستي', 'مدرستي|منصة مدرستي'], students: ['students', '👥 الطلاب', 'الطلاب|قائمة الطلاب|طلابي'],
+  records: ['classtools:records', '🗂️ السجلات والحضور', 'السجلات|الحضور|الغياب|التحضير|سجل الحضور|الرصد|السجلات والحضور'],
+  schedule: ['ct:schedule', '🗓️ الجدول والتذكيرات', 'الجدول|جدول الحصص|جدولي|الحصص|التذكيرات'], class_msgs: ['ct:messages', '💌 رسائل الحصة', 'رسائل الحصة'],
+  plans: ['plans', '🩺 الخطط العلاجية', 'الخطط العلاجية|الخطط|العلاج|الخطة العلاجية'], duties: ['classtools:duties', '🎖️ مهام الطلاب', 'مهام الطلاب|المهام|المسؤوليات|مسؤوليات الطلاب'],
+  exams: ['classtools:exams', '📝 دفتر الاختبارات', 'دفتر الاختبارات|الدفتر|درجات الاختبارات|رصد الاختبارات|الاختبارات'],
+  paper_exams: ['exam', '🖨️ الاختبار الورقي', 'الاختبار الورقي|الاختبارات الورقية|التصحيح الآلي|طباعة اختبار|الورقي'],
+  nafs: ['nafs', '🧭 نافس ونواتج التعلم', 'نافس|نواتج التعلم|نافس ونواتج التعلم'], reports: ['reports', '📑 الكشوف', 'الكشوف|الكشف|كشوف الدرجات'],
+  grades: ['grades', '📊 تقارير الأنشطة', 'تقارير الأنشطة|درجات الأنشطة|تقرير الأنشطة|كشف الدرجات'],
+  analysis: ['classtools:analysis', '📈 المستويات والمهارات', 'المستويات والمهارات'], levels: ['ct:levels', '📊 المستويات', 'المستويات|مستويات الطلاب'],
+  skills: ['ct:skills', '🧭 خريطة المهارات', 'خريطة المهارات|المهارات'], classfile: ['classtools:classfile', '🏫 ملف الفصل', 'ملف الفصل'],
+  portfolio: ['classtools:portfolio', '🧾 ملف الإنجاز', 'ملف الإنجاز|ملف الانجاز|الإنجاز'], messages: ['messages', '💬 رسائل الطلاب', 'رسائل الطلاب|الرسائل|راسل معلمك'],
+  walls: ['walls', '🧱 حائط الإبداع', 'حائط الإبداع|الحائط|الحوائط|حائط الابداع'], certs: ['classtools:certs', '🏅 الشهادات', 'الشهادات|شهادات الشكر'],
+  exam_shop: ['exam-shop', '🎓 متجر الدرجات', 'متجر الدرجات|المتجر'], settings: ['data', '⚙️ الإعدادات', 'الإعدادات|الاعدادات|الضبط'],
+  ai_settings: ['data', '🤖 إعدادات الذكاء الاصطناعي', 'إعدادات الذكاء|إعدادات الذكاء الاصطناعي|مفاتيح الذكاء|الذكاء الاصطناعي'],
+  student: [null, '👤 ملف الطالب', ''], report: [null, '🖨️ تقرير الطالب', ''], activity: ['hw', '📋 نشاط', ''] };
+const asstPgTok = t => asstTok(t).filter(w => !['الي', 'علي', 'في', 'لي'].includes(w)).map(w => w.length > 4 ? w.replace(/^لل/, '') : w).map(w => w.length > 3 ? w.replace(/^(ال|بال|وال)/, '') : w);
+function asstPageMatch(q) {   // ← مفتاح الصفحة أو '' (المطابقة الكاملة أولًا، ثم الأطول)
+  const t = asstPgTok(String(q || '').replace(/^\s*(افتح|إفتح|فتح|افتحي|روح|ودّني|ودني|خذني|اعرض)\s+(لي\s+)?(صفحة|صفحه|قسم|شاشة|شاشه|تبويب)?\s*/, '').replace(/[؟?.!]+$/, ''));
+  if (!t.length) return ''; let best = '', bl = 0;
+  for (const [k, P] of Object.entries(ASST_PAGES)) for (const v of (P[2] || '').split('|').filter(Boolean)) { const w = asstPgTok(v);
+    if (w.join(' ') === t.join(' ')) return k; if (w.length <= t.length && w.every(x => t.includes(x)) && w.length > bl && t.length - w.length <= 1) { best = k; bl = w.length; } }
+  return best;
+}
 function asstGo(c) {
   asstClose();
   try {
@@ -292,7 +317,10 @@ function asstGo(c) {
     if (c.page === 'report') { window.printStudentReport(c._sid); return; }
     if (c.page === 'activity') { goTab('hw'); setTimeout(() => { try { openHwForm(c._hid); } catch (e) {} }, 350); return; }
     if (c.page === 'exams') { window._ctExSem = String(c.sem || ''); window._ctExPer = String(c.per || ''); if (c.cls) window._ctExCls = c.cls; }
-    goTab(ASST_PAGES[c.page][0]);
+    const G = ASST_PAGES[c.page][0];
+    if (G.startsWith('ct:')) { if (typeof ctGo === 'function') ctGo(G.slice(3)); }
+    else goTab(G);
+    if (c.page === 'ai_settings') setTimeout(() => { try { document.getElementById('ai-settings-provider').closest('.sheet').scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {} }, 300);
     if (c.page === 'exams' && typeof renderClassTools === 'function') renderClassTools();
     if (c.page === 'grades') { const s = document.getElementById('g-class'); if (s) { if (typeof gFillClasses === 'function') gFillClasses(); s.value = c.cls && [...s.options].some(o => o.value === c.cls) ? c.cls : '__all__'; renderGrades(); }
       if (c.print) setTimeout(() => { try { window.printGrades(); } catch (e) { toast('تعذّرت الطباعة', 'bad'); } }, 400); }
@@ -328,6 +356,7 @@ function asstConvNext() { const p = document.getElementById('asst-panel'); if (a
 function asstFast(q) {   // ⚡ بلا ذكاء: «مين الغايب اليوم» و«افتح ملف فلان»
   const t = String(q || ''), pf = t.match(/^\s*(?:افتح|إفتح|فتح|افتحي|ودّني|ودني|روح)\s+(?:لي\s+)?ملف\s+(?:الطالب\s+)?(.+?)\s*[؟?.!]*\s*$/);
   if (pf && !/^(ال)?فصل(\s|$)/.test(pf[1])) return { tool: 'open_page', args: { page: 'student', student: pf[1] } };
+  { const pm = /^\s*(افتح|إفتح|فتح|افتحي|روح|ودّني|ودني|خذني)\s/.test(t) ? asstPageMatch(t) : ''; if (pm) return { tool: 'open_page', args: { page: pm } }; }
   const pp = t.match(/^\s*(?:كم\s+)?(?:نقاط|رصيد(?:\s+نقاط)?)\s+(?:الطالب\s+)?(.+?)(?:\s+كم)?\s*[؟?.!]*\s*$/);
   if (pp && asstFindStudent(pp[1]).length === 1) return { tool: 'points', args: { student: pp[1] } }; if (!/(غايب|غائب|غياب|غابو|غابوا|الغائبين|الحضور)/.test(t)) return null;
   if (!/(اليوم|الحين|هاليوم)/.test(t) && !/^\s*(مين|من)\s+(ال)?(غايب|غائب)/.test(t)) return null;
@@ -363,7 +392,7 @@ async function asstAsk(q) {
 الأدوات المتاحة (تُحسب من بيانات المعلم):
 ${tools}
 ${hist ? 'المحادثة السابقة:\n' + hist + '\n' : ''}سؤال المعلم: ${q}
-اختر الأدوات التي تكفي للجواب (غالبًا واحدة أو اثنتان). «النقاط» = رصيد نقاط المكافآت (أداة points للعرض وadjust_points للإضافة والخصم)، وهي غير «الدرجات». «الكل … ما عدا فلان» = students:["الكل"] مع cls وexcept، وإن ذُكرت حالة للمستثنين فخطوة ثانية لهم. عند عرض رسائل الطلاب اقترح ردًا قصيرًا لكل رسالة. لديك أدوات تنفيذ واسعة (كلها بتأكيد المعلم) — استخدمها ولا تعتذر ما دامت أداة تغطي الطلب. إن طلب المعلم تنفيذ شيء (رصد غياب/مشاركة/واجب، درجة اختبار، ملاحظة سلوك، تذكير، رسالة لولي أمر، مسودة نشاط، فتح صفحة أو طباعة) فاستخدم أداة التجهيز المناسبة — لن يُنفَّذ شيء إلا بعد تأكيده.
+اختر الأدوات التي تكفي للجواب (غالبًا واحدة أو اثنتان). «النقاط» = رصيد نقاط المكافآت (أداة points للعرض وadjust_points للإضافة والخصم)، وهي غير «الدرجات». «الكل … ما عدا فلان» = students:["الكل"] مع cls وexcept، وإن ذُكرت حالة للمستثنين فخطوة ثانية لهم. عند عرض رسائل الطلاب اقترح ردًا قصيرًا لكل رسالة. لديك أدوات تنفيذ واسعة (كلها بتأكيد المعلم) — استخدمها ولا تعتذر ما دامت أداة تغطي الطلب. لكن لا تخمّن: إن لم تطابق أداة أو صفحة الطلب بالضبط فلا تختر الأقرب، بل أخرج {"answer":"..."} توضح فيه ما فهمته وما المتاح. إن طلب المعلم تنفيذ شيء (رصد غياب/مشاركة/واجب، درجة اختبار، ملاحظة سلوك، تذكير، رسالة لولي أمر، مسودة نشاط، فتح صفحة أو طباعة) فاستخدم أداة التجهيز المناسبة — لن يُنفَّذ شيء إلا بعد تأكيده.
 إن طلب عدة مهام في رسالة واحدة فأخرج خطوة لكل مهمة بترتيبها (حتى 6 خطوات)، وكل خطوة تنفيذية تظهر له ببطاقة تأكيد مستقلة.
 أخرج JSON فقط: {"calls":[{"tool":"اسم","args":{...}}]}
 وإن كان السؤال لا يحتاج بيانات (تحية أو سؤال عام) أخرج {"answer":"ردّك"}.`, new AbortController().signal)) || {};
