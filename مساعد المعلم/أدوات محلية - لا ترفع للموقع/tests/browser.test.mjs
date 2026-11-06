@@ -322,7 +322,7 @@ export default async function run() {
           const W = ms => new Promise(z => setTimeout(z, ms));
           try { asstOpen(); ASST.msgs = []; const btn = !!document.getElementById('asst-livebtn'); liveToggle(); await W(1200);
             const ws = socks[socks.length - 1], setup = ws.sent[0].setup, audio = ws.sent.filter(x => x.realtimeInput);
-            const tools = setup.tools[0].functionDeclarations.map(f => f.name), hasAct = setup.tools[0].functionDeclarations.some(f => ASST_TOOLS[f.name].act);
+            const tools = setup.tools[0].functionDeclarations.map(f => f.name), hasAct = setup.tools[0].functionDeclarations.some(f => (ASST_TOOLS[f.name] || {}).act);
             ws.emit({ serverContent: { inputTranscription: { text: 'مين الغايب ' } } }); ws.emit({ serverContent: { inputTranscription: { text: 'اليوم؟' } } });
             ws.emit({ toolCall: { functionCalls: [{ id: 'c1', name: 'attendance_day', args: {} }, { id: 'c2', name: 'record_attendance', args: { students: [STUDENTS[0].name], status: 'غائب' } }] } }); await W(300);
             const tr = ws.sent.find(x => x.toolResponse), resp = tr && tr.toolResponse.functionResponses;
@@ -372,7 +372,7 @@ export default async function run() {
           LIVE.said = 'مين الغايب اليوم؟'; LIVE.acted = false; liveLocalAct(); LIVE.said = 'زيد ' + s0.name + ' خمس نقاط'; LIVE.acted = true; liveLocalAct();
           LIVE.on = on; LIVE.said = ''; window.asstAsk = ask;
           return { bad, cards, dbad, n: [decl.length, Object.keys(ASST_TOOLS).length], acts: [...acts].sort(), sent }; });
-        eq(r.bad, [], 'أدوات فيها خطأ'); eq(r.cards, [], 'بطاقات لا ترسم'); eq(r.dbad, [], 'تعريفات المحادثة الحية'); eq(r.n[0], r.n[1], 'كل الأدوات في المحادثة الحية');
+        eq(r.bad, [], 'أدوات فيها خطأ'); eq(r.cards, [], 'بطاقات لا ترسم'); eq(r.dbad, [], 'تعريفات المحادثة الحية'); eq(r.n[0], r.n[1] + 1, 'كل الأدوات في المحادثة الحية (+ confirm_card)');
         ok(r.acts.length >= 15, 'الأوامر المجرَّبة: ' + r.acts.join(','));
         eq(r.sent.length, 1, 'الأمر بلا أداة يمر بمساعدي مرة واحدة فقط (لا للأسئلة ولا إن استُدعيت الأداة)'); eq(r.sent[0][1], true, 'بلا فقاعة مكررة ولا صوت'); eq(errs, [], 'أخطاء'); });
       await S.t('🧰 أدوات الحصة في «الرصد»: زر واحد في شريطه لا يغيّر شيئًا آخر، «مين يجاوب» بلا تكرار ولا يختار الغائب، مجموعات متوازنة من الحاضرين، مؤقت ينبّه ويبقى صغيرًا، و«مين يجاوب؟» بالكلام بلا ذكاء', async () => {
@@ -393,6 +393,27 @@ export default async function run() {
         await p.unroute(/generativelanguage\.googleapis\.com/);
         ok(r.bar && r.kit && r.opened, 'زر أدوات الحصة'); eq(r.others, 3, 'شريط الرصد: البحث والمايك والتاريخ كما هي'); eq(r.pick, { noAbsent: true, unique: true, all: true }, 'مين يجاوب');
         eq(r.grp, { n: true, total: r.n - 1, even: true, noAbsent: true }, 'المجموعات'); eq([r.pill, r.rang], [true, 1], 'المؤقت'); ok(r.voice.name && r.voice.ck && /فوري/.test(r.voice.src), 'بالكلام: ' + JSON.stringify(r.voice)); eq(errs, [], 'أخطاء'); });
+      await S.t('🆕 مساعدي — الدفعة الخامسة: الأحق بالمتابعة، ملخص الأسبوع، تحضير درس، تقارير الفترة لأولياء الأمور، تصدير، بحث الرسائل، اقتراح مسودة بعد رصد الغياب، و«نفّذ» بالصوت في المحادثة الحية (لا للرسائل)', async () => {
+        const r = await p.evaluate(async () => { if (!CT_DATA) { try { await ctLoad(); } catch (e) {} } const s0 = STUDENTS[0], cls = s0.cls, D = CT_DATA, out = {}, rc = window.readingAICall, ex = window.exportGrades, al = window.asksLoad;
+          const days = ['2026-10-20', '2026-10-21', '2026-10-22', '2026-10-23']; D.participation = D.participation || {}; days.forEach(d => { D.participation[d] = D.participation[d] || {}; D.participation[d][s0.id] = { status: 'غائب', at: 1 }; });
+          const risk = await ASST_TOOLS.at_risk.run({ days: 3650 }); out.risk = (risk.students || []).some(x => x.name === s0.name);
+          const wk = await ASST_TOOLS.weekly_report.run({ cls }); out.week = !!(wk && wk.cls && Array.isArray(wk.activities_due_this_week));
+          window.readingAICall = async () => JSON.stringify({ objectives: ['يعرّف الخلية'], warmup: 'سؤال', steps: [{ min: 10, do: 'شرح' }], exit_ticket: ['ما الخلية؟'], homework: 'رسم', materials: ['مجهر'] });
+          const lp = await ASST_TOOLS.lesson_plan.run({ topic: 'الخلية' }); out.plan = [lp.objectives && lp.objectives.length, lp.minutes];
+          const pr = await ASST_TOOLS.period_reports.run({ cls }); out.reports = [pr.action, pr.reason, pr.items.length === STUDENTS.filter(x => x.cls === cls).length, /السلام عليكم/.test(pr.items[0].text)];
+          let exp = 0; window.exportGrades = async () => { exp++; }; const eg = await ASST_TOOLS.export_grades.run({ cls }); out.exp = [exp, !!eg.exported]; try { goTab('dashboard'); } catch (e) {}
+          window.asksLoad = async () => { ASKS = [{ id: 'q9', name: s0.name, cls, text: 'متى الاختبار القصير؟', status: 'open', at: 1 }, { id: 'q8', name: 'x', text: 'سؤال آخر', status: 'done', at: 1 }]; };
+          const sm = await ASST_TOOLS.search_messages.run({ query: 'الاختبار' }); out.search = sm.found;
+          // اقتراح بعد رصد الغياب
+          asstOpen(); ASST.msgs = []; const rec = await ASST_TOOLS.record_attendance.run({ students: [s0.name], status: 'غائب' }); try { localStorage.setItem('asst_brief_seen', asstToday()); } catch (e) {} ASST.msgs.push({ html: 'x', cards: [{ ...rec, state: 'ask' }] }); const ri = ASST.msgs.length - 1; asstAct(ri, 0, 'do'); await new Promise(z => setTimeout(z, 1200));
+          const hint = ASST.msgs.find(m => /3 غيابات/.test(m.html || '')); out.hint = !!(hint && hint.cards[0].action === 'drafts'); asstAct(ri, 0, 'undo');
+          // «نفّذ» بالصوت
+          ASST.msgs = []; const pts = await ASST_TOOLS.adjust_points.run({ students: [s0.name], delta: 3 }), k0 = s0.points; ASST.msgs.push({ html: 'x', cards: [{ ...pts, state: 'ask' }] }); const pi = ASST.msgs.length - 1;
+          LIVE.said = 'كم نقاطه'; const no1 = liveConfirm(); LIVE.said = 'تمام نفّذ'; const yes = liveConfirm(); await new Promise(z => setTimeout(z, 600)); const after = ASST.msgs[pi].cards[0].state;
+          asstAct(pi, 0, 'undo'); const msg = await ASST_TOOLS.send_message.run({ to: 'students', students: [s0.name], title: 't', body: 'b' }); ASST.msgs.push({ html: 'x', cards: [{ ...msg, state: 'ask' }] }); const no2 = liveConfirm();
+          out.voice = [!!no1.error, yes.done, after, !!no2.error]; LIVE.said = ''; s0.points = k0;
+          days.forEach(d => delete D.participation[d][s0.id]); window.readingAICall = rc; window.exportGrades = ex; window.asksLoad = al; asstClose(); ASST.msgs = []; return out; });
+        eq(r, { risk: true, week: true, plan: [1, 45], reports: ['drafts', 'report', true, true], exp: [1, true], search: 1, hint: true, voice: [true, 'points', 'done', true] }, 'الدفعة الخامسة'); eq(errs, [], 'أخطاء'); });
       await S.t('🎤 مساعدي: الميكروفون مثل «الرصد بالصوت» — ضغطة تفتح الاستماع ويبقى مفتوحًا، كل جملة تُرسل بعد سكوت قصير بلا كتم بينها، وضغطة ثانية توقف؛ وعلى iPhone لا يُلمس الصوت والاستماع مفتوح', async () => {
         const r = await p.evaluate(async () => { const go = HWV.go, mute = HWV.mute, ask = asstAsk; let owner = null, gos = 0, mutes = 0; const sent = [];
           HWV.go = o => { gos++; owner = o; o.on = true; return true; }; HWV.mute = o => { mutes++; if (o) o.on = false; }; window.asstAsk = q => { sent.push(q); };

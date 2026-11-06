@@ -276,6 +276,53 @@ const ASST_TOOLS = {
     async run(a) { await asstClassroom(); const T = typeof tdRemToday === 'function' ? tdRemToday() : [], t = asstTok(a.title || ''), m = T.filter(x => !x.done && t.length && t.every(w => asstTok(typeof tdRemTitle === 'function' ? tdRemTitle(x.r) : x.r.title || '').some(y => y.includes(w))));
       if (m.length !== 1) return { error: m.length ? 'أكثر من تذكير يطابق' : 'لم أجد تذكيرًا مفتوحًا اليوم بهذا النص', today: T.filter(x => !x.done).map(x => typeof tdRemTitle === 'function' ? tdRemTitle(x.r) : x.r.title) };
       return { action: 'remdone', title: typeof tdRemTitle === 'function' ? tdRemTitle(m[0].r) : m[0].r.title, at: m[0].hm, _rid: m[0].r.id }; } },
+  /* ── 🆕 الدفعة الخامسة: المعرّضون للخطر · تقرير الأسبوع · مقارنة فترتين · تحضير درس · تقارير أولياء الأمور · تصدير · بحث الرسائل ── */
+  at_risk: { d: 'الطلاب الأحق بالمتابعة: يجمع الغياب (30 يومًا) والأنشطة الناقصة والملاحظات السلبية (14 يومًا) وانخفاض المستوى، مرتبين مع السبب. args: {cls?, n?}', src: () => '🚩 الأحق بالمتابعة',
+    async run(a) { const cls = asstCls(a.cls), G = await asstGrades(), gm = new Map(((G && G.students) || []).map(g => [String(g.id), g]));
+      const ab = (await ASST_TOOLS.absence_totals.run({ cls, days: 30, n: 500 })).students || [], mw = (await ASST_TOOLS.missing_work.run({ cls, n: 500 })).students || [], bn = (await ASST_TOOLS.behavior_notes.run({ cls, days: 14 })).notes || [];
+      const key = x => x.name + '|' + x.cls, S = {}; const add = (x, pts, why) => { const k = key(x), o = S[k] || (S[k] = { name: x.name, cls: x.cls, score: 0, why: [] }); o.score += pts; o.why.push(why); };
+      ab.forEach(x => { const n = x.absent + x.excused; if (n >= 2) add(x, n * 2, `غاب ${n}`); }); mw.forEach(x => { if (x.missing >= 2) add(x, x.missing * 1.5, `لم يسلّم ${x.missing} أنشطة`); });
+      const neg = {}; bn.filter(x => x.type === 'سلبي').forEach(x => { const k = key(x); neg[k] = (neg[k] || 0) + 1; }); Object.entries(neg).forEach(([k, n]) => { const [name, c] = k.split('|'); if (n >= 2) add({ name, cls: c }, n * 1.5, `${n} ملاحظات سلبية`); });
+      asstStudents().filter(s => !cls || String(s.cls || '') === cls).forEach(s => { const g = gm.get(String(s.id)); if (!g) return; const t = g.trend || {}, l = g.level || {};
+        if (t.measurable && Number(t.change) <= -10) add({ name: s.name, cls: s.cls || '' }, Math.abs(t.change) / 5, `نزل مستواه ${Math.abs(Math.round(t.change))}%`); if (Number(l.rate) > 0 && Number(l.rate) < 50) add({ name: s.name, cls: s.cls || '' }, 3, `مستواه ${Math.round(l.rate)}%`); });
+      const L = Object.values(S).sort((x, y) => y.score - x.score).slice(0, Math.max(1, Math.min(30, Number(a.n) || 8))).map(({ name, cls, why }) => ({ name, cls, reasons: why.join('، ') }));
+      return { cls: cls || 'كل الفصول', students: L, note: L.length ? 'مرتبون من الأحق بالمتابعة' : 'لا أحد يستدعي المتابعة الآن' }; } },
+  weekly_report: { d: 'ملخص الأسبوع (آخر 7 أيام) لفصل أو للكل: الغياب، تسليم الأنشطة التي انتهت فيه، المتميزون سلوكًا، الأكثر نقصًا، وأضعف المهارات. args: {cls?}', src: a => '🗓️ ملخص الأسبوع' + (a.cls ? ' — ' + a.cls : ''),
+    async run(a) { const cls = asstCls(a.cls), from = new Date(Date.now() + 3 * 3600e3 - 7 * 864e5).toISOString().slice(0, 10), pool = asstStudents().filter(s => !cls || String(s.cls || '') === cls);
+      const ab = (await ASST_TOOLS.absence_totals.run({ cls, days: 7, n: 10 })).students || [];
+      const acts = asstActs().filter(h => h.due && h.due >= from && h.due <= asstToday() && !h.noGrade).map(h => { const P = asstPool(h).filter(s => !cls || String(s.cls || '') === cls); return { title: h.title, submitted: P.filter(s => asstSub(h, s)).length, of: P.length }; }).filter(x => x.of);
+      const bn = (await ASST_TOOLS.behavior_notes.run({ cls, days: 7 })).notes || [], pos = {}; bn.filter(x => x.type === 'إيجابي').forEach(x => { pos[x.name] = (pos[x.name] || 0) + 1; });
+      const sk = await ASST_TOOLS.skills.run({ cls, n: 3 });
+      return { cls: cls || 'كل الفصول', from, students: pool.length, most_absent: ab.slice(0, 5), activities_due_this_week: acts, top_positive: Object.entries(pos).sort((x, y) => y[1] - x[1]).slice(0, 5).map(([n, c]) => n + ' (' + c + ')'), weakest_skills: (sk.skills || []).map(x => x.skill + ' ' + x.rate + '%') }; } },
+  compare_periods: { d: 'مقارنة طالب بين الفترة الأولى والثانية من الفصل الحالي (المشاركة، الواجبات، السلوك، الاختبار، الغياب، المستوى): تحسّن أم نزل. args: {student}', src: a => '📈 فترتان — ' + (a._name || a.student || ''),
+    async run(a) { const m = asstFindStudent(a.student); if (m.length !== 1) return { error: m.length ? 'أكثر من طالب يطابق' : 'لم أجد الطالب' }; const s = m[0]; a._name = s.name; if (typeof loadServerGrades !== 'function') return { error: 'غير متاح' };
+      const { sem } = asstSP({}), keep = [typeof COMP_GRADES !== 'undefined' ? COMP_GRADES : null, typeof COMP_GRADES_PERIOD !== 'undefined' ? COMP_GRADES_PERIOD : null, typeof COMP_GRADES_SEMESTER !== 'undefined' ? COMP_GRADES_SEMESTER : null], out = {};
+      try { for (const per of [1, 2]) { const g = ((await loadServerGrades(false, sem, per)).map || {})[String(s.id)]; if (!g) continue; const P = g.participation || {}, Hm = g.homework || {}, B = g.behavior || {}, E = g.exam || {}, A = g.attendance || {}, L = g.level || {};
+        out['period_' + per] = { participation: P.score, homework: Hm.score, behavior: B.score, exam: E.measured ? E.score + '/' + E.max : 'لم يُقس', absent: A.absent, level: L.label ? L.label + ' ' + Math.round(L.rate || 0) + '%' : undefined }; } }
+      catch (e) { return { error: 'تعذّر جلب الفترتين — تحقق من الاتصال' }; }
+      finally { try { if (keep[0]) { COMP_GRADES = keep[0]; COMP_GRADES_PERIOD = keep[1]; COMP_GRADES_SEMESTER = keep[2]; } } catch (e) {} }
+      return { name: s.name, cls: s.cls || '', semester: sem, ...out, note: Object.keys(out).length < 2 ? 'إحدى الفترتين بلا بيانات بعد' : '' }; } },
+  lesson_plan: { d: 'تحضير درس: أهداف، تهيئة، خطوات الشرح مع أنشطة صفية، تقويم ختامي (سؤال الخروج)، وواجب مقترح. args: {topic, cls?, minutes?:مدة الحصة (افتراضي 45)}', src: a => '📝 تحضير «' + (a.topic || '') + '»',
+    async run(a) { const topic = String(a.topic || '').trim().slice(0, 200); if (!topic) return { error: 'حدّد موضوع الدرس' }; const min = Math.max(20, Math.min(120, Number(a.minutes) || 45));
+      const R = typeof aiRoute === 'function' ? aiRoute('questions') : { p: raiProvider(), m: readingAIModels()[raiProvider()] };
+      const j = aiSafeJson(await readingAICall(R.p, R.m, `أنت معلم علوم سعودي خبير. حضّر درسًا عن «${topic}» لحصة مدتها ${min} دقيقة${a.cls ? ' لطلاب ' + asstCls(a.cls) : ''}، بالعربية الفصحى المبسطة، عمليًا وقابلًا للتنفيذ في الفصل.
+أخرج JSON فقط: {"objectives":["هدف قابل للقياس",...3-4],"warmup":"تهيئة قصيرة (سؤال أو موقف)","steps":[{"min":دقائق,"do":"ما يفعله المعلم والطلاب"}...4-6],"exit_ticket":["سؤال ختامي",...2-3],"homework":"واجب قصير مقترح","materials":["أداة"...]}`, new AbortController().signal)) || {};
+      if (!Array.isArray(j.objectives) || !Array.isArray(j.steps)) return { error: 'لم يصل تحضير صالح — جرّب مرة أخرى' };
+      return { topic, minutes: min, ...j, tip: 'يمكنك قول: «سوّ نشاط عن ' + topic + '» لإنشاء مسودة نشاط من الدرس' }; } },
+  period_reports: { act: 1, d: 'مسودات تقرير الفترة لأولياء أمور فصل (درجات الطالب ومستواه وغيابه، لكل طالب رسالة يرسلها المعلم بنفسه من واتساب). args: {cls}', src: () => '✉️ تقارير الفترة',
+    async run(a) { const cls = asstCls(a.cls); if (!cls) return { error: 'حدّد الفصل', classes: asstClsList() }; const G = await asstGrades(); if (!G) return { error: 'درجات الفترة غير متاحة الآن' };
+      const gm = new Map((G.students || []).map(g => [String(g.id), g])), subj = (typeof rcGet === 'function' && rcGet('subject')) || 'المادة', { label } = asstSP({});
+      const items = asstStudents().filter(s => String(s.cls || '') === cls).map(s => { const g = gm.get(String(s.id)) || {}, P = g.participation || {}, Hm = g.homework || {}, B = g.behavior || {}, E = g.exam || {}, A = g.attendance || {}, L = g.level || {};
+        const lines = [typeof P.score === 'number' && `• المشاركة: ${P.score}`, typeof Hm.score === 'number' && `• الواجبات: ${Hm.score}`, typeof B.score === 'number' && `• السلوك: ${B.score}`, E.measured && `• الاختبار: ${E.score} من ${E.max}`, typeof A.absent === 'number' && `• الغياب: ${A.absent}${A.excused ? ' (بعذر ' + A.excused + ')' : ''}`, L.label && `• المستوى العام: ${L.label}`].filter(Boolean);
+        return { name: s.name, cls, n: L.label || '', _id: String(s.id), text: `السلام عليكم ورحمة الله، ولي أمر الطالب ${s.name}،\n\nنفيدكم بملخص مستوى ابنكم في مادة ${subj} — ${label}:\n${lines.join('\n') || '• لا توجد بيانات كافية بعد'}\n\nشاكرين متابعتكم وتعاونكم.\nمعلم المادة` }; });
+      return { action: 'drafts', reason: 'report', items }; } },
+  export_grades: { d: 'تصدير كشف درجات الأنشطة إلى ملف إكسل (CSV) لفصل أو للكل — يُنزَّل فورًا. args: {cls?}', src: () => '⬇️ تصدير الدرجات',
+    async run(a) { const cls = asstCls(a.cls); try { goTab('grades'); const s = document.getElementById('g-class'); if (s) { if (typeof gFillClasses === 'function') gFillClasses(); s.value = cls && [...s.options].some(o => o.value === cls) ? cls : '__all__'; renderGrades(); }
+        await window.exportGrades(); } catch (e) { return { error: 'تعذّر التصدير' }; } return { exported: cls || 'كل الفصول', say: '⬇️ نزّلت ملف درجات ' + (cls || 'كل الفصول') }; } },
+  search_messages: { d: 'بحث في رسائل الطلاب للمعلم («راسل معلمك») وردوده بكلمة. args: {query}', src: a => '🔎 بحث «' + (a.query || '') + '»',
+    async run(a) { const q = asstTok(a.query || ''); if (!q.length) return { error: 'اكتب كلمة البحث' }; try { if (typeof asksLoad === 'function') await asksLoad(); } catch (e) {}
+      const R = (typeof ASKS !== 'undefined' && Array.isArray(ASKS) ? ASKS : []).filter(x => x && q.every(w => asstTok((x.text || '') + ' ' + (x.reply || '') + ' ' + (x.hwTitle || '')).some(t => t.includes(w))));
+      return { found: R.length, messages: R.slice(0, 15).map(x => ({ name: x.name || '', cls: x.cls || '', text: String(x.text || '').slice(0, 200), reply: x.reply ? String(x.reply).slice(0, 120) : undefined, status: x.status === 'open' ? 'تنتظر ردك' : 'مغلقة' })) }; } },
   /* ── 🧰 أدوات الحصة (آمنة — تُفتح فورًا فوق الرصد) ── */
   pick_student: { d: 'اختيار طالب عشوائي ليجاوب (من الحاضرين، بلا تكرار حتى يمر الجميع اليوم) ويُعرض اسمه كبيرًا. args: {cls?}', src: () => '🎯 مين يجاوب',
     async run(a) { if (typeof ckPick !== 'function') return { error: 'أدوات الحصة غير محمّلة' }; await asstClassroom(); const cls = asstCls(a.cls) || ckCls(); CK.cls = cls; CK.tab = 'pick'; ckOpen('pick', cls);
@@ -509,6 +556,12 @@ async function asstReply(c) {
   catch (e) { c.state = 'fail'; c.res = e.message; }
   asstPaint();
 }
+/* 💡 بعد رصد غياب: من بلغ غيابه 3 فأكثر في 30 يومًا تُقترح له مسودة لولي أمره (بطاقة جديدة، لا يُرسل شيء) */
+async function asstAbsenceHint(c) {
+  try { const names = new Set(c.items.map(x => x.name)), r = await ASST_TOOLS.parent_drafts.run({ reason: 'absence', min: 3, days: 30 }); if (!r || r.error) return;
+    const items = r.items.filter(x => names.has(x.name)); if (!items.length) return;
+    ASST.msgs.push({ html: `💡 ${items.length === 1 ? 'هذا الطالب بلغ' : 'هؤلاء بلغوا'} 3 غيابات أو أكثر هذا الشهر — مسودة لولي الأمر جاهزة إن أردت:`, cards: [{ ...r, items, state: 'ask' }], src: ['💡 اقتراح بعد الرصد'] }); asstPaint(); } catch (e) {}
+}
 async function asstSendMsg(c, i) {
   c.state = 'busy'; asstPaint();
   try { let body = c.body; if (c.type === 'exam' && c.ex) { const x = c.ex, L = [`📅 التاريخ: ${typeof fmtExamDate === 'function' ? fmtExamDate(x.d) : x.d}`, x.tm && `⏰ الموعد: ${x.tm}`, x.mk && `🎯 الدرجة: ${x.mk}`, x.pg && `📖 الصفحات: ${x.pg}`, x.tp && `📚 المحتوى: ${x.tp}`, x.n && `📝 ${x.n}`].filter(Boolean); body = typeof buildExamBody === 'function' ? buildExamBody(L, x) : L.join('\n'); }
@@ -565,7 +618,7 @@ function asstCardHTML(c, i, j) {
     + (c.state === 'ask' && c.items.length ? btn('do', `✓ امنح (${c.items.length})`, 'tick') + btn('no', 'إلغاء') : c.state === 'busy' ? '<span class="asst-meta">جارٍ…</span>' : done ? '<span class="asst-ok">✓ مُنحت</span>' : c.state === 'fail' ? `<span class="asst-bad">⚠️ ${asstEsc(c.res || 'تعذّر')}</span>` : '<span class="asst-off">أُلغي</span>');
   else if (c.action === 'reply') h += `<b>📩 رد على ${asstEsc(c.name)}</b><div class="asst-msgprev"><small>سؤاله: ${asstEsc(c.q)}</small><textarea class="asst-draft" rows="3" oninput="ASST.msgs[${i}].cards[${j}].reply=this.value" ${c.state === 'ask' ? '' : 'disabled'}>${asstEsc(c.reply)}</textarea></div>`
     + (c.state === 'ask' ? btn('do', c.close ? '📩 أرسل وأغلق' : '📩 أرسل الرد', 'tick') + btn('no', 'إلغاء') : c.state === 'busy' ? '<span class="asst-meta">جارٍ الإرسال…</span>' : done ? '<span class="asst-ok">✓ وصل ردك للطالب</span>' : c.state === 'fail' ? `<span class="asst-bad">⚠️ ${asstEsc(c.res || 'تعذّر')}</span>` : '<span class="asst-off">أُلغي</span>');
-  else if (c.action === 'drafts') h += `<b>✉️ ${c.items.length} مسودة لأولياء الأمور — ${c.reason === 'missing' ? 'أنشطة لم تُسلَّم' : 'غياب'}</b><div class="asst-meta">راجع كل رسالة وأرسلها بنفسك من واتساب</div>`
+  else if (c.action === 'drafts') h += `<b>✉️ ${c.items.length} مسودة لأولياء الأمور — ${c.reason === 'missing' ? 'أنشطة لم تُسلَّم' : c.reason === 'report' ? 'تقرير الفترة' : 'غياب'}</b><div class="asst-meta">راجع كل رسالة وأرسلها بنفسك من واتساب</div>`
     + c.items.map((x, n) => `<div class="asst-pd"><b>${asstEsc(x.name)}</b><small>${asstEsc(x.cls)} · ${x.n}</small><textarea class="asst-draft" rows="4" oninput="ASST.msgs[${i}].cards[${j}].items[${n}].text=this.value">${asstEsc(x.text)}</textarea><button type="button" class="btn sm tick" onclick="asstAct(${i},${j},'wa:${n}')">💬 واتساب${x.sent ? ' ✓' : ''}</button></div>`).join('');
   else if (c.action === 'rem') h += `<b>⏰ ذكّرني: «${asstEsc(c.title)}»</b><div class="asst-meta">${asstEsc(asstDay(c.date))} · الساعة <bdi>${asstEsc(c.hm)}</bdi> — يظهر في «مهام اليوم»</div>`
     + (c.state === 'ask' ? btn('do', '✓ أضف التذكير', 'tick') + btn('no', 'إلغاء') : done ? `<span class="asst-ok">✓ أُضيف</span>${btn('undo', '↩ تراجع')}` : `<span class="asst-off">${c.state === 'undone' ? '↩ حُذف' : 'أُلغي'}</span>`);
@@ -578,7 +631,7 @@ function asstCardHTML(c, i, j) {
 function asstAct(i, j, k) {
   const c = ASST.msgs[i] && ASST.msgs[i].cards && ASST.msgs[i].cards[j]; if (!c) return;
   if (k === 'no') c.state = 'no';
-  else if (c.action === 'record' && k === 'do' && c.state === 'ask') { qrDo(c.items.map(x => ({ k: 'st', m: c.m, d: c.date, sid: x._id, v: c.status })), `✓ رُصد ${ASST_ST[c.status] || c.status} لـ ${c.items.length}`); c.state = 'done'; }
+  else if (c.action === 'record' && k === 'do' && c.state === 'ask') { qrDo(c.items.map(x => ({ k: 'st', m: c.m, d: c.date, sid: x._id, v: c.status })), `✓ رُصد ${ASST_ST[c.status] || c.status} لـ ${c.items.length}`); c.state = 'done'; if (c.status === 'غائب') setTimeout(() => asstAbsenceHint(c), 300); }
   else if (c.action === 'record' && k === 'undo' && c.state === 'done') { qrDo(c.items.map(x => ({ k: 'st', m: c.m, d: c.date, sid: x._id, v: x._prev })), '↩ تراجعت عن الرصد'); c.state = 'undone'; }
   else if (c.action === 'behavior' && k === 'do' && c.state === 'ask') { const now = Date.now(); c._ids = c.items.map((x, n) => qrId());
     qrDo(c.items.map((x, n) => ({ k: 'beh', item: { id: c._ids[n], studentId: x._id, type: c.type, category: c.note, note: '', date: c.date, at: now + n } })), (c.type === 'positive' ? '🌟' : '⚠️') + ' سُجّلت الملاحظة'); c.state = 'done'; }

@@ -22,14 +22,14 @@ const liveSup = () => !!(liveOn() && liveKey() && window.WebSocket && navigator.
 /* أدوات القراءة فقط ← تعريفات دوال لـ Gemini (الوسائط تُستخرج من وصف كل أداة «args: {…}») */
 const LIVE_NUM = ['n', 'days', 'question', 'sem', 'per', 'min', 'delta', 'max'], LIVE_BOOL = ['all', 'print', 'close'], LIVE_ARR = ['classes', 'students', 'except'];
 function liveTools() {
-  return Object.entries(ASST_TOOLS).map(([name, t]) => {
+  return [{ name: 'confirm_card', description: 'تنفيذ آخر بطاقة تأكيد معروضة على الشاشة — استدعها فقط إذا قال المعلم الآن صراحة «نفّذ» أو «أكّد». الرسائل للطلاب والردود والمحاولات الإضافية لا تُنفَّذ بالصوت (تحتاج لمسة).', behavior: 'BLOCKING' }].concat(Object.entries(ASST_TOOLS).map(([name, t]) => {
     const d = String(t.d || ''), m = d.match(/args:\s*\{([\s\S]*)\}/), props = {};
     (m ? m[1] : '').replace(/\b([a-z_]+)\??:/g, (_, a) => { if (props[a]) return '';
       props[a] = LIVE_NUM.includes(a) ? { type: 'NUMBER' } : LIVE_BOOL.includes(a) ? { type: 'BOOLEAN' } : LIVE_ARR.includes(a) ? { type: 'ARRAY', items: { type: 'STRING' } }
         : a === 'scores' ? { type: 'ARRAY', items: { type: 'OBJECT', properties: { student: { type: 'STRING' }, score: { type: 'STRING' } } } } : { type: 'STRING' }; return ''; });
     if (props.scores) { delete props.student; delete props.score; }
     return { name, description: ((t.act ? '(تجهيز فقط: يظهر للمعلم بطاقة تأكيد ولا يُنفَّذ إلا بضغطته) ' : '') + d).slice(0, 900), behavior: 'BLOCKING', ...(Object.keys(props).length ? { parameters: { type: 'OBJECT', properties: props } } : {}) };
-  });
+  }));
 }
 function liveSystem() {
   return `🗣️ اللغة: تكلّم بالعربية دائمًا (لهجة خليجية مهذبة أو فصحى مبسطة) مهما كانت لغة ما تسمعه أو ما يظهر في النسخ — لا تردّ أبدًا بالإسبانية أو الإنجليزية أو غيرها.
@@ -37,7 +37,7 @@ function liveSystem() {
 ${asstIntro()}
 أنت في «محادثة حية» صوتية مع المعلم: أجب بالعربية بصوت طبيعي ودود وبإيجاز (جملتان أو ثلاث)، واذكر الأرقام والأسماء بوضوح.
 استخدم الأدوات للأسئلة عن طلابه وبياناته، ولا تخترع أسماء أو أرقامًا. «النقاط» = رصيد نقاط المكافآت (أداة points)، وهي غير الدرجات.
-تقدر تجهّز كل أوامر «مساعدي» (رصد، درجات، نقاط، رسائل، تذكيرات، فتح صفحات…) بأدوات التجهيز: كل أمر يظهر للمعلم ببطاقة على الشاشة ولا يُنفَّذ إلا إذا ضغط «نفّذ» بنفسه — فقل له بإيجاز ماذا جهّزت واطلب منه يراجع البطاقة ويضغط. لا تقل أبدًا إنك نفّذت. ولا تقل «جهّزت» إلا بعد أن تستدعي أداة التجهيز فعلًا وتصلك نتيجتها — إن لم تستدعها فلم يظهر شيء.
+تقدر تجهّز كل أوامر «مساعدي» (رصد، درجات، نقاط، رسائل، تذكيرات، فتح صفحات…) بأدوات التجهيز: كل أمر يظهر للمعلم ببطاقة على الشاشة ولا يُنفَّذ إلا إذا ضغط «نفّذ» بنفسه — فقل له بإيجاز ماذا جهّزت واطلب منه يراجع البطاقة ويضغط. لا تقل أبدًا إنك نفّذت إلا بعد confirm_card ناجحة. ولا تقل «جهّزت» إلا بعد أن تستدعي أداة التجهيز فعلًا وتصلك نتيجتها — إن لم تستدعها فلم يظهر شيء.
 فتح الصفحات (open_page) يُنفَّذ فورًا بلا بطاقة: استدعِ open_page وقل «فتحتها لك».
 في رسالة ولي الأمر (parent_message) اكتب نص الرسالة كاملًا في message بالعربية الفصحى المبسطة، يبدأ بـ«السلام عليكم ورحمة الله» وينتهي بـ«معلم المادة».
 تذكير أخير: ردك بالعربية فقط.`;
@@ -136,6 +136,7 @@ async function liveSilent(again) {   // صمت تام: نعيد الميكروف
 async function liveTool(calls) {
   liveSet('tool'); const out = [];
   for (const c of calls) { const t = ASST_TOOLS[c.name]; let res;
+    if (c.name === 'confirm_card') { out.push({ id: c.id, name: c.name, response: { result: JSON.stringify(liveConfirm()) } }); continue; }
     try { const a = c.args && typeof c.args === 'object' ? { ...c.args } : {}; if (!t) res = { error: 'أداة غير معروفة' };
       else { const r = await t.run(a); res = asstStrip(r);
         if (t.act && r && r.action === 'nav') {   // 🧭 فتح صفحة: آمن، يُنفَّذ فورًا والمحادثة مستمرة (اللوحة تُصغَّر وزر «مساعدي» يومض)
@@ -159,9 +160,21 @@ function liveEnd() {
 }
 /* 🧭 «افتح …» بكلامك يُفتح محليًا فورًا (نفس مطابقة الكتابة والمايك) — لا نعتمد على أن يستدعي Gemini الأداة (قد يقول «فتحتها» بلا استدعاء) */
 /* 🛟 أمر بكلامك (سجّل/ارصد/زد/أرسل/ذكّرني…) ولم يستدعِ Gemini أداة التجهيز: نمرّر الجملة نفسها لمسار «مساعدي» العادي (المزوّد المعتاد) فتظهر بطاقة التأكيد */
+/* ✅ «نفّذ» بالصوت: آخر بطاقة معروضة تُنفَّذ — بشرط أن يقولها المعلم في جملته الآن، وليست من النوع الذي لا رجعة فيه */
+const LIVE_YES = /(^|\s)(نفذ|نفّذ|نفذها|نفّذها|أكد|أكّد|اكد|أكدها|اعتمد|اعتمدها)(\s|$|[.!،])/;
+const LIVE_NOVOICE = ['msg', 'reply', 'retry', 'draft', 'drafts', 'activity', 'remind'];
+function liveConfirm() {
+  if (!LIVE_YES.test(String(LIVE.said || ''))) return { error: 'لا يُنفَّذ إلا إذا قال المعلم «نفّذ» بنفسه' };
+  for (let i = ASST.msgs.length - 1; i >= 0; i--) { const cs = ASST.msgs[i].cards || []; for (let j = cs.length - 1; j >= 0; j--) { const c = cs[j]; if (c.state !== 'ask') continue;
+    if (LIVE_NOVOICE.includes(c.action)) return { error: 'هذه البطاقة (' + c.action + ') لا تُنفَّذ بالصوت — اطلب من المعلم يضغط «نفّذ» بنفسه' };
+    asstMicLog('live: نفّذ بالصوت ' + c.action); LIVE.acted = true; asstAct(i, j, 'do'); return { done: c.action, note: 'نُفّذت البطاقة. أخبره بإيجاز، وأن زر «تراجع» متاح على البطاقة.' }; } }
+  return { error: 'لا توجد بطاقة تنتظر التأكيد' };
+}
 const LIVE_CMD = /^\s*(?:لو سمحت\s+|ممكن\s+|يا مساعد\s+)?(?:سجل|سجّل|ارصد|إرصد|رصد|زيد|زد|زود|زوّد|اعط|أعط|اعطي|أعطي|اخصم|خصم|انقص|أرسل|ارسل|راسل|ذكرني|ذكّرني|ذكر|ذكّر|اصدر|أصدر|طلع شهادة|مدد|مدّد|مد|انسخ|سوّ|سو|سوي|سوّي|اكتب|جهز|جهّز|أضف|اضف|ضيف|غيّر|غير|رد على|ردّ على|علّم|علم|امنح|اعتمد)(?:\s|$)/;
 function liveLocalAct() {
-  const t = String(LIVE.said || '').trim(); if (!t || LIVE.acted || LIVE.navd || !LIVE.on || !LIVE_CMD.test(t)) return;
+  const t = String(LIVE.said || '').trim(); if (!t || LIVE.acted || LIVE.navd || !LIVE.on) return;
+  if (/^\s*(?:تمام\s+|طيب\s+|إيه\s+|ايه\s+)?(نفذ|نفّذ|نفذها|نفّذها|أكد|أكّد|اكد|اعتمد)/.test(t)) { LIVE.acted = true; const r = liveConfirm(); asstMicLog('live: نفّذ محلي ' + (r.done || r.error)); if (r.error) toast(r.error, 'warn'); return; }
+  if (!LIVE_CMD.test(t)) return;
   LIVE.acted = true; asstMicLog('live: أمر بلا أداة ← مساعدي العادي'); try { asstAsk(t, { live: true }); } catch (e) {}
 }
 async function liveLocalNav() {
