@@ -159,7 +159,7 @@ async function nafsGenRun() {
   box.innerHTML = `<div class="nafs-gen-wait">⏳ يكتب الذكاء الاصطناعي ${n} أسئلة… <button type="button" class="btn ghost sm" onclick="nafsGenStop()">إيقاف</button></div>`;
   let items = [];
   try {
-    const p = readingAIPickProvider(), model = readingAIModels()[p], ac = new AbortController(); NAFS_GEN.ac = ac; let timer;
+    const { p, m: model } = aiRoute('nafs'), ac = new AbortController(); NAFS_GEN.ac = ac; let timer;
     if (fmode === 'img' && !NAFS_GEN.imgUrl) { box.innerHTML = '<div class="nafs-gen-wait">⏳ نرفع الصورة…</div>'; NAFS_GEN.imgUrl = await nafsImgUpload(NAFS_GEN.img); box.innerHTML = `<div class="nafs-gen-wait">⏳ يقرأ الذكاء الاصطناعي الصورة ويكتب ${n} أسئلة… <button type="button" class="btn ghost sm" onclick="nafsGenStop()">إيقاف</button></div>`; }
     const raw = await Promise.race([readingAICall(p, model, nafsGenPrompt(s, outs, n, type, fmode), ac.signal, fmode === 'img' ? NAFS_GEN.img : undefined),
       new Promise((_, rej) => { timer = setTimeout(() => { try { ac.abort(); } catch (e) {} rej(new Error('انتهت المهلة (دقيقتان) دون رد')); }, 120000); })]).finally(() => { clearTimeout(timer); NAFS_GEN.ac = null; });

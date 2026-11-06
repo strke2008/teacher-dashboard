@@ -729,7 +729,7 @@ async function normalAIVisionExtractPdfText(pdf){
   // نفس فكرة سكربت الألعاب: عند تلف طبقة النص العربية، نعرض صفحات PDF للذكاء الاصطناعي
   // ليقرأها بصرياً ويحافظ على ترتيب RTL بدلاً من محاولة إصلاح Unicode مكسور.
   const visionProviders=['gemini','openai','claude','openrouter'];
-  const primary=raiProvider();
+  const R=aiRoute('pdf'), primary=R.p;
   const chain=[primary].concat(visionProviders.filter(p=>p!==primary))
     .filter((p,i,a)=>a.indexOf(p)===i && visionProviders.includes(p) && readingAIGetKey(p));
   if(!chain.length){
@@ -769,7 +769,7 @@ async function normalAIVisionExtractPdfText(pdf){
   for(const provider of chain){
     try{
       const key=readingAIGetKey(provider), cfg=readingAIConfig(provider);
-      const model=localStorage.getItem('ai_model_'+provider)||cfg.defaultModel;
+      const model=(provider===R.p&&R.custom&&R.m)||localStorage.getItem('ai_model_'+provider)||cfg.defaultModel;
       aiUse('run',provider,model);
       let all='';
       // دفعات صغيرة لتفادي حدود حجم الطلب، مثل مسار Vision في سكربت الألعاب.
@@ -985,8 +985,7 @@ async function normalAIGenerate(id){
   __normalAIAbort=new AbortController();
 
   try{
-    const provider=raiProvider();
-    const model=localStorage.getItem('ai_model_'+provider)||READING_AI_PROVIDERS[provider].defaultModel;
+    const {p:provider,m:model}=aiRoute('questions');
     let normalized, salvaged;
     const parts=h.__examProxy ? naiExamBatches(opts) : null;
     if(!parts){
@@ -1193,8 +1192,7 @@ async function readingAIOrganizeText(rawText){
     subject:meta['qg-subjectInput']||'علوم',
     topic:meta['qg-topicInput']||''
   };
-  const provider=readingAIPickProvider();
-  const model=readingAIModels()[provider]||readingAIModels().gemini;
+  const {p:provider,m:model}=aiRoute('pdf');
   const maxChunk=30000;
   const chunks=[];
   if(text.length<=maxChunk) chunks.push(text);
@@ -1408,7 +1406,7 @@ async function readingAIGenerate(){
   __readingAIAbort=new AbortController();
 
   try{
-    const provider=readingAIPickProvider(), model=readingAIModels()[provider]||readingAIModels().groq;
+    const {p:provider,m:model}=aiRoute('questions');
     let passage=typedText, title='', vocab=[];
 
     // ١) التوليد الأول: نص كامل + أسئلة، أو أسئلة على نص المعلم
@@ -1664,7 +1662,7 @@ ${scopeRules}
 
 أخرج ${n} سؤالًا صالحًا على الأقل قدر الإمكان. لا تكتب أي شيء خارج JSON.`;
   try{
-    const p=readingAIPickProvider(),model=readingAIModels()[p]||readingAIModels().groq,raw=await readingAICall(p,model,prompt,new AbortController().signal),d=aiSafeJson(raw),arr=Array.isArray(d.questions)?d.questions:[];
+    const {p,m:model}=aiRoute('questions'),raw=await readingAICall(p,model,prompt,new AbortController().signal),d=aiSafeJson(raw),arr=Array.isArray(d.questions)?d.questions:[];
     const qs=arr.map(x=>{
       // 🔒 المهارة من نواتج نافس فقط (impDiagSk) — وإلا يبقى السؤال بلا مهارة
       if(x.t==='q'&&x.q&&Array.isArray(x.o)&&x.o.filter(Boolean).length>=4){
@@ -1708,7 +1706,7 @@ async function learningStylesAIGenerate(id){
   status.classList.add('show');status.textContent='⏳ ينشئ مواقف متنوعة دون إجابات صحيحة...';btn.disabled=true;
   const prompt=`أنشئ اختبارًا عربيًا لقياس تفضيلات التعلم لدى الطلاب، يتكون من ${n} موقفًا مرتبطًا بموضوع ${topic} في مادة ${subject}. ${content?'السياق:\n'+content:''}\nلكل موقف أربعة خيارات، ويجب أن تمثل الخيارات بالترتيب الثابت: الخيار الأول بصري، الثاني سمعي، الثالث حركي، الرابع قرائي/كتابي. لا تذكر اسم النمط داخل نص الخيار ولا تجعل خيارًا أفضل من الآخر. نوّع المواقف ولا تكرر الصياغة. لا توجد إجابة صحيحة. أعد JSON فقط: {"quiz":[{"q":"موقف...","opts":["خيار بصري","خيار سمعي","خيار حركي","خيار قرائي/كتابي"]}]}`;
   try{
-    const p=readingAIPickProvider(),model=readingAIModels()[p]||readingAIModels().groq,raw=await readingAICall(p,model,prompt,new AbortController().signal),d=aiSafeJson(raw),arr=Array.isArray(d.quiz)?d.quiz:[];
+    const {p,m:model}=aiRoute('questions'),raw=await readingAICall(p,model,prompt,new AbortController().signal),d=aiSafeJson(raw),arr=Array.isArray(d.quiz)?d.quiz:[];
     const qs=arr.map(x=>x&&x.q&&Array.isArray(x.opts)&&x.opts.length>=4?{t:'q',q:String(x.q),o:x.opts.slice(0,4).map(String),a:0,tags:['بصري','سمعي','حركي','قرائي/كتابي']}:null).filter(Boolean).slice(0,n);
     if(qs.length<Math.max(6,n-2))throw new Error(`تم إنشاء ${qs.length} موقفًا صالحًا من ${n}`);
     // نفس آلية النشاط العام: التوليد = مسودة، والتثبيت النهائي يتم عبر saveQs() داخل محرر المهام.
@@ -1735,7 +1733,7 @@ async function experimentAIGenerate(){
   status.classList.add('show');status.textContent='⏳ يصمم تجربة آمنة وقابلة للتنفيذ...';btn.disabled=true;
   const prompt=`أنت مصمم تجارب علوم مدرسية. أنشئ تجربة عملية حقيقية لطلاب ${stage} الصف ${grade} في مادة ${subject} حول ${topic}. مكان التنفيذ: ${place}. ${content?'اعتمد على هذا المحتوى ولا تضف مفاهيم غير مرتبطة:\n'+content:''}\nيجب أن تكون التجربة قابلة للتنفيذ بالأدوات المتاحة عادة، آمنة للطلاب، ولا تستخدم نارًا أو كهرباء مكشوفة أو مواد سامة/كاوية أو ضغطًا خطيرًا أو أدوات خطرة. اجعل المطلوب من الطالب واضحًا، ويفضل وجود قياس/ملاحظة أو مقارنة ونتائج يمكن توثيقها. أعد JSON فقط: {"title":"عنوان التجربة","brief":"هدف التجربة + خطوات التنفيذ في نص واضح مختصر","deliver":"ما يسلّمه الطالب وعدده بوضوح","accept":"معيار قبول قابل للفحص"}. لا تكتب أي شيء خارج JSON.`;
   try{
-    const p=readingAIPickProvider(),model=readingAIModels()[p]||readingAIModels().groq,raw=await readingAICall(p,model,prompt,new AbortController().signal),d=aiSafeJson(raw);
+    const {p,m:model}=aiRoute('questions'),raw=await readingAICall(p,model,prompt,new AbortController().signal),d=aiSafeJson(raw);
     if(!d.brief||!d.deliver||!d.accept)throw new Error('الناتج ناقص');
     const titleEl=document.getElementById('h-title'),brief=document.getElementById('h-brief'),deliver=document.getElementById('h-deliver'),accept=document.getElementById('h-accept');
     if(titleEl&&d.title)titleEl.value=String(d.title);if(brief)brief.value=String(d.brief);if(deliver)deliver.value=String(d.deliver);if(accept)accept.value=String(d.accept);

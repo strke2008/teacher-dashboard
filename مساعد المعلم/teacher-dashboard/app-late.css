@@ -2910,3 +2910,14 @@ body.fm #fm-bot{position:fixed;bottom:0;inset-inline:0;z-index:600;background:va
 .ai-use-spin{width:12px;height:12px;border-radius:50%;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;animation:aiusespin .8s linear infinite;flex:0 0 auto}
 @keyframes aiusespin{to{transform:rotate(360deg)}}
 @media (max-width:700px){#ai-use{bottom:calc(84px + env(safe-area-inset-bottom,0px))}}
+
+/* 🎯 مزوّد لكل مهمة */
+.ai-routes{margin-top:.8rem;border:1px solid var(--rule);border-radius:14px;padding:.6rem .8rem}
+.ai-routes summary{cursor:pointer;font-size:.92rem;padding:.2rem 0}
+.ai-routes summary .muted{font-size:.78rem;font-weight:400}
+.ai-routes-list{display:flex;flex-direction:column;gap:.55rem;margin-top:.6rem}
+.ai-route-row{display:grid;grid-template-columns:minmax(180px,1.2fr) minmax(160px,1fr) minmax(180px,1.2fr);gap:.5rem;align-items:center;padding:.5rem;border-radius:12px;background:var(--paper-2,rgba(127,140,160,.07))}
+.ai-route-t b{display:block;font-size:.88rem}.ai-route-t small{font-size:.74rem;line-height:1.5}
+.ai-route-row select.inp{margin:0;padding:.45rem .6rem;font-size:.84rem}
+.ai-route-m{font-size:.8rem}.ai-route-warn{grid-column:1/-1;color:#B45309;font-size:.76rem}
+@media (max-width:700px){.ai-route-row{grid-template-columns:1fr}}

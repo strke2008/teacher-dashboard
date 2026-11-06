@@ -88,7 +88,7 @@ async function skAliasAI() {
   try {
     for (let k = 0; k < SKA.rows.length; k += 40) {
       const chunk = SKA.rows.slice(k, k + 40).map((r, j) => ({ i: k + j, s: r.n }));
-      const p = readingAIPickProvider(), model = twinModel(p);
+      const { p, m: model } = aiRouteTwin();
       const prompt = `لديك أسماء مهارات علوم (الصف الأول المتوسط) وقائمة نواتج تعلم رسمية. طابق كل مهارة بالناتج الذي تقيسه فعلًا، أو "0" إن لم يقابلها ناتج بوضوح (لا تطابق تخمينًا).
 النواتج: ${JSON.stringify(outs.map(o => ({ id: o.id, n: o.short })))}
 أخرج JSON فقط: {"m":{"<i>":"<id أو 0>"}}

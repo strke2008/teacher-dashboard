@@ -399,12 +399,12 @@ function twinBackfill(ids){
   if(!REM_ON){toast('العلاج التلقائي موقوف — فعّله أولًا من المفتاح أعلى القسم','bad');return}
   TWIN_PICK=Array.isArray(ids)?ids:null;
   const list=HW.filter(h=>twinNeeded(h)&&(!TWIN_PICK||TWIN_PICK.includes(h.id))).slice(0,20);if(!list.length){toast('لا يوجد ما يحتاج تجهيزًا');return}
-  const p=readingAIPickProvider(),cfg=READING_AI_PROVIDERS[p]||{},calls=list.reduce((t,h)=>t+twinCalls(h),0),qn=list.reduce((t,h)=>t+twinQCount(h),0);
+  const p=aiRouteTwin().p,cfg=READING_AI_PROVIDERS[p]||{},calls=list.reduce((t,h)=>t+twinCalls(h),0),qn=list.reduce((t,h)=>t+twinQCount(h),0);
   openModal(`<h2>🧩 تجهيز الأسئلة البديلة</h2>
     <p class="muted" style="font-size:.88rem;margin:.3rem 0 .7rem">سيولّد الذكاء الاصطناعي سؤالين بديلين وتذكيرًا لكل سؤال، لاستخدامها في المهام العلاجية فقط.</p>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;margin-bottom:.7rem">
       <div class="kpi-box"><span class="muted">أنشطة</span><b>${list.length}</b></div><div class="kpi-box"><span class="muted">أسئلة</span><b>${qn}</b></div><div class="kpi-box"><span class="muted">طلبات للذكاء</span><b>${calls}</b></div></div>
-    <div class="muted" style="font-size:.84rem">المزوّد: <b>${planEsc(cfg.name||p)}</b> · النموذج: <b>${planEsc(twinModel(p))}</b> (نموذج اقتصادي سريع لهذه المهمة)</div>
+    <div class="muted" style="font-size:.84rem">المزوّد: <b>${planEsc(cfg.name||p)}</b> · النموذج: <b>${planEsc(aiRouteTwin().m)}</b> (نموذج اقتصادي سريع لهذه المهمة)</div>
     <ul style="font-size:.84rem;margin:.5rem 0;padding-inline-start:1.1rem;max-height:160px;overflow:auto">${list.map(h=>`<li>${planEsc(h.title||'نشاط')} — ${twinQCount(h)} سؤال (${twinCalls(h)} طلب)</li>`).join('')}</ul>
     <div class="muted" style="font-size:.8rem">تستطيع الإيقاف في أي لحظة، وما اكتمل يبقى محفوظًا. يتوقف تلقائيًا عند أي خطأ في المفتاح أو الرصيد.</div>
     <div class="modal-foot"><button class="btn ghost" onclick="closeModal()">إلغاء</button><button class="btn tick" onclick="twinBackfillRun()">ابدأ التجهيز</button></div>`);
@@ -2094,7 +2094,7 @@ ${others}
 أخرج JSON فقط بهذا الشكل: ${shape}`;
   box.innerHTML = '<div class="muted" style="font-size:.82rem;padding:.4rem 0">⏳ جارٍ التفكير…</div>';
   try{
-    const prov = readingAIPickProvider(), model = readingAIModels()[prov];
+    const { p: prov, m: model } = aiRoute('questions');
     const raw = await readingAICall(prov, model, prompt, new AbortController().signal);
     let d; try{ d = readingAIParseObject(raw); }catch(e){ d = JSON.parse(aiRepairJson(String(raw).replace(/^[^{]*/, '').replace(/[^}]*$/, ''))); }
     const L = (Array.isArray(d && d.suggestions) ? d.suggestions : Array.isArray(d) ? d : []).map(s => mc

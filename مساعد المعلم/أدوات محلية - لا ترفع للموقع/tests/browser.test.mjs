@@ -116,6 +116,17 @@ export default async function run() {
         ok(/Google Gemini · gemini-3\.8-flash — يعمل/.test(all), 'بداية: ' + all); ok(/تعذّر Google Gemini · gemini-3\.8-flash \(الرصيد أو الحصة\)/.test(all), 'السبب: ' + all);
         ok(/Google Gemini تعذّر \(الرصيد أو الحصة\) — يعمل الآن Claude/.test(all), 'التحويل: ' + all); ok(/أُنجز بـ Claude \(Anthropic\) · claude-opus-5-5 \(بدل Google Gemini\)/.test(all), 'النهاية: ' + all);
         ok(/آخر استخدام: Claude/.test(r.last), r.last); eq(errs, [], 'أخطاء'); });
+      await S.t('🎯 مزوّد لكل مهمة: PDF بمزوّد والأسئلة بآخر، ومزوّد بلا مفتاح يعود للأساسي، والخلفية على الموديل الاقتصادي', async () => {
+        const r = await p.evaluate(() => { const keep = {}; ['ai_provider_v1', 'aikeys_gemini', 'aikeys_claude', 'ai_routes_v1', 'ai_model_claude'].forEach(k => keep[k] = localStorage.getItem(k));
+          localStorage.setItem('ai_provider_v1', 'gemini'); localStorage.setItem('aikeys_gemini', JSON.stringify([{ key: 'AIzaTEST0000000000' }])); localStorage.setItem('aikeys_claude', JSON.stringify([{ key: 'sk-ant-TEST000000' }]));
+          localStorage.removeItem('ai_routes_v1'); aiSettingsRender();
+          const out = { rows: document.querySelectorAll('#ai-routes .ai-route-row').length, def: aiRoute('pdf') };
+          aiRouteSet('pdf', 'p', 'claude'); aiRouteSet('pdf', 'm', 'claude-sonnet-5-5'); aiRouteSet('background', 'p', 'openai');
+          out.pdf = aiRoute('pdf'); out.q = aiRoute('questions'); out.bg = aiRoute('background'); out.tw = aiRouteTwin();
+          out.ui = document.querySelector('#ai-routes [data-ai-route="pdf"] select').value; out.warn = !!document.querySelector('#ai-routes [data-ai-route="background"] .ai-route-warn');
+          Object.entries(keep).forEach(([k, v]) => v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v)); aiSettingsRender(); return out; });
+        eq(r.rows, 4, 'المهام'); eq([r.def.p, r.def.custom], ['gemini', false]); eq([r.pdf.p, r.pdf.m, r.pdf.custom], ['claude', 'claude-sonnet-5-5', true]);
+        eq(r.q.p, 'gemini', 'الأسئلة على الأساسي'); eq(r.bg.p, 'gemini', 'بلا مفتاح ⇒ الأساسي'); eq(r.tw.m, 'gemini-3.8-flash', 'الخلفية الاقتصادية'); eq(r.ui, 'claude'); ok(r.warn, 'تنبيه بلا مفتاح'); eq(errs, [], 'أخطاء'); });
       await S.t('⚙️ زر الإعدادات بجانب «تخصيص القائمة» يفتح الإعدادات', async () => {
         ok(await p.evaluate(() => { const r = document.querySelector('#simp-nav .simp-cust-row'); return !!(r && r.querySelector('[data-simp-settings]') && /تخصيص القائمة/.test(r.textContent)); }), 'الزر بجانب التخصيص');
         await p.evaluate(() => document.querySelector('#simp-nav [data-simp-settings]').click()); await p.waitForTimeout(400);

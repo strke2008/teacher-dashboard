@@ -51,6 +51,7 @@ function aiSettingsRender(){
   const l=document.getElementById('ai-settings-getkey');l.href=AI_KEY_URLS[cur]||'#';l.style.display=AI_KEY_URLS[cur]?'inline-flex':'none';
   const list=document.getElementById('ai-settings-keys-list'),a=raiKeys(cur),idx=Number(localStorage.getItem(raiIdxKey(cur))||0),active=raiActiveKey(cur);
   list.innerHTML=a.length?a.map((k,i)=>{const on=k.key===active&&!k.exhausted;const masked=k.key.length>12?k.key.slice(0,6)+'••••••'+k.key.slice(-4):'••••••••';return `<div style="display:flex;gap:.45rem;align-items:center;border:1px solid var(--rule);border-radius:10px;padding:.5rem;margin:.35rem 0;flex-wrap:wrap"><b style="min-width:70px">${esc(k.label||('مفتاح '+(i+1)))}</b><code style="flex:1;min-width:160px">${esc(masked)}</code><span class="pill" style="font-size:.72rem">${k.exhausted?'⛔ مستنفد':on?'✅ نشط':'⏸ غير نشط'}</span><button class="btn ghost sm" type="button" onclick="aiSettingsActivateKey(${i})">تفعيل</button><button class="btn ghost sm" type="button" onclick="aiSettingsRemoveKey(${i})">حذف</button></div>`}).join(''):'<div class="muted" style="text-align:center;padding:.5rem">لا توجد مفاتيح محفوظة لهذا المزوّد.</div>';
+  try{ aiRoutesRender(); }catch(e){}
   const ready=!!active;const st=document.getElementById('ai-settings-status');st.textContent=ready?'جاهز':'غير مُعد';
   { let lu=document.getElementById('ai-last-used'); if(!lu&&ms.closest('.row')){ lu=document.createElement('div'); lu.id='ai-last-used'; lu.className='muted'; lu.style.cssText='font-size:.78rem;margin-top:.45rem'; ms.closest('.row').insertAdjacentElement('afterend',lu); } if(lu) lu.textContent=aiLastUsedText(); }st.style.color=ready?'var(--tick)':'var(--pen)';
 }
@@ -99,6 +100,30 @@ function aiNoTemp(p,m){ m=String(m||''); const c=READING_AI_PROVIDERS[p]||{};
   if(p==='gemini') return /gemini-([3-9]|\d{2})/.test(m);
   if(p==='openai'||p==='openrouter') return /(^|\/)(gpt-([5-9]|\d{2})|o\d)|anthropic\/claude-|google\/gemini-([3-9]|\d{2})|deepseek-v([4-9]|\d{2})|deepseek-r/.test(m);
   return false; }
+/* 🎯 مزوّد لكل مهمة (اختياري): قراءة PDF بمزوّد، وتوليد الأسئلة بآخر… الافتراضي «الأساسي».
+   مهمة اختير لها مزوّد بلا مفتاح ⇒ تعود للأساسي. والتحويل الاحتياطي عند التعذّر كما هو. */
+const AI_TASKS=[['pdf','📄 قراءة PDF والصور','استخراج نص الكتاب وتنظيمه'],['questions','📝 توليد الأسئلة والأنشطة','الأنشطة والقراءة واقتراح أسئلة الاختبار والتشخيص'],['nafs','🧭 أسئلة نافس','توليد أسئلة نافس ونواتج التعلم'],['background','🔁 المهام الخلفية','النسخ العلاجية وربط المهارات — تعمل وحدها']];
+function aiRoutes(){ try{ return JSON.parse(localStorage.getItem('ai_routes_v1')||'{}')||{}; }catch(e){ return {}; } }
+function aiRoute(task){ const r=aiRoutes()[task];
+  if(r&&r.p&&READING_AI_PROVIDERS[r.p]&&readingAIGetKey(r.p)) return {p:r.p,m:r.m||readingAIModels()[r.p],custom:true};
+  const p=raiProvider(); return {p,m:readingAIModels()[p],custom:false}; }
+function aiRouteTwin(){ const r=aiRoute('background'); return r.custom?r:{p:r.p,m:twinModel(r.p),custom:false}; }   // الخلفية: الموديل الاقتصادي ما لم يُختر غيره
+function aiModelOptionsHTML(p,saved){ const c=READING_AI_PROVIDERS[p], live=aiLive(p), liveIds=live&&new Set(live.ids||[]);
+  const note=m=>{ if(liveIds&&liveIds.size&&!liveIds.has(m)) return '⚠️ غير متاح لمفتاحك الآن'; return AI_MODEL_NOTES[m]||''; };
+  const extra=live?(live.models||[]).filter(x=>!c.models.includes(x.id)):[];
+  const all=c.models.concat(extra.map(x=>x.id)); if(saved&&!all.includes(saved)) all.push(saved);
+  return all.map(m=>`<option value="${esc(m)}" ${m===saved?'selected':''}>${esc(m)}${note(m)?' — '+note(m):''}</option>`).join(''); }
+function aiRoutesRender(){ const box=document.getElementById('ai-routes'); if(!box) return;
+  const R=aiRoutes(), prim=raiProvider(), pn=READING_AI_PROVIDERS[prim].name, open=box.querySelector('details')?.open ?? Object.keys(R).length>0;
+  box.innerHTML=`<details ${open?'open':''}><summary><b>🎯 مزوّد لكل مهمة</b> <span class="muted">(اختياري — مثلًا PDF بمزوّد والأسئلة بآخر)</span></summary>
+    <div class="ai-routes-list">${AI_TASKS.map(([k,t,d])=>{ const r=R[k]||{}, has=r.p&&readingAIGetKey(r.p);
+      return `<div class="ai-route-row" data-ai-route="${k}"><div class="ai-route-t"><b>${t}</b><small class="muted">${d}</small></div>
+        <select class="inp" onchange="aiRouteSet('${k}','p',this.value)" aria-label="مزوّد ${t}"><option value="">الأساسي (${esc(pn)})</option>${Object.entries(READING_AI_PROVIDERS).map(([id,c])=>`<option value="${id}" ${r.p===id?'selected':''} ${readingAIGetKey(id)?'':'disabled'}>${esc(c.name)}${readingAIGetKey(id)?'':' — بلا مفتاح'}</option>`).join('')}</select>
+        ${r.p?`<select class="inp" onchange="aiRouteSet('${k}','m',this.value)" aria-label="موديل ${t}">${aiModelOptionsHTML(r.p,r.m||readingAIModels()[r.p])}</select>`:`<span class="ai-route-m muted">${k==='background'?'الموديل الاقتصادي تلقائيًا':'نفس الموديل الأساسي'}</span>`}
+        ${r.p&&!has?'<small class="ai-route-warn">⚠️ لا مفتاح لهذا المزوّد — يُستخدم الأساسي</small>':''}</div>`; }).join('')}</div></details>`; }
+function aiRouteSet(task,field,v){ const R=aiRoutes(); const r=R[task]||{};
+  if(field==='p'){ if(!v) delete R[task]; else R[task]={p:v,m:readingAIModels()[v]}; } else { r.m=v; R[task]=r; }
+  try{ localStorage.setItem('ai_routes_v1',JSON.stringify(R)); }catch(e){} aiRoutesRender(); }
 function readingAIPickProvider(){ return raiProvider(); }
 function readingAIModels(){ const out={};Object.keys(READING_AI_PROVIDERS).forEach(p=>out[p]=localStorage.getItem('ai_model_'+p)||READING_AI_PROVIDERS[p].defaultModel);return out; }
 function readingAIGetKey(provider){ return raiActiveKey(provider||raiProvider()); }

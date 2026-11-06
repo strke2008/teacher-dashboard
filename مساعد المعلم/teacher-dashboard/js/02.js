@@ -566,7 +566,7 @@ async function twinGenerate(h){
   for(let k=0;k<src.length;k+=6){
     if(TWIN_STOP)throw new Error('أوقفتَ التجهيز');
     TWIN_PART=k/6+1;TWIN_T0=Date.now();autoRemStatus();
-    const chunk=src.slice(k,k+6),p=readingAIPickProvider(),model=twinModel(p);
+    const chunk=src.slice(k,k+6),{p,m:model}=aiRouteTwin();
     const ac=new AbortController();TWIN_AC=ac;let timer;
     const raw=await Promise.race([readingAICall(p,model,twinPrompt(chunk),ac.signal),
       new Promise((_,rej)=>{timer=setTimeout(()=>{try{ac.abort()}catch(e){}rej(new Error('انتهت مهلة الذكاء الاصطناعي (90 ثانية) دون رد'))},90000);
@@ -641,7 +641,7 @@ function autoRemStatus(){
     </div>
     ${TWIN_BUSY?`<div class="ar-run">
       <div class="ar-run-t">⏳ <b>يعمل الآن</b> — النشاط ${pos} من ${total}: «${planEsc(TWIN_NOW||'…')}»</div>
-      <div class="ar-run-m"><span>الطلب ${TWIN_PART||1} من ${TWIN_PARTS||1}</span><span class="${secs>60?'warn':''}">⏱ ${secs} ث${secs>60?' (الحد 90)':''}</span><span>${planEsc(twinModel(readingAIPickProvider()))}</span>
+      <div class="ar-run-m"><span>الطلب ${TWIN_PART||1} من ${TWIN_PARTS||1}</span><span class="${secs>60?'warn':''}">⏱ ${secs} ث${secs>60?' (الحد 90)':''}</span><span>${planEsc(aiRouteTwin().m)}</span>
       <button class="btn bad sm" onclick="twinStop()">⏹ إيقاف</button></div></div>`:''}
     ${!TWIN_BUSY&&TWIN_LAST?`<div class="ar-note">${planEsc(TWIN_LAST)}</div>`:''}
     ${TWIN_ERR?`<div class="ar-alert">⚠️ ${planEsc(TWIN_ERR)}</div>`:''}
@@ -930,7 +930,7 @@ async function skillTagOne(h){
   const src=h.qs.map((q,i)=>({i,q:q.q,...(Array.isArray(q.o)?{o:q.o}:{})})).filter((x,i)=>['q','tf','f'].includes(h.qs[i].t||'q'));   // الخيارات تحدد ما يقيسه السؤال بدقة أكبر
   const map={};
   for(let k=0;k<src.length;k+=15){
-    const chunk=src.slice(k,k+15),p=readingAIPickProvider(),model=twinModel(p);
+    const chunk=src.slice(k,k+15),{p,m:model}=aiRouteTwin();
     const prompt=`صنّف كل سؤال علوم (المرحلة المتوسطة) بناتج التعلم الذي يقيسه، واستخدم الاسم نفسه للأسئلة التي تقيس الشيء نفسه.${skillNamesHint()}
 أخرج JSON فقط: {"skills":{"0":"اسم المهارة","1":"..."}}
 الأسئلة:
