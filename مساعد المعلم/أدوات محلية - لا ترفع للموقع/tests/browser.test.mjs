@@ -158,6 +158,33 @@ export default async function run() {
         ok(r.open, 'اللوحة'); ok(r.fast.includes(r.name) && /غاب اليوم/.test(r.fast), r.fast); ok(r.fsrc.some(x => /فوري بلا ذكاء/.test(x)), 'فوري');
         eq(bodies.length, 2, 'طلبا ذكاء فقط للسؤال الثاني'); ok(/ranking/.test(bodies[0]) && /نتائج الأدوات/.test(bodies[1]), 'خطوتا الأداة والجواب');
         ok(/<b>طالب س<\/b>/.test(r.ai), r.ai); ok(r.asrc.some(x => /درجات الفترة/.test(x)) && r.asrc.some(x => /Google Gemini · gemini-3\.8-flash/.test(x)), r.asrc.join(' | ')); eq(errs, [], 'أخطاء'); });
+      await S.t('✨ مساعدي — الأوامر: بطاقة تأكيد ولا يُكتب شيء قبل «نفّذ»، ثم الرصد بطابور الرصد السريع و«تراجع»؛ ملخص الصباح؛ ومسودة ولي الأمر بلا معرّف للمزوّد', async () => {
+        const bodies = []; let plan = '';
+        try { await p.exposeFunction('__plan', v => { plan = v; }); } catch (e) {}
+        await p.route(/generativelanguage\.googleapis\.com/, async r => { const b = r.request().postData() || ''; bodies.push(b);
+          const txt = /نتائج الأدوات/.test(b) ? '{"answer":"هذه مسودة","draft":"السلام عليكم ورحمة الله، نود إفادتكم…"}' : plan;
+          r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ candidates: [{ content: { parts: [{ text: txt }] } }] }) }); });
+        const r = await p.evaluate(async () => { const keep = {}; ['ai_provider_v1', 'aikeys_gemini', 'ai_routes_v1', 'asst_brief_seen'].forEach(k => keep[k] = localStorage.getItem(k));
+          localStorage.setItem('ai_provider_v1', 'gemini'); localStorage.setItem('aikeys_gemini', JSON.stringify([{ key: 'AIzaTEST0000000000' }])); localStorage.removeItem('ai_routes_v1');
+          if (!CT_DATA) { try { await ctLoad(); } catch (e) {} } const D = CT_DATA, d = ctToday(), s1 = STUDENTS[1], s0 = STUDENTS[0];
+          const before = ((D.participation || {})[d] || {})[s1.id]; asstOpen(); ASST.msgs = [];
+          window.__plan('{"calls":[{"tool":"record_attendance","args":{"students":["' + s1.name + '"],"status":"غائب"}}]}');
+          await asstAsk('سجّل ' + s1.name + ' غايب'); const m = ASST.msgs[ASST.msgs.length - 1], card = m.cards && m.cards[0]; const st0 = card && card.state;
+          const pre = ((D.participation || {})[d] || {})[s1.id]; const i = ASST.msgs.indexOf(m);
+          asstAct(i, 0, 'do'); const after = (D.participation[d] || {})[s1.id], outbox = JSON.parse(localStorage.getItem('ct_outbox_v1') || '[]').some(o => o.sid === String(s1.id) && o.v === 'غائب');
+          asstAct(i, 0, 'undo'); const undone = (D.participation[d] || {})[s1.id];
+          const days = ['2020-02-02', '2020-02-03', '2020-02-04']; days.forEach(x => { D.participation[x] = D.participation[x] || {}; D.participation[x][s0.id] = { status: 'غائب', at: 1 }; });
+          const brief = (await asstBrief()).map(x => x.t).join(' | '); days.forEach(x => delete D.participation[x][s0.id]);
+          window.__plan('{"calls":[{"tool":"parent_message","args":{"student":"' + s0.name + '","topic":"الغياب"}}]}');
+          await asstAsk('اكتب رسالة لولي أمر ' + s0.name + ' عن غيابه'); const dm = ASST.msgs[ASST.msgs.length - 1], dc = dm.cards && dm.cards[0];
+          const html = document.getElementById('asst-msgs').innerHTML; asstClose(); ASST.msgs = [];
+          Object.entries(keep).forEach(([k, v]) => v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v));
+          return { card: card && card.action, st: st0, items: card && card.items.length, preSame: JSON.stringify(pre) === JSON.stringify(before), after: after && after.status, undone: undone ? undone.status : '', outbox, brief, s0: s0.name.split(' ')[0], draft: dc && dc.text, ta: /asst-draft/.test(html), ids: [String(s0.id), String(s1.id)] }; });
+        await p.unroute(/generativelanguage\.googleapis\.com/);
+        eq([r.card, r.st, r.items], ['record', 'ask', 1], 'بطاقة التأكيد'); ok(r.preSame, 'كُتب قبل «نفّذ»'); eq(r.after, 'غائب', 'الرصد'); ok(r.outbox, 'طابور الرصد'); eq(r.undone, '', 'التراجع');
+        ok(/غابوا آخر ٣ حصص/.test(r.brief) && r.brief.includes(r.s0), 'الملخص: ' + r.brief);
+        ok(/^السلام عليكم/.test(r.draft || '') && r.ta, 'المسودة'); const last = bodies[bodies.length - 1];
+        ok(!r.ids.some(id => last.includes('"' + id + '"')) && !/"_id"/.test(last), 'وصل معرّف للمزوّد'); eq(errs, [], 'أخطاء'); });
       await S.t('⚙️ زر الإعدادات بجانب «تخصيص القائمة» يفتح الإعدادات', async () => {
         ok(await p.evaluate(() => { const r = document.querySelector('#simp-nav .simp-cust-row'); return !!(r && r.querySelector('[data-simp-settings]') && /تخصيص القائمة/.test(r.textContent)); }), 'الزر بجانب التخصيص');
         await p.evaluate(() => document.querySelector('#simp-nav [data-simp-settings]').click()); await p.waitForTimeout(400);

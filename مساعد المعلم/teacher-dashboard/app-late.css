@@ -2952,3 +2952,20 @@ body.fm #fm-bot{position:fixed;bottom:0;inset-inline:0;z-index:600;background:va
 @keyframes asstdot{0%,80%,100%{opacity:.3;transform:translateY(0)}40%{opacity:1;transform:translateY(-3px)}}
 @media (max-width:700px){#asst-panel{width:100vw}.asst-btn .portal-w{display:none}}
 body.asst-open #ai-use{display:none}   /* المساعد يذكر المزوّد تحت كل جواب */
+/* ✨ مساعدي — بطاقات التأكيد والصوت وملخص الصباح */
+.asst-card{margin-top:.55rem;background:var(--ui-surface,#fff);border:1px solid var(--rule,#DCE4EE);border-radius:12px;padding:.6rem .7rem;display:flex;flex-wrap:wrap;gap:.4rem;align-items:center}
+.asst-card>b{flex-basis:100%;font-size:.86rem}
+.asst-card.done{border-color:#9FD9C3;background:#F1FBF6}.asst-card.no,.asst-card.undone{opacity:.65}
+.asst-names{flex-basis:100%;margin:0;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:4px}
+.asst-names li{background:var(--paper-2,#F2F5F8);border-radius:999px;padding:2px 9px;font-size:.78rem}.asst-names small{color:var(--ink-soft,#5B6B82);margin-inline-start:4px;font-size:.7rem}
+.asst-bad{flex-basis:100%;font-size:.76rem;color:#B45309}
+.asst-ok{color:#0B7A5A;font-weight:800;font-size:.82rem}.asst-off{color:var(--ink-soft,#5B6B82);font-size:.8rem}
+.asst-draft{flex-basis:100%;width:100%;border:1px solid var(--rule,#CBD5E1);border-radius:10px;padding:.5rem .6rem;font:inherit;font-size:.86rem;line-height:1.8;resize:vertical;background:var(--paper-2,#F8FAFC);color:inherit}
+.asst-mic{appearance:none;border:0;background:transparent;font-size:1.15rem;cursor:pointer;padding:4px 6px;border-radius:10px;align-self:center}
+.asst-mic.on{background:#FEE2E2;animation:asstmic 1s infinite}
+@keyframes asstmic{50%{box-shadow:0 0 0 6px rgba(239,68,68,.15)}}
+.asst-brief{margin:.35rem 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:.35rem}
+.asst-brief li{font-size:.84rem;line-height:1.7}
+.asst-brief button{appearance:none;border:1px solid var(--rule,#C9D6E6);background:var(--ui-surface,#fff);border-radius:999px;font:inherit;font-size:.72rem;font-weight:700;padding:1px 8px;cursor:pointer;color:var(--ink,#16233A)}
+.asst-btn{position:relative}
+.asst-btn.has-brief::after{content:attr(data-brief);position:absolute;top:-6px;inset-inline-end:-6px;min-width:18px;height:18px;border-radius:9px;background:#EF4444;color:#fff;font-size:.68rem;font-weight:800;display:grid;place-items:center;padding:0 4px;box-shadow:0 0 0 2px #fff}
