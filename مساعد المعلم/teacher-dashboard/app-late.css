@@ -2898,3 +2898,15 @@ body.fm #fm-bot{position:fixed;bottom:0;inset-inline:0;z-index:600;background:va
 /* 🔑 كلمات السر ومفاتيح API تظهر نقاطًا دون أن تكون type=password — فلا يعرض المتصفح «حفظ/تحديث كلمة المرور» */
 .no-pwsave{-webkit-text-security:disc;text-security:disc;font-family:text-security-disc,inherit}
 .no-pwsave::placeholder{-webkit-text-security:none}
+
+/* 🤖 من يعمل الآن: المزوّد والموديل مع كل طلب ذكاء اصطناعي */
+#ai-use{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);z-index:2600;display:flex;align-items:center;gap:7px;max-width:min(560px,calc(100vw - 24px));
+  padding:8px 14px;border-radius:999px;background:#16233A;color:#fff;font-size:.82rem;line-height:1.4;box-shadow:0 8px 24px rgba(0,0,0,.22);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;direction:rtl}
+#ai-use.on{opacity:1;transform:translate(-50%,0)}
+#ai-use .ai-use-t{min-width:0}
+#ai-use b,#ai-use code{white-space:nowrap}
+#ai-use code{direction:ltr;unicode-bidi:isolate;font-family:inherit;font-size:.78rem;background:rgba(255,255,255,.12);border-radius:6px;padding:1px 6px}
+#ai-use.ok{background:#0B7A5A}#ai-use.err{background:#9A3412}
+.ai-use-spin{width:12px;height:12px;border-radius:50%;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;animation:aiusespin .8s linear infinite;flex:0 0 auto}
+@keyframes aiusespin{to{transform:rotate(360deg)}}
+@media (max-width:700px){#ai-use{bottom:calc(84px + env(safe-area-inset-bottom,0px))}}

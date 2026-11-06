@@ -51,7 +51,8 @@ function aiSettingsRender(){
   const l=document.getElementById('ai-settings-getkey');l.href=AI_KEY_URLS[cur]||'#';l.style.display=AI_KEY_URLS[cur]?'inline-flex':'none';
   const list=document.getElementById('ai-settings-keys-list'),a=raiKeys(cur),idx=Number(localStorage.getItem(raiIdxKey(cur))||0),active=raiActiveKey(cur);
   list.innerHTML=a.length?a.map((k,i)=>{const on=k.key===active&&!k.exhausted;const masked=k.key.length>12?k.key.slice(0,6)+'••••••'+k.key.slice(-4):'••••••••';return `<div style="display:flex;gap:.45rem;align-items:center;border:1px solid var(--rule);border-radius:10px;padding:.5rem;margin:.35rem 0;flex-wrap:wrap"><b style="min-width:70px">${esc(k.label||('مفتاح '+(i+1)))}</b><code style="flex:1;min-width:160px">${esc(masked)}</code><span class="pill" style="font-size:.72rem">${k.exhausted?'⛔ مستنفد':on?'✅ نشط':'⏸ غير نشط'}</span><button class="btn ghost sm" type="button" onclick="aiSettingsActivateKey(${i})">تفعيل</button><button class="btn ghost sm" type="button" onclick="aiSettingsRemoveKey(${i})">حذف</button></div>`}).join(''):'<div class="muted" style="text-align:center;padding:.5rem">لا توجد مفاتيح محفوظة لهذا المزوّد.</div>';
-  const ready=!!active;const st=document.getElementById('ai-settings-status');st.textContent=ready?'جاهز':'غير مُعد';st.style.color=ready?'var(--tick)':'var(--pen)';
+  const ready=!!active;const st=document.getElementById('ai-settings-status');st.textContent=ready?'جاهز':'غير مُعد';
+  { let lu=document.getElementById('ai-last-used'); if(!lu&&ms.closest('.row')){ lu=document.createElement('div'); lu.id='ai-last-used'; lu.className='muted'; lu.style.cssText='font-size:.78rem;margin-top:.45rem'; ms.closest('.row').insertAdjacentElement('afterend',lu); } if(lu) lu.textContent=aiLastUsedText(); }st.style.color=ready?'var(--tick)':'var(--pen)';
 }
 setTimeout(aiSettingsRender,0);
 
@@ -67,6 +68,29 @@ function aiErrHint(e){ const m=String(e?.message||''), s=Number(e?.status)||0;
   if(s>=500) return 'خادم المزوّد مشغول أو متعطل مؤقتًا — جرّب بعد قليل.';
   if(/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'تعذّر الوصول للمزوّد من هذه الشبكة.';
   return ''; }
+/* 🤖 «من يعمل الآن؟» — شريط صغير أسفل الشاشة مع كل طلب ذكاء اصطناعي في أي مكان بالتطبيق:
+   المزوّد والموديل أثناء العمل، والتحويل لمزوّد آخر وسببه، ومن أنجز في النهاية. آخر استخدام يُحفظ ويظهر في الإعدادات. */
+function aiErrShort(e){ const m=String(e?.message||''), s=Number(e?.status)||0;
+  if(s===429||/quota|RESOURCE_EXHAUSTED|rate limit|credit|balance|billing|insufficient/i.test(m)) return 'الرصيد أو الحصة';
+  if(s===401||/api key|x-api-key|invalid_api_key/i.test(m)) return 'المفتاح';
+  if(s===402||s===403) return 'الرصيد أو الصلاحية';
+  if(s===404) return 'الموديل غير متاح'; if(s>=500) return 'المزوّد مشغول'; if(/fetch|network/i.test(m)) return 'الشبكة'; return 'خطأ'; }
+let AI_USE_T=0;
+function aiUse(state,p,m,e,via){ try{
+  const c=READING_AI_PROVIDERS[p]||{name:p}, who=`<b>${esc(c.name)}</b> · <code>${esc(m||'')}</code>`;
+  let el=document.getElementById('ai-use'); if(!el){ el=document.createElement('div'); el.id='ai-use'; el.className='no-print'; el.setAttribute('role','status'); el.setAttribute('aria-live','polite'); document.body.appendChild(el); }
+  clearTimeout(AI_USE_T); el.className='no-print on '+state;
+  const from=via&&via.from&&via.from!==p?(READING_AI_PROVIDERS[via.from]||{name:via.from}).name:'';
+  el.innerHTML = (state==='run'?'<i class="ai-use-spin"></i>':'')+'<span class="ai-use-t">'+(state==='run' ? (from?`⤵️ ${esc(from)} تعذّر (${esc(via.why||'خطأ')}) — يعمل الآن ${who}…`:`🤖 ${who} — يعمل…`)
+    : state==='err' ? `⚠️ تعذّر ${who} (${aiErrShort(e)})`
+    : `✓ أُنجز بـ ${who}${from?' (بدل '+esc(from)+')':''}`)+'</span>';
+  if(state==='ok'||state==='err'){ try{ localStorage.setItem('ai_last_used',JSON.stringify({p,m,at:Date.now(),ok:state==='ok'})); }catch(x){}
+    AI_USE_T=setTimeout(()=>{ el.classList.remove('on'); },state==='ok'?6000:9000); }
+}catch(x){} }
+function aiLastUsedText(){ try{ const j=JSON.parse(localStorage.getItem('ai_last_used')||'null'); if(!j) return '';
+  const c=READING_AI_PROVIDERS[j.p]||{name:j.p}, min=Math.round((Date.now()-j.at)/60000);
+  return (j.ok?'آخر استخدام: ':'آخر محاولة فاشلة: ')+c.name+' · '+j.m+' — '+(min<1?'الآن':min<60?'قبل '+min+' د':min<1440?'قبل '+Math.round(min/60)+' س':'قبل '+Math.round(min/1440)+' يوم'); }catch(e){ return ''; } }
+
 /* 🔄 القائمة المجلوبة من المزوّد (زر «تحديث قائمة الموديلات») — محفوظة على هذا الجهاز */
 function aiLive(p){ try{ const j=JSON.parse(localStorage.getItem('ai_models_live_'+p)||'null'); return j&&Array.isArray(j.models)?j:null; }catch(e){ return null; } }
 /* موديل جديد لا نعرفه: أجيال الاستدلال الحديثة ترفض temperature بخطأ 400، فلا نرسلها لها */
@@ -102,13 +126,17 @@ async function readingAICall(provider, model, systemText, signal, image, opts){
     const reasoning=aiNoTemp(p,m);if(c.tokenParam&&c.tokenParam!=='max_tokens'){body[c.tokenParam]=body.max_tokens;delete body.max_tokens}if(reasoning)delete body.temperature;if(reasoning&&p==='groq'&&/gpt-oss/.test(m))body.reasoning_effort='low';
     const r=await fetch(c.baseUrl,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},body:JSON.stringify(body),signal});const d=await r.json();if(!r.ok){const e=new Error(d.error?.message||('خطأ '+r.status));e.status=r.status;throw e}return d.choices?.[0]?.message?.content||'';
   };
+  const req0=request;   // كل محاولة تُعلن مزوّدها وموديلها
+  const requestShown=async(p,key)=>{ const c=readingAIConfig(p), m=(p===provider?model:(localStorage.getItem('ai_model_'+p)||c.defaultModel));
+    const via=p!==provider?{from:provider,why:aiErrShort(firstErr)}:null;
+    aiUse('run',p,m,null,via); try{ const out=await req0(p,key); aiUse('ok',p,m,null,via); return out; }catch(e){ if(e?.name!=='AbortError') aiUse('err',p,m,e); throw e; } };
   let firstErr;   // خطأ المزوّد المختار نفسه — كان يضيع فيظهر «فشلت جميع المحاولات» أو ينجح الاختبار بمزوّد آخر
-  try{return await request(provider,current)}catch(e){if(e?.name==='AbortError')throw e;firstErr=e;if(e?.status===401||e?.status===429){const next=raiRotateKey(provider,current);if(next){try{return await request(provider,next)}catch(e2){if(e2?.name==='AbortError')throw e2;firstErr=e2}}}}
+  try{return await requestShown(provider,current)}catch(e){if(e?.name==='AbortError')throw e;firstErr=e;if(e?.status===401||e?.status===429){const next=raiRotateKey(provider,current);if(next){try{return await requestShown(provider,next)}catch(e2){if(e2?.name==='AbortError')throw e2;firstErr=e2}}}}
   if(opts&&opts.noFallback) throw firstErr||new Error('فشل الطلب');
   // احتياطي تلقائي بين المزوّدات التي لديها مفاتيح، كما في الألعاب.
   const order=[provider,'gemini','claude','openai','openrouter','groq'].filter((p,i,a)=>a.indexOf(p)===i);
   let lastErr;
-  for(const p of order){if(p===provider)continue;const k=readingAIGetKey(p);if(!k)continue;try{if(typeof toast==='function')toast('⤵️ تحويل تلقائي إلى '+readingAIConfig(p).name,'ok');return await request(p,k)}catch(e){if(e?.name==='AbortError')throw e;lastErr=e}}
+  for(const p of order){if(p===provider)continue;const k=readingAIGetKey(p);if(!k)continue;try{return await requestShown(p,k)}catch(e){if(e?.name==='AbortError')throw e;lastErr=e}}
   throw firstErr||lastErr||new Error('فشلت جميع محاولات الذكاء الاصطناعي');
 }
 

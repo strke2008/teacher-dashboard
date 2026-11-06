@@ -770,7 +770,7 @@ async function normalAIVisionExtractPdfText(pdf){
     try{
       const key=readingAIGetKey(provider), cfg=readingAIConfig(provider);
       const model=localStorage.getItem('ai_model_'+provider)||cfg.defaultModel;
-      if(typeof toast==='function' && provider!==primary) toast('⤵️ قراءة صفحات PDF عبر '+cfg.name,'ok');
+      aiUse('run',provider,model);
       let all='';
       // دفعات صغيرة لتفادي حدود حجم الطلب، مثل مسار Vision في سكربت الألعاب.
       const batchSize=3;
@@ -808,10 +808,11 @@ async function normalAIVisionExtractPdfText(pdf){
       }
       all=all.replace(/```(?:text|markdown)?/gi,'').replace(/```/g,'').replace(/\uFFFD/g,'').replace(/\u00AD/g,'').trim();
       if(all.length<80) throw new Error('النموذج لم يستخرج نصاً كافياً من صفحات PDF');
+      aiUse('ok',provider,model);
       return all;
     }catch(e){
       if(e?.name==='AbortError') throw e;
-      lastErr=e;
+      lastErr=e; aiUse('err',provider,localStorage.getItem('ai_model_'+provider)||readingAIConfig(provider).defaultModel,e);
       console.warn('فشلت قراءة PDF بصرياً عبر '+provider,e?.message);
     }
   }

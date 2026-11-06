@@ -100,6 +100,22 @@ export default async function run() {
           const btn = t.nextElementSibling; btn.click(); a.push(sec(t)); btn.click(); a.push(sec(t)); return a; });
         await p.evaluate(() => goTab('dashboard'));
         eq(r, [0, 'text', 'disc', 'disc', 'off', 'none', 'disc']); eq(errs, [], 'أخطاء'); });
+      await S.t('🤖 مع كل طلب ذكاء اصطناعي: شريط يوضح المزوّد والموديل، والتحويل وسببه، ومن أنجز — وآخر استخدام في الإعدادات', async () => {
+        await p.route(/generativelanguage\.googleapis\.com/, r => r.fulfill({ status: 429, contentType: 'application/json', body: JSON.stringify({ error: { code: 429, message: 'You exceeded your current quota, please check your plan and billing details.' } }) }));
+        await p.route(/api\.anthropic\.com/, async r => { await new Promise(x => setTimeout(x, 700)); r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ content: [{ type: 'text', text: '{"ok":1}' }] }) }); });
+        const r = await p.evaluate(async () => { const keep = {}; ['ai_provider_v1', 'aikeys_gemini', 'aikeys_claude', 'ai_last_used'].forEach(k => keep[k] = localStorage.getItem(k));
+          localStorage.setItem('ai_provider_v1', 'gemini'); localStorage.setItem('aikeys_gemini', JSON.stringify([{ key: 'AIzaTEST0000000000' }])); localStorage.setItem('aikeys_claude', JSON.stringify([{ key: 'sk-ant-TEST000000' }]));
+          const seen = []; const mo = new MutationObserver(() => { const e = document.getElementById('ai-use'); if (e) seen.push(e.textContent.replace(/\s+/g, ' ').trim()); });
+          mo.observe(document.body, { childList: true, subtree: true, characterData: true });
+          const out = await readingAICall('gemini', 'gemini-3.8-flash', 'x', new AbortController().signal); await new Promise(x => setTimeout(x, 50)); mo.disconnect();
+          aiSettingsRender(); const last = (document.getElementById('ai-last-used') || {}).textContent || '';
+          Object.entries(keep).forEach(([k, v]) => v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v)); aiSettingsRender();
+          return { out, seen: [...new Set(seen)], last }; });
+        await p.unroute(/generativelanguage\.googleapis\.com/); await p.unroute(/api\.anthropic\.com/);
+        const all = r.seen.join(' | ');
+        ok(/Google Gemini · gemini-3\.8-flash — يعمل/.test(all), 'بداية: ' + all); ok(/تعذّر Google Gemini · gemini-3\.8-flash \(الرصيد أو الحصة\)/.test(all), 'السبب: ' + all);
+        ok(/Google Gemini تعذّر \(الرصيد أو الحصة\) — يعمل الآن Claude/.test(all), 'التحويل: ' + all); ok(/أُنجز بـ Claude \(Anthropic\) · claude-opus-5-5 \(بدل Google Gemini\)/.test(all), 'النهاية: ' + all);
+        ok(/آخر استخدام: Claude/.test(r.last), r.last); eq(errs, [], 'أخطاء'); });
       await S.t('⚙️ زر الإعدادات بجانب «تخصيص القائمة» يفتح الإعدادات', async () => {
         ok(await p.evaluate(() => { const r = document.querySelector('#simp-nav .simp-cust-row'); return !!(r && r.querySelector('[data-simp-settings]') && /تخصيص القائمة/.test(r.textContent)); }), 'الزر بجانب التخصيص');
         await p.evaluate(() => document.querySelector('#simp-nav [data-simp-settings]').click()); await p.waitForTimeout(400);
