@@ -554,7 +554,7 @@ function twinClean(a,t){
   if(o.length<3||!(ai>=0&&ai<o.length)||new Set(o).size!==o.length)return null;return{t:'q',q,o,a:ai};
 }
 /* نموذج اقتصادي سريع لهذه المهمة البسيطة، بدل النموذج الكبير المضبوط للتوليد العام */
-const TWIN_ECO={claude:'claude-haiku-4-5-20251001',gemini:'gemini-3.8-flash',openrouter:'google/gemini-3.8-flash',openai:'gpt-6-luna'};
+const TWIN_ECO={claude:'claude-haiku-5-5',gemini:'gemini-3.8-flash',openrouter:'google/gemini-3.8-flash',openai:'gpt-6-luna'};
 function twinModel(p){const list=(READING_AI_PROVIDERS[p]&&READING_AI_PROVIDERS[p].models)||[];const eco=TWIN_ECO[p];return eco&&list.includes(eco)?eco:readingAIModels()[p]}
 function twinQCount(h){return (h.qs||[]).filter(q=>['q','tf','f'].includes(q.t||'q')).length}
 function twinCalls(h){return Math.max(1,Math.ceil(twinQCount(h)/6))}

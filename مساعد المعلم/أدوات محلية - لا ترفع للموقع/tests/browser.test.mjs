@@ -70,6 +70,15 @@ export default async function run() {
           return out; });
         await p.unroute(/generativelanguage\.googleapis\.com/); await p.unroute(/api\.anthropic\.com/);
         ok(/فشل Google Gemini/.test(msg) && /API key not valid/.test(msg) && /المفتاح غير صحيح/.test(msg), msg); eq(errs, [], 'أخطاء'); });
+      await S.t('🤖 موديلات المزوّدات محدَّثة: الافتراضي الجديد وملاحظة السعر، والموديل الملغى يعود للافتراضي', async () => {
+        const r = await p.evaluate(() => { const P = READING_AI_PROVIDERS, keep = localStorage.getItem('ai_provider_v1');
+          localStorage.setItem('ai_provider_v1', 'gemini'); aiSettingsRender(); const opts = [...document.querySelectorAll('#ai-settings-model option')].map(o => o.textContent);
+          if (keep == null) localStorage.removeItem('ai_provider_v1'); else localStorage.setItem('ai_provider_v1', keep); aiSettingsRender();
+          return { g: P.gemini.defaultModel, c: P.claude.models, o: P.openai.defaultModel, opts, ret: AI_RETIRED_MODELS.includes('claude-sonnet-5') && AI_RETIRED_MODELS.includes('gpt-6-sol'),
+            dup: Object.values(P).some(c => c.models.some(m => AI_RETIRED_MODELS.includes(m))) }; });
+        eq(r.g, 'gemini-3.8-flash'); ok(r.c.includes('claude-sonnet-5-5') && r.c.includes('claude-haiku-5-5'), 'Claude'); eq(r.o, 'gpt-6.1-sol');
+        ok(r.opts.some(t => /gemini-3\.8-flash — مجاني/.test(t)) && r.opts.some(t => /gemini-4-argon — .*مدفوع/.test(t)), r.opts.join(' | '));
+        ok(r.ret, 'الملغاة'); ok(!r.dup, 'موديل في القائمة وفي الملغاة معًا'); eq(errs, [], 'أخطاء'); });
       await S.t('⚙️ زر الإعدادات بجانب «تخصيص القائمة» يفتح الإعدادات', async () => {
         ok(await p.evaluate(() => { const r = document.querySelector('#simp-nav .simp-cust-row'); return !!(r && r.querySelector('[data-simp-settings]') && /تخصيص القائمة/.test(r.textContent)); }), 'الزر بجانب التخصيص');
         await p.evaluate(() => document.querySelector('#simp-nav [data-simp-settings]').click()); await p.waitForTimeout(400);
