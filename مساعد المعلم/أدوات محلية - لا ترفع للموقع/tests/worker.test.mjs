@@ -140,6 +140,12 @@ export default async function run() {
     ok((await call('/site?h=mosaed.pages.dev&p=/')).s !== 400, 'اللوحة في جذر الموقع مرفوضة');
   });
   await S.t('صوت المختبر بلا مفتاح: صامت بلا خطأ', async () => { eq((await call('/tts?t=' + encodeURIComponent('مرحبا'))).s, 404); });
+  await S.t('🗣️ قاموس نطق الأسماء: يُحفظ ويُقرأ من الخادم، وللمعلم فقط', async () => {
+    eq((await call('/say-names', { method: 'POST', body: { t: 'خطأ', action: 'get' } })).s, 401);
+    eq((await call('/say-names', { method: 'POST', body: { t: TOKEN, action: 'set', words: { 'فيصل': 'فَيْصَل', '': 'x' } } })).j.n, 1);
+    eq((await call('/say-names', { method: 'POST', body: { t: TOKEN, action: 'get' } })).j.words, { 'فيصل': 'فَيْصَل' });
+    await call('/say-names', { method: 'POST', body: { t: TOKEN, action: 'set', words: {} } });
+  });
   await S.t('🔊 صوت «مساعدي» (k=asst) يُحفظ 3 أيام فقط، وجمل المختبر دائمة', async () => {
     const E = newEnv({ ELEVENLABS_API_KEY: 'x' }), C = caller(W, E), puts = []; const put0 = E.HW.put.bind(E.HW); E.HW.put = (k, v, o) => { puts.push([k, o]); return put0(k, v, o); };
     const f0 = globalThis.fetch; globalThis.fetch = async (u, o) => /elevenlabs/.test(String(u)) ? new Response(new Uint8Array([1, 2, 3]), { status: 200, headers: { 'content-type': 'audio/mpeg' } }) : f0(u, o);

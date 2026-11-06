@@ -233,10 +233,45 @@ function asstSpeakDevice(txt) {
   if (!window.speechSynthesis) return;
   try { const u = new SpeechSynthesisUtterance(txt.slice(0, 600)); u.lang = 'ar-SA'; const v = speechSynthesis.getVoices().find(x => /^ar/i.test(x.lang)); if (v) u.voice = v; speechSynthesis.speak(u); } catch (e) {}
 }
+/* 🗣️ قاموس نطق الأسماء: كل كلمة من أسماء الطلاب ← نفسها بالتشكيل (يُشكّلها الذكاء مرة واحدة، والمعلم يعدّل) — محفوظ في الخادم */
+const ASST_DICT = { w: null, at: 0, busy: false };
+const AR_L = '\u0621-\u064A', AR_H = /[\u064B-\u0652\u0670]/g;
+const asstBare = w => String(w || '').replace(AR_H, '').replace(/\u0640/g, '');
+function asstNameWords() { const set = new Set(); asstStudents().forEach(s => String(s.name).split(/\s+/).forEach(w => { w = asstBare(w).trim(); if (w.length >= 2 && /^[\u0621-\u064A]+$/.test(w)) set.add(w); })); return [...set].sort((a, b) => a.localeCompare(b, 'ar')); }
+async function asstSayLoad(force) {
+  if (ASST_DICT.w && !force) return ASST_DICT.w;
+  try { const j = JSON.parse(localStorage.getItem('asst_say_v1') || 'null'); if (j && j.w) { ASST_DICT.w = j.w; ASST_DICT.at = j.at || 0; } } catch (e) {}
+  try { const j = await devCall('/say-names', { action: 'get' }); if (j && j.words && (j.at || 0) >= ASST_DICT.at) { ASST_DICT.w = j.words; ASST_DICT.at = j.at || 0; localStorage.setItem('asst_say_v1', JSON.stringify({ at: ASST_DICT.at, w: ASST_DICT.w })); } } catch (e) {}
+  return ASST_DICT.w || (ASST_DICT.w = {});
+}
+async function asstSaySave(w) {
+  ASST_DICT.w = w; ASST_DICT.at = Date.now(); try { localStorage.setItem('asst_say_v1', JSON.stringify({ at: ASST_DICT.at, w })); } catch (e) {}
+  try { await devCall('/say-names', { action: 'set', words: w }); return true; } catch (e) { return false; }
+}
+/* الذكاء يشكّل الكلمات الناقصة — يُقبل التشكيل فقط إن بقيت الحروف نفسها */
+async function asstSayAuto(words) {
+  const w = { ...(await asstSayLoad()) }, miss = (words || asstNameWords()).filter(x => !w[x]); if (!miss.length || ASST_DICT.busy) return 0;
+  const R = typeof aiRoute === 'function' ? aiRoute('assistant') : { p: raiProvider(), m: readingAIModels()[raiProvider()] }; if (!readingAIGetKey(R.p)) throw new Error('أضف مفتاح ذكاء اصطناعي أولًا');
+  ASST_DICT.busy = true; let n = 0;
+  try { for (let i = 0; i < miss.length; i += 150) { const part = miss.slice(i, i + 150);
+      const j = aiSafeJson(await readingAICall(R.p, R.m, `هذه كلمات من أسماء طلاب سعوديين (أسماء أول وأسماء آباء وعائلات وقبائل). أضف لكل كلمة التشكيل الكامل كما تُنطق في السعودية، دون تغيير أي حرف.
+${part.join('، ')}
+أخرج JSON فقط: {"w":{"الكلمة كما هي":"الكلمة بالتشكيل"}}`, new AbortController().signal)) || {};
+      Object.entries(j.w || {}).forEach(([k, v]) => { k = asstBare(k); v = String(v || '').trim(); if (part.includes(k) && v && asstBare(v) === k && v !== k) { w[k] = v; n++; } }); }
+  } finally { ASST_DICT.busy = false; }
+  if (n) await asstSaySave(w); return n;
+}
+/* قبل النطق: كل كلمة اسم (ولو بسابقة و/ف/ل/ب/ك) ← نسختها المشكَّلة */
+function asstSayApply(txt) {
+  const w = ASST_DICT.w; if (!w || !Object.keys(w).length) return txt;
+  return String(txt).replace(new RegExp(`(^|[^${AR_L}\u064B-\u0652])([وفلبك]?)([${AR_L}]+)(?=$|[^${AR_L}\u064B-\u0652])`, 'g'), (m, a, pre, word) => {
+    if (w[word]) return a + pre + w[word]; if (pre && w[pre + word]) return a + w[pre + word]; return m; });
+}
 async function asstSpeak(t) {
   if (!asstTtsOn()) return;
+  try { await asstSayLoad(); if (ASST_DICT.w && !Object.keys(ASST_DICT.w).length && !ASST_DICT.tried) { ASST_DICT.tried = 1; asstSayAuto().catch(() => {}); } } catch (e) {}
   asstSpeakStop(); const my = ASST_SAY;
-  const txt = String(t || '').replace(/<[^>]+>/g, ' ').replace(/\*\*/g, '').replace(/[•\-]\s/g, '، ').replace(/\s+/g, ' ').trim().slice(0, 1200); if (!txt) return;
+  const txt = asstSayApply(String(t || '').replace(/<[^>]+>/g, ' ').replace(/\*\*/g, '').replace(/[•\-]\s/g, '، ').replace(/\s+/g, ' ').trim().slice(0, 1200)); if (!txt) return;
   let api = ''; try { api = String(getApi() || '').replace(/\/+$/, ''); } catch (e) {}
   if (api && ASST_EL !== false && asstElOn()) {
     const parts = []; let rest = txt; while (rest) { let cut = rest.length <= 380 ? rest.length : Math.max(rest.lastIndexOf('،', 380), rest.lastIndexOf('.', 380), rest.lastIndexOf(' ', 380)); if (cut < 40) cut = 380; parts.push(rest.slice(0, cut + 1).trim()); rest = rest.slice(cut + 1).trim(); }
@@ -317,3 +352,26 @@ function asstClose() { asstSpeakStop(); const p = document.getElementById('asst-
 
 async function asstShowBrief() { try { localStorage.setItem('asst_brief_seen', asstToday()); } catch (e) {} const m = { html: '<i class="asst-dots"><b></b><b></b><b></b></i>', src: [] }; ASST.msgs.push(m); asstPaint();
   try { Object.assign(m, asstBriefMsg(await asstBrief())); } catch (e) { m.html = '⚠️ تعذّر تجهيز الملخص'; } asstPaint(); }
+
+/* 🗣️ نافذة «نطق أسماء الطلاب»: تشكيل تلقائي للناقص، وتعديل يدوي، و▶ استماع */
+async function asstSayOpen() {
+  openModal('<h2>🗣️ نطق أسماء الطلاب</h2><p class="muted">⏳ جارٍ التحميل…</p>');
+  await asstSayLoad(true); asstSayPaint();
+}
+function asstSayPaint(q) {
+  const w = ASST_DICT.w || {}, all = asstNameWords(), miss = all.filter(x => !w[x]).length, f = String(q || '').trim();
+  const rows = all.filter(x => !f || x.includes(asstBare(f))).slice(0, 400);
+  openModal(`<h2>🗣️ نطق أسماء الطلاب</h2>
+    <p class="muted" style="font-size:.84rem;line-height:1.8;margin:.2rem 0 .6rem">كل كلمة من أسماء طلابك بالتشكيل الذي يُنطق به في «مساعدي». التشكيل التلقائي يُرسل <b>الأسماء فقط</b> لمزوّد الذكاء مرة واحدة، ثم يُحفظ في الخادم ويُستخدم بلا تكلفة. عدّل أي كلمة بنفسك.</p>
+    <div class="row" style="gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem"><button class="btn tick sm" type="button" id="say-auto" onclick="asstSayAutoBtn()">✨ تشكيل تلقائي ${miss ? `للناقص (${miss})` : '— الكل مُشكَّل ✓'}</button>
+      <input class="inp" style="flex:1;min-width:140px;margin:0" placeholder="بحث…" value="${asstEsc(f)}" oninput="asstSayPaint(this.value)"><small class="muted" id="say-st">${all.length - miss} من ${all.length} مُشكَّلة</small></div>
+    <div class="say-list">${rows.map(x => `<div class="say-row"><b>${asstEsc(x)}</b><input class="inp" data-say="${asstEsc(x)}" value="${asstEsc(w[x] || '')}" placeholder="بلا تشكيل"><button class="btn ghost sm" type="button" title="استماع" onclick="asstSayTry(this)">▶</button></div>`).join('') || '<p class="muted">لا أسماء.</p>'}</div>
+    <div class="modal-foot"><button class="btn ghost" type="button" onclick="closeModal()">إغلاق</button><button class="btn tick" type="button" onclick="asstSaySaveBtn()">💾 حفظ التعديلات</button></div>`);
+}
+async function asstSayAutoBtn() { const b = document.getElementById('say-auto'), st = document.getElementById('say-st'); if (b) b.disabled = true; if (st) st.textContent = '⏳ الذكاء يشكّل الأسماء…';
+  try { const n = await asstSayAuto(); toast(n ? `✓ شُكّلت ${n} كلمة وحُفظت` : 'لا جديد للتشكيل', 'good'); } catch (e) { toast('تعذّر: ' + (e && e.message || ''), 'bad'); } asstSayPaint(); }
+async function asstSaySaveBtn() { const w = { ...(ASST_DICT.w || {}) };
+  document.querySelectorAll('[data-say]').forEach(i => { const k = i.dataset.say, v = i.value.trim(); if (!v) delete w[k]; else if (asstBare(v) === k) w[k] = v; else toast(`«${v}» حروفها لا تطابق «${k}» — لم تُحفظ`, 'bad'); });
+  toast((await asstSaySave(w)) ? '💾 حُفظ نطق الأسماء' : '💾 حُفظ على هذا الجهاز — تعذّر الخادم', 'good'); closeModal(); }
+async function asstSayTry(btn) { const i = btn.parentNode.querySelector('input'), v = i.value.trim() || i.dataset.say; const k = localStorage.getItem('asst_tts');
+  try { localStorage.setItem('asst_tts', '1'); asstAudioUnlock(); await asstSpeak(v); } finally { if (k == null) localStorage.removeItem('asst_tts'); else localStorage.setItem('asst_tts', k); } }

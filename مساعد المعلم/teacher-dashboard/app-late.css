@@ -2979,3 +2979,8 @@ body.asst-open #ai-use{display:none}   /* المساعد يذكر المزوّد
 .asst-el-tg input:checked+.asst-el-sw{background:#0F9D74}.asst-el-tg input:checked+.asst-el-sw::after{right:20px}
 .asst-el-tg input:focus-visible+.asst-el-sw{outline:2px solid #0F9D74;outline-offset:2px}
 .asst-el-row small{font-size:.78rem;line-height:1.7}
+
+/* 🗣️ نطق أسماء الطلاب */
+.say-list{max-height:52vh;overflow:auto;display:flex;flex-direction:column;gap:.35rem}
+.say-row{display:grid;grid-template-columns:minmax(80px,1fr) 1.4fr auto;gap:.45rem;align-items:center}
+.say-row b{font-size:.9rem}.say-row .inp{margin:0;padding:.4rem .55rem;font-size:.95rem}

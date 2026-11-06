@@ -70,7 +70,7 @@
 <meta name="author" content="المعلم أحمد المرزوق"/>
 <meta name="application-name" content="مساعد المعلم"/>
 <meta content="مساعد المعلم" name="apple-mobile-web-app-title"/>
-<meta name="app-version" content="1.0.39" data-code="e5f7"/>
+<meta name="app-version" content="1.0.40" data-code="d4eb"/>
 <title>مساعد المعلم</title>
 <link href="/icons/panel-32.png" rel="icon" sizes="32x32" type="image/png"/>
 <link href="pwa/apple-touch-icon-180.png" rel="apple-touch-icon" sizes="180x180"/>
@@ -150,7 +150,7 @@
 <script src="js/44-focus-mode.js?v=ee16bc68" defer></script>
 <script src="js/46-lazy.js?v=bd8c262b" defer></script>
 <script src="js/47-voice-search.js?v=73d883da" defer></script>
-<script src="js/48-assistant.js?v=15bc54d8" defer></script>
+<script src="js/48-assistant.js?v=6e32607d" defer></script>
 <script src="theme-picker.js?v=e4656366" defer></script>
 <script src="simplified-nav.js?v=be4c87d7" defer></script>
 <script src="tab-polish.js?v=fc06a954" defer></script>
@@ -499,7 +499,7 @@
 .exam-shop-status.open{background:#E4F4EC;color:#167852}.exam-shop-status.closed{background:#FFF1F2;color:#9F2538}
 @media screen and (max-width:600px){.exam-shop-kpis{grid-template-columns:1fr 1fr}.exam-shop-student{grid-template-columns:1fr 105px}.exam-shop-student small{grid-column:1}.exam-shop-student .exam-shop-used{display:none}}
 </style>
-<link rel="stylesheet" id="late-css" href="app-late.css?v=1437e48d">
+<link rel="stylesheet" id="late-css" href="app-late.css?v=6210990d">
 <link rel="stylesheet" href="theme-picker.css?v=8ea5ab83">
 <link rel="stylesheet" href="simplified-nav.css?v=ad5107a9">
 <link rel="stylesheet" href="tab-polish.css?v=6f5bfbbe">
@@ -1589,6 +1589,7 @@
 <div class="ai-models-sync"><button class="btn ghost sm" type="button" onclick="aiModelsSync(this)" data-emo="🔄">🔄 تحديث قائمة الموديلات من المزوّد</button><small class="muted" id="ai-models-sync-st"></small></div>
 <div id="ai-routes" class="ai-routes"></div>
 <div class="asst-el-row"><label class="asst-el-tg"><input type="checkbox" id="asst-el-tg" checked onchange="asstElSet(this.checked)"><span class="asst-el-sw" aria-hidden="true"></span><b>🔊 صوت ElevenLabs لقراءة «مساعدي»</b></label>
+<button class="btn ghost sm" type="button" style="align-self:flex-start" onclick="asstSayOpen()">🗣️ نطق أسماء الطلاب</button>
 <small class="muted">مقفول = يقرأ بصوت جهازك دائمًا: مجاني وبلا حد، ولا يُرسل نص الجواب لأي جهة. مفتوح = صوت ElevenLabs من الخادم (بسقف يومي)، وإن تعذّر فصوت الجهاز.</small></div>
 <div style="margin-top:.8rem;border:1px solid var(--rule);border-radius:14px;padding:.8rem">
 <div class="row" style="justify-content:space-between;gap:.5rem;align-items:center">
