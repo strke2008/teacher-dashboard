@@ -440,6 +440,23 @@ async function devCall(path, extra){
   const r=await fetch(getApi().replace(/\/+$/,'')+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:getTok(),...(extra||{})})});
   const j=await r.json().catch(()=>({})); if(!r.ok||j.ok===false) throw new Error(j.error||('http_'+r.status)); return j;
 }
+/* 🔌 ربط Claude (MCP): رابط سري واحد يُنشأ ويُلغى من هنا — Claude يقرأ الفصول والأنشطة والنتائج والتقارير */
+async function mcpLoad(act){
+  const box=document.getElementById('mcp-box'); if(!box) return;
+  if(!getApi()||!getTok()){ toast('اضبط عنوان الخادم وكلمة السر أولًا','bad'); return; }
+  if(act==='create'&&box.dataset.has==='1'&&typeof askConfirm==='function'&&!(await askConfirm('سيتوقف الرابط الحالي ويُنشأ رابط جديد — تحتاج تحديثه في Claude. متابعة؟'))) return;
+  if(act==='revoke'&&typeof askConfirm==='function'&&!(await askConfirm('سيتوقف Claude عن الوصول لبياناتك حتى تنشئ رابطًا جديدًا. متابعة؟'))) return;
+  box.innerHTML='<p class="muted">جارٍ التحميل…</p>';
+  let j; try{ j=await devCall('/mcp-key',{action:act||'get'}); }
+  catch(e){ box.innerHTML=`<p class="muted">${/unauthorized/.test(e.message)?'كلمة السر غير صحيحة':'تعذّر — هل رفعت worker.js الجديد؟'}</p><button class="btn ghost" type="button" onclick="mcpLoad()">🔄 إعادة المحاولة</button>`; return; }
+  box.dataset.has=j.key?'1':'';
+  if(!j.key){ box.innerHTML=`<p class="muted" style="font-size:.86rem;margin:0 0 .6rem">لا يوجد رابط حاليًا.</p><button class="btn tick" type="button" onclick="mcpLoad('create')">＋ إنشاء رابط الربط</button>`; return; }
+  const url=getApi().replace(/\/+$/,'')+'/mcp/'+j.key;
+  box.innerHTML=`<div class="mcp-url"><input class="inp" id="mcp-url" readonly value="${esc(url)}" onclick="this.select()"><button class="btn tick" type="button" onclick="navigator.clipboard.writeText(document.getElementById('mcp-url').value).then(()=>toast('📋 نُسخ الرابط — الصقه في Claude','good'))">📋 نسخ</button></div>
+    <small class="muted" style="display:block;margin:.35rem 0 .7rem">أُنشئ ${fmtDate(j.at)} — لا تشاركه مع أحد: من يملكه يقرأ بيانات فصولك.</small>
+    <ol class="mcp-steps"><li>في Claude: <b>الإعدادات ← Connectors ← Add custom connector</b>.</li><li>الاسم: <b>مساعد المعلم</b>، والرابط: الصقه من فوق، واترك إعدادات OAuth فارغة.</li><li>في أي محادثة فعّل «مساعد المعلم» من زر الأدوات، واسأل بالعربي.</li></ol>
+    <div class="row" style="gap:.5rem;flex-wrap:wrap;margin-top:.6rem"><button class="btn ghost sm" type="button" onclick="mcpLoad('create')">🔁 رابط جديد (يلغي الحالي)</button><button class="btn ghost sm" type="button" onclick="mcpLoad('revoke')">⛔ إيقاف الربط</button></div>`;
+}
 async function devLoad(){
   const box=document.getElementById('dev-list'); if(!box) return;
   if(!/^ts1\./.test(getTok())){ box.innerHTML='<p class="muted" style="font-size:.86rem">هذا الجهاز ما زال يستخدم كلمة السر مباشرة. ارفع worker.js الجديد ثم أعد فتح اللوحة، فيتحول لدخول خاص به تلقائيًا.</p><button class="btn ghost" type="button" onclick="devLoad()">🔄 إعادة المحاولة</button>'; if(window.hwAuthUpgrade) hwAuthUpgrade(); return; }

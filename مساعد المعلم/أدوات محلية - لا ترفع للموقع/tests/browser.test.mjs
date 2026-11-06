@@ -127,6 +127,16 @@ export default async function run() {
           Object.entries(keep).forEach(([k, v]) => v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v)); aiSettingsRender(); return out; });
         eq(r.rows, 4, 'المهام'); eq([r.def.p, r.def.custom], ['gemini', false]); eq([r.pdf.p, r.pdf.m, r.pdf.custom], ['claude', 'claude-sonnet-5-5', true]);
         eq(r.q.p, 'gemini', 'الأسئلة على الأساسي'); eq(r.bg.p, 'gemini', 'بلا مفتاح ⇒ الأساسي'); eq(r.tw.m, 'gemini-3.8-flash', 'الخلفية الاقتصادية'); eq(r.ui, 'claude'); ok(r.warn, 'تنبيه بلا مفتاح'); eq(errs, [], 'أخطاء'); });
+      await S.t('🔌 ربط Claude: إنشاء الرابط من الإعدادات يعمل مع خادم MCP، والإيقاف يقطعه', async () => {
+        await p.evaluate(() => goTab('data'));
+        await p.evaluate(() => mcpLoad()); await p.waitForSelector('#mcp-box button', { state: 'attached' });
+        await p.evaluate(() => mcpLoad('create')); await p.waitForSelector('#mcp-url', { state: 'attached', timeout: 8000 });
+        const url = await p.$eval('#mcp-url', e => e.value); ok(/\/mcp\/[a-z0-9]{20,}$/.test(url), url);
+        const r = await p.evaluate(async u => (await (await fetch(u, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }) })).json()).result.tools.length, url);
+        eq(r, 4, 'الأدوات'); p.once('dialog', d => d.accept());
+        await p.evaluate(() => { window.askConfirm = async () => true; return mcpLoad('revoke'); }); await p.waitForTimeout(300);
+        eq(await p.evaluate(async u => (await fetch(u, { method: 'POST', body: '{}' })).status, url), 404, 'بعد الإيقاف');
+        await p.evaluate(() => goTab('dashboard')); eq(errs, [], 'أخطاء'); });
       await S.t('⚙️ زر الإعدادات بجانب «تخصيص القائمة» يفتح الإعدادات', async () => {
         ok(await p.evaluate(() => { const r = document.querySelector('#simp-nav .simp-cust-row'); return !!(r && r.querySelector('[data-simp-settings]') && /تخصيص القائمة/.test(r.textContent)); }), 'الزر بجانب التخصيص');
         await p.evaluate(() => document.querySelector('#simp-nav [data-simp-settings]').click()); await p.waitForTimeout(400);

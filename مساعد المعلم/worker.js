@@ -81,6 +81,104 @@ async function devSeen(env, id, q, request) {
   await env.HW.put(k, JSON.stringify(d), { metadata: { n: Object.keys(d.s).length, at: now }, expirationTtl: 60 * 60 * 24 * 120 });
 }
 
+/* ════════════════════════════════════════════════════════════════
+   🔌 MCP — ربط Claude بمساعد المعلم (قراءة فقط)
+   رابط سري ‎/mcp/<key>‎ ينشئه المعلم من الإعدادات ويلغيه متى شاء. Claude يسأل بالأدوات أدناه.
+   لا يُكشف معرّف الطالب ولا جوال ولي الأمر: الأسماء والفصول والدرجات فقط. لا كتابة ولا حذف.
+   ════════════════════════════════════════════════════════════════ */
+const MCP_VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
+async function mcpKeyGet(env) { try { return JSON.parse(await env.HW.get('mcp:key') || 'null'); } catch { return null; } }
+function mcpRandKey() { const a = new Uint8Array(24); crypto.getRandomValues(a); return [...a].map(x => (x % 36).toString(36)).join(''); }
+const mcpDay = t => t ? new Date(Number(t) + 3 * 3600e3).toISOString().slice(0, 10) : '';   // بتوقيت السعودية
+function mcpActCls(h) { const l = Array.isArray(h.clsList) && h.clsList.length ? h.clsList.map(String) : (h.cls ? [String(h.cls)] : []); return l; }
+function mcpFindStudents(st, q) {
+  const all = (Array.isArray(st.students) ? st.students : []).filter(x => x && x.id && x.name), t = nameTokens(String(q || ''));
+  if (!t.length) return [];
+  const hit = all.filter(x => nameMatches(t, nameTokens(x.name)));
+  const exact = hit.filter(x => { const r = nameTokens(x.name); return r.length === t.length && r.every((w, i) => w === t[i]); });
+  return exact.length ? exact : hit;
+}
+function mcpFindActs(st, q) {
+  const acts = (Array.isArray(st.assignments) ? st.assignments : []).filter(h => h && h.sid), s0 = String(q || '').trim();
+  const byId = acts.filter(h => String(h.sid) === s0); if (byId.length) return byId;
+  const t = nameTokens(s0); if (!t.length) return [];
+  return acts.filter(h => { const r = nameTokens(h.title || ''); return t.every(w => r.some(x => x.includes(w))); });
+}
+const MCP_TOOLS = [
+  { name: 'list_classes', title: 'الفصول والطلاب', description: 'يعرض فصول المعلم وعدد الطلاب في كل فصل، وأسماء الطلاب عند تحديد فصل. استخدمه أولًا لمعرفة الأسماء الصحيحة.',
+    inputSchema: { type: 'object', properties: { cls: { type: 'string', description: 'اسم الفصل (اختياري) — مثل «أول 1»' } } } },
+  { name: 'list_activities', title: 'الأنشطة المنشورة', description: 'الأنشطة المنشورة للطلاب، الأحدث أولًا: العنوان والنوع والموعد والفصول وعدد من سلّم من أصل المطلوبين.',
+    inputSchema: { type: 'object', properties: { cls: { type: 'string', description: 'فصل معيّن (اختياري)' }, limit: { type: 'integer', minimum: 1, maximum: 40, description: 'العدد (افتراضي 15)' } } } },
+  { name: 'activity_results', title: 'نتائج نشاط', description: 'نتائج نشاط واحد: من سلّم ودرجته ووقت التسليم، ومن لم يسلّم بعد. اكتب جزءًا من عنوان النشاط أو رمزه.',
+    inputSchema: { type: 'object', properties: { activity: { type: 'string', description: 'عنوان النشاط أو جزء منه، أو رمزه' } }, required: ['activity'] } },
+  { name: 'student_report', title: 'تقرير طالب', description: 'تقرير طالب للفترة الحالية (نفس تقرير ولي الأمر): المشاركة والغياب، والواجبات، والسلوك، والأنشطة، والاختبارات، مع الأنشطة التي لم يسلّمها.',
+    inputSchema: { type: 'object', properties: { student: { type: 'string', description: 'اسم الطالب (الاسم الأول يكفي إن لم يتكرر)' } }, required: ['student'] } },
+];
+MCP_TOOLS.forEach(t => { t.annotations = { readOnlyHint: true, openWorldHint: false }; });
+async function mcpTool(env, ctx, name, args) {
+  let st = {}; try { st = JSON.parse(await env.HW.get('tstate:main')) || {}; } catch {}
+  const students = (Array.isArray(st.students) ? st.students : []).filter(x => x && x.id && x.name);
+  if (name === 'list_classes') {
+    const by = {}; students.forEach(x => { const c = String(x.cls || 'بلا فصل'); (by[c] = by[c] || []).push(x.name); });
+    const want = String(args.cls || '').trim();
+    if (want) { const k = Object.keys(by).find(c => c === want) || Object.keys(by).find(c => c.includes(want)); if (!k) return { error: 'لا يوجد فصل بهذا الاسم', classes: Object.keys(by) }; return { cls: k, count: by[k].length, students: by[k].sort((a, b) => a.localeCompare(b, 'ar')) }; }
+    return { classes: Object.entries(by).map(([c, l]) => ({ cls: c, count: l.length })).sort((a, b) => a.cls.localeCompare(b.cls, 'ar')), total: students.length };
+  }
+  if (name === 'list_activities') {
+    const want = String(args.cls || '').trim(), lim = Math.max(1, Math.min(40, Number(args.limit) || 15));
+    let acts = (Array.isArray(st.assignments) ? st.assignments : []).filter(h => h && h.sid && h.published !== false);
+    if (want) acts = acts.filter(h => { const l = mcpActCls(h); return !l.length || l.some(c => c === want || c.includes(want)); });
+    acts = acts.sort((a, b) => (Number(b.publishedAt || b.at) || 0) - (Number(a.publishedAt || a.at) || 0)).slice(0, lim);
+    const counts = await inBatches(acts, 10, h => listAllKeys(env, `s:${h.sid}:`).then(k => k.length).catch(() => null));
+    return { activities: acts.map((h, i) => { const l = mcpActCls(h), pool = students.filter(x => !l.length || l.includes(String(x.cls || ''))).length;
+      return { title: h.title || 'نشاط', code: h.sid, kind: h.kind || 'normal', due: h.due || '', published: mcpDay(h.publishedAt || h.at), classes: l.length ? l : ['كل الفصول'], submitted: counts[i], of: pool }; }) };
+  }
+  if (name === 'activity_results') {
+    const m = mcpFindActs(st, args.activity);
+    if (!m.length) return { error: 'لم أجد نشاطًا بهذا العنوان — استخدم list_activities لمعرفة العناوين' };
+    if (m.length > 1) return { error: 'أكثر من نشاط يطابق — حدّد أكثر', matches: m.slice(0, 10).map(h => ({ title: h.title, code: h.sid, due: h.due || '' })) };
+    const h = m[0], r = await HW_WORKER.fetch(new Request('https://internal/results?hw=' + encodeURIComponent(h.sid) + '&t=' + encodeURIComponent(env.TEACHER_TOKEN)), env, ctx);
+    const j = await r.json().catch(() => ({})), rows = (j.rows || j.results || []).filter(x => x && !x.orphan);
+    const l = mcpActCls(h), pool = students.filter(x => !l.length || l.includes(String(x.cls || '')));
+    const done = new Set(rows.map(x => String(x.sid || '')));
+    const fmt = x => { const tot = Number(x.total) || 0, c = Number(x.correct) || 0, s = students.find(y => String(y.id) === String(x.sid));
+      return { name: x.name, cls: s ? s.cls || '' : '', score: x.fileSubmission ? (x.reviewStatus || 'pending') : tot ? `${c}/${tot}` : (x.gameSubmission ? 'لعب' : '—'), pct: tot ? Math.round(c / tot * 100) : null, at: mcpDay(x.at) }; };
+    return { title: h.title, code: h.sid, kind: h.kind || 'normal', due: h.due || '', classes: l.length ? l : ['كل الفصول'],
+      submitted: rows.map(fmt).sort((a, b) => (b.pct ?? -1) - (a.pct ?? -1)), not_submitted: pool.filter(x => !done.has(String(x.id))).map(x => ({ name: x.name, cls: x.cls || '' })) };
+  }
+  if (name === 'student_report') {
+    const m = mcpFindStudents(st, args.student);
+    if (!m.length) return { error: 'لم أجد طالبًا بهذا الاسم — استخدم list_classes لمعرفة الأسماء' };
+    if (m.length > 1) return { error: 'أكثر من طالب يطابق — اكتب الاسم أطول', matches: m.slice(0, 10).map(x => ({ name: x.name, cls: x.cls || '' })) };
+    const s0 = m[0], data0 = await loadClassroom(env), ac = academicNormalize(data0) || {}, sem = ac.currentSemester === 2 ? 2 : 1, per = Number(ac.semesters?.[String(sem)]?.activePeriod) === 2 ? 2 : 1;
+    const { data, grades } = await studentReportGrades(env, sem, per, { classroom: data0, state: st });
+    const g = (grades.students || []).find(x => String(x.id) === String(s0.id));
+    const rep = g ? studentReportBuild(data, g, sem, per, '', srepActsLive(st, data, s0.id, s0.name, s0.cls, sem, per)) : null;
+    const missing = (Array.isArray(st.assignments) ? st.assignments : []).filter(h => h && h.sid && h.published !== false && (() => { const l = mcpActCls(h); return !l.length || l.includes(String(s0.cls || '')); })()
+      && !(h.subs && (h.subs[s0.id] || h.subs[s0.name]))).slice(-20).map(h => ({ title: h.title, due: h.due || '' }));
+    if (!rep) return { name: s0.name, cls: s0.cls || '', note: 'لا توجد درجات محسوبة لهذه الفترة بعد', missing_activities: missing };
+    const { sid: _s, v: _v, publishedAt: _p, teacherNote: _t, ...out } = rep;
+    return { ...out, missing_activities: missing, note: 'الدرجات من 10 لكل بند ما عدا الاختبار؛ الغائب = absent' };
+  }
+  return { error: 'أداة غير معروفة' };
+}
+async function mcpHandle(env, ctx, msg) {
+  const id = msg && msg.id, method = String(msg && msg.method || '');
+  if (id === undefined || id === null) return null;                     // إشعار (initialized وغيره): لا رد
+  const ok = result => ({ jsonrpc: '2.0', id, result }), err = (code, message) => ({ jsonrpc: '2.0', id, error: { code, message } });
+  if (method === 'initialize') { const v = String(msg.params && msg.params.protocolVersion || '');
+    return ok({ protocolVersion: MCP_VERSIONS.includes(v) ? v : MCP_VERSIONS[1], capabilities: { tools: { listChanged: false } },
+      serverInfo: { name: 'mosaed-almoalem', title: 'مساعد المعلم', version: '1.0.0' },
+      instructions: 'بيانات فصول المعلم في «مساعد المعلم»: الطلاب والأنشطة والنتائج وتقارير الطلاب. للقراءة فقط. ابدأ بـ list_classes أو list_activities لمعرفة الأسماء والعناوين، وأجب المعلم بالعربية.' }); }
+  if (method === 'ping') return ok({});
+  if (method === 'tools/list') return ok({ tools: MCP_TOOLS });
+  if (method === 'tools/call') { const name = String(msg.params && msg.params.name || ''), args = (msg.params && msg.params.arguments) || {};
+    if (!MCP_TOOLS.some(t => t.name === name)) return err(-32602, 'Unknown tool: ' + name);
+    try { const r = await mcpTool(env, ctx, name, args); return ok({ content: [{ type: 'text', text: JSON.stringify(r) }], structuredContent: r, isError: !!(r && r.error) }); }
+    catch (e) { return ok({ content: [{ type: 'text', text: 'تعذّر: ' + String(e && e.message || e) }], isError: true }); } }
+  return err(-32601, 'Method not found: ' + method);
+}
+
 async function listAllKeys(env, prefix) {
   const out = [];
   let cursor = undefined;
@@ -6010,7 +6108,7 @@ async function tsRoutes(request, url, env, ctx, sess) {
   return null;
 }
 
-export default {
+const HW_WORKER = {
   /* ⏰ Cron (كل دقيقة): تنبيه بداية الحصة لبوابة المعلم. يلزم إضافة Cron Trigger «* * * * *» في Cloudflare */
   async scheduled(event, env, ctx) {
     if (!env.HW) return;
@@ -6045,6 +6143,26 @@ export default {
       return json({ ok: true, vk: await viewKey(env, vkDay(0)), day: vkDay(0) });
     }
     // 🔄 إجبار كل الأجهزة على التحديث (المعلم فقط): كل جهاز يرى الوقت الجديد في /version فيعيد تحميل نفسه مرة واحدة
+    // 🔌 MCP: إدارة الرابط السري (المعلم فقط) — get | create (يُلغي القديم) | revoke
+    if (url.pathname === '/mcp-key' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch {}
+      if (!pushIsTeacher(env, b)) return json({ ok: false, error: 'unauthorized' }, 401);
+      const act = String(b.action || 'get');
+      if (act === 'create') { const k = { k: mcpRandKey(), at: Date.now() }; await env.HW.put('mcp:key', JSON.stringify(k)); return json({ ok: true, key: k.k, at: k.at }); }
+      if (act === 'revoke') { await env.HW.delete('mcp:key'); return json({ ok: true }); }
+      const k = await mcpKeyGet(env); return json({ ok: true, key: k ? k.k : '', at: k ? k.at : 0 });
+    }
+    // 🔌 MCP: نقطة Claude (Streamable HTTP — JSON بلا SSE)
+    if (url.pathname.startsWith('/mcp/')) {
+      const K = await mcpKeyGet(env);
+      if (!K || !K.k || url.pathname.slice(5) !== K.k) return new Response('Not found', { status: 404 });
+      if (request.method === 'GET') return new Response(null, { status: 405, headers: { Allow: 'POST, DELETE' } });
+      if (request.method === 'DELETE') return new Response(null, { status: 204 });
+      if (request.method !== 'POST') return new Response(null, { status: 405 });
+      let msg; try { msg = await request.json(); } catch { return json({ jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } }, 400); }
+      if (Array.isArray(msg)) { const out = (await Promise.all(msg.map(m => mcpHandle(env, ctx, m)))).filter(Boolean); return out.length ? json(out) : new Response(null, { status: 202 }); }
+      const r = await mcpHandle(env, ctx, msg); return r ? json(r) : new Response(null, { status: 202 });
+    }
     // 📱 أجهزة الطلاب (المعلم فقط): من ثبّت البوابة تطبيقًا، ومن يستخدم المتصفح، وأي إصدار — من آخر فتح لكل طالب
     if (url.pathname === '/app/devices' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch {}
@@ -12009,3 +12127,4 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       paths: ['/publish','/messages','/hw','/unpublish','/removestudent','/find','/mine','/board','/review','/submit','/me','/buy','/use','/extra-attempt','/extra-attempt-bulk','/extra-attempt-status','/unlock-review','/title','/pin','/pinstatus','/pinmode','/pins','/resetpin','/rev','/store','/resolve','/adjust','/state','/recover-activities','/wipe','/results','/projects','/project-review','/project-file-delete','/file-submit','/file-download','/review-request','/review-request/complete','/notice-state','/notice-dismiss','/exam-options','/exam-shop-policy','/use-exam-bonus','/mad-forgive','/hw-forgive','/cert-tpl','/reset'] });
   },
 };
+export default HW_WORKER;

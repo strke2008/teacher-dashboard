@@ -140,5 +140,30 @@ export default async function run() {
     ok((await call('/site?h=mosaed.pages.dev&p=/')).s !== 400, 'اللوحة في جذر الموقع مرفوضة');
   });
   await S.t('صوت المختبر بلا مفتاح: صامت بلا خطأ', async () => { eq((await call('/tts?t=' + encodeURIComponent('مرحبا'))).s, 404); });
+  await S.t('🔌 MCP لـ Claude: رابط سري للمعلم، والأدوات تقرأ الفصول والأنشطة والنتائج وتقرير الطالب، بلا معرّفات الطلاب', async () => {
+    eq((await call('/mcp-key', { method: 'POST', body: { t: 'خطأ', action: 'create' } })).s, 401, 'بلا كلمة سر');
+    eq((await call('/mcp/abc', { method: 'POST', body: { jsonrpc: '2.0', id: 1, method: 'initialize' } })).s, 404, 'بلا رابط');
+    const k = (await call('/mcp-key', { method: 'POST', body: { t: TOKEN, action: 'create' } })).j.key; ok(k && k.length >= 20, 'المفتاح');
+    const old = await env.HW.get('tstate:main'), st0 = JSON.parse(old);
+    await env.HW.put('tstate:main', JSON.stringify({ ...st0, assignments: [{ sid: 'act1', title: 'نشاط اختبار', kind: 'normal', cls: 'أول 1', published: true, publishedAt: Date.now() }] }));
+    const rpc = async (id, method, params) => (await call('/mcp/' + k, { method: 'POST', body: { jsonrpc: '2.0', id, method, params } })).j;
+    try {
+      const init = await rpc(1, 'initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 't', version: '1' } });
+      eq(init.result.protocolVersion, '2025-06-18'); ok(init.result.capabilities.tools, 'tools');
+      eq((await call('/mcp/' + k, { method: 'POST', body: { jsonrpc: '2.0', method: 'notifications/initialized' } })).s, 202, 'إشعار');
+      const names = (await rpc(2, 'tools/list')).result.tools.map(t => t.name); eq(names, ['list_classes', 'list_activities', 'activity_results', 'student_report']);
+      const tool = async (n, a) => (await rpc(3, 'tools/call', { name: n, arguments: a || {} })).result.structuredContent;
+      const cl = await tool('list_classes'); eq(cl.total, 3); eq(cl.classes.map(c => c.cls + ':' + c.count), ['أول 1:2', 'أول 2:1']);
+      eq((await tool('list_classes', { cls: 'أول 1' })).students.length, 2);
+      const la = await tool('list_activities'); eq(la.activities[0].title, 'نشاط اختبار'); eq([la.activities[0].submitted, la.activities[0].of], [1, 2]);
+      const ar = await tool('activity_results', { activity: 'اختبار' }); eq(ar.submitted.map(x => x.name + ' ' + x.score), ['طالب الاختبار الأول 2/3']); eq(ar.not_submitted.map(x => x.name), ['طالب الاختبار الثاني']);
+      const sr = await tool('student_report', { student: 'طالب الاختبار الأول' }); eq(sr.name, 'طالب الاختبار الأول'); ok(sr.participation && 'absent' in sr.participation, 'المشاركة');
+      ok((await tool('student_report', { student: 'طالب' })).matches, 'الاسم المتكرر يطلب التحديد');
+      const all = JSON.stringify([cl, la, ar, sr]); ok(!/"s1"|"s2"|"s3"/.test(all), 'ظهر معرّف طالب');
+      eq((await rpc(9, 'nope')).error.code, -32601);
+    } finally { await env.HW.put('tstate:main', old); }
+    await call('/mcp-key', { method: 'POST', body: { t: TOKEN, action: 'revoke' } });
+    eq((await call('/mcp/' + k, { method: 'POST', body: { jsonrpc: '2.0', id: 1, method: 'ping' } })).s, 404, 'بعد الإلغاء');
+  });
   return S;
 }
