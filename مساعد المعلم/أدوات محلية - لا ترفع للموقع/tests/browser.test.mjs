@@ -125,7 +125,7 @@ export default async function run() {
           out.pdf = aiRoute('pdf'); out.q = aiRoute('questions'); out.bg = aiRoute('background'); out.tw = aiRouteTwin();
           out.ui = document.querySelector('#ai-routes [data-ai-route="pdf"] select').value; out.warn = !!document.querySelector('#ai-routes [data-ai-route="background"] .ai-route-warn');
           Object.entries(keep).forEach(([k, v]) => v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v)); aiSettingsRender(); return out; });
-        eq(r.rows, 4, 'المهام'); eq([r.def.p, r.def.custom], ['gemini', false]); eq([r.pdf.p, r.pdf.m, r.pdf.custom], ['claude', 'claude-sonnet-5-5', true]);
+        eq(r.rows, 5, 'المهام'); eq([r.def.p, r.def.custom], ['gemini', false]); eq([r.pdf.p, r.pdf.m, r.pdf.custom], ['claude', 'claude-sonnet-5-5', true]);
         eq(r.q.p, 'gemini', 'الأسئلة على الأساسي'); eq(r.bg.p, 'gemini', 'بلا مفتاح ⇒ الأساسي'); eq(r.tw.m, 'gemini-3.8-flash', 'الخلفية الاقتصادية'); eq(r.ui, 'claude'); ok(r.warn, 'تنبيه بلا مفتاح'); eq(errs, [], 'أخطاء'); });
       await S.t('🔌 ربط Claude: إنشاء الرابط من الإعدادات يعمل مع خادم MCP، والإيقاف يقطعه', async () => {
         await p.evaluate(() => goTab('data'));
@@ -137,6 +137,27 @@ export default async function run() {
         await p.evaluate(() => { window.askConfirm = async () => true; return mcpLoad('revoke'); }); await p.waitForTimeout(300);
         eq(await p.evaluate(async u => (await fetch(u, { method: 'POST', body: '{}' })).status, url), 404, 'بعد الإيقاف');
         await p.evaluate(() => goTab('dashboard')); eq(errs, [], 'أخطاء'); });
+      await S.t('✨ مساعدي: «مين الغايب اليوم» فوري من السجل بلا ذكاء، وغيره: يختار الذكاء أداة تُحسب على الجهاز ثم يجيب بمصدره', async () => {
+        await p.waitForFunction(() => typeof asstOpen === 'function' && typeof ASST_TOOLS === 'object', null, { timeout: 15000 });
+        ok(await p.$('#asst-btn'), 'زر مساعدي');
+        const bodies = [];
+        await p.route(/generativelanguage\.googleapis\.com/, async r => { const b = r.request().postData() || ''; bodies.push(b); const first = bodies.length === 1;
+          r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ candidates: [{ content: { parts: [{ text: first ? '{"calls":[{"tool":"ranking","args":{"by":"total","order":"desc","n":3}}]}' : '{"answer":"الأعلى **طالب س**"}' }] } }] }) }); });
+        const r = await p.evaluate(async () => { const keep = {}; ['ai_provider_v1', 'aikeys_gemini', 'ai_routes_v1'].forEach(k => keep[k] = localStorage.getItem(k));
+          localStorage.setItem('ai_provider_v1', 'gemini'); localStorage.setItem('aikeys_gemini', JSON.stringify([{ key: 'AIzaTEST0000000000' }])); localStorage.removeItem('ai_routes_v1');
+          if (typeof ctLoad === 'function' && !CT_DATA) { try { await ctLoad(); } catch (e) {} }
+          const D = CT_DATA || (CT_DATA = {}); D.participation = D.participation || {}; const d = ctToday(), keepDay = D.participation[d]; const s0 = STUDENTS[0];
+          D.participation[d] = { [s0.id]: { status: 'غائب', at: Date.now() } };
+          asstOpen(); ASST.msgs = []; await asstAsk('مين الغايب اليوم؟'); const fast = ASST.msgs[1];
+          await asstAsk('مين الأعلى في الفترة؟'); const ai = ASST.msgs[3];
+          if (keepDay === undefined) delete D.participation[d]; else D.participation[d] = keepDay;
+          const open = document.getElementById('asst-panel').classList.contains('on'); asstClose(); ASST.msgs = [];
+          Object.entries(keep).forEach(([k, v]) => v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v));
+          return { fast: fast.html, fsrc: fast.src, ai: ai.html, asrc: ai.src, name: s0.name, open }; });
+        await p.unroute(/generativelanguage\.googleapis\.com/);
+        ok(r.open, 'اللوحة'); ok(r.fast.includes(r.name) && /غاب اليوم/.test(r.fast), r.fast); ok(r.fsrc.some(x => /فوري بلا ذكاء/.test(x)), 'فوري');
+        eq(bodies.length, 2, 'طلبا ذكاء فقط للسؤال الثاني'); ok(/ranking/.test(bodies[0]) && /نتائج الأدوات/.test(bodies[1]), 'خطوتا الأداة والجواب');
+        ok(/<b>طالب س<\/b>/.test(r.ai), r.ai); ok(r.asrc.some(x => /درجات الفترة/.test(x)) && r.asrc.some(x => /Google Gemini · gemini-3\.8-flash/.test(x)), r.asrc.join(' | ')); eq(errs, [], 'أخطاء'); });
       await S.t('⚙️ زر الإعدادات بجانب «تخصيص القائمة» يفتح الإعدادات', async () => {
         ok(await p.evaluate(() => { const r = document.querySelector('#simp-nav .simp-cust-row'); return !!(r && r.querySelector('[data-simp-settings]') && /تخصيص القائمة/.test(r.textContent)); }), 'الزر بجانب التخصيص');
         await p.evaluate(() => document.querySelector('#simp-nav [data-simp-settings]').click()); await p.waitForTimeout(400);

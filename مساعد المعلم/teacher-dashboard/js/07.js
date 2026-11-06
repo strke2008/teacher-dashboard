@@ -102,7 +102,7 @@ function aiNoTemp(p,m){ m=String(m||''); const c=READING_AI_PROVIDERS[p]||{};
   return false; }
 /* 🎯 مزوّد لكل مهمة (اختياري): قراءة PDF بمزوّد، وتوليد الأسئلة بآخر… الافتراضي «الأساسي».
    مهمة اختير لها مزوّد بلا مفتاح ⇒ تعود للأساسي. والتحويل الاحتياطي عند التعذّر كما هو. */
-const AI_TASKS=[['pdf','📄 قراءة PDF والصور','استخراج نص الكتاب وتنظيمه'],['questions','📝 توليد الأسئلة والأنشطة','الأنشطة والقراءة واقتراح أسئلة الاختبار والتشخيص'],['nafs','🧭 أسئلة نافس','توليد أسئلة نافس ونواتج التعلم'],['background','🔁 المهام الخلفية','النسخ العلاجية وربط المهارات — تعمل وحدها']];
+const AI_TASKS=[['pdf','📄 قراءة PDF والصور','استخراج نص الكتاب وتنظيمه'],['questions','📝 توليد الأسئلة والأنشطة','الأنشطة والقراءة واقتراح أسئلة الاختبار والتشخيص'],['nafs','🧭 أسئلة نافس','توليد أسئلة نافس ونواتج التعلم'],['background','🔁 المهام الخلفية','النسخ العلاجية وربط المهارات — تعمل وحدها'],['assistant','✨ مساعدي','أسئلتك عن طلابك داخل اللوحة']];
 function aiRoutes(){ try{ return JSON.parse(localStorage.getItem('ai_routes_v1')||'{}')||{}; }catch(e){ return {}; } }
 function aiRoute(task){ const r=aiRoutes()[task];
   if(r&&r.p&&READING_AI_PROVIDERS[r.p]&&readingAIGetKey(r.p)) return {p:r.p,m:r.m||readingAIModels()[r.p],custom:true};

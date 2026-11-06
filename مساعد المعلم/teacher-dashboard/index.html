@@ -70,7 +70,7 @@
 <meta name="author" content="المعلم أحمد المرزوق"/>
 <meta name="application-name" content="مساعد المعلم"/>
 <meta content="مساعد المعلم" name="apple-mobile-web-app-title"/>
-<meta name="app-version" content="1.0.33" data-code="f4dd"/>
+<meta name="app-version" content="1.0.35" data-code="9a97"/>
 <title>مساعد المعلم</title>
 <link href="/icons/panel-32.png" rel="icon" sizes="32x32" type="image/png"/>
 <link href="pwa/apple-touch-icon-180.png" rel="apple-touch-icon" sizes="180x180"/>
@@ -106,7 +106,7 @@
 <script src="js/04.js?v=0717816d" defer></script>
 <script src="js/05.js?v=a7c074c3" defer></script>
 <script src="js/06.js?v=4aa000ed" defer></script>
-<script src="js/07.js?v=9b05e40c" defer></script>
+<script src="js/07.js?v=b024185f" defer></script>
 <script src="js/08.js?v=4a68046f" defer></script>
 <script src="js/09.js?v=ef17fc2a" defer></script>
 <script src="js/10.js?v=9d5a33ee" defer></script>
@@ -150,6 +150,7 @@
 <script src="js/44-focus-mode.js?v=ee16bc68" defer></script>
 <script src="js/46-lazy.js?v=bd8c262b" defer></script>
 <script src="js/47-voice-search.js?v=73d883da" defer></script>
+<script src="js/48-assistant.js?v=a4e2012d" defer></script>
 <script src="theme-picker.js?v=e4656366" defer></script>
 <script src="simplified-nav.js?v=be4c87d7" defer></script>
 <script src="tab-polish.js?v=fc06a954" defer></script>
@@ -498,7 +499,7 @@
 .exam-shop-status.open{background:#E4F4EC;color:#167852}.exam-shop-status.closed{background:#FFF1F2;color:#9F2538}
 @media screen and (max-width:600px){.exam-shop-kpis{grid-template-columns:1fr 1fr}.exam-shop-student{grid-template-columns:1fr 105px}.exam-shop-student small{grid-column:1}.exam-shop-student .exam-shop-used{display:none}}
 </style>
-<link rel="stylesheet" id="late-css" href="app-late.css?v=8e88a62f">
+<link rel="stylesheet" id="late-css" href="app-late.css?v=a16d1018">
 <link rel="stylesheet" href="theme-picker.css?v=8ea5ab83">
 <link rel="stylesheet" href="simplified-nav.css?v=ad5107a9">
 <link rel="stylesheet" href="tab-polish.css?v=6f5bfbbe">
@@ -515,6 +516,7 @@
 <div class="meta" id="meta-line">—</div>
 <button class="btn ghost sm no-print vsp-btn" id="vsp-btn" onclick="vspOpen()" style="display:none" title="الفترة المعروضة في اللوحة — اضغط لعرض فترة مغلقة" type="button" data-emo="📅"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></button>
 <button class="btn ghost sm no-print" id="portal-link-btn" onclick="openPortal()" style="margin-inline-start:.4rem" type="button" title="الرصد السريع للحصة" aria-label="الرصد السريع" data-emo="✋"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18 11V6a2 2 0 0 0-4 0v5M14 10V4a2 2 0 0 0-4 0v6M10 10.5V6a2 2 0 0 0-4 0v8a8 8 0 0 0 16 0v-3a2 2 0 0 0-4 0"/></svg><span class="portal-w"> الرصد</span></button>
+<button class="btn sm no-print asst-btn" id="asst-btn" onclick="asstOpen()" type="button" title="مساعدي — اسأل عن طلابك" aria-label="مساعدي"><span class="asst-spark" aria-hidden="true">✨</span><span class="portal-w"> مساعدي</span></button>
 </div>
 <div class="vsp-banner hide no-print" id="vsp-banner"></div>
 </header>
