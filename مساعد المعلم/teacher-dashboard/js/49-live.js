@@ -99,11 +99,12 @@ function liveConnect(model) {
     if (sc) { if (sc.interrupted) { asstMicLog('live: Gemini قال «قوطعت»'); liveHush(); LIVE.cut = false; LIVE.quiet = Date.now() + 300; }
       if (sc.inputTranscription && sc.inputTranscription.text && !LIVE.me) asstMicLog('live: سمعك «' + String(sc.inputTranscription.text).slice(0, 30) + '»');
       if (((sc.modelTurn || {}).parts || []).some(p => p.inlineData) && !LIVE.lg) { LIVE.lg = 1; asstMicLog('live: بدأ يرد بصوت' + (LIVE.cut ? ' (مقطوع بزر ✋)' : '')); }
-      if (sc.inputTranscription && sc.inputTranscription.text) { LIVE.bot = null; liveMsg('me', sc.inputTranscription.text); }
+      if (sc.inputTranscription && sc.inputTranscription.text) { if (!LIVE.me) { LIVE.said = ''; LIVE.navd = false; } LIVE.bot = null; liveMsg('me', sc.inputTranscription.text); LIVE.said = (LIVE.said || '') + sc.inputTranscription.text; }
+      if ((sc.outputTranscription && sc.outputTranscription.text) || sc.turnComplete) liveLocalNav();
       if ((sc.outputTranscription && sc.outputTranscription.text) || sc.turnComplete) liveFixMe(LIVE.me);
       if (sc.outputTranscription && sc.outputTranscription.text) { LIVE.me = null; liveMsg('bot', sc.outputTranscription.text); }
       if (!LIVE.cut) ((sc.modelTurn || {}).parts || []).forEach(p => { if (p.inlineData && /audio/.test(p.inlineData.mimeType || '')) livePlay(p.inlineData.data); });
-      if (sc.turnComplete) { asstMicLog('live: انتهى رده · كُتم الميكروفون ' + (LIVE.muted || 0) + ' مرة'); LIVE.lg = 0; LIVE.muted = 0; LIVE.cut = false; LIVE.me = LIVE.bot = null; try { asstSave(); } catch (e) {} } }
+      if (sc.turnComplete) { LIVE.said = ''; LIVE.navd = false; asstMicLog('live: انتهى رده · كُتم الميكروفون ' + (LIVE.muted || 0) + ' مرة'); LIVE.lg = 0; LIVE.muted = 0; LIVE.cut = false; LIVE.me = LIVE.bot = null; try { asstSave(); } catch (e) {} } }
     if (j.toolCall) { asstMicLog('live: أداة ' + (j.toolCall.functionCalls || []).map(c => c.name).join('، ')); liveTool(j.toolCall.functionCalls || []); }
     if (j.error || j.setupError) asstMicLog('live: خطأ ' + JSON.stringify(j.error || j.setupError).slice(0, 80));
     if (j.goAway) liveSet(LIVE.state, 'الجلسة توشك على الانتهاء'); };
@@ -138,7 +139,7 @@ async function liveTool(calls) {
     try { const a = c.args && typeof c.args === 'object' ? { ...c.args } : {}; if (!t) res = { error: 'أداة غير معروفة' };
       else { const r = await t.run(a); res = asstStrip(r);
         if (t.act && r && r.action === 'nav') {   // 🧭 فتح صفحة: آمن، يُنفَّذ فورًا والمحادثة مستمرة (اللوحة تُصغَّر وزر «مساعدي» يومض)
-          asstMicLog('live: فتح ' + r.page); asstGo(r, true); liveBtnPulse(); res = { opened: r.label + (r.name ? ' — ' + r.name : ''), note: 'فُتحت الصفحة فعلًا أمام المعلم. أخبره بإيجاز أنها انفتحت.' }; }
+          asstMicLog('live: فتح ' + r.page); if (!LIVE.navd) asstGo(r, true); LIVE.navd = true; liveBtnPulse(); res = { opened: r.label + (r.name ? ' — ' + r.name : ''), note: 'فُتحت الصفحة فعلًا أمام المعلم. أخبره بإيجاز أنها انفتحت.' }; }
         else if (t.act && r && ASST_ACTS.includes(r.action)) {   // بطاقة تأكيد على الشاشة — لا تنفيذ إلا بضغطة المعلم
           const card = { ...r, state: 'ask' }; if (card.action === 'draft') card.text = String(a.message || ''); LIVE.me = null;
           ASST.msgs.push({ html: '🎙️ جهّزت لك — راجع واضغط «نفّذ»:', cards: [card], src: [t.src(a), '🎙️ محادثة حية'].filter(Boolean) }); LIVE.bot = null; asstPaint();
@@ -155,6 +156,12 @@ function liveEnd() {
   try { LIVE.stream && LIVE.stream.getTracks().forEach(t => t.stop()); } catch (e) {} LIVE.stream = LIVE.node = LIVE.src = null; liveHush(); LIVE.me = LIVE.bot = null;
   try { if (LIVE.ctx) LIVE.ctx.close().catch(() => {}); } catch (e) {} LIVE.ctx = null;
   LIVE.state = ''; liveSet(''); liveBtnPulse(); try { asstSave(); } catch (e) {}
+}
+/* 🧭 «افتح …» بكلامك يُفتح محليًا فورًا (نفس مطابقة الكتابة والمايك) — لا نعتمد على أن يستدعي Gemini الأداة (قد يقول «فتحتها» بلا استدعاء) */
+async function liveLocalNav() {
+  const t = String(LIVE.said || '').trim(); if (!t || LIVE.navd || !LIVE.on) return; const f = typeof asstFast === 'function' ? asstFast(t) : null;
+  if (!f || f.tool !== 'open_page') return; LIVE.navd = true; const r = await ASST_TOOLS.open_page.run(f.args); if (r.error) { asstMicLog('live: افتح — ' + r.error); return; }
+  asstMicLog('live: فتح محلي ' + r.page); asstGo(r, true); liveBtnPulse();
 }
 function liveBtnPulse() { const b = document.getElementById('asst-btn'); if (b) b.classList.toggle('live-on', !!(LIVE.on || LIVE.state === 'connect')); }
 function liveStop() { liveEnd(); liveBtnPulse(); }
