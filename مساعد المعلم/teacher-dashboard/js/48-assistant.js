@@ -347,9 +347,8 @@ function asstSave() { try { if (!ASST.msgs.length) { localStorage.removeItem('as
 function asstLoadHist() { try { const L = JSON.parse(localStorage.getItem('asst_hist_v1') || '[]'); if (Array.isArray(L) && !ASST.msgs.length) ASST.msgs = L; } catch (e) {} }
 function asstForget() { ASST.msgs = []; try { localStorage.removeItem('asst_hist_v1'); } catch (e) {} asstPaint(); }
 /* 🗣️ وضع المحادثة: بعد كل جواب (وبعد قراءته إن كانت القراءة مفعّلة) يعود الميكروفون يسمعك بلا ضغطة */
-const asstConvOn = () => { try { return localStorage.getItem('asst_conv') === '1'; } catch (e) { return false; } };
-function asstConvToggle() { const on = !asstConvOn(); try { if (on) localStorage.setItem('asst_conv', '1'); else localStorage.removeItem('asst_conv'); } catch (e) {} const b = document.getElementById('asst-conv'); if (b) b.classList.toggle('on', on);
-  toast(on ? '🗣️ وضع المحادثة: تكلّم الحين — أرد وأرجع أسمعك لحالي' : '🗣️ أُقفل وضع المحادثة', 'good'); setTimeout(asstLive, 0); if (on && !ASST_MIC && !ASST.busy) asstMic(); else if (!on) asstMicStop(); }
+/* 🗣️ «وضع المحادثة» أُزيل: المايك صار يسمع باستمرار (مثل الرصد)، وللمحادثة بالصوت «🎙️ المحادثة الحية» */
+const asstConvOn = () => false;
 function asstConvNext() { if (ASST_MIC) return; const p = document.getElementById('asst-panel'); if (asstConvOn() && p && p.classList.contains('on') && !ASST_MIC && !ASST_STT.on && !ASST_STT.busy && !ASST.busy) asstMic(true); }
 
 /* ── تشغيل سؤال ── */
@@ -756,7 +755,7 @@ function asstOpen() {
   if (!p) {
     p = document.createElement('div'); p.id = 'asst-panel'; p.className = 'no-print'; p.setAttribute('role', 'dialog'); p.setAttribute('aria-label', 'مساعدي');
     p.innerHTML = `<div class="asst-head"><span class="asst-ic">✨</span><div><b>مساعدي</b><small>لا ينفّذ شيئًا إلا بعد تأكيدك</small></div>
-      <button type="button" class="asst-clear" id="asst-tts" onclick="asstTtsToggle()" title="قراءة الأجوبة بصوت" aria-label="قراءة الأجوبة بصوت">${asstTtsOn() ? '🔊' : '🔇'}</button>${typeof liveSup === 'function' && liveSup() ? '<button type="button" id="asst-livebtn" onclick="liveToggle()" title="محادثة حية بالصوت (Gemini Live — تجريبية)" aria-label="محادثة حية">🎙️</button>' : ''}<button type="button" id="asst-conv" class="${asstConvOn() ? 'on' : ''}" onclick="asstConvToggle()" title="وضع المحادثة: يسمعك بعد كل جواب" aria-label="وضع المحادثة">🗣️</button><button type="button" onclick="asstForget()" title="محادثة جديدة (ينسى المحادثة السابقة)" aria-label="محادثة جديدة">↺</button><button type="button" class="asst-x" onclick="asstClose()" aria-label="إغلاق">✕</button></div>
+      <button type="button" class="asst-clear" id="asst-tts" onclick="asstTtsToggle()" title="قراءة الأجوبة بصوت" aria-label="قراءة الأجوبة بصوت">${asstTtsOn() ? '🔊' : '🔇'}</button>${typeof liveSup === 'function' && liveSup() ? '<button type="button" id="asst-livebtn" onclick="liveToggle()" title="محادثة حية بالصوت (Gemini Live — تجريبية)" aria-label="محادثة حية">🎙️</button>' : ''}<button type="button" onclick="asstForget()" title="محادثة جديدة (ينسى المحادثة السابقة)" aria-label="محادثة جديدة">↺</button><button type="button" class="asst-x" onclick="asstClose()" aria-label="إغلاق">✕</button></div>
       <div class="asst-msgs" id="asst-msgs" aria-live="polite"></div>
       <div class="asst-sugg">${asstSuggHTML()}</div>
       <div class="asst-live" id="asst-live" hidden></div>

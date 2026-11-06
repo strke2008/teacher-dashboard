@@ -252,7 +252,7 @@ export default async function run() {
           asstPaint(); const nMsgs = ASST.msgs.length; ASST.msgs = []; asstLoadHist(); out.mem = [ASST.msgs.length === nMsgs, ASST.msgs.every(x => !(x.cards || []).some(c => c.state === 'ask' && !['draft', 'drafts'].includes(c.action)))];
           asstForget(); out.forgot = localStorage.getItem('asst_hist_v1');
           const go = HWV.go, mute = HWV.mute; let gos = 0; HWV.go = o => { gos++; o.on = true; return true; }; HWV.mute = o => { if (o) o.on = false; };
-          asstConvToggle(); out.conv = [asstConvOn(), gos, document.getElementById('asst-conv').classList.contains('on')]; asstConvToggle(); HWV.go = go; HWV.mute = mute;
+          out.conv = [!!document.getElementById('asst-conv'), typeof asstConvToggle]; HWV.go = go; HWV.mute = mute;
           window.fetch = of; window.asksLoad = al; out.P = P; asstClose(); ASST.msgs = []; Object.entries(keep).forEach(([k, v]) => v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v)); return out; });
         await p.unroute(/generativelanguage\.googleapis\.com/); const P = r.P;
         ok(r.except, '«الكل ما عدا»'); ok(r.behAll, 'سلوك للفصل كامل'); eq(r.due, ['2026-12-20', 1, 'done'], 'الموعد'); eq(r.dueUndo, ['2026-01-01', 2], 'تراجع الموعد');
@@ -261,7 +261,7 @@ export default async function run() {
         eq(r.drafts, ['drafts', true], 'مسودات أولياء الأمور'); eq(r.rem, [1, '16:30', 'once'], 'التذكير'); eq(r.remUndo, 0, 'تراجع التذكير');
         ok(r.sc, 'حفظ الاختصار'); ok(/فوري/.test(r.scRun), 'تشغيل الاختصار: ' + r.scRun); ok(typeof r.cmp === 'number' && r.cmp >= 2, 'المقارنة: ' + r.cmp);
         eq(r.exam, 'done', 'إعلان الاختبار'); eq([P.messages && P.messages.type, P.messages && P.messages.examDate, /⟨EX⟩/.test(P.messages && P.messages.body || '')], ['exam', '2026-12-20', true], 'جسم الإعلان');
-        eq(r.mem, [true, true], 'الذاكرة'); eq(r.forgot, null, 'انسَ'); eq(r.conv, [true, 1, true], 'وضع المحادثة'); eq(errs, [], 'أخطاء'); });
+        eq(r.mem, [true, true], 'الذاكرة'); eq(r.forgot, null, 'انسَ'); eq(r.conv, [false, 'undefined'], 'زر وضع المحادثة أُزيل'); eq(errs, [], 'أخطاء'); });
       await S.t('🧭 مساعدي — التنقّل: كل صفحة في قائمته موجودة فعلًا في اللوحة، «افتح الجدول» يفتح الجدول فورًا بلا ذكاء، والاسم غير المعروف لا يُخمَّن', async () => {
         let ai = 0; await p.route(/generativelanguage\.googleapis\.com/, r => { ai++; r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ candidates: [{ content: { parts: [{ text: '{"answer":"ما لقيت"}' }] } }] }) }); });
         const r = await p.evaluate(async () => { const keep = {}; ['ai_provider_v1', 'aikeys_gemini', 'asst_hist_v1'].forEach(k => keep[k] = localStorage.getItem(k));
@@ -288,11 +288,11 @@ export default async function run() {
             rec.onresult(ev(0, [R('مرحبا يا مساعد كيف حالك', true)])); HWV.mute(o); }
           finally { rec.start = st; }
           const ios = HWV.ios, d = Object.getOwnPropertyDescriptor(HWV, 'active'); HWV.ios = true; Object.defineProperty(HWV, 'active', { get: () => false, configurable: true });
-          const conv = localStorage.getItem('asst_conv'); localStorage.setItem('asst_conv', '1'); asstOpen(); ASST_MIC = null; asstMic(true); await new Promise(z => setTimeout(z, 30));
-          const wait = [ASST_MIC === null, !!ASST.waitTap, /اضغط 🎤/.test(document.getElementById('asst-live').textContent), document.getElementById('asst-mic').classList.contains('nudge')];
-          HWV.ios = ios; Object.defineProperty(HWV, 'active', d); ASST.waitTap = 0; if (conv == null) localStorage.removeItem('asst_conv'); else localStorage.setItem('asst_conv', conv); asstClose();
+          asstOpen(); ASST_MIC = null; asstMic(true); await new Promise(z => setTimeout(z, 30));
+          const wait = [ASST_MIC === null, !!ASST.waitTap];
+          HWV.ios = ios; Object.defineProperty(HWV, 'active', d); ASST.waitTap = 0; asstClose();
           return { got, wait }; });
-        eq(r.got, ['مين الغايب اليوم في أول واحد|F', 'مرحبا', 'مرحبا يا مساعد|F', 'كيف حالك|F'], 'الكلمات بعد الجملة الجديدة'); eq(r.wait, [true, true, true, true], 'بلا لمسة'); eq(errs, [], 'أخطاء'); });
+        eq(r.got, ['مين الغايب اليوم في أول واحد|F', 'مرحبا', 'مرحبا يا مساعد|F', 'كيف حالك|F'], 'الكلمات بعد الجملة الجديدة'); eq(r.wait, [true, true], 'بلا لمسة'); eq(errs, [], 'أخطاء'); });
       await S.t('🎙️ مساعدي على iPhone: تسجيل الصوت ثم تفريغه بمفتاح Groq (Whisper) أو Gemini — يتوقف وحده بعد السكوت، ويعمل مرة بعد مرة، ولا يستعمل التعرّف المدمج', async () => {
         const r = await p.evaluate(async () => { const keep = {}; ['asst_stt', 'groq_api_keys', 'aikeys_gemini', 'asst_conv'].forEach(k => keep[k] = localStorage.getItem(k));
           localStorage.setItem('asst_stt', 'on'); localStorage.setItem('groq_api_keys', JSON.stringify([{ key: 'gsk_TEST0000000000' }])); localStorage.removeItem('asst_conv');
