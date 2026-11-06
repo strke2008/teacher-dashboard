@@ -70,7 +70,7 @@
 <meta name="author" content="المعلم أحمد المرزوق"/>
 <meta name="application-name" content="مساعد المعلم"/>
 <meta content="مساعد المعلم" name="apple-mobile-web-app-title"/>
-<meta name="app-version" content="1.0.25" data-code="ba18"/>
+<meta name="app-version" content="1.0.26" data-code="ff71"/>
 <title>مساعد المعلم</title>
 <link href="/icons/panel-32.png" rel="icon" sizes="32x32" type="image/png"/>
 <link href="pwa/apple-touch-icon-180.png" rel="apple-touch-icon" sizes="180x180"/>
@@ -101,7 +101,7 @@
 <script src="js/45-icons.js?v=a25149bb" defer></script>
 <script src="js/00-fetch-dedupe-js.js?v=e77498d1" defer></script>
 <script src="js/01-right-sidebar-navigation-js.js?v=41ea29b3" defer></script>
-<script src="js/02.js?v=96925f11" defer></script>
+<script src="js/02.js?v=fe9f864b" defer></script>
 <script src="js/03-projects-students-logic-v13.js?v=e9bfdff2" defer></script>
 <script src="js/04.js?v=0717816d" defer></script>
 <script src="js/05.js?v=a7c074c3" defer></script>
@@ -152,9 +152,9 @@
 <script src="js/47-voice-search.js?v=73d883da" defer></script>
 <script src="theme-picker.js?v=e4656366" defer></script>
 <script src="simplified-nav.js?v=be4c87d7" defer></script>
-<script src="tab-polish.js?v=bd1e2e02" defer></script>
+<script src="tab-polish.js?v=fc06a954" defer></script>
 <script src="js/wall.js?v=bb38e88b" defer></script>
-<script src="js/wall-admin.js?v=cf437929" defer></script>
+<script src="js/wall-admin.js?v=9ff36363" defer></script>
 <style id="comprehensive-print-identical-all-devices">
 /* 🖨️ الكشف الشامل: نفس التخطيط الفيزيائي على الجوال والكمبيوتر.
    هذه القواعد تأتي في آخر الرأس لتتغلب على أي قواعد شاشة سابقة. */
@@ -498,7 +498,7 @@
 .exam-shop-status.open{background:#E4F4EC;color:#167852}.exam-shop-status.closed{background:#FFF1F2;color:#9F2538}
 @media screen and (max-width:600px){.exam-shop-kpis{grid-template-columns:1fr 1fr}.exam-shop-student{grid-template-columns:1fr 105px}.exam-shop-student small{grid-column:1}.exam-shop-student .exam-shop-used{display:none}}
 </style>
-<link rel="stylesheet" id="late-css" href="app-late.css?v=f93a3987">
+<link rel="stylesheet" id="late-css" href="app-late.css?v=a851743e">
 <link rel="stylesheet" href="theme-picker.css?v=8ea5ab83">
 <link rel="stylesheet" href="simplified-nav.css?v=ad5107a9">
 <link rel="stylesheet" href="tab-polish.css?v=6f5bfbbe">
@@ -1592,7 +1592,7 @@
 </div>
 <div id="ai-settings-keys-list" style="margin-top:.65rem"></div>
 <div class="row" style="gap:.45rem;margin-top:.65rem;align-items:stretch">
-<input autocomplete="off" class="inp" id="ai-settings-new-key" placeholder="ألصق مفتاح API هنا" style="flex:1;min-width:200px" type="password"/>
+<input type="text" class="inp no-pwsave" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-bwignore id="ai-settings-new-key" placeholder="ألصق مفتاح API هنا" style="flex:1;min-width:200px"/>
 <button class="btn" onclick="aiSettingsAddKey()" type="button" data-emo="➕"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg> إضافة مفتاح</button>
 <button class="btn ghost" onclick="aiSettingsResetKeys()" type="button">♻️ إعادة تفعيل المستنفد</button>
 </div>
@@ -1689,9 +1689,9 @@
         عندها تصل نتائج الطلاب مباشرة بلا رموز.
       </p>
 <div class="field"><label>عنوان الـ Worker</label>
-<input class="inp" id="api-url" oninput="saveApi()" placeholder="https://homework.ahmadalmarzooq2009.workers.dev"/></div>
+<input class="inp" autocomplete="off" id="api-url" oninput="saveApi()" placeholder="https://homework.ahmadalmarzooq2009.workers.dev"/></div>
 <div class="field" style="margin:0"><label>كلمة السر (TEACHER_TOKEN)</label>
-<input class="inp" id="api-tok" oninput="saveApi()" placeholder="نفس التي وضعتها في Cloudflare"/></div>
+<input type="text" class="inp no-pwsave" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-bwignore id="api-tok" oninput="saveApi()" placeholder="نفس التي وضعتها في Cloudflare"/></div>
 </div>
 <div class="sheet">
 <div class="sheet-head"><h2 data-emo="🔐"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg> الأجهزة المسجّل دخولها</h2></div>

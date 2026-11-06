@@ -93,6 +93,13 @@ export default async function run() {
         await p.unroute(/generativelanguage\.googleapis\.com\/v1beta\/models\?/);
         ok(r.opts.some(t => /^gemini-4\.1-flash/.test(t)), 'الجديد: ' + r.opts.join(' | ')); ok(!r.opts.some(t => /tts|embedding/.test(t)), 'دخل غير النصي');
         ok(r.opts.some(t => /gemini-3\.1-pro-preview — ⚠️/.test(t)), 'غير المتاح'); ok(/آخر تحديث/.test(r.st), r.st); eq(r.nt, [true, true, true, false]); eq(errs, [], 'أخطاء'); });
+      await S.t('🔑 لا «حفظ/تحديث كلمة المرور» من المتصفح: لا حقل type=password، والسر يظهر نقاطًا وزر الإظهار يعمل', async () => {
+        await p.evaluate(() => goTab('data')); await p.waitForTimeout(300);
+        const r = await p.evaluate(() => { const t = document.getElementById('api-tok'), k = document.getElementById('ai-settings-new-key'), sec = e => getComputedStyle(e).webkitTextSecurity;
+          const a = [document.querySelectorAll('input[type=password]').length, t.type, sec(t), sec(k), t.autocomplete];
+          const btn = t.nextElementSibling; btn.click(); a.push(sec(t)); btn.click(); a.push(sec(t)); return a; });
+        await p.evaluate(() => goTab('dashboard'));
+        eq(r, [0, 'text', 'disc', 'disc', 'off', 'none', 'disc']); eq(errs, [], 'أخطاء'); });
       await S.t('⚙️ زر الإعدادات بجانب «تخصيص القائمة» يفتح الإعدادات', async () => {
         ok(await p.evaluate(() => { const r = document.querySelector('#simp-nav .simp-cust-row'); return !!(r && r.querySelector('[data-simp-settings]') && /تخصيص القائمة/.test(r.textContent)); }), 'الزر بجانب التخصيص');
         await p.evaluate(() => document.querySelector('#simp-nav [data-simp-settings]').click()); await p.waitForTimeout(400);

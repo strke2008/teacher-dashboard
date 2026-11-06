@@ -2894,3 +2894,7 @@ body.fm #fm-bot{position:fixed;bottom:0;inset-inline:0;z-index:600;background:va
 /* 🔄 تحديث قائمة الموديلات */
 .ai-models-sync{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-top:.55rem}
 .ai-models-sync small{font-size:.78rem;line-height:1.6}
+
+/* 🔑 كلمات السر ومفاتيح API تظهر نقاطًا دون أن تكون type=password — فلا يعرض المتصفح «حفظ/تحديث كلمة المرور» */
+.no-pwsave{-webkit-text-security:disc;text-security:disc;font-family:text-security-disc,inherit}
+.no-pwsave::placeholder{-webkit-text-security:none}

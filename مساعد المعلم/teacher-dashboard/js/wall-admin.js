@@ -106,7 +106,7 @@ function voteLinkForm(after){
   const v=VOTE_LINK||{};
   const box=wallSheet(`<h3>🏆 ربط موقع المسابقة</h3>
     <label>رابط موقع المسابقة<input type="text" id="vl-url" dir="ltr" placeholder="https://…" value="${esc(v.url||'')}"></label>
-    <label>كلمة مرور لوحة تحكم المسابقة<input type="password" id="vl-pw" autocomplete="off"></label>
+    <label>كلمة مرور لوحة تحكم المسابقة<input type="text" class="no-pwsave" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-bwignore id="vl-pw"></label>
     <div class="muted">تُستخدم مرة واحدة للدخول ولا تُحفظ — يُحفظ رمز الجلسة فقط. لو غيّرت كلمة المرور هناك اربط من جديد.</div>
     <div class="wcp-acts"><button type="button" class="wall-btn" onclick="document.getElementById('wall-comp').remove()">إلغاء</button><button type="button" class="wall-btn main" id="vl-go">ربط</button></div>`);
   box.querySelector('#vl-go').onclick=async()=>{

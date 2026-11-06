@@ -1,6 +1,6 @@
 /* تحسينات فحص التبويبات — الدفعة 1 (مرافق tab-polish.css).
    طبقة إضافة فقط، لا تغيّر أي كود أصلي ولا أي وظيفة.
-   1) حقل كلمة سر الخادم يصبح حقل كلمة سر حقيقيًا مع زر إظهار/إخفاء.
+   1) حقل كلمة سر الخادم يُخفى بنقاط (بلا type=password حتى لا يعرض المتصفح حفظها) مع زر إظهار/إخفاء.
    2) ارتفاع الرأس الثابت يُقاس حيًا ليجلس شريط تبويبات الإعدادات أسفله.
    3) جدول نتائج نافس يُغلَّف بحاوية تمرير أفقي عند كل إعادة رسم. */
 (function(){
@@ -9,16 +9,17 @@
     try{
       var input=document.getElementById('api-tok');
       if(!input) return;
-      input.setAttribute('type','password');
-      input.setAttribute('autocomplete','current-password');
+      // نقاط بلا type=password: كان المتصفح يعرض «تحديث كلمة المرور» ويأخذ عنوان الخادم اسم مستخدم
+      input.setAttribute('type','text'); input.classList.add('no-pwsave');
+      ['autocomplete','off','autocapitalize','off','autocorrect','off','spellcheck','false','data-lpignore','true','data-1p-ignore','','data-bwignore',''].forEach(function(v,i,a){ if(i%2===0) input.setAttribute(v,a[i+1]); });
       if(input.nextElementSibling && input.nextElementSibling.classList.contains('api-tok-toggle')) return;
       var btn=document.createElement('button');
       btn.type='button';
       btn.className='btn ghost sm api-tok-toggle';
       btn.textContent='👁️ إظهار';
       btn.addEventListener('click',function(){
-        var show=input.getAttribute('type')==='password';
-        input.setAttribute('type',show?'text':'password');
+        var show=input.classList.contains('no-pwsave');
+        input.classList.toggle('no-pwsave',!show);
         btn.textContent=show?'🙈 إخفاء':'👁️ إظهار';
       });
       input.insertAdjacentElement('afterend',btn);

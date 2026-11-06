@@ -8138,7 +8138,7 @@ async function ensureToken(){
       <h2>كلمة السر</h2>
       <p style="color:var(--ink-soft);font-size:.88rem;margin:.2rem 0 .9rem">
         اكتب كلمة سر الخادم مرة واحدة في هذا المتصفح، فتُحمَّل بياناتك.</p>
-      <input class="inp" id="tok-in" type="password" placeholder="TEACHER_TOKEN" style="direction:ltr;text-align:center">
+      <input type="text" class="inp no-pwsave" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-bwignore id="tok-in" placeholder="TEACHER_TOKEN" style="direction:ltr;text-align:center">
       <label style="display:flex;align-items:center;gap:.5rem;margin:.7rem 0 0;font-size:.86rem;cursor:pointer"><input type="checkbox" id="tok-temp"> جهاز مشترك (مثل كمبيوتر المدرسة) — يخرج تلقائيًا بعد يوم</label>
       <div class="modal-foot">
         <button class="btn tick" style="width:100%" id="tok-go">دخول</button>
