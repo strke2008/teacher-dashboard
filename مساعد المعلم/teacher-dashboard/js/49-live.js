@@ -7,7 +7,13 @@
 const LIVE = { lang: true, ws: null, ctx: null, stream: null, src: null, node: null, on: false, state: '', play: 0, srcs: [], me: null, bot: null, model: '', tried: [], t0: 0 };
 const LIVE_MODELS = ['gemini-3.8-live', 'gemini-3.1-flash-live-preview'];
 const liveKey = () => { try { return typeof readingAIGetKey === 'function' ? readingAIGetKey('gemini') : ''; } catch (e) { return ''; } };
-const liveSup = () => !!(liveKey() && window.WebSocket && navigator.mediaDevices && navigator.mediaDevices.getUserMedia && (window.AudioContext || window.webkitAudioContext));
+/* مقفولة افتراضيًا: تُفعَّل من ⚙️ الإعدادات ← الذكاء الاصطناعي ← «🎙️ المحادثة الحية» */
+const liveOn = () => { try { return localStorage.getItem('live_on') === '1'; } catch (e) { return false; } };
+function liveOnSet(on) { try { if (on) localStorage.setItem('live_on', '1'); else localStorage.removeItem('live_on'); } catch (e) {} if (!on && (LIVE.on || LIVE.state)) liveStop();
+  const p = document.getElementById('asst-panel'); if (p) p.remove();   // يُبنى رأس «مساعدي» من جديد عند فتحه بالزر الصحيح
+  try { toast(on ? '🎙️ فُعّلت المحادثة الحية — زرها في رأس «مساعدي»' : '🎙️ أُقفلت المحادثة الحية', 'good'); } catch (e) {} }
+(function liveOnInit() { const go = () => { const c = document.getElementById('live-on-tg'); if (c) c.checked = liveOn(); }; if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go(); })();
+const liveSup = () => !!(liveOn() && liveKey() && window.WebSocket && navigator.mediaDevices && navigator.mediaDevices.getUserMedia && (window.AudioContext || window.webkitAudioContext));
 
 /* أدوات القراءة فقط ← تعريفات دوال لـ Gemini (الوسائط تُستخرج من وصف كل أداة «args: {…}») */
 const LIVE_NUM = ['n', 'days', 'question', 'sem', 'per', 'min'], LIVE_BOOL = ['all', 'print'];

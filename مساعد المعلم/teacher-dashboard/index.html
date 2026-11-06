@@ -70,7 +70,7 @@
 <meta name="author" content="المعلم أحمد المرزوق"/>
 <meta name="application-name" content="مساعد المعلم"/>
 <meta content="مساعد المعلم" name="apple-mobile-web-app-title"/>
-<meta name="app-version" content="1.0.64" data-code="5850"/>
+<meta name="app-version" content="1.0.65" data-code="8ea4"/>
 <title>مساعد المعلم</title>
 <link href="/icons/panel-32.png" rel="icon" sizes="32x32" type="image/png"/>
 <link href="pwa/apple-touch-icon-180.png" rel="apple-touch-icon" sizes="180x180"/>
@@ -151,7 +151,7 @@
 <script src="js/46-lazy.js?v=bd8c262b" defer></script>
 <script src="js/47-voice-search.js?v=86c73054" defer></script>
 <script src="js/48-assistant.js?v=7b445bdc" defer></script>
-<script src="js/49-live.js?v=94437b3f" defer></script>
+<script src="js/49-live.js?v=7cae16f8" defer></script>
 <script src="theme-picker.js?v=e4656366" defer></script>
 <script src="simplified-nav.js?v=be4c87d7" defer></script>
 <script src="tab-polish.js?v=fc06a954" defer></script>
@@ -1591,6 +1591,8 @@
 <div id="ai-routes" class="ai-routes"></div>
 <div class="asst-el-row"><label class="asst-el-tg"><input type="checkbox" id="asst-on-tg" onchange="asstOnSet(this.checked)"><span class="asst-el-sw" aria-hidden="true"></span><b>✨ تفعيل «مساعدي»</b></label>
 <small class="muted">مقفول (الافتراضي) = لا يظهر زر «مساعدي» ولا تنبيه ملخص الصباح. مفتوح = يظهر الزر في الشريط العلوي.</small></div>
+<div class="asst-el-row"><label class="asst-el-tg"><input type="checkbox" id="live-on-tg" onchange="liveOnSet(this.checked)"><span class="asst-el-sw" aria-hidden="true"></span><b>🎙️ المحادثة الحية (Gemini Live — تجريبية)</b></label>
+<small class="muted">مقفول (الافتراضي) = لا يظهر زرها. مفتوح = زر 🎙️ في رأس «مساعدي» لمحادثة صوتية مباشرة (يحتاج مفتاح Gemini، والصوت يُحسب من رصيده بسعر أعلى من النص).</small></div>
 <div class="asst-el-row"><label class="asst-el-tg"><input type="checkbox" id="asst-el-tg" onchange="asstElSet(this.checked)"><span class="asst-el-sw" aria-hidden="true"></span><b>🔊 صوت ElevenLabs لقراءة «مساعدي»</b></label>
 <small class="muted">مقفول (الافتراضي) = يقرأ بصوت جهازك: مجاني وبلا حد، ولا يُرسل نص الجواب لأي جهة. مفتوح = صوت ElevenLabs من الخادم (بسقف يومي)، وإن تعذّر فصوت الجهاز.</small></div>
 <div style="margin-top:.8rem;border:1px solid var(--rule);border-radius:14px;padding:.8rem">
