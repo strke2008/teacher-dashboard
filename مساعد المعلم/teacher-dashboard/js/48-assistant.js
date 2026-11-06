@@ -350,7 +350,7 @@ function asstForget() { ASST.msgs = []; try { localStorage.removeItem('asst_hist
 const asstConvOn = () => { try { return localStorage.getItem('asst_conv') === '1'; } catch (e) { return false; } };
 function asstConvToggle() { const on = !asstConvOn(); try { if (on) localStorage.setItem('asst_conv', '1'); else localStorage.removeItem('asst_conv'); } catch (e) {} const b = document.getElementById('asst-conv'); if (b) b.classList.toggle('on', on);
   toast(on ? '🗣️ وضع المحادثة: تكلّم الحين — أرد وأرجع أسمعك لحالي' : '🗣️ أُقفل وضع المحادثة', 'good'); setTimeout(asstLive, 0); if (on && !ASST_MIC && !ASST.busy) asstMic(); else if (!on) asstMicStop(); }
-function asstConvNext() { const p = document.getElementById('asst-panel'); if (asstConvOn() && p && p.classList.contains('on') && !ASST_MIC && !ASST_STT.on && !ASST_STT.busy && !ASST.busy) asstMic(true); }
+function asstConvNext() { if (ASST_MIC) return; const p = document.getElementById('asst-panel'); if (asstConvOn() && p && p.classList.contains('on') && !ASST_MIC && !ASST_STT.on && !ASST_STT.busy && !ASST.busy) asstMic(true); }
 
 /* ── تشغيل سؤال ── */
 function asstFast(q) {   // ⚡ بلا ذكاء: «مين الغايب اليوم» و«افتح ملف فلان»
@@ -374,7 +374,9 @@ function asstMd(s) {   // تنسيق بسيط آمن: **عريض** · أسطر �
 }
 async function asstAsk(q) {
   q = String(q || '').trim(); if (!q || ASST.busy) return; asstSpeakStop(); asstAudioUnlock();
-  if (/^(سجل|سجلّ) (المايك|الميكروفون)$/.test(q)) { ASST.msgs.push({ me: 1, html: asstEsc(q) }, { html: '<b>🩺 أحداث الميكروفون</b><br>' + (window.HWV ? `iPhone: ${HWV.ios ? 'نعم' : 'لا'} · الطريقة: ${asstUseStt() ? 'تسجيل + تفريغ (' + asstSttProv() + ')' : 'التعرّف المدمج'} · الجلسة: ${HWV.active ? 'مفتوحة' : 'مقفلة'}<br>` : '') + (ASST_MLOG.map(asstEsc).join('<br>') || 'لا أحداث بعد'), src: [] }); asstPaint(); return; }
+  if (/^طريقة (المايك|الميكروفون)$/.test(q)) { let o = ''; try { o = localStorage.getItem('asst_stt') === 'on' ? '' : 'on'; if (o) localStorage.setItem('asst_stt', 'on'); else localStorage.removeItem('asst_stt'); } catch (e) {} asstMicStop();
+    ASST.msgs.push({ me: 1, html: asstEsc(q) }, { html: o ? (asstSttProv() ? '🎙️ الطريقة الآن: <b>تسجيل ثم تفريغ</b> بمفتاح ' + asstEsc(asstSttProv()) + ' — اكتب «طريقة المايك» للرجوع' : '⚠️ تحتاج مفتاح Groq أو OpenAI أو Gemini لهذه الطريقة') : '🎤 الطريقة الآن: <b>مثل الرصد بالصوت</b> (استماع مستمر حتى الإيقاف)', src: [] }); asstPaint(); return; }
+  if (/^(سجل|سجلّ) (المايك|الميكروفون)$/.test(q)) { ASST.msgs.push({ me: 1, html: asstEsc(q) }, { html: '<b>🩺 أحداث الميكروفون</b><br>' + (window.HWV ? `iPhone: ${HWV.ios ? 'نعم' : 'لا'} · الطريقة: ${asstUseStt() ? 'تسجيل + تفريغ (' + asstSttProv() + ')' : 'مثل الرصد (استماع مستمر)'} · الجلسة: ${HWV.active ? 'مفتوحة' : 'مقفلة'}<br>` : '') + (ASST_MLOG.map(asstEsc).join('<br>') || 'لا أحداث بعد'), src: [] }); asstPaint(); return; }
   { const S = asstShortcuts(), k = Object.keys(S).find(n => asstTok(n).join(' ') === asstTok(q.replace(/[؟?.!]+$/, '')).join(' ')); if (k) { ASST.msgs.push({ me: 1, html: '⚡ ' + asstEsc(k) }); q = S[k]; } }
   ASST.busy = true; ASST.msgs.push({ me: 1, html: asstEsc(q) }); const bot = { html: '<i class="asst-dots"><b></b><b></b><b></b></i>', src: [] }; ASST.msgs.push(bot); asstPaint();
   try {
@@ -415,7 +417,9 @@ ${draft ? 'واكتب في draft رسالة مهذبة قصيرة لولي أم�
     if (draft) draft.text = String(ans.draft || '');
     bot.text = String(ans.answer || ''); bot.html = asstMd(bot.text || (draft ? 'هذه المسودة — عدّلها كما تشاء:' : 'لم يصل جواب — جرّب مرة أخرى')); bot.src.push(asstUsed());
   } catch (e) { bot.html = '⚠️ ' + asstEsc(e && e.message || 'تعذّر'); bot.err = 1; }
-  finally { ASST.busy = false; bot.src = bot.src.filter(Boolean); asstPaint(); if (bot._auto) { delete bot._auto; setTimeout(() => asstAct(ASST.msgs.indexOf(bot), 0, 'do'), 600); } else if (!bot.err) asstSpeak(bot.text || bot.html).then(asstConvNext, asstConvNext); else asstConvNext(); }
+  finally { ASST.busy = false; bot.src = bot.src.filter(Boolean); asstPaint(); if (bot._auto) { delete bot._auto; setTimeout(() => asstAct(ASST.msgs.indexOf(bot), 0, 'do'), 600); } else if (!bot.err && ASST_MIC && !(window.HWV && HWV.ios) && asstTtsOn()) { const c = ASST_MIC; c.owner.on = false; asstSpeak(bot.text || bot.html).then(() => { if (ASST_MIC === c) HWV.go(c.owner); }); }
+    else if (!bot.err) asstSpeak(bot.text || bot.html).then(asstConvNext, asstConvNext); else asstConvNext();
+    if (ASST.queue) { const q2 = ASST.queue; ASST.queue = ''; setTimeout(() => asstAsk(q2), 50); } asstLive(); }
 }
 function asstUsed() { try { const j = JSON.parse(localStorage.getItem('ai_last_used') || 'null'); if (!j) return ''; const c = (typeof READING_AI_PROVIDERS !== 'undefined' && READING_AI_PROVIDERS[j.p]) || { name: j.p }; return '🤖 ' + c.name + ' · ' + j.m; } catch (e) { return ''; } }
 
@@ -561,21 +565,20 @@ const ASST_SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 let ASST_MIC = null;
 /* شريط الحالة تحت الخانة: يوضّح أنه يسمع ومتى يرسل، ووضع المحادثة */
 function asstLive() { const e = document.getElementById('asst-live'); if (!e) return; const conv = asstConvOn();
-  e.innerHTML = ASST_STT.busy ? '⏳ أفرّغ كلامك…' : ASST_STT.on ? `<span class="dot"></span> ${conv ? '🗣️ وضع المحادثة — ' : ''}${ASST_STT.heard ? 'أسمعك… أرسل لحالي لما تسكت' : 'تكلّم الحين…'} أو اضغط 🎤 للإرسال` : ASST_MIC ? `<span class="dot"></span> ${conv ? '🗣️ وضع المحادثة — ' : ''}أسمعك… أرسل لحالي بعد سكوتك ثانيتين، أو اضغط 🎤 للإرسال الآن`
+  e.innerHTML = ASST_STT.busy ? '⏳ أفرّغ كلامك…' : ASST_STT.on ? `<span class="dot"></span> ${conv ? '🗣️ وضع المحادثة — ' : ''}${ASST_STT.heard ? 'أسمعك… أرسل لحالي لما تسكت' : 'تكلّم الحين…'} أو اضغط 🎤 للإرسال` : ASST_MIC ? `<span class="dot"></span> ${ASST.busy ? 'أجهّز الجواب… وأنا أسمعك' : 'أسمعك — كل جملة أرسلها لما تسكت، وأظل أسمع'}. للإيقاف اضغط 🎤`
     : conv && ASST.waitTap ? '👆 اضغط 🎤 لتكمل المحادثة — الآيفون يحتاج لمسة بعد ما يقفل السماع' : conv ? '🗣️ وضع المحادثة مفتوح: اضغط 🎤 مرة وحدة وتكلم — أرد وأرجع أسمعك لحالي. للإيقاف اضغط 🗣️' : '';
   const mb = document.getElementById('asst-mic'); if (mb) mb.classList.toggle('nudge', !!(conv && ASST.waitTap && !ASST_MIC));
   e.hidden = !e.innerHTML; }
 const ASST_MLOG = [];
 function asstMicLog(x) { ASST_MLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + x); if (ASST_MLOG.length > 40) ASST_MLOG.shift(); }
-function asstMicStop() { if (ASST_STT.on) asstSttStop(false); const c = ASST_MIC; if (!c) return; ASST_MIC = null; clearTimeout(c.t); clearTimeout(c.wd); clearTimeout(c.wd2); try { HWV.mute(c.owner); } catch (e) {} const b = document.getElementById('asst-mic'); if (b) b.classList.remove('on'); asstLive(); }
-function asstMicSend() { const c = ASST_MIC; if (!c) return; const t = (c.done + ' ' + c.pend).replace(/\s+/g, ' ').trim(); asstMicLog('send ' + t.length); asstMicStop(); const i = document.getElementById('asst-q'); if (i) i.value = ''; if (t) asstAsk(t); }
+function asstMicStop() { if (ASST_STT.on) asstSttStop(false); const c = ASST_MIC; if (!c) return; ASST_MIC = null; clearTimeout(c.t); try { HWV.mute(c.owner); } catch (e) {} const b = document.getElementById('asst-mic'); if (b) b.classList.remove('on'); asstLive(); }
 /* 🎙️ على iPhone: التعرّف المدمج (Web Speech) يعطي جلسة واحدة حيّة للصفحة — تتجمّد بعد السكوت، وكل جلسة بعدها صمّاء (ثبت من «سجل المايك»).
    البديل الجذري: تسجيل الصوت نفسه من الميكروفون (يعمل كل مرة)، ثم تفريغه بمفتاح الذكاء الذي عندك: Groq (Whisper) أو OpenAI أو Gemini.
    يتوقف التسجيل وحده بعد سكوتك ثانية ونصف، أو بضغطة 🎤. الصوت يُرسل لمزوّدك فقط مثل نص السؤال تمامًا، ولا يُحفظ. */
 const ASST_STT = { ctx: null, stream: null, node: null, src: null, buf: [], on: false, busy: false, heard: false, t0: 0, loud: 0, floor: [], thr: 0.02, auto: false };
 function asstSttProv() { for (const p of ['groq', 'openai', 'gemini']) { try { if (readingAIGetKey(p)) return p; } catch (e) {} } return ''; }
 function asstUseStt() { let o = ''; try { o = localStorage.getItem('asst_stt') || ''; } catch (e) {} if (o === 'off') return false;
-  return (o === 'on' || !!(window.HWV && HWV.ios)) && !!asstSttProv() && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia); }
+  return o === 'on' && !!asstSttProv() && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia); }
 async function asstSttMic(auto) {
   const S = ASST_STT; if (S.busy) return;
   if (S.on) { asstSttStop(true); return; }   // ضغطة ثانية: أرسل الآن
@@ -637,27 +640,26 @@ function asstRecHook() { try { const r = HWV.instance(false); if (!r || r === AS
   ['start', 'end', 'audiostart', 'audioend', 'speechstart', 'speechend', 'nomatch'].forEach(ev => r.addEventListener(ev, () => { asstMicLog('rec:' + ev); if (ev === 'start') ASST.recFinal = 0; if (ev === 'end') ASST.recFinal = 0; }));
   r.addEventListener('error', e => asstMicLog('rec:error ' + (e && e.error))); r.addEventListener('result', e => { try { const x = e.results[e.results.length - 1]; ASST.recFinal = x.isFinal ? 1 : 0; asstMicLog(`rec:result #${e.resultIndex}/${e.results.length} ${String(x[0].transcript).trim().split(/\s+/).length}w${x.isFinal ? ' final' : ''}`); } catch (er) {} });
   HWV.onReset = i => asstMicLog('reset خانة ' + i); } catch (e) {} }
+/* 🎤 مثل «الرصد بالصوت» تمامًا (يعمل دائمًا على iPhone): ضغطة تفتح الاستماع ويبقى مفتوحًا حتى ضغطة الإيقاف —
+   كل جملة (بعد سكوت قصير) تُرسل سؤالًا والاستماع مستمر. لا كتم ولا إعادة فتح بين الأسئلة (هذا ما كان يجمّد iPhone) */
 function asstMic(auto) {
   if (asstUseStt()) return asstSttMic(auto === true);
   if (!window.HWV || !HWV.sup) { toast('الكلام غير مدعوم في هذا المتصفح', 'bad'); return; }
-  if (ASST_MIC) { asstMicSend(); return; }   // ضغطة ثانية: أرسل ما قيل
-  /* 🍎 iPhone: جلسة تبدأ بلا لمسة تشتغل لكن لا يصلها صوت — فإن انقفلت الجلسة لا نعيدها تلقائيًا، بل ننتظر ضغطة 🎤 */
-  if (auto === true && HWV.ios && (!HWV.active || ASST.recFinal || ASST.deaf)) { asstMicLog('auto: ' + (HWV.active ? 'الجلسة متجمّدة' : 'الجلسة مقفلة') + ' ← تنتظر لمسة'); ASST.waitTap = 1; asstLive(); return; }
+  if (ASST_MIC) { if (auto === true) return; const c = ASST_MIC; c.flush(); asstMicStop(); asstMicLog('tap: إيقاف'); return; }   // ضغطة الإيقاف (ويُرسل ما قيل)
+  if (auto === true && HWV.ios && !HWV.active) { asstMicLog('auto: الجلسة مقفلة ← تنتظر لمسة'); ASST.waitTap = 1; asstLive(); return; }
   ASST.waitTap = 0;
   if (!(window.HWV && HWV.ios && HWV.active)) { asstSpeakStop(); asstAudioUnlock(); }
   const i = document.getElementById('asst-q'), b = document.getElementById('asst-mic'), c = { done: '', pend: '', t: 0 };
   const show = () => { if (i) i.value = (c.done + ' ' + c.pend).replace(/\s+/g, ' ').trim(); };
+  c.flush = () => { clearTimeout(c.t); const t = (c.done + ' ' + c.pend).replace(/\s+/g, ' ').trim(); c.done = c.pend = ''; if (i) i.value = ''; if (!t) return; asstMicLog('send ' + t.length);
+    if (ASST.busy) ASST.queue = ((ASST.queue || '') + ' ' + t).trim(); else asstAsk(t); };
   c.owner = { on: false,
-    onText: (t, final) => { c.heard = 1; clearTimeout(c.t); if (final) { c.done += ' ' + t; c.pend = ''; c.t = setTimeout(asstMicSend, 1800); } else c.pend = t; show(); asstLive(); },
-    onStop: why => { asstMicLog('stop:' + (why || '')); if (ASST_MIC === c) { if ((c.done + c.pend).trim()) asstMicSend(); else asstMicStop(); } },
+    onText: (t, final) => { c.heard = 1; clearTimeout(c.t); if (final) { c.done += ' ' + t; c.pend = ''; c.t = setTimeout(c.flush, 1200); } else c.pend = t; show(); asstLive(); },
+    onStop: why => { asstMicLog('stop:' + (why || '')); if (ASST_MIC === c) { c.flush(); asstMicStop(); if (why === 'ended') { ASST.waitTap = 1; asstLive(); } } },
     onError: err => { asstMicLog('err:' + err); if (err === 'not-allowed' || err === 'service-not-allowed') { toast('اسمح للمتصفح باستخدام الميكروفون', 'bad'); asstMicStop(); } } };
   ASST_MIC = c; if (b) b.classList.add('on'); asstMicLog((auto === true ? 'auto ' : 'tap ') + 'go active=' + HWV.active);
   setTimeout(asstLive, 0);
-  const stuck = auto !== true && HWV.ios && HWV.active && (ASST.recFinal || ASST.deaf); ASST.deaf = 0;
-  if (stuck) asstMicLog('restart: جلسة متجمّدة ← جديدة داخل اللمسة');
-  const ok = stuck && HWV.restart ? HWV.restart(c.owner) : HWV.go(c.owner); asstRecHook();
-  if (HWV.ios && auto !== true) c.wd2 = setTimeout(() => { if (ASST_MIC === c && !c.heard && !c.audio) { asstMicLog('tap: لا صوت 6ث ← الضغطة الجاية تبدأ جلسة جديدة'); ASST.deaf = 1; } }, 6000);
-  if (auto === true && HWV.ios) c.wd = setTimeout(() => { if (ASST_MIC === c && !c.heard) { asstMicLog('auto: لا صوت 10ث ← تنتظر لمسة'); ASST.deaf = 1; asstMicStop(); ASST.waitTap = 1; asstLive(); } }, 10000);
+  const ok = HWV.go(c.owner); asstRecHook();
   if (!ok) { asstMicStop(); toast('تعذّر تشغيل الميكروفون — أغلق المتصفح وافتحه ثم حاول', 'bad'); }
 }
 const asstTtsOn = () => { try { return localStorage.getItem('asst_tts') === '1'; } catch (e) { return false; } };
