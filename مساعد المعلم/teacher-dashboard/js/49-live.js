@@ -4,7 +4,7 @@
    الأدوات: أدوات القراءة نفسها في «مساعدي» (الغياب، الدرجات، المهارات، الاختبارات…) تُحسب في جهازك، ويُرسل للمزوّد ما يلزم فقط
    بلا معرّفات (asstStrip). لا تنفيذ في هذه النسخة: أوامر الرصد والرسائل تبقى في «مساعدي» المكتوب ببطاقة التأكيد.
    مقفولة افتراضيًا: زر 🎙️ يظهر في رأس «مساعدي» فقط إن وُجد مفتاح Gemini. */
-const LIVE = { ws: null, ctx: null, stream: null, src: null, node: null, on: false, state: '', play: 0, srcs: [], me: null, bot: null, model: '', tried: [], t0: 0 };
+const LIVE = { lang: true, ws: null, ctx: null, stream: null, src: null, node: null, on: false, state: '', play: 0, srcs: [], me: null, bot: null, model: '', tried: [], t0: 0 };
 const LIVE_MODELS = ['gemini-3.8-live', 'gemini-3.1-flash-live-preview'];
 const liveKey = () => { try { return typeof readingAIGetKey === 'function' ? readingAIGetKey('gemini') : ''; } catch (e) { return ''; } };
 const liveSup = () => !!(liveKey() && window.WebSocket && navigator.mediaDevices && navigator.mediaDevices.getUserMedia && (window.AudioContext || window.webkitAudioContext));
@@ -19,10 +19,13 @@ function liveTools() {
   });
 }
 function liveSystem() {
-  return `${asstIntro()}
+  return `🗣️ اللغة: تكلّم بالعربية دائمًا (لهجة خليجية مهذبة أو فصحى مبسطة) مهما كانت لغة ما تسمعه أو ما يظهر في النسخ — لا تردّ أبدًا بالإسبانية أو الإنجليزية أو غيرها.
+المعلم يتكلم بالعربية فقط: إن سمعت كلامًا غير واضح أو كلمات بلغة أخرى فهي غالبًا ضجيج أو خطأ سماع — قل باختصار «ما سمعتك زين، عيدها؟» بالعربية ولا تجب عنها.
+${asstIntro()}
 أنت في «محادثة حية» صوتية مع المعلم: أجب بالعربية بصوت طبيعي ودود وبإيجاز (جملتان أو ثلاث)، واذكر الأرقام والأسماء بوضوح.
 استخدم الأدوات للأسئلة عن طلابه وبياناته، ولا تخترع أسماء أو أرقامًا. «النقاط» = رصيد نقاط المكافآت (أداة points)، وهي غير الدرجات.
-هذه نسخة تجريبية للقراءة فقط: إن طلب رصدًا أو تعديلًا أو إرسال رسالة فقل له إن التنفيذ متاح الآن بالكتابة أو المايك في «مساعدي» ببطاقة تأكيد، وسيضاف للمحادثة الحية لاحقًا.`;
+هذه نسخة تجريبية للقراءة فقط: إن طلب رصدًا أو تعديلًا أو إرسال رسالة فقل له إن التنفيذ متاح الآن بالكتابة أو المايك في «مساعدي» ببطاقة تأكيد، وسيضاف للمحادثة الحية لاحقًا.
+تذكير أخير: ردك بالعربية فقط.`;
 }
 
 /* 🔊 تشغيل PCM 24 كيلوهرتز بالتتابع */
@@ -59,13 +62,13 @@ async function liveStart() {
   try { asstMicStop(); asstSpeakStop(); } catch (e) {}
   try { LIVE.ctx = LIVE.ctx || new (window.AudioContext || window.webkitAudioContext)(); if (LIVE.ctx.state === 'suspended') await LIVE.ctx.resume(); } catch (e) {}
   try { if (!localStorage.getItem('live_note')) { localStorage.setItem('live_note', '1'); toast('🎙️ تجريبية: الصوت يُحسب من رصيد Gemini بسعر أعلى من النص — أنهِ المحادثة بزر ⏹', 'warn'); } } catch (e) {}
-  liveSet('connect'); LIVE.tried = []; liveConnect(LIVE_MODELS[0]);
+  liveSet('connect'); LIVE.tried = []; LIVE.lang = true; liveConnect(LIVE_MODELS[0]);
 }
 function liveConnect(model) {
   LIVE.model = model; LIVE.tried.push(model); let ready = false;
   const ws = LIVE.ws = new WebSocket('wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=' + encodeURIComponent(liveKey()));
   ws.onopen = () => ws.send(JSON.stringify({ setup: { model: 'models/' + model,
-    generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: localStorage.getItem('live_voice') || 'Kore' } } } },
+    generationConfig: { responseModalities: ['AUDIO'], speechConfig: { ...(LIVE.lang ? { languageCode: 'ar-XA' } : {}), voiceConfig: { prebuiltVoiceConfig: { voiceName: localStorage.getItem('live_voice') || 'Kore' } } } },
     systemInstruction: { parts: [{ text: liveSystem() }] }, tools: [{ functionDeclarations: liveTools() }], inputAudioTranscription: {}, outputAudioTranscription: {} } }));
   ws.onmessage = async ev => { let j; try { j = JSON.parse(typeof ev.data === 'string' ? ev.data : await (ev.data.text ? ev.data.text() : new Response(ev.data).text())); } catch (e) { return; }
     if (j.setupComplete) { ready = true; await liveMic(); return; }
@@ -78,7 +81,8 @@ function liveConnect(model) {
     if (j.toolCall) liveTool(j.toolCall.functionCalls || []);
     if (j.goAway) liveSet(LIVE.state, 'الجلسة توشك على الانتهاء'); };
   ws.onclose = ev => { if (LIVE.ws !== ws) return;
-    if (!ready) { const next = LIVE_MODELS.find(m => !LIVE.tried.includes(m)); if (next && LIVE.state === 'connect') { liveConnect(next); return; }
+    if (!ready) { if (LIVE.lang && LIVE.state === 'connect') { LIVE.lang = false; LIVE.tried.pop(); liveConnect(model); return; }   // النموذج لا يقبل languageCode: نعيد بدونها
+      const next = LIVE_MODELS.find(m => !LIVE.tried.includes(m)); if (next && LIVE.state === 'connect') { LIVE.lang = true; liveConnect(next); return; }
       liveEnd(); toast('تعذّر الاتصال بـ Gemini Live' + (ev.reason ? ': ' + String(ev.reason).slice(0, 120) : ''), 'bad'); return; }
     liveEnd(); if (ev.code !== 1000) toast('انتهت المحادثة الحية' + (ev.reason ? ': ' + String(ev.reason).slice(0, 120) : ''), 'warn'); };
   ws.onerror = () => {};
