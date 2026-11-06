@@ -2890,3 +2890,7 @@ body.fm #fm-bot{position:fixed;bottom:0;inset-inline:0;z-index:600;background:va
 .share-st em{font-style:normal;font-size:.7rem;font-weight:700;background:#EEF1F5;color:#4A5A70;border-radius:999px;padding:.05rem .45rem}
 .share-st span{margin-inline-start:auto;color:var(--ink-soft,#5B6B82);font-size:.74rem;white-space:nowrap}
 .share-ign{margin-top:.35rem}
+
+/* 🔄 تحديث قائمة الموديلات */
+.ai-models-sync{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-top:.55rem}
+.ai-models-sync small{font-size:.78rem;line-height:1.6}

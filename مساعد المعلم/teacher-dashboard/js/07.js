@@ -14,7 +14,7 @@ const READING_AI_PROVIDERS = {
 /* Claude Opus 4.7 وما بعده (ومنه 5.5 وSonnet 5 وFable 5.1) يرفض temperature غير الافتراضية بخطأ 400 — نرسلها لـ Haiku 4.5 فقط */
 function claudeSamplingOK(m){ return /claude-(haiku-4-5|sonnet-4-[56]|opus-4-[156]|3)/.test(String(m||'')); }
 /* Gemini 3.x: temperature مهملة — لا تُرسل */
-function geminiSamplingOK(m){ const c=READING_AI_PROVIDERS.gemini; return !(Array.isArray(c.reasoningModels) && c.reasoningModels.includes(m)); }
+function geminiSamplingOK(m){ return !aiNoTemp('gemini',m); }
 /* بعد التحديث: من اختار سابقًا من القائمة موديلًا أُزيل منها يعود للافتراضي الجديد.
    الموديل المخصص (يُكتب يدويًا) لا يُمس — يُحفظ في المفتاح نفسه، فنقيّد الترحيل بهذه المعرّفات فقط */
 const AI_RETIRED_MODELS = ["anthropic/claude-fable-5", "anthropic/claude-opus-4.8", "anthropic/claude-opus-5", "anthropic/claude-sonnet-4.6", "anthropic/claude-sonnet-5", "claude-fable-5", "claude-haiku-4-5-20251001", "claude-opus-4-8", "claude-opus-5", "claude-sonnet-4-6", "claude-sonnet-5", "gemini-2.5-flash", "gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.7-flash", "google/gemini-3.5-flash", "google/gemini-3.6-flash", "google/gemini-3.7-flash", "gpt-4o-mini", "gpt-5.5", "gpt-5.6-luna", "gpt-5.6-terra", "gpt-6-sol", "openai/gpt-5.5", "openai/gpt-5.6-terra", "openai/gpt-6-sol", "qwen/qwen3.6-27b"];
@@ -38,8 +38,13 @@ function aiSettingsRender(){
   const ps=document.getElementById('ai-settings-provider'), ms=document.getElementById('ai-settings-model');if(!ps||!ms)return;
   const cur=raiProvider();ps.innerHTML=Object.entries(READING_AI_PROVIDERS).map(([id,c])=>`<option value="${id}" ${id===cur?'selected':''}>${c.name}</option>`).join('');
   const c=READING_AI_PROVIDERS[cur], saved=localStorage.getItem('ai_model_'+cur)||c.defaultModel;
-  ms.innerHTML=c.models.map(m=>`<option value="${esc(m)}" ${m===saved?'selected':''}>${esc(m)}${AI_MODEL_NOTES[m]?' — '+AI_MODEL_NOTES[m]:''}</option>`).join('')+'<option value="__custom__">✏️ موديل مخصص…</option>';
-  const custom=c.models.includes(saved)?'':saved;document.getElementById('ai-settings-custom-model').value=custom;
+  const live=aiLive(cur), liveIds=live&&new Set(live.ids||[]);
+  const note=m=>{ if(liveIds&&liveIds.size&&!liveIds.has(m)) return '⚠️ غير متاح لمفتاحك الآن'; return AI_MODEL_NOTES[m]||''; };
+  const extra=live?(live.models||[]).filter(x=>!c.models.includes(x.id)):[];
+  ms.innerHTML=c.models.map(m=>`<option value="${esc(m)}" ${m===saved?'selected':''}>${esc(m)}${note(m)?' — '+note(m):''}</option>`).join('')
+    +(extra.length?`<optgroup label="🆕 من المزوّد (${extra.length})">${extra.map(x=>`<option value="${esc(x.id)}" ${x.id===saved?'selected':''}>${esc(x.id)}${x.free?' — مجاني':''}${AI_MODEL_NOTES[x.id]?' — '+AI_MODEL_NOTES[x.id]:''}</option>`).join('')}</optgroup>`:'')+'<option value="__custom__">✏️ موديل مخصص…</option>';
+  const custom=(c.models.includes(saved)||extra.some(x=>x.id===saved))?'':saved;
+  { const st=document.getElementById('ai-models-sync-st'); if(st) st.textContent=live?('آخر تحديث: '+new Date(live.at).toLocaleDateString('ar-SA',{day:'numeric',month:'long'})+(extra.length?' · '+extra.length+' موديل إضافي':' · لا جديد')):'القائمة من آخر تحديث للوحة — اضغط ليجلب المزوّد أحدث موديلاته لمفتاحك'; }document.getElementById('ai-settings-custom-model').value=custom;
   const temp=localStorage.getItem('ai_temperature_v1')??'.3',tok=localStorage.getItem('ai_max_tokens_v1')??'12000',lang=localStorage.getItem('ai_language_v1')||'ar',diff=localStorage.getItem('ai_difficulty_v1')||'medium';
   document.getElementById('ai-settings-temp').value=temp;document.getElementById('ai-settings-tokens').value=tok;document.getElementById('ai-settings-lang').value=lang;document.getElementById('ai-settings-diff').value=diff;
   document.getElementById('ai-settings-key-title').textContent='مفاتيح '+c.name;document.getElementById('ai-settings-key-hint').textContent=(c.keyHint||'API key')+' — تُحفظ في هذا المتصفح فقط، ويمكن التبديل تلقائياً عند 401/429 أو تعطل المزوّد.';
@@ -62,6 +67,14 @@ function aiErrHint(e){ const m=String(e?.message||''), s=Number(e?.status)||0;
   if(s>=500) return 'خادم المزوّد مشغول أو متعطل مؤقتًا — جرّب بعد قليل.';
   if(/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'تعذّر الوصول للمزوّد من هذه الشبكة.';
   return ''; }
+/* 🔄 القائمة المجلوبة من المزوّد (زر «تحديث قائمة الموديلات») — محفوظة على هذا الجهاز */
+function aiLive(p){ try{ const j=JSON.parse(localStorage.getItem('ai_models_live_'+p)||'null'); return j&&Array.isArray(j.models)?j:null; }catch(e){ return null; } }
+/* موديل جديد لا نعرفه: أجيال الاستدلال الحديثة ترفض temperature بخطأ 400، فلا نرسلها لها */
+function aiNoTemp(p,m){ m=String(m||''); const c=READING_AI_PROVIDERS[p]||{};
+  if(Array.isArray(c.reasoningModels)&&c.reasoningModels.includes(m)) return true;
+  if(p==='gemini') return /gemini-([3-9]|\d{2})/.test(m);
+  if(p==='openai'||p==='openrouter') return /(^|\/)(gpt-([5-9]|\d{2})|o\d)|anthropic\/claude-|google\/gemini-([3-9]|\d{2})|deepseek-v([4-9]|\d{2})|deepseek-r/.test(m);
+  return false; }
 function readingAIPickProvider(){ return raiProvider(); }
 function readingAIModels(){ const out={};Object.keys(READING_AI_PROVIDERS).forEach(p=>out[p]=localStorage.getItem('ai_model_'+p)||READING_AI_PROVIDERS[p].defaultModel);return out; }
 function readingAIGetKey(provider){ return raiActiveKey(provider||raiProvider()); }
@@ -86,7 +99,7 @@ async function readingAICall(provider, model, systemText, signal, image, opts){
       const d=await r.json();if(!r.ok){const e=new Error(d.error?.message||('خطأ '+r.status));e.status=r.status;throw e}return d.content?.map(x=>x.text||'').join('')||'';
     }
     const body={model:m,messages:[{role:'system',content:'أخرج JSON صالحاً فقط دون markdown أو شرح.'},{role:'user',content:image?[{type:'image_url',image_url:{url:`data:${image.type};base64,${image.b64}`}},{type:'text',text:systemText}]:systemText}],temperature:temp,max_tokens:Math.min(maxTok,c.maxTokens||maxTok)};
-    const reasoning=Array.isArray(c.reasoningModels)&&c.reasoningModels.includes(m);if(c.tokenParam&&c.tokenParam!=='max_tokens'){body[c.tokenParam]=body.max_tokens;delete body.max_tokens}if(reasoning)delete body.temperature;if(reasoning&&p==='groq'&&/gpt-oss/.test(m))body.reasoning_effort='low';
+    const reasoning=aiNoTemp(p,m);if(c.tokenParam&&c.tokenParam!=='max_tokens'){body[c.tokenParam]=body.max_tokens;delete body.max_tokens}if(reasoning)delete body.temperature;if(reasoning&&p==='groq'&&/gpt-oss/.test(m))body.reasoning_effort='low';
     const r=await fetch(c.baseUrl,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},body:JSON.stringify(body),signal});const d=await r.json();if(!r.ok){const e=new Error(d.error?.message||('خطأ '+r.status));e.status=r.status;throw e}return d.choices?.[0]?.message?.content||'';
   };
   let firstErr;   // خطأ المزوّد المختار نفسه — كان يضيع فيظهر «فشلت جميع المحاولات» أو ينجح الاختبار بمزوّد آخر

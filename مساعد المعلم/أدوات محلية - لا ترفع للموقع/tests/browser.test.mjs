@@ -79,6 +79,20 @@ export default async function run() {
         eq(r.g, 'gemini-3.8-flash'); ok(r.c.includes('claude-sonnet-5-5') && r.c.includes('claude-haiku-5-5'), 'Claude'); eq(r.o, 'gpt-6.1-sol');
         ok(r.opts.some(t => /gemini-3\.8-flash — مجاني/.test(t)) && r.opts.some(t => /gemini-4-argon — .*مدفوع/.test(t)), r.opts.join(' | '));
         ok(r.ret, 'الملغاة'); ok(!r.dup, 'موديل في القائمة وفي الملغاة معًا'); eq(errs, [], 'أخطاء'); });
+      await S.t('🔄 «تحديث قائمة الموديلات»: يجلب موديلات المفتاح من المزوّد، يضيف الجديد ويعلّم غير المتاح، ولا يرسل temperature للأجيال الحديثة', async () => {
+        const gen = ['generateContent'];
+        await p.route(/generativelanguage\.googleapis\.com\/v1beta\/models\?/, r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ models: [
+          { name: 'models/gemini-3.8-flash', supportedGenerationMethods: gen }, { name: 'models/gemini-3.5-flash-lite', supportedGenerationMethods: gen }, { name: 'models/gemini-4-argon', supportedGenerationMethods: gen },
+          { name: 'models/gemini-4.1-flash', supportedGenerationMethods: gen }, { name: 'models/gemini-3.8-flash-tts', supportedGenerationMethods: gen }, { name: 'models/text-embedding-005', supportedGenerationMethods: ['embedContent'] }] }) }));
+        await p.waitForFunction(() => typeof aiModelsSync === 'function' && typeof aiNoTemp === 'function', null, { timeout: 15000 });
+        const r = await p.evaluate(async () => { const keep = {}; ['ai_provider_v1', 'aikeys_gemini', 'ai_models_live_gemini'].forEach(k => keep[k] = localStorage.getItem(k));
+          localStorage.setItem('ai_provider_v1', 'gemini'); localStorage.setItem('aikeys_gemini', JSON.stringify([{ key: 'AIzaTEST0000000000' }])); aiSettingsRender();
+          await aiModelsSync(); const opts = [...document.querySelectorAll('#ai-settings-model option')].map(o => o.textContent), st = document.getElementById('ai-models-sync-st').textContent;
+          Object.entries(keep).forEach(([k, v]) => v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v)); aiSettingsRender();
+          return { opts, st, nt: [aiNoTemp('gemini', 'gemini-4.1-flash'), aiNoTemp('openai', 'gpt-6.2-sol'), aiNoTemp('openrouter', 'anthropic/claude-sonnet-6'), aiNoTemp('groq', 'llama-3.3-70b-versatile')] }; });
+        await p.unroute(/generativelanguage\.googleapis\.com\/v1beta\/models\?/);
+        ok(r.opts.some(t => /^gemini-4\.1-flash/.test(t)), 'الجديد: ' + r.opts.join(' | ')); ok(!r.opts.some(t => /tts|embedding/.test(t)), 'دخل غير النصي');
+        ok(r.opts.some(t => /gemini-3\.1-pro-preview — ⚠️/.test(t)), 'غير المتاح'); ok(/آخر تحديث/.test(r.st), r.st); eq(r.nt, [true, true, true, false]); eq(errs, [], 'أخطاء'); });
       await S.t('⚙️ زر الإعدادات بجانب «تخصيص القائمة» يفتح الإعدادات', async () => {
         ok(await p.evaluate(() => { const r = document.querySelector('#simp-nav .simp-cust-row'); return !!(r && r.querySelector('[data-simp-settings]') && /تخصيص القائمة/.test(r.textContent)); }), 'الزر بجانب التخصيص');
         await p.evaluate(() => document.querySelector('#simp-nav [data-simp-settings]').click()); await p.waitForTimeout(400);

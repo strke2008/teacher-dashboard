@@ -31,6 +31,37 @@ function aiSettingsSavePrefs(){localStorage.setItem('ai_temperature_v1',String(d
 function aiSettingsMsg(t,k){const e=document.getElementById('ai-settings-message');if(e){e.textContent=t;e.style.color=k==='bad'?'var(--pen)':'var(--tick)'}}
 function aiSettingsExportKeys(){const all={type:'ai_keys',ai_keys:{},saved_at:new Date().toISOString()};Object.keys(READING_AI_PROVIDERS).forEach(p=>{const a=raiKeys(p);if(a.length)all.ai_keys[p]=a.map(k=>({key:k.key,label:k.label}))});const b=new Blob([JSON.stringify(all,null,2)],{type:'application/json'}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download='ai_keys_'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(u);aiSettingsMsg('تم تصدير المفاتيح','ok')}
 function aiSettingsImportKeys(ev){const f=ev.target.files?.[0];ev.target.value='';if(!f)return;const r=new FileReader();r.onload=()=>{let added=0;try{const d=JSON.parse(r.result);const src=d.ai_keys||d.keys||{};if(Array.isArray(src)){const p=raiProvider(),a=raiKeys(p);src.forEach(x=>{const key=typeof x==='string'?x:x?.key;if(key&&!a.some(k=>k.key===key)){a.push({key,label:'مفتاح '+(a.length+1),exhausted:false,exhaustedAt:null});added++}});raiSaveKeys(p,a)}else Object.entries(src).forEach(([p,arr])=>{if(!READING_AI_PROVIDERS[p]||!Array.isArray(arr))return;const a=raiKeys(p);arr.forEach(x=>{const key=typeof x==='string'?x:x?.key;if(key&&!a.some(k=>k.key===key)){a.push({key,label:(x?.label)||('مفتاح '+(a.length+1)),exhausted:false,exhaustedAt:null});added++}});raiSaveKeys(p,a)})}catch{(String(r.result)||'').split(/\r?\n/).forEach(key=>{key=key.trim();if(key){const p=raiProvider(),a=raiKeys(p);if(!a.some(k=>k.key===key)){a.push({key,label:'مفتاح '+(a.length+1),exhausted:false,exhaustedAt:null});raiSaveKeys(p,a);added++}}})}aiSettingsRender();aiSettingsMsg('تم استيراد '+added+' مفتاح','ok')};r.readAsText(f)}
+/* 🔄 جلب قائمة الموديلات من المزوّد نفسه بمفتاح المعلم (OpenRouter بلا مفتاح) — بدل تحديثها يدويًا في كل إصدار */
+async function aiModelsFetch(p){
+  const key=raiActiveKey(p); if(p!=='openrouter'&&!key) throw new Error('أضف مفتاحًا لهذا المزوّد أولًا');
+  const get=async(url,headers)=>{ const ac=new AbortController(), t=setTimeout(()=>ac.abort(),20000);
+    try{ const r=await fetch(url,{headers:headers||{},signal:ac.signal}); let j=null; try{ j=await r.json(); }catch(e){}
+      if(!r.ok){ const e=new Error((j&&j.error&&(j.error.message||j.error))||('خطأ '+r.status)); e.status=r.status; throw e; } return j||{}; }
+    finally{ clearTimeout(t); } };
+  const skip=/embed|tts|audio|image|imagen|veo|live|aqa|robotics|computer-use|realtime|transcribe|whisper|moderation|dall-e|search|guard|orpheus|playai|davinci|babbage|instruct|codex/i;
+  let ids=[], models=[];
+  if(p==='gemini'){ let tok='', all=[]; do{ const j=await get('https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000&key='+encodeURIComponent(key)+(tok?'&pageToken='+encodeURIComponent(tok):'')); all=all.concat(j.models||[]); tok=j.nextPageToken||''; }while(tok&&all.length<3000);
+    ids=all.filter(m=>(m.supportedGenerationMethods||[]).includes('generateContent')).map(m=>String(m.name||'').replace(/^models\//,'')).filter(Boolean);
+    models=ids.filter(id=>/gemini/.test(id)&&!skip.test(id)).map(id=>({id})); }
+  else if(p==='claude'){ const j=await get('https://api.anthropic.com/v1/models?limit=100',{'x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'});
+    const d=(j.data||[]).sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||''))); ids=d.map(x=>x.id); models=ids.map(id=>({id})); }
+  else if(p==='openai'||p==='groq'){ const j=await get(p==='openai'?'https://api.openai.com/v1/models':'https://api.groq.com/openai/v1/models',{Authorization:'Bearer '+key});
+    const d=(j.data||[]).filter(x=>x&&x.id&&x.active!==false).sort((a,b)=>(b.created||0)-(a.created||0)); ids=d.map(x=>x.id);
+    models=ids.filter(id=>!skip.test(id)&&(p==='groq'||/^(gpt-|o\d)/.test(id))).map(id=>({id})); }
+  else if(p==='openrouter'){ const j=await get('https://openrouter.ai/api/v1/models'); const d=(j.data||[]).filter(x=>x&&x.id);
+    const free=x=>{ const pr=x.pricing||{}; return Number(pr.prompt)===0&&Number(pr.completion)===0; }; ids=d.map(x=>x.id);
+    const top=/^(anthropic|openai|google|deepseek|qwen|x-ai|meta-llama|mistralai|moonshotai)\//;
+    const pick=d.filter(x=>!skip.test(x.id)&&(free(x)||top.test(x.id))).sort((a,b)=>(free(b)-free(a))||((b.created||0)-(a.created||0)));
+    models=pick.slice(0,60).map(x=>({id:x.id,free:free(x)})); }
+  return { at:Date.now(), ids, models:models.slice(0,60) };
+}
+async function aiModelsSync(btn){ const p=raiProvider(), name=READING_AI_PROVIDERS[p].name, st=document.getElementById('ai-models-sync-st');
+  if(btn) btn.disabled=true; if(st) st.textContent='⏳ جارٍ جلب موديلات '+name+'…';
+  try{ const L=await aiModelsFetch(p); localStorage.setItem('ai_models_live_'+p,JSON.stringify(L)); aiSettingsRender();
+    const c=READING_AI_PROVIDERS[p], add=L.models.filter(x=>!c.models.includes(x.id)).length, gone=c.models.filter(m=>L.ids.length&&!L.ids.includes(m)).length;
+    toast('✓ '+name+': '+(add?add+' موديل إضافي في القائمة':'لا موديلات جديدة')+(gone?' · '+gone+' غير متاح لمفتاحك':''),'good'); }
+  catch(e){ const h=(typeof aiErrHint==='function')?aiErrHint(e):''; if(st) st.textContent='❌ تعذّر الجلب: '+(e?.message||'خطأ')+(h?' — '+h:''); }
+  finally{ if(btn) btn.disabled=false; } }
 async function aiSettingsTest(){const p=raiProvider(),k=raiActiveKey(p);if(!k){aiSettingsMsg('⚠️ لا يوجد مفتاح نشط لهذا المزوّد.','bad');return}const m=localStorage.getItem('ai_model_'+p)||READING_AI_PROVIDERS[p].defaultModel;aiSettingsMsg('⏳ جارٍ اختبار الاتصال…');try{const raw=await readingAICall(p,m,'أجب بكلمة واحدة فقط: جاهز',new AbortController().signal,null,{noFallback:true});aiSettingsMsg('✅ الاتصال ناجح مع '+READING_AI_PROVIDERS[p].name+' ('+m+').','ok')}catch(e){const h=(typeof aiErrHint==='function')?aiErrHint(e):'';aiSettingsMsg('❌ فشل '+READING_AI_PROVIDERS[p].name+' ('+m+')'+(e?.status?' — '+e.status:'')+': '+(e?.message||'خطأ غير معروف')+(h?' — 💡 '+h:''),'bad')}}
 
 function readingAICustomRules(rules){
