@@ -234,6 +234,48 @@ const ASST_TOOLS = {
       return { action: 'rem', title, date, hm }; } },
   shortcut: { act: 1, d: 'حفظ اختصار: اسم قصير يشغّل أمرًا كاملًا متعدد الخطوات عند كتابته (أو حذفه إن كان command فارغًا). args: {name:"بداية الحصة", command:"الأمر كاملًا كما يكتبه المعلم"}', src: () => '⚡ اختصار',
     async run(a) { const name = String(a.name || '').trim().slice(0, 40), command = String(a.command || '').trim().slice(0, 400); if (!name) return { error: 'سمِّ الاختصار' }; return { action: 'shortcut', name, command, had: !!asstShortcuts()[name] }; } },
+  /* ── 🆕 الدفعة الرابعة: الجدول · المهام · الخطط · الشهادات · التذكيرات · مهام اليوم · أسئلة نشاط · الحوائط · قائمة فصل ── */
+  schedule: { d: 'جدول حصص المعلم ليوم: الحصص وأوقاتها وفصل كل حصة. args: {day?:"اليوم"|"بكرة"|"الأحد"…|"YYYY-MM-DD"}', src: a => '🗓️ الجدول — ' + (a.day || 'اليوم'),
+    async run(a) { const D = await asstClassroom(), sc = D.schedule || {}, date = asstDue(a.day || 'اليوم') || asstToday(), dow = new Date(date + 'T12:00:00Z').getUTCDay();
+      const T = typeof tdTimes === 'function' ? tdTimes(sc) : [], g = (sc.grid || {})[String(dow)] || {};
+      const L = T.map(t => ({ period: t.n, from: t.s, to: t.e, cls: String(g[String(t.n)] || '').trim() || 'فراغ' }));
+      return { date, day: ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'][dow], periods: L.filter(x => x.cls !== 'فراغ').length ? L : [], note: Object.keys(g).length ? '' : 'لا حصص مسجلة لهذا اليوم في الجدول' }; } },
+  duties: { d: 'مهام الطلاب ومسؤولياتهم الحالية (مسؤول رصد الواجبات…). args: {cls?}', src: () => '🎖️ مهام الطلاب',
+    async run(a) { const D = await asstClassroom(), cls = asstCls(a.cls), byId = new Map(asstStudents().map(s => [String(s.id), s]));
+      return { duties: (Array.isArray(D.roles) ? D.roles : []).filter(r => r && r.active && (!cls || r.cls === cls)).map(r => ({ title: r.title, cls: r.cls || '', student: (byId.get(String(r.studentId)) || {}).name || '—' })) }; } },
+  plans: { d: 'الخطط العلاجية المفتوحة (لمن، والمهارة أو السبب، وموعد الانتهاء). args: {student?, cls?}', src: () => '🩺 الخطط العلاجية',
+    async run(a) { const G = await asstGrades(), P = ((typeof PLAN_DATA !== 'undefined' && PLAN_DATA && PLAN_DATA.plans) || (G && G.plans) || []), byId = new Map(asstStudents().map(s => [String(s.id), s])), cls = asstCls(a.cls);
+      const one = a.student ? asstFindStudent(a.student)[0] : null;
+      const L = P.filter(p => p && p.status !== 'done').map(p => { const mem = p.group ? (p.members || []).map(m => byId.get(String(m.studentId))).filter(Boolean) : [byId.get(String(p.studentId))].filter(Boolean);
+        return { who: mem.map(s => s.name), cls: [...new Set(mem.map(s => s.cls || ''))].join('، '), about: String(p.skill || p.reason || p.title || '').slice(0, 80), due: p.dueDate || '', _ids: mem.map(s => String(s.id)) }; })
+        .filter(x => (!one || x._ids.includes(String(one.id))) && (!cls || x.cls.includes(cls)));
+      return { open: L.length, plans: L.slice(0, 25), note: P.length ? '' : 'افتح صفحة «الخطط العلاجية» مرة لتُحمَّل الخطط' }; } },
+  certificates_list: { d: 'الشهادات الصادرة (لمن ولماذا ومتى). args: {student?, days?}', src: () => '🏅 الشهادات',
+    async run(a) { const D = await asstClassroom(), byId = new Map(asstStudents().map(s => [String(s.id), s])), one = a.student ? asstFindStudent(a.student)[0] : null, from = a.days ? new Date(Date.now() + 3 * 3600e3 - Number(a.days) * 864e5).toISOString().slice(0, 10) : '';
+      const L = (Array.isArray(D.certificates) ? D.certificates : []).filter(c => c && (!one || String(c.studentId) === String(one.id)) && (!from || String(c.date || '') >= from));
+      return { total: L.length, certificates: L.slice(0, 30).map(c => ({ name: (byId.get(String(c.studentId)) || {}).name || '—', reason: c.reason || '', date: c.date || '' })) }; } },
+  reminders_list: { d: 'تذكيرات المعلم المحفوظة (اليوم أو كلها). args: {today?:true}', src: () => '⏰ تذكيراتي',
+    async run(a) { const D = await asstClassroom(), R = Array.isArray(D.reminders) ? D.reminders : [];
+      if (a.today && typeof tdRemToday === 'function') return { today: tdRemToday().map(x => ({ title: typeof tdRemTitle === 'function' ? tdRemTitle(x.r) : x.r.title, at: x.hm, done: !!x.done })) };
+      return { reminders: R.filter(r => r && !r.paused).map(r => ({ title: r.title || (r.kind === 'duty' ? 'تذكير مسؤول الواجبات' : 'تذكير'), when: r.repeat === 'once' ? r.date : 'أسبوعي', at: (r.at || {}).hm || (r.at && r.at.t === 'period' ? 'الحصة ' + r.at.p : r.at && r.at.cls ? 'حصة ' + r.at.cls : '') })) }; } },
+  today_tasks: { d: 'مهام اليوم والتنبيهات كما في صفحة «اليوم» (رسائل أولياء أمور مقترحة، أنشطة انتهى موعدها، تذكيرات…). args: {}', src: () => '📌 مهام اليوم',
+    async run() { let L = []; try { L = typeof tdTasks === 'function' ? tdTasks() : []; } catch (e) {} return { tasks: L.slice(0, 25).map(x => String(x.t || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()).filter(Boolean) }; } },
+  activity_questions: { d: 'تحليل أسئلة نشاط إلكتروني: نسبة الإجابة الصحيحة لكل سؤال والأصعب أولًا. args: {activity, n?}', src: a => '📊 أسئلة «' + (a._title || a.activity || '') + '»',
+    async run(a) { const m = asstFindAct(a.activity); if (m.length !== 1) return { error: m.length ? 'أكثر من نشاط يطابق' : 'لم أجد النشاط', matches: m.slice(0, 8).map(h => h.title) };
+      const h = m[0], qs = h.qs || [], ok = qs.map(() => 0), tot = qs.map(() => 0); a._title = h.title;
+      Object.values(h.subs || {}).forEach(v => { const d = String(v && v.d || ''); if (d.length !== qs.length) return; for (let i = 0; i < qs.length; i++) { tot[i]++; if (d[i] === '1') ok[i]++; } });
+      const L = qs.map((q, i) => ({ no: i + 1, q: String(q.q || q.w || 'مهمة').slice(0, 90), answered: tot[i], correct_pct: tot[i] ? Math.round(ok[i] / tot[i] * 100) : null })).filter(x => x.answered).sort((x, y) => x.correct_pct - y.correct_pct);
+      return { title: h.title, questions: qs.length, hardest_first: L.slice(0, Math.max(3, Math.min(30, Number(a.n) || 8))), note: L.length ? '' : 'لا توجد تفاصيل إجابات محفوظة لهذا النشاط' }; } },
+  walls_pending: { d: 'منشورات حوائط الإبداع التي تنتظر اعتماد المعلم. args: {}', src: () => '🧱 الحوائط',
+    async run() { const W = typeof TD_WALLS !== 'undefined' && Array.isArray(TD_WALLS) ? TD_WALLS : null; if (!W) return { note: 'افتح «حائط الإبداع» مرة لتُحمَّل' }; return { walls: W.map(w => ({ title: w.title, pending: w.pending })) }; } },
+  class_list: { d: 'قائمة طلاب فصل وعددهم، أو عدد الطلاب في كل الفصول. args: {cls?}', src: a => '👥 ' + (a.cls || 'الفصول'),
+    async run(a) { const cls = asstCls(a.cls); if (a.cls && !cls) return { error: 'لم أجد الفصل', classes: asstClsList() };
+      if (!cls) return { classes: asstClsList().map(c => ({ cls: c, students: asstStudents().filter(s => String(s.cls || '') === c).length })), total: asstStudents().length };
+      const L = asstStudents().filter(s => String(s.cls || '') === cls).map(s => s.name).sort((x, y) => x.localeCompare(y, 'ar')); return { cls, count: L.length, students: L }; } },
+  reminder_done: { act: 1, d: 'تعليم تذكير من تذكيرات اليوم «تم» (بتأكيد). args: {title:"جزء من نص التذكير"}', src: () => '⏰ تجهيز «تم»',
+    async run(a) { await asstClassroom(); const T = typeof tdRemToday === 'function' ? tdRemToday() : [], t = asstTok(a.title || ''), m = T.filter(x => !x.done && t.length && t.every(w => asstTok(typeof tdRemTitle === 'function' ? tdRemTitle(x.r) : x.r.title || '').some(y => y.includes(w))));
+      if (m.length !== 1) return { error: m.length ? 'أكثر من تذكير يطابق' : 'لم أجد تذكيرًا مفتوحًا اليوم بهذا النص', today: T.filter(x => !x.done).map(x => typeof tdRemTitle === 'function' ? tdRemTitle(x.r) : x.r.title) };
+      return { action: 'remdone', title: typeof tdRemTitle === 'function' ? tdRemTitle(m[0].r) : m[0].r.title, at: m[0].hm, _rid: m[0].r.id }; } },
   open_page: { act: 1, get d() { return 'فتح صفحة في اللوحة أو طباعة كشف. page واحد من هذه بالضبط (ولا تختر الأقرب إن لم يطابق — اترك page فارغًا وضع اسم الصفحة كما قاله المعلم في query): ' + Object.entries(ASST_PAGES).map(([k, P]) => k + '=' + P[1].replace(/^\S+\s/, '')).join('، ') + '. student وreport يحتاجان student؛ activity يحتاج activity؛ exams يقبل sem/per/cls؛ grades يقبل cls وprint:true للطباعة. args: {page, query?, student?, activity?, cls?, sem?, per?, print?}'; }, src: () => '🧭 تنقّل',
     async run(a) { let pg = String(a.page || '').trim(); if (!ASST_PAGES[pg] || a.query) { const m = asstPageMatch(a.query || a.page); if (m) pg = m; else if (!ASST_PAGES[pg]) pg = ''; }
       const P = ASST_PAGES[pg]; if (!P) return { error: 'ما لقيت صفحة بهذا الاسم: «' + (a.query || a.page || '') + '»', pages: Object.values(ASST_PAGES).filter(x => x[2]).map(x => x[1]) };
@@ -371,13 +413,13 @@ function asstRenderFast(r) {
 function asstMd(s) {   // تنسيق بسيط آمن: **عريض** · أسطر · قوائم
   return asstEsc(String(s || '')).replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>').replace(/^\s*[-•]\s+/gm, '• ').replace(/\n/g, '<br>');
 }
-async function asstAsk(q) {
-  q = String(q || '').trim(); if (!q || ASST.busy) return; asstSpeakStop(); asstAudioUnlock();
+async function asstAsk(q, opt) {   // opt.live: من المحادثة الحية — بلا فقاعة سؤال مكررة وبلا قراءة صوتية (Gemini يتكلم)
+  opt = opt || {}; q = String(q || '').trim(); if (!q || ASST.busy) return; if (!opt.live) { asstSpeakStop(); asstAudioUnlock(); }
   if (/^طريقة (المايك|الميكروفون)$/.test(q)) { let o = ''; try { o = localStorage.getItem('asst_stt') === 'on' ? '' : 'on'; if (o) localStorage.setItem('asst_stt', 'on'); else localStorage.removeItem('asst_stt'); } catch (e) {} asstMicStop();
     ASST.msgs.push({ me: 1, html: asstEsc(q) }, { html: o ? (asstSttProv() ? '🎙️ الطريقة الآن: <b>تسجيل ثم تفريغ</b> بمفتاح ' + asstEsc(asstSttProv()) + ' — اكتب «طريقة المايك» للرجوع' : '⚠️ تحتاج مفتاح Groq أو OpenAI أو Gemini لهذه الطريقة') : '🎤 الطريقة الآن: <b>مثل الرصد بالصوت</b> (استماع مستمر حتى الإيقاف)', src: [] }); asstPaint(); return; }
   if (/^(سجل|سجلّ) (المايك|الميكروفون)$/.test(q)) { ASST.msgs.push({ me: 1, html: asstEsc(q) }, { html: '<b>🩺 أحداث الميكروفون</b><br>' + (window.HWV ? `iPhone: ${HWV.ios ? 'نعم' : 'لا'} · الطريقة: ${asstUseStt() ? 'تسجيل + تفريغ (' + asstSttProv() + ')' : 'مثل الرصد (استماع مستمر)'} · الجلسة: ${HWV.active ? 'مفتوحة' : 'مقفلة'}<br>` : '') + (ASST_MLOG.map(asstEsc).join('<br>') || 'لا أحداث بعد'), src: [] }); asstPaint(); return; }
   { const S = asstShortcuts(), k = Object.keys(S).find(n => asstTok(n).join(' ') === asstTok(q.replace(/[؟?.!]+$/, '')).join(' ')); if (k) { ASST.msgs.push({ me: 1, html: '⚡ ' + asstEsc(k) }); q = S[k]; } }
-  ASST.busy = true; ASST.msgs.push({ me: 1, html: asstEsc(q) }); const bot = { html: '<i class="asst-dots"><b></b><b></b><b></b></i>', src: [] }; ASST.msgs.push(bot); asstPaint();
+  ASST.busy = true; if (!opt.live) ASST.msgs.push({ me: 1, html: asstEsc(q) }); const bot = { html: '<i class="asst-dots"><b></b><b></b><b></b></i>', src: [] }; ASST.msgs.push(bot); asstPaint();
   try {
     const fast = asstFast(q);
     if (fast) { const r = await ASST_TOOLS[fast.tool].run(fast.args); bot.src = [ASST_TOOLS[fast.tool].src(fast.args), '⚡ فوري بلا ذكاء'];
@@ -416,7 +458,7 @@ ${draft ? 'واكتب في draft رسالة مهذبة قصيرة لولي أم�
     if (draft) draft.text = String(ans.draft || draft.text || '');
     bot.text = String(ans.answer || ''); bot.html = asstMd(bot.text || (draft ? 'هذه المسودة — عدّلها كما تشاء:' : 'لم يصل جواب — جرّب مرة أخرى')); bot.src.push(asstUsed());
   } catch (e) { bot.html = '⚠️ ' + asstEsc(e && e.message || 'تعذّر'); bot.err = 1; }
-  finally { ASST.busy = false; bot.src = bot.src.filter(Boolean); asstPaint(); if (bot._auto) { delete bot._auto; setTimeout(() => asstAct(ASST.msgs.indexOf(bot), 0, 'do'), 600); } else if (!bot.err && ASST_MIC && !(window.HWV && HWV.ios) && asstTtsOn()) { const c = ASST_MIC; c.owner.on = false; asstSpeak(bot.text || bot.html).then(() => { if (ASST_MIC === c) HWV.go(c.owner); }); }
+  finally { ASST.busy = false; bot.src = bot.src.filter(Boolean); if (opt.live) { bot.src.push('🎙️ من المحادثة الحية'); asstPaint(); return; } asstPaint(); if (bot._auto) { delete bot._auto; setTimeout(() => asstAct(ASST.msgs.indexOf(bot), 0, 'do'), 600); } else if (!bot.err && ASST_MIC && !(window.HWV && HWV.ios) && asstTtsOn()) { const c = ASST_MIC; c.owner.on = false; asstSpeak(bot.text || bot.html).then(() => { if (ASST_MIC === c) HWV.go(c.owner); }); }
     else if (!bot.err) asstSpeak(bot.text || bot.html).then(asstConvNext, asstConvNext); else asstConvNext();
     if (ASST.queue) { const q2 = ASST.queue; ASST.queue = ''; setTimeout(() => asstAsk(q2), 50); } asstLive(); }
 }
@@ -424,7 +466,7 @@ function asstUsed() { try { const j = JSON.parse(localStorage.getItem('ai_last_u
 
 /* ── بطاقات التأكيد: لا شيء يُكتب قبل «نفّذ» — والرصد يمر بطابور الرصد السريع نفسه (يحفظ بلا إنترنت ويُزامَن) ── */
 const asstDay = d => !d ? '' : /^\d{4}-\d{2}-\d{2}$/.test(d) ? (d === asstToday() ? 'اليوم' : (typeof fmtExamDate === 'function' ? fmtExamDate(d) : d)) : String(d);
-const ASST_ACTS = ['record', 'behavior', 'remind', 'draft', 'exam', 'activity', 'nav', 'points', 'grade', 'msg', 'test', 'cert', 'due', 'retry', 'reply', 'drafts', 'rem', 'shortcut'];
+const ASST_ACTS = ['record', 'behavior', 'remind', 'draft', 'exam', 'activity', 'nav', 'points', 'grade', 'msg', 'test', 'cert', 'due', 'retry', 'reply', 'drafts', 'rem', 'shortcut', 'remdone'];
 /* درجات الاختبار: تُكتب في دفتر الفترة نفسه ثم لقطة الدفتر إلى الطابور (مثل «رصد الاختبارات» تمامًا) — والوقت الأحدث يفوز في الدمج */
 function asstExamWrite(c, f) {
   const b = typeof ctBook === 'function' ? ctBook(CT_DATA || (CT_DATA = {}), c.sem, c.per) : null; if (!b) return; const now = Date.now();
@@ -514,6 +556,7 @@ function asstCardHTML(c, i, j) {
     + c.items.map((x, n) => `<div class="asst-pd"><b>${asstEsc(x.name)}</b><small>${asstEsc(x.cls)} · ${x.n}</small><textarea class="asst-draft" rows="4" oninput="ASST.msgs[${i}].cards[${j}].items[${n}].text=this.value">${asstEsc(x.text)}</textarea><button type="button" class="btn sm tick" onclick="asstAct(${i},${j},'wa:${n}')">💬 واتساب${x.sent ? ' ✓' : ''}</button></div>`).join('');
   else if (c.action === 'rem') h += `<b>⏰ ذكّرني: «${asstEsc(c.title)}»</b><div class="asst-meta">${asstEsc(asstDay(c.date))} · الساعة <bdi>${asstEsc(c.hm)}</bdi> — يظهر في «مهام اليوم»</div>`
     + (c.state === 'ask' ? btn('do', '✓ أضف التذكير', 'tick') + btn('no', 'إلغاء') : done ? `<span class="asst-ok">✓ أُضيف</span>${btn('undo', '↩ تراجع')}` : `<span class="asst-off">${c.state === 'undone' ? '↩ حُذف' : 'أُلغي'}</span>`);
+  else if (c.action === 'remdone') h += `<b>⏰ «${asstEsc(c.title)}» (${asstEsc(c.at || '')}) ← ✓ تمّ</b>` + (c.state === 'ask' ? btn('do', '✓ علّمه تمّ', 'tick') + btn('no', 'إلغاء') : done ? '<span class="asst-ok">✓ تمّ</span>' : '<span class="asst-off">أُلغي</span>');
   else if (c.action === 'shortcut') h += c.command ? `<b>⚡ اختصار «${asstEsc(c.name)}»${c.had ? ' (يستبدل القديم)' : ''}</b><div class="asst-msgprev">${asstEsc(c.command)}</div><div class="asst-meta">اكتب «${asstEsc(c.name)}» أو اضغطه من الأزرار السريعة فيُنفَّذ هذا الأمر</div>`
       + (c.state === 'ask' ? btn('do', '✓ احفظ', 'tick') + btn('no', 'إلغاء') : done ? '<span class="asst-ok">✓ حُفظ</span>' : '<span class="asst-off">أُلغي</span>')
     : `<b>⚡ حذف الاختصار «${asstEsc(c.name)}»</b>` + (c.state === 'ask' ? btn('do', '🗑️ احذف', 'tick') + btn('no', 'إلغاء') : done ? '<span class="asst-ok">✓ حُذف</span>' : '<span class="asst-off">أُلغي</span>');
@@ -551,6 +594,7 @@ function asstAct(i, j, k) {
   else if (c.action === 'rem' && k === 'do' && c.state === 'ask') { const D = CT_DATA || (CT_DATA = {}); D.reminders = Array.isArray(D.reminders) ? D.reminders : []; c._rid = 'r' + Date.now().toString(36);
     D.reminders.push({ id: c._rid, kind: '', title: c.title, repeat: 'once', days: [], date: c.date, at: { t: 'time', hm: c.hm }, lead: 0 }); qrDo({ k: 'rem', v: JSON.parse(JSON.stringify(D.reminders)) }); try { thDraw(); } catch (e) {} c.state = 'done'; toast('⏰ أُضيف التذكير', 'good'); }
   else if (c.action === 'rem' && k === 'undo' && c.state === 'done') { const D = CT_DATA || {}; D.reminders = (D.reminders || []).filter(x => x && x.id !== c._rid); qrDo({ k: 'rem', v: JSON.parse(JSON.stringify(D.reminders)) }); try { thDraw(); } catch (e) {} c.state = 'undone'; }
+  else if (c.action === 'remdone' && k === 'do' && c.state === 'ask') { c.state = 'done'; try { tdRemDone(c._rid); } catch (e) {} }
   else if (c.action === 'shortcut' && k === 'do' && c.state === 'ask') { const S = asstShortcuts(); if (c.command) S[c.name] = c.command; else delete S[c.name]; try { localStorage.setItem('asst_sc_v1', JSON.stringify(S)); } catch (e) {} c.state = 'done'; asstSuggPaint(); }
   else if (c.action === 'draft' && k === 'copy') { try { navigator.clipboard.writeText(c.text || '').then(() => toast('📋 نُسخت الرسالة', 'good')); } catch (e) {} return; }
   else if (c.action === 'draft' && k === 'wa') { const u = typeof parWaUrl === 'function' && c._id ? parWaUrl(c._id, c.text || '') : 'https://wa.me/?text=' + encodeURIComponent(c.text || ''); window.open(u, '_blank', 'noopener'); return; }
@@ -741,7 +785,7 @@ async function asstBriefDot() {   // نقطة على ✨ مرة في اليوم 
 setTimeout(() => { asstBriefDot().catch(() => {}); }, 9000);
 
 /* ── الواجهة ── */
-const ASST_SUGG = ['☀️ ملخص اليوم', 'مين الغايب اليوم؟', 'مين أعلى درجة في آخر نشاط؟', 'مين ما سلّم آخر نشاط؟', 'أضعف ٥ طلاب في الفترة', 'أضعف المهارات في فصولي', 'متوسط آخر اختبار', 'أكثر الطلاب غيابًا هذا الشهر'];
+const ASST_SUGG = ['☀️ ملخص اليوم', 'وش جدولي اليوم؟', 'مين الغايب اليوم؟', 'مين أعلى درجة في آخر نشاط؟', 'مين ما سلّم آخر نشاط؟', 'أضعف ٥ طلاب في الفترة', 'أضعف المهارات في فصولي', 'متوسط آخر اختبار', 'أكثر الطلاب غيابًا هذا الشهر'];
 function asstPaint() {
   const box = document.getElementById('asst-msgs'); if (!box) return;
   box.innerHTML = ASST.msgs.length ? ASST.msgs.map(m => m.me ? `<div class="asst-me">${m.html}</div>`

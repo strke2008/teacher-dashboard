@@ -352,6 +352,29 @@ export default async function run() {
         ok(r.audio >= 3, 'صوت الميكروفون: ' + r.audio); eq(r.mime, 'audio/pcm;rate=16000', 'صيغة الصوت'); ok(r.tools.includes('attendance_day') && r.tools.includes('record_attendance') && r.tools.includes('adjust_points') && r.hasAct, 'كل الأدوات'); ok(r.sys, 'تعليمات البطاقات'); eq(r.scoresSchema, 'OBJECT', 'مخطط الدرجات');
         eq(r.resp, [['c1', false], ['c2', false]], 'الرد على الأدوات'); eq(r.card, ['record', 'ask', true], 'بطاقة التأكيد من المحادثة الحية'); ok(r.latin, 'النسخ اللاتيني'); ok(r.noIds, 'وصل معرّف طالب'); eq(r.speaking, 'speak', 'تشغيل الصوت'); eq(r.local, { madrasati: true, panel: false, live: true }, '«افتح مدرستي» بالكلام يُفتح محليًا ولو لم يستدعِ Gemini الأداة'); eq(r.nav, { tab: 'schedule', ct: true, panel: false, live: true, pulse: true, opened: true, cards: 0 }, 'فتح صفحة من المحادثة الحية فورًا والمحادثة مستمرة'); eq(r.duringSpeak, 0, 'أرسل الميكروفون وهو يتكلم (صدى)'); eq(r.afterCut, [0, 'listen'], '✋ قاطعه'); ok(r.resumed >= 2, 'عاد الميكروفون بعد المقاطعة: ' + r.resumed);
         eq(r.msgs, ['M:مين الغايب اليوم؟', 'B:ما فيه غياب اليوم.'], 'نص المحادثة'); eq(r.after, [false, false, 3], 'الإنهاء'); ok(r.second.newCtx && r.second.audio >= 3, 'الجلسة الثانية: ' + JSON.stringify(r.second)); eq(r.sil, { gums: 2, retried: true, off: true }, 'صمت تام ← إعادة مرة ثم إيقاف'); eq(errs, [], 'أخطاء'); });
+      await S.t('🧪 مساعدي — فحص شامل: كل أداة تعمل بلا أخطاء، كل أمر له بطاقة ترسم، كل أداة معرَّفة للمحادثة الحية بمخطط صحيح، والأمر الكلامي بلا أداة يمر بمساعدي العادي', async () => {
+        const r = await p.evaluate(async () => { if (!CT_DATA) { try { await ctLoad(); } catch (e) {} } const s0 = STUDENTS[0], cls = s0.cls, rc = window.readingAICall;
+          window.readingAICall = async () => JSON.stringify({ questions: [{ t: 'tf', q: 'س', a: true }] });
+          const H = { id: 'hwAUD', sid: 'pubAUD', title: 'نشاط الفحص الشامل', due: '2026-12-01', max: 10, qs: [{ t: 'tf', q: 'س١', a: true }, { t: 'tf', q: 'س٢', a: false }], subs: { [s0.id]: { correct: 1, total: 2, d: '10' } }, published: true, at: Date.now() }; HW.push(H);
+          const A = { student: s0.name, students: [s0.name], cls, activity: 'الفحص الشامل', test: 'آخر', day: 'اليوم', topic: 'الخلية', status: 'غائب', type: 'positive', note: 'تميز', delta: 2, scores: [{ student: s0.name, score: 5 }],
+            title: 'تذكير فحص', body: 'نص', to: 'students', due: 'بكرة', page: 'home', name: 'اختصار فحص', command: 'مين الغايب اليوم؟', reply: 'تمام', max: 10, reason: 'absence', classes: asstClsList(), date: 'بكرة', time: '10:00', by: 'total' };
+          const bad = [], cards = [], acts = new Set();
+          for (const [k, t] of Object.entries(ASST_TOOLS)) { let res; try { res = await t.run({ ...A }); } catch (e) { bad.push(k + ': ' + e.message); continue; }
+            if (!res || typeof res !== 'object') { bad.push(k + ': لا نتيجة'); continue; }
+            try { t.src({ ...A }); } catch (e) { bad.push(k + ' src: ' + e.message); }
+            if (t.act && res.action) { acts.add(res.action); if (!ASST_ACTS.includes(res.action)) bad.push(k + ': action خارج القائمة ' + res.action);
+              const h = asstCardHTML({ ...res, state: 'ask' }, 0, 0); if (!/asst-card/.test(h) || h.replace(/<[^>]+>/g, '').trim().length < 3) cards.push(k); } }
+          HW.splice(HW.indexOf(H), 1); window.readingAICall = rc;
+          const decl = liveTools(), types = new Set(['STRING', 'NUMBER', 'BOOLEAN', 'ARRAY', 'OBJECT']), dbad = [];
+          decl.forEach(f => { if (!f.name || !f.description) dbad.push(f.name); Object.entries((f.parameters || {}).properties || {}).forEach(([n, v]) => { if (!types.has(v.type) || (v.type === 'ARRAY' && !v.items)) dbad.push(f.name + '.' + n); }); });
+          const sent = [], ask = window.asstAsk; window.asstAsk = (q, o) => sent.push([q, !!(o && o.live)]); const on = LIVE.on; LIVE.on = true;
+          LIVE.said = 'سجّل ' + s0.name + ' غايب'; LIVE.acted = false; LIVE.navd = false; liveLocalAct();
+          LIVE.said = 'مين الغايب اليوم؟'; LIVE.acted = false; liveLocalAct(); LIVE.said = 'زيد ' + s0.name + ' خمس نقاط'; LIVE.acted = true; liveLocalAct();
+          LIVE.on = on; LIVE.said = ''; window.asstAsk = ask;
+          return { bad, cards, dbad, n: [decl.length, Object.keys(ASST_TOOLS).length], acts: [...acts].sort(), sent }; });
+        eq(r.bad, [], 'أدوات فيها خطأ'); eq(r.cards, [], 'بطاقات لا ترسم'); eq(r.dbad, [], 'تعريفات المحادثة الحية'); eq(r.n[0], r.n[1], 'كل الأدوات في المحادثة الحية');
+        ok(r.acts.length >= 15, 'الأوامر المجرَّبة: ' + r.acts.join(','));
+        eq(r.sent.length, 1, 'الأمر بلا أداة يمر بمساعدي مرة واحدة فقط (لا للأسئلة ولا إن استُدعيت الأداة)'); eq(r.sent[0][1], true, 'بلا فقاعة مكررة ولا صوت'); eq(errs, [], 'أخطاء'); });
       await S.t('🎤 مساعدي: الميكروفون مثل «الرصد بالصوت» — ضغطة تفتح الاستماع ويبقى مفتوحًا، كل جملة تُرسل بعد سكوت قصير بلا كتم بينها، وضغطة ثانية توقف؛ وعلى iPhone لا يُلمس الصوت والاستماع مفتوح', async () => {
         const r = await p.evaluate(async () => { const go = HWV.go, mute = HWV.mute, ask = asstAsk; let owner = null, gos = 0, mutes = 0; const sent = [];
           HWV.go = o => { gos++; owner = o; o.on = true; return true; }; HWV.mute = o => { mutes++; if (o) o.on = false; }; window.asstAsk = q => { sent.push(q); };
