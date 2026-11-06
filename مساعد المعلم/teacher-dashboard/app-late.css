@@ -2969,3 +2969,13 @@ body.asst-open #ai-use{display:none}   /* المساعد يذكر المزوّد
 .asst-brief button{appearance:none;border:1px solid var(--rule,#C9D6E6);background:var(--ui-surface,#fff);border-radius:999px;font:inherit;font-size:.72rem;font-weight:700;padding:1px 8px;cursor:pointer;color:var(--ink,#16233A)}
 .asst-btn{position:relative}
 .asst-btn.has-brief::after{content:attr(data-brief);position:absolute;top:-6px;inset-inline-end:-6px;min-width:18px;height:18px;border-radius:9px;background:#EF4444;color:#fff;font-size:.68rem;font-weight:800;display:grid;place-items:center;padding:0 4px;box-shadow:0 0 0 2px #fff}
+
+/* ⚙️ مفتاح صوت ElevenLabs لمساعدي */
+.asst-el-row{margin-top:.8rem;border:1px solid var(--rule);border-radius:14px;padding:.7rem .8rem;display:flex;flex-direction:column;gap:.35rem}
+.asst-el-tg{display:flex;align-items:center;gap:.6rem;cursor:pointer;font-size:.9rem}
+.asst-el-tg input{position:absolute;opacity:0;width:1px;height:1px}
+.asst-el-sw{flex:0 0 auto;width:40px;height:22px;border-radius:999px;background:#C6D0DC;position:relative;transition:background .15s}
+.asst-el-sw::after{content:'';position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:right .15s}
+.asst-el-tg input:checked+.asst-el-sw{background:#0F9D74}.asst-el-tg input:checked+.asst-el-sw::after{right:20px}
+.asst-el-tg input:focus-visible+.asst-el-sw{outline:2px solid #0F9D74;outline-offset:2px}
+.asst-el-row small{font-size:.78rem;line-height:1.7}

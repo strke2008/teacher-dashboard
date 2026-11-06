@@ -193,6 +193,11 @@ export default async function run() {
           window.__mode404 && window.__mode404(); return { el, d1, k }; });
         mode = 404; const r2 = await p.evaluate(async () => { let dev = 0; speechSynthesis.speak = u => { dev++; }; ASST_EL = null; await asstSpeak('مرحبا يا معلم'); const out = { el: ASST_EL, dev };
           speechSynthesis.cancel(); return out; });
+        mode = 200; const n0 = urls.length;
+        const r3 = await p.evaluate(async () => { const c = document.getElementById('asst-el-tg'); const vis = !!c; if (c) { c.checked = false; c.dispatchEvent(new Event('change')); }
+          let dev = 0; speechSynthesis.speak = u => { dev++; }; await asstSpeak('مرحبا يا معلم'); const off = localStorage.getItem('asst_el_off');
+          if (c) { c.checked = true; c.dispatchEvent(new Event('change')); } speechSynthesis.cancel(); return { vis, dev, off }; });
+        eq([r3.vis, r3.dev, r3.off, urls.length - n0], [true, 1, '1', 0], 'المفتاح المقفول: صوت الجهاز بلا طلب للخادم');
         await p.evaluate(k => { if (k == null) localStorage.removeItem('asst_tts'); else localStorage.setItem('asst_tts', k); }, r.k);
         await p.unroute(/workers\.dev\/tts\?/);
         ok(urls.length >= 1 && /k=asst/.test(urls[0]) && decodeURIComponent(urls[0]).includes('غاب اليوم طالبان'), urls[0]); eq([r.el, r.d1], [true, 0], 'ElevenLabs'); eq([r2.el, r2.dev], [false, 1], 'صوت الجهاز'); eq(errs, [], 'أخطاء'); });

@@ -222,6 +222,12 @@ const ASST_SILENT = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AA
 function asstAudioUnlock() {   // يُستدعى من ضغطة المعلم: iPhone لا يشغّل صوتًا يبدأ بعد انتظار الجواب إلا إن «فُتح» العنصر بلمسة
   if (!asstTtsOn()) return; try { if (!ASST_AUDIO) ASST_AUDIO = new Audio(); ASST_AUDIO.src = ASST_SILENT; ASST_AUDIO.play().catch(() => {}); } catch (e) {}
 }
+/* ⚙️ مفتاح «صوت ElevenLabs» في إعدادات الذكاء الاصطناعي — مقفول = صوت الجهاز دائمًا */
+const asstElOn = () => { try { return localStorage.getItem('asst_el_off') !== '1'; } catch (e) { return true; } };
+function asstElSet(on) { try { if (on) localStorage.removeItem('asst_el_off'); else localStorage.setItem('asst_el_off', '1'); } catch (e) {} ASST_EL = null; asstSpeakStop();
+  try { toast(on ? '🔊 مساعدي يقرأ بصوت ElevenLabs' : '🔊 مساعدي يقرأ بصوت جهازك', 'good'); } catch (e) {} }
+(function asstElInit() { const go = () => { const c = document.getElementById('asst-el-tg'); if (c) c.checked = asstElOn(); };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go(); })();
 function asstSpeakStop() { ASST_SAY++; try { speechSynthesis.cancel(); } catch (e) {} try { if (ASST_AUDIO) ASST_AUDIO.pause(); } catch (e) {} }
 function asstSpeakDevice(txt) {
   if (!window.speechSynthesis) return;
@@ -232,7 +238,7 @@ async function asstSpeak(t) {
   asstSpeakStop(); const my = ASST_SAY;
   const txt = String(t || '').replace(/<[^>]+>/g, ' ').replace(/\*\*/g, '').replace(/[•\-]\s/g, '، ').replace(/\s+/g, ' ').trim().slice(0, 1200); if (!txt) return;
   let api = ''; try { api = String(getApi() || '').replace(/\/+$/, ''); } catch (e) {}
-  if (api && ASST_EL !== false) {
+  if (api && ASST_EL !== false && asstElOn()) {
     const parts = []; let rest = txt; while (rest) { let cut = rest.length <= 380 ? rest.length : Math.max(rest.lastIndexOf('،', 380), rest.lastIndexOf('.', 380), rest.lastIndexOf(' ', 380)); if (cut < 40) cut = 380; parts.push(rest.slice(0, cut + 1).trim()); rest = rest.slice(cut + 1).trim(); }
     try {
       for (const p of parts.filter(x => /[\u0600-\u06FF]/.test(x))) {
