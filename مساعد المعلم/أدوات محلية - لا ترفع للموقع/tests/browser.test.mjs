@@ -140,6 +140,9 @@ export default async function run() {
       await S.t('✨ مساعدي: «مين الغايب اليوم» فوري من السجل بلا ذكاء، وغيره: يختار الذكاء أداة تُحسب على الجهاز ثم يجيب بمصدره', async () => {
         await p.waitForFunction(() => typeof asstOpen === 'function' && typeof ASST_TOOLS === 'object', null, { timeout: 15000 });
         ok(await p.$('#asst-btn'), 'زر مساعدي');
+        const on0 = await p.evaluate(() => { const b = document.getElementById('asst-btn'), c = document.getElementById('asst-on-tg'), vis = () => !!(b.offsetWidth || b.offsetHeight);
+          const r = { def: localStorage.getItem('asst_on'), hidden: !vis(), tg: c && c.checked }; asstOnSet(true); r.shown = vis() && c.checked; asstOnSet(false); r.off = !vis() && !c.checked; asstOnSet(true); return r; });
+        eq(on0, { def: null, hidden: true, tg: false, shown: true, off: true }, 'مساعدي مقفول افتراضيًا ويُفعَّل من الإعدادات');
         const bodies = [];
         await p.route(/generativelanguage\.googleapis\.com/, async r => { const b = r.request().postData() || ''; bodies.push(b); const first = bodies.length === 1;
           r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ candidates: [{ content: { parts: [{ text: first ? '{"calls":[{"tool":"ranking","args":{"by":"total","order":"desc","n":3}}]}' : '{"answer":"الأعلى **طالب س**"}' }] } }] }) }); });

@@ -369,7 +369,12 @@ function asstAudioUnlock() {   // يُستدعى من ضغطة المعلم: iPh
 const asstElOn = () => { try { return localStorage.getItem('asst_el_on') === '1'; } catch (e) { return false; } };
 function asstElSet(on) { try { if (on) localStorage.setItem('asst_el_on', '1'); else localStorage.removeItem('asst_el_on'); localStorage.removeItem('asst_el_off'); } catch (e) {} ASST_EL = null; asstSpeakStop();
   try { toast(on ? '🔊 مساعدي يقرأ بصوت ElevenLabs' : '🔊 مساعدي يقرأ بصوت جهازك', 'good'); } catch (e) {} }
-(function asstElInit() { const go = () => { const c = document.getElementById('asst-el-tg'); if (c) c.checked = asstElOn(); };
+/* ✨ «مساعدي» مقفول افتراضيًا: لا زر ولا تنبيه حتى يفعّله المعلم من ⚙️ الإعدادات ← الذكاء الاصطناعي */
+const asstOn = () => { try { return localStorage.getItem('asst_on') === '1'; } catch (e) { return false; } };
+function asstOnApply() { const b = document.getElementById('asst-btn'), c = document.getElementById('asst-on-tg'), on = asstOn(); if (b) b.hidden = !on; if (c) c.checked = on; }
+function asstOnSet(on) { try { if (on) localStorage.setItem('asst_on', '1'); else localStorage.removeItem('asst_on'); } catch (e) {} if (!on) asstClose(); asstOnApply();
+  try { toast(on ? '✨ فُعّل «مساعدي» — زره في الشريط العلوي' : '✨ أُقفل «مساعدي»', 'good'); } catch (e) {} if (on) asstBriefDot().catch(() => {}); }
+(function asstElInit() { const go = () => { const c = document.getElementById('asst-el-tg'); if (c) c.checked = asstElOn(); asstOnApply(); };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go(); })();
 function asstSpeakStop() { ASST_SAY++; try { speechSynthesis.cancel(); } catch (e) {} try { if (ASST_AUDIO) ASST_AUDIO.pause(); } catch (e) {} }
 function asstSpeakDevice(txt) {
@@ -421,7 +426,7 @@ function asstBriefMsg(items) {
   return { brief: 1, html: items.length ? `<b>☀️ ملخص اليوم</b><ul class="asst-brief">${items.map(x => `<li>${x.t}${x.q ? ` <button type="button" onclick="asstAsk(${asstEsc(JSON.stringify(x.q))})">التفاصيل</button>` : ''}</li>`).join('')}</ul>` : '☀️ لا شيء يحتاج انتباهك اليوم ✓', src: ['⚡ من بياناتك بلا ذكاء'] };
 }
 async function asstBriefDot() {   // نقطة على ✨ مرة في اليوم إن وُجد ما يستحق
-  try { if (localStorage.getItem('asst_brief_seen') === asstToday()) return; } catch (e) {}
+  if (!asstOn()) return; try { if (localStorage.getItem('asst_brief_seen') === asstToday()) return; } catch (e) {}
   if (!asstActs().length && !asstStudents().length) return;
   const n = (await asstBrief()).length, b = document.getElementById('asst-btn'); if (b && n) { b.dataset.brief = String(n); b.classList.add('has-brief'); }
 }
