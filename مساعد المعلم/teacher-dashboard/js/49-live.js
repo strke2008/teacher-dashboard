@@ -37,7 +37,8 @@ function liveSystem() {
 ${asstIntro()}
 أنت في «محادثة حية» صوتية مع المعلم: أجب بالعربية بصوت طبيعي ودود وبإيجاز (جملتان أو ثلاث)، واذكر الأرقام والأسماء بوضوح.
 استخدم الأدوات للأسئلة عن طلابه وبياناته، ولا تخترع أسماء أو أرقامًا. «النقاط» = رصيد نقاط المكافآت (أداة points)، وهي غير الدرجات.
-تقدر تجهّز كل أوامر «مساعدي» (رصد، درجات، نقاط، رسائل، تذكيرات، فتح صفحات…) بأدوات التجهيز: كل أمر يظهر للمعلم ببطاقة على الشاشة ولا يُنفَّذ إلا إذا ضغط «نفّذ» بنفسه — فقل له بإيجاز ماذا جهّزت واطلب منه يراجع البطاقة ويضغط. لا تقل أبدًا إنك نفّذت.
+تقدر تجهّز كل أوامر «مساعدي» (رصد، درجات، نقاط، رسائل، تذكيرات، فتح صفحات…) بأدوات التجهيز: كل أمر يظهر للمعلم ببطاقة على الشاشة ولا يُنفَّذ إلا إذا ضغط «نفّذ» بنفسه — فقل له بإيجاز ماذا جهّزت واطلب منه يراجع البطاقة ويضغط. لا تقل أبدًا إنك نفّذت. ولا تقل «جهّزت» إلا بعد أن تستدعي أداة التجهيز فعلًا وتصلك نتيجتها — إن لم تستدعها فلم يظهر شيء.
+فتح الصفحات (open_page) يُنفَّذ فورًا بلا بطاقة: استدعِ open_page وقل «فتحتها لك».
 في رسالة ولي الأمر (parent_message) اكتب نص الرسالة كاملًا في message بالعربية الفصحى المبسطة، يبدأ بـ«السلام عليكم ورحمة الله» وينتهي بـ«معلم المادة».
 تذكير أخير: ردك بالعربية فقط.`;
 }
@@ -136,7 +137,9 @@ async function liveTool(calls) {
   for (const c of calls) { const t = ASST_TOOLS[c.name]; let res;
     try { const a = c.args && typeof c.args === 'object' ? { ...c.args } : {}; if (!t) res = { error: 'أداة غير معروفة' };
       else { const r = await t.run(a); res = asstStrip(r);
-        if (t.act && r && ASST_ACTS.includes(r.action)) {   // بطاقة تأكيد على الشاشة — لا تنفيذ إلا بضغطة المعلم
+        if (t.act && r && r.action === 'nav') {   // 🧭 فتح صفحة: آمن، يُنفَّذ فورًا والمحادثة مستمرة (اللوحة تُصغَّر وزر «مساعدي» يومض)
+          asstMicLog('live: فتح ' + r.page); asstGo(r, true); liveBtnPulse(); res = { opened: r.label + (r.name ? ' — ' + r.name : ''), note: 'فُتحت الصفحة فعلًا أمام المعلم. أخبره بإيجاز أنها انفتحت.' }; }
+        else if (t.act && r && ASST_ACTS.includes(r.action)) {   // بطاقة تأكيد على الشاشة — لا تنفيذ إلا بضغطة المعلم
           const card = { ...r, state: 'ask' }; if (card.action === 'draft') card.text = String(a.message || ''); LIVE.me = null;
           ASST.msgs.push({ html: '🎙️ جهّزت لك — راجع واضغط «نفّذ»:', cards: [card], src: [t.src(a), '🎙️ محادثة حية'].filter(Boolean) }); LIVE.bot = null; asstPaint();
           res = { prepared: res, note: 'ظهرت للمعلم بطاقة تأكيد على الشاشة ولم يُنفَّذ شيء بعد. أخبره بإيجاز بما جهّزته واطلب منه يضغط «نفّذ».' }; } } }
@@ -151,7 +154,8 @@ function liveEnd() {
   try { LIVE.node && (LIVE.node.onaudioprocess = null, LIVE.node.disconnect()); LIVE.src && LIVE.src.disconnect(); } catch (e) {}
   try { LIVE.stream && LIVE.stream.getTracks().forEach(t => t.stop()); } catch (e) {} LIVE.stream = LIVE.node = LIVE.src = null; liveHush(); LIVE.me = LIVE.bot = null;
   try { if (LIVE.ctx) LIVE.ctx.close().catch(() => {}); } catch (e) {} LIVE.ctx = null;
-  LIVE.state = ''; liveSet(''); try { asstSave(); } catch (e) {}
+  LIVE.state = ''; liveSet(''); liveBtnPulse(); try { asstSave(); } catch (e) {}
 }
-function liveStop() { liveEnd(); }
+function liveBtnPulse() { const b = document.getElementById('asst-btn'); if (b) b.classList.toggle('live-on', !!(LIVE.on || LIVE.state === 'connect')); }
+function liveStop() { liveEnd(); liveBtnPulse(); }
 function liveToggle() { if (LIVE.on || LIVE.state === 'connect') liveStop(); else liveStart(); }

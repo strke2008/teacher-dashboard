@@ -308,8 +308,8 @@ function asstPageMatch(q) {   // ← مفتاح الصفحة أو '' (المطا
     if (w.join(' ') === t.join(' ')) return k; if (w.length <= t.length && w.every(x => t.includes(x)) && w.length > bl && t.length - w.length <= 1) { best = k; bl = w.length; } }
   return best;
 }
-function asstGo(c) {
-  asstClose();
+function asstGo(c, keepLive) {
+  asstClose(keepLive);
   try {
     if (c.page === 'student') { ctOpenProfile(c._sid); return; }
     if (c.page === 'remedial') { goTab('hw'); setTimeout(() => { try { window.remedialHw(c._hid); } catch (e) {} }, 400); return; }
@@ -770,7 +770,7 @@ function asstOpen() {
   const b = document.getElementById('asst-btn'); if (b) b.classList.remove('has-brief');
   setTimeout(() => { try { document.getElementById('asst-q').focus(); } catch (e) {} }, 60);
 }
-function asstClose() { asstSpeakStop(); asstMicStop(); try { if (typeof liveStop === 'function' && (LIVE.on || LIVE.state)) liveStop(); } catch (e) {} const p = document.getElementById('asst-panel'); if (p) p.classList.remove('on'); document.body.classList.remove('asst-open'); }
+function asstClose(keepLive) { if (!keepLive) { asstSpeakStop(); asstMicStop(); try { if (typeof liveStop === 'function' && (LIVE.on || LIVE.state)) liveStop(); } catch (e) {} } const p = document.getElementById('asst-panel'); if (p) p.classList.remove('on'); document.body.classList.remove('asst-open'); }
 
 async function asstShowBrief() { try { localStorage.setItem('asst_brief_seen', asstToday()); } catch (e) {} const m = { html: '<i class="asst-dots"><b></b><b></b><b></b></i>', src: [] }; ASST.msgs.push(m); asstPaint();
   try { Object.assign(m, asstBriefMsg(await asstBrief())); } catch (e) { m.html = '⚠️ تعذّر تجهيز الملخص'; } asstPaint(); }
