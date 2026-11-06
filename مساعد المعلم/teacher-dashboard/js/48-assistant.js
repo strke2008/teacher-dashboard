@@ -156,10 +156,39 @@ const ASST_TOOLS = {
         const o = (Array.isArray(x.o) ? x.o : []).map(v => String(v ?? '').trim()).filter(Boolean).slice(0, 4), ai = Number(x.a); return o.length >= 2 && Number.isInteger(ai) && ai >= 0 && ai < o.length ? { t: 'q', q, o, a: ai } : null; }).filter(Boolean).slice(0, n);
       if (!qs.length) return { error: 'لم تصل أسئلة صالحة من الذكاء — جرّب مرة أخرى' };
       return { action: 'activity', title: String(a.title || topic).slice(0, 80), cls, due, count: qs.length, preview: qs.slice(0, 3).map(q => q.q), _qs: qs }; } },
-  open_page: { act: 1, d: 'فتح صفحة في اللوحة أو طباعة كشف. args: {page:"student"(ملف طالب، مع student)|"exams"(دفتر الاختبارات، مع sem/per/cls)|"records"(الحضور والسجلات)|"analysis"(المستويات وخريطة المهارات)|"grades"(كشف الدرجات، مع cls و print:true للطباعة)|"activities"|"students"|"home"|"nafs"|"plans"|"reports"|"messages"|"certs"|"paper_exams"|"settings", student?, cls?, sem?, per?, print?:true|false}', src: () => '🧭 تنقّل',
+  /* ── أوامر إضافية: نقاط · درجة نشاط · رسالة للطلاب · اختبار جديد في الدفتر · شهادة ── */
+  adjust_points: { act: 1, d: 'تجهيز إضافة أو خصم نقاط مكافآت (لا يُنفَّذ إلا بتأكيد المعلم، ويمكن التراجع). args: {students:["اسم",...] أو ["الكل"] مع cls, delta:رقم موجب للإضافة وسالب للخصم, reason?, cls?}', src: () => '💰 تجهيز نقاط',
+    async run(a) { const d = Math.round(Number(String(a.delta ?? a.points ?? '').replace(/[٠-٩]/g, x => '٠١٢٣٤٥٦٧٨٩'.indexOf(x)))); if (!Number.isFinite(d) || !d || Math.abs(d) > 1000) return { error: 'حدّد عدد النقاط (من 1 إلى 1000، وسالب للخصم)' };
+      const r = asstResolve(a.students || a.student, asstCls(a.cls)); return { action: 'points', delta: d, reason: String(a.reason || '').slice(0, 80), items: r.items.map(x => ({ name: x.name, cls: x.cls || '', before: Number(x.points) || 0, _id: x.id })), unresolved: r.bad }; } },
+  grade_activity: { act: 1, d: 'تجهيز رصد أو تعديل درجة طالب في نشاط يدويًا (بتأكيد وتراجع). args: {activity:"جزء من العنوان" أو "آخر", scores:[{"student":"اسم","score":رقم}]}', src: a => '✍️ تجهيز درجات «' + (a._title || a.activity || '') + '»',
+    async run(a) { const m = asstFindAct(a.activity); if (!m.length) return { error: 'لم أجد النشاط' }; if (m.length > 1) return { error: 'أكثر من نشاط يطابق', matches: m.slice(0, 8).map(h => h.title) };
+      const h = m[0], max = Number(h.max) || 20, L = Array.isArray(a.scores) ? a.scores : [{ student: a.student, score: a.score }], items = [], bad = []; a._title = h.title;
+      for (const x of L) { const q = String(x && x.student || '').trim(), f = asstFindStudent(q); if (f.length !== 1) { bad.push({ q, matches: f.slice(0, 5).map(s => s.name + ' — ' + (s.cls || '')) }); continue; }
+        const st = f[0], v = Number(String(x.score ?? '').replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d))); if (!Number.isFinite(v)) { bad.push({ q: q + ': ليست درجة', matches: [] }); continue; }
+        const key = h.subs && h.subs[st.name] && !h.subs[st.id] ? st.name : st.id, sub = (h.subs || {})[key], auto = sub ? Math.round(max * (sub.correct || 0) / Math.max(1, sub.total || 1)) : null;
+        items.push({ name: st.name, cls: st.cls || '', score: Math.max(0, Math.min(max, v)), over: v > max ? v : undefined, prev: sub ? (sub.manualGrade ?? auto) : 'لم يسلّم', _key: key, _prev: sub ? JSON.parse(JSON.stringify(sub)) : null }); }
+      return { action: 'grade', title: h.title, max, _hid: h.id, items, unresolved: bad }; } },
+  send_message: { act: 1, d: 'تجهيز رسالة تظهر للطلاب في بوابتهم (تُعرض كاملة ولا تُرسل إلا بتأكيد المعلم). args: {to:"all"|"class"|"students", cls?:"فصل" (مع class), students?:["اسم",...], title, body, type?:"message"|"warning"|"achievement"|"activity", priority?:"normal"|"important"|"urgent"}', src: () => '💬 تجهيز رسالة للطلاب',
+    async run(a) { const title = String(a.title || '').trim().slice(0, 120), body = String(a.body || '').trim().slice(0, 1000); if (!title || !body) return { error: 'الرسالة تحتاج عنوانًا ونصًا' };
+      let to = ['all', 'class', 'students'].includes(a.to) ? a.to : (a.students ? 'students' : a.cls ? 'class' : 'all'), cls = asstCls(a.cls), r = { items: [], bad: [] };
+      if (to === 'class' && !cls) return { error: 'لم أجد الفصل: ' + (a.cls || '') };
+      if (to === 'students') { r = asstResolve(a.students || a.student); if (!r.items.length) return { error: 'لم أحدّد أي طالب', unresolved: r.bad }; }
+      const n = to === 'all' ? asstStudents().length : to === 'class' ? asstStudents().filter(s => String(s.cls || '') === cls).length : r.items.length;
+      return { action: 'msg', to, cls, title, body, type: ['message', 'warning', 'achievement', 'activity'].includes(a.type) ? a.type : 'message', priority: ['important', 'urgent'].includes(a.priority) ? a.priority : 'normal', count: n,
+        items: r.items.map(x => ({ name: x.name, cls: x.cls || '', _id: String(x.id) })), unresolved: r.bad }; } },
+  add_exam_test: { act: 1, d: 'تجهيز إضافة اختبار جديد إلى دفتر الاختبارات (بتأكيد وتراجع). args: {title, max:الدرجة العظمى, sem?, per?}', src: () => '📝 تجهيز اختبار جديد',
+    async run(a) { const { sem, per, label } = asstSP(a); if (typeof qrPerClosed === 'function' && qrPerClosed(sem, per)) return { error: '🔒 ' + label + ' مغلقة' };
+      const title = String(a.title || '').trim().slice(0, 80), max = Number(String(a.max ?? '').replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d))); if (!title) return { error: 'اكتب عنوان الاختبار' }; if (!(max > 0 && max <= 200)) return { error: 'حدّد الدرجة العظمى (1–200)' };
+      const b = await asstBook(sem, per); if (b.tests.some(t => asstTok(t.title).join(' ') === asstTok(title).join(' '))) return { error: 'يوجد اختبار بهذا العنوان في ' + label };
+      return { action: 'test', sem, per, period: label, title, max }; } },
+  certificate: { act: 1, d: 'تجهيز إصدار شهادة شكر وتقدير لطالب أو أكثر (بتأكيد وتراجع). args: {students:["اسم",...], reason:"سبب التكريم"}', src: () => '🏅 تجهيز شهادة',
+    async run(a) { const r = asstResolve(a.students || a.student); return { action: 'cert', reason: String(a.reason || 'التميّز').slice(0, 80), items: r.items.map(x => ({ name: x.name, cls: x.cls || '', _id: String(x.id) })), unresolved: r.bad }; } },
+  open_page: { act: 1, d: 'فتح صفحة في اللوحة أو طباعة كشف. args: {page:"student"(ملف طالب، مع student)|"activity"(فتح نموذج نشاط لتعديله أو نشره، مع activity)|"exams"(دفتر الاختبارات، مع sem/per/cls)|"records"(الحضور والسجلات)|"analysis"(المستويات وخريطة المهارات)|"grades"(كشف الدرجات، مع cls و print:true للطباعة)|"activities"|"students"|"home"|"nafs"|"plans"|"reports"|"messages"|"certs"|"paper_exams"|"settings", student?, cls?, sem?, per?, print?:true|false}', src: () => '🧭 تنقّل',
     async run(a) { const pg = String(a.page || '').trim(), P = ASST_PAGES[pg]; if (!P) return { error: 'صفحة غير معروفة: ' + pg, pages: Object.keys(ASST_PAGES) };
       const r = { action: 'nav', page: pg, label: P[1], cls: asstCls(a.cls), print: !!a.print && pg === 'grades' };
       if (pg === 'student') { const m = asstFindStudent(a.student); if (m.length !== 1) return m.length ? { error: 'أكثر من طالب يطابق', matches: m.slice(0, 8).map(s => s.name + ' — ' + (s.cls || '')) } : { error: 'لم أجد الطالب' }; r.name = m[0].name; r.cls = m[0].cls || ''; r._sid = String(m[0].id); }
+      if (pg === 'activity') { const t = asstTok(a.activity || ''), all = (typeof HW !== 'undefined' && Array.isArray(HW) ? HW : []).filter(h => h && h.id), m = /^(آخر|اخر)$/.test(String(a.activity || '').trim()) ? all.slice(-1) : all.filter(h => t.length && t.every(w => asstTok(h.title || '').some(x => x.includes(w))));
+        if (m.length !== 1) return { error: m.length ? 'أكثر من نشاط يطابق' : 'لم أجد النشاط', matches: m.slice(0, 8).map(h => h.title) }; r.name = m[0].title; r._hid = m[0].id; }
       if (pg === 'exams') { const sp = asstSP(a); r.sem = sp.sem; r.per = sp.per; r.period = sp.label; }
       return r; } },
 };
@@ -200,13 +229,14 @@ function asstDue(v) { v = String(v || '').trim(); if (!v) return ''; if (/^\d{4}
   const D = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'].map(x => asstTok(x)[0]), i = D.findIndex(x => asstTok(v.replace(/^يوم\s+/, ''))[0] === x || asstTok(v)[0] === x.replace(/^ال/, ''));
   if (i < 0) return ''; let d = (i - base.getUTCDay() + 7) % 7; if (!d) d = 7; return add(d); }
 /* 🧭 الصفحات التي يفتحها المساعد */
-const ASST_PAGES = { home: ['dashboard', '🏠 الرئيسية'], activities: ['hw', '📋 الأنشطة'], students: ['students', '👥 الطلاب'], student: [null, '👤 ملف الطالب'], records: ['classtools:records', '🗂️ السجلات والحضور'],
+const ASST_PAGES = { home: ['dashboard', '🏠 الرئيسية'], activity: ['hw', '📋 نشاط'], live: ['live', '🎮 الحصص المباشرة'], activities: ['hw', '📋 الأنشطة'], students: ['students', '👥 الطلاب'], student: [null, '👤 ملف الطالب'], records: ['classtools:records', '🗂️ السجلات والحضور'],
   exams: ['classtools:exams', '📝 دفتر الاختبارات'], analysis: ['classtools:analysis', '📈 المستويات والمهارات'], grades: ['grades', '📊 كشف الدرجات'], nafs: ['nafs', '🧭 نافس'], plans: ['plans', '🩺 الخطط العلاجية'],
   reports: ['reports', '📑 التقارير'], messages: ['messages', '💬 الرسائل'], certs: ['classtools:certs', '🏅 الشهادات'], paper_exams: ['exam', '🖨️ الاختبارات الورقية'], settings: ['data', '⚙️ الإعدادات'] };
 function asstGo(c) {
   asstClose();
   try {
     if (c.page === 'student') { ctOpenProfile(c._sid); return; }
+    if (c.page === 'activity') { goTab('hw'); setTimeout(() => { try { openHwForm(c._hid); } catch (e) {} }, 350); return; }
     if (c.page === 'exams') { window._ctExSem = String(c.sem || ''); window._ctExPer = String(c.per || ''); if (c.cls) window._ctExCls = c.cls; }
     goTab(ASST_PAGES[c.page][0]);
     if (c.page === 'exams' && typeof renderClassTools === 'function') renderClassTools();
@@ -261,7 +291,7 @@ async function asstAsk(q) {
 الأدوات المتاحة (تُحسب من بيانات المعلم):
 ${tools}
 ${hist ? 'المحادثة السابقة:\n' + hist + '\n' : ''}سؤال المعلم: ${q}
-اختر الأدوات التي تكفي للجواب (غالبًا واحدة أو اثنتان). «النقاط» = رصيد نقاط المكافآت (أداة points)، وهي غير «الدرجات». إن طلب المعلم تنفيذ شيء (رصد غياب/مشاركة/واجب، درجة اختبار، ملاحظة سلوك، تذكير، رسالة لولي أمر، مسودة نشاط، فتح صفحة أو طباعة) فاستخدم أداة التجهيز المناسبة — لن يُنفَّذ شيء إلا بعد تأكيده.
+اختر الأدوات التي تكفي للجواب (غالبًا واحدة أو اثنتان). «النقاط» = رصيد نقاط المكافآت (أداة points للعرض وadjust_points للإضافة والخصم)، وهي غير «الدرجات». لديك أدوات تنفيذ واسعة (كلها بتأكيد المعلم) — استخدمها ولا تعتذر ما دامت أداة تغطي الطلب. إن طلب المعلم تنفيذ شيء (رصد غياب/مشاركة/واجب، درجة اختبار، ملاحظة سلوك، تذكير، رسالة لولي أمر، مسودة نشاط، فتح صفحة أو طباعة) فاستخدم أداة التجهيز المناسبة — لن يُنفَّذ شيء إلا بعد تأكيده.
 إن طلب عدة مهام في رسالة واحدة فأخرج خطوة لكل مهمة بترتيبها (حتى 6 خطوات)، وكل خطوة تنفيذية تظهر له ببطاقة تأكيد مستقلة.
 أخرج JSON فقط: {"calls":[{"tool":"اسم","args":{...}}]}
 وإن كان السؤال لا يحتاج بيانات (تحية أو سؤال عام) أخرج {"answer":"ردّك"}.`, new AbortController().signal)) || {};
@@ -289,13 +319,31 @@ ${draft ? 'واكتب في draft رسالة مهذبة قصيرة لولي أم�
 function asstUsed() { try { const j = JSON.parse(localStorage.getItem('ai_last_used') || 'null'); if (!j) return ''; const c = (typeof READING_AI_PROVIDERS !== 'undefined' && READING_AI_PROVIDERS[j.p]) || { name: j.p }; return '🤖 ' + c.name + ' · ' + j.m; } catch (e) { return ''; } }
 
 /* ── بطاقات التأكيد: لا شيء يُكتب قبل «نفّذ» — والرصد يمر بطابور الرصد السريع نفسه (يحفظ بلا إنترنت ويُزامَن) ── */
-const ASST_ACTS = ['record', 'behavior', 'remind', 'draft', 'exam', 'activity', 'nav'];
+const ASST_ACTS = ['record', 'behavior', 'remind', 'draft', 'exam', 'activity', 'nav', 'points', 'grade', 'msg', 'test', 'cert'];
 /* درجات الاختبار: تُكتب في دفتر الفترة نفسه ثم لقطة الدفتر إلى الطابور (مثل «رصد الاختبارات» تمامًا) — والوقت الأحدث يفوز في الدمج */
 function asstExamWrite(c, f) {
   const b = typeof ctBook === 'function' ? ctBook(CT_DATA || (CT_DATA = {}), c.sem, c.per) : null; if (!b) return; const now = Date.now();
   c.items.forEach(x => { const bk = b.scores[x._id] = b.scores[x._id] && typeof b.scores[x._id] === 'object' ? b.scores[x._id] : {}; bk[c._tid] = { ...f(x), at: now }; });
   qrDo({ k: 'exb', sem: String(c.sem), per: String(c.per), book: JSON.parse(JSON.stringify(b)) });
   try { const p = document.getElementById('p-classtools'); if (p && p.classList.contains('on') && typeof renderClassTools === 'function') renderClassTools(); } catch (e) {}
+}
+async function asstSendMsg(c, i) {
+  c.state = 'busy'; asstPaint();
+  try { const b = { t: getTok(), audience: c.to, title: c.title, body: c.body, type: c.type, priority: c.priority };
+    if (c.to === 'class') b.classNames = [c.cls]; if (c.to === 'students') b.recipients = c.items.map(x => ({ id: x._id, name: x.name }));
+    const j = await (await fetch(getApi().replace(/\/+$/, '') + '/messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) })).json().catch(() => ({}));
+    if (!j.ok) throw new Error(j.error === 'not delivered' ? 'لم تصل إلى أي طالب' : (j.error || 'تعذّر الإرسال'));
+    c.state = 'done'; c.res = `أُرسلت إلى ${j.count || 0} طالب` + (j.skipped && j.skipped.length ? ` · لم تصل إلى ${j.skipped.length}` : ''); try { msgqLoad(); } catch (e) {} }
+  catch (e) { c.state = 'fail'; c.res = e.message; }
+  asstPaint();
+}
+async function asstCert(c, i, k) {
+  c.state = 'busy'; asstPaint();
+  try { if (k === 'do') { c._ids = c.items.map(() => Date.now().toString(36) + Math.random().toString(36).slice(2, 5));
+      await ctSave(D => { D.certificates = Array.isArray(D.certificates) ? D.certificates : []; c.items.forEach((x, n) => D.certificates.unshift({ id: c._ids[n], studentId: x._id, reason: c.reason, date: asstToday(), at: Date.now() + n })); }); c.state = 'done'; toast('🏅 صدرت الشهادة', 'good'); }
+    else { const ids = new Set(c._ids || []); await ctSave(D => { D.certificates = (Array.isArray(D.certificates) ? D.certificates : []).filter(x => !ids.has(String(x.id))); }); c.state = 'undone'; } }
+  catch (e) { c.state = k === 'do' ? 'ask' : 'done'; toast('تعذّر الحفظ', 'bad'); }
+  asstPaint();
 }
 const ASST_ST = { 'غائب': '🚫 غياب', 'غائب بعذر': '🚫 غياب بعذر', 'شارك': '✅ شارك', 'لم يشارك': '✋ لم يشارك', 'أنجز': '📗 أنجز الواجب', 'لم ينجز': '📕 لم ينجز الواجب', 'معذور': '🕊️ معذور في الواجب' };
 function asstCardHTML(c, i, j) {
@@ -317,6 +365,17 @@ function asstCardHTML(c, i, j) {
     + (off ? '<span class="asst-off">أُلغيت</span>' : done ? `<span class="asst-ok">✓ أُنشئت مسودة (غير منشورة)</span>${btn('do', '✍️ افتحها')}` : btn('do', '✍️ أنشئ المسودة وافتحها', 'tick') + btn('no', 'إلغاء'));
   else if (c.action === 'nav') h += `<b>🧭 ${asstEsc(c.label)}${c.name ? ' — ' + asstEsc(c.name) : ''}${c.cls && !c.name ? ' — ' + asstEsc(c.cls) : ''}${c.period ? ' <small>' + asstEsc(c.period) + '</small>' : ''}${c.print ? ' · 🖨️ طباعة' : ''}</b>`
     + (off ? '<span class="asst-off">أُلغي</span>' : btn('do', done ? '↗ افتح مرة أخرى' : c.print ? '🖨️ افتح واطبع' : '↗ افتح', done ? '' : 'tick') + (done ? '' : btn('no', 'إلغاء')));
+  else if (c.action === 'points') h += `<b>💰 ${c.delta > 0 ? 'إضافة' : 'خصم'} ${Math.abs(c.delta)} نقطة${c.reason ? ' — ' + asstEsc(c.reason) : ''}</b><ul class="asst-names">${c.items.map(x => `<li>${asstEsc(x.name)}<small>${asstEsc(x.cls)}</small><b class="asst-sc">${x.before} ← ${Math.max(0, x.before + c.delta)}</b></li>`).join('')}</ul>${bad}`
+    + (c.state === 'ask' && c.items.length ? btn('do', `✓ نفّذ (${c.items.length})`, 'tick') + btn('no', 'إلغاء') : done ? `<span class="asst-ok">✓ تم</span>${btn('undo', '↩ تراجع')}` : `<span class="asst-off">${c.state === 'undone' ? '↩ تُراجع عنه' : 'أُلغي'}</span>`);
+  else if (c.action === 'grade') h += `<b>✍️ ${asstEsc(c.title)} <small>(من ${c.max})</small></b><ul class="asst-names">${c.items.map(x => `<li>${asstEsc(x.name)}<small>${asstEsc(x.cls)}</small><b class="asst-sc">${x.score}</b><small>(كانت ${asstEsc(x.prev)})</small>${x.over != null ? `<small class="asst-bad">⚠️ ${x.over} أكبر من ${c.max}</small>` : ''}</li>`).join('')}</ul>${bad}`
+    + (c.state === 'ask' && c.items.length ? btn('do', `✓ ارصد (${c.items.length})`, 'tick') + btn('no', 'إلغاء') : done ? `<span class="asst-ok">✓ رُصدت</span>${btn('undo', '↩ تراجع')}` : `<span class="asst-off">${c.state === 'undone' ? '↩ تُراجع عنها' : 'أُلغي'}</span>`);
+  else if (c.action === 'msg') h += `<b>💬 رسالة إلى ${c.to === 'all' ? 'كل الطلاب' : c.to === 'class' ? 'فصل ' + asstEsc(c.cls) : c.items.map(x => asstEsc(x.name)).join('، ')} <small>(${c.count} طالب${c.priority !== 'normal' ? ' · ' + (c.priority === 'urgent' ? 'عاجلة' : 'مهمة') : ''})</small></b>
+      <div class="asst-msgprev"><b>${asstEsc(c.title)}</b><div>${asstMd(c.body)}</div></div>${bad}`
+    + (c.state === 'ask' ? btn('do', '📨 أرسل للطلاب', 'tick') + btn('no', 'إلغاء') : c.state === 'busy' ? '<span class="asst-meta">جارٍ الإرسال…</span>' : done ? `<span class="asst-ok">✓ ${asstEsc(c.res || 'أُرسلت')}</span>` : c.state === 'fail' ? `<span class="asst-bad">⚠️ ${asstEsc(c.res || 'تعذّر الإرسال')}</span>${btn('do', 'أعد المحاولة')}` : '<span class="asst-off">أُلغيت</span>');
+  else if (c.action === 'test') h += `<b>📝 اختبار جديد: «${asstEsc(c.title)}» من ${c.max}</b><div class="asst-meta">${asstEsc(c.period)}</div>`
+    + (c.state === 'ask' ? btn('do', '✓ أضف للدفتر', 'tick') + btn('no', 'إلغاء') : done ? `<span class="asst-ok">✓ أُضيف</span>${btn('undo', '↩ تراجع')}` : `<span class="asst-off">${c.state === 'undone' ? '↩ حُذف' : 'أُلغي'}</span>`);
+  else if (c.action === 'cert') h += `<b>🏅 شهادة شكر — ${asstEsc(c.reason)}</b>${names(c.items)}${bad}`
+    + (c.state === 'ask' && c.items.length ? btn('do', `✓ أصدر (${c.items.length})`, 'tick') + btn('no', 'إلغاء') : c.state === 'busy' ? '<span class="asst-meta">جارٍ الحفظ…</span>' : done ? `<span class="asst-ok">✓ صدرت</span>${btn('undo', '↩ تراجع')}` : `<span class="asst-off">${c.state === 'undone' ? '↩ أُلغيت الشهادة' : 'أُلغي'}</span>`);
   return `<div class="asst-card ${c.state}">${h}</div>`;
 }
 function asstAct(i, j, k) {
@@ -332,6 +391,18 @@ function asstAct(i, j, k) {
   else if (c.action === 'exam' && k === 'undo' && c.state === 'done') { asstExamWrite(c, x => x._prev && !x._prev.del ? { ...x._prev } : { del: true }); c.state = 'undone'; toast('↩ تراجعت عن رصد الدرجات'); }
   else if (c.action === 'activity' && k === 'do' && c.state !== 'no') { c.state = 'done'; asstPaint(); asstMakeDraft(c); return; }
   else if (c.action === 'nav' && k === 'do' && c.state !== 'no') { c.state = 'done'; asstPaint(); asstGo(c); return; }
+  else if (c.action === 'points' && (k === 'do' && c.state === 'ask' || k === 'undo' && c.state === 'done')) { const n = k === 'do' ? c.delta : -c.delta;
+    c.items.forEach(x => { try { window.award(x._id, n); } catch (e) {} }); c.state = k === 'do' ? 'done' : 'undone'; toast(k === 'do' ? `💰 ${c.delta > 0 ? '+' : ''}${c.delta} لـ ${c.items.length}` : '↩ تراجعت عن النقاط', 'good'); }
+  else if (c.action === 'grade' && (k === 'do' && c.state === 'ask' || k === 'undo' && c.state === 'done')) { const h = (HW || []).find(x => x.id === c._hid); if (!h) { toast('النشاط غير موجود', 'bad'); return; } h.subs = h.subs || {};
+    c.items.forEach(x => { if (k === 'do') { const v = h.subs[x._key]; if (v) v.manualGrade = x.score; else h.subs[x._key] = { manual: true, manualGrade: x.score, correct: 0, total: (h.qs || []).length || 1, pts: 0, d: '', at: Date.now() }; }
+      else { if (x._prev) h.subs[x._key] = JSON.parse(JSON.stringify(x._prev)); else delete h.subs[x._key]; } });
+    save(K.hw, HW); try { renderGrades(); } catch (e) {} try { renderStudents(); } catch (e) {} c.state = k === 'do' ? 'done' : 'undone'; toast(k === 'do' ? '✍️ رُصدت الدرجات' : '↩ رجعت الدرجات', 'good'); }
+  else if (c.action === 'msg' && k === 'do' && (c.state === 'ask' || c.state === 'fail')) { asstSendMsg(c, i); }
+  else if (c.action === 'test' && k === 'do' && c.state === 'ask') { const b = ctBook(CT_DATA || (CT_DATA = {}), c.sem, c.per); c._tid = 'ex' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+    b.tests.push({ id: c._tid, title: c.title, max: c.max, date: asstToday() }); asstExamWrite({ ...c, items: [] }, () => ({})); c.state = 'done'; toast('📝 أُضيف «' + c.title + '»', 'good'); }
+  else if (c.action === 'test' && k === 'undo' && c.state === 'done') { const b = ctBook(CT_DATA, c.sem, c.per); if (Object.values(b.scores).some(o => o && o[c._tid] && !o[c._tid].del)) { toast('رُصدت درجات فيه — احذفه من الدفتر نفسه', 'bad'); return; }
+    b.tests = b.tests.filter(t => t.id !== c._tid); (b.delTests = Array.isArray(b.delTests) ? b.delTests : []).push({ id: c._tid, at: Date.now() }); asstExamWrite({ ...c, items: [] }, () => ({})); c.state = 'undone'; }
+  else if (c.action === 'cert' && (k === 'do' && c.state === 'ask' || k === 'undo' && c.state === 'done')) { asstCert(c, i, k); return; }
   else if (c.action === 'draft' && k === 'copy') { try { navigator.clipboard.writeText(c.text || '').then(() => toast('📋 نُسخت الرسالة', 'good')); } catch (e) {} return; }
   else if (c.action === 'draft' && k === 'wa') { const u = typeof parWaUrl === 'function' && c._id ? parWaUrl(c._id, c.text || '') : 'https://wa.me/?text=' + encodeURIComponent(c.text || ''); window.open(u, '_blank', 'noopener'); return; }
   asstPaint();

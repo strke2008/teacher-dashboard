@@ -197,6 +197,29 @@ export default async function run() {
           finally { s0.points = k0; s1.points = k1; } });
         await p.unroute(/generativelanguage\.googleapis\.com/);
         ok(/<b>7<\/b> نقطة/.test(r.html) && /فوري/.test(r.src), r.html); eq(ai, 0, 'استُدعي الذكاء'); eq([r.top, r.sum], [12, 7], 'الأداة والملخص'); eq(errs, [], 'أخطاء'); });
+      await S.t('🛠️ مساعدي — أوامر إضافية بتأكيد وتراجع: نقاط (إضافة/خصم)، درجة نشاط يدوية، اختبار جديد في الدفتر، رسالة للطلاب بمعاينة كاملة', async () => {
+        let plan = '', posted = null; try { await p.exposeFunction('__plan3', v => { plan = v; }); } catch (e) {}
+        await p.route(/generativelanguage\.googleapis\.com/, r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ candidates: [{ content: { parts: [{ text: plan }] } }] }) }));
+        await p.route(/\/messages$/, r => { if (r.request().method() !== 'POST') return r.fallback(); posted = JSON.parse(r.request().postData() || '{}'); r.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true,"count":1,"requested":1}' }); });
+        const r = await p.evaluate(async () => { const keep = {}; ['ai_provider_v1', 'aikeys_gemini', 'ai_routes_v1'].forEach(k => keep[k] = localStorage.getItem(k));
+          localStorage.setItem('ai_provider_v1', 'gemini'); localStorage.setItem('aikeys_gemini', JSON.stringify([{ key: 'AIzaTEST0000000000' }])); localStorage.removeItem('ai_routes_v1');
+          if (!CT_DATA) { try { await ctLoad(); } catch (e) {} } const s0 = STUDENTS[0], k0 = s0.points, out = {}; s0.points = 10; asstOpen(); ASST.msgs = [];
+          const last = () => { const m = ASST.msgs[ASST.msgs.length - 1]; return [m, ASST.msgs.indexOf(m)]; };
+          window.__plan3(JSON.stringify({ calls: [{ tool: 'adjust_points', args: { students: [s0.name], delta: 5, reason: 'مشاركة' } }] })); await asstAsk('زد نقاطه ٥');
+          let [m, i] = last(); out.pc = [m.cards[0].action, s0.points]; asstAct(i, 0, 'do'); await new Promise(z => setTimeout(z, 1500)); out.p1 = s0.points; asstAct(i, 0, 'undo'); await new Promise(z => setTimeout(z, 300)); out.p2 = s0.points;
+          const h = { id: 'hwAS1', sid: 'pubAS1', title: 'نشاط المساعد التجريبي', max: 10, qs: [{ t: 'tf', q: 'x', a: true }], subs: {}, published: true, at: Date.now() }; HW.push(h);
+          window.__plan3(JSON.stringify({ calls: [{ tool: 'grade_activity', args: { activity: 'المساعد التجريبي', scores: [{ student: s0.name, score: 8 }] } }] })); await asstAsk('ارصد له ٨');
+          [m, i] = last(); out.gc = [m.cards[0].action, m.cards[0].items[0].prev]; asstAct(i, 0, 'do'); out.g1 = (h.subs[s0.id] || {}).manualGrade; asstAct(i, 0, 'undo'); out.g2 = h.subs[s0.id] === undefined; HW.splice(HW.indexOf(h), 1); save(K.hw, HW);
+          const { sem, per } = ctSemActive(), b0 = ctBook(CT_DATA, sem, per), n0 = b0.tests.length;
+          window.__plan3(JSON.stringify({ calls: [{ tool: 'add_exam_test', args: { title: 'اختبار قصير تجريبي للمساعد', max: 10 } }] })); await asstAsk('أضف اختبار');
+          [m, i] = last(); asstAct(i, 0, 'do'); out.t1 = ctBook(CT_DATA, sem, per).tests.length - n0; asstAct(i, 0, 'undo'); out.t2 = ctBook(CT_DATA, sem, per).tests.length - n0;
+          window.__plan3(JSON.stringify({ calls: [{ tool: 'send_message', args: { to: 'students', students: [s0.name], title: 'تذكير', body: 'لا تنس الواجب' } }] })); await asstAsk('أرسل له رسالة');
+          [m, i] = last(); out.mc = [m.cards[0].action, m.cards[0].count, /asst-msgprev/.test(document.getElementById('asst-msgs').innerHTML)]; out.before = window.__posted; asstAct(i, 0, 'do'); await new Promise(z => setTimeout(z, 800)); out.ms = [m.cards[0].state, m.cards[0].res];
+          asstClose(); ASST.msgs = []; s0.points = k0; Object.entries(keep).forEach(([k, v]) => v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v)); out.sid = String(s0.id); return out; });
+        await p.unroute(/generativelanguage\.googleapis\.com/); await p.unroute(/\/messages$/);
+        eq(r.pc, ['points', 10], 'بطاقة النقاط قبل التأكيد'); eq([r.p1, r.p2], [15, 10], 'النقاط والتراجع');
+        eq(r.gc, ['grade', 'لم يسلّم'], 'بطاقة الدرجة'); eq([r.g1, r.g2], [8, true], 'الدرجة والتراجع'); eq([r.t1, r.t2], [1, 0], 'الاختبار والتراجع');
+        eq(r.mc, ['msg', 1, true], 'معاينة الرسالة'); eq(r.ms[0], 'done', r.ms[1]); eq([posted && posted.audience, posted && posted.recipients[0].id, posted && posted.title], ['students', r.sid, 'تذكير'], 'ما أُرسل'); eq(errs, [], 'أخطاء'); });
       await S.t('🎤 مساعدي: الميكروفون عبر محرّك الصوت الموحّد (HWV) — يسمع في المرة الثانية والثالثة (لا جلسة جديدة تُفتح كل ضغطة)', async () => {
         const r = await p.evaluate(async () => { const go = HWV.go, mute = HWV.mute, ask = asstAsk; let owner = null, gos = 0, mutes = 0; const sent = [];
           HWV.go = o => { gos++; owner = o; o.on = true; return true; }; HWV.mute = o => { mutes++; if (o) o.on = false; }; window.asstAsk = q => { sent.push(q); };
