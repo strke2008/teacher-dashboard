@@ -188,16 +188,18 @@ export default async function run() {
       await S.t('🔊 مساعدي يقرأ بصوت ElevenLabs عبر الخادم (k=asst)، ويعود لصوت الجهاز إن لم يُفعَّل', async () => {
         const urls = []; let mode = 200;
         await p.route(/workers\.dev\/tts\?/, r => { urls.push(r.request().url()); r.fulfill(mode === 200 ? { status: 200, contentType: 'audio/mpeg', body: Buffer.from([0]) } : { status: 404, contentType: 'application/json', body: '{"error":"tts_off"}' }); });
-        const r = await p.evaluate(async () => { const k = localStorage.getItem('asst_tts'); localStorage.setItem('asst_tts', '1'); let dev = 0; const sp = speechSynthesis.speak.bind(speechSynthesis); speechSynthesis.speak = u => { dev++; };
+        const r = await p.evaluate(async () => { const k = localStorage.getItem('asst_tts'); localStorage.setItem('asst_tts', '1');
+          const def = !asstElOn() && !document.getElementById('asst-el-tg').checked; window.__defOff = def; localStorage.setItem('asst_el_on', '1'); let dev = 0; const sp = speechSynthesis.speak.bind(speechSynthesis); speechSynthesis.speak = u => { dev++; };
           ASST_EL = null; await asstSpeak('غاب اليوم **طالبان** من أول ١'); const el = ASST_EL, d1 = dev;
-          window.__mode404 && window.__mode404(); return { el, d1, k }; });
+          window.__mode404 && window.__mode404(); return { el, d1, k, def }; });
         mode = 404; const r2 = await p.evaluate(async () => { let dev = 0; speechSynthesis.speak = u => { dev++; }; ASST_EL = null; await asstSpeak('مرحبا يا معلم'); const out = { el: ASST_EL, dev };
           speechSynthesis.cancel(); return out; });
         mode = 200; const n0 = urls.length;
         const r3 = await p.evaluate(async () => { const c = document.getElementById('asst-el-tg'); const vis = !!c; if (c) { c.checked = false; c.dispatchEvent(new Event('change')); }
-          let dev = 0; speechSynthesis.speak = u => { dev++; }; await asstSpeak('مرحبا يا معلم'); const off = localStorage.getItem('asst_el_off');
+          let dev = 0; speechSynthesis.speak = u => { dev++; }; await asstSpeak('مرحبا يا معلم'); const off = localStorage.getItem('asst_el_on');
           if (c) { c.checked = true; c.dispatchEvent(new Event('change')); } speechSynthesis.cancel(); return { vis, dev, off }; });
-        eq([r3.vis, r3.dev, r3.off, urls.length - n0], [true, 1, '1', 0], 'المفتاح المقفول: صوت الجهاز بلا طلب للخادم');
+        eq([r3.vis, r3.dev, r3.off, urls.length - n0], [true, 1, null, 0], 'المفتاح المقفول: صوت الجهاز بلا طلب للخادم'); ok(r.def, 'ElevenLabs مقفول افتراضيًا');
+        await p.evaluate(() => localStorage.removeItem('asst_el_on'));
         await p.evaluate(k => { if (k == null) localStorage.removeItem('asst_tts'); else localStorage.setItem('asst_tts', k); }, r.k);
         await p.unroute(/workers\.dev\/tts\?/);
         ok(urls.length >= 1 && /k=asst/.test(urls[0]) && decodeURIComponent(urls[0]).includes('غاب اليوم طالبان'), urls[0]); eq([r.el, r.d1], [true, 0], 'ElevenLabs'); eq([r2.el, r2.dev], [false, 1], 'صوت الجهاز'); eq(errs, [], 'أخطاء'); });

@@ -222,9 +222,9 @@ const ASST_SILENT = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AA
 function asstAudioUnlock() {   // يُستدعى من ضغطة المعلم: iPhone لا يشغّل صوتًا يبدأ بعد انتظار الجواب إلا إن «فُتح» العنصر بلمسة
   if (!asstTtsOn()) return; try { if (!ASST_AUDIO) ASST_AUDIO = new Audio(); ASST_AUDIO.src = ASST_SILENT; ASST_AUDIO.play().catch(() => {}); } catch (e) {}
 }
-/* ⚙️ مفتاح «صوت ElevenLabs» في إعدادات الذكاء الاصطناعي — مقفول = صوت الجهاز دائمًا */
-const asstElOn = () => { try { return localStorage.getItem('asst_el_off') !== '1'; } catch (e) { return true; } };
-function asstElSet(on) { try { if (on) localStorage.removeItem('asst_el_off'); else localStorage.setItem('asst_el_off', '1'); } catch (e) {} ASST_EL = null; asstSpeakStop();
+/* ⚙️ مفتاح «صوت ElevenLabs» في إعدادات الذكاء الاصطناعي — مقفول افتراضيًا (صوت الجهاز)، ولا يعمل إلا إذا فتحه المعلم */
+const asstElOn = () => { try { return localStorage.getItem('asst_el_on') === '1'; } catch (e) { return false; } };
+function asstElSet(on) { try { if (on) localStorage.setItem('asst_el_on', '1'); else localStorage.removeItem('asst_el_on'); localStorage.removeItem('asst_el_off'); } catch (e) {} ASST_EL = null; asstSpeakStop();
   try { toast(on ? '🔊 مساعدي يقرأ بصوت ElevenLabs' : '🔊 مساعدي يقرأ بصوت جهازك', 'good'); } catch (e) {} }
 (function asstElInit() { const go = () => { const c = document.getElementById('asst-el-tg'); if (c) c.checked = asstElOn(); };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go(); })();
