@@ -185,6 +185,60 @@ export default async function run() {
         ok(/غابوا آخر ٣ حصص/.test(r.brief) && r.brief.includes(r.s0), 'الملخص: ' + r.brief);
         ok(/^السلام عليكم/.test(r.draft || '') && r.ta, 'المسودة'); const last = bodies[bodies.length - 1];
         ok(!r.ids.some(id => last.includes('"' + id + '"')) && !/"_id"/.test(last), 'وصل معرّف للمزوّد'); eq(errs, [], 'أخطاء'); });
+      await S.t('✨ مساعدي — صلاحيات موسّعة: دفتر الاختبارات، تحليل أسئلة التصحيح الآلي، المهارات، رصد درجة بتأكيد وتراجع، مسودة نشاط غير منشورة، التنقّل، والخطوات المتعددة', async () => {
+        let plan = '', qgen = 0; try { await p.exposeFunction('__plan2', v => { plan = v; }); } catch (e) {}
+        await p.route(/generativelanguage\.googleapis\.com/, async r => { const b = r.request().postData() || ''; let txt = plan;
+          if (/أسئلة لنشاط طلاب/.test(b)) { qgen++; txt = JSON.stringify({ questions: [{ t: 'q', q: 'ما وحدة بناء الكائن الحي؟', o: ['الخلية', 'النسيج', 'العضو', 'الجهاز'], a: 0 }, { t: 'tf', q: 'للخلية النباتية جدار خلوي', a: true }, { t: 'q', q: 'سؤال ناقص', o: ['أ'], a: 0 }] }); }
+          else if (/نتائج الأدوات/.test(b)) txt = '{"answer":"تم"}';
+          r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ candidates: [{ content: { parts: [{ text: txt }] } }] }) }); });
+        await p.route(/\/omr\/(papers\/full|get)\?/, r => { const u = r.request().url();
+          if (/papers\/full/.test(u)) return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, papers: [{ sid: 'S1', tpl: 'T1', model: 0, ch: [0, 1, 2] }, { sid: 'S2', tpl: 'T1', model: 0, ch: [0, 0, -1] }, { sid: 'S3', tpl: 'T1', model: 0, ch: [0, 1, 2] }] }) });
+          r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, template: { models: [{ questions: [{ q: 'س1', key: 0 }, { q: 'س2', key: 1 }, { q: 'س3', key: 2, o: ['أول', 'ثاني', 'ثالث'] }] }] } }) }); });
+        const r = await p.evaluate(async () => { const keep = {}; ['ai_provider_v1', 'aikeys_gemini', 'ai_routes_v1', 'ct_outbox_v1'].forEach(k => keep[k] = localStorage.getItem(k));
+          localStorage.setItem('ai_provider_v1', 'gemini'); localStorage.setItem('aikeys_gemini', JSON.stringify([{ key: 'AIzaTEST0000000000' }])); localStorage.removeItem('ai_routes_v1');
+          if (!CT_DATA) { try { await ctLoad(); } catch (e) {} } const { sem, per } = ctSemActive(), b = ctBook(CT_DATA, sem, per), s = STUDENTS.slice(0, 3), keepBook = JSON.stringify(b);
+          const ids0 = s.map(x => x.id); s.forEach((x, n) => { x.__id = x.id; }); b.tests.push({ id: 'exAS1', title: 'اختبار الفترة الأولى', max: 20 });
+          b.scores[s[0].id] = { exAS1: { score: 17, at: 1 } }; b.scores[s[1].id] = { exAS1: { absent: true, at: 1 } };
+          const out = {}; out.sp = asstSP({}); out.due = [asstDue('الخميس'), asstDue('بكرة'), asstDue('2026-12-01'), asstDue('كلام')];
+          const sc = await ASST_TOOLS.exam_scores.run({ test: 'الفترة الأولى' }); out.scores = [sc.scores && sc.scores.length, sc.absent && sc.absent.length, sc.max];
+          // تحليل الأسئلة: الأوراق بمعرّفات الطلاب الحقيقية
+          const realIds = { S1: s[0].id, S2: s[1].id, S3: s[2].id }; const of = window.fetch; window.fetch = (u, o) => of(String(u), o).then(async res => { if (!/papers\/full/.test(String(u))) return res; const j = await res.json(); j.papers.forEach(pp => pp.sid = realIds[pp.sid]); return new Response(JSON.stringify(j)); });
+          const it = await ASST_TOOLS.exam_items.run({ test: 'الفترة الأولى' }), q2 = await ASST_TOOLS.exam_items.run({ test: 'الفترة الأولى', question: '٢' }); window.fetch = of;
+          out.items = [it.papers, it.hardest_first && it.hardest_first[0].no, it.hardest_first && it.hardest_first[0].correct_pct]; out.q2 = [q2.question && q2.question[0].wrong.map(w => w.name + ':' + w.chose).join(), q2.question && q2.question[0].correct_pct];
+          out.q3blank = ((await (async () => { window.fetch = (u, o) => of(String(u), o).then(async res => { if (!/papers\/full/.test(String(u))) return res; const j = await res.json(); j.papers.forEach(pp => pp.sid = realIds[pp.sid]); return new Response(JSON.stringify(j)); }); const x = await ASST_TOOLS.exam_items.run({ test: 'آخر', question: 3 }); window.fetch = of; return x; })()).question || [{}])[0];
+          const sk = await ASST_TOOLS.skills.run({}); out.skills = !!(sk && (sk.skills || sk.error));
+          // رصد درجة: بطاقة ← لا كتابة ← نفّذ ← تراجع
+          asstOpen(); ASST.msgs = [];
+          window.__plan2(JSON.stringify({ calls: [{ tool: 'record_exam_score', args: { test: 'اختبار الفترة الأولى', scores: [{ student: s[0].name, score: '١٨' }, { student: s[2].name, score: 25 }, { student: 'اسم غير موجود أبدا', score: 3 }] } }] }));
+          await asstAsk('سجّل لهم درجات اختبار الفترة الأولى'); const m = ASST.msgs[ASST.msgs.length - 1], c = m.cards && m.cards[0], i = ASST.msgs.indexOf(m);
+          out.card = c && [c.action, c.items.length, c.items[0].score, c.items[1].score, c.items[1].over, c.unresolved.length, c.state];
+          out.pre = b.scores[s[0].id].exAS1.score; asstAct(i, 0, 'do');
+          out.after = [b.scores[s[0].id].exAS1.score, b.scores[s[2].id].exAS1.score]; out.outbox = JSON.parse(localStorage.getItem('ct_outbox_v1') || '[]').some(o => o.k === 'exb' && o.book && o.book.tests.some(t => t.id === 'exAS1'));
+          asstAct(i, 0, 'undo'); const b2 = ctBook(CT_DATA, sem, per); out.undone = [b2.scores[s[0].id].exAS1.score, !!b2.scores[s[2].id].exAS1.del];
+          // مسودة نشاط: لا تُنشر
+          const hw0 = HW.length; window.__plan2('{"calls":[{"tool":"create_activity","args":{"topic":"الخلية","n":10,"cls":"' + (s[0].cls || '') + '","due":"الخميس"}}]}');
+          await asstAsk('سوّ نشاط عن الخلية'); const am = ASST.msgs[ASST.msgs.length - 1], ac = am.cards && am.cards[0], ai = ASST.msgs.indexOf(am);
+          out.act = ac && [ac.action, ac.count, ac.due === asstDue('الخميس'), HW.length === hw0]; asstAct(ai, 0, 'do'); const h = HW[HW.length - 1];
+          out.draft = [HW.length - hw0, h.title, h.qs.length, !!h.sid, !!h.published, h.cls === (s[0].cls || ''), h.due === asstDue('الخميس')]; HW.splice(HW.indexOf(h), 1); save(K.hw, HW); closeModal();
+          // خطوات متعددة مرقّمة
+          asstOpen(); window.__plan2(JSON.stringify({ calls: [{ tool: 'behavior_note', args: { students: [s[0].name], type: 'positive', note: 'تميز' } }, { tool: 'record_exam_score', args: { test: 'آخر', scores: [{ student: s[1].name, score: 10 }] } }, { tool: 'open_page', args: { page: 'exams' } }] }));
+          await asstAsk('سجل له تميز وارصد درجة الثاني وافتح الدفتر'); const mm = ASST.msgs[ASST.msgs.length - 1]; out.steps = (mm.cards || []).map(x => x.action + '|' + x._step + '|' + x.state).join(',');
+          out.stepsHtml = (document.getElementById('asst-msgs').innerHTML.match(/الخطوة \d من \d/g) || []).length;
+          // تنقّل فوري بلا ذكاء
+          await asstAsk('افتح ملف ' + s[2].name); const nm = ASST.msgs[ASST.msgs.length - 1]; await new Promise(z => setTimeout(z, 1200));
+          out.nav = [nm.cards && nm.cards[0].action, nm.cards && nm.cards[0].state, nm.src.join(' '), true, String(window._ctPfSid) === String(s[2].id), document.getElementById('asst-panel').classList.contains('on')];
+          asstClose(); ASST.msgs = []; try { closeModal(); } catch (e) {}
+          const B = JSON.parse(keepBook), b3 = ctBook(CT_DATA, sem, per); b3.tests = B.tests; b3.scores = B.scores;
+          Object.entries(keep).forEach(([k, v]) => v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v));
+          return out; });
+        await p.unroute(/generativelanguage\.googleapis\.com/); await p.unroute(/\/omr\/(papers\/full|get)\?/);
+        ok(r.due[0] && r.due[1] && r.due[2] === '2026-12-01' && r.due[3] === '', 'المواعيد: ' + r.due);
+        eq(r.scores, [1, 1, 20], 'درجات الاختبار'); eq(r.items, [3, 2, 67], 'تحليل الأسئلة'); eq(r.q2[1], 67, 'نسبة س2'); ok(/أ$/.test(r.q2[0]), 'من أخطأ في س2: ' + r.q2[0]);
+        eq((r.q3blank.blank || []).length, 1, 'من ترك س3'); ok(r.skills, 'المهارات');
+        eq(r.card, ['exam', 2, 18, 20, 25, 1, 'ask'], 'بطاقة الدرجات'); eq(r.pre, 17, 'كُتب قبل التأكيد'); eq(r.after, [18, 20], 'الرصد'); ok(r.outbox, 'طابور الدفتر'); eq(r.undone, [17, true], 'التراجع');
+        eq(r.act, ['activity', 2, true, true], 'بطاقة النشاط'); eq(r.draft, [1, 'الخلية', 2, false, false, true, true], 'المسودة');
+        eq(r.steps, 'behavior|1 من 3|ask,exam|2 من 3|ask,nav|3 من 3|ask', 'الخطوات'); eq(r.stepsHtml, 3, 'ترقيم الخطوات');
+        eq(r.nav.slice(0, 2), ['nav', 'done'], 'التنقّل'); ok(/فوري/.test(r.nav[2]) && r.nav[3] && r.nav[4] && !r.nav[5], 'افتح ملف: ' + r.nav); eq(errs, [], 'أخطاء'); });
       await S.t('🔊 مساعدي يقرأ بصوت ElevenLabs عبر الخادم (k=asst)، ويعود لصوت الجهاز إن لم يُفعَّل', async () => {
         const urls = []; let mode = 200;
         await p.route(/workers\.dev\/tts\?/, r => { urls.push(r.request().url()); r.fulfill(mode === 200 ? { status: 200, contentType: 'audio/mpeg', body: Buffer.from([0]) } : { status: 404, contentType: 'application/json', body: '{"error":"tts_off"}' }); });
