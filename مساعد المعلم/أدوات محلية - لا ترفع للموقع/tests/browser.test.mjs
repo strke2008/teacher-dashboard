@@ -278,6 +278,21 @@ export default async function run() {
         eq(r.missing, [], 'صفحات غير موجودة في اللوحة');
         eq(r.M, { 'افتح الجدول': 'schedule', 'افتح جدول الحصص': 'schedule', 'افتح المتجر': 'exam_shop', 'افتح ملف الفصل': 'classfile', 'افتح الحضور': 'records', 'روح للإعدادات': 'settings', 'افتح نافس': 'nafs', 'افتح دفتر الاختبارات': 'exams', 'افتح المسابقات': 'live', 'افتح شي ما له وجود': '' }, 'المطابقة');
         ok(r.bad, 'خمّن صفحة غير موجودة'); eq(r.fix, 'schedule', 'تصحيح اختيار الذكاء من query'); eq(r.opened.slice(0, 2), ['schedule', true], 'فتح الجدول'); ok(/فوري/.test(r.opened[2]), 'بلا ذكاء'); eq(ai, 0, 'استُدعي الذكاء'); eq(errs, [], 'أخطاء'); });
+      await S.t('🍎 محرّك الصوت (HWV): iPhone يبدأ جملة جديدة في الخانة نفسها ⇒ تصل كلماتها (لا تُبتلع)، والإضافة لنفس الجملة تعطي الجديد فقط؛ ووضع المحادثة لا يفتح جلسة بلا لمسة', async () => {
+        const r = await p.evaluate(async () => { const rec = HWV.instance(false), st = rec.start; rec.start = () => {}; const got = [];
+          const R = (t, f) => Object.assign([{ transcript: t }], { isFinal: !!f }), ev = (i, list) => ({ resultIndex: i, results: list });
+          const o = { on: false, onText: (t, f) => got.push(t + (f ? '|F' : '')) };
+          try { HWV.go(o); rec.onresult(ev(0, [R('مين الغايب اليوم في أول واحد', true)]));
+            HWV.mute(o); rec.onresult(ev(0, [R('مين الغايب اليوم في أول واحد وكلام أثناء الكتم', false)]));   // مكتوم: يُستهلك
+            HWV.go(o); rec.onresult(ev(0, [R('مرحبا', false)])); rec.onresult(ev(0, [R('مرحبا يا مساعد', true)]));
+            rec.onresult(ev(0, [R('مرحبا يا مساعد كيف حالك', true)])); HWV.mute(o); }
+          finally { rec.start = st; }
+          const ios = HWV.ios, d = Object.getOwnPropertyDescriptor(HWV, 'active'); HWV.ios = true; Object.defineProperty(HWV, 'active', { get: () => false, configurable: true });
+          const conv = localStorage.getItem('asst_conv'); localStorage.setItem('asst_conv', '1'); asstOpen(); ASST_MIC = null; asstMic(true); await new Promise(z => setTimeout(z, 30));
+          const wait = [ASST_MIC === null, !!ASST.waitTap, /اضغط 🎤/.test(document.getElementById('asst-live').textContent), document.getElementById('asst-mic').classList.contains('nudge')];
+          HWV.ios = ios; Object.defineProperty(HWV, 'active', d); ASST.waitTap = 0; if (conv == null) localStorage.removeItem('asst_conv'); else localStorage.setItem('asst_conv', conv); asstClose();
+          return { got, wait }; });
+        eq(r.got, ['مين الغايب اليوم في أول واحد|F', 'مرحبا', 'مرحبا يا مساعد|F', 'كيف حالك|F'], 'الكلمات بعد الجملة الجديدة'); eq(r.wait, [true, true, true, true], 'بلا لمسة'); eq(errs, [], 'أخطاء'); });
       await S.t('🎤 مساعدي: الميكروفون عبر محرّك الصوت الموحّد (HWV) — يسمع في المرة الثانية والثالثة (لا جلسة جديدة تُفتح كل ضغطة)', async () => {
         const r = await p.evaluate(async () => { const go = HWV.go, mute = HWV.mute, ask = asstAsk; let owner = null, gos = 0, mutes = 0; const sent = [];
           HWV.go = o => { gos++; owner = o; o.on = true; return true; }; HWV.mute = o => { mutes++; if (o) o.on = false; }; window.asstAsk = q => { sent.push(q); };

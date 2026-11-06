@@ -7,7 +7,7 @@
 window.HWV = (function () {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   const IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  const V = { rec: null, active: false, owner: null, n: {}, pend: null, idleT: 0, offT: 0, err: '', ext: false, takeover: [] };
+  const V = { rec: null, active: false, owner: null, n: {}, t: {}, pend: null, idleT: 0, offT: 0, err: '', ext: false, takeover: [] };
   const words = t => String(t || '').trim().split(/\s+/).filter(Boolean);
   function instance(fresh) {   // الكائن الوحيد (جديد فقط بعد تعطّله)
     if (!SR) return null;
@@ -17,9 +17,12 @@ window.HWV = (function () {
   }
   function commit() { const p = V.pend; V.pend = null; clearTimeout(V.idleT); if (!p) return; V.n[p.i] = p.len; const o = V.owner; if (o && o.on) o.onText(p.text, true); }
   function install(r) {
-    r.onstart = () => { V.n = {}; V.err = ''; };
+    r.onstart = () => { V.n = {}; V.t = {}; V.err = ''; };
     r.onresult = ev => { const o = V.owner, from = typeof ev.resultIndex === 'number' ? ev.resultIndex : 0;
-      for (let i = from; i < ev.results.length; i++) { const res = ev.results[i]; if (!res) continue; const w = words(res[0] && res[0].transcript), n = V.n[i] || 0;
+      for (let i = from; i < ev.results.length; i++) { const res = ev.results[i]; if (!res) continue; const w = words(res[0] && res[0].transcript), pv = V.t[i];
+        /* 🍎 iPhone يبدأ أحيانًا جملة جديدة في الخانة نفسها (النص يقصر ويتغيّر أوله): بدون هذا تُبتلع كل الكلمات الجديدة حتى يتجاوز عددها القديم */
+        if (pv && w.length && (w.length < (V.n[i] || 0) || w.length < pv.length) && w[0] !== pv[0]) { V.n[i] = 0; if (V.onReset) try { V.onReset(i); } catch (e) {} }
+        V.t[i] = w; const n = V.n[i] || 0;
         if (!o || !o.on) { V.n[i] = w.length; continue; }            // مكتوم: يُستهلك ولا يُعطى
         if (w.length <= n) continue; const text = w.slice(n).join(' ');
         if (res.isFinal) { V.pend = null; clearTimeout(V.idleT); V.n[i] = w.length; o.onText(text, true); }
@@ -44,7 +47,7 @@ window.HWV = (function () {
     if (IOS) V.offT = setTimeout(stop, 600000); else setTimeout(stop, 0);
   }
   function mute(o) { commit(); if (o) o.on = false; idle(); }
-  return { sup: !!SR, ios: IOS, go, mute, instance, idle,
+  return { sup: !!SR, ios: IOS, go, mute, instance, idle, set onReset(f) { V.onReset = f; },
     get active() { return V.active; },
     /* للاختبارات والرسائل (VBI): يأخذ الكائن نفسه ويركّب معالجاته، ويوقف أي مالك آخر */
     adopt(fresh) { claim(null, true); V.owner = null; V.ext = true; return instance(fresh); },

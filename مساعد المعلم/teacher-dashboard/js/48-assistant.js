@@ -350,7 +350,7 @@ function asstForget() { ASST.msgs = []; try { localStorage.removeItem('asst_hist
 const asstConvOn = () => { try { return localStorage.getItem('asst_conv') === '1'; } catch (e) { return false; } };
 function asstConvToggle() { const on = !asstConvOn(); try { if (on) localStorage.setItem('asst_conv', '1'); else localStorage.removeItem('asst_conv'); } catch (e) {} const b = document.getElementById('asst-conv'); if (b) b.classList.toggle('on', on);
   toast(on ? '🗣️ وضع المحادثة: تكلّم الحين — أرد وأرجع أسمعك لحالي' : '🗣️ أُقفل وضع المحادثة', 'good'); setTimeout(asstLive, 0); if (on && !ASST_MIC && !ASST.busy) asstMic(); else if (!on) asstMicStop(); }
-function asstConvNext() { const p = document.getElementById('asst-panel'); if (asstConvOn() && p && p.classList.contains('on') && !ASST_MIC && !ASST.busy) asstMic(); }
+function asstConvNext() { const p = document.getElementById('asst-panel'); if (asstConvOn() && p && p.classList.contains('on') && !ASST_MIC && !ASST.busy) asstMic(true); }
 
 /* ── تشغيل سؤال ── */
 function asstFast(q) {   // ⚡ بلا ذكاء: «مين الغايب اليوم» و«افتح ملف فلان»
@@ -562,25 +562,37 @@ let ASST_MIC = null;
 /* شريط الحالة تحت الخانة: يوضّح أنه يسمع ومتى يرسل، ووضع المحادثة */
 function asstLive() { const e = document.getElementById('asst-live'); if (!e) return; const conv = asstConvOn();
   e.innerHTML = ASST_MIC ? `<span class="dot"></span> ${conv ? '🗣️ وضع المحادثة — ' : ''}أسمعك… أرسل لحالي بعد سكوتك ثانيتين، أو اضغط 🎤 للإرسال الآن`
-    : conv ? '🗣️ وضع المحادثة مفتوح: اضغط 🎤 مرة وحدة وتكلم — أرد وأرجع أسمعك لحالي. للإيقاف اضغط 🗣️' : '';
+    : conv && ASST.waitTap ? '👆 اضغط 🎤 لتكمل المحادثة — الآيفون يحتاج لمسة بعد ما يقفل السماع' : conv ? '🗣️ وضع المحادثة مفتوح: اضغط 🎤 مرة وحدة وتكلم — أرد وأرجع أسمعك لحالي. للإيقاف اضغط 🗣️' : '';
+  const mb = document.getElementById('asst-mic'); if (mb) mb.classList.toggle('nudge', !!(conv && ASST.waitTap && !ASST_MIC));
   e.hidden = !e.innerHTML; }
 const ASST_MLOG = [];
 function asstMicLog(x) { ASST_MLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + x); if (ASST_MLOG.length > 40) ASST_MLOG.shift(); }
-function asstMicStop() { const c = ASST_MIC; if (!c) return; ASST_MIC = null; clearTimeout(c.t); try { HWV.mute(c.owner); } catch (e) {} const b = document.getElementById('asst-mic'); if (b) b.classList.remove('on'); asstLive(); }
+function asstMicStop() { const c = ASST_MIC; if (!c) return; ASST_MIC = null; clearTimeout(c.t); clearTimeout(c.wd); try { HWV.mute(c.owner); } catch (e) {} const b = document.getElementById('asst-mic'); if (b) b.classList.remove('on'); asstLive(); }
 function asstMicSend() { const c = ASST_MIC; if (!c) return; const t = (c.done + ' ' + c.pend).replace(/\s+/g, ' ').trim(); asstMicLog('send ' + t.length); asstMicStop(); const i = document.getElementById('asst-q'); if (i) i.value = ''; if (t) asstAsk(t); }
-function asstMic() {
+/* سجل أحداث الصوت نفسه (هل يصل صوت؟ متى انتهت الجلسة؟) — يظهر بـ«سجل المايك» */
+let ASST_RECHOOK = null;
+function asstRecHook() { try { const r = HWV.instance(false); if (!r || r === ASST_RECHOOK) return; ASST_RECHOOK = r;
+  ['start', 'end', 'audiostart', 'audioend', 'speechstart', 'speechend', 'nomatch'].forEach(ev => r.addEventListener(ev, () => asstMicLog('rec:' + ev)));
+  r.addEventListener('error', e => asstMicLog('rec:error ' + (e && e.error))); r.addEventListener('result', e => { try { const x = e.results[e.results.length - 1]; asstMicLog(`rec:result #${e.resultIndex}/${e.results.length} ${String(x[0].transcript).trim().split(/\s+/).length}w`); } catch (er) {} });
+  HWV.onReset = i => asstMicLog('reset خانة ' + i); } catch (e) {} }
+function asstMic(auto) {
   if (!window.HWV || !HWV.sup) { toast('الكلام غير مدعوم في هذا المتصفح', 'bad'); return; }
   if (ASST_MIC) { asstMicSend(); return; }   // ضغطة ثانية: أرسل ما قيل
+  /* 🍎 iPhone: جلسة تبدأ بلا لمسة تشتغل لكن لا يصلها صوت — فإن انقفلت الجلسة لا نعيدها تلقائيًا، بل ننتظر ضغطة 🎤 */
+  if (auto === true && HWV.ios && !HWV.active) { asstMicLog('auto: الجلسة مقفلة ← تنتظر لمسة'); ASST.waitTap = 1; asstLive(); return; }
+  ASST.waitTap = 0;
   if (!(window.HWV && HWV.ios && HWV.active)) { asstSpeakStop(); asstAudioUnlock(); }
   const i = document.getElementById('asst-q'), b = document.getElementById('asst-mic'), c = { done: '', pend: '', t: 0 };
   const show = () => { if (i) i.value = (c.done + ' ' + c.pend).replace(/\s+/g, ' ').trim(); };
   c.owner = { on: false,
-    onText: (t, final) => { clearTimeout(c.t); if (final) { c.done += ' ' + t; c.pend = ''; c.t = setTimeout(asstMicSend, 1800); } else c.pend = t; show(); asstLive(); },
+    onText: (t, final) => { c.heard = 1; clearTimeout(c.t); if (final) { c.done += ' ' + t; c.pend = ''; c.t = setTimeout(asstMicSend, 1800); } else c.pend = t; show(); asstLive(); },
     onStop: why => { asstMicLog('stop:' + (why || '')); if (ASST_MIC === c) { if ((c.done + c.pend).trim()) asstMicSend(); else asstMicStop(); } },
     onError: err => { asstMicLog('err:' + err); if (err === 'not-allowed' || err === 'service-not-allowed') { toast('اسمح للمتصفح باستخدام الميكروفون', 'bad'); asstMicStop(); } } };
-  ASST_MIC = c; if (b) b.classList.add('on'); asstMicLog('go active=' + HWV.active);
+  ASST_MIC = c; if (b) b.classList.add('on'); asstMicLog((auto === true ? 'auto ' : 'tap ') + 'go active=' + HWV.active);
   setTimeout(asstLive, 0);
-  if (!HWV.go(c.owner)) { asstMicStop(); toast('تعذّر تشغيل الميكروفون — أغلق المتصفح وافتحه ثم حاول', 'bad'); }
+  const ok = HWV.go(c.owner); asstRecHook();
+  if (auto === true && HWV.ios) c.wd = setTimeout(() => { if (ASST_MIC === c && !c.heard) { asstMicLog('auto: لا صوت 10ث ← تنتظر لمسة'); asstMicStop(); ASST.waitTap = 1; asstLive(); } }, 10000);
+  if (!ok) { asstMicStop(); toast('تعذّر تشغيل الميكروفون — أغلق المتصفح وافتحه ثم حاول', 'bad'); }
 }
 const asstTtsOn = () => { try { return localStorage.getItem('asst_tts') === '1'; } catch (e) { return false; } };
 function asstTtsToggle() { try { localStorage.setItem('asst_tts', asstTtsOn() ? '0' : '1'); } catch (e) {} asstSpeakStop(); asstAudioUnlock(); const b = document.getElementById('asst-tts'); if (b) { b.textContent = asstTtsOn() ? '🔊' : '🔇'; b.title = asstTtsOn() ? 'قراءة الأجوبة بصوت: مفعّلة' : 'قراءة الأجوبة بصوت: متوقفة'; } }
