@@ -276,6 +276,16 @@ const ASST_TOOLS = {
     async run(a) { await asstClassroom(); const T = typeof tdRemToday === 'function' ? tdRemToday() : [], t = asstTok(a.title || ''), m = T.filter(x => !x.done && t.length && t.every(w => asstTok(typeof tdRemTitle === 'function' ? tdRemTitle(x.r) : x.r.title || '').some(y => y.includes(w))));
       if (m.length !== 1) return { error: m.length ? 'أكثر من تذكير يطابق' : 'لم أجد تذكيرًا مفتوحًا اليوم بهذا النص', today: T.filter(x => !x.done).map(x => typeof tdRemTitle === 'function' ? tdRemTitle(x.r) : x.r.title) };
       return { action: 'remdone', title: typeof tdRemTitle === 'function' ? tdRemTitle(m[0].r) : m[0].r.title, at: m[0].hm, _rid: m[0].r.id }; } },
+  /* ── 🧰 أدوات الحصة (آمنة — تُفتح فورًا فوق الرصد) ── */
+  pick_student: { d: 'اختيار طالب عشوائي ليجاوب (من الحاضرين، بلا تكرار حتى يمر الجميع اليوم) ويُعرض اسمه كبيرًا. args: {cls?}', src: () => '🎯 مين يجاوب',
+    async run(a) { if (typeof ckPick !== 'function') return { error: 'أدوات الحصة غير محمّلة' }; await asstClassroom(); const cls = asstCls(a.cls) || ckCls(); CK.cls = cls; CK.tab = 'pick'; ckOpen('pick', cls);
+      const s = ckPick(cls); return s ? { picked: s.name, cls: s.cls || '', say: '🎯 ' + s.name } : { error: 'لا طلاب حاضرون في ' + (cls || 'الفصل') }; } },
+  class_timer: { d: 'تشغيل مؤقت للحصة بالدقائق (عدّ تنازلي كبير وتنبيه عند الانتهاء). args: {minutes}', src: () => '⏱️ مؤقت',
+    async run(a) { if (typeof ckTimer !== 'function') return { error: 'أدوات الحصة غير محمّلة' }; const m = Number(String(a.minutes ?? '').replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
+      if (!(m > 0 && m <= 120)) return { error: 'حدّد المدة بالدقائق (1–120)' }; ckOpen('timer'); ckTimer(Math.round(m * 60)); return { started: m + ' دقيقة', say: '⏱️ بدأ مؤقت ' + m + ' دقيقة' }; } },
+  make_groups: { d: 'تقسيم طلاب فصل (الحاضرين) إلى مجموعات: متوازنة بالمستوى أو عشوائية، وتُعرض على الشاشة. args: {cls?, n?:عدد المجموعات, mode?:"balanced"|"random"}', src: () => '👥 مجموعات',
+    async run(a) { if (typeof ckGroups !== 'function') return { error: 'أدوات الحصة غير محمّلة' }; await asstClassroom(); try { await asstGrades(); } catch (e) {} const cls = asstCls(a.cls) || ckCls(); CK.cls = cls; ckOpen('groups', cls);
+      const G = ckGroups(Number(a.n) || 4, a.mode === 'random' ? 'rand' : 'mix', cls); return { cls: cls || 'كل الفصول', groups: G.map((g, i) => ({ group: i + 1, students: g.map(s => s.name) })), say: '👥 ' + G.length + ' مجموعات لـ' + (cls || 'الفصل') }; } },
   open_page: { act: 1, get d() { return 'فتح صفحة في اللوحة أو طباعة كشف. page واحد من هذه بالضبط (ولا تختر الأقرب إن لم يطابق — اترك page فارغًا وضع اسم الصفحة كما قاله المعلم في query): ' + Object.entries(ASST_PAGES).map(([k, P]) => k + '=' + P[1].replace(/^\S+\s/, '')).join('، ') + '. student وreport يحتاجان student؛ activity يحتاج activity؛ exams يقبل sem/per/cls؛ grades يقبل cls وprint:true للطباعة. args: {page, query?, student?, activity?, cls?, sem?, per?, print?}'; }, src: () => '🧭 تنقّل',
     async run(a) { let pg = String(a.page || '').trim(); if (!ASST_PAGES[pg] || a.query) { const m = asstPageMatch(a.query || a.page); if (m) pg = m; else if (!ASST_PAGES[pg]) pg = ''; }
       const P = ASST_PAGES[pg]; if (!P) return { error: 'ما لقيت صفحة بهذا الاسم: «' + (a.query || a.page || '') + '»', pages: Object.values(ASST_PAGES).filter(x => x[2]).map(x => x[1]) };
@@ -398,6 +408,8 @@ function asstFast(q) {   // ⚡ بلا ذكاء: «مين الغايب اليو�
   const t = String(q || ''), pf = t.match(/^\s*(?:افتح|إفتح|فتح|افتحي|ودّني|ودني|روح)\s+(?:لي\s+)?ملف\s+(?:الطالب\s+)?(.+?)\s*[؟?.!]*\s*$/);
   if (pf && !/^(ال)?فصل(\s|$)/.test(pf[1])) return { tool: 'open_page', args: { page: 'student', student: pf[1] } };
   { const pm = /^\s*(افتح|إفتح|فتح|افتحي|روح|ودّني|ودني|خذني)\s/.test(t) ? asstPageMatch(t) : ''; if (pm) return { tool: 'open_page', args: { page: pm } }; }
+  if (/^\s*(مين|من|منو)\s+(يجاوب|يجيب|يحل|يقرأ|يقرا|يطلع)|^\s*(اختر|اختار)\s+(طالب|احد)/.test(t)) return { tool: 'pick_student', args: {} };
+  { const tm = t.match(/(?:مؤقت|تايمر)\s*(?:ل|لمدة)?\s*([0-9٠-٩]+)\s*(?:د|دق|دقيقة|دقايق|دقائق)?/); if (tm) return { tool: 'class_timer', args: { minutes: tm[1] } }; }
   const pp = t.match(/^\s*(?:كم\s+)?(?:نقاط|رصيد(?:\s+نقاط)?)\s+(?:الطالب\s+)?(.+?)(?:\s+كم)?\s*[؟?.!]*\s*$/);
   if (pp && asstFindStudent(pp[1]).length === 1) return { tool: 'points', args: { student: pp[1] } }; if (!/(غايب|غائب|غياب|غابو|غابوا|الغائبين|الحضور)/.test(t)) return null;
   if (!/(اليوم|الحين|هاليوم)/.test(t) && !/^\s*(مين|من)\s+(ال)?(غايب|غائب)/.test(t)) return null;
@@ -425,6 +437,7 @@ async function asstAsk(q, opt) {   // opt.live: من المحادثة الحية
     if (fast) { const r = await ASST_TOOLS[fast.tool].run(fast.args); bot.src = [ASST_TOOLS[fast.tool].src(fast.args), '⚡ فوري بلا ذكاء'];
       if (fast.tool === 'open_page') { if (r.error) { bot.html = '⚠️ ' + asstEsc(r.error) + (r.matches ? '<br>' + r.matches.map(asstEsc).join('<br>') : ''); return; } bot.cards = [{ ...r, state: 'ask' }]; bot.text = 'فتحت لك ' + r.label + (r.name ? ' — ' + r.name : ''); bot.html = asstMd(bot.text); bot._auto = 1; return; }
       if (fast.tool === 'points') { bot.text = `رصيد ${r.name}: ${r.reward_points} نقطة`; bot.html = `رصيد <b>${asstEsc(r.name)}</b> <small>(${asstEsc(r.cls)})</small>: <b>${r.reward_points}</b> نقطة`; return; }
+      if (r && (r.say || r.error)) { bot.text = r.say || r.error; bot.html = asstEsc(bot.text); return; }
       bot.html = asstRenderFast(r); return; }
     if (typeof readingAICall !== 'function') throw new Error('الذكاء الاصطناعي غير محمّل');
     const R = typeof aiRoute === 'function' ? aiRoute('assistant') : { p: raiProvider(), m: readingAIModels()[raiProvider()] };

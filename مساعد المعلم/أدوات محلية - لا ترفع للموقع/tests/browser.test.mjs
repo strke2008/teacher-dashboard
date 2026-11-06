@@ -364,7 +364,7 @@ export default async function run() {
             try { t.src({ ...A }); } catch (e) { bad.push(k + ' src: ' + e.message); }
             if (t.act && res.action) { acts.add(res.action); if (!ASST_ACTS.includes(res.action)) bad.push(k + ': action خارج القائمة ' + res.action);
               const h = asstCardHTML({ ...res, state: 'ask' }, 0, 0); if (!/asst-card/.test(h) || h.replace(/<[^>]+>/g, '').trim().length < 3) cards.push(k); } }
-          HW.splice(HW.indexOf(H), 1); window.readingAICall = rc;
+          HW.splice(HW.indexOf(H), 1); window.readingAICall = rc; try { ckStop(); ckClose(); } catch (e) {}
           const decl = liveTools(), types = new Set(['STRING', 'NUMBER', 'BOOLEAN', 'ARRAY', 'OBJECT']), dbad = [];
           decl.forEach(f => { if (!f.name || !f.description) dbad.push(f.name); Object.entries((f.parameters || {}).properties || {}).forEach(([n, v]) => { if (!types.has(v.type) || (v.type === 'ARRAY' && !v.items)) dbad.push(f.name + '.' + n); }); });
           const sent = [], ask = window.asstAsk; window.asstAsk = (q, o) => sent.push([q, !!(o && o.live)]); const on = LIVE.on; LIVE.on = true;
@@ -375,6 +375,24 @@ export default async function run() {
         eq(r.bad, [], 'أدوات فيها خطأ'); eq(r.cards, [], 'بطاقات لا ترسم'); eq(r.dbad, [], 'تعريفات المحادثة الحية'); eq(r.n[0], r.n[1], 'كل الأدوات في المحادثة الحية');
         ok(r.acts.length >= 15, 'الأوامر المجرَّبة: ' + r.acts.join(','));
         eq(r.sent.length, 1, 'الأمر بلا أداة يمر بمساعدي مرة واحدة فقط (لا للأسئلة ولا إن استُدعيت الأداة)'); eq(r.sent[0][1], true, 'بلا فقاعة مكررة ولا صوت'); eq(errs, [], 'أخطاء'); });
+      await S.t('🧰 أدوات الحصة في «الرصد»: زر واحد في شريطه لا يغيّر شيئًا آخر، «مين يجاوب» بلا تكرار ولا يختار الغائب، مجموعات متوازنة من الحاضرين، مؤقت ينبّه ويبقى صغيرًا، و«مين يجاوب؟» بالكلام بلا ذكاء', async () => {
+        let ai = 0; await p.route(/generativelanguage\.googleapis\.com/, r => { ai++; r.fulfill({ status: 200, contentType: 'application/json', body: '{}' }); });
+        const r = await p.evaluate(async () => { if (!CT_DATA) { try { await ctLoad(); } catch (e) {} } const W = ms => new Promise(z => setTimeout(z, ms));
+          window._ctRcCls = 'أول 1'; window._ctRcClsUser = 1; window._ctRcView = 'day'; ctGo('records'); for (let k = 0; k < 40 && !document.querySelector('#qr-root .qr-bar'); k++) await W(200); const bar = document.querySelector('.qr-bar'), kit = document.getElementById('qr-kit'), others = bar ? [...bar.children].filter(x => x.id !== 'qr-kit').length : -1;
+          const cls = qrCls() || STUDENTS[0].cls, R = ctRoster(cls), d = ctToday(), keep = JSON.stringify(((CT_DATA.participation || {})[d]) || {});
+          CT_DATA.participation = CT_DATA.participation || {}; CT_DATA.participation[d] = CT_DATA.participation[d] || {}; const ab = R[0]; CT_DATA.participation[d][ab.id] = { status: 'غائب', at: 1 };
+          ckSavePicked(cls, new Set()); kit && kit.click(); await W(100); const opened = document.getElementById('ck').classList.contains('on');
+          const seen = []; for (let i = 0; i < R.length - 1; i++) seen.push(String(ckPick(cls).id)); await W(900);
+          const pick = { noAbsent: !seen.includes(String(ab.id)), unique: new Set(seen).size === seen.length, all: seen.length === R.length - 1 };
+          const G = ckGroups(2, 'mix', cls); const grp = { n: G.length === Math.min(2, R.length - 1), total: G.reduce((t, g) => t + g.length, 0), even: Math.max(...G.map(g => g.length)) - Math.min(...G.map(g => g.length)) <= 1, noAbsent: !G.flat().some(s => s.id === ab.id) };
+          let rang = 0; const rg = window.ckRing; window.ckRing = () => { rang++; }; ckTimer(1); ckClose(); await W(400); const pill = !!document.getElementById('ck-pill'); await W(1200); window.ckRing = rg;
+          ckOpen('pick', cls); ckClose();
+          asstOpen(); ASST.msgs = []; await asstAsk('مين يجاوب؟'); const m = ASST.msgs[ASST.msgs.length - 1], voice = { name: R.some(s => m.text && m.text.includes(s.name)), ck: document.getElementById('ck').classList.contains('on'), src: m.src.join(' ') };
+          ckClose(); asstClose(); ASST.msgs = []; CT_DATA.participation[d] = JSON.parse(keep); ckSavePicked(cls, new Set()); try { goTab('dashboard'); } catch (e) {}
+          return { bar: !!bar, kit: !!kit, others, opened, pick, grp, rang, pill, voice, n: R.length }; });
+        await p.unroute(/generativelanguage\.googleapis\.com/);
+        ok(r.bar && r.kit && r.opened, 'زر أدوات الحصة'); eq(r.others, 3, 'شريط الرصد: البحث والمايك والتاريخ كما هي'); eq(r.pick, { noAbsent: true, unique: true, all: true }, 'مين يجاوب');
+        eq(r.grp, { n: true, total: r.n - 1, even: true, noAbsent: true }, 'المجموعات'); eq([r.pill, r.rang], [true, 1], 'المؤقت'); ok(r.voice.name && r.voice.ck && /فوري/.test(r.voice.src), 'بالكلام: ' + JSON.stringify(r.voice)); eq(errs, [], 'أخطاء'); });
       await S.t('🎤 مساعدي: الميكروفون مثل «الرصد بالصوت» — ضغطة تفتح الاستماع ويبقى مفتوحًا، كل جملة تُرسل بعد سكوت قصير بلا كتم بينها، وضغطة ثانية توقف؛ وعلى iPhone لا يُلمس الصوت والاستماع مفتوح', async () => {
         const r = await p.evaluate(async () => { const go = HWV.go, mute = HWV.mute, ask = asstAsk; let owner = null, gos = 0, mutes = 0; const sent = [];
           HWV.go = o => { gos++; owner = o; o.on = true; return true; }; HWV.mute = o => { mutes++; if (o) o.on = false; }; window.asstAsk = q => { sent.push(q); };

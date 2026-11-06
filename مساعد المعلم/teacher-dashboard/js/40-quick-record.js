@@ -180,6 +180,7 @@ function qrPaint() {
   root.innerHTML = `
     <div class="qr-bar"><label class="qr-s">🔍<input id="qr-q" type="search" placeholder="ابحث عن طالب لرصده…" value="${esc(QR.q)}" oninput="qrSearch(this.value)" autocomplete="off"></label>
       ${QRV.sup ? `<button type="button" class="qr-ic ${QRV.on ? 'on' : ''}" id="qr-mic" onclick="qrVoiceToggle()" title="رصد بالصوت">${QRV.on ? '⏹️' : '🎤'}</button>` : ''}
+      <button type="button" class="qr-ic" id="qr-kit" onclick="typeof ckOpen==='function'&&ckOpen()" title="أدوات الحصة: مين يجاوب · مؤقت · مجموعات">🧰</button>
       <label class="qr-ic qr-date" title="التاريخ">📅<input type="date" value="${esc(d)}" onchange="window._ctRcD=this.value;renderClassTools()"></label></div>
     ${QRV.on || QRV.msg ? `<div class="qr-vlive" id="qr-vlive">${QRV.msg || '🎙️ أستمع… قل اسم الطالب ثم الحالة — ويمكن عدة طلاب في جملة واحدة'}</div>` : ''}
     <div class="qr-mode">${[['participation', '✋ المشاركة'], ['homework', '📚 الواجب'], ['behavior', '⭐ السلوك']].map(([k, l]) => `<button type="button" class="${m === k ? 'on' : ''}" onclick="QR.mode='${k}';QR.open='';QR.multi=false;QR.sel.clear();qrPaint()">${l}</button>`).join('')}</div>
