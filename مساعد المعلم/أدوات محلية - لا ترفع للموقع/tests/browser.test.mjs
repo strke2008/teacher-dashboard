@@ -220,6 +220,48 @@ export default async function run() {
         eq(r.pc, ['points', 10], 'بطاقة النقاط قبل التأكيد'); eq([r.p1, r.p2], [15, 10], 'النقاط والتراجع');
         eq(r.gc, ['grade', 'لم يسلّم'], 'بطاقة الدرجة'); eq([r.g1, r.g2], [8, true], 'الدرجة والتراجع'); eq([r.t1, r.t2], [1, 0], 'الاختبار والتراجع');
         eq(r.mc, ['msg', 1, true], 'معاينة الرسالة'); eq(r.ms[0], 'done', r.ms[1]); eq([posted && posted.audience, posted && posted.recipients[0].id, posted && posted.title], ['students', r.sid, 'تذكير'], 'ما أُرسل'); eq(errs, [], 'أخطاء'); });
+      await S.t('🧩 مساعدي — الدفعة الثالثة: «الكل ما عدا»، موعد نشاط، محاولة إضافية، نسخ نشاط، رسائل الطلاب والرد، مسودات أولياء الأمور، تذكير، اختصار، ذاكرة، مقارنة فصول، إعلان اختبار، وضع المحادثة', async () => {
+        let plan = ''; try { await p.exposeFunction('__plan4', v => { plan = v; }); } catch (e) {}
+        await p.route(/generativelanguage\.googleapis\.com/, r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ candidates: [{ content: { parts: [{ text: /نتائج الأدوات/.test(r.request().postData() || '') ? '{"answer":"تم"}' : plan }] } }] }) }));
+        const r = await p.evaluate(async () => { const keep = {}; ['ai_provider_v1', 'aikeys_gemini', 'ai_routes_v1', 'asst_sc_v1', 'asst_hist_v1', 'asst_conv'].forEach(k => keep[k] = localStorage.getItem(k));
+          localStorage.setItem('ai_provider_v1', 'gemini'); localStorage.setItem('aikeys_gemini', JSON.stringify([{ key: 'AIzaTEST0000000000' }])); localStorage.removeItem('ai_routes_v1'); localStorage.removeItem('asst_sc_v1');
+          if (!CT_DATA) { try { await ctLoad(); } catch (e) {} } const S = STUDENTS, s0 = S[0], s1 = S[1], cls = s0.cls, out = {}; asstOpen(); ASST.msgs = [];
+          const P = {}, of = window.fetch, al = window.asksLoad; window.__P = P; window.asksLoad = async () => { ASKS = [{ id: 'q1', name: s0.name, cls, cat: 'lesson', text: 'ما معنى الخلية؟', status: 'open', at: Date.now() }]; };
+          window.fetch = (u, o) => { const m = String(u).match(/\/(extra-attempt-bulk|ask-reply|messages)(\?|$)/); if (m && o && o.method === 'POST') { P[m[1]] = JSON.parse(o.body || '{}'); return Promise.resolve(new Response(JSON.stringify({ ok: true, count: 1, item: { id: 'q1', status: 'done' } }))); } return of(u, o); };
+          const ask = async (calls, q) => { await window.__plan4(JSON.stringify({ calls })); await asstAsk(q || 'أمر'); const m = ASST.msgs[ASST.msgs.length - 1]; return [m, ASST.msgs.indexOf(m)]; };
+          let [m, i] = await ask([{ tool: 'record_attendance', args: { students: ['الكل'], cls, except: [s1.name], status: 'شارك' } }]);
+          out.except = m.cards[0].items.map(x => x.name).includes(s1.name) === false && m.cards[0].items.some(x => x.name === s0.name);
+          [m] = await ask([{ tool: 'behavior_note', args: { students: ['الكل'], cls, type: 'positive', note: 'تميز' } }]); out.behAll = m.cards[0].items.length === S.filter(x => x.cls === cls).length;
+          const h = { id: 'hwAS3', sid: 'pubAS3', title: 'نشاط الدفعة الثالثة', due: '2026-01-01', max: 10, qs: [{ t: 'tf', q: 'س', a: true }], subs: {}, published: true, at: Date.now() }; HW.push(h);
+          const pub = window.publishHwSilently; let pubs = 0; window.publishHwSilently = async x => { pubs++; };
+          [m, i] = await ask([{ tool: 'activity_due', args: { activity: 'الدفعة الثالثة', due: '2026-12-20' } }]); asstAct(i, 0, 'do'); await new Promise(z => setTimeout(z, 200)); out.due = [h.due, pubs, m.cards[0].state];
+          asstAct(i, 0, 'undo'); await new Promise(z => setTimeout(z, 200)); out.dueUndo = [h.due, pubs]; window.publishHwSilently = pub;
+          [m, i] = await ask([{ tool: 'extra_attempt', args: { activity: 'الدفعة الثالثة', students: [s0.name] } }]); asstAct(i, 0, 'do'); await new Promise(z => setTimeout(z, 600)); out.retry = [m.cards[0].state, (h.extraAttempts || {})[s0.id]];
+          const n0 = HW.length; [m, i] = await ask([{ tool: 'copy_activity', args: { activity: 'الدفعة الثالثة', cls: S[2].cls } }]); asstAct(i, 0, 'do'); const cp = HW[HW.length - 1];
+          out.copy = [HW.length - n0, cp.cls, !!cp.sid, !!cp.published, (cp.qs || []).length, Object.keys(cp.subs || {}).length]; HW.splice(HW.indexOf(cp), 1); HW.splice(HW.indexOf(h), 1); save(K.hw, HW); try { closeModal(); } catch (e) {} asstOpen();
+          const sm = await ASST_TOOLS.student_messages.run({}); out.msgs = [sm.open, sm.messages[0] && sm.messages[0].text];
+          [m, i] = await ask([{ tool: 'reply_student', args: { student: s0.name, reply: 'هي وحدة بناء الكائن الحي' } }]); asstAct(i, 0, 'do'); await new Promise(z => setTimeout(z, 600)); out.reply = m.cards[0].state;
+          const D = CT_DATA; const days = ['2026-11-01', '2026-11-02', '2026-11-03']; days.forEach(x => { D.participation[x] = D.participation[x] || {}; D.participation[x][s0.id] = { status: 'غائب', at: 1 }; });
+          [m] = await ask([{ tool: 'parent_drafts', args: { reason: 'absence', min: 3, days: 3650 } }]); days.forEach(x => delete D.participation[x][s0.id]); out.drafts = m.cards[0] && [m.cards[0].action, m.cards[0].items.some(x => x.name === s0.name && /تغيّب 3/.test(x.text))];
+          const r0 = (D.reminders || []).length; [m, i] = await ask([{ tool: 'reminder', args: { title: 'تصحيح اختبار أول 2', date: 'بكرة', time: '16:30' } }]); asstAct(i, 0, 'do'); const rr = (D.reminders || []).slice(-1)[0];
+          out.rem = [(D.reminders || []).length - r0, rr && rr.hm || rr && rr.at.hm, rr && rr.repeat]; asstAct(i, 0, 'undo'); out.remUndo = (D.reminders || []).length - r0;
+          [m, i] = await ask([{ tool: 'shortcut', args: { name: 'بداية الحصة', command: 'مين الغايب اليوم؟' } }]); asstAct(i, 0, 'do'); out.sc = !!asstShortcuts()['بداية الحصة'] && /⚡ بداية الحصة/.test(document.querySelector('#asst-panel .asst-sugg').textContent);
+          await asstAsk('بداية الحصة'); const fm = ASST.msgs[ASST.msgs.length - 1]; out.scRun = fm.src.join(' ');
+          const cc = await ASST_TOOLS.compare_classes.run({ classes: asstClsList() }); out.cmp = cc.classes ? cc.classes.length : cc.error;
+          [m, i] = await ask([{ tool: 'send_message', args: { to: 'class', cls, type: 'exam', title: 'اختبار الفترة', body: 'راجعوا الدرس', exam_date: '2026-12-20', pages: '20-40' } }]); asstAct(i, 0, 'do'); await new Promise(z => setTimeout(z, 600)); out.exam = m.cards[0].state;
+          asstPaint(); const nMsgs = ASST.msgs.length; ASST.msgs = []; asstLoadHist(); out.mem = [ASST.msgs.length === nMsgs, ASST.msgs.every(x => !(x.cards || []).some(c => c.state === 'ask' && !['draft', 'drafts'].includes(c.action)))];
+          asstForget(); out.forgot = localStorage.getItem('asst_hist_v1');
+          const go = HWV.go, mute = HWV.mute; let gos = 0; HWV.go = o => { gos++; o.on = true; return true; }; HWV.mute = o => { if (o) o.on = false; };
+          asstConvToggle(); out.conv = [asstConvOn(), gos, document.getElementById('asst-conv').classList.contains('on')]; asstConvToggle(); HWV.go = go; HWV.mute = mute;
+          window.fetch = of; window.asksLoad = al; out.P = P; asstClose(); ASST.msgs = []; Object.entries(keep).forEach(([k, v]) => v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v)); return out; });
+        await p.unroute(/generativelanguage\.googleapis\.com/); const P = r.P;
+        ok(r.except, '«الكل ما عدا»'); ok(r.behAll, 'سلوك للفصل كامل'); eq(r.due, ['2026-12-20', 1, 'done'], 'الموعد'); eq(r.dueUndo, ['2026-01-01', 2], 'تراجع الموعد');
+        eq(r.retry, ['done', 1], 'محاولة إضافية'); eq(P['extra-attempt-bulk'] && P['extra-attempt-bulk'].hwId, 'pubAS3', 'طلب المحاولة'); eq(r.copy, [1, r.copy[1], false, false, 1, 0], 'نسخ النشاط'); ok(r.copy[1], 'فصل النسخة');
+        eq(r.msgs, [1, 'ما معنى الخلية؟'], 'رسائل الطلاب'); eq(r.reply, 'done', 'الرد'); eq(P['ask-reply'] && P['ask-reply'].reply, 'هي وحدة بناء الكائن الحي', 'نص الرد');
+        eq(r.drafts, ['drafts', true], 'مسودات أولياء الأمور'); eq(r.rem, [1, '16:30', 'once'], 'التذكير'); eq(r.remUndo, 0, 'تراجع التذكير');
+        ok(r.sc, 'حفظ الاختصار'); ok(/فوري/.test(r.scRun), 'تشغيل الاختصار: ' + r.scRun); ok(typeof r.cmp === 'number' && r.cmp >= 2, 'المقارنة: ' + r.cmp);
+        eq(r.exam, 'done', 'إعلان الاختبار'); eq([P.messages && P.messages.type, P.messages && P.messages.examDate, /⟨EX⟩/.test(P.messages && P.messages.body || '')], ['exam', '2026-12-20', true], 'جسم الإعلان');
+        eq(r.mem, [true, true], 'الذاكرة'); eq(r.forgot, null, 'انسَ'); eq(r.conv, [true, 1, true], 'وضع المحادثة'); eq(errs, [], 'أخطاء'); });
       await S.t('🎤 مساعدي: الميكروفون عبر محرّك الصوت الموحّد (HWV) — يسمع في المرة الثانية والثالثة (لا جلسة جديدة تُفتح كل ضغطة)', async () => {
         const r = await p.evaluate(async () => { const go = HWV.go, mute = HWV.mute, ask = asstAsk; let owner = null, gos = 0, mutes = 0; const sent = [];
           HWV.go = o => { gos++; owner = o; o.on = true; return true; }; HWV.mute = o => { mutes++; if (o) o.on = false; }; window.asstAsk = q => { sent.push(q); };

@@ -2960,6 +2960,9 @@ body.asst-open #ai-use{display:none}   /* المساعد يذكر المزوّد
 .asst-names li{background:var(--paper-2,#F2F5F8);border-radius:999px;padding:2px 9px;font-size:.78rem}.asst-names small{color:var(--ink-soft,#5B6B82);margin-inline-start:4px;font-size:.7rem}
 .asst-bad{flex-basis:100%;font-size:.76rem;color:#B45309}
 .asst-msgprev{flex-basis:100%;background:var(--paper-2,#F2F5F8);border-radius:10px;padding:.5rem .65rem;font-size:.8rem;line-height:1.75}.asst-msgprev>b{display:block;margin-bottom:.15rem}
+.asst-pd{flex-basis:100%;display:grid;grid-template-columns:1fr auto;gap:.3rem .5rem;align-items:center;border-top:1px dashed var(--rule,#DCE4EE);padding-top:.45rem}.asst-pd>b{font-size:.82rem}.asst-pd small{color:var(--ink-soft,#5B6B82);font-size:.72rem}.asst-pd textarea{grid-column:1/-1}.asst-pd button{grid-column:1/-1;justify-self:start}
+.asst-sugg .sc{border-color:#C7C2F5;background:#F3F1FF;color:#4338CA}
+#asst-conv.on{background:#E3F6EE;border-radius:10px;box-shadow:inset 0 0 0 2px #0F9D74}
 .asst-step{flex-basis:100%;font-size:.7rem;font-weight:700;color:#4F46E5;letter-spacing:.2px}
 .asst-names .asst-sc{margin-inline-start:8px;color:#0B7A5A;background:#E3F6EE;border-radius:999px;padding:0 7px;font-variant-numeric:tabular-nums}.asst-names .asst-sc+small{margin-inline-start:5px}.asst-names li>small,.asst-names li>b{unicode-bidi:isolate}.asst-names .asst-bad{display:inline;flex-basis:auto;margin-inline-start:4px}
 .asst-qs{flex-basis:100%;margin:.1rem 0 0;padding-inline-start:1.2rem;font-size:.78rem;line-height:1.7;color:var(--ink,#16233A)}.asst-qs li.more{list-style:none;color:var(--ink-soft,#5B6B82)}
