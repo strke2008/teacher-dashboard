@@ -296,6 +296,23 @@ export default async function run() {
           HWV.ios = ios; Object.defineProperty(HWV, 'active', d); ASST.waitTap = 0; if (conv == null) localStorage.removeItem('asst_conv'); else localStorage.setItem('asst_conv', conv); asstClose();
           return { got, wait }; });
         eq(r.got, ['مين الغايب اليوم في أول واحد|F', 'مرحبا', 'مرحبا يا مساعد|F', 'كيف حالك|F'], 'الكلمات بعد الجملة الجديدة'); eq(r.wait, [true, true, true, true, [true, true], ['restart'], ['restart', 'go']], 'بلا لمسة + الجلسة المتجمّدة'); eq(errs, [], 'أخطاء'); });
+      await S.t('🎙️ مساعدي على iPhone: تسجيل الصوت ثم تفريغه بمفتاح Groq (Whisper) أو Gemini — يتوقف وحده بعد السكوت، ويعمل مرة بعد مرة، ولا يستعمل التعرّف المدمج', async () => {
+        const r = await p.evaluate(async () => { const keep = {}; ['asst_stt', 'groq_api_keys', 'aikeys_gemini', 'asst_conv'].forEach(k => keep[k] = localStorage.getItem(k));
+          localStorage.setItem('asst_stt', 'on'); localStorage.setItem('groq_api_keys', JSON.stringify([{ key: 'gsk_TEST0000000000' }])); localStorage.removeItem('asst_conv');
+          const gum = navigator.mediaDevices.getUserMedia, of = window.fetch, ask = window.asstAsk, sent = [], posts = []; let gums = 0, hwv = 0; const go = HWV.go; HWV.go = () => { hwv++; return true; };
+          const acs = []; navigator.mediaDevices.getUserMedia = async () => { gums++; const ac = new AudioContext(); acs.push(ac); const osc = ac.createOscillator(), g = ac.createGain(), dst = ac.createMediaStreamDestination(); osc.frequency.value = 220; osc.connect(g); g.connect(dst); osc.start();
+            g.gain.setValueAtTime(0.0005, ac.currentTime); g.gain.setValueAtTime(0.6, ac.currentTime + 0.6); g.gain.setValueAtTime(0.0005, ac.currentTime + 1.6); return dst.stream; };
+          window.fetch = async (u, o) => { if (/audio\/transcriptions/.test(String(u))) { const f = o.body; posts.push({ u: String(u), model: f.get('model'), lang: f.get('language'), type: f.get('file').type, size: f.get('file').size, auth: o.headers.Authorization }); return new Response(JSON.stringify({ text: 'مين الغايب اليوم' + posts.length })); } return of(u, o); };
+          window.asstAsk = q => { sent.push(q); };
+          try { asstOpen(); const until = async f => { for (let k = 0; k < 120 && !f(); k++) await new Promise(z => setTimeout(z, 100)); };
+            asstMic(); await until(() => sent.length >= 1); const live1 = ASST_STT.on;
+            asstMic(); await until(() => sent.length >= 2);
+            const w = asstWav([new Float32Array(48000)], 48000), hdr = new TextDecoder().decode(new Uint8Array(await w.slice(0, 4).arrayBuffer()));
+            return { sent, posts, gums, hwv, live1, wav: [hdr, w.size] }; }
+          finally { acs.forEach(x => x.close().catch(() => {})); try { ASST_STT.ctx && ASST_STT.ctx.close(); ASST_STT.ctx = null; } catch (e) {} navigator.mediaDevices.getUserMedia = gum; window.fetch = of; window.asstAsk = ask; HWV.go = go; asstClose(); Object.entries(keep).forEach(([k, v]) => v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v)); } });
+        eq(r.sent, ['مين الغايب اليوم1', 'مين الغايب اليوم2'], 'وصل الكلام مرتين'); eq([r.gums, r.hwv, r.live1], [2, 0, false], 'تسجيل جديد كل مرة بلا التعرّف المدمج');
+        eq(r.posts.map(x => [x.model, x.lang, x.type, x.auth]), [['whisper-large-v3-turbo', 'ar', 'audio/wav', 'Bearer gsk_TEST0000000000'], ['whisper-large-v3-turbo', 'ar', 'audio/wav', 'Bearer gsk_TEST0000000000']], 'طلب التفريغ');
+        ok(r.posts[0].size > 20000 && r.posts[0].size < 200000, 'حجم التسجيل ' + r.posts[0].size); eq(r.wav, ['RIFF', 44 + 32000], 'WAV 16k'); eq(errs, [], 'أخطاء'); });
       await S.t('🎤 مساعدي: الميكروفون عبر محرّك الصوت الموحّد (HWV) — يسمع في المرة الثانية والثالثة (لا جلسة جديدة تُفتح كل ضغطة)', async () => {
         const r = await p.evaluate(async () => { const go = HWV.go, mute = HWV.mute, ask = asstAsk; let owner = null, gos = 0, mutes = 0; const sent = [];
           HWV.go = o => { gos++; owner = o; o.on = true; return true; }; HWV.mute = o => { mutes++; if (o) o.on = false; }; window.asstAsk = q => { sent.push(q); };

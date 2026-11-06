@@ -350,7 +350,7 @@ function asstForget() { ASST.msgs = []; try { localStorage.removeItem('asst_hist
 const asstConvOn = () => { try { return localStorage.getItem('asst_conv') === '1'; } catch (e) { return false; } };
 function asstConvToggle() { const on = !asstConvOn(); try { if (on) localStorage.setItem('asst_conv', '1'); else localStorage.removeItem('asst_conv'); } catch (e) {} const b = document.getElementById('asst-conv'); if (b) b.classList.toggle('on', on);
   toast(on ? '🗣️ وضع المحادثة: تكلّم الحين — أرد وأرجع أسمعك لحالي' : '🗣️ أُقفل وضع المحادثة', 'good'); setTimeout(asstLive, 0); if (on && !ASST_MIC && !ASST.busy) asstMic(); else if (!on) asstMicStop(); }
-function asstConvNext() { const p = document.getElementById('asst-panel'); if (asstConvOn() && p && p.classList.contains('on') && !ASST_MIC && !ASST.busy) asstMic(true); }
+function asstConvNext() { const p = document.getElementById('asst-panel'); if (asstConvOn() && p && p.classList.contains('on') && !ASST_MIC && !ASST_STT.on && !ASST_STT.busy && !ASST.busy) asstMic(true); }
 
 /* ── تشغيل سؤال ── */
 function asstFast(q) {   // ⚡ بلا ذكاء: «مين الغايب اليوم» و«افتح ملف فلان»
@@ -374,7 +374,7 @@ function asstMd(s) {   // تنسيق بسيط آمن: **عريض** · أسطر �
 }
 async function asstAsk(q) {
   q = String(q || '').trim(); if (!q || ASST.busy) return; asstSpeakStop(); asstAudioUnlock();
-  if (/^(سجل|سجلّ) (المايك|الميكروفون)$/.test(q)) { ASST.msgs.push({ me: 1, html: asstEsc(q) }, { html: '<b>🩺 أحداث الميكروفون</b><br>' + (window.HWV ? `iPhone: ${HWV.ios ? 'نعم' : 'لا'} · الجلسة: ${HWV.active ? 'مفتوحة' : 'مقفلة'}<br>` : '') + (ASST_MLOG.map(asstEsc).join('<br>') || 'لا أحداث بعد'), src: [] }); asstPaint(); return; }
+  if (/^(سجل|سجلّ) (المايك|الميكروفون)$/.test(q)) { ASST.msgs.push({ me: 1, html: asstEsc(q) }, { html: '<b>🩺 أحداث الميكروفون</b><br>' + (window.HWV ? `iPhone: ${HWV.ios ? 'نعم' : 'لا'} · الطريقة: ${asstUseStt() ? 'تسجيل + تفريغ (' + asstSttProv() + ')' : 'التعرّف المدمج'} · الجلسة: ${HWV.active ? 'مفتوحة' : 'مقفلة'}<br>` : '') + (ASST_MLOG.map(asstEsc).join('<br>') || 'لا أحداث بعد'), src: [] }); asstPaint(); return; }
   { const S = asstShortcuts(), k = Object.keys(S).find(n => asstTok(n).join(' ') === asstTok(q.replace(/[؟?.!]+$/, '')).join(' ')); if (k) { ASST.msgs.push({ me: 1, html: '⚡ ' + asstEsc(k) }); q = S[k]; } }
   ASST.busy = true; ASST.msgs.push({ me: 1, html: asstEsc(q) }); const bot = { html: '<i class="asst-dots"><b></b><b></b><b></b></i>', src: [] }; ASST.msgs.push(bot); asstPaint();
   try {
@@ -561,14 +561,76 @@ const ASST_SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 let ASST_MIC = null;
 /* شريط الحالة تحت الخانة: يوضّح أنه يسمع ومتى يرسل، ووضع المحادثة */
 function asstLive() { const e = document.getElementById('asst-live'); if (!e) return; const conv = asstConvOn();
-  e.innerHTML = ASST_MIC ? `<span class="dot"></span> ${conv ? '🗣️ وضع المحادثة — ' : ''}أسمعك… أرسل لحالي بعد سكوتك ثانيتين، أو اضغط 🎤 للإرسال الآن`
+  e.innerHTML = ASST_STT.busy ? '⏳ أفرّغ كلامك…' : ASST_STT.on ? `<span class="dot"></span> ${conv ? '🗣️ وضع المحادثة — ' : ''}${ASST_STT.heard ? 'أسمعك… أرسل لحالي لما تسكت' : 'تكلّم الحين…'} أو اضغط 🎤 للإرسال` : ASST_MIC ? `<span class="dot"></span> ${conv ? '🗣️ وضع المحادثة — ' : ''}أسمعك… أرسل لحالي بعد سكوتك ثانيتين، أو اضغط 🎤 للإرسال الآن`
     : conv && ASST.waitTap ? '👆 اضغط 🎤 لتكمل المحادثة — الآيفون يحتاج لمسة بعد ما يقفل السماع' : conv ? '🗣️ وضع المحادثة مفتوح: اضغط 🎤 مرة وحدة وتكلم — أرد وأرجع أسمعك لحالي. للإيقاف اضغط 🗣️' : '';
   const mb = document.getElementById('asst-mic'); if (mb) mb.classList.toggle('nudge', !!(conv && ASST.waitTap && !ASST_MIC));
   e.hidden = !e.innerHTML; }
 const ASST_MLOG = [];
 function asstMicLog(x) { ASST_MLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + x); if (ASST_MLOG.length > 40) ASST_MLOG.shift(); }
-function asstMicStop() { const c = ASST_MIC; if (!c) return; ASST_MIC = null; clearTimeout(c.t); clearTimeout(c.wd); clearTimeout(c.wd2); try { HWV.mute(c.owner); } catch (e) {} const b = document.getElementById('asst-mic'); if (b) b.classList.remove('on'); asstLive(); }
+function asstMicStop() { if (ASST_STT.on) asstSttStop(false); const c = ASST_MIC; if (!c) return; ASST_MIC = null; clearTimeout(c.t); clearTimeout(c.wd); clearTimeout(c.wd2); try { HWV.mute(c.owner); } catch (e) {} const b = document.getElementById('asst-mic'); if (b) b.classList.remove('on'); asstLive(); }
 function asstMicSend() { const c = ASST_MIC; if (!c) return; const t = (c.done + ' ' + c.pend).replace(/\s+/g, ' ').trim(); asstMicLog('send ' + t.length); asstMicStop(); const i = document.getElementById('asst-q'); if (i) i.value = ''; if (t) asstAsk(t); }
+/* 🎙️ على iPhone: التعرّف المدمج (Web Speech) يعطي جلسة واحدة حيّة للصفحة — تتجمّد بعد السكوت، وكل جلسة بعدها صمّاء (ثبت من «سجل المايك»).
+   البديل الجذري: تسجيل الصوت نفسه من الميكروفون (يعمل كل مرة)، ثم تفريغه بمفتاح الذكاء الذي عندك: Groq (Whisper) أو OpenAI أو Gemini.
+   يتوقف التسجيل وحده بعد سكوتك ثانية ونصف، أو بضغطة 🎤. الصوت يُرسل لمزوّدك فقط مثل نص السؤال تمامًا، ولا يُحفظ. */
+const ASST_STT = { ctx: null, stream: null, node: null, src: null, buf: [], on: false, busy: false, heard: false, t0: 0, loud: 0, floor: [], thr: 0.02, auto: false };
+function asstSttProv() { for (const p of ['groq', 'openai', 'gemini']) { try { if (readingAIGetKey(p)) return p; } catch (e) {} } return ''; }
+function asstUseStt() { let o = ''; try { o = localStorage.getItem('asst_stt') || ''; } catch (e) {} if (o === 'off') return false;
+  return (o === 'on' || !!(window.HWV && HWV.ios)) && !!asstSttProv() && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia); }
+async function asstSttMic(auto) {
+  const S = ASST_STT; if (S.busy) return;
+  if (S.on) { asstSttStop(true); return; }   // ضغطة ثانية: أرسل الآن
+  if (!auto) { try { if (!S.ctx) S.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
+    if (asstTtsOn() && window.speechSynthesis) { try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); } catch (e) {} }   // يفتح القراءة الصوتية لاحقًا (iPhone يشترط لمسة)
+    asstAudioUnlock(); }
+  try { if (!S.ctx) S.ctx = new (window.AudioContext || window.webkitAudioContext)(); if (S.ctx.state === 'suspended') await S.ctx.resume();
+    S.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } }); }
+  catch (e) { asstMicLog('stt: ' + (e && e.name || e)); if (auto) { ASST.waitTap = 1; asstLive(); return; } toast(e && e.name === 'NotAllowedError' ? 'اسمح للمتصفح باستخدام الميكروفون' : 'تعذّر تشغيل الميكروفون', 'bad'); return; }
+  S.src = S.ctx.createMediaStreamSource(S.stream); S.node = S.ctx.createScriptProcessor(4096, 1, 1);
+  Object.assign(S, { buf: [], heard: false, t0: Date.now(), loud: Date.now(), floor: [], thr: 0.02, on: true, auto: !!auto }); ASST.waitTap = 0;
+  S.node.onaudioprocess = e => { if (!S.on) return; const d = e.inputBuffer.getChannelData(0); S.buf.push(new Float32Array(d));
+    let q = 0; for (let i = 0; i < d.length; i += 2) q += d[i] * d[i]; const rms = Math.sqrt(q / (d.length / 2)), now = Date.now();
+    if (S.floor.length < 4) { S.floor.push(rms); S.thr = Math.max(0.012, Math.min(0.08, (S.floor.reduce((a, b) => a + b, 0) / S.floor.length) * 2.5)); return; }   // ضجيج المكان أول ثلث ثانية
+    if (rms > S.thr) { S.loud = now; if (!S.heard) { S.heard = true; asstMicLog('stt: بدأ الكلام'); asstLive(); } }
+    if (S.heard && now - S.loud > 1500) asstSttStop(true); else if (!S.heard && now - S.t0 > (S.auto ? 12000 : 10000)) asstSttStop(false); else if (now - S.t0 > 45000) asstSttStop(true); };
+  S.src.connect(S.node); S.node.connect(S.ctx.destination);
+  const b = document.getElementById('asst-mic'); if (b) b.classList.add('on'); asstMicLog('stt: يسجّل (' + asstSttProv() + ')' + (auto ? ' تلقائي' : '')); asstLive();
+}
+async function asstSttStop(send) {
+  const S = ASST_STT; if (!S.on) return; S.on = false;
+  try { S.node.onaudioprocess = null; S.node.disconnect(); S.src.disconnect(); } catch (e) {} try { S.stream.getTracks().forEach(t => t.stop()); } catch (e) {}
+  const b = document.getElementById('asst-mic'); if (b) b.classList.remove('on');
+  if (!send || !S.heard) { asstMicLog('stt: توقف بلا كلام'); if (S.auto && asstConvOn()) ASST.waitTap = 1; asstLive(); return; }
+  S.busy = true; asstLive(); const i = document.getElementById('asst-q'); if (i) i.placeholder = '⏳ أفرّغ كلامك…';
+  try { const t = (await asstTranscribe(asstWav(S.buf, S.ctx.sampleRate))).trim(); asstMicLog('stt: نص ' + t.length);
+    S.busy = false; if (i) i.placeholder = 'اسأل عن طلابك…'; asstLive();
+    if (t && /[\p{L}]/u.test(t)) asstAsk(t); else { toast('ما وصلني كلام واضح — جرّب مرة ثانية'); asstConvNext(); } }
+  catch (e) { S.busy = false; if (i) i.placeholder = 'اسأل عن طلابك…'; asstLive(); asstMicLog('stt: خطأ ' + (e && e.message)); toast('تعذّر تفريغ الكلام: ' + (e && e.message || ''), 'bad'); }
+}
+/* PCM ← WAV أحادي 16 كيلوهرتز (صغير ومقبول عند كل المزوّدين) */
+function asstWav(chunks, sr) {
+  const n = chunks.reduce((t, c) => t + c.length, 0), all = new Float32Array(n); let o = 0; chunks.forEach(c => { all.set(c, o); o += c.length; });
+  const r = sr / 16000, m = Math.floor(n / r), pcm = new Int16Array(m);
+  for (let k = 0; k < m; k++) { const a = Math.floor(k * r), z = Math.min(n, Math.floor((k + 1) * r)); let s = 0; for (let j = a; j < z; j++) s += all[j]; const v = Math.max(-1, Math.min(1, s / Math.max(1, z - a))); pcm[k] = v < 0 ? v * 0x8000 : v * 0x7fff; }
+  const buf = new ArrayBuffer(44 + pcm.length * 2), dv = new DataView(buf), w = (p, s) => { for (let k = 0; k < s.length; k++) dv.setUint8(p + k, s.charCodeAt(k)); };
+  w(0, 'RIFF'); dv.setUint32(4, 36 + pcm.length * 2, true); w(8, 'WAVE'); w(12, 'fmt '); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
+  dv.setUint32(24, 16000, true); dv.setUint32(28, 32000, true); dv.setUint16(32, 2, true); dv.setUint16(34, 16, true); w(36, 'data'); dv.setUint32(40, pcm.length * 2, true);
+  new Int16Array(buf, 44).set(pcm); return new Blob([buf], { type: 'audio/wav' });
+}
+async function asstTranscribe(wav) {
+  const p = asstSttProv(), key = readingAIGetKey(p); if (!p) throw new Error('لا يوجد مفتاح Groq أو OpenAI أو Gemini');
+  if (p === 'gemini') { const b64 = await new Promise((ok, no) => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result).split(',')[1] || ''); fr.onerror = no; fr.readAsDataURL(wav); });
+    let m = ''; try { m = (typeof aiRoute === 'function' ? aiRoute('assistant') : {}).p === 'gemini' ? aiRoute('assistant').m : ''; } catch (e) {} m = m || 'gemini-3.5-flash-lite';
+    const r = await fetch(`${READING_AI_PROVIDERS.gemini.baseUrl}/${encodeURIComponent(m)}:generateContent?key=${encodeURIComponent(key)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: 'فرّغ هذا التسجيل الصوتي حرفيًا كما قيل (عربي وقد يتخلله إنجليزي). أخرج النص فقط بلا أي تعليق. وإن لم يكن فيه كلام فأخرج نصًا فارغًا.' }, { inline_data: { mime_type: 'audio/wav', data: b64 } }] }] }) });
+    const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error((j.error && j.error.message || 'Gemini ' + r.status).slice(0, 120));
+    return ((((j.candidates || [])[0] || {}).content || {}).parts || []).map(x => x.text || '').join(' '); }
+  const url = p === 'groq' ? 'https://api.groq.com/openai/v1/audio/transcriptions' : 'https://api.openai.com/v1/audio/transcriptions';
+  const models = p === 'groq' ? ['whisper-large-v3-turbo', 'whisper-large-v3'] : ['gpt-4o-mini-transcribe', 'whisper-1']; let last = '';
+  for (const model of models) { const f = new FormData(); f.append('file', wav, 'speech.wav'); f.append('model', model); f.append('language', 'ar'); f.append('response_format', 'json');
+    const r = await fetch(url, { method: 'POST', headers: { Authorization: 'Bearer ' + key }, body: f }), j = await r.json().catch(() => ({}));
+    if (r.ok) return String(j.text || ''); last = (j.error && j.error.message || (p + ' ' + r.status)).slice(0, 120); if (![400, 404].includes(r.status)) break; }
+  throw new Error(last);
+}
 /* سجل أحداث الصوت نفسه (هل يصل صوت؟ متى انتهت الجلسة؟) — يظهر بـ«سجل المايك» */
 let ASST_RECHOOK = null;
 function asstRecHook() { try { const r = HWV.instance(false); if (!r || r === ASST_RECHOOK) return; ASST_RECHOOK = r;
@@ -576,6 +638,7 @@ function asstRecHook() { try { const r = HWV.instance(false); if (!r || r === AS
   r.addEventListener('error', e => asstMicLog('rec:error ' + (e && e.error))); r.addEventListener('result', e => { try { const x = e.results[e.results.length - 1]; ASST.recFinal = x.isFinal ? 1 : 0; asstMicLog(`rec:result #${e.resultIndex}/${e.results.length} ${String(x[0].transcript).trim().split(/\s+/).length}w${x.isFinal ? ' final' : ''}`); } catch (er) {} });
   HWV.onReset = i => asstMicLog('reset خانة ' + i); } catch (e) {} }
 function asstMic(auto) {
+  if (asstUseStt()) return asstSttMic(auto === true);
   if (!window.HWV || !HWV.sup) { toast('الكلام غير مدعوم في هذا المتصفح', 'bad'); return; }
   if (ASST_MIC) { asstMicSend(); return; }   // ضغطة ثانية: أرسل ما قيل
   /* 🍎 iPhone: جلسة تبدأ بلا لمسة تشتغل لكن لا يصلها صوت — فإن انقفلت الجلسة لا نعيدها تلقائيًا، بل ننتظر ضغطة 🎤 */
@@ -696,7 +759,7 @@ function asstOpen() {
       <div class="asst-sugg">${asstSuggHTML()}</div>
       <div class="asst-live" id="asst-live" hidden></div>
       <form class="asst-in" onsubmit="event.preventDefault();const i=document.getElementById('asst-q');asstAsk(i.value);i.value=''"><textarea id="asst-q" rows="1" placeholder="اسأل عن طلابك…" autocomplete="off"
-        onkeydown="if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing){event.preventDefault();this.form.requestSubmit()}"></textarea>${ASST_SR ? '<button type="button" id="asst-mic" class="asst-mic" onclick="asstMic()" title="تكلّم" aria-label="تكلّم">🎤</button>' : ''}<button type="submit" id="asst-send" class="btn tick sm">إرسال</button></form>`;
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing){event.preventDefault();this.form.requestSubmit()}"></textarea>${ASST_SR || (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) ? '<button type="button" id="asst-mic" class="asst-mic" onclick="asstMic()" title="تكلّم" aria-label="تكلّم">🎤</button>' : ''}<button type="submit" id="asst-send" class="btn tick sm">إرسال</button></form>`;
     document.body.appendChild(p);
     p.addEventListener('keydown', e => { if (e.key === 'Escape') asstClose(); });
   }
