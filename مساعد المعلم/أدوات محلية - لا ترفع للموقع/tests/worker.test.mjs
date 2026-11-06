@@ -140,6 +140,14 @@ export default async function run() {
     ok((await call('/site?h=mosaed.pages.dev&p=/')).s !== 400, 'اللوحة في جذر الموقع مرفوضة');
   });
   await S.t('صوت المختبر بلا مفتاح: صامت بلا خطأ', async () => { eq((await call('/tts?t=' + encodeURIComponent('مرحبا'))).s, 404); });
+  await S.t('🔊 صوت «مساعدي» (k=asst) يُحفظ 3 أيام فقط، وجمل المختبر دائمة', async () => {
+    const E = newEnv({ ELEVENLABS_API_KEY: 'x' }), C = caller(W, E), puts = []; const put0 = E.HW.put.bind(E.HW); E.HW.put = (k, v, o) => { puts.push([k, o]); return put0(k, v, o); };
+    const f0 = globalThis.fetch; globalThis.fetch = async (u, o) => /elevenlabs/.test(String(u)) ? new Response(new Uint8Array([1, 2, 3]), { status: 200, headers: { 'content-type': 'audio/mpeg' } }) : f0(u, o);
+    try {
+      eq((await C('/tts?k=asst&t=' + encodeURIComponent('غاب اليوم طالبان'))).s, 200); eq((await C('/tts?t=' + encodeURIComponent('أهلًا بك في المختبر'))).s, 200);
+      const tts = puts.filter(x => /^tts:[0-9a-f]{40}$/.test(x[0])); eq(tts.length, 2); eq(tts[0][1] && tts[0][1].expirationTtl, 3 * 86400, 'المساعد'); eq(tts[1][1], undefined, 'المختبر');
+    } finally { globalThis.fetch = f0; }
+  });
   await S.t('🔌 MCP لـ Claude: رابط سري للمعلم، والأدوات تقرأ الفصول والأنشطة والنتائج وتقرير الطالب، بلا معرّفات الطلاب', async () => {
     eq((await call('/mcp-key', { method: 'POST', body: { t: 'خطأ', action: 'create' } })).s, 401, 'بلا كلمة سر');
     eq((await call('/mcp/abc', { method: 'POST', body: { jsonrpc: '2.0', id: 1, method: 'initialize' } })).s, 404, 'بلا رابط');

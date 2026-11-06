@@ -5997,7 +5997,8 @@ async function ttsHandle(request, env, ctx, url) {
     if (!r || !r.ok) return json({ error: 'tts_fail', status: r ? r.status : 0 }, 502);
     buf = await r.arrayBuffer();
     ctx.waitUntil(Promise.all([
-      env.HW.put(kvKey, buf).catch(() => {}),
+      // 🔊 أجوبة «مساعدي» (k=asst) تتغير كل مرة: تُحفظ 3 أيام فقط — جمل المختبر الثابتة تبقى دائمًا
+      env.HW.put(kvKey, buf, url.searchParams.get('k') === 'asst' ? { expirationTtl: 3 * 86400 } : undefined).catch(() => {}),
       env.HW.put(day, String(used + text.length), { expirationTtl: 172800 }).catch(() => {})
     ]));
   }

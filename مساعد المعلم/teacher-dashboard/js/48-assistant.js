@@ -132,7 +132,7 @@ function asstMd(s) {   // تنسيق بسيط آمن: **عريض** · أسطر �
   return asstEsc(String(s || '')).replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>').replace(/^\s*[-•]\s+/gm, '• ').replace(/\n/g, '<br>');
 }
 async function asstAsk(q) {
-  q = String(q || '').trim(); if (!q || ASST.busy) return;
+  q = String(q || '').trim(); if (!q || ASST.busy) return; asstSpeakStop(); asstAudioUnlock();
   ASST.busy = true; ASST.msgs.push({ me: 1, html: asstEsc(q) }); const bot = { html: '<i class="asst-dots"><b></b><b></b><b></b></i>', src: [] }; ASST.msgs.push(bot); asstPaint();
   try {
     const fast = asstFast(q);
@@ -215,11 +215,39 @@ function asstMic() {
   if (b) b.classList.add('on'); try { asstRec.start(); } catch (e) { asstRec = null; if (b) b.classList.remove('on'); }
 }
 const asstTtsOn = () => { try { return localStorage.getItem('asst_tts') === '1'; } catch (e) { return false; } };
-function asstTtsToggle() { try { localStorage.setItem('asst_tts', asstTtsOn() ? '0' : '1'); } catch (e) {} try { speechSynthesis.cancel(); } catch (e) {} const b = document.getElementById('asst-tts'); if (b) { b.textContent = asstTtsOn() ? '🔊' : '🔇'; b.title = asstTtsOn() ? 'قراءة الأجوبة بصوت: مفعّلة' : 'قراءة الأجوبة بصوت: متوقفة'; } }
-function asstSpeak(t) {
-  if (!asstTtsOn() || !window.speechSynthesis) return;
-  try { const u = new SpeechSynthesisUtterance(String(t || '').replace(/<[^>]+>/g, ' ').replace(/\*\*/g, '').replace(/\s+/g, ' ').slice(0, 600)); u.lang = 'ar-SA';
-    const v = speechSynthesis.getVoices().find(x => /^ar/i.test(x.lang)); if (v) u.voice = v; speechSynthesis.cancel(); speechSynthesis.speak(u); } catch (e) {}
+function asstTtsToggle() { try { localStorage.setItem('asst_tts', asstTtsOn() ? '0' : '1'); } catch (e) {} asstSpeakStop(); asstAudioUnlock(); const b = document.getElementById('asst-tts'); if (b) { b.textContent = asstTtsOn() ? '🔊' : '🔇'; b.title = asstTtsOn() ? 'قراءة الأجوبة بصوت: مفعّلة' : 'قراءة الأجوبة بصوت: متوقفة'; } }
+/* 🔊 القراءة بصوت ElevenLabs عبر الخادم (المفتاح في Cloudflare فقط، وبسقف يومي) — وإن تعذّر فصوت الجهاز */
+let ASST_AUDIO = null, ASST_SAY = 0, ASST_EL = null;   // ASST_EL: null لم يُجرَّب · false غير مفعّل في الخادم
+const ASST_SILENT = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+function asstAudioUnlock() {   // يُستدعى من ضغطة المعلم: iPhone لا يشغّل صوتًا يبدأ بعد انتظار الجواب إلا إن «فُتح» العنصر بلمسة
+  if (!asstTtsOn()) return; try { if (!ASST_AUDIO) ASST_AUDIO = new Audio(); ASST_AUDIO.src = ASST_SILENT; ASST_AUDIO.play().catch(() => {}); } catch (e) {}
+}
+function asstSpeakStop() { ASST_SAY++; try { speechSynthesis.cancel(); } catch (e) {} try { if (ASST_AUDIO) ASST_AUDIO.pause(); } catch (e) {} }
+function asstSpeakDevice(txt) {
+  if (!window.speechSynthesis) return;
+  try { const u = new SpeechSynthesisUtterance(txt.slice(0, 600)); u.lang = 'ar-SA'; const v = speechSynthesis.getVoices().find(x => /^ar/i.test(x.lang)); if (v) u.voice = v; speechSynthesis.speak(u); } catch (e) {}
+}
+async function asstSpeak(t) {
+  if (!asstTtsOn()) return;
+  asstSpeakStop(); const my = ASST_SAY;
+  const txt = String(t || '').replace(/<[^>]+>/g, ' ').replace(/\*\*/g, '').replace(/[•\-]\s/g, '، ').replace(/\s+/g, ' ').trim().slice(0, 1200); if (!txt) return;
+  let api = ''; try { api = String(getApi() || '').replace(/\/+$/, ''); } catch (e) {}
+  if (api && ASST_EL !== false) {
+    const parts = []; let rest = txt; while (rest) { let cut = rest.length <= 380 ? rest.length : Math.max(rest.lastIndexOf('،', 380), rest.lastIndexOf('.', 380), rest.lastIndexOf(' ', 380)); if (cut < 40) cut = 380; parts.push(rest.slice(0, cut + 1).trim()); rest = rest.slice(cut + 1).trim(); }
+    try {
+      for (const p of parts.filter(x => /[\u0600-\u06FF]/.test(x))) {
+        if (my !== ASST_SAY) return;
+        const r = await fetch(api + '/tts?k=asst&t=' + encodeURIComponent(p));
+        if (!r.ok) { if (r.status === 404) ASST_EL = false; throw new Error('tts ' + r.status); }
+        const url = URL.createObjectURL(await r.blob()); if (my !== ASST_SAY) return;
+        if (!ASST_AUDIO) ASST_AUDIO = new Audio();
+        await new Promise(res => { ASST_AUDIO.onended = res; ASST_AUDIO.onerror = res; ASST_AUDIO.src = url; ASST_AUDIO.play().catch(res); });
+        URL.revokeObjectURL(url);
+      }
+      ASST_EL = true; return;
+    } catch (e) { if (my !== ASST_SAY) return; }
+  }
+  asstSpeakDevice(txt);   // احتياطي: صوت الجهاز
 }
 
 /* ── ☀️ ملخص الصباح: يُحسب من بياناتك بلا ذكاء — نقطة على ✨ مرة في اليوم، ويظهر أول ما تفتح المساعد ── */
@@ -279,7 +307,7 @@ function asstOpen() {
   const b = document.getElementById('asst-btn'); if (b) b.classList.remove('has-brief');
   setTimeout(() => { try { document.getElementById('asst-q').focus(); } catch (e) {} }, 60);
 }
-function asstClose() { const p = document.getElementById('asst-panel'); if (p) p.classList.remove('on'); document.body.classList.remove('asst-open'); }
+function asstClose() { asstSpeakStop(); const p = document.getElementById('asst-panel'); if (p) p.classList.remove('on'); document.body.classList.remove('asst-open'); }
 
 async function asstShowBrief() { try { localStorage.setItem('asst_brief_seen', asstToday()); } catch (e) {} const m = { html: '<i class="asst-dots"><b></b><b></b><b></b></i>', src: [] }; ASST.msgs.push(m); asstPaint();
   try { Object.assign(m, asstBriefMsg(await asstBrief())); } catch (e) { m.html = '⚠️ تعذّر تجهيز الملخص'; } asstPaint(); }

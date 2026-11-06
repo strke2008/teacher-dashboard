@@ -185,6 +185,17 @@ export default async function run() {
         ok(/غابوا آخر ٣ حصص/.test(r.brief) && r.brief.includes(r.s0), 'الملخص: ' + r.brief);
         ok(/^السلام عليكم/.test(r.draft || '') && r.ta, 'المسودة'); const last = bodies[bodies.length - 1];
         ok(!r.ids.some(id => last.includes('"' + id + '"')) && !/"_id"/.test(last), 'وصل معرّف للمزوّد'); eq(errs, [], 'أخطاء'); });
+      await S.t('🔊 مساعدي يقرأ بصوت ElevenLabs عبر الخادم (k=asst)، ويعود لصوت الجهاز إن لم يُفعَّل', async () => {
+        const urls = []; let mode = 200;
+        await p.route(/workers\.dev\/tts\?/, r => { urls.push(r.request().url()); r.fulfill(mode === 200 ? { status: 200, contentType: 'audio/mpeg', body: Buffer.from([0]) } : { status: 404, contentType: 'application/json', body: '{"error":"tts_off"}' }); });
+        const r = await p.evaluate(async () => { const k = localStorage.getItem('asst_tts'); localStorage.setItem('asst_tts', '1'); let dev = 0; const sp = speechSynthesis.speak.bind(speechSynthesis); speechSynthesis.speak = u => { dev++; };
+          ASST_EL = null; await asstSpeak('غاب اليوم **طالبان** من أول ١'); const el = ASST_EL, d1 = dev;
+          window.__mode404 && window.__mode404(); return { el, d1, k }; });
+        mode = 404; const r2 = await p.evaluate(async () => { let dev = 0; speechSynthesis.speak = u => { dev++; }; ASST_EL = null; await asstSpeak('مرحبا يا معلم'); const out = { el: ASST_EL, dev };
+          speechSynthesis.cancel(); return out; });
+        await p.evaluate(k => { if (k == null) localStorage.removeItem('asst_tts'); else localStorage.setItem('asst_tts', k); }, r.k);
+        await p.unroute(/workers\.dev\/tts\?/);
+        ok(urls.length >= 1 && /k=asst/.test(urls[0]) && decodeURIComponent(urls[0]).includes('غاب اليوم طالبان'), urls[0]); eq([r.el, r.d1], [true, 0], 'ElevenLabs'); eq([r2.el, r2.dev], [false, 1], 'صوت الجهاز'); eq(errs, [], 'أخطاء'); });
       await S.t('⚙️ زر الإعدادات بجانب «تخصيص القائمة» يفتح الإعدادات', async () => {
         ok(await p.evaluate(() => { const r = document.querySelector('#simp-nav .simp-cust-row'); return !!(r && r.querySelector('[data-simp-settings]') && /تخصيص القائمة/.test(r.textContent)); }), 'الزر بجانب التخصيص');
         await p.evaluate(() => document.querySelector('#simp-nav [data-simp-settings]').click()); await p.waitForTimeout(400);
