@@ -28,7 +28,7 @@ function ckPaint() {
     body = `<div class="ck-big ${CK.spin ? 'spin' : ''}" id="ck-name">${s ? esc(s.name) : '<span class="ck-hint">اضغط «اختر» 🎯</span>'}</div>
       <div class="ck-meta">${R.length ? `بقي ${left} من ${R.length} حاضر لم يُختاروا اليوم` : 'لا طلاب حاضرون في هذا الفصل'}</div>
       <div class="ck-row"><button type="button" class="btn tick ck-go" onclick="ckPick()" ${R.length ? '' : 'disabled'}>🎯 اختر</button>${P.size ? '<button type="button" class="btn ghost sm" onclick="ckResetPicked()">↺ من جديد</button>' : ''}</div>
-      ${s && typeof qrSet === 'function' ? `<div class="ck-row ck-rec"><span>ارصد له:</span><button type="button" class="btn sm" onclick="ckRec('شارك')">✅ شارك</button><button type="button" class="btn sm" onclick="ckRec('لم يشارك')">✋ لم يشارك</button></div>` : ''}`; }
+      ${s && typeof qrSet === 'function' ? `<div class="ck-row ck-rec"><span>ارصد له:</span><button type="button" class="btn sm tick" onclick="ckRec('شارك')">✅ شارك</button><button type="button" class="btn sm ghost" onclick="ckRec('لم يشارك')">✋ لم يشارك</button></div>` : ''}`; }
   else if (CK.tab === 'timer') { const left = ckLeft();
     body = `<div class="ck-big ck-time ${CK.tRun && left <= 10 ? 'warn' : ''} ${CK.tEnd && !left && CK.tTotal ? 'done' : ''}" id="ck-time">${ckFmt(left || (CK.tRun ? 0 : CK.tTotal))}</div>
       <div class="ck-row">${[1, 2, 3, 5, 10, 15].map(m => `<button type="button" class="btn sm ${CK.tTotal === m * 60 ? 'tick' : 'ghost'}" onclick="ckTimer(${m * 60})">${m} د</button>`).join('')}</div>
