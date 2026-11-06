@@ -331,17 +331,23 @@ function asstAct(i, j, k) {
 
 /* ── 🎤 الصوت: تتكلم بدل الكتابة، و🔊 يقرأ الجواب ── */
 const ASST_SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-let asstRec = null;
+/* 🎤 عبر محرّك الصوت الموحّد (HWV): على iPhone جلسة الاستماع الثانية في الصفحة نفسها لا يصلها صوت،
+   فنتشارك الجلسة نفسها مع البحث والرصد بالصوت — «إيقاف» يكتمها فقط، والضغطة التالية تكمل فورًا */
+let ASST_MIC = null;
+function asstMicStop() { const c = ASST_MIC; if (!c) return; ASST_MIC = null; clearTimeout(c.t); try { HWV.mute(c.owner); } catch (e) {} const b = document.getElementById('asst-mic'); if (b) b.classList.remove('on'); }
+function asstMicSend() { const c = ASST_MIC; if (!c) return; const t = (c.done + ' ' + c.pend).replace(/\s+/g, ' ').trim(); asstMicStop(); const i = document.getElementById('asst-q'); if (i) i.value = ''; if (t) asstAsk(t); }
 function asstMic() {
-  if (!ASST_SR) { toast('الكلام غير مدعوم في هذا المتصفح', 'bad'); return; }
-  if (asstRec) { try { asstRec.stop(); } catch (e) {} return; }
-  const i = document.getElementById('asst-q'), b = document.getElementById('asst-mic'); let txt = '';
-  try { speechSynthesis.cancel(); } catch (e) {}
-  asstRec = new ASST_SR(); asstRec.lang = 'ar-SA'; asstRec.interimResults = true; asstRec.continuous = false;
-  asstRec.onresult = e => { txt = [...e.results].map(r => r[0].transcript).join(' '); if (i) i.value = txt; };
-  asstRec.onerror = e => { if (e && e.error === 'not-allowed') toast('اسمح للمتصفح باستخدام الميكروفون', 'bad'); };
-  asstRec.onend = () => { asstRec = null; if (b) b.classList.remove('on'); if (txt.trim()) { asstAsk(txt); if (i) i.value = ''; } };
-  if (b) b.classList.add('on'); try { asstRec.start(); } catch (e) { asstRec = null; if (b) b.classList.remove('on'); }
+  if (!window.HWV || !HWV.sup) { toast('الكلام غير مدعوم في هذا المتصفح', 'bad'); return; }
+  if (ASST_MIC) { asstMicSend(); return; }   // ضغطة ثانية: أرسل ما قيل
+  asstSpeakStop(); asstAudioUnlock();
+  const i = document.getElementById('asst-q'), b = document.getElementById('asst-mic'), c = { done: '', pend: '', t: 0 };
+  const show = () => { if (i) i.value = (c.done + ' ' + c.pend).replace(/\s+/g, ' ').trim(); };
+  c.owner = { on: false,
+    onText: (t, final) => { clearTimeout(c.t); if (final) { c.done += ' ' + t; c.pend = ''; c.t = setTimeout(asstMicSend, 700); } else c.pend = t; show(); },
+    onStop: () => { if (ASST_MIC === c) { if ((c.done + c.pend).trim()) asstMicSend(); else asstMicStop(); } },
+    onError: err => { if (err === 'not-allowed' || err === 'service-not-allowed') { toast('اسمح للمتصفح باستخدام الميكروفون', 'bad'); asstMicStop(); } } };
+  ASST_MIC = c; if (b) b.classList.add('on');
+  if (!HWV.go(c.owner)) { asstMicStop(); toast('تعذّر تشغيل الميكروفون — أغلق المتصفح وافتحه ثم حاول', 'bad'); }
 }
 const asstTtsOn = () => { try { return localStorage.getItem('asst_tts') === '1'; } catch (e) { return false; } };
 function asstTtsToggle() { try { localStorage.setItem('asst_tts', asstTtsOn() ? '0' : '1'); } catch (e) {} asstSpeakStop(); asstAudioUnlock(); const b = document.getElementById('asst-tts'); if (b) { b.textContent = asstTtsOn() ? '🔊' : '🔇'; b.title = asstTtsOn() ? 'قراءة الأجوبة بصوت: مفعّلة' : 'قراءة الأجوبة بصوت: متوقفة'; } }
@@ -442,7 +448,7 @@ function asstOpen() {
   const b = document.getElementById('asst-btn'); if (b) b.classList.remove('has-brief');
   setTimeout(() => { try { document.getElementById('asst-q').focus(); } catch (e) {} }, 60);
 }
-function asstClose() { asstSpeakStop(); const p = document.getElementById('asst-panel'); if (p) p.classList.remove('on'); document.body.classList.remove('asst-open'); }
+function asstClose() { asstSpeakStop(); asstMicStop(); const p = document.getElementById('asst-panel'); if (p) p.classList.remove('on'); document.body.classList.remove('asst-open'); }
 
 async function asstShowBrief() { try { localStorage.setItem('asst_brief_seen', asstToday()); } catch (e) {} const m = { html: '<i class="asst-dots"><b></b><b></b><b></b></i>', src: [] }; ASST.msgs.push(m); asstPaint();
   try { Object.assign(m, asstBriefMsg(await asstBrief())); } catch (e) { m.html = '⚠️ تعذّر تجهيز الملخص'; } asstPaint(); }

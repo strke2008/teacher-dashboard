@@ -185,6 +185,18 @@ export default async function run() {
         ok(/غابوا آخر ٣ حصص/.test(r.brief) && r.brief.includes(r.s0), 'الملخص: ' + r.brief);
         ok(/^السلام عليكم/.test(r.draft || '') && r.ta, 'المسودة'); const last = bodies[bodies.length - 1];
         ok(!r.ids.some(id => last.includes('"' + id + '"')) && !/"_id"/.test(last), 'وصل معرّف للمزوّد'); eq(errs, [], 'أخطاء'); });
+      await S.t('🎤 مساعدي: الميكروفون عبر محرّك الصوت الموحّد (HWV) — يسمع في المرة الثانية والثالثة (لا جلسة جديدة تُفتح كل ضغطة)', async () => {
+        const r = await p.evaluate(async () => { const go = HWV.go, mute = HWV.mute, ask = asstAsk; let owner = null, gos = 0, mutes = 0; const sent = [];
+          HWV.go = o => { gos++; owner = o; o.on = true; return true; }; HWV.mute = o => { mutes++; if (o) o.on = false; }; window.asstAsk = q => { sent.push(q); };
+          try { asstOpen();
+            asstMic(); owner.onText('مين الغايب', false); owner.onText('مين الغايب اليوم', true); await new Promise(z => setTimeout(z, 900));
+            const on1 = document.getElementById('asst-mic').classList.contains('on');
+            asstMic(); owner.onText('افتح دفتر', false); asstMic();   // ضغطة ثانية ترسل فورًا
+            asstMic(); owner.onText('أضعف مهارة', true); await new Promise(z => setTimeout(z, 900));
+            asstMic(); asstClose(); const left = ASST_MIC;
+            return { sent, gos, mutes, on1, left: !!left }; }
+          finally { HWV.go = go; HWV.mute = mute; window.asstAsk = ask; } });
+        eq(r.sent, [' مين الغايب اليوم'.trim(), 'افتح دفتر', 'أضعف مهارة'], 'ما أُرسل'); eq(r.gos, 4, 'كل ضغطة تأخذ الجلسة المشتركة'); ok(r.mutes >= 4, 'الإيقاف كتم فقط'); eq([r.on1, r.left], [false, false], 'الزر'); eq(errs, [], 'أخطاء'); });
       await S.t('✨ مساعدي — صلاحيات موسّعة: دفتر الاختبارات، تحليل أسئلة التصحيح الآلي، المهارات، رصد درجة بتأكيد وتراجع، مسودة نشاط غير منشورة، التنقّل، والخطوات المتعددة', async () => {
         let plan = '', qgen = 0; try { await p.exposeFunction('__plan2', v => { plan = v; }); } catch (e) {}
         await p.route(/generativelanguage\.googleapis\.com/, async r => { const b = r.request().postData() || ''; let txt = plan;
