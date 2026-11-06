@@ -4,24 +4,31 @@
    الأدوات: أدوات القراءة نفسها في «مساعدي» (الغياب، الدرجات، المهارات، الاختبارات…) تُحسب في جهازك، ويُرسل للمزوّد ما يلزم فقط
    بلا معرّفات (asstStrip). لا تنفيذ في هذه النسخة: أوامر الرصد والرسائل تبقى في «مساعدي» المكتوب ببطاقة التأكيد.
    مقفولة افتراضيًا: زر 🎙️ يظهر في رأس «مساعدي» فقط إن وُجد مفتاح Gemini. */
-const LIVE = { lang: true, ws: null, ctx: null, stream: null, src: null, node: null, on: false, state: '', play: 0, srcs: [], me: null, bot: null, model: '', tried: [], t0: 0 };
+const LIVE = { lang: true, lv: 2, ws: null, ctx: null, stream: null, src: null, node: null, on: false, state: '', play: 0, srcs: [], me: null, bot: null, model: '', tried: [], t0: 0 };
 const LIVE_MODELS = ['gemini-3.8-live', 'gemini-3.1-flash-live-preview'];
 const liveKey = () => { try { return typeof readingAIGetKey === 'function' ? readingAIGetKey('gemini') : ''; } catch (e) { return ''; } };
+/* 🗣️ أصوات Gemini الجاهزة — الافتراضي صوت رجل */
+const LIVE_VOICES = [['Charon', 'رجل — هادئ وواضح'], ['Orus', 'رجل — حازم'], ['Iapetus', 'رجل — صافٍ'], ['Algieba', 'رجل — ناعم'], ['Puck', 'رجل — حيوي'], ['Fenrir', 'رجل — متحمس'], ['Kore', 'امرأة — واثقة'], ['Aoede', 'امرأة — خفيفة'], ['Leda', 'امرأة — شابة'], ['Zephyr', 'امرأة — مشرقة']];
+const liveVoice = () => { try { return localStorage.getItem('live_voice') || 'Charon'; } catch (e) { return 'Charon'; } };
+function liveVoiceSet(v) { try { localStorage.setItem('live_voice', v); } catch (e) {} toast('🎙️ الصوت: ' + ((LIVE_VOICES.find(x => x[0] === v) || [])[1] || v) + (LIVE.on ? ' — يتغيّر من المحادثة الجاية' : ''), 'good'); }
 /* مقفولة افتراضيًا: تُفعَّل من ⚙️ الإعدادات ← الذكاء الاصطناعي ← «🎙️ المحادثة الحية» */
 const liveOn = () => { try { return localStorage.getItem('live_on') === '1'; } catch (e) { return false; } };
 function liveOnSet(on) { try { if (on) localStorage.setItem('live_on', '1'); else localStorage.removeItem('live_on'); } catch (e) {} if (!on && (LIVE.on || LIVE.state)) liveStop();
   const p = document.getElementById('asst-panel'); if (p) p.remove();   // يُبنى رأس «مساعدي» من جديد عند فتحه بالزر الصحيح
   try { toast(on ? '🎙️ فُعّلت المحادثة الحية — زرها في رأس «مساعدي»' : '🎙️ أُقفلت المحادثة الحية', 'good'); } catch (e) {} }
-(function liveOnInit() { const go = () => { const c = document.getElementById('live-on-tg'); if (c) c.checked = liveOn(); }; if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go(); })();
+(function liveOnInit() { const go = () => { const c = document.getElementById('live-on-tg'); if (c) c.checked = liveOn(); const v = document.getElementById('live-voice'); if (v) { v.innerHTML = LIVE_VOICES.map(([k, l]) => `<option value="${k}">${l} (${k})</option>`).join(''); v.value = liveVoice(); } }; if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go(); })();
 const liveSup = () => !!(liveOn() && liveKey() && window.WebSocket && navigator.mediaDevices && navigator.mediaDevices.getUserMedia && (window.AudioContext || window.webkitAudioContext));
 
 /* أدوات القراءة فقط ← تعريفات دوال لـ Gemini (الوسائط تُستخرج من وصف كل أداة «args: {…}») */
-const LIVE_NUM = ['n', 'days', 'question', 'sem', 'per', 'min'], LIVE_BOOL = ['all', 'print'];
+const LIVE_NUM = ['n', 'days', 'question', 'sem', 'per', 'min', 'delta', 'max'], LIVE_BOOL = ['all', 'print', 'close'], LIVE_ARR = ['classes', 'students', 'except'];
 function liveTools() {
-  return Object.entries(ASST_TOOLS).filter(([k, t]) => !t.act).map(([name, t]) => {
-    const d = String(t.d || ''), m = d.match(/args:\s*\{([^}]*)\}/), props = {};
-    (m ? m[1] : '').replace(/\b([a-z_]+)\??:/g, (_, a) => { props[a] = LIVE_NUM.includes(a) ? { type: 'NUMBER' } : LIVE_BOOL.includes(a) ? { type: 'BOOLEAN' } : a === 'classes' ? { type: 'ARRAY', items: { type: 'STRING' } } : { type: 'STRING' }; return ''; });
-    return { name, description: d.slice(0, 900), behavior: 'BLOCKING', ...(Object.keys(props).length ? { parameters: { type: 'OBJECT', properties: props } } : {}) };
+  return Object.entries(ASST_TOOLS).map(([name, t]) => {
+    const d = String(t.d || ''), m = d.match(/args:\s*\{([\s\S]*)\}/), props = {};
+    (m ? m[1] : '').replace(/\b([a-z_]+)\??:/g, (_, a) => { if (props[a]) return '';
+      props[a] = LIVE_NUM.includes(a) ? { type: 'NUMBER' } : LIVE_BOOL.includes(a) ? { type: 'BOOLEAN' } : LIVE_ARR.includes(a) ? { type: 'ARRAY', items: { type: 'STRING' } }
+        : a === 'scores' ? { type: 'ARRAY', items: { type: 'OBJECT', properties: { student: { type: 'STRING' }, score: { type: 'STRING' } } } } : { type: 'STRING' }; return ''; });
+    if (props.scores) { delete props.student; delete props.score; }
+    return { name, description: ((t.act ? '(تجهيز فقط: يظهر للمعلم بطاقة تأكيد ولا يُنفَّذ إلا بضغطته) ' : '') + d).slice(0, 900), behavior: 'BLOCKING', ...(Object.keys(props).length ? { parameters: { type: 'OBJECT', properties: props } } : {}) };
   });
 }
 function liveSystem() {
@@ -30,7 +37,8 @@ function liveSystem() {
 ${asstIntro()}
 أنت في «محادثة حية» صوتية مع المعلم: أجب بالعربية بصوت طبيعي ودود وبإيجاز (جملتان أو ثلاث)، واذكر الأرقام والأسماء بوضوح.
 استخدم الأدوات للأسئلة عن طلابه وبياناته، ولا تخترع أسماء أو أرقامًا. «النقاط» = رصيد نقاط المكافآت (أداة points)، وهي غير الدرجات.
-هذه نسخة تجريبية للقراءة فقط: إن طلب رصدًا أو تعديلًا أو إرسال رسالة فقل له إن التنفيذ متاح الآن بالكتابة أو المايك في «مساعدي» ببطاقة تأكيد، وسيضاف للمحادثة الحية لاحقًا.
+تقدر تجهّز كل أوامر «مساعدي» (رصد، درجات، نقاط، رسائل، تذكيرات، فتح صفحات…) بأدوات التجهيز: كل أمر يظهر للمعلم ببطاقة على الشاشة ولا يُنفَّذ إلا إذا ضغط «نفّذ» بنفسه — فقل له بإيجاز ماذا جهّزت واطلب منه يراجع البطاقة ويضغط. لا تقل أبدًا إنك نفّذت.
+في رسالة ولي الأمر (parent_message) اكتب نص الرسالة كاملًا في message بالعربية الفصحى المبسطة، يبدأ بـ«السلام عليكم ورحمة الله» وينتهي بـ«معلم المادة».
 تذكير أخير: ردك بالعربية فقط.`;
 }
 
@@ -58,6 +66,8 @@ function liveSet(st, extra) {
   const L = { connect: '⏳ أتصل بـ Gemini Live…', listen: '🎙️ <b>محادثة حية</b> — تكلّم، أسمعك', speak: '🔊 <b>محادثة حية</b> — أتكلم… <button type="button" class="btn sm ghost" onclick="liveCut()">✋ قاطعه</button>', tool: '🔎 <b>محادثة حية</b> — أبحث في بياناتك…' };
   e.hidden = false; e.innerHTML = `<span class="dot"></span> ${L[st] || ''}${extra ? ' · ' + extra : ''} <button type="button" class="btn sm ghost" onclick="liveStop()">⏹ إنهاء</button>`;
 }
+/* نسخ كلام المعلم طلع بحروف لاتينية (Gemini أخطأ لغة النسخ وفهم الصوت نفسه): نوضّح بدل نص مشوّه */
+function liveFixMe(m) { if (!m || m.fixed) return; const t = String(m.text || ''); if (!/[\u0600-\u06FF]/.test(t) && /[A-Za-z\u00C0-\u024F]/.test(t)) { m.fixed = 1; m.html = '🎙️ <i>(كلامك ما انكتب بالعربي — Gemini فهمه من الصوت)</i> <small class="asst-latin">' + asstEsc(t) + '</small>'; asstPaint(); } }
 function liveMsg(who, t) {   // النص المكتوب للمحادثة (من النسخ الحي) — يبقى في سجل «مساعدي»
   if (!t) return; const k = who === 'me' ? 'me' : 'bot';
   if (!LIVE[k]) { LIVE[k] = who === 'me' ? { me: 1, html: '', text: '' } : { html: '', text: '', src: ['🎙️ محادثة حية · ' + LIVE.model] }; ASST.msgs.push(LIVE[k]); }
@@ -74,14 +84,14 @@ async function liveStart() {
   try { LIVE.ctx = new (window.AudioContext || window.webkitAudioContext)(); if (LIVE.ctx.state !== 'running') await LIVE.ctx.resume(); } catch (e) {}
   asstMicLog('live: سياق ' + (LIVE.ctx && LIVE.ctx.state) + ' ' + (LIVE.ctx && LIVE.ctx.sampleRate));
   try { if (!localStorage.getItem('live_note')) { localStorage.setItem('live_note', '1'); toast('🎙️ تجريبية: الصوت يُحسب من رصيد Gemini بسعر أعلى من النص — أنهِ المحادثة بزر ⏹', 'warn'); } } catch (e) {}
-  liveSet('connect'); LIVE.tried = []; LIVE.lang = true; liveConnect(LIVE_MODELS[0]);
+  liveSet('connect'); LIVE.tried = []; LIVE.lv = 2; liveConnect(LIVE_MODELS[0]);
 }
 function liveConnect(model) {
-  LIVE.model = model; LIVE.tried.push(model); let ready = false; asstMicLog('live: اتصال ' + model + (LIVE.lang ? ' ar' : ''));
+  LIVE.model = model; LIVE.tried.push(model); let ready = false; asstMicLog('live: اتصال ' + model + ' · عربي ' + LIVE.lv);
   const ws = LIVE.ws = new WebSocket('wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=' + encodeURIComponent(liveKey()));
   ws.onopen = () => ws.send(JSON.stringify({ setup: { model: 'models/' + model,
-    generationConfig: { responseModalities: ['AUDIO'], speechConfig: { ...(LIVE.lang ? { languageCode: 'ar-XA' } : {}), voiceConfig: { prebuiltVoiceConfig: { voiceName: localStorage.getItem('live_voice') || 'Kore' } } } },
-    systemInstruction: { parts: [{ text: liveSystem() }] }, tools: [{ functionDeclarations: liveTools() }], inputAudioTranscription: {}, outputAudioTranscription: {} } }));
+    generationConfig: { responseModalities: ['AUDIO'], speechConfig: { ...(LIVE.lv >= 1 ? { languageCode: 'ar-XA' } : {}), voiceConfig: { prebuiltVoiceConfig: { voiceName: liveVoice() } } } },
+    systemInstruction: { parts: [{ text: liveSystem() }] }, tools: [{ functionDeclarations: liveTools() }], inputAudioTranscription: LIVE.lv >= 2 ? { languageCodes: ['ar'] } : {}, outputAudioTranscription: {} } }));
   ws.onmessage = async ev => { let j; try { j = JSON.parse(typeof ev.data === 'string' ? ev.data : await (ev.data.text ? ev.data.text() : new Response(ev.data).text())); } catch (e) { return; }
     if (j.setupComplete) { ready = true; asstMicLog('live: جاهز'); await liveMic(); return; }
     const sc = j.serverContent;
@@ -89,6 +99,7 @@ function liveConnect(model) {
       if (sc.inputTranscription && sc.inputTranscription.text && !LIVE.me) asstMicLog('live: سمعك «' + String(sc.inputTranscription.text).slice(0, 30) + '»');
       if (((sc.modelTurn || {}).parts || []).some(p => p.inlineData) && !LIVE.lg) { LIVE.lg = 1; asstMicLog('live: بدأ يرد بصوت' + (LIVE.cut ? ' (مقطوع بزر ✋)' : '')); }
       if (sc.inputTranscription && sc.inputTranscription.text) { LIVE.bot = null; liveMsg('me', sc.inputTranscription.text); }
+      if ((sc.outputTranscription && sc.outputTranscription.text) || sc.turnComplete) liveFixMe(LIVE.me);
       if (sc.outputTranscription && sc.outputTranscription.text) { LIVE.me = null; liveMsg('bot', sc.outputTranscription.text); }
       if (!LIVE.cut) ((sc.modelTurn || {}).parts || []).forEach(p => { if (p.inlineData && /audio/.test(p.inlineData.mimeType || '')) livePlay(p.inlineData.data); });
       if (sc.turnComplete) { asstMicLog('live: انتهى رده · كُتم الميكروفون ' + (LIVE.muted || 0) + ' مرة'); LIVE.lg = 0; LIVE.muted = 0; LIVE.cut = false; LIVE.me = LIVE.bot = null; try { asstSave(); } catch (e) {} } }
@@ -96,8 +107,8 @@ function liveConnect(model) {
     if (j.error || j.setupError) asstMicLog('live: خطأ ' + JSON.stringify(j.error || j.setupError).slice(0, 80));
     if (j.goAway) liveSet(LIVE.state, 'الجلسة توشك على الانتهاء'); };
   ws.onclose = ev => { asstMicLog('live: أُغلق ' + ev.code + (ev.reason ? ' ' + String(ev.reason).slice(0, 60) : '')); if (LIVE.ws !== ws) return;
-    if (!ready) { if (LIVE.lang && LIVE.state === 'connect') { LIVE.lang = false; LIVE.tried.pop(); liveConnect(model); return; }   // النموذج لا يقبل languageCode: نعيد بدونها
-      const next = LIVE_MODELS.find(m => !LIVE.tried.includes(m)); if (next && LIVE.state === 'connect') { LIVE.lang = true; liveConnect(next); return; }
+    if (!ready) { if (LIVE.lv > 0 && LIVE.state === 'connect') { LIVE.lv--; LIVE.tried.pop(); liveConnect(model); return; }   // لا يقبل إعداد اللغة: نعيد بأقل منه (النسخ ← الصوت ← بلا)
+      const next = LIVE_MODELS.find(m => !LIVE.tried.includes(m)); if (next && LIVE.state === 'connect') { LIVE.lv = 2; liveConnect(next); return; }
       liveEnd(); toast('تعذّر الاتصال بـ Gemini Live' + (ev.reason ? ': ' + String(ev.reason).slice(0, 120) : ''), 'bad'); return; }
     liveEnd(); if (ev.code !== 1000) toast('انتهت المحادثة الحية' + (ev.reason ? ': ' + String(ev.reason).slice(0, 120) : ''), 'warn'); };
   ws.onerror = () => {};
@@ -123,7 +134,13 @@ async function liveSilent(again) {   // صمت تام: نعيد الميكروف
 async function liveTool(calls) {
   liveSet('tool'); const out = [];
   for (const c of calls) { const t = ASST_TOOLS[c.name]; let res;
-    try { res = !t || t.act ? { error: 'هذه الأداة غير متاحة في المحادثة الحية' } : asstStrip(await t.run(c.args && typeof c.args === 'object' ? { ...c.args } : {})); } catch (e) { res = { error: 'تعذّر' }; }
+    try { const a = c.args && typeof c.args === 'object' ? { ...c.args } : {}; if (!t) res = { error: 'أداة غير معروفة' };
+      else { const r = await t.run(a); res = asstStrip(r);
+        if (t.act && r && ASST_ACTS.includes(r.action)) {   // بطاقة تأكيد على الشاشة — لا تنفيذ إلا بضغطة المعلم
+          const card = { ...r, state: 'ask' }; if (card.action === 'draft') card.text = String(a.message || ''); LIVE.me = null;
+          ASST.msgs.push({ html: '🎙️ جهّزت لك — راجع واضغط «نفّذ»:', cards: [card], src: [t.src(a), '🎙️ محادثة حية'].filter(Boolean) }); LIVE.bot = null; asstPaint();
+          res = { prepared: res, note: 'ظهرت للمعلم بطاقة تأكيد على الشاشة ولم يُنفَّذ شيء بعد. أخبره بإيجاز بما جهّزته واطلب منه يضغط «نفّذ».' }; } } }
+    catch (e) { res = { error: 'تعذّر' }; }
     let s = JSON.stringify(res); if (s.length > 9000) s = s.slice(0, 9000); out.push({ id: c.id, name: c.name, response: { result: s } });
     const m = LIVE.bot || null; if (m && t) { m.src = (m.src || []).concat(t.src(c.args || {})).filter(Boolean); } }
   try { LIVE.ws.send(JSON.stringify({ toolResponse: { functionResponses: out } })); } catch (e) {}
