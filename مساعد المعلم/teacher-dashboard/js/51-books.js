@@ -67,7 +67,7 @@ function bkBookHTML(b) {
     <div class="bk-acts"><button type="button" class="btn sm bk-read" onclick="bkView('${esc(b.id)}')">📖 تصفّح الكتاب</button><button type="button" class="btn ghost sm" onclick="bkEditMeta('${esc(b.id)}')">✏️ البيانات</button><button type="button" class="btn ghost sm" onclick="bkDel('${esc(b.id)}')">🗑️</button></div></div>
     ${b.pdf ? '' : `<div class="bk-note bk-note-i">📖 لتصفّح الكتاب بصفحاته الأصلية (الصور والأشكال) — <label class="bk-link">أرفق ملف الكتاب نفسه<input type="file" accept="application/pdf,.pdf" hidden onchange="bkAttachPdf('${esc(b.id)}',this)"></label>. وإلى ذلك الحين يُتصفَّح نصّه.</div>`}
     ${b.ocrPending ? `<div class="bk-note">📷 ${b.ocrPending} صفحة مصوّرة لم تُقرأ بعد — <label class="bk-link">أكمل قراءتها (اختر ملف الكتاب نفسه)<input type="file" accept="application/pdf,.pdf" hidden onchange="bkResume('${esc(b.id)}',this)"></label></div>` : ''}
-    <div class="bk-sec"><b>📑 الدروس (${L.length})</b><span><button type="button" class="ai-btn sm quiet" onclick="bkIndex('${esc(b.id)}')"><span class="ai-mark">✦</span> ${L.length ? 'أعد استخراج الفهرس' : 'استخرج الفهرس بالذكاء'}</button>
+    <div class="bk-sec"><b>📑 الدروس (${L.length})</b><span><button type="button" class="ai-btn sm${L.length ? ' quiet' : ''} bk-idx" onclick="bkIndex('${esc(b.id)}')"><span class="ai-mark">✦</span> ${L.length ? 'أعد استخراج الفهرس' : 'استخرج الفهرس بالذكاء'}</button>
       <button type="button" class="btn ghost sm" onclick="bkEditIndex('${esc(b.id)}')">✏️ تعديل الفهرس</button></span></div>
     ${L.length ? units.map(g => `<div class="bk-unit">${g.u ? `<div class="bk-unit-t">${esc(g.u)}</div>` : ''}${g.items.map(([l, i]) => `<div class="bk-lesson"><span class="bk-lt"><b>${esc(l.title)}</b><small>ص ${l.from}${l.to > l.from ? '–' + l.to : ''}</small></span>
       <button type="button" class="btn ghost sm" onclick="bkView('${esc(b.id)}',${l.from})" aria-label="تصفّح الدرس في الكتاب" title="تصفّح الدرس في الكتاب">📖</button><button type="button" class="btn ghost sm" onclick="bkPreview('${esc(b.id)}',${i})">👁️ النص</button><button type="button" class="ai-btn sm" onclick="bkMakeActivity('${esc(b.id)}',${i})"><span class="ai-mark">✦</span> نشاط منه</button></div>`).join('')}</div>`).join('')
@@ -107,8 +107,7 @@ async function bkAdd(input) {
     await bkUploadPdf(id, file).catch(e => toast('📖 لم يُرفع ملف الكتاب للتصفّح (' + (e.message || e) + ') — يمكنك إرفاقه لاحقًا من صفحة الكتاب', 'bad'));
     const todo = final.map((t, i) => t === '' ? i + 1 : 0).filter(Boolean);
     if (todo.length) await bkOcr(id, pdf, todo);
-    await bkIndex(id, true);
-    bkProg(null); toast('📚 أُضيف الكتاب — راجع فهرس الدروس', 'good');
+    bkProg(null); toast('📚 أُضيف الكتاب — استخرج فهرس دروسه متى شئت من صفحته', 'good');   // الفهرس بطلب المعلم فقط (يطول)
   } catch (e) { console.error('bkAdd', e); bkProg(null); toast('تعذّر: ' + (e.message || e), 'bad'); if (id) { try { await bkLoad(true); } catch (x) {} bkRender(); } }
 }
 async function bkResume(id, input) {
@@ -117,7 +116,7 @@ async function bkResume(id, input) {
     if (b && b.pagesCount && pdf.numPages !== b.pagesCount) throw new Error(`عدد صفحات الملف (${pdf.numPages}) لا يطابق الكتاب (${b.pagesCount}) — اختر الملف نفسه`);
     const all = await bkPages(id, 1, pdf.numPages); delete BK.pages[id + ':1:' + pdf.numPages];
     const todo = all.map((t, i) => t === '' ? i + 1 : 0).filter(Boolean); if (todo.length) await bkOcr(id, pdf, todo);
-    if (!(bkBook(id).lessons || []).length) await bkIndex(id, true); bkProg(null); toast('✓ اكتملت قراءة الصفحات', 'good');
+    bkProg(null); toast('✓ اكتملت قراءة الصفحات', 'good');
   } catch (e) { bkProg(null); toast(e.message || 'تعذّر', 'bad'); }
 }
 /* قراءة الصفحات المصوّرة بالذكاء: صفحة في كل طلب، طلبان معًا، والحفظ كل 4 صفحات حتى لا يضيع شيء لو انقطع */

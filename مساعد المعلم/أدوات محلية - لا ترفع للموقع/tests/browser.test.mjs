@@ -1165,13 +1165,17 @@ export default async function run() {
         await p.reload(); await dashReady(p); await p.evaluate(() => goTab('books')); await p.waitForFunction(() => BK.list && document.querySelector('#bk-root .bk-case .bk-slot-add'), null, { timeout: 10000 });
         ok(await p.isVisible('#p-books .bk-add'), 'زر الإضافة'); ok(await p.evaluate(() => bkApi() === (getApi() || '').replace(/\/+$/, '') && typeof libApi === 'function'), 'المكتبة لا تطغى على دالة النسخ الاحتياطي bkApi'); ok(await p.evaluate(() => !!document.querySelector('#simp-nav [data-k="books"], #simp-nav [data-key="books"]') || /مكتبة الكتب/.test(document.getElementById('simp-nav').innerText)), 'القائمة');
         await p.setInputFiles('#p-books input[type=file]', '/tmp/bk-text.pdf');
+        await p.waitForFunction(() => !BK.busy && (BK.list || []).length === 1 && BK.list[0].pdf, null, { timeout: 30000 }); await p.waitForTimeout(300);
+        eq([ai.filter(x => x === 'index').length, await p.evaluate(() => (BK.list[0].lessons || []).length)], [0, 0], 'الرفع لا يستخرج الفهرس (بطلب المعلم فقط)');
+        ok(await p.isVisible('.bk-idx'), 'زر استخراج الفهرس'); await p.click('.bk-idx');
         await p.waitForFunction(() => !BK.busy && (BK.list || []).some(b => (b.lessons || []).length), null, { timeout: 30000 });
         const r = await p.evaluate(async () => { const b = BK.list[0], t = await bkLessonText(b.id, b.lessons[0]); return { n: b.pagesCount, pend: b.ocrPending, ls: b.lessons.map(l => [l.title, l.from, l.to]), meta: [b.subject, b.grade], t, open: BK.open === b.id, ui: document.querySelectorAll('#bk-root .bk-lesson').length }; });
         eq(await p.evaluate(() => !!(BK.list[0].pdf && BK.list[0].pdf.size > 500)), true, 'ملف الكتاب رُفع للتصفّح'); eq([r.n, r.pend, r.ls, r.meta, r.open, r.ui], [6, 0, [['الخلية', 2, 3], ['الأنسجة', 4, 6]], ['علوم', 'أول متوسط'], true, 2], 'الكتاب النصي');
         ok(/الغشاء البلازمي/.test(r.t) && /البناء الضوئي/.test(r.t) && !/النسيج/.test(r.t), 'نص درس الخلية (صفحتاه فقط): ' + r.t.slice(0, 120)); eq(ai.filter(x => x === 'ocr').length, 0, 'لا قراءة بالذكاء لكتاب نصي');
         await p.screenshot({ path: '/tmp/bk-book.png' });
         await p.evaluate(() => { BK.open = ''; bkRender(); }); await p.setInputFiles('#p-books input[type=file]', '/tmp/bk-scan.pdf');
-        await p.waitForFunction(() => !BK.busy && (BK.list || []).length === 2 && BK.list.every(b => (b.lessons || []).length), null, { timeout: 30000 });
+        await p.waitForFunction(() => !BK.busy && (BK.list || []).length === 2 && BK.list.every(b => b.ocrPending === 0 && b.pdf), null, { timeout: 30000 }); eq(ai.filter(x => x === 'index').length, 1, 'لا فهرس تلقائي للكتاب المصوّر');
+        await p.evaluate(() => bkIndex(BK.list.find(x => x.pagesCount === 3).id)); await p.waitForFunction(() => !BK.busy && BK.list.every(b => (b.lessons || []).length), null, { timeout: 30000 });
         const s = await p.evaluate(async () => { const b = BK.list.find(x => x.pagesCount === 3); return { pend: b.ocrPending, t: await bkLessonText(b.id, b.lessons[0]), ls: b.lessons.map(l => [l.title, l.from, l.to]) }; });
         eq([s.pend, s.ls, ai.filter(x => x === 'ocr').length], [0, [['التربة', 1, 3]], 3], 'الكتاب المصوّر'); ok(/التربة طبقة/.test(s.t), 'نص مقروء');
         await p.evaluate(() => { BK.open = ''; bkRender(); }); await p.waitForFunction(() => [...document.querySelectorAll('.bk-case .bk-book img')].filter(i => i.complete && i.naturalWidth > 100).length === 2, null, { timeout: 15000 });
