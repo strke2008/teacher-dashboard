@@ -1169,7 +1169,13 @@ export default async function run() {
         await p.waitForFunction(() => !BK.busy && (BK.list || []).length === 1 && BK.list[0].pdf, null, { timeout: 30000 }); await p.waitForTimeout(300);
         eq([ai.length, await p.evaluate(async () => [BK.list[0].ocrPending, BK.list[0].pagesCount, (BK.list[0].lessons || []).length, !!BK.list[0].coverAt, (await bkPages(BK.list[0].id, 1, 6)).join('')])], [0, [6, 6, 0, true, '']], 'الرفع فقط: ملف وغلاف — لا قراءة صفحات ولا فهرس ولا ذكاء');
         await p.click('.bk-idx'); await p.waitForTimeout(300); eq(ai.length, 0, 'الفهرس قبل القراءة يطلب القراءة أولًا');
-        ok(await p.isVisible('.bk-readbtn'), 'زر قراءة الصفحات'); await p.click('.bk-readbtn');
+        ok(await p.isVisible('.bk-readbtn'), 'زر قراءة الصفحات'); await p.click('.bk-readbtn'); await p.waitForSelector('#bkr-from');
+        await p.waitForFunction(() => document.getElementById('bkr-from').value === '1' && document.getElementById('bkr-to').value === '6', null, { timeout: 5000 });
+        await p.fill('#bkr-from', '2'); await p.fill('#bkr-to', '3'); await p.click('.modal-foot .btn.tick');
+        await p.waitForFunction(() => !BK.busy && BK.list[0].ocrPending === 4, null, { timeout: 30000 });
+        eq(await p.evaluate(async () => (await bkPages(BK.list[0].id, 1, 6)).map(t => !!t)), [false, true, true, false, false, false], 'قراءة مدى صفحات فقط (2–3)');
+        ok(/قُرئ 2 من 6/.test(await p.evaluate(() => document.querySelector('.bk-read-note').textContent)), 'كم قُرئ'); await p.click('.bk-readbtn'); await p.waitForSelector('#bkr-from');
+        await p.waitForFunction(() => document.getElementById('bkr-from').value === '1', null, { timeout: 5000 }); await p.click('.modal-foot .btn.ghost >> nth=0');
         await p.waitForFunction(() => !BK.busy && BK.list[0].ocrPending === 0, null, { timeout: 30000 }); eq(ai.length, 0, 'القراءة من ملف الخادم بلا ذكاء لكتاب نصي');
         ok(await p.isVisible('.bk-idx'), 'زر استخراج الفهرس'); ok(!(await p.isVisible('.bk-readbtn')), 'اختفى زر القراءة'); await p.click('.bk-idx');
         await p.waitForFunction(() => !BK.busy && (BK.list || []).some(b => (b.lessons || []).length), null, { timeout: 30000 });
@@ -1179,7 +1185,11 @@ export default async function run() {
         await p.screenshot({ path: '/tmp/bk-book.png' });
         await p.evaluate(() => { BK.open = ''; bkRender(); }); await p.setInputFiles('#p-books input[type=file]', '/tmp/bk-scan.pdf');
         await p.waitForFunction(() => !BK.busy && (BK.list || []).length === 2 && BK.list.every(b => b.pdf), null, { timeout: 30000 }); eq([ai.filter(x => x === 'ocr').length, ai.filter(x => x === 'index').length], [0, 1], 'لا قراءة ولا فهرس تلقائي للكتاب المصوّر');
-        await p.evaluate(() => bkRead(BK.list.find(x => x.pagesCount === 3).id)); await p.waitForFunction(() => !BK.busy && BK.list.every(b => b.ocrPending === 0), null, { timeout: 30000 });
+        /* صفحات درس لم تُقرأ تُقرأ وحدها عند الحاجة (لا الكتاب كله) */
+        const lt = await p.evaluate(async () => { const b = BK.list.find(x => x.pagesCount === 3); await libApi('/book-save', { meta: { id: b.id, lessons: [{ title: 'تجربة', from: 1, to: 2 }] } }); await bkLoad(true);
+          const t = await bkLessonText(b.id, bkBook(b.id).lessons[0]); await bkLoad(true); return [/التربة طبقة/.test(t), bkBook(b.id).ocrPending]; });
+        eq([lt, ai.filter(x => x === 'ocr').length], [[true, 1], 2], 'نشاط من درس يقرأ صفحاته فقط');
+        await p.evaluate(() => bkReadGo(BK.list.find(x => x.pagesCount === 3).id, 1, 3)); await p.waitForFunction(() => !BK.busy && BK.list.every(b => b.ocrPending === 0), null, { timeout: 30000 });
         await p.evaluate(() => bkIndex(BK.list.find(x => x.pagesCount === 3).id)); await p.waitForFunction(() => !BK.busy && BK.list.every(b => (b.lessons || []).length), null, { timeout: 30000 });
         const s = await p.evaluate(async () => { const b = BK.list.find(x => x.pagesCount === 3); return { pend: b.ocrPending, t: await bkLessonText(b.id, b.lessons[0]), ls: b.lessons.map(l => [l.title, l.from, l.to]) }; });
         eq([s.pend, s.ls, ai.filter(x => x === 'ocr').length], [0, [['التربة', 1, 3]], 3], 'الكتاب المصوّر'); ok(/التربة طبقة/.test(s.t), 'نص مقروء');

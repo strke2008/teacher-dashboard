@@ -22,7 +22,13 @@ async function bkPages(id, from, to) {
   const k = id + ':' + from + ':' + to; if (BK.pages[k]) return BK.pages[k];
   const j = await libApi(`/book?id=${encodeURIComponent(id)}&from=${from}&to=${to}`); return (BK.pages[k] = j.pages || []);
 }
-async function bkLessonText(id, L) { const P = await bkPages(id, L.from, Math.max(L.from, L.to)); return P.map(x => String(x || '').trim()).filter(Boolean).join('\n\n'); }
+async function bkLessonText(id, L) {
+  let P = await bkPages(id, L.from, Math.max(L.from, L.to)); const b = bkBook(id);
+  if (P.some(x => x === '') && b && b.pdf && !BK.busy) {   // صفحات الدرس لم تُقرأ بعد: تُقرأ وحدها الآن (لا الكتاب كله)
+    toast(`📄 أقرأ صفحات «${L.title}» (${L.from}–${L.to}) أولًا…`); try { await bkReadPages(id, await bkDoc(id), L.from, Math.max(L.from, L.to)); } finally { bkProg(null); }
+    delete BK.pages[id + ':' + L.from + ':' + Math.max(L.from, L.to)]; P = await bkPages(id, L.from, Math.max(L.from, L.to)); }
+  return P.map(x => String(x || '').trim()).filter(Boolean).join('\n\n');
+}
 
 /* ── الصفحة ── */
 async function bkRender(force) {
@@ -68,8 +74,8 @@ function bkBookHTML(b) {
     <div class="bk-hcover" onclick="bkView('${esc(b.id)}')" title="تصفّح الكتاب">${bkCoverHTML(b, 1)}</div><div class="bk-title"><b>${esc(b.title)}</b><small>${esc([b.subject, b.grade].filter(Boolean).join(' · '))} · ${b.pagesCount || 0} صفحة</small></div>
     <div class="bk-acts"><button type="button" class="btn sm bk-read" onclick="bkView('${esc(b.id)}')">📖 تصفّح الكتاب</button><button type="button" class="btn ghost sm" onclick="bkEditMeta('${esc(b.id)}')">✏️ البيانات</button><button type="button" class="btn ghost sm" onclick="bkDel('${esc(b.id)}')">🗑️</button></div></div>
     ${b.pdf ? '' : `<div class="bk-note bk-note-i">📖 لتصفّح الكتاب بصفحاته الأصلية (الصور والأشكال) — <label class="bk-link">أرفق ملف الكتاب نفسه<input type="file" accept="application/pdf,.pdf" hidden onchange="bkAttachPdf('${esc(b.id)}',this)"></label>. وإلى ذلك الحين يُتصفَّح نصّه.</div>`}
-    ${b.ocrPending ? `<div class="bk-note bk-read-note"><span>📄 ${b.ocrPending >= (b.pagesCount || 0) ? 'لم تُقرأ صفحات الكتاب بعد' : b.ocrPending + ' صفحة لم تُقرأ بعد'} — قراءتها تلزم للأنشطة والدروس و«مساعدي» (التصفّح لا يحتاجها).</span>
-      ${b.pdf ? `<button type="button" class="ai-btn sm bk-readbtn" onclick="bkRead('${esc(b.id)}')"><span class="ai-mark">📄</span> ${b.ocrPending >= (b.pagesCount || 0) ? 'اقرأ صفحات الكتاب' : 'أكمل قراءة الصفحات'}</button>` : `<label class="bk-link">اقرأها (اختر ملف الكتاب نفسه)<input type="file" accept="application/pdf,.pdf" hidden onchange="bkResume('${esc(b.id)}',this)"></label>`}</div>` : ''}
+    ${b.ocrPending ? `<div class="bk-note bk-read-note"><span>📄 ${b.ocrPending >= (b.pagesCount || 0) ? 'لم تُقرأ صفحات الكتاب بعد' : `قُرئ ${(b.pagesCount || 0) - b.ocrPending} من ${b.pagesCount} صفحة`} — اقرأ ما تشاء منها الآن (مثلًا صفحات الفهرس ثم استخرج الدروس)، وصفحات أي درس تُقرأ وحدها عند إنشاء نشاط منه. التصفّح لا يحتاجها.</span>
+      ${b.pdf ? `<button type="button" class="ai-btn sm bk-readbtn" onclick="bkRead('${esc(b.id)}')"><span class="ai-mark">📄</span> ${b.ocrPending >= (b.pagesCount || 0) ? 'اقرأ صفحات الكتاب' : 'اقرأ صفحات أخرى'}</button>` : `<label class="bk-link">اقرأها (اختر ملف الكتاب نفسه)<input type="file" accept="application/pdf,.pdf" hidden onchange="bkResume('${esc(b.id)}',this)"></label>`}</div>` : ''}
     <div class="bk-sec"><b>📑 الدروس (${L.length})</b><span><button type="button" class="ai-btn sm${L.length || (b.pagesCount && b.ocrPending >= b.pagesCount) ? ' quiet' : ''} bk-idx" onclick="bkIndex('${esc(b.id)}')"><span class="ai-mark">✦</span> ${L.length ? 'أعد استخراج الفهرس' : 'استخرج الفهرس بالذكاء'}</button>
       <button type="button" class="btn ghost sm" onclick="bkEditIndex('${esc(b.id)}')">✏️ تعديل الفهرس</button></span></div>
     ${L.length ? units.map(g => `<div class="bk-unit">${g.u ? `<div class="bk-unit-t">${esc(g.u)}</div>` : ''}${g.items.map(([l, i]) => `<div class="bk-lesson"><span class="bk-lt"><b>${esc(l.title)}</b><small>ص ${l.from}${l.to > l.from ? '–' + l.to : ''}</small></span>
@@ -115,21 +121,35 @@ async function bkResume(id, input) {
   } catch (e) { bkProg(null); toast(e.message || 'تعذّر', 'bad'); }
 }
 /* 📄 قراءة صفحات الكتاب (بطلب المعلم): من ملفه على الخادم، وإلا يُطلب اختيار الملف */
-async function bkRead(id) {
+/* 📄 قراءة الصفحات بطلب المعلم وبالقدر الذي يريده: مدى صفحات (التالية 30 افتراضيًا) أو كل المتبقي */
+function bkRead(id) {
   const b = bkBook(id); if (!b || BK.busy) return; if (!b.pdf) { toast('اختر ملف الكتاب نفسه من الرابط في صفحته', 'bad'); return; }
-  try { bkProg({ label: '📖 فتح الكتاب من مكتبتك…', n: 0, of: 1 }); await bkReadPages(id, await bkDoc(id)); bkProg(null); toast('✓ قُرئت صفحات الكتاب — استخرج فهرس الدروس متى شئت', 'good'); }
+  const N = b.pagesCount || 1, done = N - (b.ocrPending || 0); bkPages(id, 1, N).then(P => { const f = P.findIndex(t => t === '') + 1 || 1, el = document.getElementById('bkr-from'), et = document.getElementById('bkr-to'); if (el && et) { el.value = f; et.value = Math.min(N, f + 29); bkReadHint(); } }).catch(() => {});
+  openModal(`<h2>📄 قراءة صفحات الكتاب</h2><p class="bk-mmeta">${esc(b.title)} — قُرئ ${done} من ${N} صفحة. اقرأ جزءًا الآن والباقي متى شئت؛ ودروس الأنشطة تُقرأ صفحاتها وحدها عند الحاجة.</p>
+    <div class="bkr-range"><label>من صفحة<input class="inp" id="bkr-from" type="number" inputmode="numeric" min="1" max="${N}" value="1" oninput="bkReadHint()"></label><label>إلى صفحة<input class="inp" id="bkr-to" type="number" inputmode="numeric" min="1" max="${N}" value="${Math.min(N, 30)}" oninput="bkReadHint()"></label></div>
+    <p class="bk-mmeta" id="bkr-hint"></p>
+    <div class="modal-foot"><button type="button" class="btn tick" onclick="bkReadGo('${esc(id)}')">📄 اقرأ هذه الصفحات</button><button type="button" class="btn ghost" onclick="bkReadGo('${esc(id)}',1,${N})">كل المتبقي (${b.ocrPending})</button><button type="button" class="btn ghost" onclick="closeModal()">إلغاء</button></div>`);
+  bkReadHint();
+}
+function bkReadHint() { const f = +(document.getElementById('bkr-from') || {}).value || 0, t = +(document.getElementById('bkr-to') || {}).value || 0, el = document.getElementById('bkr-hint'); if (el) el.textContent = f >= 1 && t >= f ? `${t - f + 1} صفحة — الصفحات المقروءة مسبقًا في هذا المدى تُتخطّى` : 'مدى غير صحيح'; }
+async function bkReadGo(id, from, to) {
+  const b = bkBook(id); if (!b || BK.busy) return; const N = b.pagesCount || 1; from = Math.max(1, Math.min(N, +from || +(document.getElementById('bkr-from') || {}).value || 1)); to = Math.max(from, Math.min(N, +to || +(document.getElementById('bkr-to') || {}).value || N));
+  closeModal();
+  try { bkProg({ label: '📖 فتح الكتاب من مكتبتك…', n: 0, of: 1 }); const k = await bkReadPages(id, await bkDoc(id), from, to); bkProg(null); const nb = bkBook(id) || {};
+    toast(k ? `✓ قُرئت ${k} صفحة (${from}–${to})${nb.ocrPending ? ` — بقي ${nb.ocrPending}` : ' — اكتمل الكتاب'}` : `صفحات ${from}–${to} مقروءة من قبل`, 'good'); }
   catch (e) { bkProg(null); toast(e.message || 'تعذّرت القراءة', 'bad'); }
 }
-async function bkReadPages(id, pdf) {
+async function bkReadPages(id, pdf, from, to) {
   await lzLoad(); const N = pdf.numPages; Object.keys(BK.pages).filter(k => k.startsWith(id + ':')).forEach(k => delete BK.pages[k]);
-  const all = await bkPages(id, 1, N); delete BK.pages[id + ':1:' + N]; const todo = all.map((t, i) => t === '' ? i + 1 : 0).filter(Boolean); if (!todo.length) return;
+  const all = await bkPages(id, 1, N); delete BK.pages[id + ':1:' + N]; const todo = all.map((t, i) => t === '' ? i + 1 : 0).filter(p => p && (!from || p >= from) && (!to || p <= to)); if (!todo.length) return 0;
   const got = {}, st = {}; let n = 0;
   for (const p of todo) { const tc = await (await pdf.getPage(p)).getTextContent(); got[p] = String(window.normalAIBuildPdfPageText(tc.items) || '').replace(/\u00AD/g, '').trim(); st[p] = bkPageOk(got[p]);
     if (++n % 5 === 0 || n === todo.length) bkProg({ label: '📄 قراءة نص الصفحات', n, of: todo.length, sub: `صفحة ${n} من ${todo.length}` }); }
-  const scanned = todo.filter(p => st[p] !== 'ok').length / todo.length >= .4, patch = {}, ocr = [];
+  const known = all.filter(t => t !== ''), scanned = known.length >= 5 ? known.filter(t => t === ' ' || bkPageOk(t) !== 'ok').length / known.length >= .4 && todo.filter(p => st[p] !== 'ok').length / todo.length >= .4 : todo.filter(p => st[p] !== 'ok').length / todo.length >= .4, patch = {}, ocr = [];
   todo.forEach(p => { if (st[p] === 'ok') patch[p] = got[p]; else if (st[p] === 'bad' || scanned) ocr.push(p); else patch[p] = got[p] || ' '; });
   const keys = Object.keys(patch); for (let i = 0; i < keys.length; i += 60) await libApi('/book-save', { meta: { id }, patch: Object.fromEntries(keys.slice(i, i + 60).map(k => [k, patch[k]])) });
   await bkLoad(true); if (ocr.length) await bkOcr(id, pdf, ocr);
+  return todo.length;
 }
 /* قراءة الصفحات المصوّرة بالذكاء: صفحة في كل طلب، طلبان معًا، والحفظ كل 4 صفحات حتى لا يضيع شيء لو انقطع */
 async function bkOcr(id, pdf, todo) {
