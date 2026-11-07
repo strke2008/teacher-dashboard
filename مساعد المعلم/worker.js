@@ -113,6 +113,27 @@ const MCP_TOOLS = [
     inputSchema: { type: 'object', properties: { activity: { type: 'string', description: 'عنوان النشاط أو جزء منه، أو رمزه' } }, required: ['activity'] } },
   { name: 'student_report', title: 'تقرير طالب', description: 'تقرير طالب للفترة الحالية (نفس تقرير ولي الأمر): المشاركة والغياب، والواجبات، والسلوك، والأنشطة، والاختبارات، مع الأنشطة التي لم يسلّمها.',
     inputSchema: { type: 'object', properties: { student: { type: 'string', description: 'اسم الطالب (الاسم الأول يكفي إن لم يتكرر)' } }, required: ['student'] } },
+  /* ── أدوات أوسع (قراءة فقط) ── */
+  { name: 'attendance_day', title: 'الحضور في يوم', description: 'من غاب (بعذر أو بدونه) ومن رُصد في يوم معيّن (افتراضي اليوم)، لفصل أو للكل.',
+    inputSchema: { type: 'object', properties: { date: { type: 'string', description: 'YYYY-MM-DD (افتراضي اليوم بتوقيت السعودية)' }, cls: { type: 'string', description: 'فصل (اختياري)' } } } },
+  { name: 'absence_totals', title: 'أكثر الطلاب غيابًا', description: 'ترتيب الطلاب بعدد الغياب خلال آخر عدد من الأيام.',
+    inputSchema: { type: 'object', properties: { days: { type: 'integer', minimum: 1, maximum: 365, description: 'افتراضي 30' }, cls: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 50 } } } },
+  { name: 'behavior_notes', title: 'ملاحظات السلوك', description: 'ملاحظات السلوك الإيجابية والسلبية الأحدث أولًا، لطالب أو فصل.',
+    inputSchema: { type: 'object', properties: { days: { type: 'integer', minimum: 1, maximum: 365, description: 'افتراضي 14' }, cls: { type: 'string' }, student: { type: 'string' } } } },
+  { name: 'exam_book', title: 'دفتر الاختبارات', description: 'اختبارات الفترة ومتوسطاتها، أو درجات اختبار معيّن مرتبة (والغائب ومن لم يُرصد له)، أو درجات طالب في كل الاختبارات.',
+    inputSchema: { type: 'object', properties: { test: { type: 'string', description: 'جزء من عنوان الاختبار' }, student: { type: 'string' }, cls: { type: 'string' }, semester: { type: 'integer', enum: [1, 2] }, period: { type: 'integer', enum: [1, 2] } } } },
+  { name: 'class_ranking', title: 'ترتيب الطلاب', description: 'ترتيب الطلاب في الفترة الحالية حسب بند (المجموع أو المشاركة أو الواجبات أو السلوك أو الاختبار أو المستوى)، الأعلى أو الأضعف.',
+    inputSchema: { type: 'object', properties: { cls: { type: 'string' }, by: { type: 'string', enum: ['total', 'participation', 'homework', 'behavior', 'exam', 'level'] }, order: { type: 'string', enum: ['desc', 'asc'] }, limit: { type: 'integer', minimum: 1, maximum: 50 } } } },
+  { name: 'skills_map', title: 'خريطة المهارات', description: 'أضعف المهارات ونواتج التعلم في فصل ومن يحتاج دعمًا فيها (دون 60%)، أو مهارات طالب من الأضعف.',
+    inputSchema: { type: 'object', properties: { cls: { type: 'string' }, student: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 30 } } } },
+  { name: 'reward_points', title: 'نقاط المكافآت', description: 'رصيد نقاط المكافآت (ليست درجات) لطالب، أو ترتيب فصل بالنقاط.',
+    inputSchema: { type: 'object', properties: { student: { type: 'string' }, cls: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 50 } } } },
+  { name: 'schedule', title: 'جدول الحصص', description: 'حصص المعلم في يوم (افتراضي اليوم): رقم الحصة ووقتها والفصل.',
+    inputSchema: { type: 'object', properties: { date: { type: 'string', description: 'YYYY-MM-DD (افتراضي اليوم)' } } } },
+  { name: 'student_messages', title: 'رسائل الطلاب', description: 'رسائل الطلاب للمعلم من «راسل معلمك»: المفتوحة التي تنتظر ردًا (أو كلها)، ويمكن البحث بكلمة.',
+    inputSchema: { type: 'object', properties: { all: { type: 'boolean', description: 'المغلقة أيضًا' }, query: { type: 'string', description: 'كلمة للبحث (اختياري)' } } } },
+  { name: 'students_at_risk', title: 'الأحق بالمتابعة', description: 'الطلاب الأحق بالمتابعة مع السبب: غياب 30 يومًا، وأنشطة لم تُسلَّم، وملاحظات سلبية 14 يومًا، ومستوى منخفض.',
+    inputSchema: { type: 'object', properties: { cls: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 30 } } } },
 ];
 MCP_TOOLS.forEach(t => { t.annotations = { readOnlyHint: true, openWorldHint: false }; });
 async function mcpTool(env, ctx, name, args) {
@@ -160,6 +181,69 @@ async function mcpTool(env, ctx, name, args) {
     const { sid: _s, v: _v, publishedAt: _p, teacherNote: _t, ...out } = rep;
     return { ...out, missing_activities: missing, note: 'الدرجات من 10 لكل بند ما عدا الاختبار؛ الغائب = absent' };
   }
+  /* ── الأدوات الأوسع ── */
+  const ksaDay = (off = 0) => new Date(Date.now() + 3 * 3600e3 + off * 864e5).toISOString().slice(0, 10);
+  const wantCls = () => { const w = String(args.cls || '').trim(); if (!w) return ''; const C = [...new Set(students.map(x => String(x.cls || '')))]; return C.find(c => c === w) || C.find(c => c.includes(w)) || '\u0000'; };
+  const inCls = (x, c) => !c || String(x.cls || '') === c, nm = new Map(students.map(x => [String(x.id), x]));
+  const one = () => { if (!args.student) return null; const m = mcpFindStudents(st, args.student); if (m.length !== 1) throw { mcp: m.length ? { error: 'أكثر من طالب يطابق', matches: m.slice(0, 10).map(x => ({ name: x.name, cls: x.cls || '' })) } : { error: 'لم أجد الطالب — استخدم list_classes' } }; return m[0]; };
+  const lim = (d, mx) => Math.max(1, Math.min(mx, Number(args.limit) || d));
+  let data = null, G = null; const cr = async () => data || (data = await loadClassroom(env));
+  const cur = async () => { const ac = academicNormalize(await cr()) || {}, sem = ac.currentSemester === 2 ? 2 : 1; return { sem, per: Number(ac.semesters?.[String(sem)]?.activePeriod) === 2 ? 2 : 1 }; };
+  const grades = async () => { if (G) return G; const { sem, per } = await cur(); return (G = (await studentReportGrades(env, sem, per, { classroom: await cr(), state: st })).grades || {}); };
+  const ABS = ['غائب', 'غائب بعذر'];
+  const absCount = async (days, c) => { const D = await cr(), from = ksaDay(-days), cnt = {}; Object.entries(D.participation || {}).forEach(([d, P]) => { if (d < from) return; Object.entries(P || {}).forEach(([id, v]) => { const s = v && (typeof v === 'string' ? v : v.status); if (ABS.includes(s)) { const o = cnt[id] || (cnt[id] = { a: 0, e: 0 }); s === 'غائب' ? o.a++ : o.e++; } }); });
+    return students.filter(x => inCls(x, c) && cnt[x.id]).map(x => ({ name: x.name, cls: x.cls || '', absent: cnt[x.id].a, excused: cnt[x.id].e })).sort((p, q) => (q.absent + q.excused) - (p.absent + p.excused)); };
+  try {
+  if (name === 'attendance_day') { const c = wantCls(); if (c === '\u0000') return { error: 'لا يوجد فصل بهذا الاسم' }; const date = /^\d{4}-\d{2}-\d{2}$/.test(String(args.date || '')) ? args.date : ksaDay(), P = ((await cr()).participation || {})[date] || {};
+    const S = x => { const v = P[String(x.id)]; return v && (typeof v === 'string' ? v : v.status) || ''; }, pool = students.filter(x => inCls(x, c));
+    return { date, cls: c || 'كل الفصول', recorded: pool.filter(S).length, of: pool.length, absent: pool.filter(x => S(x) === 'غائب').map(x => ({ name: x.name, cls: x.cls || '' })), absent_excused: pool.filter(x => S(x) === 'غائب بعذر').map(x => ({ name: x.name, cls: x.cls || '' })) }; }
+  if (name === 'absence_totals') { const c = wantCls(); if (c === '\u0000') return { error: 'لا يوجد فصل بهذا الاسم' }; const days = Math.max(1, Math.min(365, Number(args.days) || 30)); return { from: ksaDay(-days), cls: c || 'كل الفصول', students: (await absCount(days, c)).slice(0, lim(10, 50)) }; }
+  if (name === 'behavior_notes') { const c = wantCls(); if (c === '\u0000') return { error: 'لا يوجد فصل بهذا الاسم' }; const s0 = one(), from = ksaDay(-Math.max(1, Math.min(365, Number(args.days) || 14)));
+    const L = (Array.isArray((await cr()).behavior) ? data.behavior : []).filter(b => b && !b.deleted && String(b.date || '') >= from).map(b => ({ s: nm.get(String(b.studentId || b.sid || '')), b })).filter(o => o.s && inCls(o.s, c) && (!s0 || o.s.id === s0.id))
+      .sort((p, q) => String(q.b.date).localeCompare(String(p.b.date))).slice(0, 40).map(({ s, b }) => ({ name: s.name, cls: s.cls || '', date: b.date, type: b.type === 'positive' ? 'إيجابي' : 'سلبي', note: String(b.category || b.note || '').slice(0, 80) }));
+    return { from, notes: L }; }
+  if (name === 'exam_book') { const c = wantCls(); if (c === '\u0000') return { error: 'لا يوجد فصل بهذا الاسم' }; const s0 = one(), now = await cur(), sem = [1, 2].includes(Number(args.semester)) ? Number(args.semester) : now.sem, per = [1, 2].includes(Number(args.period)) ? Number(args.period) : now.per;
+    const b = (((await cr()).examBooks || {})[String(sem)] || {})[String(per)] || {}, T = (Array.isArray(b.tests) ? b.tests : []), sc = b.scores || {};
+    const V = (sid, tid) => { const v = (sc[String(sid)] || {})[String(tid)]; if (v == null || v === '') return null; if (typeof v === 'object') { if (v.del) return null; if (v.absent) return 'غائب'; } const n = Number(typeof v === 'object' ? v.score : v); return Number.isFinite(n) ? n : null; };
+    const label = `الفصل ${sem === 2 ? 'الثاني' : 'الأول'} — الفترة ${per === 2 ? 'الثانية' : 'الأولى'}`; if (!T.length) return { period: label, error: 'لا اختبارات في دفتر هذه الفترة' };
+    if (s0) return { period: label, name: s0.name, cls: s0.cls || '', tests: T.map(t => ({ title: t.title, max: Number(t.max) || 0, score: V(s0.id, t.id) ?? 'لم يُرصد' })) };
+    const pool = students.filter(x => inCls(x, c));
+    if (args.test) { const w = nameTokens(String(args.test)), m = T.filter(t => { const r = nameTokens(t.title || ''); return w.every(x => r.some(y => y.includes(x))); }); if (m.length !== 1) return { period: label, error: m.length ? 'أكثر من اختبار يطابق' : 'لم أجد الاختبار', tests: T.map(t => t.title) };
+      const t = m[0], rows = pool.map(x => ({ name: x.name, cls: x.cls || '', v: V(x.id, t.id) })), num = rows.filter(r => typeof r.v === 'number').sort((p, q) => q.v - p.v);
+      return { period: label, test: t.title, max: Number(t.max) || 0, average: num.length ? Math.round(num.reduce((n, r) => n + r.v, 0) / num.length * 10) / 10 : null, scores: num.map(r => ({ name: r.name, cls: r.cls, score: r.v })), absent: rows.filter(r => r.v === 'غائب').map(r => r.name), not_recorded: rows.filter(r => r.v == null).map(r => r.name) }; }
+    return { period: label, cls: c || 'كل الفصول', tests: T.map(t => { const v = pool.map(x => V(x.id, t.id)).filter(x => typeof x === 'number'); return { title: t.title, max: Number(t.max) || 0, recorded: v.length, of: pool.length, average: v.length ? Math.round(v.reduce((n, x) => n + x, 0) / v.length * 10) / 10 : null }; }) }; }
+  if (name === 'class_ranking') { const c = wantCls(); if (c === '\u0000') return { error: 'لا يوجد فصل بهذا الاسم' }; const g = await grades(), by = String(args.by || 'total'), asc = args.order === 'asc';
+    const val = x => { const P = x.participation || {}, H = x.homework || {}, B = x.behavior || {}, E = x.exam || {}, L = x.level || {};
+      if (by === 'total') { const xs = [P.score, H.score, B.score, E.measured ? E.score : null].filter(v => typeof v === 'number'); return xs.length ? Math.round(xs.reduce((s, v) => s + v, 0) * 10) / 10 : null; }
+      const f = { participation: P.score, homework: H.score, behavior: B.score, exam: E.measured ? E.score : null, level: L.rate }[by]; return typeof f === 'number' ? f : null; };
+    const L = (g.students || []).map(x => ({ x, s: nm.get(String(x.id)) })).filter(o => o.s && inCls(o.s, c)).map(o => ({ name: o.s.name, cls: o.s.cls || '', value: val(o.x) })).filter(r => r.value !== null).sort((p, q) => asc ? p.value - q.value : q.value - p.value);
+    return { by, order: asc ? 'الأضعف' : 'الأعلى', cls: c || 'كل الفصول', students: L.slice(0, lim(10, 50)) }; }
+  if (name === 'skills_map') { const c = wantCls(); if (c === '\u0000') return { error: 'لا يوجد فصل بهذا الاسم' }; const s0 = one(), g = await grades(), gm = new Map((g.students || []).map(x => [String(x.id), x]));
+    const sk = x => { const o = {}; if (Array.isArray(x.official) && x.official.length) x.official.forEach(r => { if (r.prior || r.early) return; const t = r.recent || r.total; o[r.skill] = { rate: r.rate, t, c: Math.round(r.rate * t / 100) }; }); else Object.entries(x.skills || {}).forEach(([k, v]) => { if (v && v.t >= 3) o[k] = { rate: v.rate, t: v.t, c: v.c }; }); return o; };
+    if (s0) { const x = gm.get(String(s0.id)); if (!x) return { name: s0.name, note: 'لا بيانات مهارات بعد' }; return { name: s0.name, cls: s0.cls || '', skills: Object.entries(sk(x)).map(([k, v]) => ({ skill: k, rate: v.rate, questions: v.t })).sort((p, q) => p.rate - q.rate).slice(0, lim(15, 30)) }; }
+    const agg = {}; students.filter(x => inCls(x, c)).forEach(s => { const x = gm.get(String(s.id)); if (!x) return; Object.entries(sk(x)).forEach(([k, v]) => { const a = agg[k] || (agg[k] = { c: 0, t: 0, weak: [] }); a.c += v.c || 0; a.t += v.t || 0; if (v.rate < 60) a.weak.push(s.name); }); });
+    return { cls: c || 'كل الفصول', skills: Object.entries(agg).filter(([, a]) => a.t).map(([k, a]) => ({ skill: k, rate: Math.round(a.c / a.t * 100), weak_count: a.weak.length, weak: a.weak.slice(0, 10) })).sort((p, q) => p.rate - q.rate).slice(0, lim(8, 30)) }; }
+  if (name === 'reward_points') { const s0 = one(); if (s0) return { name: s0.name, cls: s0.cls || '', points: Number(s0.points) || 0, note: 'نقاط مكافآت وليست درجة' };
+    const c = wantCls(); if (c === '\u0000') return { error: 'لا يوجد فصل بهذا الاسم' }; const L = students.filter(x => inCls(x, c)).map(x => ({ name: x.name, cls: x.cls || '', points: Number(x.points) || 0 })).sort((p, q) => q.points - p.points);
+    return { cls: c || 'كل الفصول', total: L.reduce((n, x) => n + x.points, 0), students: L.slice(0, lim(10, 50)) }; }
+  if (name === 'schedule') { const date = /^\d{4}-\d{2}-\d{2}$/.test(String(args.date || '')) ? args.date : ksaDay(), dow = new Date(date + 'T12:00:00Z').getUTCDay(), sc = (await cr()).schedule || {};
+    const d0 = { dur: 45, gap: 0, count: 7, breakAfter: 3, breakLen: 30, prayAfter: 6, prayLen: 20 }, s = Object.assign({}, d0, sc); Object.keys(d0).forEach(k => { if (typeof s[k] !== 'number') s[k] = d0[k]; });
+    const pre = Object.assign({ summer: '07:00', winter: '07:15' }, s.presets || {}), hm = t => { const p = String(t || '07:00').split(':'); return (+p[0] || 0) * 60 + (+p[1] || 0); }, mm = m => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+    const base = hm(pre[s.active === 'winter' ? 'winter' : 'summer']), fix = s.fix || {}, g = (s.grid || {})[String(dow)] || {}, out = [];
+    for (let n = 1; n <= s.count; n++) { let a = base + (n - 1) * (s.dur + s.gap) + (n > s.breakAfter ? s.breakLen : 0) + ((s.prayAfter > 0 && n > s.prayAfter) ? s.prayLen : 0), e = a + s.dur; const f = fix[String(n)]; if (f && f.s) { a = hm(f.s); e = f.e ? hm(f.e) : a + s.dur; }
+      const cl = String(g[String(n)] || '').trim(); if (cl) out.push({ period: n, from: mm(a), to: mm(e), cls: cl }); }
+    return { date, day: ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'][dow], periods: out, note: out.length ? '' : 'لا حصص في الجدول لهذا اليوم' }; }
+  if (name === 'student_messages') { const q = nameTokens(String(args.query || '')), R = (await askLoad(env)).filter(x => x && x.kind !== 't' && (args.all || q.length || x.status === 'open') && (!q.length || q.every(w => nameTokens((x.text || '') + ' ' + (x.reply || '')).some(t => t.includes(w)))));
+    return { count: R.length, messages: R.slice(0, 20).map(x => ({ name: x.name || '', cls: x.cls || '', about: (ASK.cats || {})[x.cat] || x.cat || '', text: String(x.text || '').slice(0, 300), status: x.status === 'open' ? 'تنتظر الرد' : 'مغلقة', reply: x.reply ? String(x.reply).slice(0, 200) : undefined, date: mcpDay(x.at) })) }; }
+  if (name === 'students_at_risk') { const c = wantCls(); if (c === '\u0000') return { error: 'لا يوجد فصل بهذا الاسم' }; const S = {}, add = (s, p, why) => { const o = S[s.id] || (S[s.id] = { name: s.name, cls: s.cls || '', score: 0, why: [] }); o.score += p; o.why.push(why); };
+    (await absCount(30, c)).forEach(r => { const n = r.absent + r.excused, s = students.find(x => x.name === r.name && String(x.cls || '') === r.cls); if (s && n >= 2) add(s, n * 2, `غاب ${n}`); });
+    const acts = (Array.isArray(st.assignments) ? st.assignments : []).filter(h => h && h.sid && h.published !== false && !h.noGrade);
+    students.filter(x => inCls(x, c)).forEach(s => { const miss = acts.filter(h => { const l = mcpActCls(h); return (!l.length || l.includes(String(s.cls || ''))) && !(h.subs && (h.subs[s.id] || h.subs[s.name])); }).length; if (miss >= 2) add(s, miss * 1.5, `لم يسلّم ${miss} أنشطة`); });
+    const from = ksaDay(-14), neg = {}; (Array.isArray((await cr()).behavior) ? data.behavior : []).forEach(b => { if (b && !b.deleted && b.type !== 'positive' && String(b.date || '') >= from) neg[String(b.studentId || '')] = (neg[String(b.studentId || '')] || 0) + 1; });
+    Object.entries(neg).forEach(([id, n]) => { const s = nm.get(id); if (s && inCls(s, c) && n >= 2) add(s, n * 1.5, `${n} ملاحظات سلبية`); });
+    try { (await grades()).students?.forEach(x => { const s = nm.get(String(x.id)); if (!s || !inCls(s, c)) return; const r = Number((x.level || {}).rate); if (r > 0 && r < 50) add(s, 3, `مستواه ${Math.round(r)}%`); }); } catch (e) {}
+    return { cls: c || 'كل الفصول', students: Object.values(S).sort((p, q) => q.score - p.score).slice(0, lim(8, 30)).map(o => ({ name: o.name, cls: o.cls, reasons: o.why.join('، ') })) }; }
+  } catch (e) { if (e && e.mcp) return e.mcp; throw e; }
   return { error: 'أداة غير معروفة' };
 }
 async function mcpHandle(env, ctx, msg) {
@@ -169,7 +253,7 @@ async function mcpHandle(env, ctx, msg) {
   if (method === 'initialize') { const v = String(msg.params && msg.params.protocolVersion || '');
     return ok({ protocolVersion: MCP_VERSIONS.includes(v) ? v : MCP_VERSIONS[1], capabilities: { tools: { listChanged: false } },
       serverInfo: { name: 'mosaed-almoalem', title: 'مساعد المعلم', version: '1.0.0' },
-      instructions: 'بيانات فصول المعلم في «مساعد المعلم»: الطلاب والأنشطة والنتائج وتقارير الطلاب. للقراءة فقط. ابدأ بـ list_classes أو list_activities لمعرفة الأسماء والعناوين، وأجب المعلم بالعربية.' }); }
+      instructions: 'بيانات فصول المعلم في «مساعد المعلم»: الطلاب والأنشطة والنتائج وتقارير الطلاب، والحضور والغياب، والسلوك، ودفتر الاختبارات، والترتيب، وخريطة المهارات، ونقاط المكافآت، والجدول، ورسائل الطلاب، والأحق بالمتابعة. للقراءة فقط. ابدأ بـ list_classes أو list_activities لمعرفة الأسماء والعناوين، وأجب المعلم بالعربية.' }); }
   if (method === 'ping') return ok({});
   if (method === 'tools/list') return ok({ tools: MCP_TOOLS });
   if (method === 'tools/call') { const name = String(msg.params && msg.params.name || ''), args = (msg.params && msg.params.arguments) || {};

@@ -133,7 +133,7 @@ export default async function run() {
         await p.evaluate(() => mcpLoad('create')); await p.waitForSelector('#mcp-url', { state: 'attached', timeout: 8000 });
         const url = await p.$eval('#mcp-url', e => e.value); ok(/\/mcp\/[a-z0-9]{20,}$/.test(url), url);
         const r = await p.evaluate(async u => (await (await fetch(u, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }) })).json()).result.tools.length, url);
-        eq(r, 4, 'الأدوات'); p.once('dialog', d => d.accept());
+        eq(r, 14, 'الأدوات'); p.once('dialog', d => d.accept());
         await p.evaluate(() => { window.askConfirm = async () => true; return mcpLoad('revoke'); }); await p.waitForTimeout(300);
         eq(await p.evaluate(async u => (await fetch(u, { method: 'POST', body: '{}' })).status, url), 404, 'بعد الإيقاف');
         await p.evaluate(() => goTab('dashboard')); eq(errs, [], 'أخطاء'); });

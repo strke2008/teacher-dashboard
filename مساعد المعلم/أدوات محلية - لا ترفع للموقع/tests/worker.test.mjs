@@ -159,7 +159,7 @@ export default async function run() {
       const init = await rpc(1, 'initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 't', version: '1' } });
       eq(init.result.protocolVersion, '2025-06-18'); ok(init.result.capabilities.tools, 'tools');
       eq((await call('/mcp/' + k, { method: 'POST', body: { jsonrpc: '2.0', method: 'notifications/initialized' } })).s, 202, 'إشعار');
-      const names = (await rpc(2, 'tools/list')).result.tools.map(t => t.name); eq(names, ['list_classes', 'list_activities', 'activity_results', 'student_report']);
+      const names = (await rpc(2, 'tools/list')).result.tools.map(t => t.name); eq(names, ['list_classes', 'list_activities', 'activity_results', 'student_report', 'attendance_day', 'absence_totals', 'behavior_notes', 'exam_book', 'class_ranking', 'skills_map', 'reward_points', 'schedule', 'student_messages', 'students_at_risk']);
       const tool = async (n, a) => (await rpc(3, 'tools/call', { name: n, arguments: a || {} })).result.structuredContent;
       const cl = await tool('list_classes'); eq(cl.total, 3); eq(cl.classes.map(c => c.cls + ':' + c.count), ['أول 1:2', 'أول 2:1']);
       eq((await tool('list_classes', { cls: 'أول 1' })).students.length, 2);
@@ -167,7 +167,27 @@ export default async function run() {
       const ar = await tool('activity_results', { activity: 'اختبار' }); eq(ar.submitted.map(x => x.name + ' ' + x.score), ['طالب الاختبار الأول 2/3']); eq(ar.not_submitted.map(x => x.name), ['طالب الاختبار الثاني']);
       const sr = await tool('student_report', { student: 'طالب الاختبار الأول' }); eq(sr.name, 'طالب الاختبار الأول'); ok(sr.participation && 'absent' in sr.participation, 'المشاركة');
       ok((await tool('student_report', { student: 'طالب' })).matches, 'الاسم المتكرر يطلب التحديد');
-      const all = JSON.stringify([cl, la, ar, sr]); ok(!/"s1"|"s2"|"s3"/.test(all), 'ظهر معرّف طالب');
+      // 🆕 الأدوات الأوسع — على بيانات فصل مزروعة
+      const ksa = o => new Date(Date.now() + 3 * 3600e3 + o * 864e5).toISOString().slice(0, 10), today = ksa(0), dow = new Date(today + 'T12:00:00Z').getUTCDay();
+      const oldC = await env.HW.get('teacher:classroom'), oldA = await env.HW.get('asks'), C0 = JSON.parse(oldC || '{}');
+      await env.HW.put('teacher:classroom', JSON.stringify({ ...C0, participation: { [today]: { s1: { status: 'غائب', at: 1 }, s2: { status: 'شارك', at: 1 } }, [ksa(-1)]: { s1: { status: 'غائب', at: 1 } }, [ksa(-2)]: { s1: { status: 'غائب بعذر', at: 1 } } },
+        behavior: [{ id: 'b1', studentId: 's2', type: 'positive', category: 'تميّز', date: today, at: 1 }, { id: 'b2', studentId: 's1', type: 'negative', category: 'إزعاج', date: today, at: 2 }, { id: 'b3', studentId: 's1', type: 'negative', category: 'تأخر', date: ksa(-1), at: 3 }],
+        examBooks: { 1: { 1: { tests: [{ id: 'e1', title: 'اختبار قصير 1', max: 10 }], scores: { s1: { e1: { score: 7, at: 1 } }, s2: { e1: { absent: true, at: 1 } } } } } },
+        schedule: { grid: { [dow]: { 1: 'أول 1', 3: 'أول 2' } } } }));
+      await env.HW.put('asks', JSON.stringify([{ id: 'a1', sid: 's2', name: 'طالب الاختبار الثاني', cls: 'أول 1', cat: 'lesson', text: 'متى الاختبار القصير؟', status: 'open', at: Date.now() }]));
+      try {
+        const ad = await tool('attendance_day'); eq([ad.absent.map(x => x.name), ad.recorded], [['طالب الاختبار الأول'], 2], 'الحضور');
+        const at = await tool('absence_totals', { days: 7 }); eq(at.students[0], { name: 'طالب الاختبار الأول', cls: 'أول 1', absent: 2, excused: 1 }, 'أكثر غيابًا');
+        const bn = await tool('behavior_notes', { student: 'طالب الاختبار الأول' }); eq(bn.notes.map(x => x.type), ['سلبي', 'سلبي'], 'السلوك');
+        const eb = await tool('exam_book', { test: 'قصير', semester: 1, period: 1 }); eq([eb.scores.map(x => x.name + ' ' + x.score), eb.absent], [['طالب الاختبار الأول 7'], ['طالب الاختبار الثاني']], 'دفتر الاختبارات');
+        ok(Array.isArray((await tool('class_ranking', { by: 'participation' })).students), 'الترتيب'); ok(Array.isArray((await tool('skills_map')).skills), 'المهارات');
+        ok('points' in (await tool('reward_points', { student: 'طالب الاختبار الأول' })), 'النقاط');
+        const sc = await tool('schedule'); eq(sc.periods.map(x => x.period + ':' + x.cls), ['1:أول 1', '3:أول 2'], 'الجدول'); ok(/^\d\d:\d\d$/.test(sc.periods[0].from), 'وقت الحصة');
+        const sm = await tool('student_messages', { query: 'الاختبار' }); eq([sm.count, sm.messages[0].status], [1, 'تنتظر الرد'], 'رسائل الطلاب');
+        const ri = await tool('students_at_risk'); eq(ri.students[0].name, 'طالب الاختبار الأول', 'الأحق بالمتابعة'); ok(/غاب 3/.test(ri.students[0].reasons), ri.students[0].reasons);
+        ok((await tool('exam_book', { student: 'طالب' })).matches, 'الاسم المتكرر');
+        const all = JSON.stringify([cl, la, ar, sr, ad, at, bn, eb, sc, sm, ri]); ok(!/"s1"|"s2"|"s3"/.test(all), 'ظهر معرّف طالب');
+      } finally { if (oldC == null) await env.HW.delete('teacher:classroom'); else await env.HW.put('teacher:classroom', oldC); if (oldA == null) await env.HW.delete('asks'); else await env.HW.put('asks', oldA); }
       eq((await rpc(9, 'nope')).error.code, -32601);
     } finally { await env.HW.put('tstate:main', old); }
     await call('/mcp-key', { method: 'POST', body: { t: TOKEN, action: 'revoke' } });
