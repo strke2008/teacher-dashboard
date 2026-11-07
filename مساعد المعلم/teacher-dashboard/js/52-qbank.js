@@ -53,7 +53,8 @@ function qbTopicRender(el) {
   el.innerHTML = `<div class="bk-head"><button type="button" class="btn ghost sm" onclick="QB.open='';qbRender()">→ البنك</button><div class="bk-title"><b>${esc(T.lesson || T.topic)}</b><small>${esc([T.book, T.subject, T.grade].filter((x, i) => x && (i === 0 || !String(T.book || '').includes(x))).join(' · '))} · ${T.qs.length} سؤال</small></div></div>
     <div class="qb-acts"><button type="button" class="btn sm" onclick="qbMake()">✦ نشاط ${n ? 'من المحدد (' + n + ')' : 'من كل الأسئلة'}</button>
       <button type="button" class="btn ghost sm" onclick="qbRandom()">🎲 اختر 10 عشوائيًا</button><button type="button" class="btn ghost sm" onclick="qbSelAll()">${n === T.qs.length ? 'إلغاء التحديد' : 'تحديد الكل'}</button>
-      <button type="button" class="btn ghost sm" onclick="qbExport(['${esc(T.id)}'])">⬇️ تنزيل</button>${n ? `<button type="button" class="btn ghost sm qb-del" onclick="qbDelSel()">🗑️ حذف المحدد</button>` : ''}</div>
+      <button type="button" class="btn ghost sm" onclick="qbExport(['${esc(T.id)}'])">⬇️ تنزيل</button><button type="button" class="btn ghost sm" onclick="qbMove()">📦 نقل ${n ? 'المحدد' : 'الكل'} إلى…</button>
+      ${n ? `<button type="button" class="btn ghost sm qb-del" onclick="qbDelSel()">🗑️ حذف المحدد (${n})</button>` : `<button type="button" class="btn ghost sm qb-del" onclick="qbDelTopic()">🗑️ حذف الموضوع</button>`}</div>
     <div class="qb-list">${T.qs.map(q => `<label class="qb-q${QB.sel.has(q.h) ? ' on' : ''}"><input type="checkbox" ${QB.sel.has(q.h) ? 'checked' : ''} onchange="qbSel('${esc(q.h)}',this.checked)"><span>${qbQHTML(q)}</span></label>`).join('')}</div>`;
 }
 function qbSel(h, on) { if (on) QB.sel.add(h); else QB.sel.delete(h); qbRender(); }
@@ -61,6 +62,33 @@ function qbSelAll() { const T = QB.topic; if (!T) return; QB.sel = QB.sel.size =
 function qbRandom(k) { const T = QB.topic; if (!T) return; const a = T.qs.map(q => q.h); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } QB.sel = new Set(a.slice(0, k || 10)); qbRender(); }
 async function qbDelSel() { const T = QB.topic; if (!T || !QB.sel.size || !confirm(`حذف ${QB.sel.size} سؤالًا من البنك نهائيًا؟`)) return;
   try { const r = await libApi('/qbank-del', { id: T.id, hs: [...QB.sel] }); toast(`حُذف ${r.removed}`, 'good'); QB.sel = new Set(); QB.list = null; if (r.n) await qbOpen(T.id); else { QB.open = ''; qbRender(true); } } catch (e) { toast(e.message, 'bad'); } }
+async function qbDelTopic() { const T = QB.topic; if (!T || !confirm(`حذف «${T.lesson || T.topic}» بكل أسئلته (${T.qs.length}) من البنك نهائيًا؟`)) return;
+  try { await libApi('/qbank-del', { id: T.id }); toast('🗑️ حُذف الموضوع من البنك', 'good'); QB.open = ''; QB.topic = null; QB.list = null; qbRender(true); } catch (e) { toast(e.message, 'bad'); } }
+/* 📦 نقل أسئلة موضوع (أو المحدد منها) إلى موضوع آخر أو درس من الكتب أو اسم جديد — للأسئلة التي حُفظت تحت اسم خطأ */
+async function qbMove() {
+  const T = QB.topic; if (!T) return; const n = QB.sel.size || T.qs.length; try { await qbLoad(); } catch (e) {} try { if (typeof bkLoad === 'function') await bkLoad(); } catch (e) {}
+  const nm = s => String(s || '').trim(), have = new Set((QB.list || []).filter(t => t.lesson).map(t => nm(t.book) + '|' + nm(t.lesson)));
+  const topics = (QB.list || []).filter(t => t.id !== T.id).map(t => `<option value="T:${esc(t.id)}">${esc((t.lesson || t.topic) + (t.book ? ' — ' + t.book : ''))} (${t.n})</option>`).join('');
+  const lessons = (typeof BK !== 'undefined' && BK.list || []).flatMap(b => (b.lessons || []).map((l, i) => have.has(nm(b.title) + '|' + nm(l.title)) ? '' : `<option value="L:${esc(b.id)}:${i}">${esc(l.title + ' — ' + b.title)}</option>`)).join('');
+  openModal(`<h2>📦 نقل ${n} سؤالًا</h2><p class="bk-mmeta">من «${esc(T.lesson || T.topic)}» إلى:</p>
+    <label class="field"><span>موضوع أو درس</span><select class="inp" id="qbm-to" onchange="document.getElementById('qbm-new-w').style.display=this.value==='N'?'':'none'">
+      ${topics ? `<optgroup label="مواضيع في البنك">${topics}</optgroup>` : ''}${lessons ? `<optgroup label="دروس من مكتبة الكتب">${lessons}</optgroup>` : ''}<option value="N">＋ اسم جديد…</option></select></label>
+    <label class="field" id="qbm-new-w" style="${topics || lessons ? 'display:none' : ''}"><span>الاسم الجديد</span><input class="inp" id="qbm-new" maxlength="120" placeholder="مثال: الخلية"></label>
+    <div class="modal-foot"><button type="button" class="btn tick" onclick="qbMoveGo()">نقل</button><button type="button" class="btn ghost" onclick="closeModal()">إلغاء</button></div>`);
+  if (!topics && !lessons) { const s = document.getElementById('qbm-to'); if (s) s.value = 'N'; }
+}
+async function qbMoveGo() {
+  const T = QB.topic, v = (document.getElementById('qbm-to') || {}).value || ''; if (!T || !v) return; let topic;
+  if (v.startsWith('T:')) { const x = (QB.list || []).find(t => t.id === v.slice(2)); if (!x) return; topic = { topic: x.topic, lesson: x.lesson, book: x.book, subject: x.subject, grade: x.grade }; }
+  else if (v.startsWith('L:')) { const [, bid, i] = v.split(':'), b = bkBook(bid), l = b && (b.lessons || [])[+i]; if (!l) return; topic = { topic: l.title, lesson: l.title, book: b.title, subject: b.subject || '', grade: b.grade || '' }; }
+  else { const name = ((document.getElementById('qbm-new') || {}).value || '').trim(); if (!name) { toast('اكتب الاسم الجديد', 'bad'); return; } topic = { topic: name, subject: T.subject || '' }; }
+  const qs = QB.sel.size ? T.qs.filter(q => QB.sel.has(q.h)) : T.qs;
+  try { const r = await libApi('/qbank-add', { topic, qs: qs.map(qbClean), src: 'نُقل من: ' + (T.lesson || T.topic) });
+    if (r.id === T.id) { closeModal(); toast('هذا هو الموضوع نفسه', 'bad'); return; }
+    await libApi('/qbank-del', qs.length === T.qs.length ? { id: T.id } : { id: T.id, hs: qs.map(q => q.h) });
+    closeModal(); QB.sel = new Set(); QB.list = null; toast(`📦 نُقل ${qs.length} سؤالًا إلى «${topic.lesson || topic.topic}»${r.dup ? ` (${r.dup} كانت موجودة فيه)` : ''}`, 'good'); await qbOpen(r.id);
+  } catch (e) { toast(e.message, 'bad'); }
+}
 const qbClean = q => { const x = JSON.parse(JSON.stringify(q)); ['h', 'at', 'from'].forEach(k => delete x[k]); return x; };
 /* نشاط من البنك بلا ذكاء: مسودة غير منشورة تُفتح في محرر الأسئلة للمراجعة */
 function qbMakeFrom(T, qs) {

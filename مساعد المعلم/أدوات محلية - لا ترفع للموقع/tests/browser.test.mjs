@@ -1261,6 +1261,11 @@ export default async function run() {
           await lzLoad(); const ex = window.examNormalizeSource(data); out.export = [data.kind, data.topics[0].lesson, data.questions.length, data.questions.some(q => q.h || q.from), ex.mc.length, ex.tf.length];
           await libApi('/qbank-del', { id: cell.id }); await qbImport({ files: [new File([JSON.stringify(data)], 'bank.json')] }); await w(300); await qbLoad(true); const back = QB.list.find(t => t.lesson === 'الخلية'); out.imp = [back && back.n, back && back.book];
           const old = { quiz: [{ q: 'سؤال من ملف قديم؟', opts: ['أ', 'ب'], a: 1 }], truefalse: [{ q: 'عبارة قديمة', a: false }] }; await qbImport({ files: [new File([JSON.stringify(old)], 'ألعاب قديمة.json')] }); await qbLoad(true); const ot = QB.list.find(t => t.topic === 'ألعاب قديمة'); out.old = ot && ot.types;
+          /* 📦 نقل موضوع حُفظ باسم خطأ إلى درس من الكتب، ثم 🗑️ حذف موضوع كامل */
+          const rv = QB.list.find(t => t.topic === 'مراجعة سريعة'); await qbOpen(rv.id); await qbMove(); const sel = document.getElementById('qbm-to'), opt = [...sel.options].find(o => /^L:/.test(o.value) && /الأنسجة الحيوانية/.test(o.textContent));
+          out.moveOpts = [!!opt, [...sel.options].some(o => o.value === 'N')]; sel.value = opt.value; await qbMoveGo(); await w(300); await qbLoad(true);
+          const mv = QB.list.find(t => t.lesson === 'الأنسجة الحيوانية'); out.move = [!QB.list.some(t => t.topic === 'مراجعة سريعة'), mv && mv.n, mv && mv.book, QB.open === (mv && mv.id)];
+          const nT = QB.list.length; qbDelTopic(); await w(800); out.delTopic = [(await qbLoad(true)).length, nT - 1, QB.open];
           const qb = await ASST_TOOLS.question_bank.run({ query: 'الخلية' }), ca = await ASST_TOOLS.create_activity.run({ lesson: 'الخلية', from_bank: true, n: 2 }), cz = await ASST_TOOLS.create_activity.run({ topic: 'المجرات', from_bank: true });
           out.asst = [qb.topics[0].questions, ca.action, ca.count, /بنك الأسئلة/.test(ca.source), !!cz.error];
           for (const t of QB.list.filter(t => ['الخلية', 'مراجعة سريعة', 'ألعاب قديمة'].includes(t.lesson || t.topic))) await libApi('/qbank-del', { id: t.id });
@@ -1271,6 +1276,7 @@ export default async function run() {
         eq([r.hint6, r.apply, r.use], [true, [1, true, true], ['diag', 1, 'تشخيصي — أول']], 'استعماله بلا ذكاء: من المحرر ومن البنك'); eq(r.tab, [true, true], 'التبويب'); eq(r.qs, 3, 'أسئلة الموضوع');
         eq(r.make, [1, 'الخلية', ['q', 'f'], true, false], 'نشاط من المحدد بلا ذكاء (مسودة في المحرر)'); ok(/3 سؤالًا لهذا الدرس/.test(r.hint), 'تلميح البنك في «نشاط من الدرس»: ' + r.hint);
         eq(r.export, ['qbank', 'الخلية', 3, false, 1, 1], 'التنزيل (يقرؤه الاختبار الورقي)'); eq(r.imp, [3, 'علوم — أول متوسط'], 'الاستيراد يعيده لدرسه'); eq(r.old, { q: 1, tf: 1 }, 'استيراد ملف أسئلة قديم');
+        eq([r.moveOpts, r.move], [[true, true], [true, 1, 'علوم — أول متوسط', true]], 'نقل موضوع إلى درس من الكتب'); eq([r.delTopic[0], r.delTopic[2]], [r.delTopic[1], ''], 'حذف موضوع كامل من الخادم');
         eq(r.asst, [3, 'activity', 2, true, true], 'مساعدي من البنك'); eq([r.tplExp, r.tplImp], [['diag', 'style'], 2], 'الاختبارات الثابتة في ملف التنزيل وتُستورد'); eq(ai.length, n0, 'لا ذكاء اصطناعي في كل ذلك'); eq(errs, [], 'أخطاء'); });
       await S.t('📖 تصفّح الكتاب: صفحاته الأصلية من الخادم، التالية/السابقة والسحب والأسهم مثل الكتاب العربي، القفز لدرس، تذكّر آخر صفحة، نسخة نصية لكتاب بلا ملف، و«مساعدي» يفتحه على الدرس', async () => {
         const id = await p.evaluate(() => BK.list.find(x => x.pagesCount === 6).id), cv = () => p.evaluate(() => { const c = document.querySelector('#bkv-page canvas'); return c ? [c.width > 200, c.height > c.width, BV.n, document.getElementById('bkv-ls').textContent] : null; });
