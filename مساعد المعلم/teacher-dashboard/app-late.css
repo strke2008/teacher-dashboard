@@ -3081,3 +3081,4 @@ body.bkv-open{overflow:hidden}
 .bk-hcover{cursor:pointer;flex:0 0 auto}.bk-hcover .bk-book{--cov:96px;height:96px}.bk-hcover .bk-drawn b{font-size:.74rem}.bk-hcover .bk-drawn small,.bk-hcover .bk-drawn em,.bk-hcover .bk-d-band{display:none}
 @media (max-width:420px){.bk-case{--row:226px;--cov:138px;grid-template-columns:repeat(3,1fr);padding-inline:6px}}
 .bk-read-note{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;justify-content:space-between}.bk-read-note>span{flex:1;min-width:200px;line-height:1.7}.bk-readbtn{flex:0 0 auto}
+.bk-kinds{grid-template-columns:repeat(2,1fr)}

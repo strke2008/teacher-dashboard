@@ -1193,18 +1193,23 @@ export default async function run() {
         const r = await p.evaluate(async () => { const b = BK.list.find(x => x.pagesCount === 6), out = {}; BK.open = b.id; bkRender();
           bkEditIndex(b.id); BK.edit.rows[1].title = 'الأنسجة الحيوانية'; bkEdRow(-1); BK.edit.rows[2].title = 'مراجعة الفصل'; BK.edit.rows[2].from = 6; BK.edit.rows[2].to = 6; BK.edit.rows[1].to = 5; await bkSaveIndex();
           out.idx = bkBook(b.id).lessons.map(l => [l.title, l.from, l.to]);
-          const n0 = HW.length; await bkMakeActivity(b.id, 0); await new Promise(z => setTimeout(z, 1500)); const h = HW[HW.length - 1], ta = document.getElementById('nai-content'); out.reading = !!document.getElementById('h-reading-text-bk');
+          const n0 = HW.length; bkMakeActivity(b.id, 0); out.kinds = [...document.querySelectorAll('.bk-kinds .kind-tile')].map(x => x.dataset.kind); out.noDraft = HW.length === n0; await bkMakeAs(b.id, 0, 'normal'); await new Promise(z => setTimeout(z, 400)); const h = HW[HW.length - 1], ta = document.getElementById('nai-content'); out.reading = !!document.getElementById('h-reading-text-bk');
           out.act = [HW.length - n0, h.title, !!ta && /الغشاء البلازمي/.test(ta.value), /الخلية/.test((document.getElementById('nai-pdf-status') || {}).textContent || '')];
           ta.value = ''; await bkPick('nai-content', 'nai-pdf-status'); document.getElementById('nai-content-bkb').value = b.id; bkPickLessons('nai-content'); const sel = document.getElementById('nai-content-bkl'); out.pick = sel ? sel.options.length : 0; if (sel) sel.value = '1'; await bkPickUse('nai-content', 'nai-pdf-status');
           out.picked = [/النسيج العضلي/.test(ta.value), document.getElementById('nai-content-bk').innerHTML === ''];
           try { naiClose(); } catch (e) {} try { closeModal(); } catch (e) {} HW.splice(HW.indexOf(h), 1); save(K.hw, HW);
+          const other = {}; for (const k of ['reading', 'games', 'diag']) { await bkMakeAs(b.id, 0, k); await new Promise(z => setTimeout(z, 400)); const hk = HW[HW.length - 1], v = id => (document.getElementById(id) || {}).value || '';
+            other[k] = [hk.kind, hk.title, /الغشاء البلازمي/.test(k === 'reading' ? v('h-reading-text') : k === 'diag' ? v('diag-ai-content') : v('nai-content'))].concat(k === 'diag' ? [v('diag-ai-scope'), v('diag-ai-topic')] : []);
+            try { naiClose(); } catch (e) {} const dm = document.getElementById('diag-ai-modal'); if (dm) dm.remove(); try { closeModal(); } catch (e) {} HW.splice(HW.indexOf(hk), 1); save(K.hw, HW); }
+          out.other = other;
           const bl = await ASST_TOOLS.book_lessons.run({}), bq = await ASST_TOOLS.book_lessons.run({ query: 'الانسجه' }), lt = await ASST_TOOLS.lesson_text.run({ lesson: 'الخلية' });
           out.asst = [bl.books.length, bq.found.map(x => x.lesson), /الغشاء البلازمي/.test(lt.text), lt.source];
           const ca = await ASST_TOOLS.create_activity.run({ lesson: 'الخلية', n: 4 }), cb = await ASST_TOOLS.create_activity.run({ topic: 'الخلية', n: 4 }), cc = await ASST_TOOLS.create_activity.run({ topic: 'المغناطيس', n: 4 }), cd = await ASST_TOOLS.create_activity.run({ lesson: 'درس غير موجود', n: 4 });
           out.ca = [ca.action, ca.title, ca.source, !!cb.source, cc.source, !!cd.error];
           asstOpen(); ASST.msgs = [{ html: 'x', cards: [{ ...ca, state: 'ask' }] }]; asstPaint(); out.card = /من الكتاب: الخلية/.test(document.getElementById('asst-msgs').innerText); asstClose(); ASST.msgs = [];
           const lp = await ASST_TOOLS.lesson_plan.run({ lesson: 'الخلية' }); out.plan = [lp.topic, lp.source]; out.page = asstPageMatch('افتح مكتبة الكتب'); return out; });
-        eq(r.idx, [['الخلية', 2, 3], ['الأنسجة الحيوانية', 4, 5], ['مراجعة الفصل', 6, 6]], 'الفهرس'); eq(r.act, [1, 'الخلية', true, true], 'نشاط من الدرس'); eq([r.pick, r.picked], [3, [true, true]], 'الاختيار داخل المولّد');
+        eq(r.idx, [['الخلية', 2, 3], ['الأنسجة الحيوانية', 4, 5], ['مراجعة الفصل', 6, 6]], 'الفهرس'); eq(r.act, [1, 'الخلية', true, true], 'نشاط من الدرس'); eq([r.kinds, r.noDraft], [['normal', 'reading', 'games', 'diag'], true], 'اختيار نوع النشاط أولًا (بلا مسودة قبل الاختيار)');
+        eq(r.other, { reading: ['reading', 'الخلية', true], games: ['games', 'الخلية', true], diag: ['diag', 'الخلية', true, 'unit', 'الخلية'] }, 'كل نوع يفتح مولّده بنص الدرس'); eq([r.pick, r.picked], [3, [true, true]], 'الاختيار داخل المولّد');
         eq(r.asst, [2, ['الأنسجة الحيوانية'], true, 'الخلية — علوم — أول متوسط (ص 2–3)'], 'مساعدي'); eq(r.ca, ['activity', 'الخلية', 'الخلية — علوم — أول متوسط (ص 2–3)', true, undefined, true], 'نشاط مساعدي'); eq(ai.filter(x => x === 'q+lesson').length, 2, 'النشاط مبني على نص الدرس'); ok(r.card, 'البطاقة'); ok(r.reading, 'زر المكتبة في النص القرائي'); eq([r.plan, ai.filter(x => x === 'plan+lesson').length], [['الخلية', 'الخلية — علوم — أول متوسط (ص 2–3)'], 1], 'التحضير من نص الدرس');
         eq(r.page, 'books', 'صفحة المكتبة');
         eq(errs, [], 'أخطاء'); });

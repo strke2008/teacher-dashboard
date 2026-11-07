@@ -196,12 +196,29 @@ async function bkDel(id) { const b = bkBook(id); if (!b || !confirm(`حذف «${
   try { await libApi('/book-del', { id }); BK.open = ''; await bkLoad(true); bkRender(); toast('حُذف الكتاب', 'good'); } catch (e) { toast(e.message, 'bad'); } }
 
 /* ── الربط: نشاط من درس، واختيار درس داخل مولّد الأسئلة والنص القرائي ── */
-async function bkMakeActivity(id, i) {
-  const b = bkBook(id), l = b && (b.lessons || [])[i]; if (!l) return; let t = '';
+/* ✦ نشاط من درس: يختار المعلم نوع النشاط أولًا، ثم يُفتح مولّده ونص الدرس جاهز فيه */
+const BK_ACT_KINDS = ['normal', 'reading', 'games', 'diag'];
+function bkMakeActivity(id, i) {
+  const b = bkBook(id), l = b && (b.lessons || [])[i]; if (!l) return; const K = (typeof HW_KINDS !== 'undefined' ? HW_KINDS : []).filter(k => BK_ACT_KINDS.includes(k.v));
+  const how = { normal: 'يولّد الأسئلة من نص الدرس', reading: 'نص الدرس يصير النص القرائي', games: 'بنك أسئلة ولعبة من الدرس', diag: 'يقيس ما يلزم قبل الدرس' };
+  openModal(`<h2>✦ نشاط من «${esc(l.title)}»</h2><p class="bk-mmeta">${esc(b.title)} · ص ${l.from}${l.to > l.from ? '–' + l.to : ''} — اختر نوع النشاط:</p>
+    <div class="kind-tiles bk-kinds">${K.map(k => `<button type="button" class="kind-tile" data-kind="${k.v}" onclick="bkMakeAs('${esc(id)}',${i},'${k.v}')"><span class="ki">${k.ic}</span><b>${esc(k.t)}</b><small>${esc(how[k.v] || k.d)}</small></button>`).join('')}</div>
+    <div class="modal-foot"><button type="button" class="btn ghost" onclick="closeModal()">إلغاء</button></div>`);
+}
+async function bkMakeAs(id, i, kind) {
+  const b = bkBook(id), l = b && (b.lessons || [])[i]; if (!l || !BK_ACT_KINDS.includes(kind)) return; let t = '';
   try { t = await bkLessonText(id, l); } catch (e) { toast(e.message, 'bad'); return; } if (!t.trim()) { toast('لا نص في صفحات هذا الدرس بعد', 'bad'); return; }
-  const h = { id: uid(), title: l.title, cls: '', clsList: [], due: '', pts: 30, max: 20, kind: 'normal', qs: [], subs: {}, at: Date.now(), src: { book: id, lesson: l.title } };
-  HW.push(h); save(K.hw, HW); goTab('hw');
-  setTimeout(() => { try { openHwForm(h.id); } catch (e) {} setTimeout(() => { try { openNormalAIGenerator(h.id); } catch (e) {} setTimeout(() => bkFill('nai-content', t, `📚 ${l.title} — ${b.title} (ص ${l.from}${l.to > l.from ? '–' + l.to : ''})`, 'nai-pdf-status'), 150); }, 250); }, 300);
+  closeModal(); try { bkViewClose(); } catch (e) {}
+  const label = `📚 ${l.title} — ${b.title} (ص ${l.from}${l.to > l.from ? '–' + l.to : ''})`, wait = ms => new Promise(z => setTimeout(z, ms));
+  const h = { id: uid(), title: l.title, cls: '', clsList: [], due: '', pts: 30, max: 20, kind, qs: [], subs: {}, at: Date.now(), src: { book: id, lesson: l.title } };
+  HW.push(h); save(K.hw, HW); goTab('hw'); await wait(300);
+  try { openHwForm(h.id); hwKindChanged(); } catch (e) {} await wait(250);
+  try {
+    if (kind === 'reading') { bkFill('h-reading-text', t, label, 'h-reading-pdf-status'); const el = document.getElementById('h-reading-wrap'); if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+    else if (kind === 'diag') { await lzLoad(); window.openDiagnosticAIGenerator(h.id); await wait(150); const sc = document.getElementById('diag-ai-scope'); if (sc) { sc.value = 'unit'; window.diagAIScopeChanged(); }
+      const tp = document.getElementById('diag-ai-topic'); if (tp) tp.value = l.title; bkFill('diag-ai-content', t, label, 'diag-ai-source-note'); }
+    else { openNormalAIGenerator(h.id); await wait(150); bkFill('nai-content', t, label, 'nai-pdf-status'); }
+  } catch (e) { console.warn('bkMakeAs', e); }
 }
 function bkFill(target, text, label, statusId) {
   const a = document.getElementById(target); if (!a) return; a.value = text; a.dispatchEvent(new Event('input', { bubbles: true }));
