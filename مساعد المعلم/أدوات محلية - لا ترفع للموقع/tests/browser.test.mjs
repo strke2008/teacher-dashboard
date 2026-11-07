@@ -437,6 +437,27 @@ export default async function run() {
           if (role) await ctSave(D2 => { D2.roles = (D2.roles || []).filter(x => x.title !== 'مسؤول السبورة'); });
           HW.splice(HW.indexOf(fh), 1); if (h0) D.homework[d] = h0; else delete D.homework[d]; PROJECTS_DATA = pP || []; STORE_PURCHASES = pS || []; asstClose(); ASST.msgs = []; return out; });
         eq(r, { hw: [true, true, true], pending: [true, 1], proj: [2, 1], levels: true, timeline: [r.timeline[0], true], stats: true, store: [1, 30, true], cert: true, duty: ['duty', true, 'done', true], weekly: [[0, 2], 'كل الأحد والثلاثاء', 5] }, 'الدفعة السادسة'); eq(errs, [], 'أخطاء'); });
+      await S.t('🆕 مساعدي — الدفعة السابعة: مجموع الواجب والمشاركة، أيام لم تُرصد، سجل التواصل، الملاحظات الخاصة، مقارنة طالبين، وتسجيل تواصل/ملاحظة بتأكيد وتراجع، وإنهاء مهمة', async () => {
+        const r = await p.evaluate(async () => { if (!CT_DATA) { try { await ctLoad(); } catch (e) {} } const S = STUDENTS, s0 = S[0], s1 = S[1], cls = s0.cls, D = CT_DATA, out = {}, d = asstToday();
+          const cl = window.ctLoad; window.ctLoad = async () => CT_DATA; D.homework = D.homework || {}; D.participation = D.participation || {};
+          const h0 = D.homework[d], p0 = D.participation[d]; D.homework[d] = { [s0.id]: { status: 'لم ينجز', at: 1 } }; D.participation[d] = { [s0.id]: { status: 'شارك', at: 1 }, [s1.id]: { status: 'لم يشارك', at: 1 } };
+          const ht = await ASST_TOOLS.homework_totals.run({ cls }); out.hwt = ht.students.some(x => x.name === s0.name && x.not_done >= 1);
+          const pt = await ASST_TOOLS.participation_totals.run({ cls, order: 'desc', n: 50 }); out.part = pt.students.find(x => x.name === s0.name).participated >= 1 && pt.students.find(x => x.name === s1.name).not_participated >= 1;
+          const ud = await ASST_TOOLS.unrecorded_days.run({ cls, days: 7 }); out.unrec = [ud.classes.length, ud.classes[0].attendance_not_recorded.includes(d), ud.classes[0].attendance_not_recorded.every(x => new Date(x + 'T00:00:00Z').getUTCDay() <= 4)];
+          const cs = await ASST_TOOLS.compare_students.run({ students: [s0.name, s1.name] }); out.cmp = cs.students.map(x => x.name);
+          asstOpen(); ASST.msgs = []; const push = c => { ASST.msgs.push({ html: 'x', cards: [{ ...c, state: 'ask' }] }); asstPaint(); return ASST.msgs.length - 1; }, wait = ms => new Promise(z => setTimeout(z, ms));
+          const lc = await ASST_TOOLS.log_contact.run({ students: [s0.name], channel: 'واتساب', reason: 'غياب', result: 'وعد بالمتابعة' }); const ci = push(lc); const card = /وعد بالمتابعة/.test(document.getElementById('asst-msgs').innerHTML);
+          asstAct(ci, 0, 'do'); await wait(600); const cl1 = await ASST_TOOLS.contacts_log.run({ student: s0.name }); out.contact = [lc.channel, lc.reason, card, ASST.msgs[ci].cards[0].state, cl1.contacts.some(x => x.result === 'وعد بالمتابعة')];
+          asstAct(ci, 0, 'undo'); await wait(600); out.contactUndo = [ASST.msgs[ci].cards[0].state, (await ASST_TOOLS.contacts_log.run({ student: s0.name })).contacts.some(x => x.result === 'وعد بالمتابعة')];
+          const nt = await ASST_TOOLS.add_note.run({ student: s0.name, text: 'يحتاج الجلوس في الأمام' }); const ni = push(nt); asstAct(ni, 0, 'do'); await wait(600);
+          const sn = await ASST_TOOLS.student_notes.run({ student: s0.name }); out.note = [nt.items.length, sn.notes.some(x => x.text === 'يحتاج الجلوس في الأمام')]; asstAct(ni, 0, 'undo'); await wait(600);
+          const du = await ASST_TOOLS.assign_duty.run({ student: s1.name, title: 'مسؤول النظافة' }), di = push(du); asstAct(di, 0, 'do'); await wait(600);
+          const ed = await ASST_TOOLS.end_duty.run({ student: s1.name, title: 'النظافة' }), ei = push(ed); asstAct(ei, 0, 'do'); await wait(600);
+          out.end = [ed.action, ed.name, ASST.msgs[ei].cards[0].state, (CT_DATA.roles || []).some(x => x && x.active && x.title === 'مسؤول النظافة')];
+          await ctSave(D2 => { D2.roles = (D2.roles || []).filter(x => x.title !== 'مسؤول النظافة'); });
+          if (h0) D.homework[d] = h0; else delete D.homework[d]; if (p0) D.participation[d] = p0; else delete D.participation[d]; window.ctLoad = cl; asstClose(); ASST.msgs = []; return out; });
+        eq(r, { hwt: true, part: true, unrec: [1, false, true], cmp: [r.cmp[0], r.cmp[1]], contact: ['واتساب', 'غياب متكرر', true, 'done', true], contactUndo: ['undone', false], note: [1, true], end: ['enddty', r.end[1], 'done', false] }, 'الدفعة السابعة');
+        eq(r.cmp.length === 2 && r.cmp.every(Boolean) && r.end[1] !== '—', true, 'أسماء'); eq(errs, [], 'أخطاء'); });
       await S.t('🎤 مساعدي: الميكروفون مثل «الرصد بالصوت» — ضغطة تفتح الاستماع ويبقى مفتوحًا، كل جملة تُرسل بعد سكوت قصير بلا كتم بينها، وضغطة ثانية توقف؛ وعلى iPhone لا يُلمس الصوت والاستماع مفتوح', async () => {
         const r = await p.evaluate(async () => { const go = HWV.go, mute = HWV.mute, ask = asstAsk; let owner = null, gos = 0, mutes = 0; const sent = [];
           HWV.go = o => { gos++; owner = o; o.on = true; return true; }; HWV.mute = o => { mutes++; if (o) o.on = false; }; window.asstAsk = q => { sent.push(q); };
