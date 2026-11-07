@@ -405,8 +405,9 @@ export default async function run() {
           window.asksLoad = async () => { ASKS = [{ id: 'q9', name: s0.name, cls, text: 'متى الاختبار القصير؟', status: 'open', at: 1 }, { id: 'q8', name: 'x', text: 'سؤال آخر', status: 'done', at: 1 }]; };
           const sm = await ASST_TOOLS.search_messages.run({ query: 'الاختبار' }); out.search = sm.found;
           // اقتراح بعد رصد الغياب
+          const cl = window.ctLoad; window.ctLoad = async () => CT_DATA;   // تزامن الخلفية لا يمسح الغيابات المحقونة أثناء الاختبار
           asstOpen(); ASST.msgs = []; const rec = await ASST_TOOLS.record_attendance.run({ students: [s0.name], status: 'غائب' }); try { localStorage.setItem('asst_brief_seen', asstToday()); } catch (e) {} ASST.msgs.push({ html: 'x', cards: [{ ...rec, state: 'ask' }] }); const ri = ASST.msgs.length - 1; asstAct(ri, 0, 'do'); await new Promise(z => setTimeout(z, 1200));
-          const hint = ASST.msgs.find(m => /3 غيابات/.test(m.html || '')); out.hint = !!(hint && hint.cards[0].action === 'drafts'); asstAct(ri, 0, 'undo');
+          const hint = ASST.msgs.find(m => /3 غيابات/.test(m.html || '')); out.hint = !!(hint && hint.cards[0].action === 'drafts'); asstAct(ri, 0, 'undo'); window.ctLoad = cl;
           // «نفّذ» بالصوت
           ASST.msgs = []; const pts = await ASST_TOOLS.adjust_points.run({ students: [s0.name], delta: 3 }), k0 = s0.points; ASST.msgs.push({ html: 'x', cards: [{ ...pts, state: 'ask' }] }); const pi = ASST.msgs.length - 1;
           LIVE.said = 'كم نقاطه'; const no1 = liveConfirm(); LIVE.said = 'تمام نفّذ'; const yes = liveConfirm(); await new Promise(z => setTimeout(z, 600)); const after = ASST.msgs[pi].cards[0].state;
@@ -414,6 +415,28 @@ export default async function run() {
           out.voice = [!!no1.error, yes.done, after, !!no2.error]; LIVE.said = ''; s0.points = k0;
           days.forEach(d => delete D.participation[d][s0.id]); window.readingAICall = rc; window.exportGrades = ex; window.asksLoad = al; asstClose(); ASST.msgs = []; return out; });
         eq(r, { risk: true, week: true, plan: [1, 45], reports: ['drafts', 'report', true, true], exp: [1, true], search: 1, hint: true, voice: [true, 'points', 'done', true] }, 'الدفعة الخامسة'); eq(errs, [], 'أخطاء'); });
+      await S.t('🆕 مساعدي — الدفعة السادسة: الواجب اليومي، ما ينتظر المراجعة، المستويات، سجل طالب، إحصاء الأنشطة، المشاريع، المتجر، مرشّحو الشهادات، تعيين مسؤول بتأكيد، وتذكير أسبوعي متكرر', async () => {
+        const r = await p.evaluate(async () => { if (!CT_DATA) { try { await ctLoad(); } catch (e) {} } const S = STUDENTS, s0 = S[0], s1 = S[1], cls = s0.cls, D = CT_DATA, out = {}, d = asstToday();
+          D.homework = D.homework || {}; const h0 = D.homework[d]; D.homework[d] = { [s0.id]: { status: 'أنجز', at: 1 }, [s1.id]: { status: 'لم ينجز', at: 1 } };
+          const hw = await ASST_TOOLS.homework_day.run({}); out.hw = [hw.done >= 1, hw.not_done.some(x => x.name === s1.name), hw.recorded >= 2];
+          const fh = { id: 'hwAS6', sid: 'pubAS6', kind: 'files', title: 'رفع ملف الدفعة السادسة', max: 10, subs: { [s0.id]: { at: Date.now(), files: [{ n: 'a.pdf' }] } }, published: true, at: Date.now() }; HW.push(fh);
+          const pP = PROJECTS_DATA, pS = STORE_PURCHASES; PROJECTS_DATA = [{ title: 'مشروع البيئة', studentName: s0.name, reviewStatus: 'pending', at: 1 }, { title: 'مشروع البيئة', studentName: s1.name, at: 1 }];
+          const pr = await ASST_TOOLS.pending_reviews.run({}); out.pending = [pr.file_activities.some(x => x.activity === fh.title && x.pending === 1), pr.projects[0] && pr.projects[0].pending];
+          const ps = await ASST_TOOLS.projects_status.run({ project: 'البيئة' }); out.proj = [ps.projects[0].submitted, ps.projects[0].pending];
+          const lv = await ASST_TOOLS.levels_overview.run({ cls }); out.levels = !!(lv.levels && lv.levels.reduce((n, x) => n + x.count, 0) > 0);
+          const tl = await ASST_TOOLS.student_timeline.run({ student: s0.name }); out.timeline = [tl.name, tl.last_submissions.some(x => x.title === fh.title)];
+          const as = await ASST_TOOLS.activity_stats.run({}); out.stats = Array.isArray(as.activities);
+          STORE_PURCHASES = [{ name: s0.name, kind: 'exam-bonus', price: 30, add: 2, at: Date.now() }, { name: s1.name, kind: 'exam-bonus', price: 10, add: 1, at: 1 }];
+          const sp = await ASST_TOOLS.store_purchases.run({}); out.store = [sp.count, sp.spent, /درجة/.test(sp.purchases[0].item)];
+          const cc = await ASST_TOOLS.certificate_candidates.run({ cls }); out.cert = Array.isArray(cc.candidates);
+          asstOpen(); ASST.msgs = []; const du = await ASST_TOOLS.assign_duty.run({ student: s0.name, title: 'مسؤول السبورة' }); ASST.msgs.push({ html: 'x', cards: [{ ...du, state: 'ask' }] }); const di = ASST.msgs.length - 1; asstPaint();
+          const card = /مسؤول السبورة/.test(document.getElementById('asst-msgs').innerHTML); asstAct(di, 0, 'do'); await new Promise(z => setTimeout(z, 600));
+          const role = (CT_DATA.roles || []).find(x => x && x.active && x.title === 'مسؤول السبورة' && x.cls === cls); out.duty = [du.action, card, ASST.msgs[di].cards[0].state, role && String(role.studentId) === String(s0.id)];
+          const rm = await ASST_TOOLS.reminder.run({ title: 'تحضير الدرس', time: '07:00', weekly: ['الأحد', 'الثلاثاء'] }), ev = await ASST_TOOLS.reminder.run({ title: 'x', time: '07:00', weekly: ['كل يوم'] });
+          out.weekly = [rm.days, rm.weeklyLabel, ev.days.length];
+          if (role) await ctSave(D2 => { D2.roles = (D2.roles || []).filter(x => x.title !== 'مسؤول السبورة'); });
+          HW.splice(HW.indexOf(fh), 1); if (h0) D.homework[d] = h0; else delete D.homework[d]; PROJECTS_DATA = pP || []; STORE_PURCHASES = pS || []; asstClose(); ASST.msgs = []; return out; });
+        eq(r, { hw: [true, true, true], pending: [true, 1], proj: [2, 1], levels: true, timeline: [r.timeline[0], true], stats: true, store: [1, 30, true], cert: true, duty: ['duty', true, 'done', true], weekly: [[0, 2], 'كل الأحد والثلاثاء', 5] }, 'الدفعة السادسة'); eq(errs, [], 'أخطاء'); });
       await S.t('🎤 مساعدي: الميكروفون مثل «الرصد بالصوت» — ضغطة تفتح الاستماع ويبقى مفتوحًا، كل جملة تُرسل بعد سكوت قصير بلا كتم بينها، وضغطة ثانية توقف؛ وعلى iPhone لا يُلمس الصوت والاستماع مفتوح', async () => {
         const r = await p.evaluate(async () => { const go = HWV.go, mute = HWV.mute, ask = asstAsk; let owner = null, gos = 0, mutes = 0; const sent = [];
           HWV.go = o => { gos++; owner = o; o.on = true; return true; }; HWV.mute = o => { mutes++; if (o) o.on = false; }; window.asstAsk = q => { sent.push(q); };
