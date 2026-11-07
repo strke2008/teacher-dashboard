@@ -1546,7 +1546,7 @@ function nameTokens(s) {
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, X-Teacher-Token',
+  'Access-Control-Allow-Headers': 'Content-Type, X-Teacher-Token, Range',
   'Access-Control-Max-Age': '86400',
 };
 
@@ -6152,9 +6152,13 @@ async function teacherAuthFromHeaders(request, url, env, ctx) {
       const h = new Headers(request.headers); h.delete('content-type'); h.delete('content-length');
       request = new Request(url.href, { method: 'POST', headers: h, body: fd });
     } else {
-      const txt = await request.text(); let b = null; try { b = JSON.parse(txt); } catch {}
-      let out = txt;
-      if (b && typeof b === 'object' && typeof b.t === 'string' && b.t.startsWith('ts1.')) { const s = await tsCheck(env, b.t); if (s) sess = sess || s; b.t = s ? real : '-'; out = JSON.stringify(b); }
+      // البايتات تُمرَّر كما هي (أجزاء ملفات): قراءتها نصًّا تُفسدها — فقط JSON يُعاد بناؤه بعد استبدال الجلسة
+      const buf = await request.arrayBuffer(); let out = buf;
+      if (!/octet-stream|^image\/|^video\/|^audio\/|application\/pdf/.test(ct)) {
+        let txt = null; try { txt = new TextDecoder('utf-8', { fatal: true }).decode(buf); } catch {}
+        let b = null; if (txt != null) { try { b = JSON.parse(txt); } catch {} }
+        if (b && typeof b === 'object' && typeof b.t === 'string' && b.t.startsWith('ts1.')) { const s = await tsCheck(env, b.t); if (s) sess = sess || s; b.t = s ? real : '-'; out = JSON.stringify(b); }
+      }
       const h = new Headers(request.headers); h.delete('content-length');
       request = new Request(url.href, { method: 'POST', headers: h, body: out });
     }
@@ -12001,7 +12005,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
     if (url.pathname === '/books' && request.method === 'GET') {
       if (!env.TEACHER_TOKEN || (url.searchParams.get('t') || '') !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
       const books = [];
-      for (const k of await listAllKeys(env, 'book:')) { if (!k.endsWith(':meta')) continue; try { const o = JSON.parse(await env.HW.get(k) || 'null'); if (o && o.id) books.push(o); } catch {} }
+      for (const k of await listAllKeys(env, 'book:')) { if (!k.endsWith(':meta')) continue; try { const o = JSON.parse(await env.HW.get(k) || 'null'); if (o && o.id) { if (o.pdf) o.pdf = { size: o.pdf.size, at: o.pdf.at }; books.push(o); } } catch {} }
       books.sort((a, b) => (b.at || 0) - (a.at || 0));
       return json({ ok: true, books });
     }
@@ -12035,11 +12039,61 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       await env.HW.put(`book:${id}:meta`, JSON.stringify(meta));
       return json({ ok: true, meta });
     }
+    /* 📖 ملف PDF الكتاب للتصفّح: يُرفع على أجزاء إلى R2 (books/<id>.pdf) ويُقرأ بطلبات «Range» فلا يُنزَّل كاملًا على الجوال */
+    if (url.pathname === '/book-pdf' && request.method === 'GET') {
+      if (!env.TEACHER_TOKEN || (url.searchParams.get('t') || '') !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
+      if (!env.FILES) return json({ error: 'R2 binding FILES is missing' }, 500);
+      const id = String(url.searchParams.get('id') || '').replace(/[^\w-]/g, '').slice(0, 40);
+      const m = id ? JSON.parse(await env.HW.get(`book:${id}:meta`) || 'null') : null, range = request.headers.get('range'), obj = m && m.pdf && m.pdf.key ? await env.FILES.get(m.pdf.key, range ? { range: request.headers } : undefined) : null;
+      if (!obj) return json({ error: 'not found' }, 404);
+      const headers = new Headers(CORS); obj.writeHttpMetadata(headers); headers.set('Content-Type', 'application/pdf');
+      headers.set('Accept-Ranges', 'bytes'); headers.set('Access-Control-Expose-Headers', 'Accept-Ranges, Content-Range, Content-Length'); headers.set('Cache-Control', 'private, max-age=86400');
+      if (range && obj.range) { const start = obj.range.offset || 0, len = obj.range.length != null ? obj.range.length : (obj.size - start);
+        headers.set('Content-Range', `bytes ${start}-${start + len - 1}/${obj.size}`); headers.set('Content-Length', String(len)); return new Response(obj.body, { status: 206, headers }); }
+      headers.set('Content-Length', String(obj.size)); return new Response(obj.body, { headers });
+    }
+    if (url.pathname.startsWith('/book-pdf/') && request.method === 'POST') {
+      if (!env.FILES) return json({ ok: false, error: 'R2 binding FILES is missing' }, 500);
+      const op = url.pathname.slice('/book-pdf/'.length), BP = { part: 10 * 1024 * 1024, max: 400 * 1024 * 1024 };
+      if (op === 'part') {   // الجسم بايتات الجزء؛ رمز المعلم في الرابط
+        if (!env.TEACHER_TOKEN || (url.searchParams.get('t') || '') !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
+        const u = String(url.searchParams.get('u') || '').slice(0, 2048), n = parseInt(url.searchParams.get('n'), 10), rec = JSON.parse(await env.HW.get(`bpu:${u}`) || 'null');
+        if (!rec) return json({ ok: false, error: 'upload not found' }, 404); if (!(n >= 1 && n <= 10000)) return json({ ok: false, error: 'bad part' }, 400);
+        const buf = await request.arrayBuffer(); if (!buf.byteLength || buf.byteLength > BP.part) return json({ ok: false, error: 'bad part size' }, 400);
+        try { const part = await env.FILES.resumeMultipartUpload(rec.key, u).uploadPart(n, buf); return json({ ok: true, partNumber: part.partNumber, etag: part.etag }); }
+        catch { return json({ ok: false, error: 'part failed' }, 500); }
+      }
+      let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
+      if (!env.TEACHER_TOKEN || b.t !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
+      if (op === 'start') {
+        const id = String(b.id || '').replace(/[^\w-]/g, '').slice(0, 40), size = Number(b.size) || 0;
+        if (!id || !(await env.HW.get(`book:${id}:meta`))) return json({ ok: false, error: 'book not found' }, 404);
+        if (!(size > 0) || size > BP.max) return json({ ok: false, error: 'file too large', max: BP.max }, 400);
+        const key = `books/${id}-${Date.now().toString(36)}.pdf`, mpu = await env.FILES.createMultipartUpload(key, { httpMetadata: { contentType: 'application/pdf' } });
+        await env.HW.put(`bpu:${mpu.uploadId}`, JSON.stringify({ id, key, size, at: Date.now() }), { expirationTtl: 3 * 86400 });
+        return json({ ok: true, uploadId: mpu.uploadId, partSize: BP.part });
+      }
+      const u = String(b.u || '').slice(0, 2048), rec = JSON.parse(await env.HW.get(`bpu:${u}`) || 'null'); if (!rec) return json({ ok: false, error: 'upload not found' }, 404);
+      const mp = env.FILES.resumeMultipartUpload(rec.key, u);
+      if (op === 'abort') { try { await mp.abort(); } catch {} await env.HW.delete(`bpu:${u}`); return json({ ok: true }); }
+      if (op === 'done') {
+        const parts = (Array.isArray(b.parts) ? b.parts : []).map(x => ({ partNumber: parseInt(x && x.partNumber, 10), etag: String(x && x.etag || '') })).filter(x => x.partNumber >= 1 && x.etag).sort((x, y) => x.partNumber - y.partNumber);
+        if (!parts.length) return json({ ok: false, error: 'no parts' }, 400);
+        let obj; try { obj = await mp.complete(parts); } catch { return json({ ok: false, error: 'complete failed' }, 500); }
+        await env.HW.delete(`bpu:${u}`);
+        if (!obj || obj.size !== rec.size) { try { await env.FILES.delete(rec.key); } catch {} return json({ ok: false, error: 'size mismatch' }, 400); }
+        const meta = JSON.parse(await env.HW.get(`book:${rec.id}:meta`) || 'null'); if (!meta) { try { await env.FILES.delete(rec.key); } catch {} return json({ ok: false, error: 'book not found' }, 404); }
+        const old = meta.pdf && meta.pdf.key; meta.pdf = { key: rec.key, size: rec.size, at: Date.now() }; await env.HW.put(`book:${rec.id}:meta`, JSON.stringify(meta));
+        if (old && old !== rec.key) { try { await env.FILES.delete(old); } catch {} }   // القديم يُحذف بعد اكتمال الجديد فقط
+        return json({ ok: true, meta });
+      }
+      return json({ error: 'bad op' }, 400);
+    }
     if (url.pathname === '/book-del' && request.method === 'POST') {
       let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
       if (!env.TEACHER_TOKEN || b.t !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
       const id = String(b.id || '').replace(/[^\w-]/g, '').slice(0, 40); if (!id) return json({ error: 'missing id' }, 400);
-      await env.HW.delete(`book:${id}:meta`); await env.HW.delete(`book:${id}:pages`);
+      const dm = JSON.parse(await env.HW.get(`book:${id}:meta`) || 'null'); await env.HW.delete(`book:${id}:meta`); await env.HW.delete(`book:${id}:pages`); if (env.FILES && dm && dm.pdf && dm.pdf.key) { try { await env.FILES.delete(dm.pdf.key); } catch {} }
       return json({ ok: true });
     }
     if (url.pathname === '/projects' && request.method === 'GET') {
@@ -12255,7 +12309,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
     }
 
     return json({ ok: true, service: 'homework',
-      paths: ['/publish','/messages','/hw','/unpublish','/removestudent','/find','/mine','/board','/review','/submit','/me','/buy','/use','/extra-attempt','/extra-attempt-bulk','/extra-attempt-status','/unlock-review','/title','/pin','/pinstatus','/pinmode','/pins','/resetpin','/rev','/store','/resolve','/adjust','/state','/recover-activities','/wipe','/results','/projects','/books','/book','/book-save','/book-del','/project-review','/project-file-delete','/file-submit','/file-download','/review-request','/review-request/complete','/notice-state','/notice-dismiss','/exam-options','/exam-shop-policy','/use-exam-bonus','/mad-forgive','/hw-forgive','/cert-tpl','/reset'] });
+      paths: ['/publish','/messages','/hw','/unpublish','/removestudent','/find','/mine','/board','/review','/submit','/me','/buy','/use','/extra-attempt','/extra-attempt-bulk','/extra-attempt-status','/unlock-review','/title','/pin','/pinstatus','/pinmode','/pins','/resetpin','/rev','/store','/resolve','/adjust','/state','/recover-activities','/wipe','/results','/projects','/books','/book','/book-save','/book-del','/book-pdf','/project-review','/project-file-delete','/file-submit','/file-download','/review-request','/review-request/complete','/notice-state','/notice-dismiss','/exam-options','/exam-shop-policy','/use-exam-bonus','/mad-forgive','/hw-forgive','/cert-tpl','/reset'] });
   },
 };
 export default HW_WORKER;

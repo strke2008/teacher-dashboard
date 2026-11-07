@@ -1,6 +1,6 @@
 /* 🧪 اختبارات الصفحات في متصفح حقيقي، متصلة بالخادم الحقيقي (worker.js) محليًا */
 import { createRequire } from 'node:module';
-import { loadWorker, newEnv, caller, serveWorker, serveStatic, suite, eq, ok, TOKEN } from './harness.mjs';
+import { loadWorker, newEnv, caller, serveWorker, serveStatic, suite, eq, ok, TOKEN, memR2 } from './harness.mjs';
 const require = createRequire(import.meta.url);
 
 export default async function run() {
@@ -13,7 +13,9 @@ export default async function run() {
   const b = await chromium.launch();
   const newCtx = async (opts = {}) => { const ctx = await b.newContext({ viewport: { width: 1200, height: 850 }, ...opts }); const reqs = [];
     await ctx.route(/workers\.dev/, async r => { const u = new URL(r.request().url()); if (ctx.offline) return r.abort('internetdisconnected').catch(() => {}); reqs.push({ u: u.pathname + u.search, h: r.request().headers()['x-teacher-token'] || '' });
-      try { await r.fulfill({ response: await r.fetch({ url: 'http://localhost:' + WP + u.pathname + u.search }) }); } catch { try { await r.abort(); } catch {} } });   // الصفحة أُغلقت أثناء الطلب: لا يُسقط التشغيل
+      try { const q = r.request(), pb = q.postDataBuffer(), to = 'http://localhost:' + WP + u.pathname + u.search;
+        if (pb && /octet|^$/.test(q.headers()['content-type'] || '')) { const x = await fetch(to, { method: q.method(), headers: q.headers(), body: pb }); await r.fulfill({ status: x.status, headers: Object.fromEntries(x.headers), body: Buffer.from(await x.arrayBuffer()) }); }   // بايتات (ملفات): route.fetch يفسدها
+        else await r.fulfill({ response: await r.fetch({ url: to }) }); } catch { try { await r.abort(); } catch {} } });   // الجسم كبايتات (ملفات) · الصفحة أُغلقت أثناء الطلب: لا يُسقط التشغيل
     ctx.reqs = reqs; return ctx; };
   /* اللوحة جاهزة وبيانات الفصل محمّلة: إن لم تحمّلها «اليوم» بعد، تُطلب من أدوات الفصل (ولو فشلت يظهر السبب) */
   const dashReady = async p => {
@@ -1142,7 +1144,7 @@ export default async function run() {
         eq(bad, [], 'تجارب فيها أخطاء'); ok(ids.length >= 5, 'تجارب قليلة: ' + ids.length); });
       await ctx.close(); }
     // ── 📖 مكتبة الكتب: رفع كتاب حقيقي (نصي ومصوّر)، الفهرس بالذكاء، النص، نشاط من الدرس، الاختيار داخل المولّد، و«مساعدي» ──
-    { const ctx = await newCtx(), p = await ctx.newPage(), errs = watch(p), PJ = require('node:url').fileURLToPath(new URL('./.cache/pdfjs/', import.meta.url)), fs = require('node:fs'), ai = [];
+    { const F0 = env.FILES; env.FILES = memR2(); const ctx = await newCtx(), p = await ctx.newPage(), errs = watch(p), PJ = require('node:url').fileURLToPath(new URL('./.cache/pdfjs/', import.meta.url)), fs = require('node:fs'), ai = [];
       if (fs.existsSync(PJ + 'pdf.min.js')) await ctx.route(/cdnjs\.cloudflare\.com\/ajax\/libs\/pdf\.js\/3\.11\.174\/pdf(\.worker)?\.min\.js/, r => r.fulfill({ path: PJ + (r.request().url().includes('worker') ? 'pdf.worker.min.js' : 'pdf.min.js'), contentType: 'text/javascript' }));
       await ctx.route(/generativelanguage\.googleapis\.com/, r => { const q = r.request().postData() || '', has = s => q.includes(s); let out;
         if (has('صورة صفحة')) { ai.push('ocr'); out = { text: 'نص مقروء بالذكاء: التربة طبقة تغطي سطح الأرض' }; }
@@ -1165,7 +1167,7 @@ export default async function run() {
         await p.setInputFiles('#p-books input[type=file]', '/tmp/bk-text.pdf');
         await p.waitForFunction(() => !BK.busy && (BK.list || []).some(b => (b.lessons || []).length), null, { timeout: 30000 });
         const r = await p.evaluate(async () => { const b = BK.list[0], t = await bkLessonText(b.id, b.lessons[0]); return { n: b.pagesCount, pend: b.ocrPending, ls: b.lessons.map(l => [l.title, l.from, l.to]), meta: [b.subject, b.grade], t, open: BK.open === b.id, ui: document.querySelectorAll('#bk-root .bk-lesson').length }; });
-        eq([r.n, r.pend, r.ls, r.meta, r.open, r.ui], [6, 0, [['الخلية', 2, 3], ['الأنسجة', 4, 6]], ['علوم', 'أول متوسط'], true, 2], 'الكتاب النصي');
+        eq(await p.evaluate(() => !!(BK.list[0].pdf && BK.list[0].pdf.size > 500)), true, 'ملف الكتاب رُفع للتصفّح'); eq([r.n, r.pend, r.ls, r.meta, r.open, r.ui], [6, 0, [['الخلية', 2, 3], ['الأنسجة', 4, 6]], ['علوم', 'أول متوسط'], true, 2], 'الكتاب النصي');
         ok(/الغشاء البلازمي/.test(r.t) && /البناء الضوئي/.test(r.t) && !/النسيج/.test(r.t), 'نص درس الخلية (صفحتاه فقط): ' + r.t.slice(0, 120)); eq(ai.filter(x => x === 'ocr').length, 0, 'لا قراءة بالذكاء لكتاب نصي');
         await p.screenshot({ path: '/tmp/bk-book.png' });
         await p.evaluate(() => { BK.open = ''; bkRender(); }); await p.setInputFiles('#p-books input[type=file]', '/tmp/bk-scan.pdf');
@@ -1180,7 +1182,7 @@ export default async function run() {
           out.act = [HW.length - n0, h.title, !!ta && /الغشاء البلازمي/.test(ta.value), /الخلية/.test((document.getElementById('nai-pdf-status') || {}).textContent || '')];
           ta.value = ''; await bkPick('nai-content', 'nai-pdf-status'); document.getElementById('nai-content-bkb').value = b.id; bkPickLessons('nai-content'); const sel = document.getElementById('nai-content-bkl'); out.pick = sel ? sel.options.length : 0; if (sel) sel.value = '1'; await bkPickUse('nai-content', 'nai-pdf-status');
           out.picked = [/النسيج العضلي/.test(ta.value), document.getElementById('nai-content-bk').innerHTML === ''];
-          try { closeModal(); } catch (e) {} HW.splice(HW.indexOf(h), 1); save(K.hw, HW);
+          try { naiClose(); } catch (e) {} try { closeModal(); } catch (e) {} HW.splice(HW.indexOf(h), 1); save(K.hw, HW);
           const bl = await ASST_TOOLS.book_lessons.run({}), bq = await ASST_TOOLS.book_lessons.run({ query: 'الانسجه' }), lt = await ASST_TOOLS.lesson_text.run({ lesson: 'الخلية' });
           out.asst = [bl.books.length, bq.found.map(x => x.lesson), /الغشاء البلازمي/.test(lt.text), lt.source];
           const ca = await ASST_TOOLS.create_activity.run({ lesson: 'الخلية', n: 4 }), cb = await ASST_TOOLS.create_activity.run({ topic: 'الخلية', n: 4 }), cc = await ASST_TOOLS.create_activity.run({ topic: 'المغناطيس', n: 4 }), cd = await ASST_TOOLS.create_activity.run({ lesson: 'درس غير موجود', n: 4 });
@@ -1190,8 +1192,33 @@ export default async function run() {
         eq(r.idx, [['الخلية', 2, 3], ['الأنسجة الحيوانية', 4, 5], ['مراجعة الفصل', 6, 6]], 'الفهرس'); eq(r.act, [1, 'الخلية', true, true], 'نشاط من الدرس'); eq([r.pick, r.picked], [3, [true, true]], 'الاختيار داخل المولّد');
         eq(r.asst, [2, ['الأنسجة الحيوانية'], true, 'الخلية — علوم — أول متوسط (ص 2–3)'], 'مساعدي'); eq(r.ca, ['activity', 'الخلية', 'الخلية — علوم — أول متوسط (ص 2–3)', true, undefined, true], 'نشاط مساعدي'); eq(ai.filter(x => x === 'q+lesson').length, 2, 'النشاط مبني على نص الدرس'); ok(r.card, 'البطاقة'); ok(r.reading, 'زر المكتبة في النص القرائي'); eq([r.plan, ai.filter(x => x === 'plan+lesson').length], [['الخلية', 'الخلية — علوم — أول متوسط (ص 2–3)'], 1], 'التحضير من نص الدرس');
         eq(r.page, 'books', 'صفحة المكتبة');
-        await p.evaluate(async () => { for (const b of BK.list.slice()) await libApi('/book-del', { id: b.id }); await bkLoad(true); }); eq(errs, [], 'أخطاء'); });
-      await ctx.close(); }
+        eq(errs, [], 'أخطاء'); });
+      await S.t('📖 تصفّح الكتاب: صفحاته الأصلية من الخادم، التالية/السابقة والسحب والأسهم مثل الكتاب العربي، القفز لدرس، تذكّر آخر صفحة، نسخة نصية لكتاب بلا ملف، و«مساعدي» يفتحه على الدرس', async () => {
+        const id = await p.evaluate(() => BK.list.find(x => x.pagesCount === 6).id), cv = () => p.evaluate(() => { const c = document.querySelector('#bkv-page canvas'); return c ? [c.width > 200, c.height > c.width, BV.n, document.getElementById('bkv-ls').textContent] : null; });
+        await p.evaluate(id => { goTab('books'); BK.open = id; bkRender(); try { localStorage.removeItem('bk_pg_' + id); } catch (e) {} }, id); ok(await p.isVisible('.bk-read'), 'زر التصفّح');
+        await p.click('.bk-read'); await p.waitForFunction(() => document.querySelector('#bkv-page canvas') && BV.n === 1, null, { timeout: 15000 }); eq(await cv(), [true, true, 1, ''], 'الغلاف');
+        await p.click('.bkv-nb[aria-label="الصفحة التالية"]'); await p.waitForFunction(() => BV.n === 2 && document.querySelector('#bkv-page canvas'), null, { timeout: 8000 }); await p.waitForTimeout(300); eq(await cv(), [true, true, 2, 'الوحدة الأولى · الخلية'], 'التالية');
+        await p.keyboard.press('ArrowLeft'); await p.waitForTimeout(500); eq((await cv())[2], 3, 'السهم الأيسر = التالية');
+        await p.keyboard.press('ArrowRight'); await p.waitForTimeout(500); eq((await cv())[2], 2, 'السهم الأيمن = السابقة');
+        await p.selectOption('#bkv-sel', '4'); await p.waitForTimeout(600); eq(await cv(), [true, true, 4, 'الوحدة الأولى · الأنسجة الحيوانية'], 'القفز لدرس');
+        await p.screenshot({ path: '/tmp/bk-viewer.png' });
+        const sw = await p.evaluate(async () => { const st = document.getElementById('bkv-stage'), T = (x) => new Touch({ identifier: 1, target: st, clientX: x, clientY: 300 });
+          st.dispatchEvent(new TouchEvent('touchstart', { touches: [T(100)], changedTouches: [T(100)] })); st.dispatchEvent(new TouchEvent('touchend', { touches: [], changedTouches: [T(260)] })); await new Promise(z => setTimeout(z, 500)); const a = BV.n;
+          st.dispatchEvent(new TouchEvent('touchstart', { touches: [T(260)], changedTouches: [T(260)] })); st.dispatchEvent(new TouchEvent('touchend', { touches: [], changedTouches: [T(100)] })); await new Promise(z => setTimeout(z, 500)); return [a, BV.n]; });
+        eq(sw, [5, 4], 'السحب لليمين = التالية (كالكتاب العربي)');
+        const w0 = await p.evaluate(() => document.querySelector('#bkv-page canvas').getBoundingClientRect().width); ok(await p.evaluate(() => { const c = document.querySelector('#bkv-page canvas').getBoundingClientRect(), st = document.getElementById('bkv-stage'); return c.height <= st.clientHeight && c.width <= st.clientWidth; }), 'الصفحة كاملة داخل الشاشة');
+        await p.click('.bkv-ib[aria-label="تكبير"]'); await p.waitForTimeout(500); const z = await p.evaluate(w0 => [BV.z, Math.round(document.querySelector('#bkv-page canvas').getBoundingClientRect().width / w0 * 10) / 10], w0); eq(z, [1.5, 1.5], 'التكبير');
+        await p.click('.bkv-x'); eq(await p.evaluate(() => [document.getElementById('bk-viewer').classList.contains('on'), document.body.classList.contains('bkv-open')]), [false, false], 'الإغلاق');
+        await p.evaluate(id => bkView(id), id); await p.waitForFunction(() => document.querySelector('#bkv-page canvas'), null, { timeout: 8000 }); eq((await cv())[2], 4, 'يفتح على آخر صفحة');
+        const ac = await p.evaluate(() => (document.getElementById('bkv-act').textContent || '').trim()); ok(/نشاط من «الأنسجة الحيوانية»/.test(ac), 'نشاط من الدرس الحالي: ' + ac); await p.evaluate(() => bkViewClose());
+        const t = await p.evaluate(async () => { const b = BK.list.find(x => x.pagesCount === 3), keep = b.pdf; b.pdf = null; BK.open = b.id; bkRender(); const note = !!document.querySelector('.bk-note-i input[type=file]');
+          await bkView(b.id, 2); await new Promise(z => setTimeout(z, 600)); const out = [note, document.querySelector('#bkv-page').classList.contains('bkv-txt'), /التربة طبقة/.test(document.getElementById('bkv-page').textContent), !!document.querySelector('.bkv-note')]; bkViewClose(); b.pdf = keep; return out; });
+        eq(t, [true, true, true, true], 'نسخة نصية');
+        const ob = await p.evaluate(async () => { const r = await ASST_TOOLS.open_book.run({ lesson: 'الخلية' }), bad = await ASST_TOOLS.open_book.run({ lesson: 'درس غير موجود' }); asstGo(r); await new Promise(z => setTimeout(z, 900));
+          for (let i = 0; i < 30 && !document.querySelector('#bkv-page canvas'); i++) await new Promise(z => setTimeout(z, 200)); const o = [r.action, r.page, r._pg, !!bad.error, BV.n, document.getElementById('bk-viewer').classList.contains('on')]; bkViewClose(); return o; });
+        eq(ob, ['nav', 'book', 2, true, 2, true], 'مساعدي يفتح الكتاب على الدرس');
+        await p.evaluate(async () => { for (const b of BK.list.slice()) await libApi('/book-del', { id: b.id }); await bkLoad(true); }); eq(env.FILES.M.size, 0, 'الحذف يحذف ملفات الكتب'); eq(errs, [], 'أخطاء'); });
+      await ctx.close(); env.FILES = F0; }
   } finally { await b.close(); wsrv.close(); ssrv.close(); }
   return S;
 }

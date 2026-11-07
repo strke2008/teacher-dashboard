@@ -45,12 +45,13 @@ function bkBookHTML(b) {
   const L = b.lessons || [], units = []; L.forEach((l, i) => { const u = l.unit || ''; let g = units.find(x => x.u === u); if (!g) units.push(g = { u, items: [] }); g.items.push([l, i]); });
   return `${bkProgHTML()}<div class="bk-head"><button type="button" class="btn ghost sm" onclick="BK.open='';bkRender()">→ المكتبة</button>
     <div class="bk-title"><b>${esc(b.title)}</b><small>${esc([b.subject, b.grade].filter(Boolean).join(' · '))} · ${b.pagesCount || 0} صفحة</small></div>
-    <div class="bk-acts"><button type="button" class="btn ghost sm" onclick="bkEditMeta('${esc(b.id)}')">✏️ البيانات</button><button type="button" class="btn ghost sm" onclick="bkDel('${esc(b.id)}')">🗑️</button></div></div>
+    <div class="bk-acts"><button type="button" class="btn sm bk-read" onclick="bkView('${esc(b.id)}')">📖 تصفّح الكتاب</button><button type="button" class="btn ghost sm" onclick="bkEditMeta('${esc(b.id)}')">✏️ البيانات</button><button type="button" class="btn ghost sm" onclick="bkDel('${esc(b.id)}')">🗑️</button></div></div>
+    ${b.pdf ? '' : `<div class="bk-note bk-note-i">📖 لتصفّح الكتاب بصفحاته الأصلية (الصور والأشكال) — <label class="bk-link">أرفق ملف الكتاب نفسه<input type="file" accept="application/pdf,.pdf" hidden onchange="bkAttachPdf('${esc(b.id)}',this)"></label>. وإلى ذلك الحين يُتصفَّح نصّه.</div>`}
     ${b.ocrPending ? `<div class="bk-note">📷 ${b.ocrPending} صفحة مصوّرة لم تُقرأ بعد — <label class="bk-link">أكمل قراءتها (اختر ملف الكتاب نفسه)<input type="file" accept="application/pdf,.pdf" hidden onchange="bkResume('${esc(b.id)}',this)"></label></div>` : ''}
     <div class="bk-sec"><b>📑 الدروس (${L.length})</b><span><button type="button" class="ai-btn sm quiet" onclick="bkIndex('${esc(b.id)}')"><span class="ai-mark">✦</span> ${L.length ? 'أعد استخراج الفهرس' : 'استخرج الفهرس بالذكاء'}</button>
       <button type="button" class="btn ghost sm" onclick="bkEditIndex('${esc(b.id)}')">✏️ تعديل الفهرس</button></span></div>
     ${L.length ? units.map(g => `<div class="bk-unit">${g.u ? `<div class="bk-unit-t">${esc(g.u)}</div>` : ''}${g.items.map(([l, i]) => `<div class="bk-lesson"><span class="bk-lt"><b>${esc(l.title)}</b><small>ص ${l.from}${l.to > l.from ? '–' + l.to : ''}</small></span>
-      <button type="button" class="btn ghost sm" onclick="bkPreview('${esc(b.id)}',${i})">👁️ النص</button><button type="button" class="ai-btn sm" onclick="bkMakeActivity('${esc(b.id)}',${i})"><span class="ai-mark">✦</span> نشاط منه</button></div>`).join('')}</div>`).join('')
+      <button type="button" class="btn ghost sm" onclick="bkView('${esc(b.id)}',${l.from})" aria-label="تصفّح الدرس في الكتاب" title="تصفّح الدرس في الكتاب">📖</button><button type="button" class="btn ghost sm" onclick="bkPreview('${esc(b.id)}',${i})">👁️ النص</button><button type="button" class="ai-btn sm" onclick="bkMakeActivity('${esc(b.id)}',${i})"><span class="ai-mark">✦</span> نشاط منه</button></div>`).join('')}</div>`).join('')
     : '<div class="bk-empty sm">لم يُستخرج فهرس الدروس بعد — اضغط «استخرج الفهرس بالذكاء» أو أضفه يدويًا.</div>'}`;
 }
 async function bkOpen(id) { BK.open = id; bkRender(); }
@@ -83,6 +84,7 @@ async function bkAdd(input) {
     const title = file.name.replace(/\.pdf$/i, '').replace(/[_-]+/g, ' ').trim().slice(0, 100);
     bkProg({ label: '☁️ حفظ الكتاب في مكتبتك…', n: N, of: N, sub: '' });
     const j = await libApi('/book-save', { meta: { title, lessons: [] }, pages: final }); id = j.meta.id; await bkLoad(true); BK.open = id;
+    await bkUploadPdf(id, file).catch(e => toast('📖 لم يُرفع ملف الكتاب للتصفّح (' + (e.message || e) + ') — يمكنك إرفاقه لاحقًا من صفحة الكتاب', 'bad'));
     const todo = final.map((t, i) => t === '' ? i + 1 : 0).filter(Boolean);
     if (todo.length) await bkOcr(id, pdf, todo);
     await bkIndex(id, true);
@@ -201,3 +203,74 @@ async function bkFindLesson(q, book) {
   (BK.list || []).filter(b => !bw.length || bw.every(x => n(b.title + ' ' + b.subject + ' ' + b.grade).includes(x))).forEach(b => (b.lessons || []).forEach((l, i) => { const t = n(l.title + ' ' + l.unit); if (w.length && w.every(x => t.includes(x))) out.push({ b, l, i, exact: n(l.title) === n(q) }); }));
   const ex = out.filter(o => o.exact); return ex.length ? ex : out;
 }
+
+/* ── 📖 ملف الكتاب: رفع على أجزاء (10MB) إلى الخادم ليُتصفَّح من أي جهاز ── */
+async function bkUploadPdf(id, file) {
+  const api = getApi(), t = getTok(); if (!api || !t) throw new Error('الخادم غير مربوط');
+  const st = await libApi('/book-pdf/start', { id, size: file.size }), P = st.partSize || 10485760, N = Math.ceil(file.size / P), parts = [];
+  try {
+    for (let n = 1; n <= N; n++) { const blob = await file.slice((n - 1) * P, Math.min(file.size, n * P)).arrayBuffer(); let j = null;
+      for (let k = 0; k < 3 && !(j && j.ok); k++) { try { const r = await fetch(`${api}/book-pdf/part?t=${encodeURIComponent(t)}&u=${encodeURIComponent(st.uploadId)}&n=${n}`, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: blob }); j = await r.json(); } catch (e) { j = null; } if (!(j && j.ok)) await new Promise(z => setTimeout(z, 1500 * (k + 1))); }
+      if (!(j && j.ok)) throw new Error('انقطع الرفع'); parts.push({ partNumber: j.partNumber, etag: j.etag });
+      bkProg({ label: '☁️ رفع ملف الكتاب للتصفّح من أي جهاز', n, of: N, sub: `${Math.round(Math.min(file.size, n * P) / 1048576)} من ${Math.max(1, Math.round(file.size / 1048576))} ميجابايت` }); }
+    await libApi('/book-pdf/done', { u: st.uploadId, parts }); delete BK.docs[id]; await bkLoad(true);
+  } catch (e) { libApi('/book-pdf/abort', { u: st.uploadId }).catch(() => {}); throw e; }
+}
+async function bkAttachPdf(id, input) {
+  const file = input && input.files && input.files[0]; if (input) input.value = ''; if (!file || BK.busy) return; const b = bkBook(id);
+  try { bkProg({ label: '📖 فتح الملف…', n: 0, of: 1 }); const pdf = await bkPdf(file);
+    if (b && b.pagesCount && pdf.numPages !== b.pagesCount) throw new Error(`عدد صفحات الملف (${pdf.numPages}) لا يطابق الكتاب (${b.pagesCount}) — اختر الملف نفسه`);
+    await bkUploadPdf(id, file); bkProg(null); toast('📖 جاهز للتصفّح من أي جهاز', 'good'); } catch (e) { bkProg(null); toast(e.message || 'تعذّر', 'bad'); }
+}
+
+/* ── 📖 قارئ الكتاب: صفحة بصفحة، سحب يمين/يسار مثل الكتاب العربي، تكبير، قفز لدرس، ويتذكّر آخر صفحة ── */
+BK.docs = {};
+const BV = { id: '', n: 1, of: 1, z: 1, pdf: null, text: false, task: null, seq: 0 };
+async function bkDoc(id) {
+  if (BK.docs[id]) return BK.docs[id];
+  await loadLib(BK_PDFJS, () => typeof pdfjsLib !== 'undefined'); pdfjsLib.GlobalWorkerOptions.workerSrc = BK_PDFJS.replace('pdf.min.js', 'pdf.worker.min.js');
+  const u = `${getApi()}/book-pdf?id=${encodeURIComponent(id)}&t=${encodeURIComponent(getTok())}`;
+  BK.docs[id] = pdfjsLib.getDocument({ url: u, disableAutoFetch: true, disableStream: true, rangeChunkSize: 524288 }).promise.catch(e => { delete BK.docs[id]; throw e; });
+  return BK.docs[id];
+}
+async function bkView(id, page) {
+  try { await bkLoad(); } catch (e) {} const b = bkBook(id); if (!b) return;
+  let last = 0; try { last = +localStorage.getItem('bk_pg_' + id) || 0; } catch (e) {}
+  Object.assign(BV, { id, of: b.pagesCount || 1, n: Math.max(1, Math.min(b.pagesCount || 1, +page || last || 1)), z: 1, pdf: null, text: !b.pdf });
+  let el = document.getElementById('bk-viewer'); if (!el) { el = document.createElement('div'); el.id = 'bk-viewer'; el.className = 'bkv'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); document.body.appendChild(el); }
+  const L = b.lessons || [];
+  el.innerHTML = `<div class="bkv-top"><button type="button" class="bkv-x" onclick="bkViewClose()" aria-label="إغلاق">✕</button><div class="bkv-t"><b>${esc(b.title)}</b><small id="bkv-ls"></small></div>
+      <button type="button" class="bkv-ib" onclick="bkZoom(-1)" aria-label="تصغير">−</button><button type="button" class="bkv-ib" onclick="bkZoom(1)" aria-label="تكبير">+</button></div>
+    ${L.length ? `<div class="bkv-jump"><select id="bkv-sel" onchange="bkGo(+this.value)" aria-label="انتقل إلى درس"><option value="">📑 انتقل إلى درس…</option>${L.map(l => `<option value="${l.from}">${esc((l.unit ? l.unit + ' — ' : '') + l.title)} (ص ${l.from})</option>`).join('')}</select></div>` : ''}
+    ${BV.text ? '<div class="bkv-note">نسخة نصية — أرفق ملف الكتاب من صفحته لتتصفّح الصفحات الأصلية بصورها</div>' : ''}
+    <div class="bkv-stage" id="bkv-stage"><div class="bkv-page" id="bkv-page"></div></div>
+    <div class="bkv-bar"><button type="button" class="bkv-nb" onclick="bkGo(BV.n-1)" aria-label="الصفحة السابقة">▶ السابقة</button>
+      <label class="bkv-pn">ص <input id="bkv-n" type="number" inputmode="numeric" min="1" max="${BV.of}" value="${BV.n}" onchange="bkGo(+this.value)"> / ${BV.of}</label>
+      <button type="button" class="bkv-nb" onclick="bkGo(BV.n+1)" aria-label="الصفحة التالية">التالية ◀</button></div>
+    <div class="bkv-act" id="bkv-act"></div>`;
+  el.classList.add('on'); document.body.classList.add('bkv-open');
+  const st = document.getElementById('bkv-stage'); let x0 = 0, y0 = 0, t0 = 0;
+  st.addEventListener('touchstart', e => { if (e.touches.length !== 1) return; x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; t0 = Date.now(); }, { passive: true });
+  st.addEventListener('touchend', e => { const t = e.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0; if (BV.z > 1 || Date.now() - t0 > 700 || Math.abs(dx) < 60 || Math.abs(dy) > Math.abs(dx) * .6) return; bkGo(BV.n + (dx > 0 ? 1 : -1)); }, { passive: true });
+  st.addEventListener('dblclick', () => bkZoom(BV.z > 1 ? -9 : 1));
+  if (!BV.text) { document.getElementById('bkv-page').innerHTML = '<div class="bkv-load">⏳ جارٍ فتح الكتاب…</div>'; try { BV.pdf = await bkDoc(id); } catch (e) { BV.text = true; toast('تعذّر فتح ملف الكتاب — يُعرض نصّه', 'bad'); } }
+  bkGo(BV.n);
+}
+function bkViewClose() { const el = document.getElementById('bk-viewer'); if (el) { el.classList.remove('on'); el.innerHTML = ''; } document.body.classList.remove('bkv-open'); BV.id = ''; try { BV.task && BV.task.cancel(); } catch (e) {} }
+function bkZoom(d) { BV.z = d < -1 ? 1 : Math.max(1, Math.min(3, Math.round((BV.z + d * .5) * 2) / 2)); bkGo(BV.n, true); }
+async function bkGo(n, keep) {
+  if (!BV.id || !(n >= 1 && n <= BV.of)) return; const b = bkBook(BV.id), seq = ++BV.seq, pg = document.getElementById('bkv-page'), st = document.getElementById('bkv-stage'); if (!pg) return;
+  if (n !== BV.n && !keep) BV.z = 1; BV.n = n; try { localStorage.setItem('bk_pg_' + BV.id, String(n)); } catch (e) {}
+  const ni = document.getElementById('bkv-n'); if (ni) ni.value = n; const L = (b && b.lessons || []), cur = L.find(l => n >= l.from && n <= l.to), li = cur ? L.indexOf(cur) : -1;
+  const ls = document.getElementById('bkv-ls'); if (ls) ls.textContent = cur ? (cur.unit ? cur.unit + ' · ' : '') + cur.title : ''; const sel = document.getElementById('bkv-sel'); if (sel) sel.value = '';
+  const ac = document.getElementById('bkv-act'); if (ac) ac.innerHTML = cur ? `<button type="button" class="ai-btn sm" onclick="bkViewClose();bkMakeActivity('${esc(BV.id)}',${li})"><span class="ai-mark">✦</span> نشاط من «${esc(cur.title)}»</button>` : '';
+  if (BV.text || !BV.pdf) { pg.className = 'bkv-page bkv-txt'; pg.style.fontSize = BV.z + 'rem'; pg.textContent = '⏳'; try { const t = (await bkPages(BV.id, n, n))[0]; if (seq === BV.seq) pg.textContent = String(t || '').trim() || '(صفحة بلا نص — قد تكون صورًا أو لم تُقرأ بعد)'; } catch (e) { if (seq === BV.seq) pg.textContent = '⚠️ ' + e.message; } if (!keep) st.scrollTo(0, 0); return; }
+  try { try { BV.task && BV.task.cancel(); } catch (e) {} const page = await BV.pdf.getPage(n); if (seq !== BV.seq) return;
+    const v1 = page.getViewport({ scale: 1 }), W = Math.max(200, st.clientWidth - 16), H = Math.max(200, st.clientHeight - 16), sc = Math.min(W / v1.width, H / v1.height) * BV.z, vp = page.getViewport({ scale: sc }), dpr = Math.min(3, window.devicePixelRatio || 1);
+    const cv = document.createElement('canvas'); cv.width = Math.floor(vp.width * dpr); cv.height = Math.floor(vp.height * dpr); cv.style.width = Math.floor(vp.width) + 'px'; cv.style.height = Math.floor(vp.height) + 'px'; cv.setAttribute('aria-label', 'صفحة ' + n);
+    BV.task = page.render({ canvasContext: cv.getContext('2d'), viewport: vp, transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : null }); await BV.task.promise; if (seq !== BV.seq) return;
+    pg.className = 'bkv-page'; pg.innerHTML = ''; pg.appendChild(cv); if (!keep) st.scrollTo(0, 0);
+    if (n < BV.of) BV.pdf.getPage(n + 1).catch(() => {});   // تجهيز التالية
+  } catch (e) { if (e && e.name === 'RenderingCancelledException') return; if (seq === BV.seq) pg.innerHTML = `<div class="bkv-load">⚠️ تعذّر عرض الصفحة — ${esc(e.message || '')}</div>`; }
+}
+document.addEventListener('keydown', e => { if (!BV.id || /INPUT|SELECT|TEXTAREA/.test((e.target || {}).tagName || '')) return; if (e.key === 'Escape') bkViewClose(); else if (e.key === 'ArrowLeft') bkGo(BV.n + 1); else if (e.key === 'ArrowRight') bkGo(BV.n - 1); });

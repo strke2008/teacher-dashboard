@@ -345,6 +345,13 @@ ${bk ? `اعتمد فقط على نص الدرس التالي من الكتاب 
       if (!L.length) return { books: [], note: 'المكتبة فارغة — ارفع كتاب المادة من صفحة «مكتبة الكتب»' };
       if (a.query) { const m = await bkFindLesson(a.query, a.book); return { query: a.query, found: m.slice(0, 15).map(o => ({ book: o.b.title, unit: o.l.unit, lesson: o.l.title, pages: o.l.from + '-' + o.l.to })) }; }
       return { books: L.map(b => ({ title: b.title, subject: b.subject || '', grade: b.grade || '', pages: b.pagesCount || 0, lessons: (b.lessons || []).slice(0, 120).map(l => (l.unit ? l.unit + ' — ' : '') + l.title) })) }; } },
+  open_book: { act: 1, d: 'فتح كتاب من «مكتبة الكتب» للتصفّح: على درس أو صفحة معيّنة (يُفتح فورًا). args: {lesson?:"عنوان الدرس", book?, page?:رقم صفحة الملف}', src: () => '📖 تصفّح الكتاب',
+    async run(a) { if (typeof bkLoad !== 'function') return { error: 'مكتبة الكتب غير متاحة' }; let L; try { L = await bkLoad(); } catch (e) { return { error: e.message }; } if (!L.length) return { error: 'المكتبة فارغة — ارفع الكتاب من «مكتبة الكتب»' };
+      if (a.lesson) { const m = await bkFindLesson(a.lesson, a.book); if (!m.length) return { error: 'لم أجد هذا الدرس في الكتب' }; if (m.length > 1 && !m[0].exact) return { error: 'أكثر من درس يطابق — حدّد', matches: m.slice(0, 8).map(o => o.l.title + ' — ' + o.b.title) };
+        const o = m[0]; return { action: 'nav', page: 'book', label: '📖 ' + o.b.title, name: o.l.title + ' (ص ' + o.l.from + ')', _bid: o.b.id, _pg: o.l.from }; }
+      const bt = asstTok(a.book || ''), B = bt.length ? L.filter(b => bt.every(w => asstTok(b.title + ' ' + (b.subject || '') + ' ' + (b.grade || '')).some(y => y.includes(w)))) : L;
+      if (B.length !== 1) return B.length ? { error: 'أي كتاب؟', books: B.map(b => b.title) } : { error: 'لم أجد الكتاب', books: L.map(b => b.title) };
+      const pg = Math.max(1, Math.min(B[0].pagesCount || 1, parseInt(a.page, 10) || 0)) || 0; return { action: 'nav', page: 'book', label: '📖 ' + B[0].title, ...(pg ? { name: 'ص ' + pg } : {}), _bid: B[0].id, _pg: pg }; } },
   lesson_text: { d: 'نص درس من «مكتبة الكتب» (للإجابة عن محتواه أو تلخيصه أو استخراج مفاهيمه). args: {lesson:"عنوان الدرس", book?}', src: a => '📖 ' + (a._t || a.lesson || ''),
     async run(a) { if (!a.lesson) return { error: 'حدّد الدرس' }; const bk = await asstBookSrc({ lesson: a.lesson, book: a.book }); if (!bk) return { error: 'لم أجد الدرس' }; if (bk.error) return bk; a._t = bk.title;
       return { lesson: bk.title, source: bk.label, text: bk.text.slice(0, 12000) }; } },
@@ -552,6 +559,7 @@ function asstGo(c, keepLive) {
   asstClose(keepLive);
   try {
     if (c.page === 'student') { ctOpenProfile(c._sid); return; }
+    if (c.page === 'book') { goTab('books'); setTimeout(() => { try { bkView(c._bid, c._pg); } catch (e) {} }, 300); return; }
     if (c.page === 'remedial') { goTab('hw'); setTimeout(() => { try { window.remedialHw(c._hid); } catch (e) {} }, 400); return; }
     if (c.page === 'plan') { if (c._sid) window.ctPlanStudent(c._sid); else window.ctGroupPlan(c._skill, c._ids); return; }
     if (c.page === 'report') { window.printStudentReport(c._sid); return; }

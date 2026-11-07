@@ -1,5 +1,5 @@
 /* 🧪 اختبارات الخادم: رحلة الطالب أولًا (الأهم)، ثم دخول المعلم والإشعارات والأوراق */
-import { loadWorker, newEnv, caller, suite, eq, ok, TOKEN } from './harness.mjs';
+import { loadWorker, newEnv, caller, suite, eq, ok, TOKEN, memR2 } from './harness.mjs';
 
 export default async function run() {
   const S = suite('الخادم');
@@ -151,6 +151,36 @@ export default async function run() {
     eq((await call(`/book?t=${TOKEN}&id=${id}&from=5&to=5`)).j.pages, ['النسيج الطلائي']);
     eq((await call(`/book?t=bad&id=${id}`)).s, 401, 'قراءة بلا رمز');
     eq((await call('/book-del', { method: 'POST', body: { t: TOKEN, id } })).s, 200); eq((await call('/books?t=' + TOKEN)).j.books, []); eq((await call(`/book?t=${TOKEN}&id=${id}`)).s, 404);
+  });
+  await S.t('📖 ملف الكتاب للتصفّح: رفع على أجزاء للمعلم فقط، قراءة بـ Range (206) بلا تنزيل الملف كاملًا، والحذف يحذف الملف', async () => {
+    const R = memR2(), E = newEnv({ FILES: R }), C = caller(W, E);
+    const id = (await C('/book-save', { method: 'POST', body: { t: TOKEN, meta: { title: 'كتاب' }, pages: ['ص1'] } })).j.meta.id, pdf = Buffer.from('%PDF-1.4 ' + 'x'.repeat(300));
+    eq((await C('/book-pdf/start', { method: 'POST', body: { t: 'bad', id, size: pdf.length } })).s, 401, 'بلا رمز');
+    eq((await C('/book-pdf/start', { method: 'POST', body: { t: TOKEN, id: 'nope', size: 9 } })).s, 404, 'كتاب غير موجود');
+    eq((await C('/book-pdf/start', { method: 'POST', body: { t: TOKEN, id, size: 500 * 1024 * 1024 } })).j.error, 'file too large');
+    const st = await C('/book-pdf/start', { method: 'POST', body: { t: TOKEN, id, size: pdf.length } }); eq(st.s, 200); const u = st.j.uploadId;
+    eq((await C(`/book-pdf/part?t=bad&u=${u}&n=1`, { method: 'POST', body: pdf.subarray(0, 200), raw: true })).s, 401, 'جزء بلا رمز');
+    const p1 = await C(`/book-pdf/part?t=${TOKEN}&u=${u}&n=1`, { method: 'POST', body: pdf.subarray(0, 200), raw: true }), p2 = await C(`/book-pdf/part?t=${TOKEN}&u=${u}&n=2`, { method: 'POST', body: pdf.subarray(200), raw: true });
+    const dn = await C('/book-pdf/done', { method: 'POST', body: { t: TOKEN, u, parts: [p2.j, p1.j] } }); eq([dn.s, dn.j.meta.pdf.size], [200, pdf.length], 'اكتمل');
+    eq((await C('/books?t=' + TOKEN)).j.books[0].pdf.size, pdf.length, 'في القائمة');
+    eq((await C(`/book-pdf?t=bad&id=${id}`)).s, 401, 'قراءة بلا رمز');
+    const full = await C(`/book-pdf?t=${TOKEN}&id=${id}`); eq([full.s, full.txt.length, full.h.get('accept-ranges'), full.h.get('content-type')], [200, pdf.length, 'bytes', 'application/pdf']);
+    const rg = await C(`/book-pdf?t=${TOKEN}&id=${id}`, { headers: { range: 'bytes=0-7' } }); eq([rg.s, rg.txt, rg.h.get('content-range'), rg.h.get('content-length')], [206, '%PDF-1.4', 'bytes 0-7/' + pdf.length, '8'], 'Range');
+    ok(/Content-Range/.test(rg.h.get('access-control-expose-headers') || ''), 'كشف الترويسات لـ pdf.js');
+    const bad = await C('/book-pdf/start', { method: 'POST', body: { t: TOKEN, id, size: 10 } }), pb = await C(`/book-pdf/part?t=${TOKEN}&u=${bad.j.uploadId}&n=1`, { method: 'POST', body: Buffer.from('12345'), raw: true });
+    eq((await C('/book-pdf/done', { method: 'POST', body: { t: TOKEN, u: bad.j.uploadId, parts: [pb.j] } })).j.error, 'size mismatch', 'حجم ناقص');
+    eq([R.M.size, (await C(`/book-pdf?t=${TOKEN}&id=${id}`)).txt.length], [1, pdf.length], 'رفع فاشل لا يمسح الملف السليم ولا يبقى منه شيء');
+    const s2 = await C('/book-pdf/start', { method: 'POST', body: { t: TOKEN, id, size: 6 } }), q2 = await C(`/book-pdf/part?t=${TOKEN}&u=${s2.j.uploadId}&n=1`, { method: 'POST', body: Buffer.from('%PDF-2'), raw: true });
+    await C('/book-pdf/done', { method: 'POST', body: { t: TOKEN, u: s2.j.uploadId, parts: [q2.j] } }); eq([R.M.size, (await C(`/book-pdf?t=${TOKEN}&id=${id}`)).txt], [1, '%PDF-2'], 'الاستبدال يحذف القديم بعد اكتمال الجديد');
+    eq((await C('/books?t=' + TOKEN)).j.books[0].pdf.key, undefined, 'مفتاح التخزين لا يُكشف');
+    { const T = (await C('/auth/login', { method: 'POST', body: { password: TOKEN, label: 'كتب' } })).j.token, bin = Buffer.from([0x25, 0x50, 0xff, 0xfe, 0x00, 0xc3, 0x28, 0x80, 0x7b, 0x22, 0x74, 0x22, 0x7d]);
+      const s3 = await C('/book-pdf/start', { method: 'POST', headers: { 'X-Teacher-Token': T }, body: { t: T, id, size: bin.length } }); eq(s3.s, 200, 'بدء بالجلسة');
+      const q3 = await C(`/book-pdf/part?t=${encodeURIComponent(T)}&u=${s3.j.uploadId}&n=1`, { method: 'POST', headers: { 'X-Teacher-Token': T, 'content-type': 'application/octet-stream' }, body: bin, raw: true });
+      const q4 = await C(`/book-pdf/part?t=${encodeURIComponent(T)}&u=${s3.j.uploadId}&n=2`, { method: 'POST', headers: { 'X-Teacher-Token': T }, body: Buffer.from([0xff, 0x00, 0x81]), raw: true });   // بلا نوع محتوى أيضًا
+      const fn = Object.keys(Object.fromEntries(R.U)).length; eq([q3.s, q4.s, fn], [200, 200, 1], 'أجزاء بالجلسة');
+      const parts = R.U.get(s3.j.uploadId).parts; eq([Buffer.compare(parts.get(1), bin), Buffer.compare(parts.get(2), Buffer.from([0xff, 0x00, 0x81]))], [0, 0], 'البايتات تصل كما هي مع جلسة المعلم (لا تُقرأ نصًّا)');
+      await C('/book-pdf/abort', { method: 'POST', headers: { 'X-Teacher-Token': T }, body: { t: T, u: s3.j.uploadId } }); }
+    await C('/book-del', { method: 'POST', body: { t: TOKEN, id } }); eq([R.M.size, (await C(`/book-pdf?t=${TOKEN}&id=${id}`)).s], [0, 404], 'الحذف');
   });
   await S.t('🔊 صوت «مساعدي» (k=asst) يُحفظ 3 أيام فقط، وجمل المختبر دائمة', async () => {
     const E = newEnv({ ELEVENLABS_API_KEY: 'x' }), C = caller(W, E), puts = []; const put0 = E.HW.put.bind(E.HW); E.HW.put = (k, v, o) => { puts.push([k, o]); return put0(k, v, o); };

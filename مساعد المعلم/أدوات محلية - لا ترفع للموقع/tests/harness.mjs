@@ -19,6 +19,25 @@ export function newEnv(extra = {}) {
   const fakeR2 = { get: async () => null, put: async () => ({}), head: async () => null, delete: async () => {} };
   return { HW: memKV({ 'tstate:main': JSON.stringify({ students: ROSTER }) }), TEACHER_TOKEN: TOKEN, FILES: fakeR2, ...extra };
 }
+/* R2 في الذاكرة: رفع على أجزاء وقراءة بـ Range — لاختبارات تحتاج ملفات حقيقية (مكتبة الكتب) */
+export function memR2() {
+  const M = new Map(), U = new Map(), meta = {};
+  const obj = (key, buf, range) => { const size = buf.length; let off = 0, len = size;
+    if (range) { const h = typeof range.get === 'function' ? range.get('range') : null, m = h && /bytes=(\d*)-(\d*)/.exec(h);
+      if (m) { if (m[1] === '') { len = Math.min(size, +m[2]); off = size - len; } else { off = +m[1]; len = (m[2] === '' ? size - 1 : Math.min(size - 1, +m[2])) - off + 1; } }
+      else if (range.offset != null || range.length != null) { off = range.offset || 0; len = range.length != null ? range.length : size - off; } }
+    const body = buf.subarray(off, off + len);
+    return { key, size, body: new Blob([body]).stream(), range: range ? { offset: off, length: len } : undefined, arrayBuffer: async () => body.buffer.slice(body.byteOffset, body.byteOffset + body.length),
+      writeHttpMetadata: h => { if (meta[key]) h.set('content-type', meta[key]); } }; };
+  return { M, U,
+    get: async (k, o) => M.has(k) ? obj(k, M.get(k), o && o.range) : null, head: async k => M.has(k) ? { key: k, size: M.get(k).length } : null,
+    put: async (k, v) => { M.set(k, Buffer.from(v instanceof ArrayBuffer ? new Uint8Array(v) : v)); return {}; }, delete: async k => { M.delete(k); },
+    createMultipartUpload: async (k, o) => { const id = 'mpu' + Math.random().toString(36).slice(2); U.set(id, { k, parts: new Map() }); if (o && o.httpMetadata) meta[k] = o.httpMetadata.contentType; return { uploadId: id, key: k }; },
+    resumeMultipartUpload: (k, id) => ({
+      uploadPart: async (n, buf) => { const u = U.get(id); if (!u) throw new Error('no upload'); u.parts.set(n, Buffer.from(new Uint8Array(buf))); return { partNumber: n, etag: 'e' + n }; },
+      complete: async parts => { const u = U.get(id); if (!u) throw new Error('no upload'); const all = Buffer.concat(parts.map(p => u.parts.get(p.partNumber))); M.set(k, all); U.delete(id); return { key: k, size: all.length }; },
+      abort: async () => { U.delete(id); } }) };
+}
 export function caller(W, env) {
   const ctx = { waitUntil: p => p && p.catch && p.catch(() => {}) };
   return async (p, { method = 'GET', headers = {}, body, raw } = {}) => {
