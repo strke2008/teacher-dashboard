@@ -406,6 +406,7 @@ export default async function run() {
           const sm = await ASST_TOOLS.search_messages.run({ query: 'الاختبار' }); out.search = sm.found;
           // اقتراح بعد رصد الغياب
           const cl = window.ctLoad; window.ctLoad = async () => CT_DATA;   // تزامن الخلفية لا يمسح الغيابات المحقونة أثناء الاختبار
+          const D5 = CT_DATA; D5.participation = D5.participation || {}; days.forEach(d => { D5.participation[d] = D5.participation[d] || {}; D5.participation[d][s0.id] = { status: 'غائب', at: 1 }; });   // فتح اللوحة قد يستبدل CT_DATA؛ نحقن في الحالي
           asstOpen(); ASST.msgs = []; const rec = await ASST_TOOLS.record_attendance.run({ students: [s0.name], status: 'غائب' }); try { localStorage.setItem('asst_brief_seen', asstToday()); } catch (e) {} ASST.msgs.push({ html: 'x', cards: [{ ...rec, state: 'ask' }] }); const ri = ASST.msgs.length - 1; asstAct(ri, 0, 'do'); await new Promise(z => setTimeout(z, 1200));
           const hint = ASST.msgs.find(m => /3 غيابات/.test(m.html || '')); out.hint = !!(hint && hint.cards[0].action === 'drafts'); asstAct(ri, 0, 'undo'); window.ctLoad = cl;
           // «نفّذ» بالصوت
@@ -413,7 +414,7 @@ export default async function run() {
           LIVE.said = 'كم نقاطه'; const no1 = liveConfirm(); LIVE.said = 'تمام نفّذ'; const yes = liveConfirm(); await new Promise(z => setTimeout(z, 600)); const after = ASST.msgs[pi].cards[0].state;
           asstAct(pi, 0, 'undo'); const msg = await ASST_TOOLS.send_message.run({ to: 'students', students: [s0.name], title: 't', body: 'b' }); ASST.msgs.push({ html: 'x', cards: [{ ...msg, state: 'ask' }] }); const no2 = liveConfirm();
           out.voice = [!!no1.error, yes.done, after, !!no2.error]; LIVE.said = ''; s0.points = k0;
-          days.forEach(d => delete D.participation[d][s0.id]); window.readingAICall = rc; window.exportGrades = ex; window.asksLoad = al; asstClose(); ASST.msgs = []; return out; });
+          [D, CT_DATA].forEach(X => days.forEach(d => { if (X && X.participation && X.participation[d]) delete X.participation[d][s0.id]; })); window.readingAICall = rc; window.exportGrades = ex; window.asksLoad = al; asstClose(); ASST.msgs = []; return out; });
         eq(r, { risk: true, week: true, plan: [1, 45], reports: ['drafts', 'report', true, true], exp: [1, true], search: 1, hint: true, voice: [true, 'points', 'done', true] }, 'الدفعة الخامسة'); eq(errs, [], 'أخطاء'); });
       await S.t('🆕 مساعدي — الدفعة السادسة: الواجب اليومي، ما ينتظر المراجعة، المستويات، سجل طالب، إحصاء الأنشطة، المشاريع، المتجر، مرشّحو الشهادات، تعيين مسؤول بتأكيد، وتذكير أسبوعي متكرر', async () => {
         const r = await p.evaluate(async () => { if (!CT_DATA) { try { await ctLoad(); } catch (e) {} } const S = STUDENTS, s0 = S[0], s1 = S[1], cls = s0.cls, D = CT_DATA, out = {}, d = asstToday();
@@ -426,8 +427,8 @@ export default async function run() {
           const lv = await ASST_TOOLS.levels_overview.run({ cls }); out.levels = !!(lv.levels && lv.levels.reduce((n, x) => n + x.count, 0) > 0);
           const tl = await ASST_TOOLS.student_timeline.run({ student: s0.name }); out.timeline = [tl.name, tl.last_submissions.some(x => x.title === fh.title)];
           const as = await ASST_TOOLS.activity_stats.run({}); out.stats = Array.isArray(as.activities);
-          STORE_PURCHASES = [{ name: s0.name, kind: 'exam-bonus', price: 30, add: 2, at: Date.now() }, { name: s1.name, kind: 'exam-bonus', price: 10, add: 1, at: 1 }];
-          const sp = await ASST_TOOLS.store_purchases.run({}); out.store = [sp.count, sp.spent, /درجة/.test(sp.purchases[0].item)];
+          STORE_PURCHASES = [{ name: s0.name, kind: 'exam-bonus', price: 30, add: 2, at: Date.now() }, { name: s1.name, card: 'hwforgive', kind: 'purchase', price: 10, hwTitle: 'واجب الخلية', at: Date.now() - 1000 }];
+          const sp = await ASST_TOOLS.store_purchases.run({}); out.store = [sp.count, sp.spent, /درجة/.test(sp.purchases[0].item), /واجب الخلية/.test(sp.purchases[1].item) && !/عنصر/.test(sp.purchases[1].item)];
           const cc = await ASST_TOOLS.certificate_candidates.run({ cls }); out.cert = Array.isArray(cc.candidates);
           asstOpen(); ASST.msgs = []; const du = await ASST_TOOLS.assign_duty.run({ student: s0.name, title: 'مسؤول السبورة' }); ASST.msgs.push({ html: 'x', cards: [{ ...du, state: 'ask' }] }); const di = ASST.msgs.length - 1; asstPaint();
           const card = /مسؤول السبورة/.test(document.getElementById('asst-msgs').innerHTML); asstAct(di, 0, 'do'); await new Promise(z => setTimeout(z, 600));
@@ -436,7 +437,7 @@ export default async function run() {
           out.weekly = [rm.days, rm.weeklyLabel, ev.days.length];
           if (role) await ctSave(D2 => { D2.roles = (D2.roles || []).filter(x => x.title !== 'مسؤول السبورة'); });
           HW.splice(HW.indexOf(fh), 1); if (h0) D.homework[d] = h0; else delete D.homework[d]; PROJECTS_DATA = pP || []; STORE_PURCHASES = pS || []; asstClose(); ASST.msgs = []; return out; });
-        eq(r, { hw: [true, true, true], pending: [true, 1], proj: [2, 1], levels: true, timeline: [r.timeline[0], true], stats: true, store: [1, 30, true], cert: true, duty: ['duty', true, 'done', true], weekly: [[0, 2], 'كل الأحد والثلاثاء', 5] }, 'الدفعة السادسة'); eq(errs, [], 'أخطاء'); });
+        eq(r, { hw: [true, true, true], pending: [true, 1], proj: [2, 1], levels: true, timeline: [r.timeline[0], true], stats: true, store: [2, 40, true, true], cert: true, duty: ['duty', true, 'done', true], weekly: [[0, 2], 'كل الأحد والثلاثاء', 5] }, 'الدفعة السادسة'); eq(errs, [], 'أخطاء'); });
       await S.t('🆕 مساعدي — الدفعة السابعة: مجموع الواجب والمشاركة، أيام لم تُرصد، سجل التواصل، الملاحظات الخاصة، مقارنة طالبين، وتسجيل تواصل/ملاحظة بتأكيد وتراجع، وإنهاء مهمة', async () => {
         const r = await p.evaluate(async () => { if (!CT_DATA) { try { await ctLoad(); } catch (e) {} } const S = STUDENTS, s0 = S[0], s1 = S[1], cls = s0.cls, D = CT_DATA, out = {}, d = asstToday();
           const cl = window.ctLoad; window.ctLoad = async () => CT_DATA; D.homework = D.homework || {}; D.participation = D.participation || {};

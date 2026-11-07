@@ -36,6 +36,7 @@ const asstToday = () => (typeof ctToday === 'function' ? ctToday() : new Date(Da
 async function asstClassroom() { if (typeof CT_DATA !== 'undefined' && CT_DATA) return CT_DATA; try { if (typeof ctLoad === 'function') await ctLoad(); } catch (e) {} return (typeof CT_DATA !== 'undefined' && CT_DATA) || window._classroomData || {}; }
 async function asstGrades() { try { if (typeof ctEnsureGrades === 'function') return await ctEnsureGrades(); } catch (e) {} return null; }
 const ABSENT = ['غائب', 'غائب بعذر'];
+function asstCardName(q) { try { if (typeof storeCardLabel === 'function') return storeCardLabel(q); } catch (e) {} return String(q.card || q.title || 'بطاقة'); }
 const asstFrom = (days, def) => new Date(Date.now() + 3 * 3600e3 - Math.max(1, Math.min(365, Number(days) || def)) * 864e5).toISOString().slice(0, 10);
 function asstCount(M, from) { const c = {}; Object.entries(M || {}).forEach(([d, P]) => { if (d < from) return; Object.entries(P || {}).forEach(([id, v]) => { const st = v && (typeof v === 'string' ? v : v.status); if (st) { const o = c[id] || (c[id] = {}); o[st] = (o[st] || 0) + 1; } }); }); return c; }
 
@@ -358,7 +359,7 @@ const ASST_TOOLS = {
       return { projects: Object.entries(by).map(([title, o]) => ({ title, ...o })) }; } },
   store_purchases: { d: 'آخر عمليات الشراء من متجر الدرجات للطلاب (من اشترى ماذا وبكم نقطة). args: {days?:14}', src: () => '🛒 المتجر',
     async run(a) { const L = typeof STORE_PURCHASES !== 'undefined' && Array.isArray(STORE_PURCHASES) ? STORE_PURCHASES : [], since = Date.now() - Math.max(1, Math.min(365, Number(a.days) || 14)) * 864e5;
-      const R = L.filter(q => q && Number(q.at || 0) >= since); return { count: R.length, spent: R.reduce((n, q) => n + (Number(q.price) || 0), 0), purchases: R.slice(0, 30).map(q => ({ student: q.name || '', item: q.title || q.item || q.label || (q.kind === 'exam-bonus' ? `+${q.add || ''} درجة اختبار` : 'عنصر'), price: Number(q.price) || 0, date: q.at ? new Date(Number(q.at) + 3 * 3600e3).toISOString().slice(0, 10) : '' })) }; } },
+      const R = L.filter(q => q && Number(q.at || 0) >= since); return { count: R.length, spent: R.reduce((n, q) => n + (Number(q.price) || 0), 0), purchases: R.slice(0, 30).map(q => ({ student: q.name || '', item: q.kind === 'exam-bonus' ? `+${q.add || ''} درجة في اختبار الفترة ${q.period || 1}` : asstCardName(q), price: Number(q.price) || 0, date: q.at ? new Date(Number(q.at) + 3 * 3600e3).toISOString().slice(0, 10) : '' })) }; } },
   certificate_candidates: { d: 'مرشّحون لشهادة شكر: الأعلى في الفترة ممن لم يأخذ شهادة في آخر 30 يومًا. args: {cls?, n?}', src: () => '🏅 مرشّحو الشهادات',
     async run(a) { const r = await ASST_TOOLS.ranking.run({ cls: a.cls, by: 'total', n: 60 }); if (r.error) return r; const D = await asstClassroom(), from = new Date(Date.now() + 3 * 3600e3 - 30 * 864e5).toISOString().slice(0, 10);
       const had = new Set((Array.isArray(D.certificates) ? D.certificates : []).filter(c => c && String(c.date || '') >= from).map(c => String(c.studentId))), byName = new Map(asstStudents().map(s => [s.name + '|' + (s.cls || ''), s]));
