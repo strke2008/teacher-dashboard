@@ -128,8 +128,16 @@ const ASST_TOOLS = {
       const cls = asstCls(a.cls), asc = a.order === 'asc', L = asstStudents().filter(s => !cls || String(s.cls || '') === cls).map(s => ({ name: s.name, cls: s.cls || '', reward_points: Number(s.points) || 0 })).sort((x, y) => asc ? x.reward_points - y.reward_points : y.reward_points - x.reward_points);
       return { cls: cls || 'كل الفصول', total: L.reduce((n, x) => n + x.reward_points, 0), students: L.slice(0, Math.max(1, Math.min(50, Number(a.n) || 10))) }; } },
   /* ── 📝 الاختبارات والتصحيح الآلي والمهارات (قراءة) ── */
-  exam_scores: { d: 'دفتر الاختبارات: قائمة الاختبارات ومتوسطاتها، أو درجات اختبار معيّن (الأعلى/الأقل/الغائب/من لم يُرصد له)، أو درجات طالب في كل الاختبارات. args: {test?:"جزء من العنوان" أو "آخر", student?, cls?, sem?:1|2, per?:1|2 (افتراضي الفترة الحالية)}', src: a => '📝 دفتر الاختبارات' + (a._title ? ' — ' + a._title : ''),
-    async run(a) { const { sem, per, label } = asstSP(a), b = await asstBook(sem, per), cls = asstCls(a.cls); if (!b.tests.length) return { period: label, error: 'لا توجد اختبارات في دفتر هذه الفترة' };
+  exam_scores: { d: 'دفتر الاختبارات: قائمة الاختبارات ومتوسطاتها، أو درجات اختبار معيّن (الأعلى/الأقل/الغائب/من لم يُرصد له)، أو درجات طالب في كل الاختبارات. درجات طالب بلا فترة محددة = كل الفترات التي فيها اختبارات. args: {test?:"جزء من العنوان" أو "آخر", student?, cls?, sem?:1|2, per?:1|2 (افتراضي الفترة الحالية)}', src: a => '📝 دفتر الاختبارات' + (a._title ? ' — ' + a._title : ''),
+    async run(a) {
+      /* 👤 درجات طالب بلا فترة محددة: كل الفترات التي فيها اختبارات (لا الفترة الحالية وحدها) */
+      if (a.student && a.sem == null && a.per == null && !a.test) { const m = asstFindStudent(a.student); if (m.length !== 1) return m.length ? { error: 'أكثر من طالب يطابق', matches: m.slice(0, 8).map(s => s.name + ' — ' + (s.cls || '')) } : { error: 'لم أجد الطالب' };
+        const s = m[0], periods = [];
+        for (const [se, pe] of [[1, 1], [1, 2], [2, 1], [2, 2]]) { const { label } = asstSP({ sem: se, per: pe }), b = await asstBook(se, pe); if (!b.tests.length) continue;
+          periods.push({ period: label, tests: b.tests.map(t => ({ title: t.title, max: Number(t.max) || 0, score: asstExV(b, s.id, t.id) ?? 'لم يُرصد' })) }); }
+        if (!periods.length) return { name: s.name, error: 'لا توجد اختبارات في دفتر أي فترة' };
+        return { name: s.name, cls: s.cls || '', periods, current: asstSP({}).label, tests: periods.flatMap(p => p.tests.map(t => ({ ...t, period: p.period }))) }; }
+      const { sem, per, label } = asstSP(a), b = await asstBook(sem, per), cls = asstCls(a.cls); if (!b.tests.length) return { period: label, error: 'لا توجد اختبارات في دفتر هذه الفترة' };
       const pool = asstStudents().filter(s => !cls || String(s.cls || '') === cls), val = (s, t) => asstExV(b, s.id, t.id);
       if (a.student) { const m = asstFindStudent(a.student); if (m.length !== 1) return m.length ? { error: 'أكثر من طالب يطابق', matches: m.slice(0, 8).map(s => s.name + ' — ' + (s.cls || '')) } : { error: 'لم أجد الطالب' };
         const s = m[0]; return { period: label, name: s.name, cls: s.cls || '', tests: b.tests.map(t => ({ title: t.title, max: Number(t.max) || 0, score: val(s, t) ?? 'لم يُرصد' })) }; }

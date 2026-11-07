@@ -561,6 +561,11 @@ export default async function run() {
           b.scores[s[0].id] = { exAS1: { score: 17, at: 1 } }; b.scores[s[1].id] = { exAS1: { absent: true, at: 1 } };
           const out = {}; out.sp = asstSP({}); out.due = [asstDue('الخميس'), asstDue('بكرة'), asstDue('2026-12-01'), asstDue('كلام')];
           const sc = await ASST_TOOLS.exam_scores.run({ test: 'الفترة الأولى' }); out.scores = [sc.scores && sc.scores.length, sc.absent && sc.absent.length, sc.max];
+          { /* درجات طالب بلا فترة: كل الفترات التي فيها اختبارات (لا الحالية وحدها) */ const op = sem === 1 && per === 1 ? [1, 2] : [1, 1], ob = ctBook(CT_DATA, op[0], op[1]), keepO = JSON.stringify({ t: ob.tests, s: ob.scores });
+            ob.tests.push({ id: 'exAS0', title: 'اختبار قديم', max: 10 }); ob.scores[s[0].id] = Object.assign({}, ob.scores[s[0].id], { exAS0: { score: 9, at: 1 } });
+            const st = await ASST_TOOLS.exam_scores.run({ student: s[0].name }), one = await ASST_TOOLS.exam_scores.run({ student: s[0].name, sem, per });
+            out.allPer = [(st.periods || []).length >= 2, (st.tests || []).some(t => t.title === 'اختبار قديم' && t.score === 9 && t.period === asstSP({ sem: op[0], per: op[1] }).label), (st.tests || []).some(t => t.title === 'اختبار الفترة الأولى' && t.score === 17), (one.tests || []).some(t => t.title === 'اختبار قديم')];
+            const K0 = JSON.parse(keepO); ob.tests = K0.t; ob.scores = K0.s; }
           // تحليل الأسئلة: الأوراق بمعرّفات الطلاب الحقيقية
           const realIds = { S1: s[0].id, S2: s[1].id, S3: s[2].id }; const of = window.fetch; window.fetch = (u, o) => of(String(u), o).then(async res => { if (!/papers\/full/.test(String(u))) return res; const j = await res.json(); j.papers.forEach(pp => pp.sid = realIds[pp.sid]); return new Response(JSON.stringify(j)); });
           const it = await ASST_TOOLS.exam_items.run({ test: 'الفترة الأولى' }), q2 = await ASST_TOOLS.exam_items.run({ test: 'الفترة الأولى', question: '٢' }); window.fetch = of;
@@ -593,7 +598,7 @@ export default async function run() {
           return out; });
         await p.unroute(/generativelanguage\.googleapis\.com/); await p.unroute(/\/omr\/(papers\/full|get)\?/);
         ok(r.due[0] && r.due[1] && r.due[2] === '2026-12-01' && r.due[3] === '', 'المواعيد: ' + r.due);
-        eq(r.scores, [1, 1, 20], 'درجات الاختبار'); eq(r.items, [3, 2, 67], 'تحليل الأسئلة'); eq(r.q2[1], 67, 'نسبة س2'); ok(/أ$/.test(r.q2[0]), 'من أخطأ في س2: ' + r.q2[0]);
+        eq(r.scores, [1, 1, 20], 'درجات الاختبار'); eq(r.allPer, [true, true, true, false], 'درجات الطالب في كل الفترات'); eq(r.items, [3, 2, 67], 'تحليل الأسئلة'); eq(r.q2[1], 67, 'نسبة س2'); ok(/أ$/.test(r.q2[0]), 'من أخطأ في س2: ' + r.q2[0]);
         eq((r.q3blank.blank || []).length, 1, 'من ترك س3'); ok(r.skills, 'المهارات');
         eq(r.card, ['exam', 2, 18, 20, 25, 1, 'ask'], 'بطاقة الدرجات'); eq(r.pre, 17, 'كُتب قبل التأكيد'); eq(r.after, [18, 20], 'الرصد'); ok(r.outbox, 'طابور الدفتر'); eq(r.undone, [17, true], 'التراجع');
         eq(r.act, ['activity', 2, true, true], 'بطاقة النشاط'); eq(r.draft, [1, 'الخلية', 2, false, false, true, true], 'المسودة');
