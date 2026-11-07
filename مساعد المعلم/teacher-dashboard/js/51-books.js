@@ -30,11 +30,30 @@ async function bkRender(force) {
   if (!BK.list || force) { if (!BK.list) el.innerHTML = '<div class="bk-empty">⏳ جارٍ التحميل…</div>'; try { await bkLoad(true); } catch (e) { el.innerHTML = `<div class="bk-empty">⚠️ ${esc(e.message)}</div>`; return; } }
   if (BK.open && bkBook(BK.open)) { el.innerHTML = bkBookHTML(bkBook(BK.open)); return; }
   BK.open = ''; const L = BK.list;
-  el.innerHTML = bkProgHTML() + (L.length ? `<div class="bk-grid">${L.map(b => `<button type="button" class="bk-card" onclick="bkOpen('${esc(b.id)}')">
-      <span class="bk-cover" style="--h:${bkHue(b.subject || b.title)}"><b>${esc((b.subject || b.title || '').slice(0, 14))}</b><small>${esc(b.grade || '')}</small></span>
-      <span class="bk-info"><b>${esc(b.title)}</b><small>${b.pagesCount || 0} صفحة · ${(b.lessons || []).length} درس</small>
-      ${b.ocrPending ? `<span class="bk-warn">📷 ${b.ocrPending} صفحة لم تُقرأ بعد</span>` : (b.lessons || []).length ? '' : '<span class="bk-warn">لا فهرس دروس بعد</span>'}</span></button>`).join('')}</div>`
-    : `<div class="bk-empty"><div class="bk-empty-ic">📚</div><b>مكتبتك فارغة</b><p>ارفع كتاب المادة (PDF) مرة واحدة، وبعدها اختر الدرس متى ما احتجته لتوليد نشاط أو نص قرائي أو من «مساعدي».</p></div>`);
+  el.innerHTML = bkProgHTML() + `<div class="bk-case" role="list" aria-label="كتبك">${L.map(b => `<button type="button" class="bk-slot" role="listitem" onclick="bkOpen('${esc(b.id)}')" aria-label="${esc(b.title)}">
+      ${bkCoverHTML(b)}<span class="bk-cap"><b>${esc(b.title)}</b><small>${(b.lessons || []).length ? (b.lessons || []).length + ' درس' : b.pagesCount + ' صفحة'}</small></span></button>`).join('')}
+    <label class="bk-slot bk-slot-add"><span class="bk-book bk-add-book"><b>＋</b><small>${L.length ? 'أضف كتابًا' : 'أضف أول كتاب'}</small></span><span class="bk-cap"><small>PDF</small></span><input type="file" accept="application/pdf,.pdf" hidden onchange="bkAdd(this)"></label></div>
+    ${L.length ? '' : '<p class="bk-hint">ارفع كتاب المادة (PDF) مرة واحدة، وبعدها اختر الدرس متى ما احتجته لتوليد نشاط أو نص قرائي أو من «مساعدي».</p>'}`;
+  bkCoverFix();
+}
+/* 🖼️ الغلاف: صورة الصفحة الأولى من الخادم، وإلا غلاف مرسوم بلون المادة */
+function bkCoverHTML(b, big) {
+  const warn = b.ocrPending ? `<i class="bk-badge" title="${b.ocrPending} صفحة لم تُقرأ بعد">📷</i>` : (b.lessons || []).length ? '' : '<i class="bk-badge" title="لا فهرس دروس بعد">!</i>';
+  if (b.coverAt) return `<span class="bk-book has-img${big ? ' big' : ''}"><img src="${esc(getApi() + '/book-cover?id=' + encodeURIComponent(b.id) + '&v=' + b.coverAt + '&t=' + encodeURIComponent(getTok()))}" alt="" loading="lazy" onerror="this.parentNode.classList.remove('has-img');this.remove()">${bkDrawnCover(b)}${warn}</span>`;
+  return `<span class="bk-book${big ? ' big' : ''}">${bkDrawnCover(b)}${warn}</span>`;
+}
+function bkDrawnCover(b) { return `<span class="bk-drawn" style="--h:${bkHue(b.subject || b.title)}"><span class="bk-d-band"></span><b>${esc((b.subject || b.title || 'كتاب').slice(0, 16))}</b><small>${esc(b.grade || '')}</small><em>${esc(b.term ? 'الفصل ' + b.term : '')}</em></span>`; }
+async function bkMakeCover(id, pdf) {
+  const page = await pdf.getPage(1), v = page.getViewport({ scale: 1 }), vp = page.getViewport({ scale: 360 / v.width }), cv = document.createElement('canvas');
+  cv.width = Math.round(vp.width); cv.height = Math.round(vp.height); const ctx = cv.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height);
+  await page.render({ canvasContext: ctx, viewport: vp }).promise; let q = .8, d = cv.toDataURL('image/jpeg', q); while (d.length > 380000 && q > .3) d = cv.toDataURL('image/jpeg', q -= .15); cv.width = cv.height = 1;
+  await libApi('/book-save', { meta: { id }, cover: d });
+}
+/* الكتب المرفوعة قبل الأغلفة: تُصنع أغلفتها في الخلفية من ملفاتها على الخادم (مرة لكل كتاب) */
+async function bkCoverFix() {
+  if (BK.coverBusy) return; const todo = (BK.list || []).filter(b => b.pdf && !b.coverAt && !(BK.coverTried || (BK.coverTried = {}))[b.id]); if (!todo.length) return;
+  BK.coverBusy = true; try { for (const b of todo) { BK.coverTried[b.id] = 1; try { await bkMakeCover(b.id, await bkDoc(b.id)); } catch (e) { console.warn('bkCoverFix', b.id, e); } } await bkLoad(true); } catch (e) {} finally { BK.coverBusy = false; }
+  if (!BK.open && !BK.busy) bkRender();
 }
 const bkHue = s => { let h = 0; for (const c of String(s || '')) h = (h * 31 + c.charCodeAt(0)) % 360; return h; };
 function bkProgHTML() { const B = BK.busy; if (!B) return ''; const pc = B.of ? Math.round(B.n / B.of * 100) : 0;
@@ -44,7 +63,7 @@ function bkProg(o) { BK.busy = o ? Object.assign(BK.busy || {}, o) : null; const
 function bkBookHTML(b) {
   const L = b.lessons || [], units = []; L.forEach((l, i) => { const u = l.unit || ''; let g = units.find(x => x.u === u); if (!g) units.push(g = { u, items: [] }); g.items.push([l, i]); });
   return `${bkProgHTML()}<div class="bk-head"><button type="button" class="btn ghost sm" onclick="BK.open='';bkRender()">→ المكتبة</button>
-    <div class="bk-title"><b>${esc(b.title)}</b><small>${esc([b.subject, b.grade].filter(Boolean).join(' · '))} · ${b.pagesCount || 0} صفحة</small></div>
+    <div class="bk-hcover" onclick="bkView('${esc(b.id)}')" title="تصفّح الكتاب">${bkCoverHTML(b, 1)}</div><div class="bk-title"><b>${esc(b.title)}</b><small>${esc([b.subject, b.grade].filter(Boolean).join(' · '))} · ${b.pagesCount || 0} صفحة</small></div>
     <div class="bk-acts"><button type="button" class="btn sm bk-read" onclick="bkView('${esc(b.id)}')">📖 تصفّح الكتاب</button><button type="button" class="btn ghost sm" onclick="bkEditMeta('${esc(b.id)}')">✏️ البيانات</button><button type="button" class="btn ghost sm" onclick="bkDel('${esc(b.id)}')">🗑️</button></div></div>
     ${b.pdf ? '' : `<div class="bk-note bk-note-i">📖 لتصفّح الكتاب بصفحاته الأصلية (الصور والأشكال) — <label class="bk-link">أرفق ملف الكتاب نفسه<input type="file" accept="application/pdf,.pdf" hidden onchange="bkAttachPdf('${esc(b.id)}',this)"></label>. وإلى ذلك الحين يُتصفَّح نصّه.</div>`}
     ${b.ocrPending ? `<div class="bk-note">📷 ${b.ocrPending} صفحة مصوّرة لم تُقرأ بعد — <label class="bk-link">أكمل قراءتها (اختر ملف الكتاب نفسه)<input type="file" accept="application/pdf,.pdf" hidden onchange="bkResume('${esc(b.id)}',this)"></label></div>` : ''}
@@ -84,6 +103,7 @@ async function bkAdd(input) {
     const title = file.name.replace(/\.pdf$/i, '').replace(/[_-]+/g, ' ').trim().slice(0, 100);
     bkProg({ label: '☁️ حفظ الكتاب في مكتبتك…', n: N, of: N, sub: '' });
     const j = await libApi('/book-save', { meta: { title, lessons: [] }, pages: final }); id = j.meta.id; await bkLoad(true); BK.open = id;
+    if (BK.coverTried) BK.coverTried[id] = 1; else BK.coverTried = { [id]: 1 }; await bkMakeCover(id, pdf).catch(e => console.warn('cover', e));
     await bkUploadPdf(id, file).catch(e => toast('📖 لم يُرفع ملف الكتاب للتصفّح (' + (e.message || e) + ') — يمكنك إرفاقه لاحقًا من صفحة الكتاب', 'bad'));
     const todo = final.map((t, i) => t === '' ? i + 1 : 0).filter(Boolean);
     if (todo.length) await bkOcr(id, pdf, todo);
@@ -220,7 +240,7 @@ async function bkAttachPdf(id, input) {
   const file = input && input.files && input.files[0]; if (input) input.value = ''; if (!file || BK.busy) return; const b = bkBook(id);
   try { bkProg({ label: '📖 فتح الملف…', n: 0, of: 1 }); const pdf = await bkPdf(file);
     if (b && b.pagesCount && pdf.numPages !== b.pagesCount) throw new Error(`عدد صفحات الملف (${pdf.numPages}) لا يطابق الكتاب (${b.pagesCount}) — اختر الملف نفسه`);
-    await bkUploadPdf(id, file); bkProg(null); toast('📖 جاهز للتصفّح من أي جهاز', 'good'); } catch (e) { bkProg(null); toast(e.message || 'تعذّر', 'bad'); }
+    if (!(b && b.coverAt)) await bkMakeCover(id, pdf).catch(() => {}); await bkUploadPdf(id, file); bkProg(null); toast('📖 جاهز للتصفّح من أي جهاز', 'good'); } catch (e) { bkProg(null); toast(e.message || 'تعذّر', 'bad'); }
 }
 
 /* ── 📖 قارئ الكتاب: صفحة بصفحة، سحب يمين/يسار مثل الكتاب العربي، تكبير، قفز لدرس، ويتذكّر آخر صفحة ── */

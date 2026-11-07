@@ -11,7 +11,7 @@ export function memKV(seed = {}) {
     get: async (k, t) => { const v = m.get(k); if (v == null) return null; return t === 'json' ? JSON.parse(v) : t === 'arrayBuffer' ? (v instanceof ArrayBuffer ? v : null) : v; },
     put: async (k, v, o) => { m.set(k, v); if (o && o.metadata) md.set(k, o.metadata); else md.delete(k); }, delete: async k => { m.delete(k); md.delete(k); },
     list: async (o = {}) => ({ keys: [...m.keys()].filter(k => !o.prefix || k.startsWith(o.prefix)).map(name => (md.has(name) ? { name, metadata: md.get(name) } : { name })), list_complete: true }),
-    getWithMetadata: async k => ({ value: m.get(k) ?? null, metadata: null }) };
+    getWithMetadata: async k => ({ value: m.get(k) ?? null, metadata: md.get(k) ?? null }) };
 }
 export const ROSTER = [{ id: 's1', name: 'طالب الاختبار الأول', cls: 'أول 1' }, { id: 's2', name: 'طالب الاختبار الثاني', cls: 'أول 1' }, { id: 's3', name: 'طالب من فصل آخر', cls: 'أول 2' }];
 export async function loadWorker() { return (await import(pathToFileURL(path.join(ROOT, 'worker.js')).href + '?t=' + Date.now())).default; }

@@ -1162,7 +1162,7 @@ export default async function run() {
       fs.writeFileSync('/tmp/bk-scan.pdf', await mk.pdf({ format: 'A5' })); await mk.close();
       await S.t('📖 مكتبة الكتب: يُرفع الكتاب مرة، يُقرأ نص صفحاته ويُحفظ في الخادم، والذكاء يستخرج فهرس الدروس (ويُصحَّح المدى)، والكتاب المصوّر يُقرأ صفحةً صفحة', async () => {
         await p.goto(base + '/teacher-dashboard/'); await p.evaluate(t => { localStorage.setItem('hwapp_tok_v1', t); localStorage.setItem('ai_provider_v1', 'gemini'); localStorage.setItem('aikeys_gemini', JSON.stringify([{ key: 'AIzaTEST0000000000' }])); localStorage.removeItem('ai_routes_v1'); }, TOKEN);
-        await p.reload(); await dashReady(p); await p.evaluate(() => goTab('books')); await p.waitForFunction(() => BK.list && document.querySelector('#bk-root .bk-empty'), null, { timeout: 10000 });
+        await p.reload(); await dashReady(p); await p.evaluate(() => goTab('books')); await p.waitForFunction(() => BK.list && document.querySelector('#bk-root .bk-case .bk-slot-add'), null, { timeout: 10000 });
         ok(await p.isVisible('#p-books .bk-add'), 'زر الإضافة'); ok(await p.evaluate(() => bkApi() === (getApi() || '').replace(/\/+$/, '') && typeof libApi === 'function'), 'المكتبة لا تطغى على دالة النسخ الاحتياطي bkApi'); ok(await p.evaluate(() => !!document.querySelector('#simp-nav [data-k="books"], #simp-nav [data-key="books"]') || /مكتبة الكتب/.test(document.getElementById('simp-nav').innerText)), 'القائمة');
         await p.setInputFiles('#p-books input[type=file]', '/tmp/bk-text.pdf');
         await p.waitForFunction(() => !BK.busy && (BK.list || []).some(b => (b.lessons || []).length), null, { timeout: 30000 });
@@ -1173,7 +1173,14 @@ export default async function run() {
         await p.evaluate(() => { BK.open = ''; bkRender(); }); await p.setInputFiles('#p-books input[type=file]', '/tmp/bk-scan.pdf');
         await p.waitForFunction(() => !BK.busy && (BK.list || []).length === 2 && BK.list.every(b => (b.lessons || []).length), null, { timeout: 30000 });
         const s = await p.evaluate(async () => { const b = BK.list.find(x => x.pagesCount === 3); return { pend: b.ocrPending, t: await bkLessonText(b.id, b.lessons[0]), ls: b.lessons.map(l => [l.title, l.from, l.to]) }; });
-        eq([s.pend, s.ls, ai.filter(x => x === 'ocr').length], [0, [['التربة', 1, 3]], 3], 'الكتاب المصوّر'); ok(/التربة طبقة/.test(s.t), 'نص مقروء'); eq(errs, [], 'أخطاء'); });
+        eq([s.pend, s.ls, ai.filter(x => x === 'ocr').length], [0, [['التربة', 1, 3]], 3], 'الكتاب المصوّر'); ok(/التربة طبقة/.test(s.t), 'نص مقروء');
+        await p.evaluate(() => { BK.open = ''; bkRender(); }); await p.waitForFunction(() => [...document.querySelectorAll('.bk-case .bk-book img')].filter(i => i.complete && i.naturalWidth > 100).length === 2, null, { timeout: 15000 });
+        const cv = await p.evaluate(() => ({ at: BK.list.map(b => b.coverAt > 0), slots: document.querySelectorAll('.bk-case .bk-slot').length, add: !!document.querySelector('.bk-case .bk-slot-add input[type=file]'), cap: [...document.querySelectorAll('.bk-cap b')].map(x => x.textContent) }));
+        eq(cv, { at: [true, true], slots: 3, add: true, cap: ['علوم — الثالث', 'علوم — أول متوسط'] }, 'الرف والأغلفة');
+        /* كتاب رُفع قبل الأغلفة (له ملف على الخادم بلا غلاف): يُصنع غلافه في الخلفية */
+        const bid = await p.evaluate(() => BK.list.find(b => b.pagesCount === 6).id), mk2 = `book:${bid}:meta`, m0 = JSON.parse(env.HW.m.get(mk2)); delete m0.coverAt; env.HW.m.set(mk2, JSON.stringify(m0)); env.HW.m.delete(`book:${bid}:cover`);
+        await p.evaluate(async () => { BK.coverTried = {}; await bkLoad(true); bkRender(); }); ok(await p.evaluate(id => !bkBook(id).coverAt && !!document.querySelector('.bk-drawn'), bid), 'غلاف مرسوم حتى يُصنع');
+        await p.waitForFunction(id => (bkBook(id) || {}).coverAt > 0, bid, { timeout: 15000 }); ok(env.HW.m.has(`book:${bid}:cover`), 'صُنع الغلاف من ملف الخادم'); eq(errs, [], 'أخطاء'); });
       await S.t('📖 مكتبة الكتب: تعديل الفهرس يدويًا، «نشاط منه» يفتح المولّد بنص الدرس، و«من مكتبة الكتب» داخل المولّد والنص القرائي، و«مساعدي» يبني النشاط والتحضير على نص الدرس', async () => {
         const r = await p.evaluate(async () => { const b = BK.list.find(x => x.pagesCount === 6), out = {}; BK.open = b.id; bkRender();
           bkEditIndex(b.id); BK.edit.rows[1].title = 'الأنسجة الحيوانية'; bkEdRow(-1); BK.edit.rows[2].title = 'مراجعة الفصل'; BK.edit.rows[2].from = 6; BK.edit.rows[2].to = 6; BK.edit.rows[1].to = 5; await bkSaveIndex();

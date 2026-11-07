@@ -182,6 +182,16 @@ export default async function run() {
       await C('/book-pdf/abort', { method: 'POST', headers: { 'X-Teacher-Token': T }, body: { t: T, u: s3.j.uploadId } }); }
     await C('/book-del', { method: 'POST', body: { t: TOKEN, id } }); eq([R.M.size, (await C(`/book-pdf?t=${TOKEN}&id=${id}`)).s], [0, 404], 'الحذف');
   });
+  await S.t('🖼️ غلاف الكتاب: يُحفظ صورةً من الصفحة الأولى ويُقدَّم للمعلم فقط، ويُرفض غير الصور، ويُحذف مع الكتاب', async () => {
+    const id = (await call('/book-save', { method: 'POST', body: { t: TOKEN, meta: { title: 'كتاب بغلاف' }, pages: ['ص1'] } })).j.meta.id, png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0xff, 0x00]);
+    eq((await call('/book-save', { method: 'POST', body: { t: TOKEN, meta: { id }, cover: 'data:text/html;base64,PGI+' } })).s, 400, 'ليس صورة');
+    const r = await call('/book-save', { method: 'POST', body: { t: TOKEN, meta: { id }, cover: 'data:image/png;base64,' + png.toString('base64') } }); eq(r.s, 200); ok(r.j.meta.coverAt > 0, 'coverAt');
+    eq([r.j.meta.title, r.j.meta.pagesCount], ['كتاب بغلاف', 1], 'الغلاف لا يمسح بقية البيانات');
+    eq((await call(`/book-cover?t=bad&id=${id}`)).s, 401, 'بلا رمز');
+    const W2 = await W.fetch(new Request(`https://w.test/book-cover?t=${TOKEN}&id=${id}`), env, { waitUntil() {} }); eq([W2.status, W2.headers.get('content-type'), Buffer.compare(Buffer.from(await W2.arrayBuffer()), png)], [200, 'image/png', 0], 'البايتات كما هي');
+    eq((await call('/books?t=' + TOKEN)).j.books.find(b => b.id === id).coverAt > 0, true, 'في القائمة');
+    await call('/book-del', { method: 'POST', body: { t: TOKEN, id } }); eq((await call(`/book-cover?t=${TOKEN}&id=${id}`)).s, 404, 'حُذف مع الكتاب');
+  });
   await S.t('🔊 صوت «مساعدي» (k=asst) يُحفظ 3 أيام فقط، وجمل المختبر دائمة', async () => {
     const E = newEnv({ ELEVENLABS_API_KEY: 'x' }), C = caller(W, E), puts = []; const put0 = E.HW.put.bind(E.HW); E.HW.put = (k, v, o) => { puts.push([k, o]); return put0(k, v, o); };
     const f0 = globalThis.fetch; globalThis.fetch = async (u, o) => /elevenlabs/.test(String(u)) ? new Response(new Uint8Array([1, 2, 3]), { status: 200, headers: { 'content-type': 'audio/mpeg' } }) : f0(u, o);
