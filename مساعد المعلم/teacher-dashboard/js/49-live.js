@@ -6,18 +6,33 @@
    مقفولة افتراضيًا: زر 🎙️ يظهر في رأس «مساعدي» فقط إن وُجد مفتاح Gemini. */
 const LIVE = { lang: true, lv: 2, ws: null, ctx: null, stream: null, src: null, node: null, on: false, state: '', play: 0, srcs: [], me: null, bot: null, model: '', tried: [], t0: 0 };
 const LIVE_MODELS = ['gemini-3.8-live', 'gemini-3.1-flash-live-preview'];
-const liveKey = () => { try { return typeof readingAIGetKey === 'function' ? readingAIGetKey('gemini') : ''; } catch (e) { return ''; } };
+/* 🔀 المزوّد: Gemini Live (WebSocket) أو GPT Realtime من OpenAI (WebRTC — js/53-live-openai.js)، بمفتاح الإعدادات نفسه */
+const liveProv = () => { try { return localStorage.getItem('live_prov') === 'openai' ? 'openai' : 'gemini'; } catch (e) { return 'gemini'; } };
+const liveKey = () => { try { return typeof readingAIGetKey === 'function' ? readingAIGetKey(liveProv()) : ''; } catch (e) { return ''; } };
+const LIVE_OA_MODELS = [['gpt-realtime-2.1', 'GPT Realtime 2.1 — الأقوى'], ['gpt-realtime-2.1-mini', 'GPT Realtime 2.1 mini — أرخص وأسرع'], ['gpt-realtime', 'GPT Realtime — الإصدار الأول']];
+const LIVE_OA_VOICES = [['cedar', 'رجل — طبيعي ودافئ'], ['ash', 'رجل — واضح'], ['echo', 'رجل — هادئ'], ['ballad', 'رجل — ناعم'], ['verse', 'رجل — معبّر'], ['marin', 'امرأة — طبيعية'], ['coral', 'امرأة — دافئة'], ['sage', 'امرأة — هادئة'], ['shimmer', 'امرأة — مشرقة'], ['alloy', 'محايد']];
+const liveOaModel = () => { try { return localStorage.getItem('live_model_oa') || LIVE_OA_MODELS[0][0]; } catch (e) { return LIVE_OA_MODELS[0][0]; } };
 /* 🗣️ أصوات Gemini الجاهزة — الافتراضي صوت رجل */
 const LIVE_VOICES = [['Charon', 'رجل — هادئ وواضح'], ['Orus', 'رجل — حازم'], ['Iapetus', 'رجل — صافٍ'], ['Algieba', 'رجل — ناعم'], ['Puck', 'رجل — حيوي'], ['Fenrir', 'رجل — متحمس'], ['Kore', 'امرأة — واثقة'], ['Aoede', 'امرأة — خفيفة'], ['Leda', 'امرأة — شابة'], ['Zephyr', 'امرأة — مشرقة']];
-const liveVoice = () => { try { return localStorage.getItem('live_voice') || 'Charon'; } catch (e) { return 'Charon'; } };
-function liveVoiceSet(v) { try { localStorage.setItem('live_voice', v); } catch (e) {} toast('🎙️ الصوت: ' + ((LIVE_VOICES.find(x => x[0] === v) || [])[1] || v) + (LIVE.on ? ' — يتغيّر من المحادثة الجاية' : ''), 'good'); }
+const liveVoices = () => liveProv() === 'openai' ? LIVE_OA_VOICES : LIVE_VOICES;
+const liveVoice = () => { const oa = liveProv() === 'openai'; try { return localStorage.getItem(oa ? 'live_voice_oa' : 'live_voice') || (oa ? 'cedar' : 'Charon'); } catch (e) { return oa ? 'cedar' : 'Charon'; } };
+function liveVoiceSet(v) { try { localStorage.setItem(liveProv() === 'openai' ? 'live_voice_oa' : 'live_voice', v); } catch (e) {} toast('🎙️ الصوت: ' + ((liveVoices().find(x => x[0] === v) || [])[1] || v) + (LIVE.on ? ' — يتغيّر من المحادثة الجاية' : ''), 'good'); }
+function liveProvSet(v) { if (LIVE.on || LIVE.state) liveStop(); try { localStorage.setItem('live_prov', v === 'openai' ? 'openai' : 'gemini'); } catch (e) {} liveSettingsPaint(); const p = document.getElementById('asst-panel'); if (p) p.remove();
+  toast('🎙️ المحادثة الحية: ' + (liveProv() === 'openai' ? 'GPT Realtime — يحتاج مفتاح OpenAI' : 'Gemini Live — يحتاج مفتاح Gemini'), 'good'); }
+function liveModelSet(v) { try { localStorage.setItem('live_model_oa', v); } catch (e) {} toast('🎙️ النموذج: ' + v + (LIVE.on ? ' — من المحادثة الجاية' : ''), 'good'); }
+function liveSettingsPaint() {
+  const c = document.getElementById('live-on-tg'); if (c) c.checked = liveOn(); const oa = liveProv() === 'openai';
+  const pr = document.getElementById('live-prov'); if (pr) pr.value = liveProv();
+  const v = document.getElementById('live-voice'); if (v) { v.innerHTML = liveVoices().map(([k, l]) => `<option value="${k}">${l} (${k})</option>`).join(''); v.value = liveVoice(); }
+  const m = document.getElementById('live-model'), mr = document.getElementById('live-model-row'); if (mr) mr.hidden = !oa; if (m) { m.innerHTML = LIVE_OA_MODELS.map(([k, l]) => `<option value="${k}">${l}</option>`).join(''); m.value = liveOaModel(); }
+}
 /* مقفولة افتراضيًا: تُفعَّل من ⚙️ الإعدادات ← الذكاء الاصطناعي ← «🎙️ المحادثة الحية» */
 const liveOn = () => { try { return localStorage.getItem('live_on') === '1'; } catch (e) { return false; } };
 function liveOnSet(on) { try { if (on) localStorage.setItem('live_on', '1'); else localStorage.removeItem('live_on'); } catch (e) {} if (!on && (LIVE.on || LIVE.state)) liveStop();
   const p = document.getElementById('asst-panel'); if (p) p.remove();   // يُبنى رأس «مساعدي» من جديد عند فتحه بالزر الصحيح
   try { toast(on ? '🎙️ فُعّلت المحادثة الحية — زرها في رأس «مساعدي»' : '🎙️ أُقفلت المحادثة الحية', 'good'); } catch (e) {} }
-(function liveOnInit() { const go = () => { const c = document.getElementById('live-on-tg'); if (c) c.checked = liveOn(); const v = document.getElementById('live-voice'); if (v) { v.innerHTML = LIVE_VOICES.map(([k, l]) => `<option value="${k}">${l} (${k})</option>`).join(''); v.value = liveVoice(); } }; if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go(); })();
-const liveSup = () => !!(liveOn() && liveKey() && window.WebSocket && navigator.mediaDevices && navigator.mediaDevices.getUserMedia && (window.AudioContext || window.webkitAudioContext));
+(function liveOnInit() { const go = () => liveSettingsPaint(); if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go(); })();
+const liveSup = () => !!(liveOn() && liveKey() && navigator.mediaDevices && navigator.mediaDevices.getUserMedia && (liveProv() === 'openai' ? window.RTCPeerConnection : window.WebSocket && (window.AudioContext || window.webkitAudioContext)));
 
 /* أدوات القراءة فقط ← تعريفات دوال لـ Gemini (الوسائط تُستخرج من وصف كل أداة «args: {…}») */
 const LIVE_NUM = ['n', 'days', 'question', 'sem', 'per', 'min', 'delta', 'max'], LIVE_BOOL = ['all', 'print', 'close'], LIVE_ARR = ['classes', 'students', 'except'];
@@ -51,7 +66,7 @@ function livePlay(b64) {
   const s = C.createBufferSource(); s.buffer = buf; s.connect(C.destination); const at = Math.max(C.currentTime + 0.03, LIVE.play); s.start(at); LIVE.play = at + buf.duration;
   LIVE.srcs.push(s); s.onended = () => { LIVE.srcs = LIVE.srcs.filter(x => x !== s); if (!LIVE.srcs.length) { LIVE.quiet = Date.now() + 450; if (LIVE.on) liveSet('listen'); } }; if (LIVE.state !== 'speak') liveSet('speak');
 }
-function liveCut() { LIVE.cut = true; liveHush(); LIVE.quiet = 0; asstMicLog('live: قاطعته'); if (LIVE.on) liveSet('listen'); }   // يتجاهل بقية جوابه حتى نهاية الدور، ويعود الميكروفون فورًا
+function liveCut() { if (LIVE.pc && typeof liveOCut === 'function') return liveOCut(); LIVE.cut = true; liveHush(); LIVE.quiet = 0; asstMicLog('live: قاطعته'); if (LIVE.on) liveSet('listen'); }   // يتجاهل بقية جوابه حتى نهاية الدور، ويعود الميكروفون فورًا
 function liveHush() { LIVE.srcs.forEach(s => { try { s.stop(); } catch (e) {} }); LIVE.srcs = []; LIVE.play = 0; }
 /* 🎤 الميكروفون ← PCM 16 كيلوهرتز (base64) */
 function liveB64(f32, sr) {
@@ -64,7 +79,7 @@ function liveSet(st, extra) {
   LIVE.state = st; const e = document.getElementById('asst-live'), b = document.getElementById('asst-livebtn');
   if (b) b.classList.toggle('on', LIVE.on || st === 'connect');
   if (!e) return; if (!LIVE.on && st !== 'connect') { if (typeof asstLive === 'function') asstLive(); return; }
-  const L = { connect: '⏳ أتصل بـ Gemini Live…', listen: '🎙️ <b>محادثة حية</b> — تكلّم، أسمعك', speak: '🔊 <b>محادثة حية</b> — أتكلم… <button type="button" class="btn sm ghost" onclick="liveCut()">✋ قاطعه</button>', tool: '🔎 <b>محادثة حية</b> — أبحث في بياناتك…' };
+  const L = { connect: '⏳ أتصل بـ ' + (liveProv() === 'openai' ? 'GPT Realtime' : 'Gemini Live') + '…', listen: '🎙️ <b>محادثة حية</b> — تكلّم، أسمعك', speak: '🔊 <b>محادثة حية</b> — أتكلم… <button type="button" class="btn sm ghost" onclick="liveCut()">✋ قاطعه</button>', tool: '🔎 <b>محادثة حية</b> — أبحث في بياناتك…' };
   e.hidden = false; e.innerHTML = `<span class="dot"></span> ${L[st] || ''}${extra ? ' · ' + extra : ''} <button type="button" class="btn sm ghost" onclick="liveStop()">⏹ إنهاء</button>`;
 }
 /* نسخ كلام المعلم طلع بحروف لاتينية (Gemini أخطأ لغة النسخ وفهم الصوت نفسه): نوضّح بدل نص مشوّه */
@@ -76,7 +91,8 @@ function liveMsg(who, t) {   // النص المكتوب للمحادثة (من �
 }
 
 async function liveStart() {
-  if (LIVE.on || LIVE.state === 'connect') return; if (!liveSup()) { toast('المحادثة الحية تحتاج مفتاح Gemini (⚙️ الإعدادات ← الذكاء الاصطناعي)', 'bad'); return; }
+  if (LIVE.on || LIVE.state === 'connect') return; if (!liveSup()) { toast('المحادثة الحية تحتاج مفتاح ' + (liveProv() === 'openai' ? 'OpenAI' : 'Gemini') + ' (⚙️ الإعدادات ← الذكاء الاصطناعي)', 'bad'); return; }
+  if (liveProv() === 'openai') return liveOStart();
   try { asstMicStop(); asstSpeakStop(); } catch (e) {}
   /* 🍎 iPhone: (1) جلسة الميكروفون العادي (HWV) تبقى ممسكة بالميكروفون في الخلفية (النقطة البرتقالية) فلا يصل المحادثة الحية شيء — نوقفها.
      (2) سياق الصوت نفسه بعد إيقاف ميكروفون الجلسة السابقة يمرّر صمتًا للجلسة التالية — فسياق جديد لكل جلسة (داخل لمستك) ويُغلق في نهايتها */
@@ -133,10 +149,11 @@ async function liveSilent(again) {   // صمت تام: نعيد الميكروف
   if (!again) { try { LIVE.ctx.close().catch(() => {}); LIVE.ctx = new (window.AudioContext || window.webkitAudioContext)(); await LIVE.ctx.resume(); } catch (e) {} asstMicLog('live: صمت تام ← أعيد الميكروفون'); return liveMic(true); }
   liveStop(); toast('الميكروفون ما يوصل صوت — أغلق سفاري وافتحه، أو أغلق أي تطبيق يستخدم الميكروفون', 'bad');
 }
-async function liveTool(calls) {
+/* تشغيل أدوات المحادثة الحية (مشترك بين Gemini وGPT): calls = [{id, name, args}] ← [{id, name, result:نص}] */
+async function liveRunTools(calls) {
   liveSet('tool'); const out = [];
   for (const c of calls) { const t = ASST_TOOLS[c.name]; let res;
-    if (c.name === 'confirm_card') { out.push({ id: c.id, name: c.name, response: { result: JSON.stringify(liveConfirm()) } }); continue; }
+    if (c.name === 'confirm_card') { out.push({ id: c.id, name: c.name, result: JSON.stringify(liveConfirm()) }); continue; }
     try { const a = c.args && typeof c.args === 'object' ? { ...c.args } : {}; if (!t) res = { error: 'أداة غير معروفة' };
       else { const r = await t.run(a); res = asstStrip(r);
         if (t.act && r && r.action === 'nav') {   // 🧭 فتح صفحة: آمن، يُنفَّذ فورًا والمحادثة مستمرة (اللوحة تُصغَّر وزر «مساعدي» يومض)
@@ -146,12 +163,17 @@ async function liveTool(calls) {
           ASST.msgs.push({ html: '🎙️ جهّزت لك — راجع واضغط «نفّذ»:', cards: [card], src: [t.src(a), '🎙️ محادثة حية'].filter(Boolean) }); LIVE.bot = null; asstPaint();
           res = { prepared: res, note: 'ظهرت للمعلم بطاقة تأكيد على الشاشة ولم يُنفَّذ شيء بعد. أخبره بإيجاز بما جهّزته واطلب منه يضغط «نفّذ».' }; } } }
     catch (e) { res = { error: 'تعذّر' }; }
-    let s = JSON.stringify(res); if (s.length > 9000) s = s.slice(0, 9000); out.push({ id: c.id, name: c.name, response: { result: s } });
+    let s = JSON.stringify(res); if (s.length > 9000) s = s.slice(0, 9000); out.push({ id: c.id, name: c.name, result: s });
     const m = LIVE.bot || null; if (m && t) { m.src = (m.src || []).concat(t.src(c.args || {})).filter(Boolean); } }
-  try { LIVE.ws.send(JSON.stringify({ toolResponse: { functionResponses: out } })); } catch (e) {}
+  return out;
+}
+async function liveTool(calls) {
+  const out = await liveRunTools(calls);
+  try { LIVE.ws.send(JSON.stringify({ toolResponse: { functionResponses: out.map(o => ({ id: o.id, name: o.name, response: { result: o.result } })) } })); } catch (e) {}
   if (LIVE.on) liveSet('listen');
 }
 function liveEnd() {
+  if ((LIVE.pc || LIVE.au) && typeof liveOEnd === 'function') liveOEnd();   // GPT Realtime: WebRTC
   LIVE.on = false; const ws = LIVE.ws; LIVE.ws = null; try { if (ws && ws.readyState < 2) ws.close(1000); } catch (e) {}
   try { LIVE.node && (LIVE.node.onaudioprocess = null, LIVE.node.disconnect()); LIVE.src && LIVE.src.disconnect(); } catch (e) {}
   try { LIVE.stream && LIVE.stream.getTracks().forEach(t => t.stop()); } catch (e) {} LIVE.stream = LIVE.node = LIVE.src = null; liveHush(); LIVE.me = LIVE.bot = null;
