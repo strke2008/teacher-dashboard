@@ -53,7 +53,7 @@ function qbTopicRender(el) {
   el.innerHTML = `<div class="bk-head"><button type="button" class="btn ghost sm" onclick="QB.open='';qbRender()">→ البنك</button><div class="bk-title"><b>${esc(T.lesson || T.topic)}</b><small>${esc([T.book, T.subject, T.grade].filter((x, i) => x && (i === 0 || !String(T.book || '').includes(x))).join(' · '))} · ${T.qs.length} سؤال</small></div></div>
     <div class="qb-acts"><button type="button" class="btn sm" onclick="qbMake()">✦ نشاط ${n ? 'من المحدد (' + n + ')' : 'من كل الأسئلة'}</button>
       <button type="button" class="btn ghost sm" onclick="qbRandom()">🎲 اختر 10 عشوائيًا</button><button type="button" class="btn ghost sm" onclick="qbSelAll()">${n === T.qs.length ? 'إلغاء التحديد' : 'تحديد الكل'}</button>
-      <button type="button" class="btn ghost sm" onclick="qbExport(['${esc(T.id)}'])">⬇️ تنزيل</button><button type="button" class="btn ghost sm" onclick="qbMove()">📦 نقل ${n ? 'المحدد' : 'الكل'} إلى…</button>
+      <button type="button" class="btn ghost sm" onclick="qbExport(['${esc(T.id)}'])">⬇️ تنزيل</button><button type="button" class="btn ghost sm" onclick="qbRename()">✏️ تعديل الاسم</button><button type="button" class="btn ghost sm" onclick="qbMove()">📦 نقل ${n ? 'المحدد' : 'الكل'} إلى…</button>
       ${n ? `<button type="button" class="btn ghost sm qb-del" onclick="qbDelSel()">🗑️ حذف المحدد (${n})</button>` : `<button type="button" class="btn ghost sm qb-del" onclick="qbDelTopic()">🗑️ حذف الموضوع</button>`}</div>
     <div class="qb-list">${T.qs.map(q => `<label class="qb-q${QB.sel.has(q.h) ? ' on' : ''}"><input type="checkbox" ${QB.sel.has(q.h) ? 'checked' : ''} onchange="qbSel('${esc(q.h)}',this.checked)"><span>${qbQHTML(q)}</span></label>`).join('')}</div>`;
 }
@@ -62,6 +62,21 @@ function qbSelAll() { const T = QB.topic; if (!T) return; QB.sel = QB.sel.size =
 function qbRandom(k) { const T = QB.topic; if (!T) return; const a = T.qs.map(q => q.h); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } QB.sel = new Set(a.slice(0, k || 10)); qbRender(); }
 async function qbDelSel() { const T = QB.topic; if (!T || !QB.sel.size || !confirm(`حذف ${QB.sel.size} سؤالًا من البنك نهائيًا؟`)) return;
   try { const r = await libApi('/qbank-del', { id: T.id, hs: [...QB.sel] }); toast(`حُذف ${r.removed}`, 'good'); QB.sel = new Set(); QB.list = null; if (r.n) await qbOpen(T.id); else { QB.open = ''; qbRender(true); } } catch (e) { toast(e.message, 'bad'); } }
+/* ✏️ تعديل اسم الموضوع: تنتقل أسئلته إلى الاسم الجديد (فما يُحفظ لاحقًا بالاسم الجديد يلحق به)، ويُسأل المعلم قبل الدمج مع موضوع موجود */
+function qbRename() { const T = QB.topic; if (!T) return;
+  openModal(`<h2>✏️ تعديل اسم الموضوع</h2><label class="field"><span>الاسم الجديد</span><input class="inp" id="qbr-name" maxlength="120" value="${esc(T.lesson || T.topic)}" onkeydown="if(event.key==='Enter')qbRenameGo()"></label>
+    ${T.book ? `<p class="bk-mmeta">يبقى مرتبطًا بكتاب «${esc(T.book)}».</p>` : ''}<div class="modal-foot"><button type="button" class="btn tick" onclick="qbRenameGo()">حفظ</button><button type="button" class="btn ghost" onclick="closeModal()">إلغاء</button></div>`);
+  setTimeout(() => { const i = document.getElementById('qbr-name'); if (i) { i.focus(); i.select(); } }, 50); }
+async function qbRenameGo() {
+  const T = QB.topic, name = ((document.getElementById('qbr-name') || {}).value || '').trim().slice(0, 120); if (!T) return; if (!name) { toast('اكتب الاسم', 'bad'); return; }
+  const n = s => String(s || '').replace(/[\u064B-\u0652\u0640]/g, '').replace(/[أإآ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').replace(/\s+/g, ' ').trim();
+  if (n(name) === n(T.lesson || T.topic)) { closeModal(); return; }
+  try { await qbLoad(true); } catch (e) {} const other = (QB.list || []).find(t => t.id !== T.id && n(t.lesson || t.topic) === n(name) && n(t.book) === n(T.book));
+  if (other && !confirm(`يوجد موضوع باسم «${other.lesson || other.topic}» (${other.n} سؤال) — تُدمج أسئلة هذا الموضوع معه؟`)) return;
+  try { const r = await libApi('/qbank-add', { topic: { topic: name, lesson: T.lesson ? name : '', book: T.book || '', subject: T.subject || '', grade: T.grade || '' }, qs: T.qs.map(qbClean), src: 'كان: ' + (T.lesson || T.topic) });
+    if (r.id !== T.id) await libApi('/qbank-del', { id: T.id }); closeModal(); QB.sel = new Set(); QB.list = null;
+    toast(other ? `✏️ دُمج في «${name}»${r.dup ? ` (${r.dup} مكرر لم يُضف)` : ''}` : `✏️ صار اسمه «${name}»`, 'good'); await qbOpen(r.id);
+  } catch (e) { toast(e.message, 'bad'); } }
 async function qbDelTopic() { const T = QB.topic; if (!T || !confirm(`حذف «${T.lesson || T.topic}» بكل أسئلته (${T.qs.length}) من البنك نهائيًا؟`)) return;
   try { await libApi('/qbank-del', { id: T.id }); toast('🗑️ حُذف الموضوع من البنك', 'good'); QB.open = ''; QB.topic = null; QB.list = null; qbRender(true); } catch (e) { toast(e.message, 'bad'); } }
 /* 📦 نقل أسئلة موضوع (أو المحدد منها) إلى موضوع آخر أو درس من الكتب أو اسم جديد — للأسئلة التي حُفظت تحت اسم خطأ */

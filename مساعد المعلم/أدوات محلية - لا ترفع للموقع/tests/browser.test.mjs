@@ -358,7 +358,8 @@ export default async function run() {
         const r = await p.evaluate(async () => { const keep = {}; ['aikeys_openai', 'live_on', 'live_prov', 'live_model_oa', 'live_voice_oa', 'live_note_oa'].forEach(k => keep[k] = localStorage.getItem(k));
           const out = {}, W = ms => new Promise(z => setTimeout(z, ms)), F0 = window.fetch, P0 = window.RTCPeerConnection, gum = navigator.mediaDevices.getUserMedia, acs = [], toks = [], calls = [], pcs = [];
           localStorage.setItem('live_note_oa', '1'); localStorage.removeItem('aikeys_openai'); liveOnSet(true); goTab('data'); await W(200); liveProvSet('openai');
-          out.settings = [document.getElementById('live-prov').value, document.getElementById('live-model-row').hidden, document.getElementById('live-model').value, document.getElementById('live-voice').value, [...document.getElementById('live-voice').options].length, liveSup()];
+          const mopts = () => [...document.getElementById('live-model').options].map(o => o.value);
+          out.settings = [document.getElementById('live-prov').value, mopts(), document.getElementById('live-model').value, document.getElementById('live-voice').value, [...document.getElementById('live-voice').options].length, liveSup()];
           localStorage.setItem('aikeys_openai', JSON.stringify([{ key: 'sk-TEST-OA' }])); out.sup = liveSup();
           window.fetch = async (u, o) => { u = String(u);
             if (/api\.openai\.com\/v1\/realtime\/client_secrets/.test(u)) { const b = JSON.parse(o.body); toks.push([b.session.model, b.session.type, b.session.audio.output.voice, (o.headers || {}).Authorization]);
@@ -388,15 +389,16 @@ export default async function run() {
             out.nav = [document.getElementById('p-madrasati').classList.contains('on'), LIVE.on]; ev({ type: 'response.done', response: { status: 'completed', output: [] } }); try { goTab('dashboard'); } catch (e) {}
             const n2 = dc.sent.length; liveCut(); out.cut = dc.sent.slice(n2).map(x => x.type);
             liveToggle(); await W(50); out.end = [LIVE.on, pc.closed, !!LIVE.pc, !!document.querySelector('body > audio'), LIVE.state];
-            liveProvSet('gemini'); out.back = [liveProv(), document.getElementById('live-model-row').hidden, document.getElementById('live-voice').value];
+            liveProvSet('gemini'); out.back = [liveProv(), mopts(), document.getElementById('live-model').value, document.getElementById('live-voice').value];
+            liveModelSet('gemini-3.1-flash-live-preview'); out.gm = liveGmModel(); localStorage.removeItem('live_model_gm');
           } finally { window.fetch = F0; window.RTCPeerConnection = P0; navigator.mediaDevices.getUserMedia = gum; acs.forEach(a => a.close().catch(() => {})); Object.entries(keep).forEach(([k, v]) => v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v)); asstClose(); ASST.msgs = []; }
           return out; });
-        eq(r.settings, ['openai', false, 'gpt-realtime-2.1', 'cedar', 10, false], 'الإعدادات: المزوّد والنموذج والصوت (بلا مفتاح لا يظهر)'); ok(r.sup && r.btn, 'بمفتاح OpenAI يظهر الزر');
+        eq(r.settings, ['openai', ['gpt-realtime-2.1', 'gpt-realtime-2.1-mini', 'gpt-realtime'], 'gpt-realtime-2.1', 'cedar', 10, false], 'الإعدادات: نماذج GPT وأصواته (بلا مفتاح لا يظهر)'); ok(r.sup && r.btn, 'بمفتاح OpenAI يظهر الزر');
         eq(r.conn, { toks: [['gpt-realtime-2.1', 'realtime', 'cedar', 'Bearer sk-TEST-OA'], ['gpt-realtime-2.1-mini', 'realtime', 'cedar', 'Bearer sk-TEST-OA']], calls: [[true, 'Bearer ek_TEST', 'application/sdp', 'v=0 offer']], label: 'oai-events', on: true, model: 'gpt-realtime-2.1-mini', mic: 1, au: true }, 'مفتاح جلسة مؤقت (ويرجع للبديل) ثم WebRTC بالمفتاح المؤقت');
         eq(r.sess, { type: 'realtime', voice: 'cedar', tr: { model: 'gpt-4o-mini-transcribe', language: 'ar' }, vad: 'semantic_vad', tools: true, upper: false, ar: true }, 'إعداد الجلسة: الأدوات بصيغة OpenAI ونسخ عربي');
         eq(r.tools, [['k1', 'k2'], true, true], 'نتائج الأدوات بلا معرّفات ثم يكمل الرد'); eq(r.card, ['record', 'ask'], 'بطاقة التأكيد'); eq([r.speak, r.listen], ['speak', 'listen'], 'حالة الكلام');
         eq(r.msgs, ['M:مين الغايب اليوم؟', 'B:ما فيه غياب اليوم.'], 'نص المحادثة'); eq(r.trFallback, { model: 'whisper-1', language: 'ar' }, 'نسخ بديل إن رُفض'); eq(r.nav, [true, true], '«افتح…» محليًا والمحادثة مستمرة');
-        eq(r.cut, ['response.cancel', 'output_audio_buffer.clear'], 'المقاطعة'); eq(r.end, [false, true, false, false, ''], 'الإنهاء'); eq(r.back, ['gemini', true, 'Charon'], 'الرجوع لـ Gemini'); eq(errs, [], 'أخطاء'); });
+        eq(r.cut, ['response.cancel', 'output_audio_buffer.clear'], 'المقاطعة'); eq(r.end, [false, true, false, false, ''], 'الإنهاء'); eq([r.back, r.gm], [['gemini', ['gemini-3.8-live', 'gemini-3.1-flash-live-preview'], 'gemini-3.8-live', 'Charon'], 'gemini-3.1-flash-live-preview'], 'الرجوع لـ Gemini: نماذجه هو تظهر، ويُحفظ اختياره'); eq(errs, [], 'أخطاء'); });
       await S.t('🧪 مساعدي — فحص شامل: كل أداة تعمل بلا أخطاء، كل أمر له بطاقة ترسم، كل أداة معرَّفة للمحادثة الحية بمخطط صحيح، والأمر الكلامي بلا أداة يمر بمساعدي العادي', async () => {
         const r = await p.evaluate(async () => { if (!CT_DATA) { try { await ctLoad(); } catch (e) {} } const s0 = STUDENTS[0], cls = s0.cls, rc = window.readingAICall;
           window.readingAICall = async () => JSON.stringify({ questions: [{ t: 'tf', q: 'س', a: true }] });
@@ -1308,6 +1310,8 @@ export default async function run() {
           const rv = QB.list.find(t => t.topic === 'مراجعة سريعة'); await qbOpen(rv.id); await qbMove(); const sel = document.getElementById('qbm-to'), opt = [...sel.options].find(o => /^L:/.test(o.value) && /الأنسجة الحيوانية/.test(o.textContent));
           out.moveOpts = [!!opt, [...sel.options].some(o => o.value === 'N')]; sel.value = opt.value; await qbMoveGo(); await w(300); await qbLoad(true);
           const mv = QB.list.find(t => t.lesson === 'الأنسجة الحيوانية'); out.move = [!QB.list.some(t => t.topic === 'مراجعة سريعة'), mv && mv.n, mv && mv.book, QB.open === (mv && mv.id)];
+          qbRename(); document.getElementById('qbr-name').value = 'الأنسجة في جسم الإنسان'; await qbRenameGo(); await w(300); await qbLoad(true); const rn = QB.list.find(t => t.lesson === 'الأنسجة في جسم الإنسان');
+          out.rename = [!!rn, rn && rn.book, rn && rn.n, !QB.list.some(t => t.lesson === 'الأنسجة الحيوانية'), QB.open === (rn && rn.id), /الأنسجة في جسم الإنسان/.test(document.querySelector('.bk-title b').textContent)];
           const nT = QB.list.length; qbDelTopic(); await w(800); out.delTopic = [(await qbLoad(true)).length, nT - 1, QB.open];
           const qb = await ASST_TOOLS.question_bank.run({ query: 'الخلية' }), ca = await ASST_TOOLS.create_activity.run({ lesson: 'الخلية', from_bank: true, n: 2 }), cz = await ASST_TOOLS.create_activity.run({ topic: 'المجرات', from_bank: true });
           out.asst = [qb.topics[0].questions, ca.action, ca.count, /بنك الأسئلة/.test(ca.source), !!cz.error];
@@ -1319,7 +1323,7 @@ export default async function run() {
         eq([r.hint6, r.apply, r.use], [true, [1, true, true], ['diag', 1, 'تشخيصي — أول']], 'استعماله بلا ذكاء: من المحرر ومن البنك'); eq(r.tab, [true, true], 'التبويب'); eq(r.qs, 3, 'أسئلة الموضوع');
         eq(r.make, [1, 'الخلية', ['q', 'f'], true, false], 'نشاط من المحدد بلا ذكاء (مسودة في المحرر)'); ok(/3 سؤالًا لهذا الدرس/.test(r.hint), 'تلميح البنك في «نشاط من الدرس»: ' + r.hint);
         eq(r.export, ['qbank', 'الخلية', 3, false, 1, 1], 'التنزيل (يقرؤه الاختبار الورقي)'); eq(r.imp, [3, 'علوم — أول متوسط'], 'الاستيراد يعيده لدرسه'); eq(r.old, { q: 1, tf: 1 }, 'استيراد ملف أسئلة قديم');
-        eq([r.moveOpts, r.move], [[true, true], [true, 1, 'علوم — أول متوسط', true]], 'نقل موضوع إلى درس من الكتب'); eq([r.delTopic[0], r.delTopic[2]], [r.delTopic[1], ''], 'حذف موضوع كامل من الخادم');
+        eq([r.moveOpts, r.move], [[true, true], [true, 1, 'علوم — أول متوسط', true]], 'نقل موضوع إلى درس من الكتب'); eq([r.delTopic[0], r.delTopic[2]], [r.delTopic[1], ''], 'حذف موضوع كامل من الخادم'); eq(r.rename, [true, 'علوم — أول متوسط', 1, true, true, true], 'تعديل اسم الموضوع (يبقى مرتبطًا بكتابه)');
         eq(r.asst, [3, 'activity', 2, true, true], 'مساعدي من البنك'); eq([r.tplExp, r.tplImp], [['diag', 'style'], 2], 'الاختبارات الثابتة في ملف التنزيل وتُستورد'); eq(ai.length, n0, 'لا ذكاء اصطناعي في كل ذلك'); eq(errs, [], 'أخطاء'); });
       await S.t('📖 تصفّح الكتاب: صفحاته الأصلية من الخادم، التالية/السابقة والسحب والأسهم مثل الكتاب العربي، القفز لدرس، تذكّر آخر صفحة، نسخة نصية لكتاب بلا ملف، و«مساعدي» يفتحه على الدرس', async () => {
         const id = await p.evaluate(() => BK.list.find(x => x.pagesCount === 6).id), cv = () => p.evaluate(() => { const c = document.querySelector('#bkv-page canvas'); return c ? [c.width > 200, c.height > c.width, BV.n, document.getElementById('bkv-ls').textContent] : null; });

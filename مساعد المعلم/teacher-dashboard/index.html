@@ -70,7 +70,7 @@
 <meta name="author" content="المعلم أحمد المرزوق"/>
 <meta name="application-name" content="مساعد المعلم"/>
 <meta content="مساعد المعلم" name="apple-mobile-web-app-title"/>
-<meta name="app-version" content="1.0.102" data-code="7def"/>
+<meta name="app-version" content="1.0.104" data-code="e0d3"/>
 <title>مساعد المعلم</title>
 <link href="/icons/panel-32.png" rel="icon" sizes="32x32" type="image/png"/>
 <link href="pwa/apple-touch-icon-180.png" rel="apple-touch-icon" sizes="180x180"/>
@@ -151,10 +151,10 @@
 <script src="js/46-lazy.js?v=bd8c262b" defer></script>
 <script src="js/47-voice-search.js?v=86c73054" defer></script>
 <script src="js/48-assistant.js?v=b56facfe" defer></script>
-<script src="js/49-live.js?v=3430986c" defer></script>
+<script src="js/49-live.js?v=a0b63c57" defer></script>
 <script src="js/50-classkit.js?v=bf5ec226" defer></script>
 <script src="js/51-books.js?v=9dd3e06c" defer></script>
-<script src="js/52-qbank.js?v=94b56cc0" defer></script>
+<script src="js/52-qbank.js?v=c3b35f7b" defer></script>
 <script src="js/53-live-openai.js?v=9959b1f2" defer></script>
 <script src="theme-picker.js?v=e4656366" defer></script>
 <script src="simplified-nav.js?v=5d5a8f5d" defer></script>
@@ -1606,7 +1606,7 @@
 <div class="asst-el-row"><label class="asst-el-tg"><input type="checkbox" id="live-on-tg" onchange="liveOnSet(this.checked)"><span class="asst-el-sw" aria-hidden="true"></span><b>🎙️ المحادثة الحية (تجريبية)</b></label>
 <small class="muted">مقفول (الافتراضي) = لا يظهر زرها. مفتوح = زر 🎙️ في رأس «مساعدي» لمحادثة صوتية مباشرة (يحتاج مفتاح المزوّد المختار في إعدادات الذكاء، والصوت يُحسب من رصيده بسعر أعلى من النص).</small>
 <label class="live-voice-row">المزوّد: <select class="inp" id="live-prov" onchange="liveProvSet(this.value)"><option value="gemini">Gemini Live (Google)</option><option value="openai">GPT Realtime (OpenAI)</option></select></label>
-<label class="live-voice-row" id="live-model-row" hidden>النموذج: <select class="inp" id="live-model" onchange="liveModelSet(this.value)"></select></label>
+<label class="live-voice-row" id="live-model-row">النموذج: <select class="inp" id="live-model" onchange="liveModelSet(this.value)"></select></label>
 <label class="live-voice-row">صوت المحادثة الحية: <select class="inp" id="live-voice" onchange="liveVoiceSet(this.value)"></select></label></div>
 <div class="asst-el-row"><label class="asst-el-tg"><input type="checkbox" id="asst-el-tg" onchange="asstElSet(this.checked)"><span class="asst-el-sw" aria-hidden="true"></span><b>🔊 صوت ElevenLabs لقراءة «مساعدي»</b></label>
 <small class="muted">مقفول (الافتراضي) = يقرأ بصوت جهازك: مجاني وبلا حد، ولا يُرسل نص الجواب لأي جهة. مفتوح = صوت ElevenLabs من الخادم (بسقف يومي)، وإن تعذّر فصوت الجهاز.</small></div>

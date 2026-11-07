@@ -11,6 +11,8 @@ const liveProv = () => { try { return localStorage.getItem('live_prov') === 'ope
 const liveKey = () => { try { return typeof readingAIGetKey === 'function' ? readingAIGetKey(liveProv()) : ''; } catch (e) { return ''; } };
 const LIVE_OA_MODELS = [['gpt-realtime-2.1', 'GPT Realtime 2.1 — الأقوى'], ['gpt-realtime-2.1-mini', 'GPT Realtime 2.1 mini — أرخص وأسرع'], ['gpt-realtime', 'GPT Realtime — الإصدار الأول']];
 const LIVE_OA_VOICES = [['cedar', 'رجل — طبيعي ودافئ'], ['ash', 'رجل — واضح'], ['echo', 'رجل — هادئ'], ['ballad', 'رجل — ناعم'], ['verse', 'رجل — معبّر'], ['marin', 'امرأة — طبيعية'], ['coral', 'امرأة — دافئة'], ['sage', 'امرأة — هادئة'], ['shimmer', 'امرأة — مشرقة'], ['alloy', 'محايد']];
+const LIVE_GM_MODELS = [['gemini-3.8-live', 'Gemini 3.8 Live — الأحدث'], ['gemini-3.1-flash-live-preview', 'Gemini 3.1 Flash Live — أسرع']];
+const liveGmModel = () => { try { const m = localStorage.getItem('live_model_gm'); return LIVE_MODELS.includes(m) ? m : LIVE_MODELS[0]; } catch (e) { return LIVE_MODELS[0]; } };
 const liveOaModel = () => { try { return localStorage.getItem('live_model_oa') || LIVE_OA_MODELS[0][0]; } catch (e) { return LIVE_OA_MODELS[0][0]; } };
 /* 🗣️ أصوات Gemini الجاهزة — الافتراضي صوت رجل */
 const LIVE_VOICES = [['Charon', 'رجل — هادئ وواضح'], ['Orus', 'رجل — حازم'], ['Iapetus', 'رجل — صافٍ'], ['Algieba', 'رجل — ناعم'], ['Puck', 'رجل — حيوي'], ['Fenrir', 'رجل — متحمس'], ['Kore', 'امرأة — واثقة'], ['Aoede', 'امرأة — خفيفة'], ['Leda', 'امرأة — شابة'], ['Zephyr', 'امرأة — مشرقة']];
@@ -19,12 +21,12 @@ const liveVoice = () => { const oa = liveProv() === 'openai'; try { return local
 function liveVoiceSet(v) { try { localStorage.setItem(liveProv() === 'openai' ? 'live_voice_oa' : 'live_voice', v); } catch (e) {} toast('🎙️ الصوت: ' + ((liveVoices().find(x => x[0] === v) || [])[1] || v) + (LIVE.on ? ' — يتغيّر من المحادثة الجاية' : ''), 'good'); }
 function liveProvSet(v) { if (LIVE.on || LIVE.state) liveStop(); try { localStorage.setItem('live_prov', v === 'openai' ? 'openai' : 'gemini'); } catch (e) {} liveSettingsPaint(); const p = document.getElementById('asst-panel'); if (p) p.remove();
   toast('🎙️ المحادثة الحية: ' + (liveProv() === 'openai' ? 'GPT Realtime — يحتاج مفتاح OpenAI' : 'Gemini Live — يحتاج مفتاح Gemini'), 'good'); }
-function liveModelSet(v) { try { localStorage.setItem('live_model_oa', v); } catch (e) {} toast('🎙️ النموذج: ' + v + (LIVE.on ? ' — من المحادثة الجاية' : ''), 'good'); }
+function liveModelSet(v) { try { localStorage.setItem(liveProv() === 'openai' ? 'live_model_oa' : 'live_model_gm', v); } catch (e) {} toast('🎙️ النموذج: ' + v + (LIVE.on ? ' — من المحادثة الجاية' : ''), 'good'); }
 function liveSettingsPaint() {
   const c = document.getElementById('live-on-tg'); if (c) c.checked = liveOn(); const oa = liveProv() === 'openai';
   const pr = document.getElementById('live-prov'); if (pr) pr.value = liveProv();
   const v = document.getElementById('live-voice'); if (v) { v.innerHTML = liveVoices().map(([k, l]) => `<option value="${k}">${l} (${k})</option>`).join(''); v.value = liveVoice(); }
-  const m = document.getElementById('live-model'), mr = document.getElementById('live-model-row'); if (mr) mr.hidden = !oa; if (m) { m.innerHTML = LIVE_OA_MODELS.map(([k, l]) => `<option value="${k}">${l}</option>`).join(''); m.value = liveOaModel(); }
+  const m = document.getElementById('live-model'); if (m) { m.innerHTML = (oa ? LIVE_OA_MODELS : LIVE_GM_MODELS).map(([k, l]) => `<option value="${k}">${l}</option>`).join(''); m.value = oa ? liveOaModel() : liveGmModel(); }   // النماذج تتبع المزوّد المختار
 }
 /* مقفولة افتراضيًا: تُفعَّل من ⚙️ الإعدادات ← الذكاء الاصطناعي ← «🎙️ المحادثة الحية» */
 const liveOn = () => { try { return localStorage.getItem('live_on') === '1'; } catch (e) { return false; } };
@@ -101,7 +103,7 @@ async function liveStart() {
   try { LIVE.ctx = new (window.AudioContext || window.webkitAudioContext)(); if (LIVE.ctx.state !== 'running') await LIVE.ctx.resume(); } catch (e) {}
   asstMicLog('live: سياق ' + (LIVE.ctx && LIVE.ctx.state) + ' ' + (LIVE.ctx && LIVE.ctx.sampleRate));
   try { if (!localStorage.getItem('live_note')) { localStorage.setItem('live_note', '1'); toast('🎙️ تجريبية: الصوت يُحسب من رصيد Gemini بسعر أعلى من النص — أنهِ المحادثة بزر ⏹', 'warn'); } } catch (e) {}
-  liveSet('connect'); LIVE.tried = []; LIVE.lv = 2; liveConnect(LIVE_MODELS[0]);
+  liveSet('connect'); LIVE.tried = []; LIVE.lv = 2; liveConnect(liveGmModel());   // النموذج المختار أولًا، والآخر بديل إن رُفض
 }
 function liveConnect(model) {
   LIVE.model = model; LIVE.tried.push(model); let ready = false; asstMicLog('live: اتصال ' + model + ' · عربي ' + LIVE.lv);
