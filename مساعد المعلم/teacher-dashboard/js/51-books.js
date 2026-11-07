@@ -38,7 +38,7 @@ async function bkRender(force) {
 }
 /* 🖼️ الغلاف: صورة الصفحة الأولى من الخادم، وإلا غلاف مرسوم بلون المادة */
 function bkCoverHTML(b, big) {
-  const warn = b.ocrPending ? `<i class="bk-badge" title="${b.ocrPending} صفحة لم تُقرأ بعد">📷</i>` : (b.lessons || []).length ? '' : '<i class="bk-badge" title="لا فهرس دروس بعد">!</i>';
+  const warn = b.ocrPending ? `<i class="bk-badge" title="${b.ocrPending} صفحة لم تُقرأ بعد">📄</i>` : (b.lessons || []).length ? '' : '<i class="bk-badge" title="لا فهرس دروس بعد">!</i>';
   if (b.coverAt) return `<span class="bk-book has-img${big ? ' big' : ''}"><img src="${esc(getApi() + '/book-cover?id=' + encodeURIComponent(b.id) + '&v=' + b.coverAt + '&t=' + encodeURIComponent(getTok()))}" alt="" loading="lazy" onerror="this.parentNode.classList.remove('has-img');this.remove()">${bkDrawnCover(b)}${warn}</span>`;
   return `<span class="bk-book${big ? ' big' : ''}">${bkDrawnCover(b)}${warn}</span>`;
 }
@@ -66,12 +66,13 @@ function bkBookHTML(b) {
     <div class="bk-hcover" onclick="bkView('${esc(b.id)}')" title="تصفّح الكتاب">${bkCoverHTML(b, 1)}</div><div class="bk-title"><b>${esc(b.title)}</b><small>${esc([b.subject, b.grade].filter(Boolean).join(' · '))} · ${b.pagesCount || 0} صفحة</small></div>
     <div class="bk-acts"><button type="button" class="btn sm bk-read" onclick="bkView('${esc(b.id)}')">📖 تصفّح الكتاب</button><button type="button" class="btn ghost sm" onclick="bkEditMeta('${esc(b.id)}')">✏️ البيانات</button><button type="button" class="btn ghost sm" onclick="bkDel('${esc(b.id)}')">🗑️</button></div></div>
     ${b.pdf ? '' : `<div class="bk-note bk-note-i">📖 لتصفّح الكتاب بصفحاته الأصلية (الصور والأشكال) — <label class="bk-link">أرفق ملف الكتاب نفسه<input type="file" accept="application/pdf,.pdf" hidden onchange="bkAttachPdf('${esc(b.id)}',this)"></label>. وإلى ذلك الحين يُتصفَّح نصّه.</div>`}
-    ${b.ocrPending ? `<div class="bk-note">📷 ${b.ocrPending} صفحة مصوّرة لم تُقرأ بعد — <label class="bk-link">أكمل قراءتها (اختر ملف الكتاب نفسه)<input type="file" accept="application/pdf,.pdf" hidden onchange="bkResume('${esc(b.id)}',this)"></label></div>` : ''}
-    <div class="bk-sec"><b>📑 الدروس (${L.length})</b><span><button type="button" class="ai-btn sm${L.length ? ' quiet' : ''} bk-idx" onclick="bkIndex('${esc(b.id)}')"><span class="ai-mark">✦</span> ${L.length ? 'أعد استخراج الفهرس' : 'استخرج الفهرس بالذكاء'}</button>
+    ${b.ocrPending ? `<div class="bk-note bk-read-note"><span>📄 ${b.ocrPending >= (b.pagesCount || 0) ? 'لم تُقرأ صفحات الكتاب بعد' : b.ocrPending + ' صفحة لم تُقرأ بعد'} — قراءتها تلزم للأنشطة والدروس و«مساعدي» (التصفّح لا يحتاجها).</span>
+      ${b.pdf ? `<button type="button" class="ai-btn sm bk-readbtn" onclick="bkRead('${esc(b.id)}')"><span class="ai-mark">📄</span> ${b.ocrPending >= (b.pagesCount || 0) ? 'اقرأ صفحات الكتاب' : 'أكمل قراءة الصفحات'}</button>` : `<label class="bk-link">اقرأها (اختر ملف الكتاب نفسه)<input type="file" accept="application/pdf,.pdf" hidden onchange="bkResume('${esc(b.id)}',this)"></label>`}</div>` : ''}
+    <div class="bk-sec"><b>📑 الدروس (${L.length})</b><span><button type="button" class="ai-btn sm${L.length || (b.pagesCount && b.ocrPending >= b.pagesCount) ? ' quiet' : ''} bk-idx" onclick="bkIndex('${esc(b.id)}')"><span class="ai-mark">✦</span> ${L.length ? 'أعد استخراج الفهرس' : 'استخرج الفهرس بالذكاء'}</button>
       <button type="button" class="btn ghost sm" onclick="bkEditIndex('${esc(b.id)}')">✏️ تعديل الفهرس</button></span></div>
     ${L.length ? units.map(g => `<div class="bk-unit">${g.u ? `<div class="bk-unit-t">${esc(g.u)}</div>` : ''}${g.items.map(([l, i]) => `<div class="bk-lesson"><span class="bk-lt"><b>${esc(l.title)}</b><small>ص ${l.from}${l.to > l.from ? '–' + l.to : ''}</small></span>
       <button type="button" class="btn ghost sm" onclick="bkView('${esc(b.id)}',${l.from})" aria-label="تصفّح الدرس في الكتاب" title="تصفّح الدرس في الكتاب">📖</button><button type="button" class="btn ghost sm" onclick="bkPreview('${esc(b.id)}',${i})">👁️ النص</button><button type="button" class="ai-btn sm" onclick="bkMakeActivity('${esc(b.id)}',${i})"><span class="ai-mark">✦</span> نشاط منه</button></div>`).join('')}</div>`).join('')
-    : '<div class="bk-empty sm">لم يُستخرج فهرس الدروس بعد — اضغط «استخرج الفهرس بالذكاء» أو أضفه يدويًا.</div>'}`;
+    : `<div class="bk-empty sm">${b.pagesCount && b.ocrPending >= b.pagesCount ? 'اقرأ صفحات الكتاب أولًا، ثم استخرج فهرس الدروس.' : 'لم يُستخرج فهرس الدروس بعد — اضغط «استخرج الفهرس بالذكاء» أو أضفه يدويًا.'}</div>`}`;
 }
 async function bkOpen(id) { BK.open = id; bkRender(); }
 
@@ -95,29 +96,38 @@ async function bkAdd(input) {
   let id = '';
   try {
     bkProg({ label: '📖 جارٍ فتح الكتاب…', n: 0, of: 1 });
-    await lzLoad(); const pdf = await bkPdf(file), N = pdf.numPages, pages = [], st = [];
-    for (let p = 1; p <= N; p++) { const tc = await (await pdf.getPage(p)).getTextContent(); const t = String(window.normalAIBuildPdfPageText(tc.items) || '').replace(/­/g, '').trim(); pages.push(t); st.push(bkPageOk(t));
-      if (p % 5 === 0 || p === N) bkProg({ label: '📖 قراءة نص الكتاب', n: p, of: N, sub: `صفحة ${p} من ${N}` }); }
-    const scanned = st.filter(x => x !== 'ok').length / N >= .4;
-    const final = pages.map((t, i) => st[i] === 'ok' ? t : st[i] === 'bad' || scanned ? '' : (t || ' '));
-    const title = file.name.replace(/\.pdf$/i, '').replace(/[_-]+/g, ' ').trim().slice(0, 100);
-    bkProg({ label: '☁️ حفظ الكتاب في مكتبتك…', n: N, of: N, sub: '' });
-    const j = await libApi('/book-save', { meta: { title, lessons: [] }, pages: final }); id = j.meta.id; await bkLoad(true); BK.open = id;
+    const pdf = await bkPdf(file), N = pdf.numPages, title = file.name.replace(/\.pdf$/i, '').replace(/[_-]+/g, ' ').trim().slice(0, 100);
+    /* الرفع فقط: الملف والغلاف وعدد الصفحات — قراءة الصفحات واستخراج الدروس بطلب المعلم من صفحة الكتاب */
+    const j = await libApi('/book-save', { meta: { title, lessons: [] }, pages: Array(N).fill('') }); id = j.meta.id; await bkLoad(true); BK.open = id;
     if (BK.coverTried) BK.coverTried[id] = 1; else BK.coverTried = { [id]: 1 }; await bkMakeCover(id, pdf).catch(e => console.warn('cover', e));
-    await bkUploadPdf(id, file).catch(e => toast('📖 لم يُرفع ملف الكتاب للتصفّح (' + (e.message || e) + ') — يمكنك إرفاقه لاحقًا من صفحة الكتاب', 'bad'));
-    const todo = final.map((t, i) => t === '' ? i + 1 : 0).filter(Boolean);
-    if (todo.length) await bkOcr(id, pdf, todo);
-    bkProg(null); toast('📚 أُضيف الكتاب — استخرج فهرس دروسه متى شئت من صفحته', 'good');   // الفهرس بطلب المعلم فقط (يطول)
+    await bkUploadPdf(id, file).catch(e => toast('📖 لم يُرفع ملف الكتاب (' + (e.message || e) + ') — يمكنك إرفاقه لاحقًا من صفحة الكتاب', 'bad'));
+    bkProg(null); toast('📚 رُفع الكتاب — اقرأ صفحاته واستخرج دروسه متى شئت من صفحته', 'good');
   } catch (e) { console.error('bkAdd', e); bkProg(null); toast('تعذّر: ' + (e.message || e), 'bad'); if (id) { try { await bkLoad(true); } catch (x) {} bkRender(); } }
 }
 async function bkResume(id, input) {
   const file = input && input.files && input.files[0]; if (input) input.value = ''; if (!file || BK.busy) return;
   try { bkProg({ label: '📖 فتح الملف…', n: 0, of: 1 }); const pdf = await bkPdf(file), b = bkBook(id);
     if (b && b.pagesCount && pdf.numPages !== b.pagesCount) throw new Error(`عدد صفحات الملف (${pdf.numPages}) لا يطابق الكتاب (${b.pagesCount}) — اختر الملف نفسه`);
-    const all = await bkPages(id, 1, pdf.numPages); delete BK.pages[id + ':1:' + pdf.numPages];
-    const todo = all.map((t, i) => t === '' ? i + 1 : 0).filter(Boolean); if (todo.length) await bkOcr(id, pdf, todo);
+    await bkReadPages(id, pdf);
     bkProg(null); toast('✓ اكتملت قراءة الصفحات', 'good');
   } catch (e) { bkProg(null); toast(e.message || 'تعذّر', 'bad'); }
+}
+/* 📄 قراءة صفحات الكتاب (بطلب المعلم): من ملفه على الخادم، وإلا يُطلب اختيار الملف */
+async function bkRead(id) {
+  const b = bkBook(id); if (!b || BK.busy) return; if (!b.pdf) { toast('اختر ملف الكتاب نفسه من الرابط في صفحته', 'bad'); return; }
+  try { bkProg({ label: '📖 فتح الكتاب من مكتبتك…', n: 0, of: 1 }); await bkReadPages(id, await bkDoc(id)); bkProg(null); toast('✓ قُرئت صفحات الكتاب — استخرج فهرس الدروس متى شئت', 'good'); }
+  catch (e) { bkProg(null); toast(e.message || 'تعذّرت القراءة', 'bad'); }
+}
+async function bkReadPages(id, pdf) {
+  await lzLoad(); const N = pdf.numPages; Object.keys(BK.pages).filter(k => k.startsWith(id + ':')).forEach(k => delete BK.pages[k]);
+  const all = await bkPages(id, 1, N); delete BK.pages[id + ':1:' + N]; const todo = all.map((t, i) => t === '' ? i + 1 : 0).filter(Boolean); if (!todo.length) return;
+  const got = {}, st = {}; let n = 0;
+  for (const p of todo) { const tc = await (await pdf.getPage(p)).getTextContent(); got[p] = String(window.normalAIBuildPdfPageText(tc.items) || '').replace(/\u00AD/g, '').trim(); st[p] = bkPageOk(got[p]);
+    if (++n % 5 === 0 || n === todo.length) bkProg({ label: '📄 قراءة نص الصفحات', n, of: todo.length, sub: `صفحة ${n} من ${todo.length}` }); }
+  const scanned = todo.filter(p => st[p] !== 'ok').length / todo.length >= .4, patch = {}, ocr = [];
+  todo.forEach(p => { if (st[p] === 'ok') patch[p] = got[p]; else if (st[p] === 'bad' || scanned) ocr.push(p); else patch[p] = got[p] || ' '; });
+  const keys = Object.keys(patch); for (let i = 0; i < keys.length; i += 60) await libApi('/book-save', { meta: { id }, patch: Object.fromEntries(keys.slice(i, i + 60).map(k => [k, patch[k]])) });
+  await bkLoad(true); if (ocr.length) await bkOcr(id, pdf, ocr);
 }
 /* قراءة الصفحات المصوّرة بالذكاء: صفحة في كل طلب، طلبان معًا، والحفظ كل 4 صفحات حتى لا يضيع شيء لو انقطع */
 async function bkOcr(id, pdf, todo) {
@@ -136,6 +146,7 @@ async function bkOcr(id, pdf, todo) {
 /* فهرس الدروس بالذكاء: أول أسطر كل صفحة برقم صفحة الملف */
 async function bkIndex(id, quiet) {
   const b = bkBook(id); if (!b) return;
+  if (b.pagesCount && b.ocrPending >= b.pagesCount) { toast('اقرأ صفحات الكتاب أولًا (زر «اقرأ صفحات الكتاب»)، ثم استخرج الفهرس', 'bad'); return; }
   if (!quiet && (b.lessons || []).length && !confirm('استبدال فهرس الدروس الحالي بفهرس جديد يستخرجه الذكاء؟')) return;
   try { bkProg({ label: '✦ الذكاء يستخرج فهرس الدروس…', n: 1, of: 2, sub: 'من عناوين الصفحات' });
     const P = await bkPages(id, 1, b.pagesCount || 1), lines = P.map((t, i) => `ص${i + 1}: ${String(t || '').trim() ? String(t).trim().split('\n').slice(0, 3).join(' / ').slice(0, 170) : '(بلا نص)'}`).join('\n');
