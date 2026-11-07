@@ -3098,3 +3098,8 @@ body.bkv-open{overflow:hidden}
 .qb-qt{align-self:flex-start;font-size:.68rem;font-weight:800;background:#EEF4FF;color:#1E3A8A;border-radius:99px;padding:1px 8px}.qb-q ul{margin:0;padding-inline-start:1.1rem;color:var(--ink-soft,#5B6B82);font-size:.82rem}.qb-q li.ok{color:#0F7C5C;font-weight:800}.qb-q small{color:var(--ink-soft,#5B6B82);font-size:.7rem}
 .qb-hint{margin-top:.2rem;border:1px solid #CFE9DF;background:#F1FAF6;border-radius:12px;padding:.55rem .7rem;font-size:.84rem;line-height:1.9}
 .bkr-range{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin:.4rem 0}.bkr-range label{display:flex;flex-direction:column;gap:4px;font-size:.82rem;font-weight:700;color:var(--ink-soft,#5B6B82)}.bkr-range .inp{font-size:1.05rem;text-align:center}
+/* 📗📘 رفّا الفصلين + الاختبارات الثابتة */
+.bk-shelf{margin-top:1rem}.bk-shelf-h{display:flex;align-items:center;gap:.4rem;font-size:.95rem;font-weight:900;margin:0 0 -.35rem;color:#4A2F14}.bk-shelf-h small{font-size:.72rem;font-weight:700;color:#7A5A3A;background:#F3E6D3;border-radius:99px;padding:1px 8px}
+.bk-shelf[data-term="none"] .bk-case{filter:saturate(.85)}
+.tpl-sec .qb-gt small{font-weight:600;color:var(--ink-soft,#5B6B82);font-size:.72rem;margin-inline-start:.3rem}
+.tpl-row{display:flex;align-items:center;gap:.5rem;padding:.55rem .75rem;border-top:1px solid var(--rule,#DCE4EE)}.qb-gt+.tpl-row{border-top:0}.tpl-ic{font-size:1.3rem}

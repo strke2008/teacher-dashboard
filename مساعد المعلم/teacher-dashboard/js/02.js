@@ -5890,6 +5890,7 @@ function openQs(id){
       <button class="btn ghost" onclick="exportQsJson('${id}')">💾 حفظ JSON</button>
       <button class="btn" onclick="saveQs('${id}')">حفظ</button>
     </div>`);
+  if((QS_KIND==='diag'||QS_KIND==='style') && typeof tplHint==='function') tplHint(id);   // 🧪 اختبار ثابت محفوظ لهذا الصف؟
 }
 
 /* 🖼️ حقول السؤال التي لا يحررها المحرر (الشكل، المهارة، ربط نافس…) تُحفظ في الصف وتعود عند الحفظ —

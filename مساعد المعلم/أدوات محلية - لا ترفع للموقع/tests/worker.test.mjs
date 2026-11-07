@@ -209,6 +209,19 @@ export default async function run() {
     const other = l.j.topics.find(x => x.id !== a1.j.id); await C('/qbank-del', { method: 'POST', body: { t: TOKEN, id: other.id } }); eq((await C('/qbank?t=' + TOKEN)).j.topics.map(x => x.id), [a1.j.id], 'حذف موضوع');
     await C('/qbank-del', { method: 'POST', body: { t: TOKEN, id: a1.j.id, hs: g.j.topic.qs.map(q => q.h) } }); eq((await C('/qbank?t=' + TOKEN)).j.topics.length, 0, 'موضوع فرغ يُحذف');
   });
+  await S.t('🧪 الاختبارات الثابتة: تشخيصي وأنماط تعلّم لكل صف، تُستبدل بآخر نسخة، تبقى بعد مسح السنة، وللمعلم فقط', async () => {
+    const E = newEnv(), C = caller(W, E), D = [{ t: 'q', q: 'كم يساوي 3 × 4؟', o: ['12', '7'], a: 0, sid: 'x' }], ST = [{ t: 'q', q: 'أفضّل أن أتعلم', o: ['بالرسم', 'بالسمع', 'بالحركة', 'بالقراءة'], a: 0 }];
+    eq((await C('/tpl?t=bad')).s, 401); eq((await C('/tpl-save', { method: 'POST', body: { t: 'bad', kind: 'diag', grade: 'أول', qs: D } })).s, 401);
+    eq((await C('/tpl-save', { method: 'POST', body: { t: TOKEN, kind: 'normal', grade: 'أول', qs: D } })).s, 400, 'نوع غير مسموح');
+    const a = await C('/tpl-save', { method: 'POST', body: { t: TOKEN, kind: 'diag', grade: 'الأول المتوسط', subject: 'علوم', qs: D } }); eq([a.s, a.j.n, a.j.replaced], [200, 1, false]);
+    const a2 = await C('/tpl-save', { method: 'POST', body: { t: TOKEN, kind: 'diag', grade: 'الأوَّل المتوسط', subject: 'علوم', qs: D.concat([{ t: 'tf', q: 'الماء سائل', a: true }]) } }); eq([a2.j.id, a2.j.n, a2.j.replaced], [a.j.id, 2, true], 'نفس الصف = يُستبدل');
+    await C('/tpl-save', { method: 'POST', body: { t: TOKEN, kind: 'style', grade: 'الأول المتوسط', subject: 'علوم', qs: ST } });
+    await C('/tpl-save', { method: 'POST', body: { t: TOKEN, kind: 'diag', grade: 'الثاني المتوسط', subject: 'علوم', qs: D } });
+    const l = await C('/tpl?t=' + TOKEN); eq(l.j.list.map(x => [x.kind, x.grade, x.n, x.subject]), [['diag', 'الأوَّل المتوسط', 2, 'علوم'], ['diag', 'الثاني المتوسط', 1, 'علوم'], ['style', 'الأول المتوسط', 1, '']]);
+    const g = await C(`/tpl-get?t=${TOKEN}&id=${a.j.id}`); eq([g.j.tpl.qs.length, g.j.tpl.qs[0].sid, g.j.tpl.title], [2, undefined, 'اختبار تشخيصي']);
+    await C('/wipe?all=1&t=' + TOKEN); eq((await C('/tpl?t=' + TOKEN)).j.list.length, 3, 'يبقى بعد «امسح كل شيء»');
+    await C('/tpl-del', { method: 'POST', body: { t: TOKEN, id: a.j.id } }); eq((await C('/tpl?t=' + TOKEN)).j.list.length, 2, 'حذف');
+  });
   await S.t('🔊 صوت «مساعدي» (k=asst) يُحفظ 3 أيام فقط، وجمل المختبر دائمة', async () => {
     const E = newEnv({ ELEVENLABS_API_KEY: 'x' }), C = caller(W, E), puts = []; const put0 = E.HW.put.bind(E.HW); E.HW.put = (k, v, o) => { puts.push([k, o]); return put0(k, v, o); };
     const f0 = globalThis.fetch; globalThis.fetch = async (u, o) => /elevenlabs/.test(String(u)) ? new Response(new Uint8Array([1, 2, 3]), { status: 200, headers: { 'content-type': 'audio/mpeg' } }) : f0(u, o);

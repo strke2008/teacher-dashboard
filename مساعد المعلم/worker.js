@@ -12144,6 +12144,33 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
       if (added) await save(o);
       return json({ ok: true, id, added, dup, n: o.qs.length });
     }
+    /* 🧪 الاختبارات الثابتة (تشخيصي · أنماط التعلّم): اختبار كامل واحد لكل نوع وصف — يُعاد استعماله كل سنة بلا ذكاء، ولا يُمسح مع نهاية السنة */
+    if (url.pathname === '/tpl' && request.method === 'GET') {
+      if (!env.TEACHER_TOKEN || (url.searchParams.get('t') || '') !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
+      const list = []; let cur;
+      do { const l = await env.HW.list({ prefix: 'tpl:', cursor: cur }); l.keys.forEach(k => list.push({ id: k.name.slice(4), ...(k.metadata || {}) })); cur = l.list_complete ? null : l.cursor; } while (cur);
+      list.sort((x, y) => String(x.kind).localeCompare(String(y.kind)) || String(x.grade).localeCompare(String(y.grade), 'ar'));
+      return json({ ok: true, list });
+    }
+    if (url.pathname === '/tpl-get' && request.method === 'GET') {
+      if (!env.TEACHER_TOKEN || (url.searchParams.get('t') || '') !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
+      const id = String(url.searchParams.get('id') || '').replace(/[^\w-]/g, '').slice(0, 40), o = id ? JSON.parse(await env.HW.get('tpl:' + id) || 'null') : null;
+      return o ? json({ ok: true, tpl: o }) : json({ error: 'not found' }, 404);
+    }
+    if ((url.pathname === '/tpl-save' || url.pathname === '/tpl-del') && request.method === 'POST') {
+      let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
+      if (!env.TEACHER_TOKEN || b.t !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
+      if (url.pathname === '/tpl-del') { const id = String(b.id || '').replace(/[^\w-]/g, '').slice(0, 40); if (!id) return json({ error: 'missing id' }, 400); await env.HW.delete('tpl:' + id); return json({ ok: true }); }
+      const kind = b.kind === 'style' ? 'style' : b.kind === 'diag' ? 'diag' : ''; if (!kind) return json({ error: 'bad kind' }, 400);
+      const txt = (v, n) => String(v ?? '').trim().slice(0, n), grade = txt(b.grade, 60) || 'عام', subject = kind === 'style' ? '' : txt(b.subject, 60);
+      const qs = (Array.isArray(b.qs) ? b.qs : []).filter(q => q && typeof q === 'object' && (txt(q.q, 2000) || q.t === 'm')).slice(0, 300).map(q => { const x = JSON.parse(JSON.stringify(q)); delete x.sid; return x; });
+      if (!qs.length) return json({ error: 'no questions' }, 400); if (JSON.stringify(qs).length > 900000) return json({ error: 'too large' }, 413);
+      const norm = v => String(v).replace(/[\u064B-\u0652\u0640]/g, '').replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي').replace(/\s+/g, ' ').trim();
+      const id = [...new Uint8Array(await crypto.subtle.digest('SHA-1', new TextEncoder().encode(kind + '|' + norm(grade) + '|' + norm(subject))))].map(x => x.toString(16).padStart(2, '0')).join('').slice(0, 16);
+      const old = JSON.parse(await env.HW.get('tpl:' + id) || 'null'), o = { id, kind, grade, subject, title: txt(b.title, 120) || (kind === 'style' ? 'أنماط التعلّم' : 'اختبار تشخيصي'), qs, at: (old && old.at) || Date.now(), upd: Date.now() };
+      await env.HW.put('tpl:' + id, JSON.stringify(o), { metadata: { kind, grade, subject, title: o.title, n: qs.length, upd: o.upd } });
+      return json({ ok: true, id, n: qs.length, replaced: !!old });
+    }
     if (url.pathname === '/book-del' && request.method === 'POST') {
       let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
       if (!env.TEACHER_TOKEN || b.t !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
@@ -12364,7 +12391,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
     }
 
     return json({ ok: true, service: 'homework',
-      paths: ['/publish','/messages','/hw','/unpublish','/removestudent','/find','/mine','/board','/review','/submit','/me','/buy','/use','/extra-attempt','/extra-attempt-bulk','/extra-attempt-status','/unlock-review','/title','/pin','/pinstatus','/pinmode','/pins','/resetpin','/rev','/store','/resolve','/adjust','/state','/recover-activities','/wipe','/results','/projects','/books','/book','/book-save','/book-del','/book-pdf','/book-cover','/qbank','/qbank-topic','/qbank-add','/qbank-del','/project-review','/project-file-delete','/file-submit','/file-download','/review-request','/review-request/complete','/notice-state','/notice-dismiss','/exam-options','/exam-shop-policy','/use-exam-bonus','/mad-forgive','/hw-forgive','/cert-tpl','/reset'] });
+      paths: ['/publish','/messages','/hw','/unpublish','/removestudent','/find','/mine','/board','/review','/submit','/me','/buy','/use','/extra-attempt','/extra-attempt-bulk','/extra-attempt-status','/unlock-review','/title','/pin','/pinstatus','/pinmode','/pins','/resetpin','/rev','/store','/resolve','/adjust','/state','/recover-activities','/wipe','/results','/projects','/books','/book','/book-save','/book-del','/book-pdf','/book-cover','/qbank','/qbank-topic','/qbank-add','/qbank-del','/tpl','/tpl-get','/tpl-save','/tpl-del','/project-review','/project-file-delete','/file-submit','/file-download','/review-request','/review-request/complete','/notice-state','/notice-dismiss','/exam-options','/exam-shop-policy','/use-exam-bonus','/mad-forgive','/hw-forgive','/cert-tpl','/reset'] });
   },
 };
 export default HW_WORKER;

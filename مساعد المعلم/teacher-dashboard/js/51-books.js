@@ -38,10 +38,15 @@ async function bkRender(force) {
   BK.open = ''; const L = BK.list;
   if (BK.tab === 'bank') { el.innerHTML = bkProgHTML() + bkTabsHTML() + '<div id="qb-root"></div>'; qbRender(); return; }
   if (!QB.list) qbLoad().then(() => { const tb = document.querySelector('.bk-tabs'); if (tb) tb.outerHTML = bkTabsHTML(); }).catch(() => {});
-  el.innerHTML = bkProgHTML() + bkTabsHTML() + `<div class="bk-case" role="list" aria-label="كتبك">${L.map(b => `<button type="button" class="bk-slot" role="listitem" onclick="bkOpen('${esc(b.id)}')" aria-label="${esc(b.title)}">
-      ${bkCoverHTML(b)}<span class="bk-cap"><b>${esc(b.title)}</b><small>${(b.lessons || []).length ? (b.lessons || []).length + ' درس' : b.pagesCount + ' صفحة'}</small></span></button>`).join('')}
-    <label class="bk-slot bk-slot-add"><span class="bk-book bk-add-book"><b>＋</b><small>${L.length ? 'أضف كتابًا' : 'أضف أول كتاب'}</small></span><span class="bk-cap"><small>PDF</small></span><input type="file" accept="application/pdf,.pdf" hidden onchange="bkAdd(this)"></label></div>
-    ${L.length ? '' : '<p class="bk-hint">ارفع كتاب المادة (PDF) مرة واحدة، وبعدها اختر الدرس متى ما احتجته لتوليد نشاط أو نص قرائي أو من «مساعدي».</p>'}`;
+  /* 📚 رفّان: كتب الفصل الدراسي الأول، وكتب الثاني — ولكل رف خانة «أضف كتابًا» تضعه فيه؛ وكتب بلا فصل في رف ثالث حتى تُحدَّد */
+  const slot = b => `<button type="button" class="bk-slot" role="listitem" onclick="bkOpen('${esc(b.id)}')" aria-label="${esc(b.title)}">
+      ${bkCoverHTML(b)}<span class="bk-cap"><b>${esc(b.title)}</b><small>${(b.lessons || []).length ? (b.lessons || []).length + ' درس' : b.pagesCount + ' صفحة'}</small></span></button>`;
+  const shelf = (t, label, ic) => { const B = L.filter(b => bkTermOf(b) === t); if (!t && !B.length) return '';
+    return `<section class="bk-shelf" data-term="${t || 'none'}"><h3 class="bk-shelf-h"><span>${ic}</span> ${label} <small>${B.length} ${B.length === 1 ? 'كتاب' : 'كتب'}</small></h3><div class="bk-case" role="list" aria-label="${label}">${B.map(slot).join('')}
+      ${t ? `<label class="bk-slot bk-slot-add"><span class="bk-book bk-add-book"><b>＋</b><small>أضف كتابًا</small></span><span class="bk-cap"><small>PDF</small></span><input type="file" accept="application/pdf,.pdf" hidden onchange="bkAdd(this,'${t}')"></label>` : ''}</div>
+      ${t ? '' : '<p class="bk-hint">حدّد فصل كل كتاب من «✏️ البيانات» في صفحته لينتقل إلى رفّه.</p>'}</section>`; };
+  el.innerHTML = bkProgHTML() + bkTabsHTML() + shelf('1', 'الفصل الدراسي الأول', '📖') + shelf('2', 'الفصل الدراسي الثاني', '📘') + shelf('', 'كتب بلا فصل محدد', '📚')
+    + (L.length ? '' : '<p class="bk-hint">ارفع كتاب المادة (PDF) مرة واحدة على رف فصله، وبعدها اختر الدرس متى ما احتجته لتوليد نشاط أو نص قرائي أو من «مساعدي».</p>');
   bkCoverFix();
 }
 /* 🖼️ الغلاف: صورة الصفحة الأولى من الخادم، وإلا غلاف مرسوم بلون المادة */
@@ -50,7 +55,7 @@ function bkCoverHTML(b, big) {
   if (b.coverAt) return `<span class="bk-book has-img${big ? ' big' : ''}"><img src="${esc(getApi() + '/book-cover?id=' + encodeURIComponent(b.id) + '&v=' + b.coverAt + '&t=' + encodeURIComponent(getTok()))}" alt="" loading="lazy" onerror="this.parentNode.classList.remove('has-img');this.remove()">${bkDrawnCover(b)}${warn}</span>`;
   return `<span class="bk-book${big ? ' big' : ''}">${bkDrawnCover(b)}${warn}</span>`;
 }
-function bkDrawnCover(b) { return `<span class="bk-drawn" style="--h:${bkHue(b.subject || b.title)}"><span class="bk-d-band"></span><b>${esc((b.subject || b.title || 'كتاب').slice(0, 16))}</b><small>${esc(b.grade || '')}</small><em>${esc(b.term ? 'الفصل ' + b.term : '')}</em></span>`; }
+function bkDrawnCover(b) { return `<span class="bk-drawn" style="--h:${bkHue(b.subject || b.title)}"><span class="bk-d-band"></span><b>${esc((b.subject || b.title || 'كتاب').slice(0, 16))}</b><small>${esc(b.grade || '')}</small><em>${bkTermOf(b) ? 'الفصل ' + (bkTermOf(b) === '1' ? 'الأول' : 'الثاني') : ''}</em></span>`; }
 async function bkMakeCover(id, pdf) {
   const page = await pdf.getPage(1), v = page.getViewport({ scale: 1 }), vp = page.getViewport({ scale: 360 / v.width }), cv = document.createElement('canvas');
   cv.width = Math.round(vp.width); cv.height = Math.round(vp.height); const ctx = cv.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height);
@@ -63,6 +68,9 @@ async function bkCoverFix() {
   BK.coverBusy = true; try { for (const b of todo) { BK.coverTried[b.id] = 1; try { await bkMakeCover(b.id, await bkDoc(b.id)); } catch (e) { console.warn('bkCoverFix', b.id, e); } } await bkLoad(true); } catch (e) {} finally { BK.coverBusy = false; }
   if (!BK.open && !BK.busy) bkRender();
 }
+/* الفصل الدراسي للكتاب: '1' أو '2' أو '' — من حقله، أو يُخمَّن من اسم الملف عند الرفع */
+function bkTermOf(b) { const t = String((b && b.term) || '').trim(); return /^(1|١|الأول|اول|أول|first)/i.test(t) ? '1' : /^(2|٢|الثاني|ثاني|second)/i.test(t) ? '2' : ''; }
+function bkGuessTerm(name) { const n = String(name || '').replace(/[_\-.]+/g, ' '); return /(الفصل( الدراسي)? (الثاني|2)|ف ?2\b|\bT ?2\b|term ?2|semester ?2|sem ?2)/i.test(n) ? '2' : /(الفصل( الدراسي)? (الأول|الاول|1)|ف ?1\b|\bT ?1\b|term ?1|semester ?1|sem ?1)/i.test(n) ? '1' : ''; }
 const bkHue = s => { let h = 0; for (const c of String(s || '')) h = (h * 31 + c.charCodeAt(0)) % 360; return h; };
 function bkProgHTML() { const B = BK.busy; if (!B) return ''; const pc = B.of ? Math.round(B.n / B.of * 100) : 0;
   return `<div class="bk-prog" id="bk-prog"><b>${esc(B.label)}</b><div class="bk-bar"><i style="width:${pc}%"></i></div><small>${esc(B.sub || '')}</small>${B.stop ? `<button type="button" class="btn ghost sm" onclick="BK.busy&&(BK.busy.cancel=true)">إيقاف</button>` : ''}</div>`; }
@@ -71,7 +79,7 @@ function bkProg(o) { BK.busy = o ? Object.assign(BK.busy || {}, o) : null; const
 function bkBookHTML(b) {
   const L = b.lessons || [], units = []; L.forEach((l, i) => { const u = l.unit || ''; let g = units.find(x => x.u === u); if (!g) units.push(g = { u, items: [] }); g.items.push([l, i]); });
   return `${bkProgHTML()}<div class="bk-head"><button type="button" class="btn ghost sm" onclick="BK.open='';bkRender()">→ المكتبة</button>
-    <div class="bk-hcover" onclick="bkView('${esc(b.id)}')" title="تصفّح الكتاب">${bkCoverHTML(b, 1)}</div><div class="bk-title"><b>${esc(b.title)}</b><small>${esc([b.subject, b.grade].filter(Boolean).join(' · '))} · ${b.pagesCount || 0} صفحة</small></div>
+    <div class="bk-hcover" onclick="bkView('${esc(b.id)}')" title="تصفّح الكتاب">${bkCoverHTML(b, 1)}</div><div class="bk-title"><b>${esc(b.title)}</b><small>${esc([b.subject, b.grade, bkTermOf(b) ? 'الفصل ' + (bkTermOf(b) === '1' ? 'الأول' : 'الثاني') : ''].filter(Boolean).join(' · '))} · ${b.pagesCount || 0} صفحة</small></div>
     <div class="bk-acts"><button type="button" class="btn sm bk-read" onclick="bkView('${esc(b.id)}')">📖 تصفّح الكتاب</button><button type="button" class="btn ghost sm" onclick="bkEditMeta('${esc(b.id)}')">✏️ البيانات</button><button type="button" class="btn ghost sm" onclick="bkDel('${esc(b.id)}')">🗑️</button></div></div>
     ${b.pdf ? '' : `<div class="bk-note bk-note-i">📖 لتصفّح الكتاب بصفحاته الأصلية (الصور والأشكال) — <label class="bk-link">أرفق ملف الكتاب نفسه<input type="file" accept="application/pdf,.pdf" hidden onchange="bkAttachPdf('${esc(b.id)}',this)"></label>. وإلى ذلك الحين يُتصفَّح نصّه.</div>`}
     ${b.ocrPending ? `<div class="bk-note bk-read-note"><span>📄 ${b.ocrPending >= (b.pagesCount || 0) ? 'لم تُقرأ صفحات الكتاب بعد' : `قُرئ ${(b.pagesCount || 0) - b.ocrPending} من ${b.pagesCount} صفحة`} — اقرأ ما تشاء منها الآن (مثلًا صفحات الفهرس ثم استخرج الدروس)، وصفحات أي درس تُقرأ وحدها عند إنشاء نشاط منه. التصفّح لا يحتاجها.</span>
@@ -97,7 +105,7 @@ async function bkPdf(file) {
   pdfjsLib.GlobalWorkerOptions.workerSrc = BK_PDFJS.replace('pdf.min.js', 'pdf.worker.min.js');
   return pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
 }
-async function bkAdd(input) {
+async function bkAdd(input, term) {
   const file = input && input.files && input.files[0]; if (input) input.value = ''; if (!file) return;
   if (BK.busy) { toast('انتظر حتى تنتهي العملية الحالية', 'bad'); return; }
   if (!/\.pdf$/i.test(file.name) && file.type !== 'application/pdf') { toast('اختر ملف PDF', 'bad'); return; }
@@ -106,7 +114,8 @@ async function bkAdd(input) {
     bkProg({ label: '📖 جارٍ فتح الكتاب…', n: 0, of: 1 });
     const pdf = await bkPdf(file), N = pdf.numPages, title = file.name.replace(/\.pdf$/i, '').replace(/[_-]+/g, ' ').trim().slice(0, 100);
     /* الرفع فقط: الملف والغلاف وعدد الصفحات — قراءة الصفحات واستخراج الدروس بطلب المعلم من صفحة الكتاب */
-    const j = await libApi('/book-save', { meta: { title, lessons: [] }, pages: Array(N).fill('') }); id = j.meta.id; await bkLoad(true); BK.open = id;
+    const tm = term === '1' || term === '2' ? term : bkGuessTerm(file.name);
+    const j = await libApi('/book-save', { meta: { title, lessons: [], term: tm }, pages: Array(N).fill('') }); id = j.meta.id; await bkLoad(true); BK.open = id;
     if (BK.coverTried) BK.coverTried[id] = 1; else BK.coverTried = { [id]: 1 }; await bkMakeCover(id, pdf).catch(e => console.warn('cover', e));
     await bkUploadPdf(id, file).catch(e => toast('📖 لم يُرفع ملف الكتاب (' + (e.message || e) + ') — يمكنك إرفاقه لاحقًا من صفحة الكتاب', 'bad'));
     bkProg(null); toast('📚 رُفع الكتاب — اقرأ صفحاته واستخرج دروسه متى شئت من صفحته', 'good');
@@ -196,7 +205,7 @@ async function bkPreview(id, i) {
 }
 function bkEditMeta(id) {
   const b = bkBook(id); if (!b) return; const f = (k, l, ph) => `<label class="field"><span>${l}</span><input class="inp" id="bkm-${k}" value="${esc(b[k] || '')}" placeholder="${ph}" maxlength="100"></label>`;
-  openModal(`<h2>✏️ بيانات الكتاب</h2>${f('title', 'العنوان', 'علوم — الفصل الدراسي الأول')}${f('subject', 'المادة', 'علوم')}${f('grade', 'الصف', 'أول متوسط')}${f('term', 'الفصل الدراسي', 'الأول')}
+  openModal(`<h2>✏️ بيانات الكتاب</h2>${f('title', 'العنوان', 'علوم — الفصل الدراسي الأول')}${f('subject', 'المادة', 'علوم')}${f('grade', 'الصف', 'أول متوسط')}<label class="field"><span>الفصل الدراسي (الرف)</span><select class="inp" id="bkm-term">${[['', 'غير محدد'], ['1', 'الفصل الدراسي الأول'], ['2', 'الفصل الدراسي الثاني']].map(([v, l]) => `<option value="${v}" ${bkTermOf(b) === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
     <div class="modal-foot"><button type="button" class="btn tick" onclick="bkSaveMeta('${esc(id)}')">حفظ</button><button type="button" class="btn ghost" onclick="closeModal()">إلغاء</button></div>`);
 }
 async function bkSaveMeta(id) { const g = k => (document.getElementById('bkm-' + k) || {}).value || ''; try { await libApi('/book-save', { meta: { id, title: g('title').trim() || 'كتاب', subject: g('subject').trim(), grade: g('grade').trim(), term: g('term').trim() } }); closeModal(); await bkLoad(true); bkRender(); toast('✓ حُفظ', 'good'); } catch (e) { toast(e.message, 'bad'); } }

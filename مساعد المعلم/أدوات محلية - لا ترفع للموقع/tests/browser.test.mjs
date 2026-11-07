@@ -1195,7 +1195,12 @@ export default async function run() {
         eq([s.pend, s.ls, ai.filter(x => x === 'ocr').length], [0, [['التربة', 1, 3]], 3], 'الكتاب المصوّر'); ok(/التربة طبقة/.test(s.t), 'نص مقروء');
         await p.evaluate(() => { BK.open = ''; bkRender(); }); await p.waitForFunction(() => [...document.querySelectorAll('.bk-case .bk-book img')].filter(i => i.complete && i.naturalWidth > 100).length === 2, null, { timeout: 15000 });
         const cv = await p.evaluate(() => ({ at: BK.list.map(b => b.coverAt > 0), slots: document.querySelectorAll('.bk-case .bk-slot').length, add: !!document.querySelector('.bk-case .bk-slot-add input[type=file]'), cap: [...document.querySelectorAll('.bk-cap b')].map(x => x.textContent) }));
-        eq(cv, { at: [true, true], slots: 3, add: true, cap: ['علوم — الثالث', 'علوم — أول متوسط'] }, 'الرف والأغلفة');
+        eq(cv, { at: [true, true], slots: 4, add: true, cap: ['علوم — الثالث', 'علوم — أول متوسط'] }, 'الرفوف والأغلفة (كتابان بلا فصل + خانتا إضافة للفصلين)');
+        const sh = await p.evaluate(async () => { const names = () => [...document.querySelectorAll('.bk-shelf')].map(x => [x.dataset.term, [...x.querySelectorAll('.bk-cap b')].map(b => b.textContent)]);
+          const a = names(), b = BK.list.find(x => x.pagesCount === 3); await libApi('/book-save', { meta: { id: b.id, term: '2' } }); await bkLoad(true); bkRender(); const c = names();
+          return { a, c, guess: [bkGuessTerm('علوم-ف2.pdf'), bkGuessTerm('Science_Term1.pdf'), bkGuessTerm('الفصل الدراسي الأول.pdf'), bkGuessTerm('bk-text.pdf')], slot2: !!document.querySelector('.bk-shelf[data-term="2"] .bk-slot-add input[onchange*="\'2\'"]') }; });
+        eq(sh.a.map(x => x[0]), ['1', '2', 'none'], 'رفّا الفصلين ورف بلا فصل'); eq(sh.c, [['1', []], ['2', ['علوم — الثالث']], ['none', ['علوم — أول متوسط']]], 'الكتاب انتقل لرف الفصل الثاني');
+        eq([sh.guess, sh.slot2], [['2', '1', '1', ''], true], 'تخمين الفصل من اسم الملف، وخانة كل رف تضع الكتاب فيه');
         /* كتاب رُفع قبل الأغلفة (له ملف على الخادم بلا غلاف): يُصنع غلافه في الخلفية */
         const bid = await p.evaluate(() => BK.list.find(b => b.pagesCount === 6).id), mk2 = `book:${bid}:meta`, m0 = JSON.parse(env.HW.m.get(mk2)); delete m0.coverAt; env.HW.m.set(mk2, JSON.stringify(m0)); env.HW.m.delete(`book:${bid}:cover`);
         await p.evaluate(async () => { BK.coverTried = {}; await bkLoad(true); bkRender(); }); ok(await p.evaluate(id => !bkBook(id).coverAt && !!document.querySelector('.bk-drawn'), bid), 'غلاف مرسوم حتى يُصنع');
@@ -1233,8 +1238,14 @@ export default async function run() {
           const h2 = mk('مراجعة سريعة'); await commitActivityContent(h2.id, { qs: [{ t: 'tf', q: 'النسيج مجموعة خلايا متشابهة', a: true }], dropDraft: true }); await w(900);
           const h3 = mk('أنماطي', { kind: 'style' }); await commitActivityContent(h3.id, { qs: [{ t: 'q', q: 'أفضّل أن أتعلم', o: ['بالرسم', 'بالسمع'], a: 0 }], dropDraft: true }); await w(900);
           const h4 = mk('فهم نص الرحلة', { kind: 'reading' }); await commitActivityContent(h4.id, { qs: [{ t: 'q', q: 'إلى أين ذهب الطفل في النص؟', o: ['البحر', 'الجبل'], a: 0 }], dropDraft: true }); await w(900);
-          const h5 = mk('تشخيصي بداية العام', { kind: 'diag' }); await commitActivityContent(h5.id, { qs: [{ t: 'q', q: 'كم يساوي 3 × 4؟', o: ['12', '7'], a: 0 }], dropDraft: true }); await w(900);
+          const h5 = mk('تشخيصي بداية العام', { kind: 'diag', clsList: ['أول 1', 'أول 2'] }); await commitActivityContent(h5.id, { qs: [{ t: 'q', q: 'كم يساوي 3 × 4؟', o: ['12', '7'], a: 0 }], dropDraft: true }); await w(900);
           [h1, h2, h3, h4, h5].forEach(h => HW.splice(HW.indexOf(h), 1)); save(K.hw, HW);
+          /* 🧪 التشخيصي وأنماط التعلّم: اختبار ثابت كامل لكل صف */
+          const TL = await tplLoad(true); out.tpl = TL.map(t => [t.kind, t.grade, t.n]).sort();
+          const h6 = mk('تشخيصي جديد', { kind: 'diag', clsList: ['أول 3'] }); save(K.hw, HW); openQs(h6.id); await w(900); const hint = document.getElementById('tpl-hint');
+          out.hint6 = !!hint && /أول \(1\)/.test(hint.textContent); const n0t = (await tplLoad(true)).length; hint.querySelector('button').click(); await w(1200);
+          out.apply = [HW.find(x => x.id === h6.id).qs.length, (await tplLoad(true)).length === n0t, !!document.getElementById('qs-box')]; try { closeModal(); } catch (e) {} HW.splice(HW.findIndex(x => x.id === h6.id), 1);
+          const td = TL.find(t => t.kind === 'diag'); await tplUse(td.id); await w(700); const hu = HW[HW.length - 1]; out.use = [hu.kind, hu.qs.length, hu.title]; try { closeModal(); } catch (e) {} HW.pop(); save(K.hw, HW);
           await qbLoad(true); const cell = QB.list.find(t => t.lesson === 'الخلية'), rev = QB.list.find(t => t.topic === 'مراجعة سريعة');
           out.auto = [cell && cell.n, cell && cell.book, rev && rev.n, QB.list.some(t => t.topic === 'أنماطي'), QB.list.some(t => t.topic === 'فهم نص الرحلة'), QB.list.some(t => t.topic === 'تشخيصي بداية العام')];
           goTab('books'); BK.open = ''; BK.tab = 'bank'; bkRender(); await w(600); out.tab = [!!document.querySelector('.bk-tabs button.on'), [...document.querySelectorAll('.qb-topic b')].map(x => x.textContent).includes('الخلية')];
@@ -1242,16 +1253,21 @@ export default async function run() {
           const n1 = HW.length; qbMake(); await w(700); const hn = HW[HW.length - 1]; out.make = [HW.length - n1, hn.title, hn.qs.map(q => q.t), !!document.getElementById('qs-box'), hn.published || false]; try { closeModal(); } catch (e) {} HW.pop(); save(K.hw, HW);
           BK.tab = 'books'; bkMakeActivity(b.id, li); await w(900); out.hint = (document.getElementById('bk-qb-hint') || {}).textContent || ''; closeModal();
           let blob = null; const cu = URL.createObjectURL; URL.createObjectURL = x => { blob = x; return 'blob:x'; }; await qbExport([cell.id]); URL.createObjectURL = cu; const data = JSON.parse(await blob.text());
+          let blob2 = null; URL.createObjectURL = x => { blob2 = x; return 'blob:x'; }; await qbExport(); URL.createObjectURL = cu; const all = JSON.parse(await blob2.text()); out.tplExp = (all.templates || []).map(t => t.kind).sort();
           await lzLoad(); const ex = window.examNormalizeSource(data); out.export = [data.kind, data.topics[0].lesson, data.questions.length, data.questions.some(q => q.h || q.from), ex.mc.length, ex.tf.length];
           await libApi('/qbank-del', { id: cell.id }); await qbImport({ files: [new File([JSON.stringify(data)], 'bank.json')] }); await w(300); await qbLoad(true); const back = QB.list.find(t => t.lesson === 'الخلية'); out.imp = [back && back.n, back && back.book];
           const old = { quiz: [{ q: 'سؤال من ملف قديم؟', opts: ['أ', 'ب'], a: 1 }], truefalse: [{ q: 'عبارة قديمة', a: false }] }; await qbImport({ files: [new File([JSON.stringify(old)], 'ألعاب قديمة.json')] }); await qbLoad(true); const ot = QB.list.find(t => t.topic === 'ألعاب قديمة'); out.old = ot && ot.types;
           const qb = await ASST_TOOLS.question_bank.run({ query: 'الخلية' }), ca = await ASST_TOOLS.create_activity.run({ lesson: 'الخلية', from_bank: true, n: 2 }), cz = await ASST_TOOLS.create_activity.run({ topic: 'المجرات', from_bank: true });
           out.asst = [qb.topics[0].questions, ca.action, ca.count, /بنك الأسئلة/.test(ca.source), !!cz.error];
-          for (const t of QB.list.filter(t => ['الخلية', 'مراجعة سريعة', 'ألعاب قديمة'].includes(t.lesson || t.topic))) await libApi('/qbank-del', { id: t.id }); BK.tab = 'books'; return out; });
-        eq(r.auto, [3, 'علوم — أول متوسط', 1, false, false, false], 'حفظ تلقائي بلا تكرار، وأنماط التعلّم والفهم القرائي والتشخيصي لا تُحفظ'); eq(r.tab, [true, true], 'التبويب'); eq(r.qs, 3, 'أسئلة الموضوع');
+          for (const t of QB.list.filter(t => ['الخلية', 'مراجعة سريعة', 'ألعاب قديمة'].includes(t.lesson || t.topic))) await libApi('/qbank-del', { id: t.id });
+          for (const t of await tplLoad(true)) await libApi('/tpl-del', { id: t.id }); await qbImport({ files: [new File([JSON.stringify({ app: 'مساعد المعلم', kind: 'qbank', topics: [], templates: all.templates })], 'b.json')] }); out.tplImp = (await tplLoad(true)).length;
+          for (const t of await tplLoad(true)) await libApi('/tpl-del', { id: t.id }); BK.tab = 'books'; return out; });
+        eq(r.auto, [3, 'علوم — أول متوسط', 1, false, false, false], 'حفظ تلقائي بلا تكرار، وأنماط التعلّم والفهم القرائي والتشخيصي لا تُحفظ في البنك');
+        eq(r.tpl.filter(x => x[0] === 'diag'), [['diag', 'أول', 1]], 'التشخيصي محفوظ اختبارًا ثابتًا للصف (من فصول النشاط)'); ok(r.tpl.some(x => x[0] === 'style'), 'أنماط التعلّم محفوظة');
+        eq([r.hint6, r.apply, r.use], [true, [1, true, true], ['diag', 1, 'تشخيصي — أول']], 'استعماله بلا ذكاء: من المحرر ومن البنك'); eq(r.tab, [true, true], 'التبويب'); eq(r.qs, 3, 'أسئلة الموضوع');
         eq(r.make, [1, 'الخلية', ['q', 'f'], true, false], 'نشاط من المحدد بلا ذكاء (مسودة في المحرر)'); ok(/3 سؤالًا لهذا الدرس/.test(r.hint), 'تلميح البنك في «نشاط من الدرس»: ' + r.hint);
         eq(r.export, ['qbank', 'الخلية', 3, false, 1, 1], 'التنزيل (يقرؤه الاختبار الورقي)'); eq(r.imp, [3, 'علوم — أول متوسط'], 'الاستيراد يعيده لدرسه'); eq(r.old, { q: 1, tf: 1 }, 'استيراد ملف أسئلة قديم');
-        eq(r.asst, [3, 'activity', 2, true, true], 'مساعدي من البنك'); eq(ai.length, n0, 'لا ذكاء اصطناعي في كل ذلك'); eq(errs, [], 'أخطاء'); });
+        eq(r.asst, [3, 'activity', 2, true, true], 'مساعدي من البنك'); eq([r.tplExp, r.tplImp], [['diag', 'style'], 2], 'الاختبارات الثابتة في ملف التنزيل وتُستورد'); eq(ai.length, n0, 'لا ذكاء اصطناعي في كل ذلك'); eq(errs, [], 'أخطاء'); });
       await S.t('📖 تصفّح الكتاب: صفحاته الأصلية من الخادم، التالية/السابقة والسحب والأسهم مثل الكتاب العربي، القفز لدرس، تذكّر آخر صفحة، نسخة نصية لكتاب بلا ملف، و«مساعدي» يفتحه على الدرس', async () => {
         const id = await p.evaluate(() => BK.list.find(x => x.pagesCount === 6).id), cv = () => p.evaluate(() => { const c = document.querySelector('#bkv-page canvas'); return c ? [c.width > 200, c.height > c.width, BV.n, document.getElementById('bkv-ls').textContent] : null; });
         await p.evaluate(id => { goTab('books'); BK.open = id; bkRender(); try { localStorage.removeItem('bk_pg_' + id); } catch (e) {} }, id); ok(await p.isVisible('.bk-read'), 'زر التصفّح');
