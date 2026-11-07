@@ -1175,7 +1175,11 @@ export default async function run() {
         await p.waitForFunction(() => !BK.busy && BK.list[0].ocrPending === 4, null, { timeout: 30000 });
         eq(await p.evaluate(async () => (await bkPages(BK.list[0].id, 1, 6)).map(t => !!t)), [false, true, true, false, false, false], 'قراءة مدى صفحات فقط (2–3)');
         ok(/قُرئ 2 من 6/.test(await p.evaluate(() => document.querySelector('.bk-read-note').textContent)), 'كم قُرئ'); await p.click('.bk-readbtn'); await p.waitForSelector('#bkr-from');
-        await p.waitForFunction(() => document.getElementById('bkr-from').value === '1', null, { timeout: 5000 }); await p.click('.modal-foot .btn.ghost >> nth=0');
+        await p.waitForFunction(() => document.getElementById('bkr-from').value === '1' && document.getElementById('bkr-to').value === '6', null, { timeout: 5000 });
+        const hn = await p.evaluate(() => [document.getElementById('bkr-hint').textContent, document.getElementById('bkr-go').textContent]);
+        ok(/ستُقرأ 4 صفحة لم تُقرأ بعد \(و2 في هذا المدى مقروءة من قبل فتُتخطّى\)/.test(hn[0]) && /اقرأ 4 صفحة/.test(hn[1]), 'العدّاد يحسب غير المقروء فقط: ' + hn.join(' | '));
+        await p.fill('#bkr-from', '2'); await p.fill('#bkr-to', '3'); eq(await p.evaluate(() => [document.getElementById('bkr-go').disabled, /لا شيء يُعاد/.test(document.getElementById('bkr-hint').textContent)]), [true, true], 'مدى مقروء كله: لا شيء يُعاد');
+        await p.click('.modal-foot .btn.ghost >> nth=0');
         await p.waitForFunction(() => !BK.busy && BK.list[0].ocrPending === 0, null, { timeout: 30000 }); eq(ai.length, 0, 'القراءة من ملف الخادم بلا ذكاء لكتاب نصي');
         ok(await p.isVisible('.bk-idx'), 'زر استخراج الفهرس'); ok(!(await p.isVisible('.bk-readbtn')), 'اختفى زر القراءة'); await p.click('.bk-idx');
         await p.waitForFunction(() => !BK.busy && (BK.list || []).some(b => (b.lessons || []).length), null, { timeout: 30000 });

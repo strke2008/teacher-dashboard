@@ -133,14 +133,21 @@ async function bkResume(id, input) {
 /* 📄 قراءة الصفحات بطلب المعلم وبالقدر الذي يريده: مدى صفحات (التالية 30 افتراضيًا) أو كل المتبقي */
 function bkRead(id) {
   const b = bkBook(id); if (!b || BK.busy) return; if (!b.pdf) { toast('اختر ملف الكتاب نفسه من الرابط في صفحته', 'bad'); return; }
-  const N = b.pagesCount || 1, done = N - (b.ocrPending || 0); bkPages(id, 1, N).then(P => { const f = P.findIndex(t => t === '') + 1 || 1, el = document.getElementById('bkr-from'), et = document.getElementById('bkr-to'); if (el && et) { el.value = f; et.value = Math.min(N, f + 29); bkReadHint(); } }).catch(() => {});
+  const N = b.pagesCount || 1, done = N - (b.ocrPending || 0); BK.readP = null; bkPages(id, 1, N).then(P => { BK.readP = P; const un = P.map((t, i) => t === '' ? i + 1 : 0).filter(Boolean), f = un[0] || 1, t = un[Math.min(un.length, 30) - 1] || N, el = document.getElementById('bkr-from'), et = document.getElementById('bkr-to');
+    if (el && et) { el.value = f; et.value = t; bkReadHint(); } }).catch(() => {});   // المدى الافتراضي: أول 30 صفحة لم تُقرأ (مهما تخلّلتها صفحات مقروءة)
   openModal(`<h2>📄 قراءة صفحات الكتاب</h2><p class="bk-mmeta">${esc(b.title)} — قُرئ ${done} من ${N} صفحة. اقرأ جزءًا الآن والباقي متى شئت؛ ودروس الأنشطة تُقرأ صفحاتها وحدها عند الحاجة.</p>
     <div class="bkr-range"><label>من صفحة<input class="inp" id="bkr-from" type="number" inputmode="numeric" min="1" max="${N}" value="1" oninput="bkReadHint()"></label><label>إلى صفحة<input class="inp" id="bkr-to" type="number" inputmode="numeric" min="1" max="${N}" value="${Math.min(N, 30)}" oninput="bkReadHint()"></label></div>
     <p class="bk-mmeta" id="bkr-hint"></p>
-    <div class="modal-foot"><button type="button" class="btn tick" onclick="bkReadGo('${esc(id)}')">📄 اقرأ هذه الصفحات</button><button type="button" class="btn ghost" onclick="bkReadGo('${esc(id)}',1,${N})">كل المتبقي (${b.ocrPending})</button><button type="button" class="btn ghost" onclick="closeModal()">إلغاء</button></div>`);
+    <div class="modal-foot"><button type="button" class="btn tick" id="bkr-go" onclick="bkReadGo('${esc(id)}')">📄 اقرأ هذه الصفحات</button><button type="button" class="btn ghost" onclick="bkReadGo('${esc(id)}',1,${N})">كل المتبقي (${b.ocrPending})</button><button type="button" class="btn ghost" onclick="closeModal()">إلغاء</button></div>`);
   bkReadHint();
 }
-function bkReadHint() { const f = +(document.getElementById('bkr-from') || {}).value || 0, t = +(document.getElementById('bkr-to') || {}).value || 0, el = document.getElementById('bkr-hint'); if (el) el.textContent = f >= 1 && t >= f ? `${t - f + 1} صفحة — الصفحات المقروءة مسبقًا في هذا المدى تُتخطّى` : 'مدى غير صحيح'; }
+function bkReadHint() {
+  const f = +(document.getElementById('bkr-from') || {}).value || 0, t = +(document.getElementById('bkr-to') || {}).value || 0, el = document.getElementById('bkr-hint'), go = document.getElementById('bkr-go'); if (!el) return;
+  if (!(f >= 1 && t >= f)) { el.textContent = 'مدى غير صحيح'; if (go) go.disabled = true; return; }
+  const P = BK.readP, un = P ? P.slice(f - 1, t).filter(x => x === '').length : null;   // الجديد فقط: المقروء مسبقًا لا يُعاد
+  el.textContent = un == null ? `${t - f + 1} صفحة — المقروءة مسبقًا تُتخطّى ولا تُعاد` : un ? `ستُقرأ ${un} صفحة لم تُقرأ بعد${un < t - f + 1 ? ` (و${t - f + 1 - un} في هذا المدى مقروءة من قبل فتُتخطّى)` : ''}` : 'كل صفحات هذا المدى مقروءة من قبل — لا شيء يُعاد';
+  if (go) { go.disabled = un === 0; go.textContent = un ? `📄 اقرأ ${un} صفحة` : '📄 اقرأ هذه الصفحات'; }
+}
 async function bkReadGo(id, from, to) {
   const b = bkBook(id); if (!b || BK.busy) return; const N = b.pagesCount || 1; from = Math.max(1, Math.min(N, +from || +(document.getElementById('bkr-from') || {}).value || 1)); to = Math.max(from, Math.min(N, +to || +(document.getElementById('bkr-to') || {}).value || N));
   closeModal();
