@@ -20,7 +20,7 @@
   'use strict';
   var SECTIONS = [
     { key:'home',     icon:'🏠', label:'لوحة التحكم',        pages:[['dashboard',null]] },
-    { key:'teach',    icon:'📚', label:'التعليم',            pages:[['hw',null],['projects',null],['live',null],['madrasati',null]] },
+    { key:'teach',    icon:'📚', label:'التعليم',            pages:[['hw',null],['books',null],['projects',null],['live',null],['madrasati',null]] },
     { key:'students', icon:'👥', label:'الطلاب',             pages:[['students',null],['classtools','records'],['plans',null],['classtools','duties']] },
     { key:'exams',    icon:'📝', label:'الاختبارات والدرجات', pages:[['classtools','exams'],['exam',null],['nafs',null],['classtools','analysis'],['grades',null]] },
     { key:'reports',  icon:'📊', label:'التقارير والملفات',   pages:[['reports',null],['classtools','classfile'],['classtools','portfolio']] },

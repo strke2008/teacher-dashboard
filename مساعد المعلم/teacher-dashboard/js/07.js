@@ -337,8 +337,10 @@ function openNormalAIGenerator(id, gameTypeHint, gameSlot){
       <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-top:.5rem">
         <label class="ai-btn sm quiet" id="nai-pdf-btn" style="cursor:pointer"><span class="ai-mark">📄</span> استخراج من PDF
           <input type="file" accept="application/pdf,.pdf" style="display:none" onchange="normalAIExtractPdfText(this)"></label>
+        <button type="button" class="ai-btn sm quiet" onclick="bkPick('nai-content','nai-pdf-status')"><span class="ai-mark">📖</span> من مكتبة الكتب</button>
         <span id="nai-pdf-status" style="font-size:.76rem;color:var(--ink-soft)"></span>
       </div>
+      <div id="nai-content-bk"></div>
     </div>
 
     <div class="nai-step">

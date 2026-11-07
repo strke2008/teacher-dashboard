@@ -140,6 +140,18 @@ export default async function run() {
     ok((await call('/site?h=mosaed.pages.dev&p=/')).s !== 400, 'اللوحة في جذر الموقع مرفوضة');
   });
   await S.t('صوت المختبر بلا مفتاح: صامت بلا خطأ', async () => { eq((await call('/tts?t=' + encodeURIComponent('مرحبا'))).s, 404); });
+  await S.t('📚 مكتبة الكتب: للمعلم فقط، تحفظ نص الصفحات وفهرس الدروس، وتُرجع صفحات درس، وتُكمل صفحات بعينها، وتُحذف', async () => {
+    eq((await call('/books?t=bad')).s, 401, 'بلا رمز'); eq((await call('/book-save', { method: 'POST', body: { t: 'bad', meta: { title: 'x' } } })).s, 401, 'حفظ بلا رمز');
+    const pages = ['غلاف', 'الفهرس', 'الخلية وحدة بناء الكائن الحي', 'تابع الخلية', '', 'الأنسجة'];
+    const r = await call('/book-save', { method: 'POST', body: { t: TOKEN, meta: { title: 'علوم أول متوسط', subject: 'علوم', grade: 'أول متوسط', lessons: [{ unit: 'الوحدة 1', title: 'الخلية', from: 3, to: 4 }, { title: '' }] }, pages } });
+    eq(r.s, 200); const id = r.j.meta.id; eq([r.j.meta.pagesCount, r.j.meta.ocrPending, r.j.meta.lessons.length], [6, 1, 1], 'ملخص');
+    const l = await call('/books?t=' + TOKEN); eq(l.j.books.map(b => b.title), ['علوم أول متوسط']); eq(l.j.books[0].pages, undefined, 'القائمة بلا نصوص');
+    const g = await call(`/book?t=${TOKEN}&id=${id}&from=3&to=4`); eq([g.j.from, g.j.pages], [3, ['الخلية وحدة بناء الكائن الحي', 'تابع الخلية']]);
+    const pt = await call('/book-save', { method: 'POST', body: { t: TOKEN, meta: { id }, patch: { 5: 'النسيج الطلائي' } } }); eq([pt.j.meta.ocrPending, pt.j.meta.title, pt.j.meta.lessons.length], [0, 'علوم أول متوسط', 1], 'إكمال صفحة');
+    eq((await call(`/book?t=${TOKEN}&id=${id}&from=5&to=5`)).j.pages, ['النسيج الطلائي']);
+    eq((await call(`/book?t=bad&id=${id}`)).s, 401, 'قراءة بلا رمز');
+    eq((await call('/book-del', { method: 'POST', body: { t: TOKEN, id } })).s, 200); eq((await call('/books?t=' + TOKEN)).j.books, []); eq((await call(`/book?t=${TOKEN}&id=${id}`)).s, 404);
+  });
   await S.t('🔊 صوت «مساعدي» (k=asst) يُحفظ 3 أيام فقط، وجمل المختبر دائمة', async () => {
     const E = newEnv({ ELEVENLABS_API_KEY: 'x' }), C = caller(W, E), puts = []; const put0 = E.HW.put.bind(E.HW); E.HW.put = (k, v, o) => { puts.push([k, o]); return put0(k, v, o); };
     const f0 = globalThis.fetch; globalThis.fetch = async (u, o) => /elevenlabs/.test(String(u)) ? new Response(new Uint8Array([1, 2, 3]), { status: 200, headers: { 'content-type': 'audio/mpeg' } }) : f0(u, o);

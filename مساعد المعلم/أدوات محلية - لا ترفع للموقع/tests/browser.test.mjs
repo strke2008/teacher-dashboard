@@ -1141,6 +1141,57 @@ export default async function run() {
         for (const id of ids) { errs.length = 0; await p.evaluate(() => go('home')); await p.waitForTimeout(200); await p.click(`[data-topic=${id}]`); await p.waitForTimeout(700); if (errs.length) bad.push(id + ': ' + errs[0]); }
         eq(bad, [], 'تجارب فيها أخطاء'); ok(ids.length >= 5, 'تجارب قليلة: ' + ids.length); });
       await ctx.close(); }
+    // ── 📖 مكتبة الكتب: رفع كتاب حقيقي (نصي ومصوّر)، الفهرس بالذكاء، النص، نشاط من الدرس، الاختيار داخل المولّد، و«مساعدي» ──
+    { const ctx = await newCtx(), p = await ctx.newPage(), errs = watch(p), PJ = require('node:url').fileURLToPath(new URL('./.cache/pdfjs/', import.meta.url)), fs = require('node:fs'), ai = [];
+      if (fs.existsSync(PJ + 'pdf.min.js')) await ctx.route(/cdnjs\.cloudflare\.com\/ajax\/libs\/pdf\.js\/3\.11\.174\/pdf(\.worker)?\.min\.js/, r => r.fulfill({ path: PJ + (r.request().url().includes('worker') ? 'pdf.worker.min.js' : 'pdf.min.js'), contentType: 'text/javascript' }));
+      await ctx.route(/generativelanguage\.googleapis\.com/, r => { const q = r.request().postData() || '', has = s => q.includes(s); let out;
+        if (has('صورة صفحة')) { ai.push('ocr'); out = { text: 'نص مقروء بالذكاء: التربة طبقة تغطي سطح الأرض' }; }
+        else if (has('استخرج دروس الكتاب')) { ai.push('index'); out = has('التربة') ? { subject: 'علوم', grade: 'الثالث', lessons: [{ unit: 'الأرض', title: 'التربة', from: 1, to: 3 }] }
+          : { subject: 'علوم', grade: 'أول متوسط', lessons: [{ unit: 'الوحدة الأولى', title: 'الخلية', from: 2, to: 3 }, { unit: 'الوحدة الأولى', title: 'الأنسجة', from: 4, to: 99 }] }; }
+        else if (has('اكتب 4 أسئلة')) { ai.push(has('الغشاء البلازمي') ? 'q+lesson' : 'q'); out = { questions: [{ t: 'tf', q: 'الخلية وحدة بناء الكائن الحي', a: true }] }; }
+        else if (has('حضّر درسًا')) { ai.push(has('الغشاء البلازمي') ? 'plan+lesson' : 'plan'); out = { objectives: ['يعرّف الخلية'], warmup: 'سؤال', steps: [{ min: 10, do: 'شرح' }], exit_ticket: ['ما الخلية؟'], homework: 'رسم', materials: [] }; }
+        else out = { answer: 'تم' };
+        return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify(out) }] } }] }) }); });
+      /* كتابان حقيقيان من Chrome: نصي (6 صفحات) ومصوّر (3 صفحات صور بلا طبقة نص) */
+      const mk = await ctx.newPage(), sec = t => `<section style="page-break-after:always;font:17px 'DejaVu Sans';padding:28px;direction:rtl">${t}</section>`;
+      await mk.setContent(`<html dir="rtl"><body>${sec('<h1>علوم أول متوسط</h1><p>الفصل الدراسي الأول — كتاب الطالب للمرحلة المتوسطة</p>')}${sec('<h2>الدرس الأول: الخلية</h2><p>الخلية هي وحدة بناء الكائن الحي، ويحيط بها الغشاء البلازمي الذي يتحكم في دخول المواد وخروجها، وفي داخلها السيتوبلازم والنواة.</p>')}${sec('<p>تابع الخلية: تحتوي الخلية النباتية على جدار خلوي وبلاستيدات خضراء تقوم بعملية البناء الضوئي لصنع الغذاء.</p>')}${sec('<h2>الدرس الثاني: الأنسجة</h2><p>النسيج مجموعة من الخلايا المتشابهة في الشكل والوظيفة تعمل معًا لأداء وظيفة محددة في جسم الكائن الحي.</p>')}${sec('<p>من أمثلة الأنسجة الحيوانية النسيج العضلي والنسيج العصبي والنسيج الطلائي الذي يغطي سطح الجسم.</p>')}${sec('<p>مراجعة الفصل: أجب عن الأسئلة التالية عن الخلايا والأنسجة وأهميتها للكائن الحي ووظائفها.</p>')}</body></html>`);
+      fs.writeFileSync('/tmp/bk-text.pdf', await mk.pdf({ format: 'A5' }));
+      await mk.setContent(`<html><body style="margin:0">${[1, 2, 3].map(n => `<section style="page-break-after:always"><canvas id="c${n}" width="500" height="300"></canvas></section>`).join('')}<script>[1,2,3].forEach(n=>{const x=document.getElementById('c'+n).getContext('2d');x.fillStyle='#eee';x.fillRect(0,0,500,300);x.fillStyle='#000';x.font='28px sans-serif';x.fillText('صفحة مصورة '+n,150,150);});</script></body></html>`);
+      fs.writeFileSync('/tmp/bk-scan.pdf', await mk.pdf({ format: 'A5' })); await mk.close();
+      await S.t('📖 مكتبة الكتب: يُرفع الكتاب مرة، يُقرأ نص صفحاته ويُحفظ في الخادم، والذكاء يستخرج فهرس الدروس (ويُصحَّح المدى)، والكتاب المصوّر يُقرأ صفحةً صفحة', async () => {
+        await p.goto(base + '/teacher-dashboard/'); await p.evaluate(t => { localStorage.setItem('hwapp_tok_v1', t); localStorage.setItem('ai_provider_v1', 'gemini'); localStorage.setItem('aikeys_gemini', JSON.stringify([{ key: 'AIzaTEST0000000000' }])); localStorage.removeItem('ai_routes_v1'); }, TOKEN);
+        await p.reload(); await dashReady(p); await p.evaluate(() => goTab('books')); await p.waitForFunction(() => BK.list && document.querySelector('#bk-root .bk-empty'), null, { timeout: 10000 });
+        ok(await p.isVisible('#p-books .bk-add'), 'زر الإضافة'); ok(await p.evaluate(() => bkApi() === (getApi() || '').replace(/\/+$/, '') && typeof libApi === 'function'), 'المكتبة لا تطغى على دالة النسخ الاحتياطي bkApi'); ok(await p.evaluate(() => !!document.querySelector('#simp-nav [data-k="books"], #simp-nav [data-key="books"]') || /مكتبة الكتب/.test(document.getElementById('simp-nav').innerText)), 'القائمة');
+        await p.setInputFiles('#p-books input[type=file]', '/tmp/bk-text.pdf');
+        await p.waitForFunction(() => !BK.busy && (BK.list || []).some(b => (b.lessons || []).length), null, { timeout: 30000 });
+        const r = await p.evaluate(async () => { const b = BK.list[0], t = await bkLessonText(b.id, b.lessons[0]); return { n: b.pagesCount, pend: b.ocrPending, ls: b.lessons.map(l => [l.title, l.from, l.to]), meta: [b.subject, b.grade], t, open: BK.open === b.id, ui: document.querySelectorAll('#bk-root .bk-lesson').length }; });
+        eq([r.n, r.pend, r.ls, r.meta, r.open, r.ui], [6, 0, [['الخلية', 2, 3], ['الأنسجة', 4, 6]], ['علوم', 'أول متوسط'], true, 2], 'الكتاب النصي');
+        ok(/الغشاء البلازمي/.test(r.t) && /البناء الضوئي/.test(r.t) && !/النسيج/.test(r.t), 'نص درس الخلية (صفحتاه فقط): ' + r.t.slice(0, 120)); eq(ai.filter(x => x === 'ocr').length, 0, 'لا قراءة بالذكاء لكتاب نصي');
+        await p.screenshot({ path: '/tmp/bk-book.png' });
+        await p.evaluate(() => { BK.open = ''; bkRender(); }); await p.setInputFiles('#p-books input[type=file]', '/tmp/bk-scan.pdf');
+        await p.waitForFunction(() => !BK.busy && (BK.list || []).length === 2 && BK.list.every(b => (b.lessons || []).length), null, { timeout: 30000 });
+        const s = await p.evaluate(async () => { const b = BK.list.find(x => x.pagesCount === 3); return { pend: b.ocrPending, t: await bkLessonText(b.id, b.lessons[0]), ls: b.lessons.map(l => [l.title, l.from, l.to]) }; });
+        eq([s.pend, s.ls, ai.filter(x => x === 'ocr').length], [0, [['التربة', 1, 3]], 3], 'الكتاب المصوّر'); ok(/التربة طبقة/.test(s.t), 'نص مقروء'); eq(errs, [], 'أخطاء'); });
+      await S.t('📖 مكتبة الكتب: تعديل الفهرس يدويًا، «نشاط منه» يفتح المولّد بنص الدرس، و«من مكتبة الكتب» داخل المولّد والنص القرائي، و«مساعدي» يبني النشاط والتحضير على نص الدرس', async () => {
+        const r = await p.evaluate(async () => { const b = BK.list.find(x => x.pagesCount === 6), out = {}; BK.open = b.id; bkRender();
+          bkEditIndex(b.id); BK.edit.rows[1].title = 'الأنسجة الحيوانية'; bkEdRow(-1); BK.edit.rows[2].title = 'مراجعة الفصل'; BK.edit.rows[2].from = 6; BK.edit.rows[2].to = 6; BK.edit.rows[1].to = 5; await bkSaveIndex();
+          out.idx = bkBook(b.id).lessons.map(l => [l.title, l.from, l.to]);
+          const n0 = HW.length; await bkMakeActivity(b.id, 0); await new Promise(z => setTimeout(z, 1500)); const h = HW[HW.length - 1], ta = document.getElementById('nai-content'); out.reading = !!document.getElementById('h-reading-text-bk');
+          out.act = [HW.length - n0, h.title, !!ta && /الغشاء البلازمي/.test(ta.value), /الخلية/.test((document.getElementById('nai-pdf-status') || {}).textContent || '')];
+          ta.value = ''; await bkPick('nai-content', 'nai-pdf-status'); document.getElementById('nai-content-bkb').value = b.id; bkPickLessons('nai-content'); const sel = document.getElementById('nai-content-bkl'); out.pick = sel ? sel.options.length : 0; if (sel) sel.value = '1'; await bkPickUse('nai-content', 'nai-pdf-status');
+          out.picked = [/النسيج العضلي/.test(ta.value), document.getElementById('nai-content-bk').innerHTML === ''];
+          try { closeModal(); } catch (e) {} HW.splice(HW.indexOf(h), 1); save(K.hw, HW);
+          const bl = await ASST_TOOLS.book_lessons.run({}), bq = await ASST_TOOLS.book_lessons.run({ query: 'الانسجه' }), lt = await ASST_TOOLS.lesson_text.run({ lesson: 'الخلية' });
+          out.asst = [bl.books.length, bq.found.map(x => x.lesson), /الغشاء البلازمي/.test(lt.text), lt.source];
+          const ca = await ASST_TOOLS.create_activity.run({ lesson: 'الخلية', n: 4 }), cb = await ASST_TOOLS.create_activity.run({ topic: 'الخلية', n: 4 }), cc = await ASST_TOOLS.create_activity.run({ topic: 'المغناطيس', n: 4 }), cd = await ASST_TOOLS.create_activity.run({ lesson: 'درس غير موجود', n: 4 });
+          out.ca = [ca.action, ca.title, ca.source, !!cb.source, cc.source, !!cd.error];
+          asstOpen(); ASST.msgs = [{ html: 'x', cards: [{ ...ca, state: 'ask' }] }]; asstPaint(); out.card = /من الكتاب: الخلية/.test(document.getElementById('asst-msgs').innerText); asstClose(); ASST.msgs = [];
+          const lp = await ASST_TOOLS.lesson_plan.run({ lesson: 'الخلية' }); out.plan = [lp.topic, lp.source]; out.page = asstPageMatch('افتح مكتبة الكتب'); return out; });
+        eq(r.idx, [['الخلية', 2, 3], ['الأنسجة الحيوانية', 4, 5], ['مراجعة الفصل', 6, 6]], 'الفهرس'); eq(r.act, [1, 'الخلية', true, true], 'نشاط من الدرس'); eq([r.pick, r.picked], [3, [true, true]], 'الاختيار داخل المولّد');
+        eq(r.asst, [2, ['الأنسجة الحيوانية'], true, 'الخلية — علوم — أول متوسط (ص 2–3)'], 'مساعدي'); eq(r.ca, ['activity', 'الخلية', 'الخلية — علوم — أول متوسط (ص 2–3)', true, undefined, true], 'نشاط مساعدي'); eq(ai.filter(x => x === 'q+lesson').length, 2, 'النشاط مبني على نص الدرس'); ok(r.card, 'البطاقة'); ok(r.reading, 'زر المكتبة في النص القرائي'); eq([r.plan, ai.filter(x => x === 'plan+lesson').length], [['الخلية', 'الخلية — علوم — أول متوسط (ص 2–3)'], 1], 'التحضير من نص الدرس');
+        eq(r.page, 'books', 'صفحة المكتبة');
+        await p.evaluate(async () => { for (const b of BK.list.slice()) await libApi('/book-del', { id: b.id }); await bkLoad(true); }); eq(errs, [], 'أخطاء'); });
+      await ctx.close(); }
   } finally { await b.close(); wsrv.close(); ssrv.close(); }
   return S;
 }

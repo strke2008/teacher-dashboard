@@ -11996,6 +11996,52 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
     }
 
     // ── 📁 مشاريع الطلاب: تجميع كل تسليمات أنشطة الملفات للمعلم ──
+    /* 📚 مكتبة الكتب الدراسية: نص كل صفحة وفهرس الدروس — للمعلم فقط، لا تصل للطلاب.
+       book:<id>:meta (العنوان والمادة والصف وفهرس الدروس) · book:<id>:pages (مصفوفة نصوص الصفحات). */
+    if (url.pathname === '/books' && request.method === 'GET') {
+      if (!env.TEACHER_TOKEN || (url.searchParams.get('t') || '') !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
+      const books = [];
+      for (const k of await listAllKeys(env, 'book:')) { if (!k.endsWith(':meta')) continue; try { const o = JSON.parse(await env.HW.get(k) || 'null'); if (o && o.id) books.push(o); } catch {} }
+      books.sort((a, b) => (b.at || 0) - (a.at || 0));
+      return json({ ok: true, books });
+    }
+    if (url.pathname === '/book' && request.method === 'GET') {
+      if (!env.TEACHER_TOKEN || (url.searchParams.get('t') || '') !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
+      const id = String(url.searchParams.get('id') || '').replace(/[^\w-]/g, '').slice(0, 40); if (!id) return json({ error: 'missing id' }, 400);
+      const meta = JSON.parse(await env.HW.get(`book:${id}:meta`) || 'null'); if (!meta) return json({ error: 'not found' }, 404);
+      let pages = []; try { pages = JSON.parse(await env.HW.get(`book:${id}:pages`) || '[]') || []; } catch {}
+      const from = Math.max(1, parseInt(url.searchParams.get('from'), 10) || 1), to = Math.min(pages.length, parseInt(url.searchParams.get('to'), 10) || pages.length);
+      return json({ ok: true, meta, from, pages: pages.slice(from - 1, to) });
+    }
+    if (url.pathname === '/book-save' && request.method === 'POST') {
+      let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
+      if (!env.TEACHER_TOKEN || b.t !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
+      const m = b.meta && typeof b.meta === 'object' ? b.meta : null; if (!m) return json({ error: 'missing meta' }, 400);
+      const id = String(m.id || '').replace(/[^\w-]/g, '').slice(0, 40) || ('bk' + Date.now().toString(36));
+      const txt = (v, n) => String(v ?? '').slice(0, n);
+      const old = JSON.parse(await env.HW.get(`book:${id}:meta`) || 'null') || {};
+      if (Array.isArray(b.pages)) {
+        const pages = b.pages.slice(0, 1500).map(x => txt(x, 20000));
+        await env.HW.put(`book:${id}:pages`, JSON.stringify(pages));
+        old.pagesCount = pages.length; old.chars = pages.reduce((n, x) => n + x.length, 0); old.ocrPending = pages.reduce((n, x) => n + (x === '' ? 1 : 0), 0);
+      } else if (b.patch && typeof b.patch === 'object') {
+        let pages = []; try { pages = JSON.parse(await env.HW.get(`book:${id}:pages`) || '[]') || []; } catch {}
+        Object.entries(b.patch).forEach(([n, v]) => { const i = parseInt(n, 10) - 1; if (i >= 0 && i < pages.length) pages[i] = txt(v, 20000); });
+        await env.HW.put(`book:${id}:pages`, JSON.stringify(pages));
+        old.chars = pages.reduce((n, x) => n + x.length, 0); old.ocrPending = pages.reduce((n, x) => n + (x === '' ? 1 : 0), 0);
+      }
+      const lessons = Array.isArray(m.lessons) ? m.lessons.slice(0, 400).map(l => ({ unit: txt(l && l.unit, 120), title: txt(l && l.title, 160), from: Math.max(1, parseInt(l && l.from, 10) || 1), to: Math.max(1, parseInt(l && (l.to ?? l.from), 10) || 1) })).filter(l => l.title) : (old.lessons || []);
+      const meta = { ...old, id, title: txt(m.title ?? old.title, 120) || 'كتاب', subject: txt(m.subject ?? old.subject, 60), grade: txt(m.grade ?? old.grade, 60), term: txt(m.term ?? old.term, 30), offset: parseInt(m.offset ?? old.offset, 10) || 0, lessons, at: old.at || Date.now(), upd: Date.now() };
+      await env.HW.put(`book:${id}:meta`, JSON.stringify(meta));
+      return json({ ok: true, meta });
+    }
+    if (url.pathname === '/book-del' && request.method === 'POST') {
+      let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
+      if (!env.TEACHER_TOKEN || b.t !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
+      const id = String(b.id || '').replace(/[^\w-]/g, '').slice(0, 40); if (!id) return json({ error: 'missing id' }, 400);
+      await env.HW.delete(`book:${id}:meta`); await env.HW.delete(`book:${id}:pages`);
+      return json({ ok: true });
+    }
     if (url.pathname === '/projects' && request.method === 'GET') {
       const token = url.searchParams.get('t') || '';
       if (!env.TEACHER_TOKEN || token !== env.TEACHER_TOKEN) return json({ error: 'unauthorized' }, 401);
@@ -12209,7 +12255,7 @@ ${ageDays > THX.days ? `<div class="w">هذه رسالة قديمة صدرت ق�
     }
 
     return json({ ok: true, service: 'homework',
-      paths: ['/publish','/messages','/hw','/unpublish','/removestudent','/find','/mine','/board','/review','/submit','/me','/buy','/use','/extra-attempt','/extra-attempt-bulk','/extra-attempt-status','/unlock-review','/title','/pin','/pinstatus','/pinmode','/pins','/resetpin','/rev','/store','/resolve','/adjust','/state','/recover-activities','/wipe','/results','/projects','/project-review','/project-file-delete','/file-submit','/file-download','/review-request','/review-request/complete','/notice-state','/notice-dismiss','/exam-options','/exam-shop-policy','/use-exam-bonus','/mad-forgive','/hw-forgive','/cert-tpl','/reset'] });
+      paths: ['/publish','/messages','/hw','/unpublish','/removestudent','/find','/mine','/board','/review','/submit','/me','/buy','/use','/extra-attempt','/extra-attempt-bulk','/extra-attempt-status','/unlock-review','/title','/pin','/pinstatus','/pinmode','/pins','/resetpin','/rev','/store','/resolve','/adjust','/state','/recover-activities','/wipe','/results','/projects','/books','/book','/book-save','/book-del','/project-review','/project-file-delete','/file-submit','/file-download','/review-request','/review-request/complete','/notice-state','/notice-dismiss','/exam-options','/exam-shop-policy','/use-exam-bonus','/mad-forgive','/hw-forgive','/cert-tpl','/reset'] });
   },
 };
 export default HW_WORKER;

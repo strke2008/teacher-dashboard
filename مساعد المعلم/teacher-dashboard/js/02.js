@@ -181,6 +181,7 @@ document.querySelectorAll('.tab,.mobile-nav button[data-tab]').forEach(t => t.on
   if (t.dataset.tab === 'reports') { __reportsHubActive=true; kashfGo(null); }
   if (t.dataset.tab === 'projects') { loadProjects(false); }
   if (t.dataset.tab === 'madrasati') { madLoad(false); madBridgeInit(false); }
+  if (t.dataset.tab === 'books') { try{ bkRender(true); }catch(e){} }
   if (t.dataset.tab === 'exam-shop') { loadExamShopPolicy(false); if(typeof saleLoad==='function') saleLoad(); syncStore(true).then(()=>{ try{ renderExamShopStudents(); }catch(e){} }); }
   if (t.dataset.tab === 'plans') { renderPlans(true); }
   if (t.dataset.tab === 'classtools') { CT_VIEW = t.dataset.view || ''; renderClassTools(true); }
@@ -5405,9 +5406,10 @@ function openHwForm(id) {
         <div class="field"><label>📖 النص القرائي الأساسي</label>
           <div style="display:flex;gap:.45rem;align-items:center;flex-wrap:wrap;margin:.35rem 0 .5rem">
             <label class="ai-btn sm quiet" id="h-reading-pdf-btn" style="cursor:pointer"><span class="ai-mark">📄</span> استخراج النص من PDF<input type="file" accept="application/pdf,.pdf" style="display:none" onchange="readingExtractPdfAndStructure(this)"></label>
-            <button type="button" class="ai-btn sm quiet" onclick="readingOrganizeCurrentText()"><span class="ai-mark">✦</span> تنظيم النص الحالي</button>
+            <button type="button" class="ai-btn sm quiet" onclick="readingOrganizeCurrentText()"><span class="ai-mark">✦</span> تنظيم النص الحالي</button><button type="button" class="ai-btn sm quiet" onclick="bkPick('h-reading-text','h-reading-pdf-status')"><span class="ai-mark">📖</span> من مكتبة الكتب</button>
             <span id="h-reading-pdf-status" style="font-size:.78rem;color:var(--ink-soft)"></span>
           </div>
+          <div id="h-reading-text-bk"></div>
           <textarea class="inp" id="h-reading-text" rows="9" placeholder="سيُنشأ هنا النص التعليمي الأساسي مرتبًا من الدرس. يمكنك أيضًا كتابته أو تعديله يدويًا.">${h && h.reading ? esc(h.reading.text||'') : ''}</textarea>
           <small style="color:var(--ink-soft);font-size:.74rem;line-height:1.7">يقرأ النظام PDF، يحدد متن الدرس، يستبعد الأهداف والأسئلة والتمارين والهوامش، ثم ينظم النص التعليمي دون تلخيصه ليكون أساسًا لأسئلة الفهم القرائي.</small>
         </div>

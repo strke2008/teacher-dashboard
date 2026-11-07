@@ -1,3 +1,4 @@
 *.zip
 *.png
 معاينة-*.pdf
+.cache/

@@ -36,6 +36,15 @@ const asstToday = () => (typeof ctToday === 'function' ? ctToday() : new Date(Da
 async function asstClassroom() { if (typeof CT_DATA !== 'undefined' && CT_DATA) return CT_DATA; try { if (typeof ctLoad === 'function') await ctLoad(); } catch (e) {} return (typeof CT_DATA !== 'undefined' && CT_DATA) || window._classroomData || {}; }
 async function asstGrades() { try { if (typeof ctEnsureGrades === 'function') return await ctEnsureGrades(); } catch (e) {} return null; }
 const ABSENT = ['غائب', 'غائب بعذر'];
+/* 📖 مصدر من مكتبة الكتب: درس صريح (lesson) أو موضوع يطابق عنوان درس واحد بالضبط */
+async function asstBookSrc(a, topic) {
+  if (typeof bkFindLesson !== 'function') return null; let m = [];
+  try { if (a.lesson) m = await bkFindLesson(a.lesson, a.book); else if (topic) m = (await bkFindLesson(topic, a.book)).filter(o => o.exact); } catch (e) { return a.lesson ? { error: 'تعذّر فتح مكتبة الكتب: ' + e.message } : null; }
+  if (!m.length) return a.lesson ? { error: 'لم أجد هذا الدرس في مكتبة الكتب', lessons_hint: 'استخدم book_lessons لمعرفة العناوين' } : null;
+  if (m.length > 1) return { error: 'أكثر من درس يطابق — حدّد', matches: m.slice(0, 8).map(o => o.l.title + ' — ' + o.b.title) };
+  const o = m[0], text = await bkLessonText(o.b.id, o.l); if (!text.trim()) return { error: 'صفحات هذا الدرس بلا نص بعد (مصوّرة لم تُقرأ)' };
+  return { text: text.slice(0, 16000), title: o.l.title, label: `${o.l.title} — ${o.b.title} (ص ${o.l.from}${o.l.to > o.l.from ? '–' + o.l.to : ''})` };
+}
 function asstCardName(q) { try { if (typeof storeCardLabel === 'function') return storeCardLabel(q); } catch (e) {} return String(q.card || q.title || 'بطاقة'); }
 const asstFrom = (days, def) => new Date(Date.now() + 3 * 3600e3 - Math.max(1, Math.min(365, Number(days) || def)) * 864e5).toISOString().slice(0, 10);
 function asstCount(M, from) { const c = {}; Object.entries(M || {}).forEach(([d, P]) => { if (d < from) return; Object.entries(P || {}).forEach(([id, v]) => { const st = v && (typeof v === 'string' ? v : v.status); if (st) { const o = c[id] || (c[id] = {}); o[st] = (o[st] || 0) + 1; } }); }); return c; }
@@ -149,17 +158,18 @@ const ASST_TOOLS = {
         if (!absent && (raw === '' || !Number.isFinite(v))) { bad.push({ q: q + ': «' + raw + '» ليست درجة', matches: [] }); continue; } if (seen.has(s.id)) continue; seen.add(s.id);
         const prev = (b.scores[String(s.id)] || {})[String(t.id)]; items.push({ name: s.name, cls: s.cls || '', score: absent ? 'غ' : Math.max(0, Math.min(max, v)), over: !absent && v > max ? v : undefined, prev: asstExV(b, s.id, t.id) ?? '', _id: String(s.id), _prev: prev ? JSON.parse(JSON.stringify(prev)) : null }); }
       return { action: 'exam', sem, per, period: label, test: t.title, max, _tid: String(t.id), items, unresolved: bad }; } },
-  create_activity: { act: 1, d: 'إنشاء مسودة نشاط أسئلة بالذكاء (لا تُنشر — تُفتح للمعلم يراجعها وينشرها بنفسه). args: {topic:"الموضوع", n?:عدد الأسئلة (افتراضي 10), cls?, due?:"YYYY-MM-DD"|"الخميس"|"بكرة", type?:"mcq"|"tf"|"mixed", title?}', src: a => '✍️ مسودة نشاط — ' + (a.topic || ''),
-    async run(a) { const topic = String(a.topic || a.title || '').trim().slice(0, 200); if (!topic) return { error: 'حدّد موضوع النشاط' }; const n = Math.max(3, Math.min(30, Number(a.n) || 10)), cls = asstCls(a.cls), due = asstDue(a.due), type = ['mcq', 'tf'].includes(a.type) ? a.type : 'mixed';
+  create_activity: { act: 1, d: 'إنشاء مسودة نشاط أسئلة بالذكاء (لا تُنشر — تُفتح للمعلم يراجعها وينشرها بنفسه). يعتمد على نص الدرس من «مكتبة الكتب» إن وُجد. args: {topic:"الموضوع", lesson?:"عنوان الدرس في مكتبة الكتب", book?, n?:عدد الأسئلة (افتراضي 10), cls?, due?:"YYYY-MM-DD"|"الخميس"|"بكرة", type?:"mcq"|"tf"|"mixed", title?}', src: a => '✍️ مسودة نشاط — ' + (a.topic || ''),
+    async run(a) { let topic = String(a.topic || a.title || a.lesson || '').trim().slice(0, 200); if (!topic) return { error: 'حدّد موضوع النشاط' }; const n = Math.max(3, Math.min(30, Number(a.n) || 10)), cls = asstCls(a.cls), due = asstDue(a.due), type = ['mcq', 'tf'].includes(a.type) ? a.type : 'mixed';
+      const bk = await asstBookSrc(a, topic); if (bk && bk.error) return bk; if (bk && !a.topic) topic = bk.title;
       const R = typeof aiRoute === 'function' ? aiRoute('questions') : { p: raiProvider(), m: readingAIModels()[raiProvider()] };
       const raw = await readingAICall(R.p, R.m, `اكتب ${n} أسئلة لنشاط طلاب بالعربية الفصحى عن: «${topic}». ${type === 'mcq' ? 'كلها اختيار من متعدد بأربعة خيارات.' : type === 'tf' ? 'كلها صح أو خطأ.' : 'أغلبها اختيار من متعدد بأربعة خيارات وبعضها صح أو خطأ.'}
 دقيقة علميًا، واضحة، متدرجة من السهل إلى الأصعب، خيارات معقولة بلا «كل ما سبق»، وتوزّع موضع الإجابة الصحيحة.
-أخرج JSON فقط: {"questions":[{"t":"q","q":"نص السؤال","o":["خيار","خيار","خيار","خيار"],"a":رقم الخيار الصحيح من 0},{"t":"tf","q":"عبارة","a":true}]}`, new AbortController().signal);
+${bk ? `اعتمد فقط على نص الدرس التالي من الكتاب المدرسي، ولا تسأل عن شيء خارجه:\n"""\n${bk.text}\n"""\n` : ''}أخرج JSON فقط: {"questions":[{"t":"q","q":"نص السؤال","o":["خيار","خيار","خيار","خيار"],"a":رقم الخيار الصحيح من 0},{"t":"tf","q":"عبارة","a":true}]}`, new AbortController().signal);
       const arr = (aiSafeJson(raw) || {}).questions, qs = (Array.isArray(arr) ? arr : []).map(x => { if (!x || !String(x.q || '').trim()) return null; const q = String(x.q).trim();
         if (x.t === 'tf') return { t: 'tf', q, a: x.a === true || x.a === 'true' || x.a === 'صح' };
         const o = (Array.isArray(x.o) ? x.o : []).map(v => String(v ?? '').trim()).filter(Boolean).slice(0, 4), ai = Number(x.a); return o.length >= 2 && Number.isInteger(ai) && ai >= 0 && ai < o.length ? { t: 'q', q, o, a: ai } : null; }).filter(Boolean).slice(0, n);
       if (!qs.length) return { error: 'لم تصل أسئلة صالحة من الذكاء — جرّب مرة أخرى' };
-      return { action: 'activity', title: String(a.title || topic).slice(0, 80), cls, due, count: qs.length, preview: qs.slice(0, 3).map(q => q.q), _qs: qs }; } },
+      return { action: 'activity', title: String(a.title || topic).slice(0, 80), cls, due, count: qs.length, preview: qs.slice(0, 3).map(q => q.q), ...(bk ? { source: bk.label } : {}), _qs: qs }; } },
   /* ── أوامر إضافية: نقاط · درجة نشاط · رسالة للطلاب · اختبار جديد في الدفتر · شهادة ── */
   adjust_points: { act: 1, d: 'تجهيز إضافة أو خصم نقاط مكافآت (لا يُنفَّذ إلا بتأكيد المعلم، ويمكن التراجع). args: {students:["اسم",...] أو ["الكل"] مع cls, delta:رقم موجب للإضافة وسالب للخصم, reason?, cls?}', src: () => '💰 تجهيز نقاط',
     async run(a) { const d = Math.round(Number(String(a.delta ?? a.points ?? '').replace(/[٠-٩]/g, x => '٠١٢٣٤٥٦٧٨٩'.indexOf(x)))); if (!Number.isFinite(d) || !d || Math.abs(d) > 1000) return { error: 'حدّد عدد النقاط (من 1 إلى 1000، وسالب للخصم)' };
@@ -307,13 +317,14 @@ const ASST_TOOLS = {
       catch (e) { return { error: 'تعذّر جلب الفترتين — تحقق من الاتصال' }; }
       finally { try { if (keep[0]) { COMP_GRADES = keep[0]; COMP_GRADES_PERIOD = keep[1]; COMP_GRADES_SEMESTER = keep[2]; } } catch (e) {} }
       return { name: s.name, cls: s.cls || '', semester: sem, ...out, note: Object.keys(out).length < 2 ? 'إحدى الفترتين بلا بيانات بعد' : '' }; } },
-  lesson_plan: { d: 'تحضير درس: أهداف، تهيئة، خطوات الشرح مع أنشطة صفية، تقويم ختامي (سؤال الخروج)، وواجب مقترح. args: {topic, cls?, minutes?:مدة الحصة (افتراضي 45)}', src: a => '📝 تحضير «' + (a.topic || '') + '»',
-    async run(a) { const topic = String(a.topic || '').trim().slice(0, 200); if (!topic) return { error: 'حدّد موضوع الدرس' }; const min = Math.max(20, Math.min(120, Number(a.minutes) || 45));
+  lesson_plan: { d: 'تحضير درس: أهداف، تهيئة، خطوات الشرح مع أنشطة صفية، تقويم ختامي (سؤال الخروج)، وواجب مقترح. يعتمد على نص الدرس من «مكتبة الكتب» إن وُجد. args: {topic, lesson?:"عنوان الدرس في مكتبة الكتب", book?, cls?, minutes?:مدة الحصة (افتراضي 45)}', src: a => '📝 تحضير «' + (a.topic || '') + '»',
+    async run(a) { let topic = String(a.topic || a.lesson || '').trim().slice(0, 200); if (!topic) return { error: 'حدّد موضوع الدرس' }; const min = Math.max(20, Math.min(120, Number(a.minutes) || 45));
+      const bk = await asstBookSrc(a, topic); if (bk && bk.error) return bk; if (bk && !a.topic) topic = bk.title;
       const R = typeof aiRoute === 'function' ? aiRoute('questions') : { p: raiProvider(), m: readingAIModels()[raiProvider()] };
-      const j = aiSafeJson(await readingAICall(R.p, R.m, `أنت معلم علوم سعودي خبير. حضّر درسًا عن «${topic}» لحصة مدتها ${min} دقيقة${a.cls ? ' لطلاب ' + asstCls(a.cls) : ''}، بالعربية الفصحى المبسطة، عمليًا وقابلًا للتنفيذ في الفصل.
+      const j = aiSafeJson(await readingAICall(R.p, R.m, `أنت معلم علوم سعودي خبير. حضّر درسًا عن «${topic}» لحصة مدتها ${min} دقيقة${a.cls ? ' لطلاب ' + asstCls(a.cls) : ''}، بالعربية الفصحى المبسطة، عمليًا وقابلًا للتنفيذ في الفصل.${bk ? `\nابنِ التحضير على نص الدرس التالي من الكتاب المدرسي (أهدافه ومفاهيمه وأنشطته):\n"""\n${bk.text}\n"""` : ''}
 أخرج JSON فقط: {"objectives":["هدف قابل للقياس",...3-4],"warmup":"تهيئة قصيرة (سؤال أو موقف)","steps":[{"min":دقائق,"do":"ما يفعله المعلم والطلاب"}...4-6],"exit_ticket":["سؤال ختامي",...2-3],"homework":"واجب قصير مقترح","materials":["أداة"...]}`, new AbortController().signal)) || {};
       if (!Array.isArray(j.objectives) || !Array.isArray(j.steps)) return { error: 'لم يصل تحضير صالح — جرّب مرة أخرى' };
-      return { topic, minutes: min, ...j, tip: 'يمكنك قول: «سوّ نشاط عن ' + topic + '» لإنشاء مسودة نشاط من الدرس' }; } },
+      return { topic, minutes: min, ...(bk ? { source: bk.label } : {}), ...j, tip: 'يمكنك قول: «سوّ نشاط عن ' + topic + '» لإنشاء مسودة نشاط من الدرس' }; } },
   period_reports: { act: 1, d: 'مسودات تقرير الفترة لأولياء أمور فصل (درجات الطالب ومستواه وغيابه، لكل طالب رسالة يرسلها المعلم بنفسه من واتساب). args: {cls}', src: () => '✉️ تقارير الفترة',
     async run(a) { const cls = asstCls(a.cls); if (!cls) return { error: 'حدّد الفصل', classes: asstClsList() }; const G = await asstGrades(); if (!G) return { error: 'درجات الفترة غير متاحة الآن' };
       const gm = new Map((G.students || []).map(g => [String(g.id), g])), subj = (typeof rcGet === 'function' && rcGet('subject')) || 'المادة', { label } = asstSP({});
@@ -328,6 +339,15 @@ const ASST_TOOLS = {
     async run(a) { const q = asstTok(a.query || ''); if (!q.length) return { error: 'اكتب كلمة البحث' }; try { if (typeof asksLoad === 'function') await asksLoad(); } catch (e) {}
       const R = (typeof ASKS !== 'undefined' && Array.isArray(ASKS) ? ASKS : []).filter(x => x && q.every(w => asstTok((x.text || '') + ' ' + (x.reply || '') + ' ' + (x.hwTitle || '')).some(t => t.includes(w))));
       return { found: R.length, messages: R.slice(0, 15).map(x => ({ name: x.name || '', cls: x.cls || '', text: String(x.text || '').slice(0, 200), reply: x.reply ? String(x.reply).slice(0, 120) : undefined, status: x.status === 'open' ? 'تنتظر ردك' : 'مغلقة' })) }; } },
+  /* ── 📖 مكتبة الكتب ── */
+  book_lessons: { d: 'كتب المعلم في «مكتبة الكتب» ودروس كل كتاب (العنوان والوحدة والصفحات)، أو البحث عن درس بالاسم. args: {query?:"اسم الدرس", book?}', src: () => '📖 مكتبة الكتب',
+    async run(a) { if (typeof bkLoad !== 'function') return { error: 'مكتبة الكتب غير متاحة' }; let L; try { L = await bkLoad(); } catch (e) { return { error: e.message }; }
+      if (!L.length) return { books: [], note: 'المكتبة فارغة — ارفع كتاب المادة من صفحة «مكتبة الكتب»' };
+      if (a.query) { const m = await bkFindLesson(a.query, a.book); return { query: a.query, found: m.slice(0, 15).map(o => ({ book: o.b.title, unit: o.l.unit, lesson: o.l.title, pages: o.l.from + '-' + o.l.to })) }; }
+      return { books: L.map(b => ({ title: b.title, subject: b.subject || '', grade: b.grade || '', pages: b.pagesCount || 0, lessons: (b.lessons || []).slice(0, 120).map(l => (l.unit ? l.unit + ' — ' : '') + l.title) })) }; } },
+  lesson_text: { d: 'نص درس من «مكتبة الكتب» (للإجابة عن محتواه أو تلخيصه أو استخراج مفاهيمه). args: {lesson:"عنوان الدرس", book?}', src: a => '📖 ' + (a._t || a.lesson || ''),
+    async run(a) { if (!a.lesson) return { error: 'حدّد الدرس' }; const bk = await asstBookSrc({ lesson: a.lesson, book: a.book }); if (!bk) return { error: 'لم أجد الدرس' }; if (bk.error) return bk; a._t = bk.title;
+      return { lesson: bk.title, source: bk.label, text: bk.text.slice(0, 12000) }; } },
   /* ── 🆕 الدفعة السادسة: الواجب اليومي · ما ينتظر التصحيح · المستويات · سجل طالب · إحصاء الأنشطة · المشاريع · المتجر · مرشّحو الشهادات · تعيين مسؤول ── */
   homework_day: { d: 'رصد الواجب في يوم: من أنجز ومن لم ينجز ومن معذور (افتراضي اليوم). args: {date?:"اليوم"|"أمس"|"YYYY-MM-DD", cls?}', src: a => '📚 الواجب — ' + (a.date || 'اليوم'),
     async run(a) { const D = await asstClassroom(), date = asstDate(a.date), cls = asstCls(a.cls), H = (D.homework || {})[date] || {}, pool = asstStudents().filter(s => !cls || String(s.cls || '') === cls);
@@ -504,7 +524,7 @@ function asstDue(v) { v = String(v || '').trim(); if (!v) return ''; if (/^\d{4}
 /* 🧭 كل صفحات اللوحة كما في القائمة الجانبية + أقسام أدوات الفصل — مع أسمائها الشائعة. لا تخمين: ما لا يطابق يُرفض ويُعرض ما يوجد */
 const ASST_PAGES = {
   home: ['dashboard', '🏠 اليوم', 'اليوم|الرئيسية|الصفحة الرئيسية|الرئيسيه|الهوم'], activities: ['hw', '📋 الأنشطة', 'الأنشطة|الانشطة|الواجبات|النشاطات'],
-  projects: ['projects', '📁 المشاريع', 'المشاريع|مشاريع الطلاب'], live: ['live', '🎮 المسابقات المباشرة', 'المسابقات المباشرة|المسابقات|المسابقة|الحصة المباشرة|اللايف'],
+  projects: ['projects', '📁 المشاريع', 'المشاريع|مشاريع الطلاب'], books: ['books', '📖 مكتبة الكتب', 'مكتبة الكتب|الكتب|الكتب الدراسية|كتب المادة|المكتبة'], live: ['live', '🎮 المسابقات المباشرة', 'المسابقات المباشرة|المسابقات|المسابقة|الحصة المباشرة|اللايف'],
   madrasati: ['madrasati', '📚 مدرستي', 'مدرستي|منصة مدرستي'], students: ['students', '👥 الطلاب', 'الطلاب|قائمة الطلاب|طلابي'],
   records: ['classtools:records', '🗂️ السجلات والحضور', 'السجلات|الحضور|الغياب|التحضير|سجل الحضور|الرصد|السجلات والحضور'],
   schedule: ['ct:schedule', '🗓️ الجدول والتذكيرات', 'الجدول|جدول الحصص|جدولي|الحصص|التذكيرات'], class_msgs: ['ct:messages', '💌 رسائل الحصة', 'رسائل الحصة'],
@@ -718,7 +738,7 @@ function asstCardHTML(c, i, j) {
     + btn('copy', '📋 نسخ', 'tick') + btn('wa', '💬 واتساب');
   else if (c.action === 'exam') h += `<b>📝 ${asstEsc(c.test)} <small>(من ${c.max}) · ${asstEsc(c.period)}</small></b><ul class="asst-names">${c.items.map(x => `<li>${asstEsc(x.name)}<small>${asstEsc(x.cls)}</small><b class="asst-sc">${x.score === 'غ' ? 'غائب' : x.score}</b>${x.prev !== '' && x.prev !== x.score ? `<small class="asst-was">(كانت ${x.prev === 'غ' ? 'غائب' : asstEsc(x.prev)})</small>` : ''}${x.over != null ? `<small class="asst-bad">⚠️ ${x.over} أكبر من ${c.max}</small>` : ''}</li>`).join('')}</ul>${bad}`
     + (c.state === 'ask' && c.items.length ? btn('do', `✓ ارصد (${c.items.length})`, 'tick') + btn('no', 'إلغاء') : done ? `<span class="asst-ok">✓ رُصدت</span>${btn('undo', '↩ تراجع')}` : `<span class="asst-off">${c.state === 'undone' ? '↩ تُراجع عنها' : 'أُلغي'}</span>`);
-  else if (c.action === 'activity') h += `<b>${c.copy ? '📄 نسخة' : '✍️ مسودة'} نشاط «${asstEsc(c.title)}»</b><div class="asst-meta">${c.count} سؤال · ${c.cls ? asstEsc(c.cls) : 'الفصل يُحدَّد في النموذج'} · ${c.due ? 'الموعد ' + asstEsc(asstDay(c.due)) : 'بلا موعد'} — <b>لن تُنشر</b>: تُفتح لتراجعها وتنشرها بنفسك</div><ol class="asst-qs">${c.preview.map(q => `<li>${asstEsc(q)}</li>`).join('')}${c.count > c.preview.length ? '<li class="more">…</li>' : ''}</ol>`
+  else if (c.action === 'activity') h += `<b>${c.copy ? '📄 نسخة' : '✍️ مسودة'} نشاط «${asstEsc(c.title)}»</b>${c.source ? `<div class="asst-meta">📖 من الكتاب: ${asstEsc(c.source)}</div>` : ''}<div class="asst-meta">${c.count} سؤال · ${c.cls ? asstEsc(c.cls) : 'الفصل يُحدَّد في النموذج'} · ${c.due ? 'الموعد ' + asstEsc(asstDay(c.due)) : 'بلا موعد'} — <b>لن تُنشر</b>: تُفتح لتراجعها وتنشرها بنفسك</div><ol class="asst-qs">${c.preview.map(q => `<li>${asstEsc(q)}</li>`).join('')}${c.count > c.preview.length ? '<li class="more">…</li>' : ''}</ol>`
     + (off ? '<span class="asst-off">أُلغيت</span>' : done ? `<span class="asst-ok">✓ أُنشئت مسودة (غير منشورة)</span>${btn('do', '✍️ افتحها')}` : btn('do', '✍️ أنشئ المسودة وافتحها', 'tick') + btn('no', 'إلغاء'));
   else if (c.action === 'nav') h += `<b>🧭 ${asstEsc(c.label)}${c.name ? ' — ' + asstEsc(c.name) : ''}${c.cls && !c.name ? ' — ' + asstEsc(c.cls) : ''}${c.period ? ' <small>' + asstEsc(c.period) + '</small>' : ''}${c.print ? ' · 🖨️ طباعة' : ''}</b>`
     + (off ? '<span class="asst-off">أُلغي</span>' : btn('do', done ? '↗ افتح مرة أخرى' : c.print ? '🖨️ افتح واطبع' : '↗ افتح', done ? '' : 'tick') + (done ? '' : btn('no', 'إلغاء')));
