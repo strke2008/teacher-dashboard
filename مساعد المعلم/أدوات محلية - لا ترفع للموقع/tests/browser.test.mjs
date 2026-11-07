@@ -1233,9 +1233,10 @@ export default async function run() {
           const h2 = mk('مراجعة سريعة'); await commitActivityContent(h2.id, { qs: [{ t: 'tf', q: 'النسيج مجموعة خلايا متشابهة', a: true }], dropDraft: true }); await w(900);
           const h3 = mk('أنماطي', { kind: 'style' }); await commitActivityContent(h3.id, { qs: [{ t: 'q', q: 'أفضّل أن أتعلم', o: ['بالرسم', 'بالسمع'], a: 0 }], dropDraft: true }); await w(900);
           const h4 = mk('فهم نص الرحلة', { kind: 'reading' }); await commitActivityContent(h4.id, { qs: [{ t: 'q', q: 'إلى أين ذهب الطفل في النص؟', o: ['البحر', 'الجبل'], a: 0 }], dropDraft: true }); await w(900);
-          [h1, h2, h3, h4].forEach(h => HW.splice(HW.indexOf(h), 1)); save(K.hw, HW);
+          const h5 = mk('تشخيصي بداية العام', { kind: 'diag' }); await commitActivityContent(h5.id, { qs: [{ t: 'q', q: 'كم يساوي 3 × 4؟', o: ['12', '7'], a: 0 }], dropDraft: true }); await w(900);
+          [h1, h2, h3, h4, h5].forEach(h => HW.splice(HW.indexOf(h), 1)); save(K.hw, HW);
           await qbLoad(true); const cell = QB.list.find(t => t.lesson === 'الخلية'), rev = QB.list.find(t => t.topic === 'مراجعة سريعة');
-          out.auto = [cell && cell.n, cell && cell.book, rev && rev.n, QB.list.some(t => t.topic === 'أنماطي'), QB.list.some(t => t.topic === 'فهم نص الرحلة')];
+          out.auto = [cell && cell.n, cell && cell.book, rev && rev.n, QB.list.some(t => t.topic === 'أنماطي'), QB.list.some(t => t.topic === 'فهم نص الرحلة'), QB.list.some(t => t.topic === 'تشخيصي بداية العام')];
           goTab('books'); BK.open = ''; BK.tab = 'bank'; bkRender(); await w(600); out.tab = [!!document.querySelector('.bk-tabs button.on'), [...document.querySelectorAll('.qb-topic b')].map(x => x.textContent).includes('الخلية')];
           await qbOpen(cell.id); out.qs = document.querySelectorAll('.qb-q').length; qbSel(QB.topic.qs[0].h, true); qbSel(QB.topic.qs[2].h, true);
           const n1 = HW.length; qbMake(); await w(700); const hn = HW[HW.length - 1]; out.make = [HW.length - n1, hn.title, hn.qs.map(q => q.t), !!document.getElementById('qs-box'), hn.published || false]; try { closeModal(); } catch (e) {} HW.pop(); save(K.hw, HW);
@@ -1247,7 +1248,7 @@ export default async function run() {
           const qb = await ASST_TOOLS.question_bank.run({ query: 'الخلية' }), ca = await ASST_TOOLS.create_activity.run({ lesson: 'الخلية', from_bank: true, n: 2 }), cz = await ASST_TOOLS.create_activity.run({ topic: 'المجرات', from_bank: true });
           out.asst = [qb.topics[0].questions, ca.action, ca.count, /بنك الأسئلة/.test(ca.source), !!cz.error];
           for (const t of QB.list.filter(t => ['الخلية', 'مراجعة سريعة', 'ألعاب قديمة'].includes(t.lesson || t.topic))) await libApi('/qbank-del', { id: t.id }); BK.tab = 'books'; return out; });
-        eq(r.auto, [3, 'علوم — أول متوسط', 1, false, false], 'حفظ تلقائي بلا تكرار، وأنماط التعلّم والفهم القرائي لا تُحفظ'); eq(r.tab, [true, true], 'التبويب'); eq(r.qs, 3, 'أسئلة الموضوع');
+        eq(r.auto, [3, 'علوم — أول متوسط', 1, false, false, false], 'حفظ تلقائي بلا تكرار، وأنماط التعلّم والفهم القرائي والتشخيصي لا تُحفظ'); eq(r.tab, [true, true], 'التبويب'); eq(r.qs, 3, 'أسئلة الموضوع');
         eq(r.make, [1, 'الخلية', ['q', 'f'], true, false], 'نشاط من المحدد بلا ذكاء (مسودة في المحرر)'); ok(/3 سؤالًا لهذا الدرس/.test(r.hint), 'تلميح البنك في «نشاط من الدرس»: ' + r.hint);
         eq(r.export, ['qbank', 'الخلية', 3, false, 1, 1], 'التنزيل (يقرؤه الاختبار الورقي)'); eq(r.imp, [3, 'علوم — أول متوسط'], 'الاستيراد يعيده لدرسه'); eq(r.old, { q: 1, tf: 1 }, 'استيراد ملف أسئلة قديم');
         eq(r.asst, [3, 'activity', 2, true, true], 'مساعدي من البنك'); eq(ai.length, n0, 'لا ذكاء اصطناعي في كل ذلك'); eq(errs, [], 'أخطاء'); });
