@@ -6908,6 +6908,7 @@ async function commitActivityContent(id, patch){
       try{ synced = await pushStateNow(); }
       catch(e){ synced = false; console.error('commitActivityContent sync:', e); }
     }
+    if(Array.isArray(patch.qs) && patch.qs.length && typeof qbAutoAdd==='function') qbAutoAdd(h, patch.qs);   // 🗃️ بنك الأسئلة: يُحفظ ما اعتمده المعلم (في الخلفية)
     return { ok:true, synced, activity:h };
   }catch(e){
     console.error('commitActivityContent:', e);

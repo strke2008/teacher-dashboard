@@ -45,6 +45,15 @@ async function asstBookSrc(a, topic) {
   const o = m[0], text = await bkLessonText(o.b.id, o.l); if (!text.trim()) return { error: 'صفحات هذا الدرس بلا نص بعد (مصوّرة لم تُقرأ)' };
   return { text: text.slice(0, 16000), title: o.l.title, label: `${o.l.title} — ${o.b.title} (ص ${o.l.from}${o.l.to > o.l.from ? '–' + o.l.to : ''})` };
 }
+/* 🗃️ أسئلة من البنك لموضوع/درس: عشوائيًا بالعدد المطلوب */
+async function asstBankPick(q, n) {
+  if (typeof qbLoad !== 'function') return { error: 'بنك الأسئلة غير متاح' }; let L; try { L = await qbLoad(true); } catch (e) { return { error: e.message }; }
+  const t = asstTok(q || ''); const m = L.filter(x => t.length && t.every(w => asstTok((x.lesson || '') + ' ' + x.topic).some(y => y.includes(w))));
+  if (!m.length) return { error: 'لا أسئلة في البنك لهذا الموضوع', topics: L.slice(0, 15).map(x => x.lesson || x.topic) };
+  const ex = m.filter(x => asstTok(x.lesson || x.topic).join(' ') === t.join(' ')), T0 = (ex.length ? ex : m); if (T0.length > 1 && !ex.length) return { error: 'أكثر من موضوع يطابق — حدّد', matches: T0.slice(0, 8).map(x => (x.lesson || x.topic) + (x.book ? ' — ' + x.book : '')) };
+  const T = (await libApi('/qbank-topic?id=' + encodeURIComponent(T0[0].id))).topic, a = T.qs.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return { title: T.lesson || T.topic, qs: a.slice(0, Math.max(1, n || a.length)).map(qbClean) };
+}
 function asstCardName(q) { try { if (typeof storeCardLabel === 'function') return storeCardLabel(q); } catch (e) {} return String(q.card || q.title || 'بطاقة'); }
 const asstFrom = (days, def) => new Date(Date.now() + 3 * 3600e3 - Math.max(1, Math.min(365, Number(days) || def)) * 864e5).toISOString().slice(0, 10);
 function asstCount(M, from) { const c = {}; Object.entries(M || {}).forEach(([d, P]) => { if (d < from) return; Object.entries(P || {}).forEach(([id, v]) => { const st = v && (typeof v === 'string' ? v : v.status); if (st) { const o = c[id] || (c[id] = {}); o[st] = (o[st] || 0) + 1; } }); }); return c; }
@@ -158,8 +167,9 @@ const ASST_TOOLS = {
         if (!absent && (raw === '' || !Number.isFinite(v))) { bad.push({ q: q + ': «' + raw + '» ليست درجة', matches: [] }); continue; } if (seen.has(s.id)) continue; seen.add(s.id);
         const prev = (b.scores[String(s.id)] || {})[String(t.id)]; items.push({ name: s.name, cls: s.cls || '', score: absent ? 'غ' : Math.max(0, Math.min(max, v)), over: !absent && v > max ? v : undefined, prev: asstExV(b, s.id, t.id) ?? '', _id: String(s.id), _prev: prev ? JSON.parse(JSON.stringify(prev)) : null }); }
       return { action: 'exam', sem, per, period: label, test: t.title, max, _tid: String(t.id), items, unresolved: bad }; } },
-  create_activity: { act: 1, d: 'إنشاء مسودة نشاط أسئلة بالذكاء (لا تُنشر — تُفتح للمعلم يراجعها وينشرها بنفسه). يعتمد على نص الدرس من «مكتبة الكتب» إن وُجد. args: {topic:"الموضوع", lesson?:"عنوان الدرس في مكتبة الكتب", book?, n?:عدد الأسئلة (افتراضي 10), cls?, due?:"YYYY-MM-DD"|"الخميس"|"بكرة", type?:"mcq"|"tf"|"mixed", title?}', src: a => '✍️ مسودة نشاط — ' + (a.topic || ''),
+  create_activity: { act: 1, d: 'إنشاء مسودة نشاط أسئلة بالذكاء (لا تُنشر — تُفتح للمعلم يراجعها وينشرها بنفسه). يعتمد على نص الدرس من «مكتبة الكتب» إن وُجد، أو من «بنك الأسئلة» بلا ذكاء إن قال المعلم «من البنك» (from_bank:true). args: {topic:"الموضوع", lesson?:"عنوان الدرس في مكتبة الكتب", book?, from_bank?:true, n?:عدد الأسئلة (افتراضي 10), cls?, due?:"YYYY-MM-DD"|"الخميس"|"بكرة", type?:"mcq"|"tf"|"mixed", title?}', src: a => '✍️ مسودة نشاط — ' + (a.topic || ''),
     async run(a) { let topic = String(a.topic || a.title || a.lesson || '').trim().slice(0, 200); if (!topic) return { error: 'حدّد موضوع النشاط' }; const n = Math.max(3, Math.min(30, Number(a.n) || 10)), cls = asstCls(a.cls), due = asstDue(a.due), type = ['mcq', 'tf'].includes(a.type) ? a.type : 'mixed';
+      if (a.from_bank) { const qb = await asstBankPick(a.lesson || topic, Math.max(0, Math.round(Number(a.n) || 0))); if (qb.error) return qb; return { action: 'activity', title: String(a.title || qb.title).slice(0, 80), cls, due, count: qb.qs.length, preview: qb.qs.slice(0, 3).map(q => q.q), source: '🗃️ بنك الأسئلة — ' + qb.title + ' (بلا ذكاء)', _qs: qb.qs }; }
       const bk = await asstBookSrc(a, topic); if (bk && bk.error) return bk; if (bk && !a.topic) topic = bk.title;
       const R = typeof aiRoute === 'function' ? aiRoute('questions') : { p: raiProvider(), m: readingAIModels()[raiProvider()] };
       const raw = await readingAICall(R.p, R.m, `اكتب ${n} أسئلة لنشاط طلاب بالعربية الفصحى عن: «${topic}». ${type === 'mcq' ? 'كلها اختيار من متعدد بأربعة خيارات.' : type === 'tf' ? 'كلها صح أو خطأ.' : 'أغلبها اختيار من متعدد بأربعة خيارات وبعضها صح أو خطأ.'}
@@ -352,6 +362,10 @@ ${bk ? `اعتمد فقط على نص الدرس التالي من الكتاب 
       const bt = asstTok(a.book || ''), B = bt.length ? L.filter(b => bt.every(w => asstTok(b.title + ' ' + (b.subject || '') + ' ' + (b.grade || '')).some(y => y.includes(w)))) : L;
       if (B.length !== 1) return B.length ? { error: 'أي كتاب؟', books: B.map(b => b.title) } : { error: 'لم أجد الكتاب', books: L.map(b => b.title) };
       const pg = Math.max(1, Math.min(B[0].pagesCount || 1, parseInt(a.page, 10) || 0)) || 0; return { action: 'nav', page: 'book', label: '📖 ' + B[0].title, ...(pg ? { name: 'ص ' + pg } : {}), _bid: B[0].id, _pg: pg }; } },
+  question_bank: { d: 'بنك الأسئلة المحفوظ في الخادم (مرجع دائم): المواضيع/الدروس وعدد أسئلة كل منها، أو البحث عن موضوع. لإنشاء نشاط منه بلا ذكاء استخدم create_activity مع from_bank:true. args: {query?}', src: () => '🗃️ بنك الأسئلة',
+    async run(a) { if (typeof qbLoad !== 'function') return { error: 'بنك الأسئلة غير متاح' }; let L; try { L = await qbLoad(true); } catch (e) { return { error: e.message }; }
+      const t = asstTok(a.query || ''), R = L.filter(x => !t.length || t.every(w => asstTok([x.lesson, x.topic, x.book, x.subject].join(' ')).some(y => y.includes(w))));
+      return { total_questions: QB.total, topics_count: L.length, topics: R.slice(0, 40).map(x => ({ topic: x.lesson || x.topic, book: x.book || '', questions: x.n, types: x.types })) }; } },
   lesson_text: { d: 'نص درس من «مكتبة الكتب» (للإجابة عن محتواه أو تلخيصه أو استخراج مفاهيمه). args: {lesson:"عنوان الدرس", book?}', src: a => '📖 ' + (a._t || a.lesson || ''),
     async run(a) { if (!a.lesson) return { error: 'حدّد الدرس' }; const bk = await asstBookSrc({ lesson: a.lesson, book: a.book }); if (!bk) return { error: 'لم أجد الدرس' }; if (bk.error) return bk; a._t = bk.title;
       return { lesson: bk.title, source: bk.label, text: bk.text.slice(0, 12000) }; } },
@@ -531,7 +545,7 @@ function asstDue(v) { v = String(v || '').trim(); if (!v) return ''; if (/^\d{4}
 /* 🧭 كل صفحات اللوحة كما في القائمة الجانبية + أقسام أدوات الفصل — مع أسمائها الشائعة. لا تخمين: ما لا يطابق يُرفض ويُعرض ما يوجد */
 const ASST_PAGES = {
   home: ['dashboard', '🏠 اليوم', 'اليوم|الرئيسية|الصفحة الرئيسية|الرئيسيه|الهوم'], activities: ['hw', '📋 الأنشطة', 'الأنشطة|الانشطة|الواجبات|النشاطات'],
-  projects: ['projects', '📁 المشاريع', 'المشاريع|مشاريع الطلاب'], books: ['books', '📖 مكتبة الكتب', 'مكتبة الكتب|الكتب|الكتب الدراسية|كتب المادة|المكتبة'], live: ['live', '🎮 المسابقات المباشرة', 'المسابقات المباشرة|المسابقات|المسابقة|الحصة المباشرة|اللايف'],
+  projects: ['projects', '📁 المشاريع', 'المشاريع|مشاريع الطلاب'], books: ['books', '📖 مكتبة الكتب', 'مكتبة الكتب|الكتب|الكتب الدراسية|كتب المادة|المكتبة|بنك الأسئلة|بنك الاسئلة'], live: ['live', '🎮 المسابقات المباشرة', 'المسابقات المباشرة|المسابقات|المسابقة|الحصة المباشرة|اللايف'],
   madrasati: ['madrasati', '📚 مدرستي', 'مدرستي|منصة مدرستي'], students: ['students', '👥 الطلاب', 'الطلاب|قائمة الطلاب|طلابي'],
   records: ['classtools:records', '🗂️ السجلات والحضور', 'السجلات|الحضور|الغياب|التحضير|سجل الحضور|الرصد|السجلات والحضور'],
   schedule: ['ct:schedule', '🗓️ الجدول والتذكيرات', 'الجدول|جدول الحصص|جدولي|الحصص|التذكيرات'], class_msgs: ['ct:messages', '💌 رسائل الحصة', 'رسائل الحصة'],
@@ -746,7 +760,7 @@ function asstCardHTML(c, i, j) {
     + btn('copy', '📋 نسخ', 'tick') + btn('wa', '💬 واتساب');
   else if (c.action === 'exam') h += `<b>📝 ${asstEsc(c.test)} <small>(من ${c.max}) · ${asstEsc(c.period)}</small></b><ul class="asst-names">${c.items.map(x => `<li>${asstEsc(x.name)}<small>${asstEsc(x.cls)}</small><b class="asst-sc">${x.score === 'غ' ? 'غائب' : x.score}</b>${x.prev !== '' && x.prev !== x.score ? `<small class="asst-was">(كانت ${x.prev === 'غ' ? 'غائب' : asstEsc(x.prev)})</small>` : ''}${x.over != null ? `<small class="asst-bad">⚠️ ${x.over} أكبر من ${c.max}</small>` : ''}</li>`).join('')}</ul>${bad}`
     + (c.state === 'ask' && c.items.length ? btn('do', `✓ ارصد (${c.items.length})`, 'tick') + btn('no', 'إلغاء') : done ? `<span class="asst-ok">✓ رُصدت</span>${btn('undo', '↩ تراجع')}` : `<span class="asst-off">${c.state === 'undone' ? '↩ تُراجع عنها' : 'أُلغي'}</span>`);
-  else if (c.action === 'activity') h += `<b>${c.copy ? '📄 نسخة' : '✍️ مسودة'} نشاط «${asstEsc(c.title)}»</b>${c.source ? `<div class="asst-meta">📖 من الكتاب: ${asstEsc(c.source)}</div>` : ''}<div class="asst-meta">${c.count} سؤال · ${c.cls ? asstEsc(c.cls) : 'الفصل يُحدَّد في النموذج'} · ${c.due ? 'الموعد ' + asstEsc(asstDay(c.due)) : 'بلا موعد'} — <b>لن تُنشر</b>: تُفتح لتراجعها وتنشرها بنفسك</div><ol class="asst-qs">${c.preview.map(q => `<li>${asstEsc(q)}</li>`).join('')}${c.count > c.preview.length ? '<li class="more">…</li>' : ''}</ol>`
+  else if (c.action === 'activity') h += `<b>${c.copy ? '📄 نسخة' : '✍️ مسودة'} نشاط «${asstEsc(c.title)}»</b>${c.source ? `<div class="asst-meta">${/^🗃️/.test(c.source) ? asstEsc(c.source) : '📖 من الكتاب: ' + asstEsc(c.source)}</div>` : ''}<div class="asst-meta">${c.count} سؤال · ${c.cls ? asstEsc(c.cls) : 'الفصل يُحدَّد في النموذج'} · ${c.due ? 'الموعد ' + asstEsc(asstDay(c.due)) : 'بلا موعد'} — <b>لن تُنشر</b>: تُفتح لتراجعها وتنشرها بنفسك</div><ol class="asst-qs">${c.preview.map(q => `<li>${asstEsc(q)}</li>`).join('')}${c.count > c.preview.length ? '<li class="more">…</li>' : ''}</ol>`
     + (off ? '<span class="asst-off">أُلغيت</span>' : done ? `<span class="asst-ok">✓ أُنشئت مسودة (غير منشورة)</span>${btn('do', '✍️ افتحها')}` : btn('do', '✍️ أنشئ المسودة وافتحها', 'tick') + btn('no', 'إلغاء'));
   else if (c.action === 'nav') h += `<b>🧭 ${asstEsc(c.label)}${c.name ? ' — ' + asstEsc(c.name) : ''}${c.cls && !c.name ? ' — ' + asstEsc(c.cls) : ''}${c.period ? ' <small>' + asstEsc(c.period) + '</small>' : ''}${c.print ? ' · 🖨️ طباعة' : ''}</b>`
     + (off ? '<span class="asst-off">أُلغي</span>' : btn('do', done ? '↗ افتح مرة أخرى' : c.print ? '🖨️ افتح واطبع' : '↗ افتح', done ? '' : 'tick') + (done ? '' : btn('no', 'إلغاء')));

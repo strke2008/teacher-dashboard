@@ -397,8 +397,11 @@ export default async function run() {
         eq(r.grp, { n: true, total: r.n - 1, even: true, noAbsent: true }, 'المجموعات'); eq([r.pill, r.rang], [true, 1], 'المؤقت'); ok(r.voice.name && r.voice.ck && /فوري/.test(r.voice.src), 'بالكلام: ' + JSON.stringify(r.voice)); eq(errs, [], 'أخطاء'); });
       await S.t('🆕 مساعدي — الدفعة الخامسة: الأحق بالمتابعة، ملخص الأسبوع، تحضير درس، تقارير الفترة لأولياء الأمور، تصدير، بحث الرسائل، اقتراح مسودة بعد رصد الغياب، و«نفّذ» بالصوت في المحادثة الحية (لا للرسائل)', async () => {
         const r = await p.evaluate(async () => { if (!CT_DATA) { try { await ctLoad(); } catch (e) {} } const s0 = STUDENTS[0], cls = s0.cls, D = CT_DATA, out = {}, rc = window.readingAICall, ex = window.exportGrades, al = window.asksLoad;
-          const days = ['2026-10-20', '2026-10-21', '2026-10-22', '2026-10-23']; D.participation = D.participation || {}; days.forEach(d => { D.participation[d] = D.participation[d] || {}; D.participation[d][s0.id] = { status: 'غائب', at: 1 }; });
-          const risk = await ASST_TOOLS.at_risk.run({ days: 3650 }); out.risk = (risk.students || []).some(x => x.name === s0.name);
+          const days = [1, 2, 3, 4].map(k => new Date(Date.now() + 3 * 3600e3 - k * 864e5).toISOString().slice(0, 10));   // نسبية لليوم: تبقى داخل نافذة الثلاثين يومًا 
+          /* الغيابات السابقة تُرصد بالمسار الحقيقي (طابور الرصد ← الخادم): أي إعادة تحميل للبيانات أثناء الاختبار تبقيها — الحقن في الذاكرة كان يُمسح بتحميل جارٍ */
+          const flushed = async () => { for (let i = 0; i < 100 && (QR.busy || qrOut().length); i++) { if (!QR.busy) qrFlush(); await new Promise(z => setTimeout(z, 150)); } };
+          qrDo(days.map(d => ({ k: 'st', m: 'participation', d, sid: String(s0.id), v: 'غائب' }))); await flushed();
+          const risk = await ASST_TOOLS.at_risk.run({ n: 30 }); out.risk = (risk.students || []).some(x => x.name === s0.name);
           const wk = await ASST_TOOLS.weekly_report.run({ cls }); out.week = !!(wk && wk.cls && Array.isArray(wk.activities_due_this_week));
           window.readingAICall = async () => JSON.stringify({ objectives: ['يعرّف الخلية'], warmup: 'سؤال', steps: [{ min: 10, do: 'شرح' }], exit_ticket: ['ما الخلية؟'], homework: 'رسم', materials: ['مجهر'] });
           const lp = await ASST_TOOLS.lesson_plan.run({ topic: 'الخلية' }); out.plan = [lp.objectives && lp.objectives.length, lp.minutes];
@@ -407,16 +410,14 @@ export default async function run() {
           window.asksLoad = async () => { ASKS = [{ id: 'q9', name: s0.name, cls, text: 'متى الاختبار القصير؟', status: 'open', at: 1 }, { id: 'q8', name: 'x', text: 'سؤال آخر', status: 'done', at: 1 }]; };
           const sm = await ASST_TOOLS.search_messages.run({ query: 'الاختبار' }); out.search = sm.found;
           // اقتراح بعد رصد الغياب
-          const cl = window.ctLoad; window.ctLoad = async () => CT_DATA;   // تزامن الخلفية لا يمسح الغيابات المحقونة أثناء الاختبار
-          const D5 = CT_DATA; D5.participation = D5.participation || {}; days.forEach(d => { D5.participation[d] = D5.participation[d] || {}; D5.participation[d][s0.id] = { status: 'غائب', at: 1 }; });   // فتح اللوحة قد يستبدل CT_DATA؛ نحقن في الحالي
           asstOpen(); ASST.msgs = []; const rec = await ASST_TOOLS.record_attendance.run({ students: [s0.name], status: 'غائب' }); try { localStorage.setItem('asst_brief_seen', asstToday()); } catch (e) {} ASST.msgs.push({ html: 'x', cards: [{ ...rec, state: 'ask' }] }); const ri = ASST.msgs.length - 1; asstAct(ri, 0, 'do'); await new Promise(z => setTimeout(z, 1200));
-          const hint = ASST.msgs.find(m => /3 غيابات/.test(m.html || '')); out.hint = !!(hint && hint.cards[0].action === 'drafts'); asstAct(ri, 0, 'undo'); window.ctLoad = cl;
+          const hint = ASST.msgs.find(m => /3 غيابات/.test(m.html || '')); out.hint = !!(hint && hint.cards[0].action === 'drafts'); asstAct(ri, 0, 'undo'); qrDo(days.map(d => ({ k: 'st', m: 'participation', d, sid: String(s0.id), v: '' }))); await flushed();
           // «نفّذ» بالصوت
           ASST.msgs = []; const pts = await ASST_TOOLS.adjust_points.run({ students: [s0.name], delta: 3 }), k0 = s0.points; ASST.msgs.push({ html: 'x', cards: [{ ...pts, state: 'ask' }] }); const pi = ASST.msgs.length - 1;
           LIVE.said = 'كم نقاطه'; const no1 = liveConfirm(); LIVE.said = 'تمام نفّذ'; const yes = liveConfirm(); await new Promise(z => setTimeout(z, 600)); const after = ASST.msgs[pi].cards[0].state;
           asstAct(pi, 0, 'undo'); const msg = await ASST_TOOLS.send_message.run({ to: 'students', students: [s0.name], title: 't', body: 'b' }); ASST.msgs.push({ html: 'x', cards: [{ ...msg, state: 'ask' }] }); const no2 = liveConfirm();
           out.voice = [!!no1.error, yes.done, after, !!no2.error]; LIVE.said = ''; s0.points = k0;
-          [D, CT_DATA].forEach(X => days.forEach(d => { if (X && X.participation && X.participation[d]) delete X.participation[d][s0.id]; })); window.readingAICall = rc; window.exportGrades = ex; window.asksLoad = al; asstClose(); ASST.msgs = []; return out; });
+          [D, CT_DATA].forEach(X => days.forEach(d => { if (X && X.participation && X.participation[d] && (X.participation[d][s0.id] || {}).status === 'غائب') delete X.participation[d][s0.id]; })); window.readingAICall = rc; window.exportGrades = ex; window.asksLoad = al; asstClose(); ASST.msgs = []; return out; });
         eq(r, { risk: true, week: true, plan: [1, 45], reports: ['drafts', 'report', true, true], exp: [1, true], search: 1, hint: true, voice: [true, 'points', 'done', true] }, 'الدفعة الخامسة'); eq(errs, [], 'أخطاء'); });
       await S.t('🆕 مساعدي — الدفعة السادسة: الواجب اليومي، ما ينتظر المراجعة، المستويات، سجل طالب، إحصاء الأنشطة، المشاريع، المتجر، مرشّحو الشهادات، تعيين مسؤول بتأكيد، وتذكير أسبوعي متكرر', async () => {
         const r = await p.evaluate(async () => { if (!CT_DATA) { try { await ctLoad(); } catch (e) {} } const S = STUDENTS, s0 = S[0], s1 = S[1], cls = s0.cls, D = CT_DATA, out = {}, d = asstToday();
@@ -1213,6 +1214,32 @@ export default async function run() {
         eq(r.asst, [2, ['الأنسجة الحيوانية'], true, 'الخلية — علوم — أول متوسط (ص 2–3)'], 'مساعدي'); eq(r.ca, ['activity', 'الخلية', 'الخلية — علوم — أول متوسط (ص 2–3)', true, undefined, true], 'نشاط مساعدي'); eq(ai.filter(x => x === 'q+lesson').length, 2, 'النشاط مبني على نص الدرس'); ok(r.card, 'البطاقة'); ok(r.reading, 'زر المكتبة في النص القرائي'); eq([r.plan, ai.filter(x => x === 'plan+lesson').length], [['الخلية', 'الخلية — علوم — أول متوسط (ص 2–3)'], 1], 'التحضير من نص الدرس');
         eq(r.page, 'books', 'صفحة المكتبة');
         eq(errs, [], 'أخطاء'); });
+      await S.t('🗃️ بنك الأسئلة: ما يعتمده المعلم يُحفظ تلقائيًا تحت درسه بلا تكرار، تبويب في المكتبة، نشاط منه بلا ذكاء، تلميح في «نشاط من الدرس»، تنزيل (يفتحه الاختبار الورقي) واستيراد، و«مساعدي»', async () => {
+        const n0 = ai.length; const r = await p.evaluate(async () => { const out = {}, w = ms => new Promise(z => setTimeout(z, ms)), b = BK.list.find(x => x.pagesCount === 6), li = b.lessons.findIndex(l => l.title === 'الخلية');
+          const Q = [{ t: 'q', q: 'ما وحدة بناء الكائن الحي؟', o: ['الخلية', 'النسيج', 'العضو'], a: 0 }, { t: 'tf', q: 'للخلية النباتية جدار خلوي', a: true }];
+          const mk = (title, extra) => { const h = { id: uid(), title, cls: '', clsList: [], due: '', pts: 30, max: 20, kind: 'normal', qs: [], subs: {}, at: Date.now(), ...extra }; HW.push(h); return h; };
+          const h1 = mk('نشاط الخلية', { src: { book: b.id, bookTitle: b.title, lesson: 'الخلية' } }); await commitActivityContent(h1.id, { qs: Q, dropDraft: true }); await w(900);
+          await commitActivityContent(h1.id, { qs: Q.concat([{ t: 'f', q: 'تتحكم ____ في أنشطة الخلية', a: 'النواة' }]), dropDraft: true }); await w(900);
+          const h2 = mk('مراجعة سريعة'); await commitActivityContent(h2.id, { qs: [{ t: 'tf', q: 'النسيج مجموعة خلايا متشابهة', a: true }], dropDraft: true }); await w(900);
+          const h3 = mk('أنماطي', { kind: 'style' }); await commitActivityContent(h3.id, { qs: [{ t: 'q', q: 'أفضّل أن أتعلم', o: ['بالرسم', 'بالسمع'], a: 0 }], dropDraft: true }); await w(900);
+          [h1, h2, h3].forEach(h => HW.splice(HW.indexOf(h), 1)); save(K.hw, HW);
+          await qbLoad(true); const cell = QB.list.find(t => t.lesson === 'الخلية'), rev = QB.list.find(t => t.topic === 'مراجعة سريعة');
+          out.auto = [cell && cell.n, cell && cell.book, rev && rev.n, QB.list.some(t => t.topic === 'أنماطي')];
+          goTab('books'); BK.open = ''; BK.tab = 'bank'; bkRender(); await w(600); out.tab = [!!document.querySelector('.bk-tabs button.on'), [...document.querySelectorAll('.qb-topic b')].map(x => x.textContent).includes('الخلية')];
+          await qbOpen(cell.id); out.qs = document.querySelectorAll('.qb-q').length; qbSel(QB.topic.qs[0].h, true); qbSel(QB.topic.qs[2].h, true);
+          const n1 = HW.length; qbMake(); await w(700); const hn = HW[HW.length - 1]; out.make = [HW.length - n1, hn.title, hn.qs.map(q => q.t), !!document.getElementById('qs-box'), hn.published || false]; try { closeModal(); } catch (e) {} HW.pop(); save(K.hw, HW);
+          BK.tab = 'books'; bkMakeActivity(b.id, li); await w(900); out.hint = (document.getElementById('bk-qb-hint') || {}).textContent || ''; closeModal();
+          let blob = null; const cu = URL.createObjectURL; URL.createObjectURL = x => { blob = x; return 'blob:x'; }; await qbExport([cell.id]); URL.createObjectURL = cu; const data = JSON.parse(await blob.text());
+          await lzLoad(); const ex = window.examNormalizeSource(data); out.export = [data.kind, data.topics[0].lesson, data.questions.length, data.questions.some(q => q.h || q.from), ex.mc.length, ex.tf.length];
+          await libApi('/qbank-del', { id: cell.id }); await qbImport({ files: [new File([JSON.stringify(data)], 'bank.json')] }); await w(300); await qbLoad(true); const back = QB.list.find(t => t.lesson === 'الخلية'); out.imp = [back && back.n, back && back.book];
+          const old = { quiz: [{ q: 'سؤال من ملف قديم؟', opts: ['أ', 'ب'], a: 1 }], truefalse: [{ q: 'عبارة قديمة', a: false }] }; await qbImport({ files: [new File([JSON.stringify(old)], 'ألعاب قديمة.json')] }); await qbLoad(true); const ot = QB.list.find(t => t.topic === 'ألعاب قديمة'); out.old = ot && ot.types;
+          const qb = await ASST_TOOLS.question_bank.run({ query: 'الخلية' }), ca = await ASST_TOOLS.create_activity.run({ lesson: 'الخلية', from_bank: true, n: 2 }), cz = await ASST_TOOLS.create_activity.run({ topic: 'المجرات', from_bank: true });
+          out.asst = [qb.topics[0].questions, ca.action, ca.count, /بنك الأسئلة/.test(ca.source), !!cz.error];
+          for (const t of QB.list.filter(t => ['الخلية', 'مراجعة سريعة', 'ألعاب قديمة'].includes(t.lesson || t.topic))) await libApi('/qbank-del', { id: t.id }); BK.tab = 'books'; return out; });
+        eq(r.auto, [3, 'علوم — أول متوسط', 1, false], 'حفظ تلقائي بلا تكرار، وأنماط التعلّم لا تُحفظ'); eq(r.tab, [true, true], 'التبويب'); eq(r.qs, 3, 'أسئلة الموضوع');
+        eq(r.make, [1, 'الخلية', ['q', 'f'], true, false], 'نشاط من المحدد بلا ذكاء (مسودة في المحرر)'); ok(/3 سؤالًا لهذا الدرس/.test(r.hint), 'تلميح البنك في «نشاط من الدرس»: ' + r.hint);
+        eq(r.export, ['qbank', 'الخلية', 3, false, 1, 1], 'التنزيل (يقرؤه الاختبار الورقي)'); eq(r.imp, [3, 'علوم — أول متوسط'], 'الاستيراد يعيده لدرسه'); eq(r.old, { q: 1, tf: 1 }, 'استيراد ملف أسئلة قديم');
+        eq(r.asst, [3, 'activity', 2, true, true], 'مساعدي من البنك'); eq(ai.length, n0, 'لا ذكاء اصطناعي في كل ذلك'); eq(errs, [], 'أخطاء'); });
       await S.t('📖 تصفّح الكتاب: صفحاته الأصلية من الخادم، التالية/السابقة والسحب والأسهم مثل الكتاب العربي، القفز لدرس، تذكّر آخر صفحة، نسخة نصية لكتاب بلا ملف، و«مساعدي» يفتحه على الدرس', async () => {
         const id = await p.evaluate(() => BK.list.find(x => x.pagesCount === 6).id), cv = () => p.evaluate(() => { const c = document.querySelector('#bkv-page canvas'); return c ? [c.width > 200, c.height > c.width, BV.n, document.getElementById('bkv-ls').textContent] : null; });
         await p.evaluate(id => { goTab('books'); BK.open = id; bkRender(); try { localStorage.removeItem('bk_pg_' + id); } catch (e) {} }, id); ok(await p.isVisible('.bk-read'), 'زر التصفّح');

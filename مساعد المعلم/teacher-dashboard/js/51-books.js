@@ -30,7 +30,9 @@ async function bkRender(force) {
   if (!BK.list || force) { if (!BK.list) el.innerHTML = '<div class="bk-empty">⏳ جارٍ التحميل…</div>'; try { await bkLoad(true); } catch (e) { el.innerHTML = `<div class="bk-empty">⚠️ ${esc(e.message)}</div>`; return; } }
   if (BK.open && bkBook(BK.open)) { el.innerHTML = bkBookHTML(bkBook(BK.open)); return; }
   BK.open = ''; const L = BK.list;
-  el.innerHTML = bkProgHTML() + `<div class="bk-case" role="list" aria-label="كتبك">${L.map(b => `<button type="button" class="bk-slot" role="listitem" onclick="bkOpen('${esc(b.id)}')" aria-label="${esc(b.title)}">
+  if (BK.tab === 'bank') { el.innerHTML = bkProgHTML() + bkTabsHTML() + '<div id="qb-root"></div>'; qbRender(); return; }
+  if (!QB.list) qbLoad().then(() => { const tb = document.querySelector('.bk-tabs'); if (tb) tb.outerHTML = bkTabsHTML(); }).catch(() => {});
+  el.innerHTML = bkProgHTML() + bkTabsHTML() + `<div class="bk-case" role="list" aria-label="كتبك">${L.map(b => `<button type="button" class="bk-slot" role="listitem" onclick="bkOpen('${esc(b.id)}')" aria-label="${esc(b.title)}">
       ${bkCoverHTML(b)}<span class="bk-cap"><b>${esc(b.title)}</b><small>${(b.lessons || []).length ? (b.lessons || []).length + ' درس' : b.pagesCount + ' صفحة'}</small></span></button>`).join('')}
     <label class="bk-slot bk-slot-add"><span class="bk-book bk-add-book"><b>＋</b><small>${L.length ? 'أضف كتابًا' : 'أضف أول كتاب'}</small></span><span class="bk-cap"><small>PDF</small></span><input type="file" accept="application/pdf,.pdf" hidden onchange="bkAdd(this)"></label></div>
     ${L.length ? '' : '<p class="bk-hint">ارفع كتاب المادة (PDF) مرة واحدة، وبعدها اختر الدرس متى ما احتجته لتوليد نشاط أو نص قرائي أو من «مساعدي».</p>'}`;
@@ -203,14 +205,15 @@ function bkMakeActivity(id, i) {
   const how = { normal: 'يولّد الأسئلة من نص الدرس', reading: 'نص الدرس يصير النص القرائي', games: 'بنك أسئلة ولعبة من الدرس', diag: 'يقيس ما يلزم قبل الدرس' };
   openModal(`<h2>✦ نشاط من «${esc(l.title)}»</h2><p class="bk-mmeta">${esc(b.title)} · ص ${l.from}${l.to > l.from ? '–' + l.to : ''} — اختر نوع النشاط:</p>
     <div class="kind-tiles bk-kinds">${K.map(k => `<button type="button" class="kind-tile" data-kind="${k.v}" onclick="bkMakeAs('${esc(id)}',${i},'${k.v}')"><span class="ki">${k.ic}</span><b>${esc(k.t)}</b><small>${esc(how[k.v] || k.d)}</small></button>`).join('')}</div>
-    <div class="modal-foot"><button type="button" class="btn ghost" onclick="closeModal()">إلغاء</button></div>`);
+    <div id="bk-qb-hint"></div><div class="modal-foot"><button type="button" class="btn ghost" onclick="closeModal()">إلغاء</button></div>`);
+  qbForLesson(b.title, l.title).then(t => { const el = document.getElementById('bk-qb-hint'); if (el && t && t.n) el.innerHTML = `<div class="qb-hint">🗃️ في بنك الأسئلة <b>${t.n}</b> سؤالًا لهذا الدرس — <button type="button" class="btn sm" onclick="qbMakeTopic('${esc(t.id)}')">نشاط منها بلا ذكاء</button> <button type="button" class="btn ghost sm" onclick="closeModal();goTab('books');BK.tab='bank';QB.open='${esc(t.id)}';bkRender()">اختر منها</button></div>`; });
 }
 async function bkMakeAs(id, i, kind) {
   const b = bkBook(id), l = b && (b.lessons || [])[i]; if (!l || !BK_ACT_KINDS.includes(kind)) return; let t = '';
   try { t = await bkLessonText(id, l); } catch (e) { toast(e.message, 'bad'); return; } if (!t.trim()) { toast('لا نص في صفحات هذا الدرس بعد', 'bad'); return; }
   closeModal(); try { bkViewClose(); } catch (e) {}
   const label = `📚 ${l.title} — ${b.title} (ص ${l.from}${l.to > l.from ? '–' + l.to : ''})`, wait = ms => new Promise(z => setTimeout(z, ms));
-  const h = { id: uid(), title: l.title, cls: '', clsList: [], due: '', pts: 30, max: 20, kind, qs: [], subs: {}, at: Date.now(), src: { book: id, lesson: l.title } };
+  const h = { id: uid(), title: l.title, cls: '', clsList: [], due: '', pts: 30, max: 20, kind, qs: [], subs: {}, at: Date.now(), src: { book: id, bookTitle: b.title, lesson: l.title } };
   HW.push(h); save(K.hw, HW); goTab('hw'); await wait(300);
   try { openHwForm(h.id); hwKindChanged(); } catch (e) {} await wait(250);
   try {

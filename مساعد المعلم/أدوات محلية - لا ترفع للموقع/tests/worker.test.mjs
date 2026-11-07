@@ -192,6 +192,23 @@ export default async function run() {
     eq((await call('/books?t=' + TOKEN)).j.books.find(b => b.id === id).coverAt > 0, true, 'في القائمة');
     await call('/book-del', { method: 'POST', body: { t: TOKEN, id } }); eq((await call(`/book-cover?t=${TOKEN}&id=${id}`)).s, 404, 'حُذف مع الكتاب');
   });
+  await S.t('🗃️ بنك الأسئلة: موضوع لكل درس (أو عنوان)، بلا تكرار، يبقى بعد مسح بيانات السنة، حذف أسئلة أو موضوع، وللمعلم فقط', async () => {
+    const E = newEnv(), C = caller(W, E), Q = [{ t: 'q', q: 'ما وحدة بناء الكائن الحي؟', o: ['الخلية', 'النسيج'], a: 0 }, { t: 'tf', q: 'للخلية النباتية جدار خلوي', a: true }, { t: 'zz', q: 'نوع غير معروف' }, { t: 'q', q: '' }];
+    eq((await C('/qbank?t=bad')).s, 401); eq((await C('/qbank-add', { method: 'POST', body: { t: 'bad', topic: { topic: 'x' }, qs: Q } })).s, 401, 'إضافة بلا رمز');
+    eq((await C('/qbank-add', { method: 'POST', body: { t: TOKEN, topic: {}, qs: Q } })).s, 400, 'بلا موضوع');
+    const a1 = await C('/qbank-add', { method: 'POST', body: { t: TOKEN, topic: { topic: 'الخلية', lesson: 'الخلية', book: 'علوم أول متوسط', subject: 'علوم', grade: 'أول متوسط' }, qs: Q, src: 'نشاط الخلية' } });
+    eq([a1.s, a1.j.added, a1.j.dup, a1.j.n], [200, 2, 0, 2], 'أُضيف الصالح فقط');
+    const a2 = await C('/qbank-add', { method: 'POST', body: { t: TOKEN, topic: { topic: 'عنوان آخر', lesson: 'الخلية', book: 'علوم أول متوسط' }, qs: [{ ...Q[0], q: 'ما وحدةُ بناءِ الكائنِ الحيّ ؟' }, { t: 'f', q: 'تتحكم ____ في أنشطة الخلية', a: 'النواة', sid: 'x' }] } });
+    eq([a2.j.id, a2.j.added, a2.j.dup, a2.j.n], [a1.j.id, 1, 1, 3], 'نفس الدرس = نفس الموضوع، والمكرر (ولو بتشكيل) لا يُضاف');
+    await C('/qbank-add', { method: 'POST', body: { t: TOKEN, topic: { topic: 'مراجعة الوحدة' }, qs: [Q[1]] } });
+    const l = await C('/qbank?t=' + TOKEN); eq([l.j.topics.length, l.j.total], [2, 4]); const t1 = l.j.topics.find(x => x.id === a1.j.id);
+    eq([t1.topic, t1.lesson, t1.subject, t1.n, t1.types], ['الخلية', 'الخلية', 'علوم', 3, { q: 1, tf: 1, f: 1 }], 'القائمة من بيانات المفتاح');
+    const g = await C(`/qbank-topic?t=${TOKEN}&id=${a1.j.id}`); eq([g.j.topic.qs.length, g.j.topic.qs[0].from, g.j.topic.qs[2].sid, typeof g.j.topic.qs[0].h], [3, 'نشاط الخلية', undefined, 'string']);
+    await C('/wipe?all=1&t=' + TOKEN); eq((await C('/qbank?t=' + TOKEN)).j.total, 4, 'يبقى بعد «امسح كل شيء»');
+    const d1 = await C('/qbank-del', { method: 'POST', body: { t: TOKEN, id: a1.j.id, hs: [g.j.topic.qs[0].h] } }); eq([d1.j.removed, d1.j.n], [1, 2], 'حذف سؤال');
+    const other = l.j.topics.find(x => x.id !== a1.j.id); await C('/qbank-del', { method: 'POST', body: { t: TOKEN, id: other.id } }); eq((await C('/qbank?t=' + TOKEN)).j.topics.map(x => x.id), [a1.j.id], 'حذف موضوع');
+    await C('/qbank-del', { method: 'POST', body: { t: TOKEN, id: a1.j.id, hs: g.j.topic.qs.map(q => q.h) } }); eq((await C('/qbank?t=' + TOKEN)).j.topics.length, 0, 'موضوع فرغ يُحذف');
+  });
   await S.t('🔊 صوت «مساعدي» (k=asst) يُحفظ 3 أيام فقط، وجمل المختبر دائمة', async () => {
     const E = newEnv({ ELEVENLABS_API_KEY: 'x' }), C = caller(W, E), puts = []; const put0 = E.HW.put.bind(E.HW); E.HW.put = (k, v, o) => { puts.push([k, o]); return put0(k, v, o); };
     const f0 = globalThis.fetch; globalThis.fetch = async (u, o) => /elevenlabs/.test(String(u)) ? new Response(new Uint8Array([1, 2, 3]), { status: 200, headers: { 'content-type': 'audio/mpeg' } }) : f0(u, o);
