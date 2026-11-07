@@ -459,6 +459,26 @@ export default async function run() {
           if (h0) D.homework[d] = h0; else delete D.homework[d]; if (p0) D.participation[d] = p0; else delete D.participation[d]; window.ctLoad = cl; asstClose(); ASST.msgs = []; return out; });
         eq(r, { hwt: true, part: true, unrec: [1, false, true], cmp: [r.cmp[0], r.cmp[1]], contact: ['واتساب', 'غياب متكرر', true, 'done', true], contactUndo: ['undone', false], note: [1, true], end: ['enddty', r.end[1], 'done', false] }, 'الدفعة السابعة');
         eq(r.cmp.length === 2 && r.cmp.every(Boolean) && r.end[1] !== '—', true, 'أسماء'); eq(errs, [], 'أخطاء'); });
+      await S.t('🆕 مساعدي — الدفعة الثامنة: الحصة القادمة، لمحة فصل، المتأخرون في التسليم، اتجاه الدرجات، ملخص السلوك، طلبات الطلاب، وتعديل الجدول بتأكيد وتراجع', async () => {
+        const r = await p.evaluate(async () => { if (!CT_DATA) { try { await ctLoad(); } catch (e) {} } const S = STUDENTS, s0 = S[0], s1 = S[1], cls = s0.cls, out = {}, d = asstToday(), cl = window.ctLoad; window.ctLoad = async () => CT_DATA; const D = CT_DATA;
+          D.participation = D.participation || {}; const p0 = D.participation[d]; D.participation[d] = { [s0.id]: { status: 'غائب', at: 1 } };
+          const sn = await ASST_TOOLS.class_snapshot.run({ cls }); out.snap = [sn.cls, sn.students === S.filter(x => x.cls === cls).length, sn.absent_today.includes(s0.name)];
+          const nc = await ASST_TOOLS.next_class.run({}); out.next = !!(nc.now && (nc.note || nc.cls));
+          const T = Date.now(), day = n => new Date(T + 3 * 3600e3 - n * 864e5).toISOString().slice(0, 10), mk = (id, n, pc0, pc1) => ({ id, sid: 'p' + id, title: 'اتجاه ' + id, due: day(n), max: 10, qs: [], published: true, at: T - n * 864e5, subs: { [s0.id]: { at: T - n * 864e5, correct: pc0, total: 10 }, [s1.id]: { at: T - n * 864e5, correct: pc1, total: 10 } } });
+          const A = [mk('tr1', 6, 9, 3), mk('tr2', 5, 9, 3), mk('tr3', 4, 9, 3), mk('tr4', 3, 4, 9), mk('tr5', 2, 4, 9), mk('tr6', 1, 4, 9)]; const HW0 = HW.slice(); HW.splice(0, HW.length, ...A);
+          const tr = await ASST_TOOLS.score_trend.run({ cls }); out.trend = [tr.improved[0] && tr.improved[0].name === s1.name, tr.declined[0] && tr.declined[0].name === s0.name, tr.declined[0] && tr.declined[0].change];
+          A[0].subs[s0.id].at = T; const lt = await ASST_TOOLS.late_submissions.run({ activity: 'اتجاه tr1' }); out.late = [lt.late.length, lt.late[0] && lt.late[0].days_late, lt.due_passed];
+          HW.splice(0, HW.length, ...HW0);
+          const bs = await ASST_TOOLS.behavior_summary.run({}); out.beh = typeof bs.positive === 'number' && Array.isArray(bs.top_negative);
+          const R0 = REQS; REQS = [{ name: s0.name, card: 'thanks', at: T, key: 'k1' }]; const pq = await ASST_TOOLS.pending_requests.run({}); out.req = [pq.count, pq.requests[0].request]; REQS = R0;
+          asstOpen(); ASST.msgs = []; const sc = await ASST_TOOLS.set_schedule.run({ day: 'الثلاثاء', period: 2, cls }); const prev = ((((D.schedule || {}).grid || {})['2']) || {})['2'] || '';
+          ASST.msgs.push({ html: 'x', cards: [{ ...sc, state: 'ask' }] }); const si = ASST.msgs.length - 1; asstPaint(); const card = /الحصة 2/.test(document.getElementById('asst-msgs').innerHTML);
+          asstAct(si, 0, 'do'); const set = CT_DATA.schedule.grid['2']['2']; const tu = await ASST_TOOLS.schedule.run({ day: 'الثلاثاء' });
+          asstAct(si, 0, 'undo'); const back = (CT_DATA.schedule.grid['2'] || {})['2'] || '';
+          out.sched = [sc.action, sc.dayName, card, set, tu.periods.some(x => x.period === 2 && x.cls === cls), back === prev, ASST.msgs[si].cards[0].state];
+          const bad = await ASST_TOOLS.set_schedule.run({ day: 'الجمعة', period: 2, cls }); out.badDay = !!bad.error;
+          if (p0) D.participation[d] = p0; else delete D.participation[d]; window.ctLoad = cl; asstClose(); ASST.msgs = []; return out; });
+        eq(r, { snap: [r.snap[0], true, true], next: true, trend: [true, true, -50], late: [1, 6, true], beh: true, req: [1, 'رسالة شكر للأهل'], sched: ['sched', 'الثلاثاء', true, r.snap[0], true, true, 'undone'], badDay: true }, 'الدفعة الثامنة'); eq(errs, [], 'أخطاء'); });
       await S.t('🎤 مساعدي: الميكروفون مثل «الرصد بالصوت» — ضغطة تفتح الاستماع ويبقى مفتوحًا، كل جملة تُرسل بعد سكوت قصير بلا كتم بينها، وضغطة ثانية توقف؛ وعلى iPhone لا يُلمس الصوت والاستماع مفتوح', async () => {
         const r = await p.evaluate(async () => { const go = HWV.go, mute = HWV.mute, ask = asstAsk; let owner = null, gos = 0, mutes = 0; const sent = [];
           HWV.go = o => { gos++; owner = o; o.on = true; return true; }; HWV.mute = o => { mutes++; if (o) o.on = false; }; window.asstAsk = q => { sent.push(q); };
